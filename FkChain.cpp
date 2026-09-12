@@ -83,6 +83,8 @@ MStatus FkChainNode::initialize()
 	attributeAffects(parentWorldMatrix, outputJointOPM);
 
 	attributeAffects(controlMatrix, outputSocketMatrix);
+	attributeAffects(parentWorldMatrix, outputSocketMatrix);
+	attributeAffects(inputRestMatrix, outputSocketMatrix);
 
 	return MStatus::kSuccess;
 }
@@ -97,16 +99,12 @@ MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 	if (plug == outputControlOPM || plug.array() == outputControlOPM)
 	{
 		MMatrix inputRestLocal = getInputMatrix(data, inputRestMatrix, index);
-		MMatrix controlOPM;
+		MMatrix controlOPM = inputRestLocal;
 
 		if (index == 0)
 		{
 			MMatrix parentWorld = getInputMatrix(data, parentWorldMatrix);
 			controlOPM = inputRestLocal * parentWorld;
-		}
-		else
-		{
-			controlOPM = inputRestLocal;
 		}
 
 		setOutputMatrix(data, outputControlOPM, index, controlOPM);
@@ -124,20 +122,13 @@ MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 		MMatrix controlLocal = getInputMatrix(data, controlMatrix, index);
 		MMatrix jointOffset = getInputMatrix(data, inputRestMatrix, index);
 
-		MGlobal::displayInfo(MString("Processing jointOPM at index ") + index);
-		MGlobal::displayInfo(MString("Control local matrix: ") + controlLocal[3][0] + MString(" ") + controlLocal[3][1] + MString(" ") + controlLocal[3][2]);
-
-		MMatrix jointOPM;
+		MMatrix jointOPM = controlLocal * jointOffset;
 
 		if (index == 0)
 		{
 			// include the module parent matrix in the chain
 			MMatrix parentWorld = getInputMatrix(data, parentWorldMatrix);
-			jointOPM = controlLocal * jointOffset * parentWorld;
-		}
-		else
-		{
-			jointOPM = controlLocal * jointOffset;
+			jointOPM *= parentWorld;
 		}
 
 		setOutputMatrix(data, outputJointOPM, index, jointOPM);
@@ -148,12 +139,38 @@ MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 	// -------------------------------------------------------------------
 	// 3. Output Socket Matrix Array
 	// -------------------------------------------------------------------
-	// TODO: this right now is just outputting local matrices. we may need to multiply up the hierarchy
-	// and ensure these are world-space positions.
 	if (plug == outputSocketMatrix || plug.array() == outputSocketMatrix)
 	{
-		MMatrix controlLocal = getInputMatrix(data, controlMatrix, index);
-		setOutputMatrix(data, outputSocketMatrix, index, controlLocal);
+		MMatrix mSocketWorld = getInputMatrix(data, parentWorldMatrix);
+
+		MArrayDataHandle hControlArray = data.inputArrayValue(controlMatrix);
+		MArrayDataHandle hRestArray = data.inputArrayValue(inputRestMatrix);
+		MArrayDataHandle hOutSocketArray = data.outputArrayValue(outputSocketMatrix);
+
+		unsigned int elementCount = hControlArray.elementCount();
+
+		// Evaluate sequentially down the chain
+		for (unsigned int i = 0; i < elementCount; ++i)
+		{
+			hControlArray.jumpToElement(i);
+			hRestArray.jumpToElement(i);
+
+			// Jump directly to the output element slot without rebuild
+			if (hOutSocketArray.jumpToElement(hControlArray.elementIndex()) == MStatus::kSuccess)
+			{
+				MMatrix mControlLocal = hControlArray.inputValue().asMatrix();
+				MMatrix mRestLocal = hRestArray.inputValue().asMatrix();
+
+				// Accumulate step matrix downstream
+				mSocketWorld = mControlLocal * mRestLocal * mSocketWorld;
+
+				// Write directly to existing data block
+				hOutSocketArray.outputValue().setMMatrix(mSocketWorld);
+			}
+		}
+
+		// NOTE: because this is world space in a hierarchy, we need to calculate all at once
+		hOutSocketArray.setAllClean();
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
