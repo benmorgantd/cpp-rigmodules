@@ -40,5 +40,6 @@ public:
 
 	// Base Transformation Matrix Plugs
 	static MObject parentWorldMatrix;   // Driving input matrix from parent socket or layout hook
+	static MObject parentModuleOffset;  // Matrix for storing the offset transformation to the parent module
 	static MObject outputSocketMatrix;  // Output matrix array providing connection sockets for children
 };

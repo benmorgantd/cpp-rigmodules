@@ -16,6 +16,7 @@ MObject RigModuleNodeBase::rigRoot;
 MObject RigModuleNodeBase::parentModule;
 MObject RigModuleNodeBase::childModules;
 MObject RigModuleNodeBase::parentWorldMatrix;
+MObject RigModuleNodeBase::parentModuleOffset;
 MObject RigModuleNodeBase::outputSocketMatrix;
 
 RigModuleNodeBase::RigModuleNodeBase() {}
@@ -55,6 +56,13 @@ MStatus RigModuleNodeBase::initializeBaseAttributes()
 	mAttr.setKeyable(true);
 	mAttr.setWorldSpace(true);
 	addAttribute(parentWorldMatrix);
+
+	parentModuleOffset = mAttr.create("parentModuleOffset", "pmo", MFnMatrixAttribute::kDouble, &status);
+	mAttr.setStorable(true);
+	mAttr.setKeyable(true);
+	mAttr.setWorldSpace(true);
+	mAttr.setHidden(true);
+	addAttribute(parentModuleOffset);
 
 	// 4. Output Socket Matrix Array (The ONLY matrix array attribute across the framework)
 	outputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
@@ -105,3 +113,5 @@ void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, u
 		hArray.set(builder);
 	}
 };
+
+// TODO: shared methods for getting string array values for commands

@@ -4,8 +4,6 @@
 #include <maya/MPxCommand.h>
 #include <maya/MSyntax.h>
 #include <maya/MArgDatabase.h>
-#include <maya/MDGModifier.h>
-#include <maya/MDagModifier.h>
 
 class FkChainNode : public RigModuleNodeBase
 {
@@ -30,4 +28,30 @@ public:
 	static MObject outputJointOPM;
 
 	static const MString commandString;
+};
+
+class FkChainNodeSetupCmd : public MPxCommand
+{
+public:
+	FkChainNodeSetupCmd();
+	~FkChainNodeSetupCmd() override;
+
+	MStatus doIt(const MArgList& args) override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const MString commandString;
+	//static MResultType currentResultType;
+
+	// TODO: undo\redoIt()
+
+private:
+	static const char* kNameFlagShort;
+	static const char* kNameFlagLong;
+	static const char* kJointsFlagShort;
+	static const char* kJointsFlagLong;
+	static const char* kParentModuleShort;
+	static const char* kParentModuleLong;
+	static const char* kParentSocketIndexLong;
+	static const char* kParentSocketIndexShort;
 };

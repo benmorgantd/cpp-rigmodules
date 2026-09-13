@@ -49,6 +49,9 @@ MStatus initializePlugin(MObject obj)
 	status = plugin.registerCommand(SingleJointFKCmd::commandString, SingleJointFKCmd::creator, SingleJointFKCmd::newSyntax);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	status = plugin.registerCommand(FkChainNodeSetupCmd::commandString, FkChainNodeSetupCmd::creator, FkChainNodeSetupCmd::newSyntax);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
 	return status;
 }
 
@@ -88,6 +91,7 @@ MStatus uninitializePlugin(MObject obj)
 	}
 
 	status = plugin.deregisterCommand(SingleJointFKCmd::commandString);
+	status = plugin.deregisterCommand(FkChainNodeSetupCmd::commandString);
 
 	return finalStatus;
 }
