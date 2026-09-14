@@ -210,6 +210,7 @@ void* FkChainNodeSetupCmd::creator()
 	return new FkChainNodeSetupCmd();
 }
 
+//TODO: attribute naming conventions for matrices, function sets, etc.
 // Creates the syntax for the command
 MSyntax FkChainNodeSetupCmd::newSyntax()
 {
@@ -390,10 +391,7 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 		}
 	}
 
-	// TODO: there's a bug herer that's causing the controls to jump when we set the socket parent
-	// This might be that we have to include some offset transform in the offset chain?
-	// TODO: add a parent offset matrix attribute where we can store the offset at bind to keep from moving.
-	// Include that in the calculation for control offset.
+	// Wire parent to the module and maintain offset
 	if (parentModuleName.isEmpty() != true)
 	{
 		// Wire the parent module to the new module
@@ -403,11 +401,11 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 		modSelList.getDependNode(0, parentModuleMObj);
 		MFnDependencyNode parentModuleFn(parentModuleMObj);
 		MPlug childModulesPlug = parentModuleFn.findPlug("childModules", false);
-		unsigned int numConnectedChildren = childModulesPlug.numConnectedElements();
+		unsigned int numElements = childModulesPlug.numElements();
 
 		MPlug parentModulePlug = moduleFn.findPlug("parentModule", false);
 		// TODO: is this the correct way to connect to the next index?
-		dgMod.connect(childModulesPlug.elementByLogicalIndex(numConnectedChildren), parentModulePlug);
+		dgMod.connect(childModulesPlug.elementByLogicalIndex(numElements), parentModulePlug);
 
 		// Wire the parent's socket matrix index to the child
 		MPlug parentSocketMatrix = parentModuleFn.findPlug("outputSocketMatrix", false).elementByLogicalIndex(parentModuleSocketIndex);

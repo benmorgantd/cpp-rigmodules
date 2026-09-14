@@ -1,12 +1,14 @@
 // A mll can only have one initialize/uninitialize entry point to avoid memory corruption and crashes on build. 
 #include <maya/MStatus.h>
 #include <maya/MFnPlugin.h>  // only include MFnPlugin in the file that has the plugin declaration to avoid build errors.
+#include <maya/MDrawRegistry.h>
 
 // Include headers for all custom nodes
 #include "RigRoot.h"
 #include "AssetRoot.h"
 #include "SingleJointFK.h"
 #include "FkChain.h"
+#include "RigControlNode.h"
 
 // Plugin Registration
 MStatus initializePlugin(MObject obj)
@@ -44,6 +46,23 @@ MStatus initializePlugin(MObject obj)
 	// FkChain
 	status = plugin.registerNode(FkChainNode::commandString, FkChainNode::id, FkChainNode::creator, FkChainNode::initialize);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Shape node
+	status = plugin.registerTransform(
+		"rigControlNode",
+		RigControlNode::id,
+		RigControlNode::creator,
+		RigControlNode::initialize,
+		MPxTransformationMatrix::creator,
+		MPxTransformationMatrix::baseTransformationMatrixId,
+		&RigControlNode::drawDbClassification
+	);
+
+	status = MHWRender::MDrawRegistry::registerDrawOverrideCreator(
+		RigControlNode::drawDbClassification,
+		RigControlNode::drawRegistrantId,
+		RigControlDrawOverride::Creator
+	);
 
 	// -- REGISTER COMMANDS --
 	status = plugin.registerCommand(SingleJointFKCmd::commandString, SingleJointFKCmd::creator, SingleJointFKCmd::newSyntax);
@@ -89,6 +108,13 @@ MStatus uninitializePlugin(MObject obj)
 		status.perror("Failed to deregister fkChainNode");
 		finalStatus = status;
 	}
+
+	// Shape node
+	MHWRender::MDrawRegistry::deregisterDrawOverrideCreator(
+		RigControlNode::drawDbClassification,
+		RigControlNode::drawRegistrantId
+	);
+	status = plugin.deregisterNode(RigControlNode::id);
 
 	status = plugin.deregisterCommand(SingleJointFKCmd::commandString);
 	status = plugin.deregisterCommand(FkChainNodeSetupCmd::commandString);
