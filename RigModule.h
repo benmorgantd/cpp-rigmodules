@@ -7,6 +7,8 @@
 #include <maya/MTypeId.h>
 #include <maya/MPlug.h>
 #include <maya/MDGModifier.h>
+#include <maya/MDagModifier.h>
+#include <maya/MString.h>
 
 class RigModuleNodeBase : public MPxNode
 {
@@ -23,8 +25,8 @@ public:
 	// Registers base infrastructure attributes shared across all modules
 	static MStatus initializeBaseAttributes();
 
-protected:
-	// Protected helper functions
+public:
+	// Public helper functions
 	// For data read\write
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx);
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr);
@@ -33,6 +35,9 @@ protected:
 	// Networking functionality
 	static MObjectArray getChildModules(MObject& moduleNode);
 	static MObject getParentModule(MObject& moduleNode);
+
+	// Control creation
+	static MObject createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName);
 
 public:
 	// Base Metadata Attributes

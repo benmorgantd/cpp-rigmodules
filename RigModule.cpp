@@ -148,7 +148,20 @@ MObject RigModuleNodeBase::getParentModule(MObject& moduleNode)
 	}
 
 	return parentModule;
+}
 
+// Creates a rig control and wires it to the module
+MObject RigModuleNodeBase::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName)
+{
+	// Create and name the control transform
+	MObject controlTransform = dagMod.createNode("rigControlNode");
+
+	MString ctrlName = jointName;
+	ctrlName.substitute("_jnt", "");  // TODO: global var for jnt suffix
+	ctrlName += "_ctrl";  // TODO: global naming method, global var for ctrl suffix
+	dagMod.renameNode(controlTransform, ctrlName);
+
+	return controlTransform;
 }
 
 // TODO: shared methods for getting string array values for commands

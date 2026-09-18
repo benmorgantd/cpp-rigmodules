@@ -259,7 +259,6 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 				for (unsigned int j = 0; j < flagArgs.length(); ++j)
 				{
 					MString jointName = flagArgs.asString(j);
-					MGlobal::displayInfo("Joint Name: " + jointName);
 					jointNames.append(jointName);
 				}
 			}
@@ -356,10 +355,7 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 		inputRestPlug.setValue(opmMatrixDataObject);
 
 		// Create the control transform
-		MObject controlTransform = dagMod.createNode("rigControlNode");
-		MString ctrlName = jointNames[i];
-		ctrlName.substitute("_jnt", "_ctrl");
-		dagMod.renameNode(controlTransform, ctrlName);
+		MObject controlTransform = RigModuleNodeBase::createRigControl(moduleObj, dagMod, jointNames[i]);
 
 		// Parent the control transform to the previous parent if there is one
 		if (previousControlTransform != MObject::kNullObj)

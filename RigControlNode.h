@@ -18,6 +18,7 @@ public:
 
     int shapeType{ 0 };
     MColor color{ 1.0f, 0.0f, 0.0f, 1.0f };
+    MColor dormantColor{ 1.0f, 0.0f, 0.0f, 1.0f };
     float lineWidth{ 1.0f };
     MPoint centerOffset{ 0.0f, 0.0f, 0.0f };
     MVector normalVector{ 1.0f, 0.0f, 0.0f };
@@ -36,6 +37,9 @@ public:
     static void* creator();
     static MStatus initialize();
 
+    // Override setDependentsDirty from MPxNode / MPxTransform so each draw doesn't trigger MPlug reads
+    MStatus setDependentsDirty(const MPlug& plugBeingDirtied, MPlugArray& affectedPlugs) override;
+
     static MTypeId id;
     static MString drawDbClassification;
     static MString drawRegistrantId;
@@ -49,6 +53,13 @@ public:
     static MObject aWidth;
     static MObject aHeight;
     static MObject aDepth;
+
+    bool isDrawDirty() const { return m_drawIsDirty; }
+    void setDrawClean() { m_drawIsDirty = false; }
+    void setDrawDirty() { m_drawIsDirty = true; }
+
+private:
+    bool m_drawIsDirty{ true };
 };
 
 // Viewport 2.0 Draw Override

@@ -23,11 +23,45 @@ MObject RigControlNode::aWidth;
 MObject RigControlNode::aHeight;
 MObject RigControlNode::aDepth;
 
-RigControlNode::RigControlNode() {}
+RigControlNode::RigControlNode() 
+    : m_drawIsDirty(true)
+{}
+
 RigControlNode::~RigControlNode() {}
 
 void* RigControlNode::creator() {
     return new RigControlNode();
+}
+
+MStatus RigControlNode::setDependentsDirty(const MPlug& plugBeingDirtied, MPlugArray& affectedPlugs)
+{
+    // Check if the plug being dirtied matches any visual, transform, or matrix attributes
+    MObject attr = plugBeingDirtied.attribute();
+
+    // use this block for simple attributes that have no children (aren't vectors or colors)
+    if (attr == aShapeType ||
+        attr == aWidth ||
+        attr == aHeight ||
+        attr == aDepth)
+    {
+        setDrawDirty(); // Flag for Viewport 2.0 MPxDrawOverride
+    }
+    else
+    {
+        // Use this block for all attributes that have children, as child plugs will have to use this to be seen as dirty.
+        MObject parentAttr = plugBeingDirtied.parent().attribute();
+
+        if (attr == aCenterOffset || parentAttr == aCenterOffset ||
+            attr == aNormalVector || parentAttr == aNormalVector ||
+            attr == aUpVector || parentAttr == aUpVector ||
+            attr == aWireColor || parentAttr == aWireColor)
+        {
+            setDrawDirty();
+        }
+    }
+
+    // Call base class MPxTransform implementation (CRITICAL)
+    return MPxTransform::setDependentsDirty(plugBeingDirtied, affectedPlugs);
 }
 
 MStatus RigControlNode::initialize() {
@@ -95,9 +129,11 @@ MHWRender::MPxDrawOverride* RigControlDrawOverride::Creator(const MObject& obj) 
     return new RigControlDrawOverride(obj);
 }
 
+//The last bool is important for efficiency. Sets it to not be always dirty so viewport tumbles don't trigger MPlug reads
 RigControlDrawOverride::RigControlDrawOverride(const MObject& obj)
-    : MHWRender::MPxDrawOverride(obj, nullptr) {}
+    : MHWRender::MPxDrawOverride(obj, nullptr, true) {}  // NOTE: isAlwaysDirty being false means as we edit shape attrs we don't see them change.
 
+// This method only gathers plug data if the plugs have been determined as dirty. Otherwise it is re-using cached MUserData
 MUserData* RigControlDrawOverride::prepareForDraw(
     const MDagPath& objPath,
     const MDagPath& cameraPath,
@@ -105,87 +141,105 @@ MUserData* RigControlDrawOverride::prepareForDraw(
     MUserData* oldData)
 {
     ControlDrawData* data = dynamic_cast<ControlDrawData*>(oldData);
-    if (!data) {
+    if (!data) 
+    {
         data = new ControlDrawData();
     }
 
     MObject node = objPath.node();
+    MFnDependencyNode fnNode(node);
+    RigControlNode* rigControlNode = dynamic_cast<RigControlNode*>(fnNode.userNode());
 
-    // 1. Fetch Shape Parameters
-    MPlug(node, RigControlNode::aShapeType).getValue(data->shapeType);
-    MPlug(node, RigControlNode::aWidth).getValue(data->width);
-    MPlug(node, RigControlNode::aHeight).getValue(data->height);
-    MPlug(node, RigControlNode::aDepth).getValue(data->depth);
+    if (rigControlNode && rigControlNode->isDrawDirty())
+    {
+        // 1. Fetch Shape Parameters
+        MPlug(node, RigControlNode::aShapeType).getValue(data->shapeType);
+        MPlug(node, RigControlNode::aWidth).getValue(data->width);
+        MPlug(node, RigControlNode::aHeight).getValue(data->height);
+        MPlug(node, RigControlNode::aDepth).getValue(data->depth);
 
-    // Center offset
-    MPoint centerOffset;
-    MPlug pCenterOffset = MPlug(node, RigControlNode::aCenterOffset);
-    if (!pCenterOffset.isNull())
-    {
-        pCenterOffset.child(0).getValue(centerOffset.x);
-        pCenterOffset.child(1).getValue(centerOffset.y);
-        pCenterOffset.child(2).getValue(centerOffset.z);
-    }
-    data->centerOffset = centerOffset;
+        // Center offset
+        MPoint centerOffset;
+        MPlug pCenterOffset = MPlug(node, RigControlNode::aCenterOffset);
+        if (!pCenterOffset.isNull())
+        {
+            pCenterOffset.child(0).getValue(centerOffset.x);
+            pCenterOffset.child(1).getValue(centerOffset.y);
+            pCenterOffset.child(2).getValue(centerOffset.z);
+        }
+        data->centerOffset = centerOffset;
 
-    // Normal Vector
-    MVector normalVector;
-    MPlug pNormalVector = MPlug(node, RigControlNode::aNormalVector);
-    if (!pNormalVector.isNull())
-    {
-        pNormalVector.child(0).getValue(normalVector.x);
-        pNormalVector.child(1).getValue(normalVector.y);
-        pNormalVector.child(2).getValue(normalVector.z);
-    }
-    data->normalVector = normalVector;
+        // Normal Vector
+        MVector normalVector;
+        MPlug pNormalVector = MPlug(node, RigControlNode::aNormalVector);
+        if (!pNormalVector.isNull())
+        {
+            pNormalVector.child(0).getValue(normalVector.x);
+            pNormalVector.child(1).getValue(normalVector.y);
+            pNormalVector.child(2).getValue(normalVector.z);
+        }
+        data->normalVector = normalVector;
 
-    // Up Vector
-    MVector upVector;
-    MPlug pUpVector = MPlug(node, RigControlNode::aUpVector);
-    if (!pUpVector.isNull())
-    {
-        pUpVector.child(0).getValue(upVector.x);
-        pUpVector.child(1).getValue(upVector.y);
-        pUpVector.child(2).getValue(upVector.z);
-    }
-    data->upVector = upVector;
+        // Up Vector
+        MVector upVector;
+        MPlug pUpVector = MPlug(node, RigControlNode::aUpVector);
+        if (!pUpVector.isNull())
+        {
+            pUpVector.child(0).getValue(upVector.x);
+            pUpVector.child(1).getValue(upVector.y);
+            pUpVector.child(2).getValue(upVector.z);
+        }
+        data->upVector = upVector;
 
-    // Color with selection highlighting
-    MColor color;
-    float lineWidth = 1.0f;
-    float r = 0.0f, g = 0.0f, b = 0.0f, a = 1.0f;
-
-    MHWRender::DisplayStatus displayStatus = MHWRender::MGeometryUtilities::displayStatus(objPath);
-    if (displayStatus == MHWRender::kActive)
-    {
-        r = 1.0f, b = 1.0f, g = 1.0f; // white (active selection)
-    }
-    else if (displayStatus == MHWRender::kLead)
-    {
-        r = 0.26f, g = 1.0f, b = 0.64f;  // green (selected)
-        lineWidth = 2.0f;
-    }
-    else
-    {
+        // Base color from plugs. Other color is from selection highlighting.
         // Fetch dormant color (red, blue, etc)
         MPlug plugColor(node, RigControlNode::aWireColor);
-        if (!plugColor.isNull()) 
+        MColor color;
+        float lineWidth = 1.0f;
+        float r = 0.0f, g = 0.0f, b = 0.0f, a = 1.0f;
+
+        if (!plugColor.isNull())
         {
             plugColor.child(0).getValue(r);
             plugColor.child(1).getValue(g);
             plugColor.child(2).getValue(b);
         }
-    }
 
-    MPlug plugAlpha(node, RigControlNode::aWireAlpha);
-    if (!plugAlpha.isNull()) 
-    {
-        plugAlpha.getValue(a);
+        MPlug plugAlpha(node, RigControlNode::aWireAlpha);
+        if (!plugAlpha.isNull())
+        {
+            plugAlpha.getValue(a);
+        }
+
+        data->dormantColor = MColor(r, g, b, a);
+        data->lineWidth = lineWidth;
+
+        // Important! Set draw clean for the node so we can keep these cached plug reads until they dirty again.
+        rigControlNode->setDrawClean();
     }
     
-    data->color = MColor(r, g, b, a);
-    data->lineWidth = lineWidth;
-
+    // This part runs every frame update. It is very fast though as it is not reading plug values.
+    // It wasn't dirty, but we still need to do selection color change updates.
+    MHWRender::DisplayStatus displayStatus = MHWRender::MGeometryUtilities::displayStatus(objPath);
+    if (displayStatus == MHWRender::kActive)
+    {
+        // Active selection (White)
+        data->color = MColor(1.0f, 1.0f, 1.0f, data->dormantColor.a);
+        data->lineWidth = 1.5f;
+    }
+    else if (displayStatus == MHWRender::kLead)
+    {
+        // Lead selection (Soft Green)
+        data->color = MColor(0.26f, 1.0f, 0.64f, data->dormantColor.a);
+        data->lineWidth = 2.0f;
+    }
+    else
+    {
+        // Dormant (Unselected) -> Use cached base color extracted from plugs
+        data->color = data->dormantColor;
+        data->lineWidth = 1.0f;
+    }
+    
     return data;
 }
 
@@ -230,3 +284,5 @@ void RigControlDrawOverride::addUIDrawables(
 
     drawManager.endDrawable();
 }
+
+// TODO: Method for wiring a control node to a module.
