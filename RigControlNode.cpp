@@ -17,6 +17,8 @@ MObject RigControlNode::aShapeType;
 MObject RigControlNode::aWireColor;
 MObject RigControlNode::aWireAlpha;
 MObject RigControlNode::aCenterOffset;
+MObject RigControlNode::aNormalVector;
+MObject RigControlNode::aUpVector;
 MObject RigControlNode::aWidth;
 MObject RigControlNode::aHeight;
 MObject RigControlNode::aDepth;
@@ -54,10 +56,22 @@ MStatus RigControlNode::initialize() {
     nAttr.setStorable(true);
     addAttribute(aWireAlpha);
 
-    aCenterOffset = nAttr.create("centerOffset", "off", MFnNumericData::k3Double, 0.0f);
+    aCenterOffset = nAttr.createPoint("centerOffset", "off");
     nAttr.setKeyable(false);
     nAttr.setStorable(true);
     addAttribute(aCenterOffset);
+
+    aNormalVector = nAttr.createPoint("normalVector", "nv");
+    nAttr.setDefault(1.0, 0.0, 0.0);
+    nAttr.setKeyable(false);
+    nAttr.setStorable(true);
+    addAttribute(aNormalVector);
+
+    aUpVector = nAttr.createPoint("upVector", "uv");
+    nAttr.setDefault(0.0, 0.0, 1.0);
+    nAttr.setKeyable(false);
+    nAttr.setStorable(true);
+    addAttribute(aUpVector);
 
     aWidth = nAttr.create("width", "w", MFnNumericData::kDouble, 1.0f);
     nAttr.setKeyable(false);
@@ -114,6 +128,28 @@ MUserData* RigControlDrawOverride::prepareForDraw(
     }
     data->centerOffset = centerOffset;
 
+    // Normal Vector
+    MVector normalVector;
+    MPlug pNormalVector = MPlug(node, RigControlNode::aNormalVector);
+    if (!pNormalVector.isNull())
+    {
+        pNormalVector.child(0).getValue(normalVector.x);
+        pNormalVector.child(1).getValue(normalVector.y);
+        pNormalVector.child(2).getValue(normalVector.z);
+    }
+    data->normalVector = normalVector;
+
+    // Up Vector
+    MVector upVector;
+    MPlug pUpVector = MPlug(node, RigControlNode::aUpVector);
+    if (!pUpVector.isNull())
+    {
+        pUpVector.child(0).getValue(upVector.x);
+        pUpVector.child(1).getValue(upVector.y);
+        pUpVector.child(2).getValue(upVector.z);
+    }
+    data->upVector = upVector;
+
     // Color with selection highlighting
     MColor color;
     float lineWidth = 1.0f;
@@ -169,11 +205,9 @@ void RigControlDrawOverride::addUIDrawables(
 
     // Draw strictly in LOCAL OBJECT SPACE (0,0,0) with unit vectors.
     // Maya automatically transforms this local geometry by the DAG node's world matrix.
-    //MPoint center(centerOffset.x, centerOffset.y, centerOffset.z);  // TODO: have center up and normal in control draw data
     MPoint center(controlDrawData->centerOffset);
-    MVector up(0.0, 1.0, 0.0);
-    MVector normal(0.0, 0.0, 1.0);
-    double radius = 1.0;
+    MVector up(controlDrawData->upVector);
+    MVector normal(controlDrawData->normalVector);
     bool filled = false;
 
     switch (controlDrawData->shapeType) {
@@ -186,7 +220,7 @@ void RigControlDrawOverride::addUIDrawables(
     case 2: // Circle (Center, Normal, Radius)
         drawManager.circle(center, normal, controlDrawData->width, filled);
         break;
-    case 3: // Capsule (Center, Up, Radius, Height, Subdivisions Width, Subdivisions Height, filled
+    case 3: // Capsule (Center, Up, Radius, Height, Subdivisions Width, Subdivisions Height, filled)
         drawManager.capsule(center, up, controlDrawData->width, controlDrawData->height, 6, 6, filled);
         break;
     default: // Default is Box / Cube

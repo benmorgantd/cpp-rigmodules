@@ -10,6 +10,7 @@
 #pragma warning(pop)
 
 // Data payload passed to Viewport 2.0 draw thread
+// Read MPlugs in prepareForDraw, feed to this class, then read from it in addUIDrawables
 class ControlDrawData : public MUserData {
 public:
     ControlDrawData() : MUserData() {}
@@ -19,6 +20,8 @@ public:
     MColor color{ 1.0f, 0.0f, 0.0f, 1.0f };
     float lineWidth{ 1.0f };
     MPoint centerOffset{ 0.0f, 0.0f, 0.0f };
+    MVector normalVector{ 1.0f, 0.0f, 0.0f };
+    MVector upVector{ 0.0f, 0.0f, 1.0f };
     double width{ 1.0f };
     double height{ 1.0f };
     double depth{ 1.0f };
@@ -41,6 +44,8 @@ public:
     static MObject aWireColor;
     static MObject aWireAlpha;
     static MObject aCenterOffset;
+    static MObject aNormalVector;
+    static MObject aUpVector;
     static MObject aWidth;
     static MObject aHeight;
     static MObject aDepth;

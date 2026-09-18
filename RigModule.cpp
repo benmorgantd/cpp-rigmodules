@@ -9,6 +9,7 @@
 #include <maya/MArrayDataHandle.h>
 #include <maya/MArrayDataBuilder.h>
 #include <maya/MGlobal.h>
+#include <maya/MItDependencyGraph.h>
 
 // Static attribute definitions
 MObject RigModuleNodeBase::moduleData;
@@ -76,7 +77,9 @@ MStatus RigModuleNodeBase::initializeBaseAttributes()
 	return MStatus::kSuccess;
 }
 
-// Shared functions
+// Shared functions --------------------------------------------
+
+// Functions for reading datablock inputs
 MMatrix RigModuleNodeBase::getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx)
 {
 	MArrayDataHandle hArray = data.inputArrayValue(attr);
@@ -113,5 +116,39 @@ void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, u
 		hArray.set(builder);
 	}
 };
+
+// Return the MObjects for the child nodes of this module
+MObjectArray RigModuleNodeBase::getChildModules(MObject& moduleNode)
+{
+	// TODO: we should add protection here (check status) because this could fail if we passed in the wrong MObject
+	MPlug pChildModules(moduleNode, RigModuleNodeBase::childModules);
+	MObjectArray childModuleNodes;
+
+	MPlugArray pConnectedChildren;
+	pChildModules.connectedTo(pConnectedChildren, false, true);
+
+	for (unsigned int i = 0; i < pConnectedChildren.length(); ++i)
+	{
+		// TODO: we could add protections here
+		childModuleNodes.append(pConnectedChildren[i].node());
+	}
+	return childModuleNodes;
+}
+
+MObject RigModuleNodeBase::getParentModule(MObject& moduleNode)
+{
+	MObject parentModule;
+	MPlug pParentModule(moduleNode, RigModuleNodeBase::parentModule);
+	MPlugArray pConnectedParents;
+	pParentModule.connectedTo(pConnectedParents, true, false);  // Get inputs. There can only be one
+
+	if (pConnectedParents.length() > 0)
+	{
+		parentModule = pConnectedParents[0].node();
+	}
+
+	return parentModule;
+
+}
 
 // TODO: shared methods for getting string array values for commands

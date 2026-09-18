@@ -24,10 +24,15 @@ public:
 	static MStatus initializeBaseAttributes();
 
 protected:
+	// Protected helper functions
+	// For data read\write
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx);
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr);
-	static MMatrix getInputMatrix(MDataBlock& data, const MPlug& attr, unsigned int idx);
 	static void setOutputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx, const MMatrix& mat);
+
+	// Networking functionality
+	static MObjectArray getChildModules(MObject& moduleNode);
+	static MObject getParentModule(MObject& moduleNode);
 
 public:
 	// Base Metadata Attributes
