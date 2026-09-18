@@ -131,7 +131,7 @@ MHWRender::MPxDrawOverride* RigControlDrawOverride::Creator(const MObject& obj) 
 
 //The last bool is important for efficiency. Sets it to not be always dirty so viewport tumbles don't trigger MPlug reads
 RigControlDrawOverride::RigControlDrawOverride(const MObject& obj)
-    : MHWRender::MPxDrawOverride(obj, nullptr, true) {}  // NOTE: isAlwaysDirty being false means as we edit shape attrs we don't see them change.
+    : MHWRender::MPxDrawOverride(obj, nullptr, false) {}
 
 // This method only gathers plug data if the plugs have been determined as dirty. Otherwise it is re-using cached MUserData
 MUserData* RigControlDrawOverride::prepareForDraw(
