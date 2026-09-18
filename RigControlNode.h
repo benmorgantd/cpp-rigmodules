@@ -17,6 +17,11 @@ public:
 
     int shapeType{ 0 };
     MColor color{ 1.0f, 0.0f, 0.0f, 1.0f };
+    float lineWidth{ 1.0f };
+    MPoint centerOffset{ 0.0f, 0.0f, 0.0f };
+    double width{ 1.0f };
+    double height{ 1.0f };
+    double depth{ 1.0f };
 };
 
 // Custom Transform DAG Node
@@ -34,6 +39,11 @@ public:
 
     static MObject aShapeType;
     static MObject aWireColor;
+    static MObject aWireAlpha;
+    static MObject aCenterOffset;
+    static MObject aWidth;
+    static MObject aHeight;
+    static MObject aDepth;
 };
 
 // Viewport 2.0 Draw Override
@@ -55,6 +65,9 @@ public:
     MBoundingBox boundingBox(const MDagPath& objPath, const MDagPath& cameraPath) const override {
         return MBoundingBox(MPoint(-1.0, -1.0, -1.0), MPoint(1.0, 1.0, 1.0));
     }
+
+    // Tell VP2 to place this drawable in the transparent render queue
+    virtual bool isTransparent() const override { return true; }
 
     bool hasUIDrawables() const override { return true; }
 

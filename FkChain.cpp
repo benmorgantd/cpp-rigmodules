@@ -1,4 +1,5 @@
 #include "FkChain.h"
+#include "RigControlNode.h"
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnDependencyNode.h>
@@ -355,7 +356,7 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 		inputRestPlug.setValue(opmMatrixDataObject);
 
 		// Create the control transform
-		MObject controlTransform = dagMod.createNode("transform");
+		MObject controlTransform = dagMod.createNode("rigControlNode");
 		MString ctrlName = jointNames[i];
 		ctrlName.substitute("_jnt", "_ctrl");
 		dagMod.renameNode(controlTransform, ctrlName);
