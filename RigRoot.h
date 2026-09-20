@@ -16,7 +16,6 @@ public:
 	// Static methods next. Static because Maya calls these before an instance exists
 	static MStatus initialize();
 	static void* creator();
-
 public:
 	// second public block is for readability, to separate behavior methods from attributes.
 	static MTypeId id;

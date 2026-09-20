@@ -41,7 +41,6 @@ public:
 	static void* creator();
 	static MSyntax newSyntax();
 	static const MString commandString;
-	//static MResultType currentResultType;
 
 	// TODO: undo\redoIt()
 
@@ -54,4 +53,6 @@ private:
 	static const char* kParentModuleLong;
 	static const char* kParentSocketIndexLong;
 	static const char* kParentSocketIndexShort;
+	static const char* kRigRootLong;
+	static const char* kRigRootShort;
 };

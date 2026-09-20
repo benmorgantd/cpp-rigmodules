@@ -10,6 +10,9 @@
 #include <maya/MFnData.h>
 #include <maya/MFnNumericData.h>
 #include <maya/MPlug.h>
+#include <maya/MSelectionList.h>
+#include <maya/MGlobal.h>
+#include <maya/MDGModifier.h>
 
 // Define the unique ID
 MTypeId RigRootNode::id(0x00218);
@@ -77,3 +80,5 @@ MStatus RigRootNode::compute(const MPlug& plug, MDataBlock& data)
 	// The node really has nothing to compute when attributes change, so we can just return kSuccess.
 	return MStatus::kSuccess;
 }
+
+// Public shared methods

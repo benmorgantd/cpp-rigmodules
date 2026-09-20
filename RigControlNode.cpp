@@ -8,6 +8,7 @@
 #include <maya/M3dView.h>
 #include <maya/MHWGeometryUtilities.h>
 #include <maya/MGlobal.h>
+#include <maya/MFnMessageAttribute.h>
 
 MTypeId RigControlNode::id(0x0013B5C0);
 MString RigControlNode::drawDbClassification("drawdb/geometry/rigControlNode");
@@ -22,6 +23,7 @@ MObject RigControlNode::aUpVector;
 MObject RigControlNode::aWidth;
 MObject RigControlNode::aHeight;
 MObject RigControlNode::aDepth;
+MObject RigControlNode::aRigModule;
 
 RigControlNode::RigControlNode() 
     : m_drawIsDirty(true)
@@ -67,6 +69,7 @@ MStatus RigControlNode::setDependentsDirty(const MPlug& plugBeingDirtied, MPlugA
 MStatus RigControlNode::initialize() {
     MFnEnumAttribute eAttr;
     MFnNumericAttribute nAttr;
+    MFnMessageAttribute msgAttr;
 
     aShapeType = eAttr.create("shapeType", "st", 0);
     eAttr.addField("Cube", 0);
@@ -121,6 +124,10 @@ MStatus RigControlNode::initialize() {
     nAttr.setKeyable(false);
     nAttr.setStorable(true);
     addAttribute(aDepth);
+
+    // Rig Attributes
+    aRigModule = msgAttr.create("rigModule", "rm");
+    addAttribute(aRigModule);
 
     return MS::kSuccess;
 }
@@ -224,14 +231,14 @@ MUserData* RigControlDrawOverride::prepareForDraw(
     if (displayStatus == MHWRender::kActive)
     {
         // Active selection (White)
-        data->color = MColor(1.0f, 1.0f, 1.0f, data->dormantColor.a);
+        data->color = MColor(1.0f, 1.0f, 1.0f, data->dormantColor.a);  // TODO: for even more efficiency these could be constants we're pulling from
         data->lineWidth = 1.5f;
     }
     else if (displayStatus == MHWRender::kLead)
     {
         // Lead selection (Soft Green)
         data->color = MColor(0.26f, 1.0f, 0.64f, data->dormantColor.a);
-        data->lineWidth = 2.0f;
+        data->lineWidth = 4.0f;
     }
     else
     {

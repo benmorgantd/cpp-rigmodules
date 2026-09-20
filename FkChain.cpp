@@ -1,5 +1,6 @@
 #include "FkChain.h"
 #include "RigControlNode.h"
+#include "RigRoot.h"
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnDependencyNode.h>
@@ -193,7 +194,7 @@ MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 // FkChainNode Setup command ----------------------------------------
 const MString FkChainNodeSetupCmd::commandString = "setupFkChainModule";
 
-const char* FkChainNodeSetupCmd::kNameFlagShort = "-n";
+const char* FkChainNodeSetupCmd::kNameFlagShort = "-n";  // TODO: many of these high-level flags should be referenced from RigModule.cpp
 const char* FkChainNodeSetupCmd::kNameFlagLong = "-name";
 const char* FkChainNodeSetupCmd::kJointsFlagShort = "-j";
 const char* FkChainNodeSetupCmd::kJointsFlagLong = "-joints";
@@ -201,6 +202,8 @@ const char* FkChainNodeSetupCmd::kParentModuleShort = "-pm";
 const char* FkChainNodeSetupCmd::kParentModuleLong = "-parentModule";
 const char* FkChainNodeSetupCmd::kParentSocketIndexShort = "-psi";
 const char* FkChainNodeSetupCmd::kParentSocketIndexLong = "-parentSocketIndex";
+const char* FkChainNodeSetupCmd::kRigRootLong = "-rigRoot";
+const char* FkChainNodeSetupCmd::kRigRootShort = "-rr";
 
 
 FkChainNodeSetupCmd::FkChainNodeSetupCmd() {}
@@ -221,6 +224,8 @@ MSyntax FkChainNodeSetupCmd::newSyntax()
 	syntax.makeFlagMultiUse(kJointsFlagShort);
 	syntax.addFlag(kParentModuleShort, kParentModuleLong, MSyntax::kString);
 	syntax.addFlag(kParentSocketIndexShort, kParentSocketIndexLong, MSyntax::kLong);
+	syntax.addFlag(kRigRootShort, kRigRootLong, MSyntax::kString);
+
 	return syntax;
 }
 
@@ -234,14 +239,8 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 	MDGModifier dgMod;
 	MDagModifier dagMod;
 
-	// Gather the passed in module name
-	MString moduleName = "fkChainModule_01";
-	if (argData.isFlagSet(kNameFlagShort))
-	{
-		argData.getFlagArgument(kNameFlagShort, 0, moduleName);
-	}
-
 	// Gather the passed in joint names
+	// TODO: this can become a shared method
 	MStringArray jointNames;
 	unsigned int numJoints = 0;
 	if (argData.isFlagSet(kJointsFlagShort))
@@ -272,6 +271,7 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 	}
 
 	// TODO: check module exists
+	// TODO: this can become a shared method
 	MString parentModuleName;
 	if (argData.isFlagSet(kParentModuleShort))
 	{
@@ -294,11 +294,12 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 		argData.getFlagArgument(kParentSocketIndexShort, 0, parentModuleSocketIndex);
 	}
 
-	// Command Action --------------------------------------------------------
+	// Shared command actions which read the args and do things  -------------
 
-	// Create the FkChainModule node
-	MObject moduleObj = dgMod.createNode("fkChainModule", &status);
-	dgMod.renameNode(moduleObj, moduleName);
+	// TODO: run a shared RigModule method here which will do base-level shared functions.
+	MObject moduleObj = RigModuleNodeBase::createAndNameModule(argData, dgMod, FkChainNodeSetupCmd::kNameFlagShort);
+
+	// Command Action --------------------------------------------------------
 
 	// Get module plugs
 	MFnDependencyNode moduleFn(moduleObj);
@@ -389,6 +390,7 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 	}
 
 	// Wire parent to the module and maintain offset
+	// TODO: move to shared method
 	if (parentModuleName.isEmpty() != true)
 	{
 		// Wire the parent module to the new module
@@ -423,6 +425,9 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 		MObject parentModuleOffsetObj = parentModuleOffsetData.create(mParentModuleOffset);
 		parentModuleOffset.setValue(parentModuleOffsetObj);
 	}
+
+	// Wire this module to the rig root
+	FkChainNode::connectModuleToRigRoot(argData, dgMod, moduleObj);
 
 	status = dgMod.doIt();
 

@@ -1,4 +1,5 @@
 #include "RigModule.h"
+#include "RigControlNode.h"
 
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
@@ -10,6 +11,7 @@
 #include <maya/MArrayDataBuilder.h>
 #include <maya/MGlobal.h>
 #include <maya/MItDependencyGraph.h>
+#include <maya/MArgDatabase.h>
 
 // Static attribute definitions
 MObject RigModuleNodeBase::moduleData;
@@ -19,6 +21,7 @@ MObject RigModuleNodeBase::childModules;
 MObject RigModuleNodeBase::parentWorldMatrix;
 MObject RigModuleNodeBase::parentModuleOffset;
 MObject RigModuleNodeBase::outputSocketMatrix;
+MObject RigModuleNodeBase::aRigControls;
 
 RigModuleNodeBase::RigModuleNodeBase() {}
 RigModuleNodeBase::~RigModuleNodeBase() {}
@@ -50,6 +53,9 @@ MStatus RigModuleNodeBase::initializeBaseAttributes()
 	childModules = msgAttr.create("childModules", "cmods", &status);
 	msgAttr.setArray(true);
 	addAttribute(childModules);
+
+	aRigControls = msgAttr.create("rigControls", "ctrls", &status);
+	addAttribute(aRigControls);
 
 	// 3. Base Driving Input Matrix (Scalar)
 	parentWorldMatrix = mAttr.create("parentWorldMatrix", "pwm", MFnMatrixAttribute::kDouble, &status);
@@ -161,7 +167,81 @@ MObject RigModuleNodeBase::createRigControl(MObject& moduleNode, MDagModifier& d
 	ctrlName += "_ctrl";  // TODO: global naming method, global var for ctrl suffix
 	dagMod.renameNode(controlTransform, ctrlName);
 
+	// Connect the control to the module node
+	MPlug pRigModule(controlTransform, RigControlNode::aRigModule);
+	MPlug pRigControls(moduleNode, RigModuleNodeBase::aRigControls);
+	if (!pRigModule.isNull() && !pRigControls.isNull())
+	{
+		// Connect the attributes
+		dagMod.connect(pRigControls, pRigModule);
+	}
+	else
+	{
+		MGlobal::displayError("Unable to connect controls to module because plugs were null.");
+	}
+
 	return controlTransform;
 }
 
+
+// Shared methods for commands
+MObject RigModuleNodeBase::createAndNameModule(const MArgDatabase& argData, MDGModifier& dgMod, const char* nameFlag)
+{
+	// Gather the passed in module name
+	MString moduleName = "fkChainModule_01";
+	if (argData.isFlagSet(nameFlag)) // TODO: we don't want to use a string here
+	{
+		argData.getFlagArgument(nameFlag, 0, moduleName);
+	}
+
+	// Create the FkChainModule node
+	MObject moduleObj = dgMod.createNode("fkChainModule");
+	dgMod.renameNode(moduleObj, moduleName);
+
+	return moduleObj;
+}
+
+MStatus RigModuleNodeBase::connectModuleToRigRoot(const MArgDatabase& argData, MDGModifier& dgMod, const MObject& moduleNode)
+{
+	MStatus status;
+	MString rigRootName;
+	MObject rigRoot;
+	const char* rigRootFlag = "-rr";  // TODO: these high-level flags should be in the RigModule cpp file and get referenced by children.
+	
+	if (argData.isFlagSet(rigRootFlag))
+	{
+		argData.getFlagArgument(rigRootFlag, 0, rigRootName);
+
+		MSelectionList rigRootSelList;
+		status = rigRootSelList.add(rigRootName);
+		rigRootSelList.getDependNode(0, rigRoot);
+
+		if (!status || rigRoot.isNull())
+		{
+			MGlobal::displayError("Rig Root name " + rigRootName + " does not exist.");
+			return MStatus::kFailure;
+		}
+	}
+
+	MFnDependencyNode rigRootFn(rigRoot);
+	MPlug pRigModules = rigRootFn.findPlug("rm", false);  // TODO: also make this a reference
+
+	if (pRigModules.isNull())
+	{
+		MGlobal::displayError("Failed to find rig modules plug on given rig root object.");
+		return MStatus::kFailure;
+	}
+
+	MFnDependencyNode moduleFn(moduleNode);
+	MPlug pRigRoot = moduleFn.findPlug("rigRoot", false);
+
+	if (pRigRoot.isNull())
+	{
+		MGlobal::displayError("Failed to find rigRoot plug on the module object.");
+		return MStatus::kFailure;
+	}
+
+	status = dgMod.connect(pRigModules, pRigRoot);
+	return status;
+}
 // TODO: shared methods for getting string array values for commands

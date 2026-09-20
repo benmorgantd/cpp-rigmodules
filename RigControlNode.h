@@ -28,7 +28,7 @@ public:
     double depth{ 1.0f };
 };
 
-// Custom Transform DAG Node
+// Custom Transform DAG Node that has efficient drawing logic
 class RigControlNode : public MPxTransform {
 public:
     RigControlNode();
@@ -44,6 +44,11 @@ public:
     static MString drawDbClassification;
     static MString drawRegistrantId;
 
+    // Rig related attributes
+    static MObject aRigModule;
+    // TODO: side and region
+    
+    // Shape attributes
     static MObject aShapeType;
     static MObject aWireColor;
     static MObject aWireAlpha;

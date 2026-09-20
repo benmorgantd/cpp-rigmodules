@@ -27,6 +27,9 @@ public:
 
 public:
 	// Public helper functions
+	static MObject createAndNameModule(const MArgDatabase& argData, MDGModifier& dgMod, const char* nameFlag);
+	static MStatus connectModuleToRigRoot(const MArgDatabase& argData, MDGModifier& dgMod, const MObject& moduleNode);
+
 	// For data read\write
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx);
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr);
@@ -47,6 +50,7 @@ public:
 	static MObject rigRoot;             // Message link to central RigRoot node
 	static MObject parentModule;        // Message link to parent module
 	static MObject childModules;        // Message array link to child modules
+	static MObject aRigControls;        // Message array to controls on this module.
 
 	// Base Transformation Matrix Plugs
 	static MObject parentWorldMatrix;   // Driving input matrix from parent socket or layout hook
