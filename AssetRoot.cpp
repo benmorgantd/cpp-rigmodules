@@ -2,7 +2,6 @@
 #include "AssetRoot.h"
 
 // Maya dependencies
-#include <maya/MDataHandle.h>
 #include <maya/MFnAttribute.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMessageAttribute.h>

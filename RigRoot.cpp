@@ -2,7 +2,6 @@
 #include "RigRoot.h"
 
 // Maya dependencies
-#include <maya/MDataHandle.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnAttribute.h>
 #include <maya/MFnTypedAttribute.h>
@@ -10,9 +9,6 @@
 #include <maya/MFnData.h>
 #include <maya/MFnNumericData.h>
 #include <maya/MPlug.h>
-#include <maya/MSelectionList.h>
-#include <maya/MGlobal.h>
-#include <maya/MDGModifier.h>
 
 // Define the unique ID
 MTypeId RigRootNode::id(0x00218);

@@ -1,13 +1,12 @@
 #include "RigControlNode.h"
+#include "Side.h"
 
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MPlug.h>
 #include <maya/MVector.h>
 #include <maya/MUIDrawManager.h>
-#include <maya/M3dView.h>
 #include <maya/MHWGeometryUtilities.h>
-#include <maya/MGlobal.h>
 #include <maya/MFnMessageAttribute.h>
 
 MTypeId RigControlNode::id(0x0013B5C0);

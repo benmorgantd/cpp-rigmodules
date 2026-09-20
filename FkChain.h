@@ -3,7 +3,6 @@
 #include "RigModule.h"
 #include <maya/MPxCommand.h>
 #include <maya/MSyntax.h>
-#include <maya/MArgDatabase.h>
 
 class FkChainNode : public RigModuleNodeBase
 {
@@ -43,16 +42,4 @@ public:
 	static const MString commandString;
 
 	// TODO: undo\redoIt()
-
-private:
-	static const char* kNameFlagShort;
-	static const char* kNameFlagLong;
-	static const char* kJointsFlagShort;
-	static const char* kJointsFlagLong;
-	static const char* kParentModuleShort;
-	static const char* kParentModuleLong;
-	static const char* kParentSocketIndexLong;
-	static const char* kParentSocketIndexShort;
-	static const char* kRigRootLong;
-	static const char* kRigRootShort;
 };

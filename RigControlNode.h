@@ -46,7 +46,6 @@ public:
 
     // Rig related attributes
     static MObject aRigModule;
-    // TODO: side and region
     
     // Shape attributes
     static MObject aShapeType;

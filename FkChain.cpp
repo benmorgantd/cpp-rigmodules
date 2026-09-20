@@ -1,6 +1,5 @@
 #include "FkChain.h"
 #include "RigControlNode.h"
-#include "RigRoot.h"
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnDependencyNode.h>
@@ -10,7 +9,6 @@
 #include <maya/MMatrix.h>
 #include <maya/MDataHandle.h>
 #include <maya/MArrayDataHandle.h>
-#include <maya/MArrayDataBuilder.h>
 #include <maya/MPlug.h>
 #include <maya/MSelectionList.h>
 #include <maya/MDagPath.h>
@@ -20,6 +18,7 @@
 #include <maya/MTransformationMatrix.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
+#include <maya/MArgDatabase.h>
 
 // ------------------------------------------------------------------
 // FkChainNode Implementation
@@ -194,18 +193,6 @@ MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 // FkChainNode Setup command ----------------------------------------
 const MString FkChainNodeSetupCmd::commandString = "setupFkChainModule";
 
-const char* FkChainNodeSetupCmd::kNameFlagShort = "-n";  // TODO: many of these high-level flags should be referenced from RigModule.cpp
-const char* FkChainNodeSetupCmd::kNameFlagLong = "-name";
-const char* FkChainNodeSetupCmd::kJointsFlagShort = "-j";
-const char* FkChainNodeSetupCmd::kJointsFlagLong = "-joints";
-const char* FkChainNodeSetupCmd::kParentModuleShort = "-pm";
-const char* FkChainNodeSetupCmd::kParentModuleLong = "-parentModule";
-const char* FkChainNodeSetupCmd::kParentSocketIndexShort = "-psi";
-const char* FkChainNodeSetupCmd::kParentSocketIndexLong = "-parentSocketIndex";
-const char* FkChainNodeSetupCmd::kRigRootLong = "-rigRoot";
-const char* FkChainNodeSetupCmd::kRigRootShort = "-rr";
-
-
 FkChainNodeSetupCmd::FkChainNodeSetupCmd() {}
 FkChainNodeSetupCmd::~FkChainNodeSetupCmd() {}
 
@@ -218,13 +205,12 @@ void* FkChainNodeSetupCmd::creator()
 // Creates the syntax for the command
 MSyntax FkChainNodeSetupCmd::newSyntax()
 {
-	MSyntax syntax;
-	syntax.addFlag(kNameFlagShort, kNameFlagLong, MSyntax::kString);
-	syntax.addFlag(kJointsFlagShort, kJointsFlagLong, MSyntax::kString);
-	syntax.makeFlagMultiUse(kJointsFlagShort);
-	syntax.addFlag(kParentModuleShort, kParentModuleLong, MSyntax::kString);
-	syntax.addFlag(kParentSocketIndexShort, kParentSocketIndexLong, MSyntax::kLong);
-	syntax.addFlag(kRigRootShort, kRigRootLong, MSyntax::kString);
+	MStatus status;
+	MSyntax syntax = RigModuleCommandHelpers::createBaseModuleSyntax(status);
+	if (!status)
+	{
+		MGlobal::displayError("Failed to create base module syntax for command.");
+	}
 
 	return syntax;
 }
@@ -232,6 +218,9 @@ MSyntax FkChainNodeSetupCmd::newSyntax()
 // Runs the command logic
 MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 {
+	// TODO: we want to separate the arg gathering part of doIt() from the action part of it
+	// This will allow us to call the "setup" command for a module from cpp without passing in command syntax.
+	// That will allow for more top-down, all in cpp command actions! :D
 	// Arg Gathering --------------------------------------------
 	MStatus status;
 	MArgDatabase argData(newSyntax(), args, &status);
@@ -240,95 +229,39 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 	MDagModifier dagMod;
 
 	// Gather the passed in joint names
-	// TODO: this can become a shared method
-	MStringArray jointNames;
-	unsigned int numJoints = 0;
-	if (argData.isFlagSet(kJointsFlagShort))
-	{
-		// TODO: extract this syntax into a shared method for getting a list arg
-		numJoints = argData.numberOfFlagUses(kJointsFlagShort);
-
-		for (unsigned int i = 0; i < numJoints; ++i)
-		{
-			MArgList flagArgs;
-			// Fetch the argument list for the i-th occurance of the joints flag
-			status = argData.getFlagArgumentList(kJointsFlagShort, i, flagArgs);
-			if (status == MStatus::kSuccess)
-			{
-				for (unsigned int j = 0; j < flagArgs.length(); ++j)
-				{
-					MString jointName = flagArgs.asString(j);
-					jointNames.append(jointName);
-				}
-			}
-		}
-	}
-
-	if (jointNames.length() == 0 || numJoints == 0)
-	{
-		MGlobal::displayError("At least one joint must be given with the -j flag.");
-		return MStatus::kFailure;
-	}
-
-	// TODO: check module exists
-	// TODO: this can become a shared method
-	MString parentModuleName;
-	if (argData.isFlagSet(kParentModuleShort))
-	{
-		argData.getFlagArgument(kParentModuleShort, 0, parentModuleName);
-
-		MSelectionList modSelList;
-		status = modSelList.add(parentModuleName);
-
-		if (status != MStatus::kSuccess)
-		{
-			MGlobal::displayError("Module name " + parentModuleName + " does not exist.");
-			return MStatus::kFailure;
-		}
-	}
+	MDagPathArray jointDags = RigModuleCommandHelpers::getJointsFromArgs(argData, status);
+	MObject oParentModule = RigModuleCommandHelpers::getParentModule(argData);
 
 	// NOTE: The socket index defaults to 0 for convenience.
-	unsigned int parentModuleSocketIndex = 0;
-	if (argData.isFlagSet(kParentSocketIndexShort))
-	{
-		argData.getFlagArgument(kParentSocketIndexShort, 0, parentModuleSocketIndex);
-	}
+	unsigned int parentModuleSocketIndex = RigModuleCommandHelpers::getParentModuleSocketIndex(argData);
 
 	// Shared command actions which read the args and do things  -------------
 
 	// TODO: run a shared RigModule method here which will do base-level shared functions.
-	MObject moduleObj = RigModuleNodeBase::createAndNameModule(argData, dgMod, FkChainNodeSetupCmd::kNameFlagShort);
+	MString moduleName = RigModuleCommandHelpers::getModuleNameFromArgs(argData);
+
+	// Create the FkChainModule node
+	MObject oModule = dgMod.createNode("fkChainModule");
+	dgMod.renameNode(oModule, moduleName);
 
 	// Command Action --------------------------------------------------------
 
 	// Get module plugs
-	MFnDependencyNode moduleFn(moduleObj);
+	MFnDependencyNode moduleFn(oModule);
 	MPlug inputRestMatrix = moduleFn.findPlug("inputRestMatrix", false);
 	MPlug controlMatrix = moduleFn.findPlug("controlMatrix", false);
 	MPlug outputControlOPM = moduleFn.findPlug("outputControlOffsetParentMatrix", false);
 	MPlug outputJointOPM = moduleFn.findPlug("outputJointOffsetParentMatrix", false);
 	
-	// TODO: wire this module to the given rig root
-
-
 	MObject previousControlTransform = MObject::kNullObj;
 	MMatrix mFirstControlWorld = MMatrix::identity;
+	unsigned int numJoints = jointDags.length();
 
 	for (unsigned int i = 0; i < numJoints; ++i)
 	{
 		// Bake the joint's transforms to its offset parent matrix (jointOPM = parentInverseMatrix * worldMatrix)
 		// Get the joint's dag path and confirm it exists
-		MSelectionList sel;
-		status = sel.add(jointNames[i]);
-
-		if (status == MStatus::kFailure)
-		{
-			MGlobal::displayError("Given joint " + jointNames[i] + " does not exist.");
-			return MStatus::kFailure;
-		}
-
-		MDagPath jointDag;
-		status = sel.getDagPath(0, jointDag);
+		MDagPath jointDag = jointDags[i];
 
 		MFnDagNode jointFnDag(jointDag);
 		MPlug jointOpmPlug = jointFnDag.findPlug("offsetParentMatrix", false);
@@ -356,7 +289,7 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 		inputRestPlug.setValue(opmMatrixDataObject);
 
 		// Create the control transform
-		MObject controlTransform = RigModuleNodeBase::createRigControl(moduleObj, dagMod, jointNames[i]);
+		MObject controlTransform = RigModuleNodeBase::createRigControl(oModule, dagMod, jointDag.partialPathName());
 
 		// Parent the control transform to the previous parent if there is one
 		if (previousControlTransform != MObject::kNullObj)
@@ -391,43 +324,19 @@ MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 
 	// Wire parent to the module and maintain offset
 	// TODO: move to shared method
-	if (parentModuleName.isEmpty() != true)
+	if (!oParentModule.isNull())
 	{
-		// Wire the parent module to the new module
-		MObject parentModuleMObj;
-		MSelectionList modSelList;
-		modSelList.add(parentModuleName);
-		modSelList.getDependNode(0, parentModuleMObj);
-		MFnDependencyNode parentModuleFn(parentModuleMObj);
-		MPlug childModulesPlug = parentModuleFn.findPlug("childModules", false);
-		unsigned int numElements = childModulesPlug.numElements();
+		status = RigModuleCommandHelpers::connectToParentModule(oParentModule, oModule, parentModuleSocketIndex, dgMod, mFirstControlWorld);
 
-		MPlug parentModulePlug = moduleFn.findPlug("parentModule", false);
-		// TODO: is this the correct way to connect to the next index?
-		dgMod.connect(childModulesPlug.elementByLogicalIndex(numElements), parentModulePlug);
-
-		// Wire the parent's socket matrix index to the child
-		MPlug parentSocketMatrix = parentModuleFn.findPlug("outputSocketMatrix", false).elementByLogicalIndex(parentModuleSocketIndex);
-		MPlug childParentMatrix = moduleFn.findPlug("parentWorldMatrix", false);
-		dgMod.connect(parentSocketMatrix, childParentMatrix);
-
-		// Compute offset --------------------------
-		MObject parentSocketObj;
-		parentSocketMatrix.getValue(parentSocketObj);
-		MFnMatrixData parentSocketData(parentSocketObj);
-		MMatrix mParentSocketWorld = parentSocketData.matrix();
-
-		MMatrix mParentModuleOffset = mFirstControlWorld * mParentSocketWorld.inverse();
-
-		// Set the parentModuleOffset plug value
-		MPlug parentModuleOffset = moduleFn.findPlug("parentModuleOffset", false);
-		MFnMatrixData parentModuleOffsetData;
-		MObject parentModuleOffsetObj = parentModuleOffsetData.create(mParentModuleOffset);
-		parentModuleOffset.setValue(parentModuleOffsetObj);
+		if (!status)
+		{
+			MGlobal::displayError("Failed to connect module to parent.");
+			return status;
+		}
 	}
-
+	
 	// Wire this module to the rig root
-	FkChainNode::connectModuleToRigRoot(argData, dgMod, moduleObj);
+	RigModuleCommandHelpers::connectModuleToRigRoot(argData, dgMod, oModule);
 
 	status = dgMod.doIt();
 
