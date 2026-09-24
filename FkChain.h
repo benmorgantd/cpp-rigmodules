@@ -27,6 +27,24 @@ public:
 	static MObject outputJointOPM;
 
 	static const MString commandString;
+public:
+	static MObject createModule(
+		const MString& moduleName,
+		const MDagPathArray& jointDags,
+		MObject oParentModule,
+		unsigned int parentModuleSocketIndex,
+		MObject oRigRoot,
+		MDGModifier& dgMod,
+		MDagModifier& dagMod,
+		MStatus* status = nullptr
+	);
+	static MObject createModule(
+		const RigModuleData& moduleData,
+		MObject rigRoot,
+		MObject parentModule,
+		MDGModifier& dgMod,
+		MDagModifier& dagMod
+	);
 };
 
 class FkChainNodeSetupCmd : public MPxCommand

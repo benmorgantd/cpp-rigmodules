@@ -1,13 +1,9 @@
 #pragma once
-
-#pragma warning(push)
-#pragma warning(disable: 26495) // Suppress Maya SDK static analysis warnings
 #include <maya/MPxTransform.h>
 #include <maya/MPxDrawOverride.h>
 #include <maya/MUserData.h>
 #include <maya/MColor.h>
 #include <maya/MTypeId.h>
-#pragma warning(pop)
 
 // Data payload passed to Viewport 2.0 draw thread
 // Read MPlugs in prepareForDraw, feed to this class, then read from it in addUIDrawables
@@ -64,6 +60,8 @@ public:
 
 private:
     bool m_drawIsDirty{ true };
+public:
+    static MObject createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName);
 };
 
 // Viewport 2.0 Draw Override
@@ -102,4 +100,20 @@ public:
         MHWRender::MUIDrawManager& drawManager,
         const MHWRender::MFrameContext& frameContext,
         const MUserData* data) override;
+};
+
+enum ShapeType : int
+{
+    Box = 0,
+    Sphere = 1,
+    Circle = 2,
+    Capsule = 3,
+    Triangle = 4,
+    Cylinder = 5,
+};
+
+class CustomShapes
+{
+public:
+    static const MPointArray& Triangle();
 };

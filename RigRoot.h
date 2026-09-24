@@ -28,4 +28,12 @@ public:
 	static MObject rigTemplateName;
 	static MObject assetRoot;
 	static MObject children;
+public:
+	static MObject createRigRoot(
+		const MString& name,
+		const MString& type,
+		int version,
+		const MString& templateName,
+		MObject oAssetRoot,
+		MDGModifier& dgMod);
 };

@@ -1,5 +1,6 @@
 // Internal dependencies
 #include "RigRoot.h"
+#include "AssetRoot.h"
 
 // Maya dependencies
 #include <maya/MFnNumericAttribute.h>
@@ -9,6 +10,7 @@
 #include <maya/MFnData.h>
 #include <maya/MFnNumericData.h>
 #include <maya/MPlug.h>
+#include <maya/MDGModifier.h>
 
 // Define the unique ID
 MTypeId RigRootNode::id(0x00218);
@@ -78,3 +80,47 @@ MStatus RigRootNode::compute(const MPlug& plug, MDataBlock& data)
 }
 
 // Public shared methods
+MObject RigRootNode::createRigRoot(
+    const MString& name,
+    const MString& type,
+    int version,
+    const MString& templateName,
+    MObject oAssetRoot,
+    MDGModifier& dgMod)
+{
+    // 1. Create the DG node (using a variable string for node type)
+    MString nodeTypeName = "rigRootNode";
+    MObject oRigRoot = dgMod.createNode(nodeTypeName);
+
+    // 2. Set string and numeric attributes
+    if (!name.isEmpty())
+    {
+        MPlug pRigName(oRigRoot, RigRootNode::rigName);
+        dgMod.newPlugValueString(pRigName, name);
+    }
+
+    if (!type.isEmpty())
+    {
+        MPlug pRigType(oRigRoot, RigRootNode::rigType);  // TODO: rigType enum should be what our AssetType enum currently is
+        dgMod.newPlugValueString(pRigType, type);
+    }
+
+    MPlug pRigVersion(oRigRoot, RigRootNode::rigVersion);
+    dgMod.newPlugValueInt(pRigVersion, version);
+
+    if (!templateName.isEmpty())
+    {
+        MPlug pTemplate(oRigRoot, RigRootNode::rigTemplateName);
+        dgMod.newPlugValueString(pTemplate, templateName);
+    }
+
+    // 3. Wire network plug: RigRootNode.assetRoot -> AssetRootNode
+    if (!oAssetRoot.isNull())
+    {
+        MPlug pAssetRootPlug(oRigRoot, RigRootNode::assetRoot);
+        MPlug pRigRootPlug(oAssetRoot, AssetRootNode::children);
+        dgMod.connect(pRigRootPlug, pAssetRootPlug);
+    }
+
+    return oRigRoot;
+}

@@ -1,6 +1,7 @@
 #include "RigModule.h"
 #include "RigControlNode.h"
-#include "Side.h"
+#include "RigJsonStructs.h"
+#include "FkChain.h"
 
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
@@ -90,6 +91,8 @@ MStatus RigModuleNodeBase::initializeBaseAttributes()
 	mAttr.setWorldSpace(true);
 	addAttribute(outputSocketMatrix);
 
+	// TODO: module type
+
 	// Side
 	// TODO: "callback" of sorts when aSide gets changed to also change the color of the controls.
 	aSide = eAttr.create("side", "sd", 0);
@@ -178,46 +181,29 @@ MObject RigModuleNodeBase::getParentModule(MObject& moduleNode)
 	return parentModule;
 }
 
-// Creates a rig control and wires it to the module
-MObject RigModuleNodeBase::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName)
+MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDGModifier& dgMod, const MObject& oModule)
 {
-	// Get module side
-	MPlug pSide(moduleNode, RigModuleNodeBase::aSide);
-	unsigned int sideInt = pSide.asInt();
-	Side sideEnum = getSideFromInt(sideInt);
-	const char* sideSuffix = getSideSuffix(sideEnum);
-	MColor sideColor = getColorFromSide(sideEnum);
+	MStatus status;
+	MFnDependencyNode rigRootFn(oRigRoot);
+	MPlug pRigModules = rigRootFn.findPlug("rm", false);  // TODO: also make this a reference
 
-	// Create and name the control transform
-	MObject controlTransform = dagMod.createNode("rigControlNode");
-
-
-	MString ctrlName = jointName;
-	ctrlName.substitute("_jnt", "");  // TODO: global var for jnt suffix
-	ctrlName += "_ctrl";  // TODO: global naming method, global var for ctrl suffix
-	ctrlName += sideSuffix;
-	dagMod.renameNode(controlTransform, ctrlName);
-
-	// Connect the control to the module node
-	MPlug pRigModule(controlTransform, RigControlNode::aRigModule);
-	MPlug pRigControls(moduleNode, RigModuleNodeBase::aRigControls);
-	if (!pRigModule.isNull() && !pRigControls.isNull())
+	if (pRigModules.isNull())
 	{
-		// Connect the attributes
-		dagMod.connect(pRigControls, pRigModule);
+		MGlobal::displayError("Failed to find rig modules plug on given rig root object.");
+		return MStatus::kFailure;
 	}
-	else
-	{
-		MGlobal::displayError("Unable to connect controls to module because plugs were null.");
-	}
-	
-	// TODO: set rig control side color based on module side attr.
-	MPlug controlColor(controlTransform, RigControlNode::aWireColor);
-	dagMod.newPlugValueFloat(controlColor.child(0), sideColor.r);
-	dagMod.newPlugValueFloat(controlColor.child(1), sideColor.g);
-	dagMod.newPlugValueFloat(controlColor.child(2), sideColor.b);
 
-	return controlTransform;
+	MFnDependencyNode moduleFn(oModule);
+	MPlug pRigRoot(oModule, RigModuleNodeBase::rigRoot);
+
+	if (pRigRoot.isNull())
+	{
+		MGlobal::displayError("Failed to find rigRoot plug on the module object.");
+		return MStatus::kFailure;
+	}
+
+	status = dgMod.connect(pRigModules, pRigRoot);
+	return status;
 }
 
 // RigModuleCommandHelpers ------------------------------------------------
@@ -243,6 +229,30 @@ MString RigModuleCommandHelpers::getModuleNameFromArgs(const MArgDatabase& argDa
 	}
 
 	return moduleName;
+}
+
+MObject RigModuleCommandHelpers::getRigRootFromArgs(const MArgDatabase& argData)
+{
+	MString rigRootName;
+	MObject oRigRoot;
+	MStatus status;
+
+	if (argData.isFlagSet(kRigRootShort))
+	{
+		status = argData.getFlagArgument(kRigRootShort, 0, rigRootName);
+
+		if (status == MStatus::kSuccess && !rigRootName.isEmpty())
+		{
+			MSelectionList sel;
+			status = sel.add(rigRootName);
+
+			if (status == MStatus::kSuccess)
+			{
+				status = sel.getDependNode(0, oRigRoot);
+			}
+		}
+	}
+	return oRigRoot;
 }
 
 MDagPathArray RigModuleCommandHelpers::getJointsFromArgs(const MArgDatabase& argData, MStatus& status)
@@ -297,7 +307,7 @@ MStatus RigModuleCommandHelpers::connectModuleToRigRoot(const MArgDatabase& argD
 {
 	MStatus status;
 	MString rigRootName;
-	MObject rigRoot;
+	MObject oRigRoot;
 
 	if (argData.isFlagSet(kRigRootShort))
 	{
@@ -305,35 +315,16 @@ MStatus RigModuleCommandHelpers::connectModuleToRigRoot(const MArgDatabase& argD
 
 		MSelectionList rigRootSelList;
 		status = rigRootSelList.add(rigRootName);
-		rigRootSelList.getDependNode(0, rigRoot);
+		rigRootSelList.getDependNode(0, oRigRoot);
 
-		if (!status || rigRoot.isNull())
+		if (!status || oRigRoot.isNull())
 		{
 			MGlobal::displayError("Rig Root name " + rigRootName + " does not exist.");
 			return MStatus::kFailure;
 		}
 	}
 
-	MFnDependencyNode rigRootFn(rigRoot);
-	MPlug pRigModules = rigRootFn.findPlug("rm", false);  // TODO: also make this a reference
-
-	if (pRigModules.isNull())
-	{
-		MGlobal::displayError("Failed to find rig modules plug on given rig root object.");
-		return MStatus::kFailure;
-	}
-
-	MFnDependencyNode moduleFn(moduleNode);
-	MPlug pRigRoot = moduleFn.findPlug("rigRoot", false);
-
-	if (pRigRoot.isNull())
-	{
-		MGlobal::displayError("Failed to find rigRoot plug on the module object.");
-		return MStatus::kFailure;
-	}
-
-	status = dgMod.connect(pRigModules, pRigRoot);
-	return status;
+	RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, moduleNode);
 }
 
 MSyntax RigModuleCommandHelpers::createBaseModuleSyntax(MStatus& status)
@@ -417,4 +408,47 @@ MStatus RigModuleCommandHelpers::connectToParentModule(const MObject& oParentMod
 	parentModuleOffset.setValue(parentModuleOffsetObj);
 
 	return MStatus::kSuccess;
+}
+
+// Recursive rig module builder method! ------------------------------------------
+void RigModuleNodeBase::buildModuleRecursive(
+	const RigModuleData& moduleData,
+	MObject oRigRoot,
+	MObject oParentModule,
+	MDGModifier& dgMod,
+	MDagModifier& dagMod)
+{
+	MObject oCurrentModule = MObject::kNullObj;
+
+	// 1. Branching creation logic based on moduleType
+	if (moduleData.moduleType == "FkChain")
+	{
+		// Call the static creation method for FkChain
+		oCurrentModule = FkChainNode::createModule(
+			moduleData,
+			oRigRoot,
+			oParentModule,
+			dgMod,
+			dagMod
+		);
+	}
+	// Future module types (e.g., IkChain, SplineRibbon) branch here...
+	else
+	{
+		MGlobal::displayError(MString("Unknown module type: ") + moduleData.moduleType.c_str());
+		return;
+	}
+
+	if (oCurrentModule.isNull())
+	{
+		MGlobal::displayError(MString("Failed to instantiate module: ") + moduleData.name.c_str());
+		return;
+	}
+
+	// 2. Recursively create all nested child modules
+	for (const RigModuleData& childData : moduleData.children)
+	{
+		// Pass oCurrentModule down as the parent for the child!
+		buildModuleRecursive(childData, oRigRoot, oCurrentModule, dgMod, dagMod);
+	}
 }

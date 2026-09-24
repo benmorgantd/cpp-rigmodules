@@ -1,5 +1,6 @@
 #include "FkChain.h"
 #include "RigControlNode.h"
+#include "RigJsonStructs.h"
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnDependencyNode.h>
@@ -186,6 +187,182 @@ MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 	return MStatus::kUnknownParameter;
 }
 
+MObject FkChainNode::createModule(
+	const MString& moduleName,
+	const MDagPathArray& jointDags,
+	MObject oParentModule,
+	unsigned int parentModuleSocketIndex,
+	MObject oRigRoot,
+	MDGModifier& dgMod,
+	MDagModifier& dagMod,
+	MStatus* status)
+{
+	MStatus localStat;
+
+	// 1. Create the FkChainModule node
+	MObject oModule = dgMod.createNode("fkChainModule");
+	dgMod.renameNode(oModule, moduleName);
+
+	// Get module plugs
+	MFnDependencyNode moduleFn(oModule);
+	MPlug inputRestMatrix(oModule, FkChainNode::inputRestMatrix);
+	MPlug controlMatrix(oModule, FkChainNode::controlMatrix);
+	// TODO: use this style for other findPlug calls.
+	MPlug outputControlOPM = moduleFn.findPlug("outputControlOffsetParentMatrix", false);
+	MPlug outputJointOPM = moduleFn.findPlug("outputJointOffsetParentMatrix", false);
+
+	MObject previousControlTransform = MObject::kNullObj;
+	MMatrix mFirstControlWorld = MMatrix::identity;
+	unsigned int numJoints = jointDags.length();
+
+	for (unsigned int i = 0; i < numJoints; ++i)
+	{
+		MDagPath jointDag = jointDags[i];
+
+		MFnDagNode jointFnDag(jointDag);
+		MPlug jointOpmPlug = jointFnDag.findPlug("offsetParentMatrix", false);
+		MPlug jointParentInvMatPlug = jointFnDag.findPlug("parentInverseMatrix", false);
+		MMatrix mJointWorld = jointDag.inclusiveMatrix();
+
+		// Fetch parent inverse matrix value
+		MObject parentInvObj;
+		jointParentInvMatPlug.elementByLogicalIndex(0).getValue(parentInvObj);
+		MFnMatrixData parentInvData(parentInvObj);
+		MMatrix mJointParentInv = parentInvData.matrix();
+
+		// Bake joint transforms to offsetParentMatrix
+		MMatrix jointOffsetParentMatrix = mJointWorld * mJointParentInv;
+		MFnMatrixData matrixData;
+		MObject opmMatrixDataObject = matrixData.create(jointOffsetParentMatrix);
+		jointOpmPlug.setValue(opmMatrixDataObject);
+
+		// Zero the joint's local transforms
+		MFnTransform jointFnTrans(jointDag);
+		jointFnTrans.set(MTransformationMatrix::identity);
+
+		// Set rest matrix on module
+		MPlug inputRestPlug = inputRestMatrix.elementByLogicalIndex(i);
+		inputRestPlug.setValue(opmMatrixDataObject);
+
+		// Create control transform[cite: 1]
+		MObject controlTransform = RigControlNode::createRigControl(oModule, dagMod, jointDag.partialPathName());
+
+		// Hierarchy parenting
+		if (previousControlTransform != MObject::kNullObj)
+		{
+			dagMod.reparentNode(controlTransform, previousControlTransform);
+		}
+		dagMod.doIt();
+		previousControlTransform = controlTransform;
+
+		// Matrix wiring
+		MFnDependencyNode controlMFn(controlTransform);
+		MPlug controlMatrixPlug = controlMFn.findPlug("matrix", false);
+		MPlug controlOpmPlug = controlMFn.findPlug("offsetParentMatrix", false);
+
+		dgMod.connect(controlMatrixPlug, controlMatrix.elementByLogicalIndex(i));
+		dgMod.connect(outputControlOPM.elementByLogicalIndex(i), controlOpmPlug);
+		dgMod.connect(outputJointOPM.elementByLogicalIndex(i), jointOpmPlug);
+
+		if (i == 0)
+		{
+			dgMod.doIt();
+			MSelectionList sel;
+			sel.add(controlTransform);
+			MDagPath firstControlDag;
+			sel.getDagPath(0, firstControlDag);
+			mFirstControlWorld = firstControlDag.inclusiveMatrix();
+		}
+	}
+
+	// 2. Wire parent module socket connection
+	if (!oParentModule.isNull())
+	{
+		localStat = RigModuleCommandHelpers::connectToParentModule(oParentModule, oModule, parentModuleSocketIndex, dgMod, mFirstControlWorld);
+		if (!localStat)
+		{
+			MGlobal::displayError("Failed to connect module to parent.");
+			if (status) *status = localStat;
+			return MObject::kNullObj;
+		}
+	}
+
+	// 3. Wire module to rig root
+	if (!oRigRoot.isNull())
+	{
+		// TODO: we need to refactor this to pass in the rig root name
+		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oModule);
+	}
+
+	if (status) *status = MS::kSuccess;
+	return oModule;
+}
+
+
+MObject FkChainNode::createModule(
+	const RigModuleData& moduleData,
+	MObject rigRoot,
+	MObject parentModule,
+	MDGModifier& dgMod,
+	MDagModifier& dagMod
+)
+{
+	MStatus status;
+
+	// 1. Resolve string joint names from RigModuleData into MDagPath instances
+	MDagPathArray jointDags;
+	for (const std::string& jointName : moduleData.joints)
+	{
+		MSelectionList selList;
+		status = selList.add(jointName.c_str());
+		if (status && selList.length() > 0)
+		{
+			MDagPath jointDag;
+			status = selList.getDagPath(0, jointDag);
+			if (status)
+			{
+				jointDags.append(jointDag);
+			}
+			else
+			{
+				MGlobal::displayError(MString("Failed to retrieve MDagPath for joint: ") + jointName.c_str());
+			}
+		}
+		else
+		{
+			MGlobal::displayError(MString("Could not find joint in scene: ") + jointName.c_str());
+		}
+	}
+
+	// 2. Safely cast parent socket index
+	unsigned int socketIndex = 0;
+	if (moduleData.parentSocketIndex >= 0)
+	{
+		socketIndex = static_cast<unsigned int>(moduleData.parentSocketIndex);
+	}
+
+	// 3. Delegate to the flattened arguments overload
+	MStatus executionStatus;
+	MObject oModule = FkChainNode::createModule(
+		moduleData.name.c_str(),
+		jointDags,
+		parentModule,
+		socketIndex,
+		rigRoot,
+		dgMod,
+		dagMod,
+		&executionStatus
+	);
+
+	if (!executionStatus)
+	{
+		MGlobal::displayError(MString("Failed to build FkChain module: ") + moduleData.name.c_str());
+		return MObject::kNullObj;
+	}
+
+	return oModule;
+}
+
 // ------------------------------------------------------------------
 // FkChainNode Commands
 // ------------------------------------------------------------------
@@ -216,135 +393,179 @@ MSyntax FkChainNodeSetupCmd::newSyntax()
 }
 
 // Runs the command logic
+// TODO: make the "brains" of this the createModule method.
 MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
 {
-	// TODO: we want to separate the arg gathering part of doIt() from the action part of it
-	// This will allow us to call the "setup" command for a module from cpp without passing in command syntax.
-	// That will allow for more top-down, all in cpp command actions! :D
-	// Arg Gathering --------------------------------------------
 	MStatus status;
 	MArgDatabase argData(newSyntax(), args, &status);
+	if (!status)
+	{
+		return status;
+	}
 
 	MDGModifier dgMod;
 	MDagModifier dagMod;
 
-	// Gather the passed in joint names
+	// Arg Gathering --------------------------------------------
 	MDagPathArray jointDags = RigModuleCommandHelpers::getJointsFromArgs(argData, status);
 	MObject oParentModule = RigModuleCommandHelpers::getParentModule(argData);
-
-	// NOTE: The socket index defaults to 0 for convenience.
 	unsigned int parentModuleSocketIndex = RigModuleCommandHelpers::getParentModuleSocketIndex(argData);
-
-	// Shared command actions which read the args and do things  -------------
-
-	// TODO: run a shared RigModule method here which will do base-level shared functions.
 	MString moduleName = RigModuleCommandHelpers::getModuleNameFromArgs(argData);
+	MObject oRigRoot = RigModuleCommandHelpers::getRigRootFromArgs(argData);
 
-	// Create the FkChainModule node
-	MObject oModule = dgMod.createNode("fkChainModule");
-	dgMod.renameNode(oModule, moduleName);
+	// Command Action -------------------------------------------
+	MObject oModule = FkChainNode::createModule(
+		moduleName,
+		jointDags,
+		oParentModule,
+		parentModuleSocketIndex,
+		oRigRoot,
+		dgMod,
+		dagMod,
+		&status
+	);
 
-	// Command Action --------------------------------------------------------
-
-	// Get module plugs
-	MFnDependencyNode moduleFn(oModule);
-	MPlug inputRestMatrix = moduleFn.findPlug("inputRestMatrix", false);
-	MPlug controlMatrix = moduleFn.findPlug("controlMatrix", false);
-	MPlug outputControlOPM = moduleFn.findPlug("outputControlOffsetParentMatrix", false);
-	MPlug outputJointOPM = moduleFn.findPlug("outputJointOffsetParentMatrix", false);
-	
-	MObject previousControlTransform = MObject::kNullObj;
-	MMatrix mFirstControlWorld = MMatrix::identity;
-	unsigned int numJoints = jointDags.length();
-
-	for (unsigned int i = 0; i < numJoints; ++i)
+	if (!status || oModule.isNull())
 	{
-		// Bake the joint's transforms to its offset parent matrix (jointOPM = parentInverseMatrix * worldMatrix)
-		// Get the joint's dag path and confirm it exists
-		MDagPath jointDag = jointDags[i];
-
-		MFnDagNode jointFnDag(jointDag);
-		MPlug jointOpmPlug = jointFnDag.findPlug("offsetParentMatrix", false);
-		MPlug jointParentInvMatPlug = jointFnDag.findPlug("parentInverseMatrix", false);
-		MMatrix mJointWorld = jointDag.inclusiveMatrix();
-
-		// Fetch the parent inverse matrix value
-		MObject parentInvObj;
-		jointParentInvMatPlug.elementByLogicalIndex(0).getValue(parentInvObj);
-		MFnMatrixData parentInvData(parentInvObj);
-		MMatrix mJointParentInv = parentInvData.matrix();
-
-		// Set the joint's offset parent matrix to the parent inverse * the world
-		MMatrix jointOffsetParentMatrix = mJointWorld * mJointParentInv;
-		MFnMatrixData matrixData;
-		MObject opmMatrixDataObject = matrixData.create(jointOffsetParentMatrix);
-		jointOpmPlug.setValue(opmMatrixDataObject);
-
-		// Zero the joint's transforms (its transforms are now baked into its offset parent matrix)
-		MFnTransform jointFnTrans(jointDag);
-		jointFnTrans.set(MTransformationMatrix::identity);
-
-		// Set the input rest matrix to the joint's OPM value
-		MPlug inputRestPlug = inputRestMatrix.elementByLogicalIndex(i);
-		inputRestPlug.setValue(opmMatrixDataObject);
-
-		// Create the control transform
-		MObject controlTransform = RigModuleNodeBase::createRigControl(oModule, dagMod, jointDag.partialPathName());
-
-		// Parent the control transform to the previous parent if there is one
-		if (previousControlTransform != MObject::kNullObj)
-		{
-			dagMod.reparentNode(controlTransform, previousControlTransform);
-		}
-		dagMod.doIt();
-		previousControlTransform = controlTransform;
-
-		// Get the control's matrix plugs
-		MFnDependencyNode controlMFn(controlTransform);
-		MPlug controlMatrixPlug = controlMFn.findPlug("matrix", false);
-		MPlug controlOpmPlug = controlMFn.findPlug("offsetParentMatrix", false);
-
-		// Connect the control's matrix to the module's controlMatrix input at this index
-		dgMod.connect(controlMatrixPlug, controlMatrix.elementByLogicalIndex(i));
-		// Connect the output control opm to the control opm
-		dgMod.connect(outputControlOPM.elementByLogicalIndex(i), controlOpmPlug);
-		// Connect the output joint opm to the joint opm
-		dgMod.connect(outputJointOPM.elementByLogicalIndex(i), jointOpmPlug);
-
-		if (i == 0)
-		{
-			dgMod.doIt();
-			MSelectionList sel;
-			sel.add(controlTransform);
-			MDagPath firstControlDag;
-			sel.getDagPath(0, firstControlDag);
-			mFirstControlWorld = firstControlDag.inclusiveMatrix();
-		}
+		return status;
 	}
-
-	// Wire parent to the module and maintain offset
-	// TODO: move to shared method
-	if (!oParentModule.isNull())
-	{
-		status = RigModuleCommandHelpers::connectToParentModule(oParentModule, oModule, parentModuleSocketIndex, dgMod, mFirstControlWorld);
-
-		if (!status)
-		{
-			MGlobal::displayError("Failed to connect module to parent.");
-			return status;
-		}
-	}
-	
-	// Wire this module to the rig root
-	RigModuleCommandHelpers::connectModuleToRigRoot(argData, dgMod, oModule);
 
 	status = dgMod.doIt();
+	status = dagMod.doIt();
 
-	// Set command return value (we may need to define MResultType)
-	MString finalModuleName = moduleFn.name();
+	// Set command return value
+	MFnDependencyNode moduleFn(oModule);
 	MStringArray result;
-	result.append(finalModuleName);
+	result.append(moduleFn.name());
 	setResult(result);
 
 	return status;
 }
+//MStatus FkChainNodeSetupCmd::doIt(const MArgList& args)
+//{
+//	// TODO: we want to separate the arg gathering part of doIt() from the action part of it
+//	// This will allow us to call the "setup" command for a module from cpp without passing in command syntax.
+//	// That will allow for more top-down, all in cpp command actions! :D
+//	// Arg Gathering --------------------------------------------
+//	MStatus status;
+//	MArgDatabase argData(newSyntax(), args, &status);
+//
+//	MDGModifier dgMod;
+//	MDagModifier dagMod;
+//
+//	// Gather the passed in joint names
+//	MDagPathArray jointDags = RigModuleCommandHelpers::getJointsFromArgs(argData, status);
+//	MObject oParentModule = RigModuleCommandHelpers::getParentModule(argData);
+//
+//	// NOTE: The socket index defaults to 0 for convenience.
+//	unsigned int parentModuleSocketIndex = RigModuleCommandHelpers::getParentModuleSocketIndex(argData);
+//
+//	// TODO: run a shared RigModule method here which will do base-level shared functions.
+//	MString moduleName = RigModuleCommandHelpers::getModuleNameFromArgs(argData);
+//
+//	// Create the FkChainModule node
+//	MObject oModule = dgMod.createNode("fkChainModule");
+//	dgMod.renameNode(oModule, moduleName);
+//
+//	// Command Action --------------------------------------------------------
+//
+//	// Get module plugs
+//	MFnDependencyNode moduleFn(oModule);
+//	MPlug inputRestMatrix = moduleFn.findPlug("inputRestMatrix", false);
+//	MPlug controlMatrix = moduleFn.findPlug("controlMatrix", false);
+//	MPlug outputControlOPM = moduleFn.findPlug("outputControlOffsetParentMatrix", false);
+//	MPlug outputJointOPM = moduleFn.findPlug("outputJointOffsetParentMatrix", false);
+//	
+//	MObject previousControlTransform = MObject::kNullObj;
+//	MMatrix mFirstControlWorld = MMatrix::identity;
+//	unsigned int numJoints = jointDags.length();
+//
+//	for (unsigned int i = 0; i < numJoints; ++i)
+//	{
+//		// Bake the joint's transforms to its offset parent matrix (jointOPM = parentInverseMatrix * worldMatrix)
+//		// Get the joint's dag path and confirm it exists
+//		MDagPath jointDag = jointDags[i];
+//
+//		MFnDagNode jointFnDag(jointDag);
+//		MPlug jointOpmPlug = jointFnDag.findPlug("offsetParentMatrix", false);
+//		MPlug jointParentInvMatPlug = jointFnDag.findPlug("parentInverseMatrix", false);
+//		MMatrix mJointWorld = jointDag.inclusiveMatrix();
+//
+//		// Fetch the parent inverse matrix value
+//		MObject parentInvObj;
+//		jointParentInvMatPlug.elementByLogicalIndex(0).getValue(parentInvObj);
+//		MFnMatrixData parentInvData(parentInvObj);
+//		MMatrix mJointParentInv = parentInvData.matrix();
+//
+//		// Set the joint's offset parent matrix to the parent inverse * the world
+//		MMatrix jointOffsetParentMatrix = mJointWorld * mJointParentInv;
+//		MFnMatrixData matrixData;
+//		MObject opmMatrixDataObject = matrixData.create(jointOffsetParentMatrix);
+//		jointOpmPlug.setValue(opmMatrixDataObject);
+//
+//		// Zero the joint's transforms (its transforms are now baked into its offset parent matrix)
+//		MFnTransform jointFnTrans(jointDag);
+//		jointFnTrans.set(MTransformationMatrix::identity);
+//
+//		// Set the input rest matrix to the joint's OPM value
+//		MPlug inputRestPlug = inputRestMatrix.elementByLogicalIndex(i);
+//		inputRestPlug.setValue(opmMatrixDataObject);
+//
+//		// Create the control transform
+//		MObject controlTransform = RigControlNode::createRigControl(oModule, dagMod, jointDag.partialPathName());
+//
+//		// Parent the control transform to the previous parent if there is one
+//		if (previousControlTransform != MObject::kNullObj)
+//		{
+//			dagMod.reparentNode(controlTransform, previousControlTransform);
+//		}
+//		dagMod.doIt();
+//		previousControlTransform = controlTransform;
+//
+//		// Get the control's matrix plugs
+//		MFnDependencyNode controlMFn(controlTransform);
+//		MPlug controlMatrixPlug = controlMFn.findPlug("matrix", false);
+//		MPlug controlOpmPlug = controlMFn.findPlug("offsetParentMatrix", false);
+//
+//		// Connect the control's matrix to the module's controlMatrix input at this index
+//		dgMod.connect(controlMatrixPlug, controlMatrix.elementByLogicalIndex(i));
+//		// Connect the output control opm to the control opm
+//		dgMod.connect(outputControlOPM.elementByLogicalIndex(i), controlOpmPlug);
+//		// Connect the output joint opm to the joint opm
+//		dgMod.connect(outputJointOPM.elementByLogicalIndex(i), jointOpmPlug);
+//
+//		if (i == 0)
+//		{
+//			dgMod.doIt();
+//			MSelectionList sel;
+//			sel.add(controlTransform);
+//			MDagPath firstControlDag;
+//			sel.getDagPath(0, firstControlDag);
+//			mFirstControlWorld = firstControlDag.inclusiveMatrix();
+//		}
+//	}
+//
+//	// Wire parent to the module and maintain offset
+//	if (!oParentModule.isNull())
+//	{
+//		status = RigModuleCommandHelpers::connectToParentModule(oParentModule, oModule, parentModuleSocketIndex, dgMod, mFirstControlWorld);
+//		if (!status)
+//		{
+//			MGlobal::displayError("Failed to connect module to parent.");
+//			return status;
+//		}
+//	}
+//	
+//	// Wire this module to the rig root
+//	RigModuleCommandHelpers::connectModuleToRigRoot(argData, dgMod, oModule);
+//
+//	status = dgMod.doIt();
+//
+//	// Set command return value (we may need to define MResultType)
+//	MString finalModuleName = moduleFn.name();
+//	MStringArray result;
+//	result.append(finalModuleName);
+//	setResult(result);
+//
+//	return status;
+//}

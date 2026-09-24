@@ -1,6 +1,8 @@
 #pragma once
+#include "RigJsonStructs.h"
 
 #include <maya/MPxNode.h>
+
 
 class RigModuleNodeBase : public MPxNode
 {
@@ -24,9 +26,6 @@ public:
 	// Networking functionality
 	static MObjectArray getChildModules(MObject& moduleNode);
 	static MObject getParentModule(MObject& moduleNode);
-	// Control creation
-	static MObject createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName);
-
 public:
 	// Base Metadata Attributes
 	static MObject moduleData;          // JSON string payload for custom module serialization
@@ -44,6 +43,11 @@ public:
 
 	// Enum attributes
 	static MObject aSide;               // Stores the side for the module. All controls of this module will have this side.
+
+public:
+	// Shared methods
+	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDGModifier& dgMod, const MObject& oModule);
+	static void buildModuleRecursive(const RigModuleData& moduleData, MObject oRigRoot, MObject oParentModule, MDGModifier& dgMod, MDagModifier& dagMod);
 };
 
 class RigModuleCommandHelpers
@@ -53,6 +57,7 @@ public:
 	// Helper methods
 	static MString getModuleNameFromArgs(const MArgDatabase& argData);
 	static MDagPathArray getJointsFromArgs(const MArgDatabase& argData, MStatus& status);
+	static MObject getRigRootFromArgs(const MArgDatabase& argData);
 	static MStatus connectModuleToRigRoot(const MArgDatabase& argData, MDGModifier& dgMod, const MObject& moduleNode);
 	static MSyntax createBaseModuleSyntax(MStatus& status);
 	static unsigned int getParentModuleSocketIndex(const MArgDatabase& argData);

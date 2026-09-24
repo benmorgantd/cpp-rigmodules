@@ -6,6 +6,7 @@
 // Include headers for all custom nodes
 #include "RigRoot.h"
 #include "AssetRoot.h"
+#include "LayoutModule.h"
 #include "SingleJointFK.h"
 #include "FkChain.h"
 #include "RigControlNode.h"
@@ -35,6 +36,9 @@ MStatus initializePlugin(MObject obj)
 	}
 
 	// -- RIG MODULE NODES --
+	// LayoutModule
+	status = plugin.registerNode(LayoutModuleNode::commandString, LayoutModuleNode::id, LayoutModuleNode::creator, LayoutModuleNode::initialize);
+
 	// SingleJointFK
 	status = plugin.registerNode(SingleJointFKNode::commandString, SingleJointFKNode::id, SingleJointFKNode::creator, SingleJointFKNode::initialize);
 	if (!status)
@@ -65,11 +69,16 @@ MStatus initializePlugin(MObject obj)
 	);
 
 	// -- REGISTER COMMANDS --
+	status = plugin.registerCommand(LayoutModuleSetupCmd::commandString, LayoutModuleSetupCmd::creator, LayoutModuleSetupCmd::newSyntax);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
 	status = plugin.registerCommand(SingleJointFKCmd::commandString, SingleJointFKCmd::creator, SingleJointFKCmd::newSyntax);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = plugin.registerCommand(FkChainNodeSetupCmd::commandString, FkChainNodeSetupCmd::creator, FkChainNodeSetupCmd::newSyntax);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.registerCommand(CreateRigCmd::commandString, CreateRigCmd::creator, CreateRigCmd::newSyntax);
 
 	return status;
 }
@@ -95,6 +104,9 @@ MStatus uninitializePlugin(MObject obj)
 		finalStatus = status;
 	}
 
+	status = plugin.deregisterNode(LayoutModuleNode::id);
+
+
 	status = plugin.deregisterNode(SingleJointFKNode::id);
 	if (!status)
 	{
@@ -116,8 +128,10 @@ MStatus uninitializePlugin(MObject obj)
 	);
 	status = plugin.deregisterNode(RigControlNode::id);
 
+	status = plugin.deregisterCommand(LayoutModuleSetupCmd::commandString);
 	status = plugin.deregisterCommand(SingleJointFKCmd::commandString);
 	status = plugin.deregisterCommand(FkChainNodeSetupCmd::commandString);
+	status = plugin.deregisterCommand(CreateRigCmd::commandString);
 
 	return finalStatus;
 }

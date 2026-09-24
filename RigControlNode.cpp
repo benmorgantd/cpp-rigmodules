@@ -1,4 +1,5 @@
 #include "RigControlNode.h"
+#include "RigModule.h"
 #include "Side.h"
 
 #include <maya/MFnEnumAttribute.h>
@@ -8,6 +9,23 @@
 #include <maya/MUIDrawManager.h>
 #include <maya/MHWGeometryUtilities.h>
 #include <maya/MFnMessageAttribute.h>
+#include <maya/MDagModifier.h>
+#include <maya/MGlobal.h>
+
+const MPointArray& CustomShapes::Triangle()
+{
+    // Lives for the duration of the Maya session.
+    static const MPointArray points = []() 
+    {
+        MPointArray pArray;
+        pArray.append(0.0, 1.0, 0.0);
+        pArray.append(-1.0, -1.0, 0.0);
+        pArray.append(1.0, -1.0, 0.0);
+        pArray.append(0.0, 1.0, 0.0);
+        return pArray;
+    }();
+    return points;
+}
 
 MTypeId RigControlNode::id(0x0013B5C0);
 MString RigControlNode::drawDbClassification("drawdb/geometry/rigControlNode");
@@ -75,6 +93,8 @@ MStatus RigControlNode::initialize() {
     eAttr.addField("Sphere", 1);
     eAttr.addField("Circle", 2);
     eAttr.addField("Capsule", 3);
+    eAttr.addField("Triangle", 4);
+    eAttr.addField("Cylinder", 5);
     eAttr.setKeyable(false);
     eAttr.setStorable(true);
     addAttribute(aShapeType);
@@ -271,17 +291,23 @@ void RigControlDrawOverride::addUIDrawables(
     bool filled = false;
 
     switch (controlDrawData->shapeType) {
-    case 0: // Box / Cube (Center, Up, Normal, ScaleX, ScaleY, ScaleZ)
+    case ShapeType::Box: // Box / Cube (Center, Up, Normal, ScaleX, ScaleY, ScaleZ)
         drawManager.box(center, up, normal, controlDrawData->width, controlDrawData->height, controlDrawData->depth, filled);
         break;
-    case 1: // Sphere (Center, Radius)
+    case ShapeType::Sphere: // Sphere (Center, Radius)
         drawManager.sphere(center, controlDrawData->width, filled);
         break;
-    case 2: // Circle (Center, Normal, Radius)
+    case ShapeType::Circle: // Circle (Center, Normal, Radius)
         drawManager.circle(center, normal, controlDrawData->width, filled);
         break;
-    case 3: // Capsule (Center, Up, Radius, Height, Subdivisions Width, Subdivisions Height, filled)
+    case ShapeType::Capsule: // Capsule (Center, Up, Radius, Height, Subdivisions Width, Subdivisions Height, filled)
         drawManager.capsule(center, up, controlDrawData->width, controlDrawData->height, 6, 6, filled);
+        break;
+    case ShapeType::Triangle:
+        drawManager.lineStrip(CustomShapes::Triangle(), false);  // todo: center offset, up vector, control over width and height
+        break;
+    case ShapeType::Cylinder:
+        drawManager.cylinder(center, up, controlDrawData->width, controlDrawData->height, 2, filled);
         break;
     default: // Default is Box / Cube
         drawManager.box(center, up, normal, controlDrawData->width, controlDrawData->height, controlDrawData->depth, filled);
@@ -291,4 +317,45 @@ void RigControlDrawOverride::addUIDrawables(
     drawManager.endDrawable();
 }
 
-// TODO: Method for wiring a control node to a module.
+// Creates a rig control and wires it to the module
+MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName)
+{
+    // Get module side
+    MPlug pSide(moduleNode, RigModuleNodeBase::aSide);
+    unsigned int sideInt = pSide.asInt();
+    Side sideEnum = getSideFromInt(sideInt);
+    const char* sideSuffix = getSideSuffix(sideEnum);
+    MColor sideColor = getColorFromSide(sideEnum);
+
+    // Create and name the control transform
+    MObject controlTransform = dagMod.createNode("rigControlNode");
+
+
+    MString ctrlName = jointName;
+    ctrlName.substitute("_jnt", "");  // TODO: global var for jnt suffix
+    ctrlName += "_ctrl";  // TODO: global naming method, global var for ctrl suffix
+    ctrlName += sideSuffix;
+    dagMod.renameNode(controlTransform, ctrlName);
+
+    // Connect the control to the module node
+    MPlug pRigModule(controlTransform, RigControlNode::aRigModule);
+    MPlug pRigControls(moduleNode, RigModuleNodeBase::aRigControls);
+
+    if (!pRigModule.isNull() && !pRigControls.isNull())
+    {
+        // Connect the attributes
+        dagMod.connect(pRigControls, pRigModule);
+    }
+    else
+    {
+        MGlobal::displayError("Unable to connect controls to module because plugs were null.");
+    }
+
+    // TODO: set rig control side color based on module side attr.
+    MPlug controlColor(controlTransform, RigControlNode::aWireColor);
+    dagMod.newPlugValueFloat(controlColor.child(0), sideColor.r);
+    dagMod.newPlugValueFloat(controlColor.child(1), sideColor.g);
+    dagMod.newPlugValueFloat(controlColor.child(2), sideColor.b);
+
+    return controlTransform;
+}
