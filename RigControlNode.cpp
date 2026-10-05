@@ -1,9 +1,9 @@
 #include "RigControlNode.h"
-#include "RigModule.h"
 #include "Side.h"
 
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnNumericAttribute.h>
+#include <maya/MFnMatrixAttribute.h>
 #include <maya/MPlug.h>
 #include <maya/MVector.h>
 #include <maya/MUIDrawManager.h>
@@ -11,6 +11,7 @@
 #include <maya/MFnMessageAttribute.h>
 #include <maya/MDagModifier.h>
 #include <maya/MGlobal.h>
+#include <maya/MFnMatrixData.h>
 
 const MPointArray& CustomShapes::Triangle()
 {
@@ -18,13 +19,28 @@ const MPointArray& CustomShapes::Triangle()
     static const MPointArray points = []() 
     {
         MPointArray pArray;
-        pArray.append(0.0, 1.0, 0.0);
-        pArray.append(-1.0, -1.0, 0.0);
-        pArray.append(1.0, -1.0, 0.0);
-        pArray.append(0.0, 1.0, 0.0);
+        pArray.append(0.0, 0.0, 1.0);
+        pArray.append(-1.0, 0.0, -1.0);
+        pArray.append(1.0, 0.0, -1.0);
+        pArray.append(0.0, 0.0, 1.0);
         return pArray;
     }();
     return points;
+}
+
+MPointArray CustomShapes::transformPointArray(const MPointArray& points, const MMatrix& matrix)
+{
+    MPointArray outputPoints;
+    const unsigned int count = points.length();
+    outputPoints.setLength(count);
+
+    for (unsigned int i = 0; i < count; ++i)
+    {
+        // Row-major post-multiplication in Maya C++ API
+        outputPoints[i] = points[i] * matrix;
+    }
+
+    return outputPoints;
 }
 
 MTypeId RigControlNode::id(0x0013B5C0);
@@ -34,13 +50,9 @@ MString RigControlNode::drawRegistrantId("RigControlNodePlugin");
 MObject RigControlNode::aShapeType;
 MObject RigControlNode::aWireColor;
 MObject RigControlNode::aWireAlpha;
-MObject RigControlNode::aCenterOffset;
-MObject RigControlNode::aNormalVector;
-MObject RigControlNode::aUpVector;
-MObject RigControlNode::aWidth;
-MObject RigControlNode::aHeight;
-MObject RigControlNode::aDepth;
+MObject RigControlNode::aShapeTransform;
 MObject RigControlNode::aRigModule;
+MObject RigControlNode::aFilled;
 
 RigControlNode::RigControlNode() 
     : m_drawIsDirty(true)
@@ -56,30 +68,18 @@ MStatus RigControlNode::setDependentsDirty(const MPlug& plugBeingDirtied, MPlugA
 {
     // Check if the plug being dirtied matches any visual, transform, or matrix attributes
     MObject attr = plugBeingDirtied.attribute();
+    MObject parentAttr = plugBeingDirtied.parent().attribute();
 
     // use this block for simple attributes that have no children (aren't vectors or colors)
-    if (attr == aShapeType ||
-        attr == aWidth ||
-        attr == aHeight ||
-        attr == aDepth)
+    if (attr == aShapeType || attr == aShapeTransform || attr == aWireAlpha ||
+        attr == aWireColor || parentAttr == aWireColor || attr == aFilled)
     {
         setDrawDirty(); // Flag for Viewport 2.0 MPxDrawOverride
+        // Importantly, set this to be dirty so that the viewport redraws while we're changing attributes.
+        MHWRender::MRenderer::setGeometryDrawDirty(thisMObject());
     }
-    else
-    {
-        // Use this block for all attributes that have children, as child plugs will have to use this to be seen as dirty.
-        MObject parentAttr = plugBeingDirtied.parent().attribute();
-
-        if (attr == aCenterOffset || parentAttr == aCenterOffset ||
-            attr == aNormalVector || parentAttr == aNormalVector ||
-            attr == aUpVector || parentAttr == aUpVector ||
-            attr == aWireColor || parentAttr == aWireColor)
-        {
-            setDrawDirty();
-        }
-    }
-
-    // Call base class MPxTransform implementation (CRITICAL)
+ 
+    // Call base class MPxTransform implementation
     return MPxTransform::setDependentsDirty(plugBeingDirtied, affectedPlugs);
 }
 
@@ -87,14 +87,17 @@ MStatus RigControlNode::initialize() {
     MFnEnumAttribute eAttr;
     MFnNumericAttribute nAttr;
     MFnMessageAttribute msgAttr;
+    MFnMatrixAttribute mAttr;
 
     aShapeType = eAttr.create("shapeType", "st", 0);
-    eAttr.addField("Cube", 0);
+    // TODO: the maya enum and cpp enum are not tied together. 
+    eAttr.addField("Box", 0);
     eAttr.addField("Sphere", 1);
     eAttr.addField("Circle", 2);
     eAttr.addField("Capsule", 3);
     eAttr.addField("Triangle", 4);
     eAttr.addField("Cylinder", 5);
+    eAttr.addField("Square", 6);
     eAttr.setKeyable(false);
     eAttr.setStorable(true);
     addAttribute(aShapeType);
@@ -112,37 +115,15 @@ MStatus RigControlNode::initialize() {
     nAttr.setStorable(true);
     addAttribute(aWireAlpha);
 
-    aCenterOffset = nAttr.createPoint("centerOffset", "off");
-    nAttr.setKeyable(false);
-    nAttr.setStorable(true);
-    addAttribute(aCenterOffset);
+    aShapeTransform = mAttr.create("shapeTransform", "sxf", MFnMatrixAttribute::kDouble);
+    mAttr.setWritable(true);
+    mAttr.setStorable(true);
+    addAttribute(aShapeTransform);
 
-    aNormalVector = nAttr.createPoint("normalVector", "nv");
-    nAttr.setDefault(1.0, 0.0, 0.0);
-    nAttr.setKeyable(false);
+    aFilled = nAttr.create("filled", "fill", MFnNumericData::kBoolean, false);
+    nAttr.setWritable(true);
     nAttr.setStorable(true);
-    addAttribute(aNormalVector);
-
-    aUpVector = nAttr.createPoint("upVector", "uv");
-    nAttr.setDefault(0.0, 0.0, 1.0);
-    nAttr.setKeyable(false);
-    nAttr.setStorable(true);
-    addAttribute(aUpVector);
-
-    aWidth = nAttr.create("width", "w", MFnNumericData::kDouble, 1.0f);
-    nAttr.setKeyable(false);
-    nAttr.setStorable(true);
-    addAttribute(aWidth);
-
-    aHeight = nAttr.create("height", "h", MFnNumericData::kDouble, 1.0f);
-    nAttr.setKeyable(false);
-    nAttr.setStorable(true);
-    addAttribute(aHeight);
-
-    aDepth = nAttr.create("depth", "d", MFnNumericData::kDouble, 1.0f);
-    nAttr.setKeyable(false);
-    nAttr.setStorable(true);
-    addAttribute(aDepth);
+    addAttribute(aFilled);
 
     // Rig Attributes
     aRigModule = msgAttr.create("rigModule", "rm");
@@ -180,40 +161,49 @@ MUserData* RigControlDrawOverride::prepareForDraw(
     {
         // 1. Fetch Shape Parameters
         MPlug(node, RigControlNode::aShapeType).getValue(data->shapeType);
-        MPlug(node, RigControlNode::aWidth).getValue(data->width);
-        MPlug(node, RigControlNode::aHeight).getValue(data->height);
-        MPlug(node, RigControlNode::aDepth).getValue(data->depth);
+
+        // Get the shape transformation
+        MPlug pShapeTransform(node, RigControlNode::aShapeTransform);
+        MObject oShapeTransformObj;
+        pShapeTransform.getValue(oShapeTransformObj);
+        MFnMatrixData fnShapeTransform(oShapeTransformObj);
+        MMatrix mShapeTransform = fnShapeTransform.matrix();
+        data->shapeTransform = mShapeTransform;
+
+        MTransformationMatrix tMatrix(mShapeTransform);
+
+        // Scale
+        double scale[3];
+        tMatrix.getScale(scale, MSpace::kObject);
+        data->width = scale[0];
+        data->height = scale[1];
+        data->depth = scale[2];
 
         // Center offset
-        MPoint centerOffset;
-        MPlug pCenterOffset = MPlug(node, RigControlNode::aCenterOffset);
-        if (!pCenterOffset.isNull())
-        {
-            pCenterOffset.child(0).getValue(centerOffset.x);
-            pCenterOffset.child(1).getValue(centerOffset.y);
-            pCenterOffset.child(2).getValue(centerOffset.z);
-        }
+        MPoint centerOffset(tMatrix.getTranslation(MSpace::kObject));
         data->centerOffset = centerOffset;
 
-        // Normal Vector
+        MMatrix rMatrix = tMatrix.asRotateMatrix();
+
+        // Normal Vector is the matrix X axis
         MVector normalVector;
-        MPlug pNormalVector = MPlug(node, RigControlNode::aNormalVector);
-        if (!pNormalVector.isNull())
+        normalVector = MVector(rMatrix[0][0], rMatrix[0][1], rMatrix[0][2]);
+        normalVector.normalize();
+
+        if (normalVector.length() < 0.001)
         {
-            pNormalVector.child(0).getValue(normalVector.x);
-            pNormalVector.child(1).getValue(normalVector.y);
-            pNormalVector.child(2).getValue(normalVector.z);
+            normalVector = MVector(1, 0, 0);
         }
         data->normalVector = normalVector;
 
-        // Up Vector
+        // Up Vector is the Y axis
         MVector upVector;
-        MPlug pUpVector = MPlug(node, RigControlNode::aUpVector);
-        if (!pUpVector.isNull())
+        upVector = MVector(rMatrix[1][0], rMatrix[1][1], rMatrix[1][2]);
+        upVector.normalize();
+
+        if (upVector.length() < 0.001)
         {
-            pUpVector.child(0).getValue(upVector.x);
-            pUpVector.child(1).getValue(upVector.y);
-            pUpVector.child(2).getValue(upVector.z);
+            upVector = MVector(0, 0, 1);
         }
         data->upVector = upVector;
 
@@ -240,6 +230,15 @@ MUserData* RigControlDrawOverride::prepareForDraw(
         data->dormantColor = MColor(r, g, b, a);
         data->lineWidth = lineWidth;
 
+        // Filled
+        MPlug plugFilled(node, RigControlNode::aFilled);
+        bool filled = false;
+        if (!plugFilled.isNull())
+        {
+            filled = plugFilled.asBool();
+        }
+        data->filled = filled;
+
         // Important! Set draw clean for the node so we can keep these cached plug reads until they dirty again.
         rigControlNode->setDrawClean();
     }
@@ -250,14 +249,16 @@ MUserData* RigControlDrawOverride::prepareForDraw(
     if (displayStatus == MHWRender::kActive)
     {
         // Active selection (White)
-        data->color = MColor(1.0f, 1.0f, 1.0f, data->dormantColor.a);  // TODO: for even more efficiency these could be constants we're pulling from
-        data->lineWidth = 1.5f;
+        // NOTE: Ignoring alpha if objects are selected so they stand out. 
+        data->color = MColor(1.0f, 1.0f, 1.0f, 1.0f);
+        data->lineWidth = 1.0f;
     }
     else if (displayStatus == MHWRender::kLead)
     {
         // Lead selection (Soft Green)
-        data->color = MColor(0.26f, 1.0f, 0.64f, data->dormantColor.a);
-        data->lineWidth = 4.0f;
+        // NOTE: Ignoring alpha if objects are selected so they stand out. 
+        data->color = MColor(0.26f, 1.0f, 0.64f, 1.0f); 
+        data->lineWidth = 2.0f;
     }
     else
     {
@@ -277,7 +278,7 @@ void RigControlDrawOverride::addUIDrawables(
 {
     const ControlDrawData* controlDrawData = dynamic_cast<const ControlDrawData*>(data);
     if (!controlDrawData) return;
-
+    
     drawManager.beginDrawable();
     drawManager.setColor(controlDrawData->color);
     drawManager.setLineWidth(controlDrawData->lineWidth);
@@ -285,43 +286,52 @@ void RigControlDrawOverride::addUIDrawables(
 
     // Draw strictly in LOCAL OBJECT SPACE (0,0,0) with unit vectors.
     // Maya automatically transforms this local geometry by the DAG node's world matrix.
+    // TODO: restore this again, where we are pulling from the matrix to build these.
     MPoint center(controlDrawData->centerOffset);
     MVector up(controlDrawData->upVector);
     MVector normal(controlDrawData->normalVector);
-    bool filled = false;
+    double width = controlDrawData->width;
+    double height = controlDrawData->height;
+    double depth = controlDrawData->depth;
+    MMatrix mShapeTransform(controlDrawData->shapeTransform);
+    bool filled = controlDrawData->filled;
 
-    switch (controlDrawData->shapeType) {
-    case ShapeType::Box: // Box / Cube (Center, Up, Normal, ScaleX, ScaleY, ScaleZ)
-        drawManager.box(center, up, normal, controlDrawData->width, controlDrawData->height, controlDrawData->depth, filled);
-        break;
-    case ShapeType::Sphere: // Sphere (Center, Radius)
-        drawManager.sphere(center, controlDrawData->width, filled);
-        break;
-    case ShapeType::Circle: // Circle (Center, Normal, Radius)
-        drawManager.circle(center, normal, controlDrawData->width, filled);
-        break;
-    case ShapeType::Capsule: // Capsule (Center, Up, Radius, Height, Subdivisions Width, Subdivisions Height, filled)
-        drawManager.capsule(center, up, controlDrawData->width, controlDrawData->height, 6, 6, filled);
-        break;
-    case ShapeType::Triangle:
-        drawManager.lineStrip(CustomShapes::Triangle(), false);  // todo: center offset, up vector, control over width and height
-        break;
-    case ShapeType::Cylinder:
-        drawManager.cylinder(center, up, controlDrawData->width, controlDrawData->height, 2, filled);
-        break;
-    default: // Default is Box / Cube
-        drawManager.box(center, up, normal, controlDrawData->width, controlDrawData->height, controlDrawData->depth, filled);
-        break;
+    switch (controlDrawData->shapeType) 
+    {
+        case ShapeType::Box: // Box / Cube (Center, Up, Normal, ScaleX, ScaleY, ScaleZ)
+            drawManager.box(center, up, normal, width, height, depth, filled);
+            break;
+        case ShapeType::Sphere: // Sphere (Center, Radius)
+            drawManager.sphere(center, width, filled);
+            break;
+        case ShapeType::Circle: // Circle (Center, Normal, Radius)
+            drawManager.circle(center, normal, width, filled);
+            break;
+        case ShapeType::Capsule: // Capsule (Center, Up, Radius, Height, Subdivisions Width, Subdivisions Height, filled)
+            drawManager.capsule(center, up, width, height, 6, 6, filled);
+            break;
+        case ShapeType::Triangle:
+            drawManager.lineStrip(CustomShapes::transformPointArray(CustomShapes::Triangle(), mShapeTransform), false);
+            break;
+        case ShapeType::Cylinder:
+            drawManager.cylinder(center, up, width, height, 6, filled);
+            break;
+        case ShapeType::Square:
+            drawManager.rect(center, up, normal, width, height, filled);
+            break;
+        default: // Default is Box
+            drawManager.box(center, up, normal, width, height, depth, filled);
+            break;
     }
-
     drawManager.endDrawable();
 }
 
 // Creates a rig control and wires it to the module
 MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName)
 {
-    // Get module side
-    MPlug pSide(moduleNode, RigModuleNodeBase::aSide);
+    // Get module side and color it based on that.
+    MFnDependencyNode fnModule(moduleNode);
+    MPlug pSide = fnModule.findPlug("side", false);
     unsigned int sideInt = pSide.asInt();
     Side sideEnum = getSideFromInt(sideInt);
     const char* sideSuffix = getSideSuffix(sideEnum);
@@ -329,7 +339,6 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
 
     // Create and name the control transform
     MObject controlTransform = dagMod.createNode("rigControlNode");
-
 
     MString ctrlName = jointName;
     ctrlName.substitute("_jnt", "");  // TODO: global var for jnt suffix
@@ -339,7 +348,7 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
 
     // Connect the control to the module node
     MPlug pRigModule(controlTransform, RigControlNode::aRigModule);
-    MPlug pRigControls(moduleNode, RigModuleNodeBase::aRigControls);
+    MPlug pRigControls = fnModule.findPlug("rigControls", false);
 
     if (!pRigModule.isNull() && !pRigControls.isNull())
     {

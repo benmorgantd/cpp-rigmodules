@@ -18,7 +18,7 @@ void from_json(const nlohmann::json& jsonData, RigModuleData& module)
         module.joints = jsonData["joints"].get<std::vector<std::string>>();
     }
 
-    module.parentSocketIndex = jsonData.value("parentSocketIndex", 0);
+    module.parentSocketIndex = jsonData.value("parentSocketIndex", -1);
 
     // 3. Solution 1 "If/Then" Switchboard for moduleArgs
     if (jsonData.contains("moduleArgs")) {

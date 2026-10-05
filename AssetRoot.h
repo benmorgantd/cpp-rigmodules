@@ -57,8 +57,8 @@ public:
 	static const char* commandString;
 
 private:
-	static const char* kFilePathFlagShort;
-	static const char* kFilePathFlagLong;
+	static const char* kFilePathArgShort;
+	static const char* kFilePathArgLong;
 
 	MDGModifier fDgMod;
 	MDagModifier fDagMod;

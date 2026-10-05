@@ -19,10 +19,10 @@ public:
 	static MTypeId id;
 
 	// Top-Level Input Attributes
-	static MObject inputRestMatrix;
+	static MObject aInputRestMatrix;
 
 	// Control Array Attributes
-	static MObject controlMatrix;
+	static MObject aControlMatrix;
 	static MObject outputControlOPM;
 	static MObject outputJointOPM;
 

@@ -6,6 +6,7 @@
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnMessageAttribute.h>
+#include <maya/MFnNumericAttribute.h>
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnData.h>
 #include <maya/MDataBlock.h>
@@ -27,11 +28,12 @@ MObject RigModuleNodeBase::moduleData;
 MObject RigModuleNodeBase::rigRoot;
 MObject RigModuleNodeBase::parentModule;
 MObject RigModuleNodeBase::childModules;
-MObject RigModuleNodeBase::parentWorldMatrix;
-MObject RigModuleNodeBase::parentModuleOffset;
-MObject RigModuleNodeBase::outputSocketMatrix;
+MObject RigModuleNodeBase::aParentWorldMatrix;
+MObject RigModuleNodeBase::aParentModuleOffset;
+MObject RigModuleNodeBase::aOutputSocketMatrix;
 MObject RigModuleNodeBase::aRigControls;
 MObject RigModuleNodeBase::aSide;
+MObject RigModuleNodeBase::aNumSockets;
 
 RigModuleNodeBase::RigModuleNodeBase() {}
 RigModuleNodeBase::~RigModuleNodeBase() {}
@@ -47,6 +49,7 @@ MStatus RigModuleNodeBase::initializeBaseAttributes()
 	MFnMatrixAttribute mAttr;
 	MFnMessageAttribute msgAttr;
 	MFnEnumAttribute eAttr;
+	MFnNumericAttribute nAttr;
 	MStatus status;
 
 	// 1. Metadata Attributes
@@ -69,32 +72,34 @@ MStatus RigModuleNodeBase::initializeBaseAttributes()
 	addAttribute(aRigControls);
 
 	// 3. Base Driving Input Matrix (Scalar)
-	parentWorldMatrix = mAttr.create("parentWorldMatrix", "pwm", MFnMatrixAttribute::kDouble, &status);
+	aParentWorldMatrix = mAttr.create("parentWorldMatrix", "pwm", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setStorable(true);
 	mAttr.setKeyable(true);
 	mAttr.setWorldSpace(true);
-	addAttribute(parentWorldMatrix);
+	addAttribute(aParentWorldMatrix);
 
-	parentModuleOffset = mAttr.create("parentModuleOffset", "pmo", MFnMatrixAttribute::kDouble, &status);
+	aParentModuleOffset = mAttr.create("parentModuleOffset", "pmo", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setStorable(true);
 	mAttr.setKeyable(true);
 	mAttr.setWorldSpace(true);
 	mAttr.setHidden(true);
-	addAttribute(parentModuleOffset);
+	addAttribute(aParentModuleOffset);
 
-	// 4. Output Socket Matrix Array (The ONLY matrix array attribute across the framework)
-	outputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
+	// 4. Output Socket Matrix Array
+	aOutputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
 	mAttr.setUsesArrayDataBuilder(true);
 	mAttr.setWritable(false);
 	mAttr.setStorable(false);
 	mAttr.setWorldSpace(true);
-	addAttribute(outputSocketMatrix);
+	addAttribute(aOutputSocketMatrix);
 
-	// TODO: module type
+	// numSockets attr
+	aNumSockets = nAttr.create("numSockets", "ns", MFnNumericData::kShort, 0, &status);
+	nAttr.setStorable(true);
+	addAttribute(aNumSockets);
 
 	// Side
-	// TODO: "callback" of sorts when aSide gets changed to also change the color of the controls.
 	aSide = eAttr.create("side", "sd", 0);
 	eAttr.addField("Center", 0);
 	eAttr.addField("Left", 1);
@@ -121,6 +126,22 @@ MMatrix RigModuleNodeBase::getInputMatrix(MDataBlock& data, const MObject& attr,
 		MGlobal::displayError("error in getting array element");
 	}
 	return MMatrix::identity;
+}
+
+MMatrix getMatrixFromPlug(const MPlug& pMatrixPlug)
+{
+	MMatrix matrixValue; // Defaults to identity matrix
+
+	MObject dataObj;
+	MStatus status = pMatrixPlug.getValue(dataObj);
+
+	if (status && !dataObj.isNull() && dataObj.hasFn(MFn::kMatrixData))
+	{
+		MFnMatrixData fnMatrixData(dataObj);
+		matrixValue = fnMatrixData.matrix();
+	}
+
+	return matrixValue;
 }
 
 MMatrix RigModuleNodeBase::getInputMatrix(MDataBlock& data, const MObject& attr)
@@ -390,7 +411,7 @@ MStatus RigModuleCommandHelpers::connectToParentModule(const MObject& oParentMod
 	dgMod.connect(childModulesPlug.elementByLogicalIndex(numElements), parentModulePlug);
 
 	// Wire the parent's socket matrix index to the child
-	MPlug parentSocketMatrix = fnParentModule.findPlug("outputSocketMatrix", false).elementByLogicalIndex(parentModuleSocketIndex);
+	MPlug parentSocketMatrix = fnParentModule.findPlug("outputSocketMatrix", false).elementByLogicalIndex(parentModuleSocketIndex); // TODO: this 2 is temporary to see if this is the issue
 	MPlug childParentMatrix = fnModule.findPlug("parentWorldMatrix", false);
 	dgMod.connect(parentSocketMatrix, childParentMatrix);
 

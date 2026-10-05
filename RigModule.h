@@ -23,6 +23,7 @@ public:
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx);
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr);
 	static void setOutputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx, const MMatrix& mat);
+	//static MMatrix getMatrixFromPlug(); // TODO: continue
 	// Networking functionality
 	static MObjectArray getChildModules(MObject& moduleNode);
 	static MObject getParentModule(MObject& moduleNode);
@@ -37,12 +38,15 @@ public:
 	static MObject aRigControls;        // Message array to controls on this module.
 
 	// Base Transformation Matrix Plugs
-	static MObject parentWorldMatrix;   // Driving input matrix from parent socket or layout hook
-	static MObject parentModuleOffset;  // Matrix for storing the offset transformation to the parent module
-	static MObject outputSocketMatrix;  // Output matrix array providing connection sockets for children
+	static MObject aParentWorldMatrix;   // Driving input matrix from parent socket or layout hook
+	static MObject aParentModuleOffset;  // Matrix for storing the offset transformation to the parent module
+	static MObject aOutputSocketMatrix;  // Output matrix array providing connection sockets for children
 
 	// Enum attributes
 	static MObject aSide;               // Stores the side for the module. All controls of this module will have this side.
+
+	// Attributes for storing data
+	static MObject aNumSockets;         // Store the possible number of output sockets on this module. Each module will have to define this.
 
 public:
 	// Shared methods

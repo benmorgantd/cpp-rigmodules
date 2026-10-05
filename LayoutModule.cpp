@@ -5,22 +5,31 @@
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnMessageAttribute.h>
+#include <maya/MFnNumericAttribute.h>
+#include <maya/MFnNumericData.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
 #include <maya/MSyntax.h>
 #include <maya/MGlobal.h>
 #include <maya/MStringArray.h>
 #include <maya/MArgDatabase.h>
+#include <maya/MFnMatrixData.h>
+#include <maya/MArrayDataBuilder.h>
 
 
 // ------------------------------------------------------------------
-// FkChainNode Implementation
+// LayoutModuleNode Implementation
 // ------------------------------------------------------------------
 
 MTypeId LayoutModuleNode::id(0x0021C);
 
 MObject LayoutModuleNode::controlMatrix;
-MObject LayoutModuleNode::outputControlOPM;
+MObject LayoutModuleNode::outputSocketMatrix;
+MObject LayoutModuleNode::aRigControls;
+MObject LayoutModuleNode::aSide;
+MObject LayoutModuleNode::childModules;
+MObject LayoutModuleNode::rigRoot;
+MObject LayoutModuleNode::aNumSockets;
 
 LayoutModuleNode::LayoutModuleNode() {}
 LayoutModuleNode::~LayoutModuleNode() {}
@@ -36,11 +45,19 @@ MStatus LayoutModuleNode::initialize()
 {
 	MStatus status;
 
+	// TODO: this module does not really need all of these attributes. 
 	MFnMatrixAttribute mAttr;
 	MFnMessageAttribute msgAttr;
 	MFnEnumAttribute eAttr;
+	MFnNumericAttribute nAttr;
 
-	// Network Message Plugs
+	// 1. INPUT ARRAYS
+	controlMatrix = mAttr.create("controlMatrix", "cm", MFnMatrixAttribute::kDouble, &status);
+	mAttr.setArray(true);
+	mAttr.setStorable(true);
+	mAttr.setKeyable(true);
+	addAttribute(controlMatrix);
+
 	rigRoot = msgAttr.create("rigRoot", "rr", &status);
 	addAttribute(rigRoot);
 
@@ -51,16 +68,6 @@ MStatus LayoutModuleNode::initialize()
 	aRigControls = msgAttr.create("rigControls", "ctrls", &status);
 	addAttribute(aRigControls);
 
-	// Output Socket Matrix Array 
-	outputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setArray(true);
-	mAttr.setUsesArrayDataBuilder(true);
-	mAttr.setWritable(false);
-	mAttr.setStorable(false);
-	mAttr.setWorldSpace(true);
-	addAttribute(outputSocketMatrix);
-
-	// Side
 	aSide = eAttr.create("side", "sd", 0);
 	eAttr.addField("Center", 0);
 	eAttr.addField("Left", 1);
@@ -69,55 +76,66 @@ MStatus LayoutModuleNode::initialize()
 	eAttr.setStorable(true);
 	addAttribute(aSide);
 
-	// 1. INPUT ARRAYS
-	controlMatrix = mAttr.create("controlMatrix", "cm", MFnMatrixAttribute::kDouble, &status);
+	outputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
-	mAttr.setStorable(true);
-	mAttr.setKeyable(true);
-	addAttribute(controlMatrix);
+	mAttr.setUsesArrayDataBuilder(true);
+	mAttr.setWritable(false);
+	mAttr.setStorable(false);
+	mAttr.setWorldSpace(true);
+	addAttribute(outputSocketMatrix);
 
-	// 2. AFFECTS RELATIONSHIPS
+	// numSockets attr
+	aNumSockets = nAttr.create("numSockets", "ns", MFnNumericData::kShort, 0, &status);
+	nAttr.setStorable(true);
+	addAttribute(aNumSockets);
+
+	// 3. AFFECTS RELATIONSHIPS
 	attributeAffects(controlMatrix, outputSocketMatrix);
 
 	return MStatus::kSuccess;
 }
-
-MStatus LayoutModuleNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
+// In the case of this node, there is only one output to compute, the outputSocketMatrix.
+// TODO: the solver for this module is not evaluating correctly
+MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 {
-	unsigned int index = plug.isElement() ? plug.logicalIndex() : 0;
-
-	// -------------------------------------------------------------------
-	// 1. Output Socket Matrix Array
-	// -------------------------------------------------------------------
-	// This is the only output we have to set, as the module has no parents or joints.
-	// All the module does is create an array of output sockets.
+	// TODO: child modules should attach to the last index of the layout module. Make "-1" the default.
+	// TODO: there are world-space calculation issues here.
 	if (plug == outputSocketMatrix || plug.array() == outputSocketMatrix)
 	{
+		// TODO: we are not getting into this if statement
 		MArrayDataHandle hControlArray = data.inputArrayValue(controlMatrix);
 		MArrayDataHandle hOutSocketArray = data.outputArrayValue(outputSocketMatrix);
-		MMatrix mSocketWorld = MMatrix::identity;
 
+		// Start with identity (or parent world matrix if layout has an offset)
+		MMatrix mCurrentWorld = MMatrix::identity;
 		unsigned int elementCount = hControlArray.elementCount();
 
-		// Evaluate sequentially down the chain
+		// Sequential downstream accumulation loop
 		for (unsigned int i = 0; i < elementCount; ++i)
 		{
 			hControlArray.jumpToElement(i);
+			MMatrix mControlLocal = hControlArray.inputValue().asMatrix();
+			// Maya Row-Major Order: Local Step * Current Accumulated World Matrix
+			MMatrix mSocketWorld = mControlLocal * mCurrentWorld;
 
-			// Jump directly to the output element slot without rebuild
+			// Jump directly to the output element slot without rebuilding array handles
 			if (hOutSocketArray.jumpToElement(hControlArray.elementIndex()) == MStatus::kSuccess)
 			{
-				MMatrix mControlLocal = hControlArray.inputValue().asMatrix();
-
-				// Accumulate step matrix downstream
-				mSocketWorld = mControlLocal * mSocketWorld;
-
-				// Write directly to existing data block
+				// Write directly to the existing output datablock handle
 				hOutSocketArray.outputValue().setMMatrix(mSocketWorld);
 			}
+			else
+			{
+				// We need to use MArrayDataBuilder.
+				MArrayDataBuilder builder = hOutSocketArray.builder();
+				MDataHandle hNewElem = builder.addElement(hControlArray.elementIndex());
+				hNewElem.setMMatrix(mSocketWorld);
+				hOutSocketArray.set(builder);
+			}
+			mCurrentWorld = mSocketWorld;
 		}
 
-		// NOTE: because this is world space in a hierarchy, we need to calculate all sockets at once.
+		// Clean the entire output array block at once
 		hOutSocketArray.setAllClean();
 		data.setClean(plug);
 		return MStatus::kSuccess;
@@ -126,8 +144,9 @@ MStatus LayoutModuleNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& da
 	return MStatus::kUnknownParameter;
 }
 
-MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MDagModifier& dagMod, const unsigned int numControls)
+MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MDagModifier& dagMod, const unsigned short numControls)
 {
+	MGlobal::displayInfo("Creating Layout module.");
 	// First create the module node
 	MObject oLayoutModule = dgMod.createNode(LayoutModuleNode::commandString);
 	dgMod.renameNode(oLayoutModule, "layoutModule"); // TODO: namespaces
@@ -135,27 +154,41 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 
 	MObject oPreviousControlNode = MObject::kNullObj;
 
+	// For this module, set the numSockets value to the number of joints we have.
+	MFnDependencyNode fnLayoutModule(oLayoutModule);
+	MPlug pNumSockets = fnLayoutModule.findPlug("numSockets", false);
+	if (!pNumSockets.isNull())
+	{
+		dgMod.newPlugValueShort(pNumSockets, numControls);
+	}
+
 	for (unsigned int i = 0; i < numControls; ++i)
 	{
 		MObject oControl = RigControlNode::createRigControl(oLayoutModule, dagMod, MString("layout_") + i);
 		MFnDependencyNode fnControl(oControl);
 		MPlug pShapeType(oControl, RigControlNode::aShapeType);
-		dgMod.newPlugValueShort(pShapeType, ShapeType::Box);
+		dgMod.newPlugValueShort(pShapeType, ShapeType::Square);
 
-		// Set decreasing radius
-		MPlug pWidth(oControl, RigControlNode::aWidth);
-		dgMod.newPlugValueDouble(pWidth, 1.0 - (i * 0.1));
-		MPlug pHeight(oControl, RigControlNode::aHeight);
-		dgMod.newPlugValueDouble(pHeight, 0.0);
+		// Set decreasing radius using shape transform matrix
+		MPlug pShapeTransform(oControl, RigControlNode::aShapeTransform);
+		MTransformationMatrix mShapeTransform;
 
-		// Set normal up
-		//MPlug pNormal(oControl, RigControlNode::aNormalVector);
-		//MPlug pNormalX = pNormal.child(0);
-		//MPlug pNormalY = pNormal.child(1);
-		//MPlug pNormalZ = pNormal.child(2);
-		//dgMod.newPlugValueDouble(pNormalX, 0.0);
-		//dgMod.newPlugValueDouble(pNormalY, 1.0);
-		//dgMod.newPlugValueDouble(pNormalZ, 0.0);
+		double scaleValue = 1.0 - (0.1 * i);
+		const double matrixScale[3] = { scaleValue, scaleValue, scaleValue };
+		mShapeTransform.setScale(matrixScale, MSpace::kObject);
+
+		// While we have the shape transform, also set the normal and up vectors. 
+		// This is a 90 degree rotation about the Z axis.
+		mShapeTransform.setRotationQuaternion(0.0, 0.0, 0.7011, 0.7011);
+
+		MFnMatrixData fnShapeTransform;
+		MObject oShapeTransform = fnShapeTransform.create(mShapeTransform.asMatrix());
+		dgMod.newPlugValue(pShapeTransform, oShapeTransform); 
+
+		// Wire the control's matrix to the module's control matrix input
+		MPlug pControlOutputMatrix(oControl, RigControlNode::matrix);
+		MPlug pModuleInputMatrix(oLayoutModule, LayoutModuleNode::controlMatrix);
+		dgMod.connect(pControlOutputMatrix, pModuleInputMatrix.elementByLogicalIndex(i));
 
 		if (oPreviousControlNode != MObject::kNullObj)
 		{
@@ -167,6 +200,10 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 
 	RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oLayoutModule);
 
+	// Always keep dgMod and dagMod up to date after creating a module
+	//dgMod.doIt();
+	//dagMod.doIt();
+
 	return oLayoutModule;
 }
 
@@ -176,12 +213,9 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 
 // LayoutModule Setup command ----------------------------------------
 const MString LayoutModuleSetupCmd::commandString = "setupLayoutModule";
-const char* LayoutModuleSetupCmd::kRigRootLong = "-rigRoot";
-const char* LayoutModuleSetupCmd::kRigRootShort = "-rr";
 
 LayoutModuleSetupCmd::LayoutModuleSetupCmd() {}
 LayoutModuleSetupCmd::~LayoutModuleSetupCmd() {}
-
 
 
 void* LayoutModuleSetupCmd::creator()
@@ -195,7 +229,7 @@ MSyntax LayoutModuleSetupCmd::newSyntax()
 {
 	MStatus status;
 	MSyntax syntax;
-	status = syntax.addFlag(kRigRootShort, kRigRootLong, MSyntax::kString);
+	status = syntax.addArg(MSyntax::kString);
 
 	if (!status)
 	{

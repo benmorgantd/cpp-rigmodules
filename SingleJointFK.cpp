@@ -71,13 +71,13 @@ MStatus SingleJointFKNode::initialize()
 	cAttr.addChild(outputJointOPM);
 	addAttribute(control);
 
-	attributeAffects(parentWorldMatrix, outputControlOPM);
+	attributeAffects(aParentWorldMatrix, outputControlOPM);
 	attributeAffects(inputRestMatrix, outputControlOPM);
 
 	attributeAffects(controlWorldMatrix, outputJointOPM);
 	attributeAffects(jointParentWorldMatrix, outputJointOPM);
 
-	attributeAffects(controlWorldMatrix, outputSocketMatrix);
+	attributeAffects(controlWorldMatrix, aOutputSocketMatrix);
 
 	return MStatus::kSuccess;
 }
@@ -87,7 +87,7 @@ MStatus SingleJointFKNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& d
 	if (plug == outputControlOPM)
 	{
 		MMatrix inputRestLocal = data.inputValue(inputRestMatrix).asMatrix();
-		MMatrix parentWorld = data.inputValue(parentWorldMatrix).asMatrix();
+		MMatrix parentWorld = data.inputValue(aParentWorldMatrix).asMatrix();
 
 		MMatrix controlOPM = inputRestLocal * parentWorld;
 
@@ -112,12 +112,12 @@ MStatus SingleJointFKNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& d
 		return MStatus::kSuccess;
 	}
 
-	if (plug == outputSocketMatrix)
+	if (plug == aOutputSocketMatrix)
 	{
 		MMatrix controlWorld = data.inputValue(controlWorldMatrix).asMatrix();
 
-		MArrayDataHandle hSocketArray = data.outputArrayValue(outputSocketMatrix);
-		MArrayDataBuilder builderSocket(&data, outputSocketMatrix, 1);
+		MArrayDataHandle hSocketArray = data.outputArrayValue(aOutputSocketMatrix);
+		MArrayDataBuilder builderSocket(&data, aOutputSocketMatrix, 1);
 		MDataHandle hSocket0 = builderSocket.addElement(0);
 		hSocket0.setMMatrix(controlWorld);
 		hSocketArray.set(builderSocket);

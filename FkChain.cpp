@@ -27,8 +27,8 @@
 
 MTypeId FkChainNode::id(0x0021B);
 
-MObject FkChainNode::inputRestMatrix;
-MObject FkChainNode::controlMatrix;
+MObject FkChainNode::aInputRestMatrix;
+MObject FkChainNode::aControlMatrix;
 MObject FkChainNode::outputControlOPM;
 MObject FkChainNode::outputJointOPM;
 
@@ -52,17 +52,17 @@ MStatus FkChainNode::initialize()
 	MFnMatrixAttribute mAttr;
 
 	// 1. INPUT ARRAYS
-	inputRestMatrix = mAttr.create("inputRestMatrix", "irm", MFnMatrixAttribute::kDouble, &status);
+	aInputRestMatrix = mAttr.create("inputRestMatrix", "irm", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
 	mAttr.setStorable(true);
 	mAttr.setKeyable(true);
-	addAttribute(inputRestMatrix);
+	addAttribute(aInputRestMatrix);
 
-	controlMatrix = mAttr.create("controlMatrix", "cm", MFnMatrixAttribute::kDouble, &status);
+	aControlMatrix = mAttr.create("controlMatrix", "cm", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
 	mAttr.setStorable(true);
 	mAttr.setKeyable(true);
-	addAttribute(controlMatrix);
+	addAttribute(aControlMatrix);
 
 	// 2. OUTPUT ARRAYS
 	outputControlOPM = mAttr.create("outputControlOffsetParentMatrix", "copm", MFnMatrixAttribute::kDouble, &status);
@@ -80,16 +80,16 @@ MStatus FkChainNode::initialize()
 	addAttribute(outputJointOPM);
 
 	// 3. AFFECTS RELATIONSHIPS
-	attributeAffects(parentWorldMatrix, outputControlOPM);
-	attributeAffects(inputRestMatrix, outputControlOPM);
+	attributeAffects(aParentWorldMatrix, outputControlOPM);
+	attributeAffects(aInputRestMatrix, outputControlOPM);
 
-	attributeAffects(controlMatrix, outputJointOPM);
-	attributeAffects(inputRestMatrix, outputJointOPM);
-	attributeAffects(parentWorldMatrix, outputJointOPM);
+	attributeAffects(aControlMatrix, outputJointOPM);
+	attributeAffects(aInputRestMatrix, outputJointOPM);
+	attributeAffects(aParentWorldMatrix, outputJointOPM);
 
-	attributeAffects(controlMatrix, outputSocketMatrix);
-	attributeAffects(parentWorldMatrix, outputSocketMatrix);
-	attributeAffects(inputRestMatrix, outputSocketMatrix);
+	attributeAffects(aControlMatrix, aOutputSocketMatrix);
+	attributeAffects(aParentWorldMatrix, aOutputSocketMatrix);
+	attributeAffects(aInputRestMatrix, aOutputSocketMatrix);
 
 	return MStatus::kSuccess;
 }
@@ -103,13 +103,13 @@ MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 	// -------------------------------------------------------------------
 	if (plug == outputControlOPM || plug.array() == outputControlOPM)
 	{
-		MMatrix inputRestLocal = getInputMatrix(data, inputRestMatrix, index);
+		MMatrix inputRestLocal = getInputMatrix(data, aInputRestMatrix, index);
 		MMatrix controlOPM = inputRestLocal;
 
 		if (index == 0)
 		{
-			MMatrix parentWorld = getInputMatrix(data, parentWorldMatrix);
-			MMatrix parentOffset = getInputMatrix(data, parentModuleOffset);
+			MMatrix parentWorld = getInputMatrix(data, aParentWorldMatrix);
+			MMatrix parentOffset = getInputMatrix(data, aParentModuleOffset);
 			controlOPM = inputRestLocal * parentOffset * parentWorld;
 		}
 
@@ -125,16 +125,16 @@ MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 	if (plug == outputJointOPM || plug.array() == outputJointOPM)
 	{
 
-		MMatrix controlLocal = getInputMatrix(data, controlMatrix, index);
-		MMatrix jointOffset = getInputMatrix(data, inputRestMatrix, index);
+		MMatrix controlLocal = getInputMatrix(data, aControlMatrix, index);
+		MMatrix jointOffset = getInputMatrix(data, aInputRestMatrix, index);
 
 		MMatrix jointOPM = controlLocal * jointOffset;
 
 		if (index == 0)
 		{
 			// include the module parent matrix in the chain
-			MMatrix parentWorld = getInputMatrix(data, parentWorldMatrix);
-			MMatrix parentOffset = getInputMatrix(data, parentModuleOffset);
+			MMatrix parentWorld = getInputMatrix(data, aParentWorldMatrix);
+			MMatrix parentOffset = getInputMatrix(data, aParentModuleOffset);
 			jointOPM = jointOPM * parentOffset * parentWorld;
 		}
 
@@ -147,14 +147,18 @@ MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 	// -------------------------------------------------------------------
 	// 3. Output Socket Matrix Array
 	// -------------------------------------------------------------------
-	if (plug == outputSocketMatrix || plug.array() == outputSocketMatrix)
+	if (plug == aOutputSocketMatrix || plug.array() == aOutputSocketMatrix) // || plug.attribute() == aOutputSocketMatrix
 	{
-		MMatrix mSocketWorld = getInputMatrix(data, parentWorldMatrix);
-		MMatrix mParentOffset = getInputMatrix(data, parentModuleOffset);
+		MMatrix mParentWorld = getInputMatrix(data, aParentWorldMatrix);
+		MMatrix mParentOffset = getInputMatrix(data, aParentModuleOffset);
 
-		MArrayDataHandle hControlArray = data.inputArrayValue(controlMatrix);
-		MArrayDataHandle hRestArray = data.inputArrayValue(inputRestMatrix);
-		MArrayDataHandle hOutSocketArray = data.outputArrayValue(outputSocketMatrix);
+		// Establish the base world space entering the module chain
+		// Local Step * Parent World (Row-Major)
+		MMatrix mCurrentWorld = mParentOffset * mParentWorld;
+
+		MArrayDataHandle hControlArray = data.inputArrayValue(aControlMatrix);
+		MArrayDataHandle hRestArray = data.inputArrayValue(aInputRestMatrix);
+		MArrayDataHandle hOutSocketArray = data.outputArrayValue(aOutputSocketMatrix);
 
 		unsigned int elementCount = hControlArray.elementCount();
 
@@ -170,11 +174,17 @@ MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 				MMatrix mControlLocal = hControlArray.inputValue().asMatrix();
 				MMatrix mRestLocal = hRestArray.inputValue().asMatrix();
 
-				// Accumulate step matrix downstream
-				mSocketWorld = mControlLocal * mRestLocal * mParentOffset * mSocketWorld;
+				// 1. Combine local control and rest matrices for this step
+				MMatrix mLocalStep = mControlLocal * mRestLocal;
 
-				// Write directly to existing data block
+				// 2. Transform local step into current world space
+				MMatrix mSocketWorld = mLocalStep * mCurrentWorld;
+
+				// 3. Write directly to existing datablock handle
 				hOutSocketArray.outputValue().setMMatrix(mSocketWorld);
+
+				// 4. Update accumulated world matrix for the next child downstream
+				mCurrentWorld = mSocketWorld;
 			}
 		}
 
@@ -205,8 +215,8 @@ MObject FkChainNode::createModule(
 
 	// Get module plugs
 	MFnDependencyNode moduleFn(oModule);
-	MPlug inputRestMatrix(oModule, FkChainNode::inputRestMatrix);
-	MPlug controlMatrix(oModule, FkChainNode::controlMatrix);
+	MPlug inputRestMatrix(oModule, FkChainNode::aInputRestMatrix);
+	MPlug controlMatrix(oModule, FkChainNode::aControlMatrix);
 	// TODO: use this style for other findPlug calls.
 	MPlug outputControlOPM = moduleFn.findPlug("outputControlOffsetParentMatrix", false);
 	MPlug outputJointOPM = moduleFn.findPlug("outputJointOffsetParentMatrix", false);
@@ -214,6 +224,10 @@ MObject FkChainNode::createModule(
 	MObject previousControlTransform = MObject::kNullObj;
 	MMatrix mFirstControlWorld = MMatrix::identity;
 	unsigned int numJoints = jointDags.length();
+
+	// For this module, set the numSockets value to the number of joints we have.
+	MPlug pNumSockets(oModule, FkChainNode::aNumSockets);
+	dgMod.newPlugValueShort(pNumSockets, numJoints);
 
 	for (unsigned int i = 0; i < numJoints; ++i)
 	{
@@ -255,7 +269,7 @@ MObject FkChainNode::createModule(
 		dagMod.doIt();
 		previousControlTransform = controlTransform;
 
-		// Matrix wiring
+		// Wire the control's matrix to the module's input control matrix plug
 		MFnDependencyNode controlMFn(controlTransform);
 		MPlug controlMatrixPlug = controlMFn.findPlug("matrix", false);
 		MPlug controlOpmPlug = controlMFn.findPlug("offsetParentMatrix", false);
@@ -279,6 +293,7 @@ MObject FkChainNode::createModule(
 	if (!oParentModule.isNull())
 	{
 		localStat = RigModuleCommandHelpers::connectToParentModule(oParentModule, oModule, parentModuleSocketIndex, dgMod, mFirstControlWorld);
+		
 		if (!localStat)
 		{
 			MGlobal::displayError("Failed to connect module to parent.");
@@ -293,6 +308,10 @@ MObject FkChainNode::createModule(
 		// TODO: we need to refactor this to pass in the rig root name
 		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oModule);
 	}
+
+	// Execute both the dg and dag mod at the end of each module's creation so that future modules can depend on their attrs existing.
+	//dgMod.doIt();
+	//dagMod.doIt();
 
 	if (status) *status = MS::kSuccess;
 	return oModule;
@@ -340,9 +359,40 @@ MObject FkChainNode::createModule(
 	{
 		socketIndex = static_cast<unsigned int>(moduleData.parentSocketIndex);
 	}
+	else
+	{
+		// Fall back to the last possible socket index on the parent
+		short numSockets = 0;
+
+		if (!parentModule.isNull())
+		{
+			MFnDependencyNode fnParent(parentModule);
+			MPlug pNumSockets = fnParent.findPlug("numSockets", false);
+			if (!pNumSockets.isNull())
+			{
+				short numSockets = pNumSockets.asShort();
+			}
+
+			if (numSockets > 0)
+			{
+				socketIndex = static_cast<unsigned int>(numSockets - 1);
+			}
+			else
+			{
+				MGlobal::displayError(MString("Module did not define its numSockets: ") + MString(fnParent.name()));
+				socketIndex = 0;
+			}
+		}
+		else
+		{
+			MGlobal::displayError("Given parent module was null.");
+			socketIndex = 0;
+		}
+	}
 
 	// 3. Delegate to the flattened arguments overload
 	MStatus executionStatus;
+	// TODO: pass in shape type.
 	MObject oModule = FkChainNode::createModule(
 		moduleData.name.c_str(),
 		jointDags,

@@ -1,6 +1,4 @@
 #pragma once
-#include <maya/MString.h>
-
 
 enum class AssetType : int
 {

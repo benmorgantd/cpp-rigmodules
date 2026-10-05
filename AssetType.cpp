@@ -1,5 +1,4 @@
 #include "AssetType.h"
-
 #include <maya/MGlobal.h>
 
 // Asset Type ---------------------------------------------------
@@ -21,37 +20,18 @@ AssetType getAssetTypeFromString(const char* assetType)
 	}
 }
 
+
 AssetType getAssetTypeFromShort(const short assetType)
 {
-	if (assetType == 0) return AssetType::Prop;
-	else if (assetType == 1) return AssetType::Character;
-	else if (assetType == 2) return AssetType::Vehicle;
-	else if (assetType == 3) return AssetType::Head;
-	else if (assetType == 4) return AssetType::Weapon;
-	else if (assetType == 5) return AssetType::VFX;
-	else if (assetType == 6) return AssetType::Light;
-	else if (assetType == 7) return AssetType::Environment;
-	else if (assetType == 8) return AssetType::Other;
-	else
+	if (assetType < 0 || assetType > static_cast<short>(AssetType::Other))
 	{
-		MGlobal::displayError("Given asset type is not valid, defaulting to Other");
+		MGlobal::displayError("Short value out of range for AssetType, defaulting to Other.");
 		return AssetType::Other;
 	}
+	return static_cast<AssetType>(assetType);
 }
 
 short getShortFromAssetType(const AssetType assetType)
 {
-	switch (assetType)
-	{
-	case AssetType::Prop: return 0;
-	case AssetType::Character: return 1;
-	case AssetType::Vehicle: return 2;
-	case AssetType::Head: return 3;
-	case AssetType::Weapon: return 4;
-	case AssetType::VFX: return 5;
-	case AssetType::Light: return 6;
-	case AssetType::Environment: return 7;
-	case AssetType::Other: return 8;
-	default: return 8;
-	}
+	return static_cast<short>(assetType);
 }

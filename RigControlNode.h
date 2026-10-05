@@ -16,12 +16,14 @@ public:
     MColor color{ 1.0f, 0.0f, 0.0f, 1.0f };
     MColor dormantColor{ 1.0f, 0.0f, 0.0f, 1.0f };
     float lineWidth{ 1.0f };
+    MMatrix shapeTransform;
     MPoint centerOffset{ 0.0f, 0.0f, 0.0f };
     MVector normalVector{ 1.0f, 0.0f, 0.0f };
     MVector upVector{ 0.0f, 0.0f, 1.0f };
     double width{ 1.0f };
     double height{ 1.0f };
     double depth{ 1.0f };
+    bool filled{ false };
 };
 
 // Custom Transform DAG Node that has efficient drawing logic
@@ -47,12 +49,8 @@ public:
     static MObject aShapeType;
     static MObject aWireColor;
     static MObject aWireAlpha;
-    static MObject aCenterOffset;
-    static MObject aNormalVector;
-    static MObject aUpVector;
-    static MObject aWidth;
-    static MObject aHeight;
-    static MObject aDepth;
+    static MObject aShapeTransform;
+    static MObject aFilled;
 
     bool isDrawDirty() const { return m_drawIsDirty; }
     void setDrawClean() { m_drawIsDirty = false; }
@@ -72,15 +70,15 @@ public:
     RigControlDrawOverride(const MObject& obj);
     ~RigControlDrawOverride() override = default;
 
-    MHWRender::DrawAPI supportedDrawAPIs() const override {
+    MHWRender::DrawAPI supportedDrawAPIs() const override 
+    {
         return (MHWRender::kOpenGL | MHWRender::kDirectX11 | MHWRender::kOpenGLCoreProfile);
     }
 
-    bool isBounded(const MDagPath& objPath, const MDagPath& cameraPath) const override {
-        return true;
-    }
+    bool isBounded(const MDagPath& objPath, const MDagPath& cameraPath) const override { return true;}
 
-    MBoundingBox boundingBox(const MDagPath& objPath, const MDagPath& cameraPath) const override {
+    MBoundingBox boundingBox(const MDagPath& objPath, const MDagPath& cameraPath) const override 
+    {
         return MBoundingBox(MPoint(-1.0, -1.0, -1.0), MPoint(1.0, 1.0, 1.0));
     }
 
@@ -110,10 +108,13 @@ enum ShapeType : int
     Capsule = 3,
     Triangle = 4,
     Cylinder = 5,
+    Square = 6,
 };
 
 class CustomShapes
 {
 public:
     static const MPointArray& Triangle();
+public:
+    static MPointArray transformPointArray(const MPointArray& points, const MMatrix& matrix);
 };

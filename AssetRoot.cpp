@@ -6,6 +6,8 @@
 #include "RigModule.h"
 #include "LayoutModule.h"
 
+#include <filesystem>
+
 // Maya dependencies
 #include <maya/MFnAttribute.h>
 #include <maya/MFnTypedAttribute.h>
@@ -125,7 +127,7 @@ MStatus AssetRootNode::createRig(const MString& jsonFilePath)
 
     // 2. Instantiate AssetRootNode
     // (Assuming assetType conversion and assetId mapping relative to MAYA_PROJECTS_ROOT)
-    AssetType assetType = getAssetTypeFromString(rigData.rigType.c_str());
+    AssetType assetType = getAssetTypeFromString(rigData.rigType.c_str());  // TODO: there's some issue here with this string
     MObject oAssetRoot = AssetRootNode::createAssetRoot(rigData.rigName.c_str(), assetType, dgMod);
 
     // 3. Instantiate RigRootNode
@@ -141,12 +143,20 @@ MStatus AssetRootNode::createRig(const MString& jsonFilePath)
     // 4. Create Implicit Base "Layout" Module
     // The Layout module acts as the fallback parent socket for all top-level modules.
     MObject oLayoutModule = MObject::kNullObj;
+    // TODO: pass in status
     oLayoutModule = LayoutModuleNode::createModule(oRigRoot, dgMod, dagMod, 3);
-
+    
     // 5. Traverse and Build Module Hierarchy Recursively
-    for (const RigModuleData& topLevelModule : rigData.rigModules)
+    for (unsigned int i=0; i < rigData.rigModules.size(); ++i)//const RigModuleData& topLevelModule : rigData.rigModules)
     {
-        // Top-level modules have no JSON parent, so they attach to oLayoutModule
+        // Ensure our mods are up to date before we build the next module.
+        // This means that when we query attributes from previous modules we will have them declared and set.
+        dgMod.doIt();
+        dagMod.doIt();
+
+        const RigModuleData topLevelModule = rigData.rigModules[i];
+        // Top-level modules have no module parent, so they attach to oLayoutModule.
+        // The other parents are determined from their hierarchy in the JSON
         RigModuleNodeBase::buildModuleRecursive(
             topLevelModule,
             oRigRoot,
@@ -178,8 +188,6 @@ MStatus AssetRootNode::createRig(const MString& jsonFilePath)
 
 // Creat Rig Command ---------------------------------
 const char* CreateRigCmd::commandString = "createRigFromTemplate";
-const char* CreateRigCmd::kFilePathFlagShort = "-f";
-const char* CreateRigCmd::kFilePathFlagLong = "-filePath";
 
 CreateRigCmd::CreateRigCmd()
 {
@@ -202,7 +210,7 @@ bool CreateRigCmd::isUndoable() const
 MSyntax CreateRigCmd::newSyntax()
 {
     MSyntax syntax;
-    syntax.addFlag(kFilePathFlagShort, kFilePathFlagLong, MSyntax::kString);
+    syntax.addArg(MSyntax::kString);
     return syntax;
 }
 
@@ -216,14 +224,11 @@ MStatus CreateRigCmd::doIt(const MArgList& args)
         return status;
     }
 
-    MString jsonFilePath;
-    if (argData.isFlagSet(kFilePathFlagShort))
+    MString jsonFilePath = argData.commandArgumentString(0);
+
+    if (jsonFilePath.isEmpty() || !std::filesystem::exists(jsonFilePath.asChar()))
     {
-        argData.getFlagArgument(kFilePathFlagShort, 0, jsonFilePath);
-    }
-    else
-    {
-        MGlobal::displayError("Missing required flag: -filePath / -f");
+        MGlobal::displayError("Please enter a valid json rig template filepath.");
         return MStatus::kFailure;
     }
 
