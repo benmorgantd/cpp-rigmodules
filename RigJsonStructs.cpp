@@ -14,21 +14,22 @@ void from_json(const nlohmann::json& jsonData, RigModuleData& module)
     module.shapeType = jsonData.value("shapeType", "Cube");
     module.side = jsonData.value("side", "Center");
 
-    if (jsonData.contains("joints")) {
-        module.joints = jsonData["joints"].get<std::vector<std::string>>();
-    }
-
     module.parentSocketIndex = jsonData.value("parentSocketIndex", -1);
 
-    // 3. Solution 1 "If/Then" Switchboard for moduleArgs
-    if (jsonData.contains("moduleArgs")) {
+    // 3. Parse each individual module's specific arguments. We expect a subdict in the json we can parse to a struct.
+    if (jsonData.contains("moduleArgs")) 
+    {
         const auto& argsJson = jsonData["moduleArgs"];
 
         // TODO: use this syntax when we have modules with custom argument structs
-        //if (module.moduleType == "FkChain") 
-        //{
-        //    module.moduleArgs = argsJson.get<FkModuleArgs>();
-        //}
+        if (module.moduleType == "FkChain") 
+        {
+             module.moduleArgs = argsJson.get<FkModuleArgs>();
+        }
+        else if (module.moduleType == "AimModule")
+        {
+            module.moduleArgs = argsJson.get<AimModuleArgs>();
+        }
         // Future modules (e.g., IkChain, SplineRibbon) get added as else-if branches here!
     }
 

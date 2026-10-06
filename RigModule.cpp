@@ -2,6 +2,7 @@
 #include "RigControlNode.h"
 #include "RigJsonStructs.h"
 #include "FkChain.h"
+#include "AimModule.h"
 
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
@@ -453,6 +454,17 @@ void RigModuleNodeBase::buildModuleRecursive(
 			dagMod
 		);
 	}
+	else if (moduleData.moduleType == "AimModule")
+	{
+		oCurrentModule = AimModuleNode::createModule(
+			moduleData,
+			oRigRoot,
+			oParentModule,
+			dgMod,
+			dagMod
+		);
+	}
+	// TODO: aim module
 	// Future module types (e.g., IkChain, SplineRibbon) branch here...
 	else
 	{

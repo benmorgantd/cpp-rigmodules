@@ -21,7 +21,7 @@
 // LayoutModuleNode Implementation
 // ------------------------------------------------------------------
 
-MTypeId LayoutModuleNode::id(0x0021C);
+MTypeId LayoutModuleNode::id(0x00218C);
 
 MObject LayoutModuleNode::aControlMatrix;
 MObject LayoutModuleNode::aOutputSocketMatrix;

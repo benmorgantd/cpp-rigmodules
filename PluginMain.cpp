@@ -9,6 +9,7 @@
 #include "LayoutModule.h"
 #include "FkChain.h"
 #include "RigControlNode.h"
+#include "AimModule.h"
 
 // Plugin Registration
 MStatus initializePlugin(MObject obj)
@@ -40,6 +41,9 @@ MStatus initializePlugin(MObject obj)
 
 	// FkChain
 	status = plugin.registerNode(FkChainNode::aCommandString, FkChainNode::id, FkChainNode::creator, FkChainNode::initialize);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.registerNode(AimModuleNode::aCommandString, AimModuleNode::id, AimModuleNode::creator, AimModuleNode::initialize);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Shape node
@@ -101,6 +105,8 @@ MStatus uninitializePlugin(MObject obj)
 		status.perror("Failed to deregister fkChainNode");
 		finalStatus = status;
 	}
+
+	status = plugin.deregisterNode(AimModuleNode::id);
 
 	// Shape node
 	MHWRender::MDrawRegistry::deregisterDrawOverrideCreator(
