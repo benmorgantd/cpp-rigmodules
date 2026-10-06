@@ -26,16 +26,24 @@ struct RigModuleData {
     std::vector<RigModuleData> children;
 };
 
-struct RigRootData {
-    std::string rigName;
-    int rigVersion = -1;
+struct  AssetRootData
+{
+    std::string assetId;
+    std::string assetType;
+};
+
+struct RigRootData 
+{
+    std::string rigTemplateName;
     std::string rigType;
-    std::string author;
+    int rigVersion = -1;
+    std::string rigAuthor;
     std::vector<RigModuleData> rigModules;
 };
 
 // lohmann macro mapping JSON keys directly to struct fields
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigRootData, rigName, rigVersion, rigType, author, rigModules)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AssetRootData, assetId, assetType)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigRootData, rigTemplateName, rigVersion, rigType, rigAuthor, rigModules)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigModuleData, moduleType, name, shapeType, side, joints, parentSocketIndex, moduleArgs, children)
 //NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FkModuleArgs)  // we do not need this line for empty structs.
 
@@ -44,5 +52,5 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigModuleData, moduleType, name, shapeType, s
 void from_json(const nlohmann::json& j, RigModuleData& module);
 
 // Function declaration for reading the JSON file from disk
-bool loadRigTemplate(const MString& filePath, RigRootData& outDesc, MString& outErr);
+bool loadRigTemplate(const MString& filePath, AssetRootData& assetData, RigRootData& rigData, MString& outErr);
 

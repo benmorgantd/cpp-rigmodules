@@ -41,7 +41,7 @@ void from_json(const nlohmann::json& jsonData, RigModuleData& module)
 // -----------------------------------------------------------------------------
 // High-Level File Loading Function
 // -----------------------------------------------------------------------------
-bool loadRigTemplate(const MString& filePath, RigRootData& outData, MString& outErr) 
+bool loadRigTemplate(const MString& filePath, AssetRootData& assetData, RigRootData& rigData, MString& outErr) 
 {
     std::ifstream file(filePath.asChar());
     if (!file.is_open()) 
@@ -55,8 +55,9 @@ bool loadRigTemplate(const MString& filePath, RigRootData& outData, MString& out
         nlohmann::json jsonData;
         file >> jsonData;
 
-        // Deserialize full JSON directly into the typed RigDescription struct
-        outData = jsonData.get<RigRootData>();
+        // Deserialize full JSON directly into the typed RigRootData and ASsetRootData structs
+        rigData = jsonData.get<RigRootData>();
+        assetData = jsonData.get<AssetRootData>();
     }
     catch (const std::exception& e) 
     {

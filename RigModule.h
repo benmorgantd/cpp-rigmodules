@@ -32,9 +32,9 @@ public:
 	static MObject moduleData;          // JSON string payload for custom module serialization
 
 	// Network Message Plugs
-	static MObject rigRoot;             // Message link to central RigRoot node
-	static MObject parentModule;        // Message link to parent module
-	static MObject childModules;        // Message array link to child modules
+	static MObject aRigRoot;             // Message link to central RigRoot node
+	static MObject aParentModule;        // Message link to parent module
+	static MObject aChildModules;        // Message array link to child modules
 	static MObject aRigControls;        // Message array to controls on this module.
 
 	// Base Transformation Matrix Plugs

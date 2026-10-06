@@ -1,21 +1,16 @@
 #include "AssetType.h"
 #include <maya/MGlobal.h>
+#include <string>
 
 // Asset Type ---------------------------------------------------
-AssetType getAssetTypeFromString(const char* assetType)
+AssetType getAssetTypeFromString(std::string& assetType)
 {
-	if (assetType == "Prop") return AssetType::Prop;
-	else if (assetType == "Character") return AssetType::Character;
-	else if (assetType == "Vehicle") return AssetType::Vehicle;
-	else if (assetType == "Head") return AssetType::Head;
-	else if (assetType == "Weapon") return AssetType::Weapon;
-	else if (assetType == "VFX") return AssetType::VFX;
-	else if (assetType == "Light") return AssetType::Light;
-	else if (assetType == "Environment") return AssetType::Environment;
+	if (assetType == "Mesh") return AssetType::Mesh;
+	else if (assetType == "Rig") return AssetType::Rig;
 	else if (assetType == "Other") return AssetType::Other;
 	else
 	{
-		MGlobal::displayError("Given asset type is not valid, defaulting to Other");
+		MGlobal::displayError("Given asset type string is not valid, defaulting to Other");
 		return AssetType::Other;
 	}
 }

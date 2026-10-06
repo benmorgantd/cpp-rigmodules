@@ -23,12 +23,12 @@
 
 MTypeId LayoutModuleNode::id(0x0021C);
 
-MObject LayoutModuleNode::controlMatrix;
-MObject LayoutModuleNode::outputSocketMatrix;
+MObject LayoutModuleNode::aControlMatrix;
+MObject LayoutModuleNode::aOutputSocketMatrix;
 MObject LayoutModuleNode::aRigControls;
 MObject LayoutModuleNode::aSide;
-MObject LayoutModuleNode::childModules;
-MObject LayoutModuleNode::rigRoot;
+MObject LayoutModuleNode::aChildModules;
+MObject LayoutModuleNode::aRigRoot;
 MObject LayoutModuleNode::aNumSockets;
 
 LayoutModuleNode::LayoutModuleNode() {}
@@ -52,18 +52,18 @@ MStatus LayoutModuleNode::initialize()
 	MFnNumericAttribute nAttr;
 
 	// 1. INPUT ARRAYS
-	controlMatrix = mAttr.create("controlMatrix", "cm", MFnMatrixAttribute::kDouble, &status);
+	aControlMatrix = mAttr.create("controlMatrix", "cm", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
 	mAttr.setStorable(true);
 	mAttr.setKeyable(true);
-	addAttribute(controlMatrix);
+	addAttribute(aControlMatrix);
 
-	rigRoot = msgAttr.create("rigRoot", "rr", &status);
-	addAttribute(rigRoot);
+	aRigRoot = msgAttr.create("rigRoot", "rr", &status);
+	addAttribute(aRigRoot);
 
-	childModules = msgAttr.create("childModules", "cmods", &status);
+	aChildModules = msgAttr.create("childModules", "cmods", &status);
 	msgAttr.setArray(true);
-	addAttribute(childModules);
+	addAttribute(aChildModules);
 
 	aRigControls = msgAttr.create("rigControls", "ctrls", &status);
 	addAttribute(aRigControls);
@@ -76,13 +76,13 @@ MStatus LayoutModuleNode::initialize()
 	eAttr.setStorable(true);
 	addAttribute(aSide);
 
-	outputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
+	aOutputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
 	mAttr.setUsesArrayDataBuilder(true);
 	mAttr.setWritable(false);
 	mAttr.setStorable(false);
 	mAttr.setWorldSpace(true);
-	addAttribute(outputSocketMatrix);
+	addAttribute(aOutputSocketMatrix);
 
 	// numSockets attr
 	aNumSockets = nAttr.create("numSockets", "ns", MFnNumericData::kShort, 0, &status);
@@ -90,7 +90,7 @@ MStatus LayoutModuleNode::initialize()
 	addAttribute(aNumSockets);
 
 	// 3. AFFECTS RELATIONSHIPS
-	attributeAffects(controlMatrix, outputSocketMatrix);
+	attributeAffects(aControlMatrix, aOutputSocketMatrix);
 
 	return MStatus::kSuccess;
 }
@@ -100,11 +100,10 @@ MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	// TODO: child modules should attach to the last index of the layout module. Make "-1" the default.
 	// TODO: there are world-space calculation issues here.
-	if (plug == outputSocketMatrix || plug.array() == outputSocketMatrix)
+	if (plug == aOutputSocketMatrix || plug.array() == aOutputSocketMatrix)
 	{
-		// TODO: we are not getting into this if statement
-		MArrayDataHandle hControlArray = data.inputArrayValue(controlMatrix);
-		MArrayDataHandle hOutSocketArray = data.outputArrayValue(outputSocketMatrix);
+		MArrayDataHandle hControlArray = data.inputArrayValue(aControlMatrix);
+		MArrayDataHandle hOutSocketArray = data.outputArrayValue(aOutputSocketMatrix);
 
 		// Start with identity (or parent world matrix if layout has an offset)
 		MMatrix mCurrentWorld = MMatrix::identity;
@@ -187,7 +186,7 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 
 		// Wire the control's matrix to the module's control matrix input
 		MPlug pControlOutputMatrix(oControl, RigControlNode::matrix);
-		MPlug pModuleInputMatrix(oLayoutModule, LayoutModuleNode::controlMatrix);
+		MPlug pModuleInputMatrix(oLayoutModule, LayoutModuleNode::aControlMatrix);
 		dgMod.connect(pControlOutputMatrix, pModuleInputMatrix.elementByLogicalIndex(i));
 
 		if (oPreviousControlNode != MObject::kNullObj)
@@ -201,8 +200,8 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 	RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oLayoutModule);
 
 	// Always keep dgMod and dagMod up to date after creating a module
-	//dgMod.doIt();
-	//dagMod.doIt();
+	dgMod.doIt();
+	dagMod.doIt();
 
 	return oLayoutModule;
 }
@@ -212,7 +211,7 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 // ------------------------------------------------------------------
 
 // LayoutModule Setup command ----------------------------------------
-const MString LayoutModuleSetupCmd::commandString = "setupLayoutModule";
+const MString LayoutModuleSetupCmd::aCommandString = "setupLayoutModule";
 
 LayoutModuleSetupCmd::LayoutModuleSetupCmd() {}
 LayoutModuleSetupCmd::~LayoutModuleSetupCmd() {}

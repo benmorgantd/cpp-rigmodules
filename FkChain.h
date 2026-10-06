@@ -23,10 +23,10 @@ public:
 
 	// Control Array Attributes
 	static MObject aControlMatrix;
-	static MObject outputControlOPM;
-	static MObject outputJointOPM;
+	static MObject aOutputControlOPM;
+	static MObject aOutputJointOPM;
 
-	static const MString commandString;
+	static const MString aCommandString;
 public:
 	static MObject createModule(
 		const MString& moduleName,
@@ -57,7 +57,7 @@ public:
 
 	static void* creator();
 	static MSyntax newSyntax();
-	static const MString commandString;
+	static const MString aCommandString;
 
 	// TODO: undo\redoIt()
 };

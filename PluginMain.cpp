@@ -7,7 +7,6 @@
 #include "RigRoot.h"
 #include "AssetRoot.h"
 #include "LayoutModule.h"
-#include "SingleJointFK.h"
 #include "FkChain.h"
 #include "RigControlNode.h"
 
@@ -39,16 +38,8 @@ MStatus initializePlugin(MObject obj)
 	// LayoutModule
 	status = plugin.registerNode(LayoutModuleNode::commandString, LayoutModuleNode::id, LayoutModuleNode::creator, LayoutModuleNode::initialize);
 
-	// SingleJointFK
-	status = plugin.registerNode(SingleJointFKNode::commandString, SingleJointFKNode::id, SingleJointFKNode::creator, SingleJointFKNode::initialize);
-	if (!status)
-	{
-		status.perror("Failed to register singleJointFKNode");
-		return status;
-	}
-
 	// FkChain
-	status = plugin.registerNode(FkChainNode::commandString, FkChainNode::id, FkChainNode::creator, FkChainNode::initialize);
+	status = plugin.registerNode(FkChainNode::aCommandString, FkChainNode::id, FkChainNode::creator, FkChainNode::initialize);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Shape node
@@ -69,16 +60,13 @@ MStatus initializePlugin(MObject obj)
 	);
 
 	// -- REGISTER COMMANDS --
-	status = plugin.registerCommand(LayoutModuleSetupCmd::commandString, LayoutModuleSetupCmd::creator, LayoutModuleSetupCmd::newSyntax);
+	status = plugin.registerCommand(LayoutModuleSetupCmd::aCommandString, LayoutModuleSetupCmd::creator, LayoutModuleSetupCmd::newSyntax);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerCommand(SingleJointFKCmd::commandString, SingleJointFKCmd::creator, SingleJointFKCmd::newSyntax);
+	status = plugin.registerCommand(FkChainNodeSetupCmd::aCommandString, FkChainNodeSetupCmd::creator, FkChainNodeSetupCmd::newSyntax);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.registerCommand(FkChainNodeSetupCmd::commandString, FkChainNodeSetupCmd::creator, FkChainNodeSetupCmd::newSyntax);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	status = plugin.registerCommand(CreateRigCmd::commandString, CreateRigCmd::creator, CreateRigCmd::newSyntax);
+	status = plugin.registerCommand(CreateRigCmd::aCommandString, CreateRigCmd::creator, CreateRigCmd::newSyntax);
 
 	return status;
 }
@@ -107,13 +95,6 @@ MStatus uninitializePlugin(MObject obj)
 	status = plugin.deregisterNode(LayoutModuleNode::id);
 
 
-	status = plugin.deregisterNode(SingleJointFKNode::id);
-	if (!status)
-	{
-		status.perror("Failed to deregister singleJointFKNode");
-		finalStatus = status;
-	}
-
 	status = plugin.deregisterNode(FkChainNode::id);
 	if (!status)
 	{
@@ -128,10 +109,9 @@ MStatus uninitializePlugin(MObject obj)
 	);
 	status = plugin.deregisterNode(RigControlNode::id);
 
-	status = plugin.deregisterCommand(LayoutModuleSetupCmd::commandString);
-	status = plugin.deregisterCommand(SingleJointFKCmd::commandString);
-	status = plugin.deregisterCommand(FkChainNodeSetupCmd::commandString);
-	status = plugin.deregisterCommand(CreateRigCmd::commandString);
+	status = plugin.deregisterCommand(LayoutModuleSetupCmd::aCommandString);
+	status = plugin.deregisterCommand(FkChainNodeSetupCmd::aCommandString);
+	status = plugin.deregisterCommand(CreateRigCmd::aCommandString);
 
 	return finalStatus;
 }

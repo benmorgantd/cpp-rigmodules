@@ -26,40 +26,10 @@ public:
 	static MTypeId id;
 
 	// Attribute handles
-	static MObject assetId;   // Pipe-separated identifier (e.g., "project_name|assets|my_rig")
-	static MObject assetType; // Asset classification string
-	static MObject assetData; // Native string attribute containing JSON payload for serialization
-	static MObject children;   // Message links to connected nodes
-public: 
-	static MObject createAssetRoot(const MString& assetId, const AssetType& assetType, MDGModifier& dgMod);
-	static MStatus createRig(const MString& jsonFilePath);
-};
-
-
-/// <summary>
-/// Main function to run for creating rigs.
-/// </summary>
-class CreateRigCmd : public MPxCommand
-{
+	static MObject aAssetId;   // Pipe-separated identifier (e.g., "project_name|assets|my_rig")
+	static MObject aAssetType; // Asset classification string
+	static MObject aAssetData; // Native string attribute containing JSON payload for serialization
+	static MObject aChildren;   // Message links to connected nodes
 public:
-	CreateRigCmd();
-	virtual ~CreateRigCmd() override;
-
-	MStatus doIt(const MArgList& args) override;
-	MStatus redoIt() override;
-	MStatus undoIt() override;
-	bool isUndoable() const override;
-
-	static void* creator();
-	static MSyntax newSyntax();
-
-	// Command registration attribute
-	static const char* commandString;
-
-private:
-	static const char* kFilePathArgShort;
-	static const char* kFilePathArgLong;
-
-	MDGModifier fDgMod;
-	MDagModifier fDagMod;
+	static MObject createAssetRoot(const MString& assetId, const AssetType& assetType, MDGModifier& dgMod);
 };

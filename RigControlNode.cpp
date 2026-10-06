@@ -249,16 +249,14 @@ MUserData* RigControlDrawOverride::prepareForDraw(
     if (displayStatus == MHWRender::kActive)
     {
         // Active selection (White)
-        // NOTE: Ignoring alpha if objects are selected so they stand out. 
-        data->color = MColor(1.0f, 1.0f, 1.0f, 1.0f);
-        data->lineWidth = 1.0f;
+        data->color = MColor(1.0f, 1.0f, 1.0f, data->dormantColor.a);
+        data->lineWidth = 2.0f;
     }
     else if (displayStatus == MHWRender::kLead)
     {
         // Lead selection (Soft Green)
-        // NOTE: Ignoring alpha if objects are selected so they stand out. 
-        data->color = MColor(0.26f, 1.0f, 0.64f, 1.0f); 
-        data->lineWidth = 2.0f;
+        data->color = MColor(0.26f, 1.0f, 0.64f, data->dormantColor.a); 
+        data->lineWidth = 4.0f;
     }
     else
     {
@@ -314,7 +312,7 @@ void RigControlDrawOverride::addUIDrawables(
             drawManager.lineStrip(CustomShapes::transformPointArray(CustomShapes::Triangle(), mShapeTransform), false);
             break;
         case ShapeType::Cylinder:
-            drawManager.cylinder(center, up, width, height, 6, filled);
+            drawManager.cylinder(center, up, width, height, 8, filled);
             break;
         case ShapeType::Square:
             drawManager.rect(center, up, normal, width, height, filled);

@@ -20,12 +20,12 @@ public:
 	static MTypeId id;
 
 	// Control Array Attributes
-	static MObject controlMatrix;
-	static MObject outputSocketMatrix;
+	static MObject aControlMatrix;
+	static MObject aOutputSocketMatrix;
 	static MObject aRigControls;
 	static MObject aSide;
-	static MObject childModules;
-	static MObject rigRoot;
+	static MObject aChildModules;
+	static MObject aRigRoot;
 	static MObject aNumSockets;
 	static const MString commandString;
 public:
@@ -42,7 +42,7 @@ public:
 
 	static void* creator();
 	static MSyntax newSyntax();
-	static const MString commandString;
+	static const MString aCommandString;
 
 	// TODO: undo\redoIt()
 };

@@ -25,9 +25,9 @@
 
 // Static attribute definitions
 MObject RigModuleNodeBase::moduleData;
-MObject RigModuleNodeBase::rigRoot;
-MObject RigModuleNodeBase::parentModule;
-MObject RigModuleNodeBase::childModules;
+MObject RigModuleNodeBase::aRigRoot;
+MObject RigModuleNodeBase::aParentModule;
+MObject RigModuleNodeBase::aChildModules;
 MObject RigModuleNodeBase::aParentWorldMatrix;
 MObject RigModuleNodeBase::aParentModuleOffset;
 MObject RigModuleNodeBase::aOutputSocketMatrix;
@@ -58,15 +58,15 @@ MStatus RigModuleNodeBase::initializeBaseAttributes()
 	addAttribute(moduleData);
 
 	// 2. Network Message Plugs
-	rigRoot = msgAttr.create("rigRoot", "rr", &status);
-	addAttribute(rigRoot);
+	aRigRoot = msgAttr.create("rigRoot", "rr", &status);
+	addAttribute(aRigRoot);
 
-	parentModule = msgAttr.create("parentModule", "pm", &status);
-	addAttribute(parentModule);
+	aParentModule = msgAttr.create("parentModule", "pm", &status);
+	addAttribute(aParentModule);
 
-	childModules = msgAttr.create("childModules", "cmods", &status);
+	aChildModules = msgAttr.create("childModules", "cmods", &status);
 	msgAttr.setArray(true);
-	addAttribute(childModules);
+	addAttribute(aChildModules);
 
 	aRigControls = msgAttr.create("rigControls", "ctrls", &status);
 	addAttribute(aRigControls);
@@ -173,7 +173,7 @@ void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, u
 MObjectArray RigModuleNodeBase::getChildModules(MObject& moduleNode)
 {
 	// TODO: we should add protection here (check status) because this could fail if we passed in the wrong MObject
-	MPlug pChildModules(moduleNode, RigModuleNodeBase::childModules);
+	MPlug pChildModules(moduleNode, RigModuleNodeBase::aChildModules);
 	MObjectArray childModuleNodes;
 
 	MPlugArray pConnectedChildren;
@@ -190,7 +190,7 @@ MObjectArray RigModuleNodeBase::getChildModules(MObject& moduleNode)
 MObject RigModuleNodeBase::getParentModule(MObject& moduleNode)
 {
 	MObject parentModule;
-	MPlug pParentModule(moduleNode, RigModuleNodeBase::parentModule);
+	MPlug pParentModule(moduleNode, RigModuleNodeBase::aParentModule);
 	MPlugArray pConnectedParents;
 	pParentModule.connectedTo(pConnectedParents, true, false);  // Get inputs. There can only be one
 
@@ -215,7 +215,7 @@ MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDGModifier
 	}
 
 	MFnDependencyNode moduleFn(oModule);
-	MPlug pRigRoot(oModule, RigModuleNodeBase::rigRoot);
+	MPlug pRigRoot(oModule, RigModuleNodeBase::aRigRoot);
 
 	if (pRigRoot.isNull())
 	{
