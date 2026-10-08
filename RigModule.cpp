@@ -168,6 +168,12 @@ void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, u
 	}
 }
 
+void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, const MMatrix& mat)
+{
+	MDataHandle hOutput = data.outputValue(attr);
+	hOutput.setMMatrix(mat);
+}
+
 // Networking functionality
 
 // Return the MObjects for the child nodes of this module

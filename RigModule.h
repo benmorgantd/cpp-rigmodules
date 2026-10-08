@@ -23,6 +23,7 @@ public:
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx);
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr);
 	static void setOutputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx, const MMatrix& mat);
+	static void setOutputMatrix(MDataBlock& data, const MObject& attr, const MMatrix& mat);
 	//static MMatrix getMatrixFromPlug(); // TODO: continue
 	// Networking functionality
 	static MObjectArray getChildModules(MObject& moduleNode);
@@ -35,7 +36,7 @@ public:
 	static MObject aRigRoot;             // Message link to central RigRoot node
 	static MObject aParentModule;        // Message link to parent module
 	static MObject aChildModules;        // Message array link to child modules
-	static MObject aRigControls;        // Message array to controls on this module.
+	static MObject aRigControls;         // Message array to controls on this module.
 
 	// Base Transformation Matrix Plugs
 	static MObject aParentWorldMatrix;   // Driving input matrix from parent socket or layout hook
