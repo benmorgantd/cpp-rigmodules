@@ -1,5 +1,4 @@
 #include "RigModule.h"
-#include "RigControlNode.h"
 #include "RigJsonStructs.h"
 #include "FkChain.h"
 #include "AimModule.h"
@@ -15,29 +14,27 @@
 #include <maya/MArrayDataHandle.h>
 #include <maya/MArrayDataBuilder.h>
 #include <maya/MGlobal.h>
-#include <maya/MArgDatabase.h>
-#include <maya/MArgList.h>
-#include <maya/MObjectArray.h>
-#include <maya/MSyntax.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MFnDependencyNode.h>
+#include <maya/MStringArray.h>
+#include <maya/MObjectArray.h>
 
 // Static attribute definitions
 MObject RigModuleNodeBase::moduleData;
 MObject RigModuleNodeBase::aRigRoot;
-MObject RigModuleNodeBase::aParentModule;
-MObject RigModuleNodeBase::aChildModules;
-MObject RigModuleNodeBase::aParentWorldMatrix;
-MObject RigModuleNodeBase::aParentModuleOffset;
 MObject RigModuleNodeBase::aOutputSocketMatrix;
 MObject RigModuleNodeBase::aRigControls;
 MObject RigModuleNodeBase::aSide;
-MObject RigModuleNodeBase::aNumSockets;
 
-RigModuleNodeBase::RigModuleNodeBase() {}
-RigModuleNodeBase::~RigModuleNodeBase() {}
+RigModuleNodeBase::RigModuleNodeBase()
+{
+}
+
+RigModuleNodeBase::~RigModuleNodeBase()
+{
+}
 
 MStatus RigModuleNodeBase::compute(const MPlug& plug, MDataBlock& data)
 {
@@ -62,31 +59,10 @@ MStatus RigModuleNodeBase::initializeBaseAttributes()
 	aRigRoot = msgAttr.create("rigRoot", "rr", &status);
 	addAttribute(aRigRoot);
 
-	aParentModule = msgAttr.create("parentModule", "pm", &status);
-	addAttribute(aParentModule);
-
-	aChildModules = msgAttr.create("childModules", "cmods", &status);
-	msgAttr.setArray(true);
-	addAttribute(aChildModules);
-
 	aRigControls = msgAttr.create("rigControls", "ctrls", &status);
 	addAttribute(aRigControls);
 
-	// 3. Base Driving Input Matrix (Scalar)
-	aParentWorldMatrix = mAttr.create("parentWorldMatrix", "pwm", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setStorable(true);
-	mAttr.setKeyable(true);
-	mAttr.setWorldSpace(true);
-	addAttribute(aParentWorldMatrix);
-
-	aParentModuleOffset = mAttr.create("parentModuleOffset", "pmo", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setStorable(true);
-	mAttr.setKeyable(true);
-	mAttr.setWorldSpace(true);
-	mAttr.setHidden(true);
-	addAttribute(aParentModuleOffset);
-
-	// 4. Output Socket Matrix Array
+	// 3. Output Socket Matrix Array
 	aOutputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
 	mAttr.setUsesArrayDataBuilder(true);
@@ -94,11 +70,6 @@ MStatus RigModuleNodeBase::initializeBaseAttributes()
 	mAttr.setStorable(false);
 	mAttr.setWorldSpace(true);
 	addAttribute(aOutputSocketMatrix);
-
-	// numSockets attr
-	aNumSockets = nAttr.create("numSockets", "ns", MFnNumericData::kShort, 0, &status);
-	nAttr.setStorable(true);
-	addAttribute(aNumSockets);
 
 	// Side
 	aSide = eAttr.create("side", "sd", 0);
@@ -112,26 +83,66 @@ MStatus RigModuleNodeBase::initializeBaseAttributes()
 	return MStatus::kSuccess;
 }
 
-// Shared functions --------------------------------------------
+// Matrix Calculation Helpers --------------------------------------------
+
+MMatrix RigModuleNodeBase::computeOffsetParentMatrix(const MMatrix& mControlWorld, const MMatrix& mDagParentWorld)
+{
+	// M_OPM = M_ControlWorld * M_DAGParentWorld_Inverse
+	return mControlWorld * mDagParentWorld.inverse();
+}
+
+int RigModuleNodeBase::resolveSocketIndex(const MString& key, unsigned int totalElements)
+{
+	if (key == "start" || key == "0" || key == "socketDefault")
+	{
+		return 0;
+	}
+	if (key == "end" || key == "-1")
+	{
+		return (totalElements > 0) ? static_cast<int>(totalElements) - 1 : 0;
+	}
+
+	int idx = key.asInt();
+	if (idx < 0 && totalElements > 0)
+	{
+		idx = static_cast<int>(totalElements) + idx;
+	}
+	return (idx >= 0) ? idx : 0;
+}
+
+bool RigModuleNodeBase::parseSocketIdentifier(const MString& fullIdentifier, MString& outModuleName, MString& outSocketName)
+{
+	MStringArray tokens;
+	if (fullIdentifier.split('.', tokens) == MS::kSuccess && tokens.length() == 2)
+	{
+		outModuleName = tokens[0];
+		outSocketName = tokens[1];
+		return true;
+	}
+
+	// Single token represents a standalone node or root control
+	outModuleName = "";
+	outSocketName = fullIdentifier;
+	return false;
+}
+
+// DataBlock Handles Access --------------------------------------------
 
 MMatrix RigModuleNodeBase::getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx)
 {
-	MArrayDataHandle hArray = data.inputArrayValue(attr);
-	if (hArray.jumpToElement(idx) == MS::kSuccess)
+	MStatus status;
+	MArrayDataHandle hArray = data.inputArrayValue(attr, &status);
+	if (status == MStatus::kSuccess && hArray.jumpToElement(idx) == MS::kSuccess)
 	{
-		// Do NOT re-aquire hArray here because we've just moved it to the desired plug.
 		return hArray.inputValue().asMatrix();
 	}
-	else
-	{
-		MGlobal::displayError("error in getting array element");
-	}
+	MGlobal::displayError("Error retrieving array matrix element at index.");
 	return MMatrix::identity;
 }
 
 MMatrix getMatrixFromPlug(const MPlug& pMatrixPlug)
 {
-	MMatrix matrixValue; // Defaults to identity matrix
+	MMatrix matrixValue;
 
 	MObject dataObj;
 	MStatus status = pMatrixPlug.getValue(dataObj);
@@ -151,7 +162,6 @@ MMatrix RigModuleNodeBase::getInputMatrix(MDataBlock& data, const MObject& attr)
 	return hData.asMatrix();
 }
 
-// TODO: this could return MStatus not void
 void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx, const MMatrix& mat)
 {
 	MArrayDataHandle hArray = data.outputArrayValue(attr);
@@ -174,46 +184,12 @@ void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, c
 	hOutput.setMMatrix(mat);
 }
 
-// Networking functionality
-
-// Return the MObjects for the child nodes of this module
-MObjectArray RigModuleNodeBase::getChildModules(MObject& moduleNode)
-{
-	// TODO: we should add protection here (check status) because this could fail if we passed in the wrong MObject
-	MPlug pChildModules(moduleNode, RigModuleNodeBase::aChildModules);
-	MObjectArray childModuleNodes;
-
-	MPlugArray pConnectedChildren;
-	pChildModules.connectedTo(pConnectedChildren, false, true);
-
-	for (unsigned int i = 0; i < pConnectedChildren.length(); ++i)
-	{
-		// TODO: we could add protections here
-		childModuleNodes.append(pConnectedChildren[i].node());
-	}
-	return childModuleNodes;
-}
-
-MObject RigModuleNodeBase::getParentModule(MObject& moduleNode)
-{
-	MObject parentModule;
-	MPlug pParentModule(moduleNode, RigModuleNodeBase::aParentModule);
-	MPlugArray pConnectedParents;
-	pParentModule.connectedTo(pConnectedParents, true, false);  // Get inputs. There can only be one
-
-	if (pConnectedParents.length() > 0)
-	{
-		parentModule = pConnectedParents[0].node();
-	}
-
-	return parentModule;
-}
-
+// Networking functionality --------------------------------------------
 MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDGModifier& dgMod, const MObject& oModule)
 {
 	MStatus status;
 	MFnDependencyNode rigRootFn(oRigRoot);
-	MPlug pRigModules = rigRootFn.findPlug("rm", false);  // TODO: also make this a reference
+	MPlug pRigModules = rigRootFn.findPlug("rm", false);
 
 	if (pRigModules.isNull())
 	{
@@ -234,260 +210,86 @@ MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDGModifier
 	return status;
 }
 
-// RigModuleCommandHelpers ------------------------------------------------
-const char* RigModuleCommandHelpers::kNameFlagShort = "-n";
-const char* RigModuleCommandHelpers::kNameFlagLong = "-name";
-const char* RigModuleCommandHelpers::kJointsFlagShort = "-j";
-const char* RigModuleCommandHelpers::kJointsFlagLong = "-joints";
-const char* RigModuleCommandHelpers::kParentModuleShort = "-pm";
-const char* RigModuleCommandHelpers::kParentModuleLong = "-parentModule";
-const char* RigModuleCommandHelpers::kParentSocketIndexShort = "-psi";
-const char* RigModuleCommandHelpers::kParentSocketIndexLong = "-parentSocketIndex";
-const char* RigModuleCommandHelpers::kRigRootLong = "-rigRoot";
-const char* RigModuleCommandHelpers::kRigRootShort = "-rr";
 
-
-MString RigModuleCommandHelpers::getModuleNameFromArgs(const MArgDatabase& argData)
-{
-	// Gather the passed in module name
-	MString moduleName = "fkChainModule_01";
-	if (argData.isFlagSet(kNameFlagShort))
-	{
-		argData.getFlagArgument(kNameFlagShort, 0, moduleName);
-	}
-
-	return moduleName;
-}
-
-MObject RigModuleCommandHelpers::getRigRootFromArgs(const MArgDatabase& argData)
-{
-	MString rigRootName;
-	MObject oRigRoot;
-	MStatus status;
-
-	if (argData.isFlagSet(kRigRootShort))
-	{
-		status = argData.getFlagArgument(kRigRootShort, 0, rigRootName);
-
-		if (status == MStatus::kSuccess && !rigRootName.isEmpty())
-		{
-			MSelectionList sel;
-			status = sel.add(rigRootName);
-
-			if (status == MStatus::kSuccess)
-			{
-				status = sel.getDependNode(0, oRigRoot);
-			}
-		}
-	}
-	return oRigRoot;
-}
-
-MDagPathArray RigModuleCommandHelpers::getJointsFromArgs(const MArgDatabase& argData, MStatus& status)
-{
-	MDagPathArray jointDags;
-	MObjectArray jointObjs;
-	unsigned int numJoints = 0;
-
-	if (argData.isFlagSet(kJointsFlagShort))
-	{
-		numJoints = argData.numberOfFlagUses(kJointsFlagShort);
-
-		for (unsigned int i = 0; i < numJoints; ++i)
-		{
-			MArgList flagArgs;
-			// Fetch the argument list for the i-th occurance of the joints flag
-			status = argData.getFlagArgumentList(kJointsFlagShort, i, flagArgs);
-			if (status == MStatus::kSuccess)
-			{
-				for (unsigned int j = 0; j < flagArgs.length(); ++j)
-				{
-					MString jointName = flagArgs.asString(j, &status);
-					MDagPath jointDag;
-					MSelectionList jointSel;
-					jointSel.add(jointName);
-					status = jointSel.getDagPath(0, jointDag);
-
-					if (status == MStatus::kSuccess && !jointDag.node().isNull())
-					{
-						jointDags.append(jointDag);
-					}
-					else
-					{
-						MGlobal::displayError("Failure getting joint depend node: " + jointName);
-						status = MStatus::kFailure;
-					}
-					
-				}
-			}
-		}
-	}
-
-	if (jointDags.length() == 0 || numJoints == 0)
-	{
-		MGlobal::displayError("At least one joint must be given with the -j flag.");
-		return MDagPathArray();
-	}
-	return jointDags;
-}
-
-MStatus RigModuleCommandHelpers::connectModuleToRigRoot(const MArgDatabase& argData, MDGModifier& dgMod, const MObject& moduleNode)
-{
-	MStatus status;
-	MString rigRootName;
-	MObject oRigRoot;
-
-	if (argData.isFlagSet(kRigRootShort))
-	{
-		argData.getFlagArgument(kRigRootShort, 0, rigRootName);
-
-		MSelectionList rigRootSelList;
-		status = rigRootSelList.add(rigRootName);
-		rigRootSelList.getDependNode(0, oRigRoot);
-
-		if (!status || oRigRoot.isNull())
-		{
-			MGlobal::displayError("Rig Root name " + rigRootName + " does not exist.");
-			return MStatus::kFailure;
-		}
-	}
-
-	RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, moduleNode);
-}
-
-MSyntax RigModuleCommandHelpers::createBaseModuleSyntax(MStatus& status)
-{
-	MSyntax syntax;
-	status = syntax.addFlag(kNameFlagShort, kNameFlagLong, MSyntax::kString);
-	status = syntax.addFlag(kJointsFlagShort, kJointsFlagLong, MSyntax::kString);
-	status = syntax.makeFlagMultiUse(kJointsFlagShort);
-	status = syntax.addFlag(kParentModuleShort, kParentModuleLong, MSyntax::kString);
-	status = syntax.addFlag(kParentSocketIndexShort, kParentSocketIndexLong, MSyntax::kLong);
-	status = syntax.addFlag(kRigRootShort, kRigRootLong, MSyntax::kString);
-	return syntax;
-}
-
-unsigned int RigModuleCommandHelpers::getParentModuleSocketIndex(const MArgDatabase& argData)
-{
-	unsigned int parentModuleSocketIndex = 0;
-	if (argData.isFlagSet(kParentSocketIndexShort))
-	{
-		argData.getFlagArgument(kParentSocketIndexShort, 0, parentModuleSocketIndex);
-	}
-	return parentModuleSocketIndex;
-}
-
-MObject RigModuleCommandHelpers::getParentModule(const MArgDatabase& argData)
-{
-	MString parentModuleName;
-	MObject oParentModule;
-	MStatus status;
-
-	if (argData.isFlagSet(kParentModuleShort))
-	{
-		argData.getFlagArgument(kParentModuleShort, 0, parentModuleName);
-
-		MSelectionList modSelList;
-		status = modSelList.add(parentModuleName);
-
-		if (status != MStatus::kSuccess)
-		{
-			MGlobal::displayError("Module name " + parentModuleName + " does not exist.");
-			return MObject::kNullObj;
-		}
-	}
-
-	return oParentModule;
-}
-MStatus RigModuleCommandHelpers::connectToParentModule(const MObject& oParentModule, const MObject oModule, unsigned int parentModuleSocketIndex, MDGModifier& dgMod, MMatrix mFirstControlWorld)
-{
-	if (oParentModule.isNull())
-	{
-		MGlobal::displayError("Given parent module object is null.");
-		return MStatus::kFailure;
-	}
-
-	// Wire the parent module to the new module
-	MFnDependencyNode fnParentModule(oParentModule);
-	MPlug childModulesPlug = fnParentModule.findPlug("childModules", false);
-	unsigned int numElements = childModulesPlug.numElements();
-
-	MFnDependencyNode fnModule(oModule);
-
-	MPlug parentModulePlug = fnModule.findPlug("parentModule", false);
-	dgMod.connect(childModulesPlug.elementByLogicalIndex(numElements), parentModulePlug);
-
-	// Wire the parent's socket matrix index to the child
-	MPlug parentSocketMatrix = fnParentModule.findPlug("outputSocketMatrix", false).elementByLogicalIndex(parentModuleSocketIndex); // TODO: this 2 is temporary to see if this is the issue
-	MPlug childParentMatrix = fnModule.findPlug("parentWorldMatrix", false);
-	dgMod.connect(parentSocketMatrix, childParentMatrix);
-
-	// Compute offset --------------------------
-	MObject parentSocketObj;
-	parentSocketMatrix.getValue(parentSocketObj);
-	MFnMatrixData parentSocketData(parentSocketObj);
-	MMatrix mParentSocketWorld = parentSocketData.matrix();
-	MMatrix mParentModuleOffset = mFirstControlWorld * mParentSocketWorld.inverse();
-
-	// Set the parentModuleOffset plug value
-	MPlug parentModuleOffset = fnModule.findPlug("parentModuleOffset", false);
-	MFnMatrixData parentModuleOffsetData;
-	MObject parentModuleOffsetObj = parentModuleOffsetData.create(mParentModuleOffset);
-	parentModuleOffset.setValue(parentModuleOffsetObj);
-
-	return MStatus::kSuccess;
-}
-
-// Recursive rig module builder method! ------------------------------------------
-void RigModuleNodeBase::buildModuleRecursive(
-	const RigModuleData& moduleData,
+// First Pass Module Builder ------------------------------------------
+MObjectArray RigModuleNodeBase::buildModules(
+	const std::vector<RigModuleData>& flatModuleList,
 	MObject oRigRoot,
-	MObject oParentModule,
 	MDGModifier& dgMod,
 	MDagModifier& dagMod)
 {
-	MObject oCurrentModule = MObject::kNullObj;
+	MObjectArray oRigModules;
 
-	// 1. Branching creation logic based on moduleType
-	if (moduleData.moduleType == "FkChain")
+	// 5. Traverse and Build Module Hierarchy Recursively
+	for (unsigned int i = 0; i < flatModuleList.size(); ++i)
 	{
-		// Call the static creation method for FkChain
-		oCurrentModule = FkChainNode::createModule(
-			moduleData,
-			oRigRoot,
-			oParentModule,
-			dgMod,
-			dagMod
-		);
+		// Ensure our mods are up to date before we build the next module.
+		// This means that when we query attributes from previous modules we will have them declared and set.
+
+		RigModuleData moduleData = flatModuleList[i];
+		MObject oModule;
+
+		// 1. Branching creation logic based on moduleType
+		if (moduleData.moduleType == "FkChain")
+		{
+			// Call the static creation method for FkChain
+			oModule = FkChainNode::createModule(
+				moduleData,
+				oRigRoot,
+				dgMod,
+				dagMod
+			);
+		}
+		else if (moduleData.moduleType == "AimModule")
+		{
+			oModule = AimModuleNode::createModule(
+				moduleData,
+				oRigRoot,
+				dgMod,
+				dagMod
+			);
+		}
+		// Future module types (e.g., IkChain, SplineRibbon) branch here...
+		else
+		{
+			MGlobal::displayError(MString("Unknown module type: ") + moduleData.moduleType.c_str());
+			return MObjectArray();
+		}
+		if (!oModule.isNull())
+		{
+			oRigModules.append(oModule);
+		}
+		else
+		{
+			MGlobal::displayError("Error creating a rig module. Null returned.");
+			return MObjectArray();
+		}
 	}
-	else if (moduleData.moduleType == "AimModule")
+	
+	// TODO: this could return a map of module names to their MObject.
+	return oRigModules;
+}
+
+// 2nd pass function for parenting the controls to their respective dag and matrix parents from any other module.
+void RigModuleNodeBase::parentModuleControls(const MObjectArray& rigModules, const std::vector<RigModuleData>& flatModuleList, MDGModifier& dgMod, MDagModifier& dagMod)
+{
+
+	/*
+	Go through child plugs and find the mobject related to the parent socket. Make the parent relationship.
+	*/
+
+	// Ensure rig module object array and module list from json are the same size.
+	if (rigModules.length() != static_cast<unsigned int>(flatModuleList.size()))
 	{
-		oCurrentModule = AimModuleNode::createModule(
-			moduleData,
-			oRigRoot,
-			oParentModule,
-			dgMod,
-			dagMod
-		);
-	}
-	// TODO: aim module
-	// Future module types (e.g., IkChain, SplineRibbon) branch here...
-	else
-	{
-		MGlobal::displayError(MString("Unknown module type: ") + moduleData.moduleType.c_str());
+		MGlobal::displayError("Unable to parent module controls because object array and module list from json are not equal lengths.");
 		return;
 	}
 
-	if (oCurrentModule.isNull())
+	for (unsigned int i = 0; i < flatModuleList.size(); ++i)
 	{
-		MGlobal::displayError(MString("Failed to instantiate module: ") + moduleData.name.c_str());
-		return;
-	}
+		MObject oModule = rigModules[i];
+		RigModuleData moduleJsonData = flatModuleList[i];
 
-	// 2. Recursively create all nested child modules
-	for (const RigModuleData& childData : moduleData.children)
-	{
-		// Pass oCurrentModule down as the parent for the child!
-		buildModuleRecursive(childData, oRigRoot, oCurrentModule, dgMod, dagMod);
+		// TODO: Get parent data, parent controls accordingly... 
 	}
 }

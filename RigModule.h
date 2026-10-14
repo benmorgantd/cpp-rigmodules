@@ -1,8 +1,17 @@
 #pragma once
+
 #include "RigJsonStructs.h"
 
 #include <maya/MPxNode.h>
-
+#include <maya/MMatrix.h>
+#include <maya/MObject.h>
+#include <maya/MString.h>
+#include <maya/MStatus.h>
+#include <maya/MPlug.h>
+#include <maya/MDataBlock.h>
+#include <maya/MDGModifier.h>
+#include <maya/MDagModifier.h>
+#include <vector>
 
 class RigModuleNodeBase : public MPxNode
 {
@@ -18,68 +27,35 @@ public:
 
 	// Registers base infrastructure attributes shared across all modules
 	static MStatus initializeBaseAttributes();
+
 public:
-	// For data read\write
+	// Data access helpers
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx);
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr);
 	static void setOutputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx, const MMatrix& mat);
 	static void setOutputMatrix(MDataBlock& data, const MObject& attr, const MMatrix& mat);
-	//static MMatrix getMatrixFromPlug(); // TODO: continue
-	// Networking functionality
-	static MObjectArray getChildModules(MObject& moduleNode);
-	static MObject getParentModule(MObject& moduleNode);
+
+	// Matrix calculation & socket parsing helpers
+	static MMatrix computeOffsetParentMatrix(const MMatrix& mControlWorld, const MMatrix& mDagParentWorld);
+	static int resolveSocketIndex(const MString& key, unsigned int totalElements);
+	static bool parseSocketIdentifier(const MString& fullIdentifier, MString& outModuleName, MString& outSocketName);
+
 public:
 	// Base Metadata Attributes
-	static MObject moduleData;          // JSON string payload for custom module serialization
+	static MObject moduleData;              // JSON string payload for custom module serialization
 
 	// Network Message Plugs
-	static MObject aRigRoot;             // Message link to central RigRoot node
-	static MObject aParentModule;        // Message link to parent module
-	static MObject aChildModules;        // Message array link to child modules
-	static MObject aRigControls;         // Message array to controls on this module.
+	static MObject aRigRoot;                 // Message link to central RigRoot node
+	static MObject aRigControls;             // Message array link to controls on this module
 
-	// Base Transformation Matrix Plugs
-	static MObject aParentWorldMatrix;   // Driving input matrix from parent socket or layout hook
-	static MObject aParentModuleOffset;  // Matrix for storing the offset transformation to the parent module
-	static MObject aOutputSocketMatrix;  // Output matrix array providing connection sockets for children
+	// Matrix Socket & Control DAG Driving Plugs
+	static MObject aOutputSocketMatrix;      // Output matrix array providing connection sockets for downstream modules
 
-	// Enum attributes
-	static MObject aSide;               // Stores the side for the module. All controls of this module will have this side.
-
-	// Attributes for storing data
-	static MObject aNumSockets;         // Store the possible number of output sockets on this module. Each module will have to define this.
-
+	// Enum and Data Attributes
+	static MObject aSide;                   // Module side (Center, Left, Right)
 public:
-	// Shared methods
+	// Shared creation & build methods
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDGModifier& dgMod, const MObject& oModule);
-	static void buildModuleRecursive(const RigModuleData& moduleData, MObject oRigRoot, MObject oParentModule, MDGModifier& dgMod, MDagModifier& dagMod);
+	static MObjectArray buildModules(const std::vector<RigModuleData>& flatModuleList, MObject oRigRoot, MDGModifier& dgMod, MDagModifier& dagMod);
+	static void parentModuleControls(const MObjectArray& rigModules, const std::vector<RigModuleData>& flatModuleList, MDGModifier& dgMod, MDagModifier& dagMod);
 };
-
-class RigModuleCommandHelpers
-{
-public:
-	// TODO: moving the functionality (the implementation) back in the cpp file will improve compile times. 
-	// Helper methods
-	static MString getModuleNameFromArgs(const MArgDatabase& argData);
-	static MDagPathArray getJointsFromArgs(const MArgDatabase& argData, MStatus& status);
-	static MObject getRigRootFromArgs(const MArgDatabase& argData);
-	static MStatus connectModuleToRigRoot(const MArgDatabase& argData, MDGModifier& dgMod, const MObject& moduleNode);
-	static MSyntax createBaseModuleSyntax(MStatus& status);
-	static unsigned int getParentModuleSocketIndex(const MArgDatabase& argData);
-	static MObject getParentModule(const MArgDatabase& argData);
-	static MStatus connectToParentModule(const MObject& oParentModule, const MObject oModule, static unsigned int parentModuleSocketIndex, MDGModifier& dgMod, MMatrix mFirstControlWorld);
-
-public: 
-	// Shared attributes
-	static const char* kNameFlagShort;
-	static const char* kNameFlagLong;
-	static const char* kJointsFlagShort;
-	static const char* kJointsFlagLong;
-	static const char* kParentModuleShort;
-	static const char* kParentModuleLong;
-	static const char* kParentSocketIndexShort;
-	static const char* kParentSocketIndexLong;
-	static const char* kRigRootLong;
-	static const char* kRigRootShort;
-};
-

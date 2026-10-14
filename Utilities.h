@@ -21,5 +21,31 @@ public:
 	static void lockAndHideTranslate(MObject oControl);
 	static void lockAndHideRotate(MObject oControl);
 	static void lockAndHideScale(MObject oControl);
-	static MMatrix bakeJointOpmAndRestMatrix(const MDagPath& jointDag, MPlug& pRestMatrixPlug);
+	static MMatrix bakeTransformsToOPM(const MDagPath& jointDag);
+	static void setMatrixPlug(MPlug& matrixPlug, MMatrix matrix);
+	static MDagPath getDagPathFromName(MString& name);
+};
+
+class RigModuleCommandUtils
+{
+public:
+	// TODO: moving the functionality (the implementation) back in the cpp file will improve compile times. 
+	// Helper methods
+	static MString getModuleNameFromArgs(const MArgDatabase& argData);
+	static MDagPathArray getJointsFromArgs(const MArgDatabase& argData, MStatus& status);
+	static MObject getRigRootFromArgs(const MArgDatabase& argData);
+	static MStatus connectModuleToRigRoot(const MArgDatabase& argData, MDGModifier& dgMod, const MObject& moduleNode);
+	static MSyntax createBaseModuleSyntax(MStatus& status);
+public:
+	// Shared attributes
+	static const char* kNameFlagShort;
+	static const char* kNameFlagLong;
+	static const char* kJointsFlagShort;
+	static const char* kJointsFlagLong;
+	static const char* kParentModuleShort;
+	static const char* kParentModuleLong;
+	static const char* kParentSocketIndexShort;
+	static const char* kParentSocketIndexLong;
+	static const char* kRigRootLong;
+	static const char* kRigRootShort;
 };

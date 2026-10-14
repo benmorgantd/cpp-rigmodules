@@ -1,8 +1,6 @@
 #pragma once
 
 #include "RigModule.h"
-#include <maya/MPxCommand.h>
-#include <maya/MSyntax.h>
 
 class FkChainNode : public RigModuleNodeBase
 {
@@ -23,16 +21,14 @@ public:
 
 	// Control Array Attributes
 	static MObject aControlMatrix;
-	static MObject aOutputControlOPM;
 	static MObject aOutputJointOPM;
+	static MObject aOutputControlOPM;
 
 	static const MString aCommandString;
 public:
 	static MObject createModule(
 		const MString& moduleName,
 		const MDagPathArray& jointDags,
-		MObject oParentModule,
-		unsigned int parentModuleSocketIndex,
 		MObject oRigRoot,
 		MDGModifier& dgMod,
 		MDagModifier& dagMod,
@@ -41,23 +37,9 @@ public:
 	static MObject createModule(
 		const RigModuleData& moduleData,
 		MObject rigRoot,
-		MObject parentModule,
 		MDGModifier& dgMod,
 		MDagModifier& dagMod
 	);
-};
 
-class FkChainNodeSetupCmd : public MPxCommand
-{
-public:
-	FkChainNodeSetupCmd();
-	~FkChainNodeSetupCmd() override;
-
-	MStatus doIt(const MArgList& args) override;
-
-	static void* creator();
-	static MSyntax newSyntax();
-	static const MString aCommandString;
-
-	// TODO: undo\redoIt()
+	//static void parentControls()
 };

@@ -31,18 +31,3 @@ public:
 public:
 	static MObject createModule(MObject& oRigRoot, MDGModifier& dgMod, MDagModifier& dagMod, const unsigned short numControls);
 };
-
-class LayoutModuleSetupCmd : public MPxCommand
-{
-public:
-	LayoutModuleSetupCmd();
-	~LayoutModuleSetupCmd() override;
-
-	MStatus doIt(const MArgList& args) override;
-
-	static void* creator();
-	static MSyntax newSyntax();
-	static const MString aCommandString;
-
-	// TODO: undo\redoIt()
-};

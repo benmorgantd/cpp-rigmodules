@@ -6,15 +6,11 @@
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnDagNode.h>
-#include <maya/MFnTransform.h>
-#include <maya/MFnMatrixData.h>
 #include <maya/MMatrix.h>
-#include <maya/MArrayDataHandle.h>
 #include <maya/MPlug.h>
 #include <maya/MSelectionList.h>
 #include <maya/MDagPath.h>
 #include <maya/MGlobal.h>
-#include <maya/MTransformationMatrix.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
 
@@ -110,36 +106,24 @@ MStatus AimModuleNode::initialize()
 
     // 5. AFFECTS RELATIONSHIPS
     // Control OPM Outputs
-    attributeAffects(aParentWorldMatrix, aOutputTargetControlOPM);
-    attributeAffects(aParentModuleOffset, aOutputTargetControlOPM);
     attributeAffects(aInputTargetRestMatrix, aOutputTargetControlOPM);
 
-    attributeAffects(aParentWorldMatrix, aOutputUpControlOPM);
-    attributeAffects(aParentModuleOffset, aOutputUpControlOPM);
     attributeAffects(aInputUpRestMatrix, aOutputUpControlOPM);
 
     // Joint OPM Outputs
-    attributeAffects(aParentWorldMatrix, aOutputAimJointOPM);
-    attributeAffects(aParentModuleOffset, aOutputAimJointOPM);
     attributeAffects(aInputAimRestMatrix, aOutputAimJointOPM);
     attributeAffects(aInputTargetRestMatrix, aOutputAimJointOPM);
     attributeAffects(aInputUpRestMatrix, aOutputAimJointOPM);
     attributeAffects(aTargetControlMatrix, aOutputAimJointOPM);
     attributeAffects(aUpControlMatrix, aOutputAimJointOPM);
 
-    attributeAffects(aParentWorldMatrix, aOutputTargetJointOPM);
-    attributeAffects(aParentModuleOffset, aOutputTargetJointOPM);
     attributeAffects(aInputTargetRestMatrix, aOutputTargetJointOPM);
     attributeAffects(aTargetControlMatrix, aOutputTargetJointOPM);
 
-    attributeAffects(aParentWorldMatrix, aOutputUpJointOPM);
-    attributeAffects(aParentModuleOffset, aOutputUpJointOPM);
     attributeAffects(aInputUpRestMatrix, aOutputUpJointOPM);
     attributeAffects(aUpControlMatrix, aOutputUpJointOPM);
 
     // Socket Matrix Outputs
-    attributeAffects(aParentWorldMatrix, aOutputSocketMatrix);
-    attributeAffects(aParentModuleOffset, aOutputSocketMatrix);
     attributeAffects(aInputAimRestMatrix, aOutputSocketMatrix);
     attributeAffects(aInputTargetRestMatrix, aOutputSocketMatrix);
     attributeAffects(aInputUpRestMatrix, aOutputSocketMatrix);
@@ -151,6 +135,8 @@ MStatus AimModuleNode::initialize()
 
 MStatus AimModuleNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
 {
+    return MStatus::kSuccess;
+    /*
     // -------------------------------------------------------------------
     // 1. Output Control Offset Parent Matrices
     // -------------------------------------------------------------------
@@ -222,6 +208,7 @@ MStatus AimModuleNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
     }
 
     return MStatus::kUnknownParameter;
+    */
 }
 
 MObject AimModuleNode::createModule(
@@ -229,8 +216,6 @@ MObject AimModuleNode::createModule(
     const MDagPath& aimJoint,
     const MDagPath& targetJoint,
     const MDagPath& upJoint,
-    MObject oParentModule,
-    unsigned int parentModuleSocketIndex,
     MObject oRigRoot,
     MDGModifier& dgMod,
     MDagModifier& dagMod,
@@ -259,19 +244,15 @@ MObject AimModuleNode::createModule(
     MPlug pOutputTargetJointOPM = moduleFn.findPlug("outputTargetJointOPM", false);
     MPlug pOutputUpJointOPM = moduleFn.findPlug("outputUpJointOPM", false);
 
-    const unsigned int numSockets = 3;
-
-    // Define numSockets for downstream module connections
-    MPlug pNumSockets = moduleFn.findPlug("numSockets", false);
-    if (!pNumSockets.isNull())
-    {
-        dgMod.newPlugValueShort(pNumSockets, static_cast<short>(numSockets));
-    }
-
     // 2. Bake Joint Transforms & Input Rest Matrices using Utilities
-    DagUtils::bakeJointOpmAndRestMatrix(aimJoint, pInputAimRestMatrix);
-    DagUtils::bakeJointOpmAndRestMatrix(targetJoint, pInputTargetRestMatrix);
-    DagUtils::bakeJointOpmAndRestMatrix(upJoint, pInputUpRestMatrix);
+    MMatrix mAimRest = DagUtils::bakeTransformsToOPM(aimJoint);
+    DagUtils::setMatrixPlug(pInputAimRestMatrix, mAimRest);
+
+    MMatrix mTargetRest = DagUtils::bakeTransformsToOPM(targetJoint);
+    DagUtils::setMatrixPlug(pInputTargetRestMatrix, mTargetRest);
+
+    MMatrix mUpRest = DagUtils::bakeTransformsToOPM(upJoint);
+    DagUtils::setMatrixPlug(pInputUpRestMatrix, mUpRest);
 
     // Connect Aim Joint OPM directly (Aim joint has no control)
     MFnDagNode aimJointFn(aimJoint);
@@ -320,29 +301,7 @@ MObject AimModuleNode::createModule(
     sel.getDagPath(0, targetControlDag);
     MMatrix mFirstControlWorld = targetControlDag.inclusiveMatrix();
 
-    // 5. Connect to Parent Module Socket
-    if (!oParentModule.isNull())
-    {
-        localStat = RigModuleCommandHelpers::connectToParentModule(
-            oParentModule,
-            oModule,
-            parentModuleSocketIndex,
-            dgMod,
-            mFirstControlWorld
-        );
-
-        if (!localStat)
-        {
-            MGlobal::displayError("Failed to connect Aim module to parent.");
-            if (status)
-            {
-                *status = localStat;
-            }
-            return MObject::kNullObj;
-        }
-    }
-
-    // 6. Connect to Rig Root Node
+    // 5. Connect to Rig Root Node
     if (!oRigRoot.isNull())
     {
         RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oModule);
@@ -361,7 +320,6 @@ MObject AimModuleNode::createModule(
 MObject AimModuleNode::createModule(
     const RigModuleData& moduleData,
     MObject rigRoot,
-    MObject parentModule,
     MDGModifier& dgMod,
     MDagModifier& dagMod)
 {
@@ -397,43 +355,12 @@ MObject AimModuleNode::createModule(
         }
     }
 
-    unsigned int socketIndex = 0;
-    if (moduleData.parentSocketIndex >= 0)
-    {
-        socketIndex = static_cast<unsigned int>(moduleData.parentSocketIndex);
-    }
-    else
-    {
-        short numSockets = 0;
-        if (!parentModule.isNull())
-        {
-            MFnDependencyNode fnParent(parentModule);
-            MPlug pNumSockets = fnParent.findPlug("numSockets", false);
-            if (!pNumSockets.isNull())
-            {
-                numSockets = pNumSockets.asShort();
-            }
-
-            if (numSockets > 0)
-            {
-                socketIndex = static_cast<unsigned int>(numSockets - 1);
-            }
-            else
-            {
-                MGlobal::displayError(MString("Parent module did not define numSockets: ") + MString(fnParent.name()));
-                socketIndex = 0;
-            }
-        }
-    }
-
     MStatus executionStatus;
     MObject oModule = AimModuleNode::createModule(
         moduleData.name.c_str(),
         jointDags[0],
         jointDags[1],
         jointDags[2],
-        parentModule,
-        socketIndex,
         rigRoot,
         dgMod,
         dagMod,

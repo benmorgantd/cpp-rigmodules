@@ -156,6 +156,7 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 	// For this module, set the numSockets value to the number of joints we have.
 	MFnDependencyNode fnLayoutModule(oLayoutModule);
 	MPlug pNumSockets = fnLayoutModule.findPlug("numSockets", false);
+
 	if (!pNumSockets.isNull())
 	{
 		dgMod.newPlugValueShort(pNumSockets, numControls);
@@ -204,71 +205,4 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 	dagMod.doIt();
 
 	return oLayoutModule;
-}
-
-// ------------------------------------------------------------------
-// LayoutModule Commands
-// ------------------------------------------------------------------
-
-// LayoutModule Setup command ----------------------------------------
-const MString LayoutModuleSetupCmd::aCommandString = "setupLayoutModule";
-
-LayoutModuleSetupCmd::LayoutModuleSetupCmd() {}
-LayoutModuleSetupCmd::~LayoutModuleSetupCmd() {}
-
-
-void* LayoutModuleSetupCmd::creator()
-{
-	return new LayoutModuleSetupCmd();
-}
-
-//TODO: attribute naming conventions for matrices, function sets, etc.
-// Creates the syntax for the command
-MSyntax LayoutModuleSetupCmd::newSyntax()
-{
-	MStatus status;
-	MSyntax syntax;
-	status = syntax.addArg(MSyntax::kString);
-
-	if (!status)
-	{
-		MGlobal::displayError("Failed to create base module syntax for command.");
-	}
-
-	return syntax;
-}
-
-// Runs the command logic
-MStatus LayoutModuleSetupCmd::doIt(const MArgList& args)
-{
-	// TODO: we want to separate the arg gathering part of doIt() from the action part of it
-	// This will allow us to call the "setup" command for a module from cpp without passing in command syntax.
-	// That will allow for more top-down, all in cpp command actions! :D
-	// Arg Gathering --------------------------------------------
-	MStatus status;
-	MArgDatabase argData(newSyntax(), args, &status);
-
-	MDGModifier dgMod;
-	MDagModifier dagMod;
-
-	MObject oRigRoot = RigModuleCommandHelpers::getRigRootFromArgs(argData);
-
-	if (oRigRoot.isNull())
-	{
-		MGlobal::displayError("Failed to find rig root.");
-		return MStatus::kFailure;
-	}
-
-	MObject oModule = LayoutModuleNode::createModule(oRigRoot, dgMod, dagMod, 3);
-
-	status = dgMod.doIt();
-	status = dagMod.doIt();
-
-	// Set command return value (we may need to define MResultType)
-	MStringArray result;
-	MFnDependencyNode fnModule(oModule);
-	result.append(fnModule.name());
-	setResult(result);
-
-	return status;
 }

@@ -4,63 +4,61 @@
 // -----------------------------------------------------------------------------
 // Custom Deserializer for RigModuleData
 // -----------------------------------------------------------------------------
-void from_json(const nlohmann::json& jsonData, RigModuleData& module) 
+void from_json(const nlohmann::json& jsonData, RigModuleData& module)
 {
-    // 1. Parse common required properties
+    // 1. Parse required common metadata
     jsonData.at("moduleType").get_to(module.moduleType);
     jsonData.at("name").get_to(module.name);
 
-    // 2. Parse common optional properties with safe defaults
+    // 2. Parse optional common metadata with safe defaults
     module.shapeType = jsonData.value("shapeType", "Cube");
     module.side = jsonData.value("side", "Center");
 
-    module.parentSocketIndex = jsonData.value("parentSocketIndex", -1);
+    // 3. Parse sparse parentStructure topology if declared
+    if (jsonData.contains("parentStructure"))
+    {
+        module.parentStructure = jsonData["parentStructure"].get<ParentStructureData>();
+    }
 
-    // 3. Parse each individual module's specific arguments. We expect a subdict in the json we can parse to a struct.
-    if (jsonData.contains("moduleArgs")) 
+    // 4. Parse module-specific argument structs
+    if (jsonData.contains("moduleArgs"))
     {
         const auto& argsJson = jsonData["moduleArgs"];
 
-        // TODO: use this syntax when we have modules with custom argument structs
-        if (module.moduleType == "FkChain") 
+        if (module.moduleType == "FkChain")
         {
-             module.moduleArgs = argsJson.get<FkModuleArgs>();
+            module.moduleArgs = argsJson.get<FkModuleArgs>();
         }
         else if (module.moduleType == "AimModule")
         {
             module.moduleArgs = argsJson.get<AimModuleArgs>();
         }
-        // Future modules (e.g., IkChain, SplineRibbon) get added as else-if branches here!
-    }
-
-    // 4. Recursive parsing of nested child modules
-    if (jsonData.contains("children")) {
-        module.children = jsonData["children"].get<std::vector<RigModuleData>>();
+        // Future modules (e.g., IkChain, SplineRibbon) branch here!
     }
 }
 
 // -----------------------------------------------------------------------------
 // High-Level File Loading Function
 // -----------------------------------------------------------------------------
-bool loadRigTemplate(const MString& filePath, AssetRootData& assetData, RigRootData& rigData, MString& outErr) 
+bool loadRigTemplate(const MString& filePath, AssetRootData& assetData, RigRootData& rigData, MString& outErr)
 {
     std::ifstream file(filePath.asChar());
-    if (!file.is_open()) 
+    if (!file.is_open())
     {
         outErr = MString("Failed to open rig JSON file at path: ") + filePath;
         return false;
     }
 
-    try 
+    try
     {
         nlohmann::json jsonData;
         file >> jsonData;
 
-        // Deserialize full JSON directly into the typed RigRootData and ASsetRootData structs
+        // Deserialize full JSON directly into typed AssetRootData and RigRootData structs
         rigData = jsonData.get<RigRootData>();
         assetData = jsonData.get<AssetRootData>();
     }
-    catch (const std::exception& e) 
+    catch (const std::exception& e)
     {
         outErr = MString("JSON Parse Error: ") + e.what();
         return false;

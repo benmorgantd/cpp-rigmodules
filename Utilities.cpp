@@ -1,13 +1,22 @@
 #include "Utilities.h"
+#include "RigModule.h"
+
 #include <maya/MMatrix.h>
 #include <maya/MVector.h>
 #include <maya/MObject.h>
 #include <maya/MFnTransform.h>
 #include <maya/MPlug.h>
-#include <maya/MMatrix.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MDagPath.h>
-
+#include <maya/MGlobal.h>
+#include <maya/MArgDatabase.h>
+#include <maya/MArgList.h>
+#include <maya/MDagPathArray.h>
+#include <maya/MObjectArray.h>
+#include <maya/MSelectionList.h>
+#include <maya/MSyntax.h>
+#include <maya/MDGModifier.h>
+#include <maya/MFnDependencyNode.h>
 
 // ---------------------------------
 // Math Utilities
@@ -116,12 +125,10 @@ void DagUtils::lockAndHideScale(MObject oControl)
 	pScale.setChannelBox(false);
 }
 
-// Bakes joint world transform relative to its parent into its offsetParentMatrix, 
-// zeroes out local channels, and sets the result on the provided input rest matrix plug
-MMatrix DagUtils::bakeJointOpmAndRestMatrix(const MDagPath& jointDag, MPlug& pRestMatrixPlug)
+// Bakes joint world transform relative to its parent into its opm and zeroes its transforms.
+MMatrix DagUtils::bakeTransformsToOPM(const MDagPath& jointDag)
 {
 	MFnDagNode jointFnDag(jointDag);
-	MPlug pJointOpm = jointFnDag.findPlug("offsetParentMatrix", false);
 	MPlug pJointParentInvMat = jointFnDag.findPlug("parentInverseMatrix", false);
 
 	MMatrix mJointWorld = jointDag.inclusiveMatrix();
@@ -132,18 +139,186 @@ MMatrix DagUtils::bakeJointOpmAndRestMatrix(const MDagPath& jointDag, MPlug& pRe
 	MMatrix mJointParentInv = parentInvData.matrix();
 
 	// Calculate offsetParentMatrix relative to parent world space
+	// TODO: do we need to include orient?
 	MMatrix mJointOffsetParent = mJointWorld * mJointParentInv;
 	MFnMatrixData matrixData;
 	MObject oMatrixData = matrixData.create(mJointOffsetParent);
 
-	pJointOpm.setValue(oMatrixData);
+	MPlug pOffsetParentMatrix = jointFnDag.findPlug("offsetParentMatrix", false);
+	pOffsetParentMatrix.setValue(oMatrixData);
 
 	// Zero out local transform channels
 	MFnTransform jointFnTrans(jointDag);
 	jointFnTrans.set(MTransformationMatrix::identity);
 
-	// Store value in the rest matrix plug
-	pRestMatrixPlug.setValue(oMatrixData);
-
 	return mJointOffsetParent;
 }
+
+
+void DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix)
+{
+	if (!matrixPlug.isNull() && !matrixPlug.isArray())
+	{
+		MFnMatrixData fnMatrixData;
+		MObject oMatrixData = fnMatrixData.create(matrix);
+		matrixPlug.setValue(oMatrixData);
+	}
+	else
+	{
+		MGlobal::displayError("The given matrix plug was null or an array.");
+	}
+}
+
+MDagPath DagUtils::getDagPathFromName(MString& name)
+{
+	MDagPath jointDag;
+	MStatus status;
+	MSelectionList selList;
+	status = selList.add(name);
+
+	if (status && selList.length() > 0)
+	{
+		status = selList.getDagPath(0, jointDag);
+	}
+	else
+	{
+		MGlobal::displayError(MString("Failed to find a dag path from given string ") + name);
+	}
+
+	return jointDag;
+}
+
+
+// RigModuleCommandHelpers ------------------------------------------------
+const char* RigModuleCommandUtils::kNameFlagShort = "-n";
+const char* RigModuleCommandUtils::kNameFlagLong = "-name";
+const char* RigModuleCommandUtils::kJointsFlagShort = "-j";
+const char* RigModuleCommandUtils::kJointsFlagLong = "-joints";
+const char* RigModuleCommandUtils::kParentModuleShort = "-pm";
+const char* RigModuleCommandUtils::kParentModuleLong = "-parentModule";
+const char* RigModuleCommandUtils::kParentSocketIndexShort = "-psi";
+const char* RigModuleCommandUtils::kParentSocketIndexLong = "-parentSocketIndex";
+const char* RigModuleCommandUtils::kRigRootLong = "-rigRoot";
+const char* RigModuleCommandUtils::kRigRootShort = "-rr";
+
+
+MString RigModuleCommandUtils::getModuleNameFromArgs(const MArgDatabase& argData)
+{
+	// Gather the passed in module name
+	MString moduleName = "fkChainModule_01";
+	if (argData.isFlagSet(kNameFlagShort))
+	{
+		argData.getFlagArgument(kNameFlagShort, 0, moduleName);
+	}
+
+	return moduleName;
+}
+
+MObject RigModuleCommandUtils::getRigRootFromArgs(const MArgDatabase& argData)
+{
+	MString rigRootName;
+	MObject oRigRoot;
+	MStatus status;
+
+	if (argData.isFlagSet(kRigRootShort))
+	{
+		status = argData.getFlagArgument(kRigRootShort, 0, rigRootName);
+
+		if (status == MStatus::kSuccess && !rigRootName.isEmpty())
+		{
+			MSelectionList sel;
+			status = sel.add(rigRootName);
+
+			if (status == MStatus::kSuccess)
+			{
+				status = sel.getDependNode(0, oRigRoot);
+			}
+		}
+	}
+	return oRigRoot;
+}
+
+MDagPathArray RigModuleCommandUtils::getJointsFromArgs(const MArgDatabase& argData, MStatus& status)
+{
+	MDagPathArray jointDags;
+	MObjectArray jointObjs;
+	unsigned int numJoints = 0;
+
+	if (argData.isFlagSet(kJointsFlagShort))
+	{
+		numJoints = argData.numberOfFlagUses(kJointsFlagShort);
+
+		for (unsigned int i = 0; i < numJoints; ++i)
+		{
+			MArgList flagArgs;
+			// Fetch the argument list for the i-th occurance of the joints flag
+			status = argData.getFlagArgumentList(kJointsFlagShort, i, flagArgs);
+			if (status == MStatus::kSuccess)
+			{
+				for (unsigned int j = 0; j < flagArgs.length(); ++j)
+				{
+					MString jointName = flagArgs.asString(j, &status);
+					MDagPath jointDag;
+					MSelectionList jointSel;
+					jointSel.add(jointName);
+					status = jointSel.getDagPath(0, jointDag);
+
+					if (status == MStatus::kSuccess && !jointDag.node().isNull())
+					{
+						jointDags.append(jointDag);
+					}
+					else
+					{
+						MGlobal::displayError("Failure getting joint depend node: " + jointName);
+						status = MStatus::kFailure;
+					}
+
+				}
+			}
+		}
+	}
+
+	if (jointDags.length() == 0 || numJoints == 0)
+	{
+		MGlobal::displayError("At least one joint must be given with the -j flag.");
+		return MDagPathArray();
+	}
+	return jointDags;
+}
+
+MStatus RigModuleCommandUtils::connectModuleToRigRoot(const MArgDatabase& argData, MDGModifier& dgMod, const MObject& moduleNode)
+{
+	MStatus status;
+	MString rigRootName;
+	MObject oRigRoot;
+
+	if (argData.isFlagSet(kRigRootShort))
+	{
+		argData.getFlagArgument(kRigRootShort, 0, rigRootName);
+
+		MSelectionList rigRootSelList;
+		status = rigRootSelList.add(rigRootName);
+		rigRootSelList.getDependNode(0, oRigRoot);
+
+		if (!status || oRigRoot.isNull())
+		{
+			MGlobal::displayError("Rig Root name " + rigRootName + " does not exist.");
+			return MStatus::kFailure;
+		}
+	}
+
+	return RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, moduleNode);
+}
+
+MSyntax RigModuleCommandUtils::createBaseModuleSyntax(MStatus& status)
+{
+	MSyntax syntax;
+	status = syntax.addFlag(kNameFlagShort, kNameFlagLong, MSyntax::kString);
+	status = syntax.addFlag(kJointsFlagShort, kJointsFlagLong, MSyntax::kString);
+	status = syntax.makeFlagMultiUse(kJointsFlagShort);
+	status = syntax.addFlag(kParentModuleShort, kParentModuleLong, MSyntax::kString);
+	status = syntax.addFlag(kParentSocketIndexShort, kParentSocketIndexLong, MSyntax::kLong);
+	status = syntax.addFlag(kRigRootShort, kRigRootLong, MSyntax::kString);
+	return syntax;
+}
+

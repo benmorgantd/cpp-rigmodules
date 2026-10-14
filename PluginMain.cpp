@@ -64,12 +64,6 @@ MStatus initializePlugin(MObject obj)
 	);
 
 	// -- REGISTER COMMANDS --
-	status = plugin.registerCommand(LayoutModuleSetupCmd::aCommandString, LayoutModuleSetupCmd::creator, LayoutModuleSetupCmd::newSyntax);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	status = plugin.registerCommand(FkChainNodeSetupCmd::aCommandString, FkChainNodeSetupCmd::creator, FkChainNodeSetupCmd::newSyntax);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
 	status = plugin.registerCommand(CreateRigCmd::aCommandString, CreateRigCmd::creator, CreateRigCmd::newSyntax);
 
 	return status;
@@ -83,40 +77,15 @@ MStatus uninitializePlugin(MObject obj)
 
 	// Deregister in reverse order of creation. There might be dependencies here
 	status = plugin.deregisterNode(RigRootNode::id);
-	if (!status)
-	{
-		status.perror("Failed to deregister rigRootNode");
-		finalStatus = status;
-	}
-
 	status = plugin.deregisterNode(AssetRootNode::id);
-	if (!status)
-	{
-		status.perror("Failed to deregister assetRootNode");
-		finalStatus = status;
-	}
-
 	status = plugin.deregisterNode(LayoutModuleNode::id);
-
-
 	status = plugin.deregisterNode(FkChainNode::id);
-	if (!status)
-	{
-		status.perror("Failed to deregister fkChainNode");
-		finalStatus = status;
-	}
-
 	status = plugin.deregisterNode(AimModuleNode::id);
-
-	// Shape node
 	MHWRender::MDrawRegistry::deregisterDrawOverrideCreator(
 		RigControlNode::drawDbClassification,
 		RigControlNode::drawRegistrantId
 	);
 	status = plugin.deregisterNode(RigControlNode::id);
-
-	status = plugin.deregisterCommand(LayoutModuleSetupCmd::aCommandString);
-	status = plugin.deregisterCommand(FkChainNodeSetupCmd::aCommandString);
 	status = plugin.deregisterCommand(CreateRigCmd::aCommandString);
 
 	return finalStatus;

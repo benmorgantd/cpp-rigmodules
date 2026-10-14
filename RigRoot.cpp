@@ -23,6 +23,7 @@
 #include <maya/MSyntax.h>
 #include <maya/MArgDatabase.h>
 #include <maya/MString.h>
+#include <maya/MObjectArray.h>
 
 // Define the unique ID
 MTypeId RigRootNode::id(0x00218);
@@ -194,25 +195,12 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath)  // TODO: optionally
     // TODO: pass in status
     oLayoutModule = LayoutModuleNode::createModule(oRigRoot, dgMod, dagMod, 3);
 
-    // 5. Traverse and Build Module Hierarchy Recursively
-    for (unsigned int i = 0; i < rigData.rigModules.size(); ++i)//const RigModuleData& topLevelModule : rigData.rigModules)
-    {
-        // Ensure our mods are up to date before we build the next module.
-        // This means that when we query attributes from previous modules we will have them declared and set.
-        dgMod.doIt();
-        dagMod.doIt();
+    // 5. Build all our modules, then run a control parenting pass.
+    MObjectArray oRigModules = RigModuleNodeBase::buildModules(rigData.rigModules, oRigRoot, dgMod, dagMod);
+    // TODO: we ONLY do dag parenting based ofof of the json data, but not any special matrix evaluation!
+    RigModuleNodeBase::parentModuleControls(oRigModules, rigData.rigModules, dgMod, dagMod);
 
-        const RigModuleData topLevelModule = rigData.rigModules[i];
-        // Top-level modules have no module parent, so they attach to oLayoutModule.
-        // The other parents are determined from their hierarchy in the JSON
-        RigModuleNodeBase::buildModuleRecursive(
-            topLevelModule,
-            oRigRoot,
-            oLayoutModule,
-            dgMod,
-            dagMod
-        );
-    }
+    // TODO: control parenting pass.
 
     // 6. Execute all DG and DAG mods
     status = dgMod.doIt();

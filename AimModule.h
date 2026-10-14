@@ -22,8 +22,6 @@ public:
         const MDagPath& aimJoint,
         const MDagPath& targetJoint,
         const MDagPath& upJoint,
-        MObject oParentModule,
-        unsigned int parentModuleSocketIndex,
         MObject oRigRoot,
         MDGModifier& dgMod,
         MDagModifier& dagMod,
@@ -33,7 +31,6 @@ public:
     static MObject createModule(
         const RigModuleData& moduleData,
         MObject rigRoot,
-        MObject parentModule,
         MDGModifier& dgMod,
         MDagModifier& dagMod
     );
