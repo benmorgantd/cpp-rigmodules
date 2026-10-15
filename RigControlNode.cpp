@@ -246,17 +246,17 @@ MUserData* RigControlDrawOverride::prepareForDraw(
     // This part runs every frame update. It is very fast though as it is not reading plug values.
     // It wasn't dirty, but we still need to do selection color change updates.
     MHWRender::DisplayStatus displayStatus = MHWRender::MGeometryUtilities::displayStatus(objPath);
-    if (displayStatus == MHWRender::kActive)
+    if (displayStatus == MHWRender::kActiveAffected)
     {
         // Active selection (White)
         data->color = MColor(1.0f, 1.0f, 1.0f, data->dormantColor.a);
-        data->lineWidth = 2.0f;
+        data->lineWidth = 1.0f;
     }
     else if (displayStatus == MHWRender::kLead)
     {
         // Lead selection (Soft Green)
         data->color = MColor(0.26f, 1.0f, 0.64f, data->dormantColor.a); 
-        data->lineWidth = 4.0f;
+        data->lineWidth = 1.0f;
     }
     else
     {

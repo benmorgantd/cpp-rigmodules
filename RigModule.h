@@ -33,6 +33,7 @@ public:
 	static bool parseSocketIdentifier(const MString& fullIdentifier, MString& outModuleName, MString& outSocketName);
 public:
 	// Shared creation & build methods
+	static MStatus initializeSharedAttributes(MObject& moduleData, MObject& aRigRoot, MObject& aRigControls, MObject& aOutputSocketMatrix, MObject& aSide);
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDGModifier& dgMod, const MObject& oModule, MObject& aRigRoot);
 	static MObjectArray buildModules(const std::vector<RigModuleData>& flatModuleList, MObject oRigRoot, MDGModifier& dgMod, MDagModifier& dagMod);
 	static void parentModuleControls(const MObjectArray& rigModules, const std::vector<RigModuleData>& flatModuleList, MDGModifier& dgMod, MDagModifier& dagMod);

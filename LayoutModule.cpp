@@ -1,20 +1,16 @@
 #include "LayoutModule.h"
 #include "RigControlNode.h"
 #include "Side.h"
+#include "RigModule.h"
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnMessageAttribute.h>
 #include <maya/MFnNumericAttribute.h>
-#include <maya/MFnNumericData.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
-#include <maya/MSyntax.h>
 #include <maya/MGlobal.h>
-#include <maya/MStringArray.h>
-#include <maya/MArgDatabase.h>
 #include <maya/MFnMatrixData.h>
-#include <maya/MArrayDataBuilder.h>
 
 
 // ------------------------------------------------------------------
@@ -24,12 +20,12 @@
 MTypeId LayoutModuleNode::id(0x00218C);
 
 MObject LayoutModuleNode::aControlMatrix;
-MObject LayoutModuleNode::aOutputSocketMatrix;
+// Shared Attributes (Although shared, these need to be unique MObjects for each module)
+MObject LayoutModuleNode::aModuleData;
 MObject LayoutModuleNode::aRigControls;
-MObject LayoutModuleNode::aSide;
-MObject LayoutModuleNode::aChildModules;
 MObject LayoutModuleNode::aRigRoot;
-MObject LayoutModuleNode::aNumSockets;
+MObject LayoutModuleNode::aOutputSocketMatrix;
+MObject LayoutModuleNode::aSide;
 
 LayoutModuleNode::LayoutModuleNode() {}
 LayoutModuleNode::~LayoutModuleNode() {}
@@ -51,6 +47,8 @@ MStatus LayoutModuleNode::initialize()
 	MFnEnumAttribute eAttr;
 	MFnNumericAttribute nAttr;
 
+	status = RigModuleNodeBase::initializeSharedAttributes(aModuleData, aRigRoot, aRigControls, aOutputSocketMatrix, aSide);
+
 	// 1. INPUT ARRAYS
 	aControlMatrix = mAttr.create("controlMatrix", "cm", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
@@ -58,42 +56,12 @@ MStatus LayoutModuleNode::initialize()
 	mAttr.setKeyable(true);
 	addAttribute(aControlMatrix);
 
-	aRigRoot = msgAttr.create("rigRoot", "rr", &status);
-	addAttribute(aRigRoot);
-
-	aChildModules = msgAttr.create("childModules", "cmods", &status);
-	msgAttr.setArray(true);
-	addAttribute(aChildModules);
-
-	aRigControls = msgAttr.create("rigControls", "ctrls", &status);
-	addAttribute(aRigControls);
-
-	aSide = eAttr.create("side", "sd", 0);
-	eAttr.addField("Center", 0);
-	eAttr.addField("Left", 1);
-	eAttr.addField("Right", 2);
-	eAttr.setKeyable(false);
-	eAttr.setStorable(true);
-	addAttribute(aSide);
-
-	aOutputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setArray(true);
-	mAttr.setUsesArrayDataBuilder(true);
-	mAttr.setWritable(false);
-	mAttr.setStorable(false);
-	mAttr.setWorldSpace(true);
-	addAttribute(aOutputSocketMatrix);
-
-	// numSockets attr
-	aNumSockets = nAttr.create("numSockets", "ns", MFnNumericData::kShort, 0, &status);
-	nAttr.setStorable(true);
-	addAttribute(aNumSockets);
-
 	// 3. AFFECTS RELATIONSHIPS
 	attributeAffects(aControlMatrix, aOutputSocketMatrix);
 
 	return MStatus::kSuccess;
 }
+
 // In the case of this node, there is only one output to compute, the outputSocketMatrix.
 // TODO: the solver for this module is not evaluating correctly
 MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
@@ -105,7 +73,7 @@ MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 		MArrayDataHandle hControlArray = data.inputArrayValue(aControlMatrix);
 		MArrayDataHandle hOutSocketArray = data.outputArrayValue(aOutputSocketMatrix);
 
-		// Start with identity (or parent world matrix if layout has an offset)
+		// Start with identity
 		MMatrix mCurrentWorld = MMatrix::identity;
 		unsigned int elementCount = hControlArray.elementCount();
 
@@ -117,20 +85,8 @@ MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 			// Maya Row-Major Order: Local Step * Current Accumulated World Matrix
 			MMatrix mSocketWorld = mControlLocal * mCurrentWorld;
 
-			// Jump directly to the output element slot without rebuilding array handles
-			if (hOutSocketArray.jumpToElement(hControlArray.elementIndex()) == MStatus::kSuccess)
-			{
-				// Write directly to the existing output datablock handle
-				hOutSocketArray.outputValue().setMMatrix(mSocketWorld);
-			}
-			else
-			{
-				// We need to use MArrayDataBuilder.
-				MArrayDataBuilder builder = hOutSocketArray.builder();
-				MDataHandle hNewElem = builder.addElement(hControlArray.elementIndex());
-				hNewElem.setMMatrix(mSocketWorld);
-				hOutSocketArray.set(builder);
-			}
+			RigModuleNodeBase::setOutputMatrix(data, aOutputSocketMatrix, i, mSocketWorld);
+
 			mCurrentWorld = mSocketWorld;
 		}
 

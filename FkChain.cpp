@@ -8,17 +8,12 @@
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnDagNode.h>
 #include <maya/MMatrix.h>
-#include <maya/MDataHandle.h>
 #include <maya/MArrayDataHandle.h>
 #include <maya/MPlug.h>
 #include <maya/MDagPath.h>
 #include <maya/MGlobal.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
-#include <maya/MFnTypedAttribute.h>
-#include <maya/MFnMessageAttribute.h>
-#include <maya/MFnEnumAttribute.h>
-#include <maya/MFnNumericAttribute.h>
 
 // ------------------------------------------------------------------
 // FkChainNode Implementation
@@ -30,8 +25,9 @@ MObject FkChainNode::aInputRestMatrix;
 MObject FkChainNode::aControlMatrix;
 MObject FkChainNode::aOutputJointOPM;
 MObject FkChainNode::aOutputControlOPM;
-// Shared Attributes
-MObject FkChainNode::moduleData;
+
+// Shared Attributes (Although shared, these need to be unique MObjects for each module)
+MObject FkChainNode::aModuleData;
 MObject FkChainNode::aRigControls;
 MObject FkChainNode::aRigRoot;
 MObject FkChainNode::aOutputSocketMatrix;
@@ -50,46 +46,14 @@ void* FkChainNode::creator()
 MStatus FkChainNode::initialize()
 {
 	MStatus status;
-
-	// ---- Initialize Shared Attributes ----
-	MFnTypedAttribute tAttr;
 	MFnMatrixAttribute mAttr;
-	MFnMessageAttribute msgAttr;
-	MFnEnumAttribute eAttr;
-	MFnNumericAttribute nAttr;
 
-	// 1. Metadata Attributes
-	moduleData = tAttr.create("moduleData", "md", MFnData::kString, MObject::kNullObj, &status);
-	tAttr.setStorable(true);
-	addAttribute(moduleData);
+	status = FkChainNode::initializeSharedAttributes(aModuleData, aRigRoot, aRigControls, aOutputSocketMatrix, aSide);
 
-	// 2. Network Message Plugs
-	aRigRoot = msgAttr.create("rigRoot", "rr", &status);
-	addAttribute(aRigRoot);
-
-	aRigControls = msgAttr.create("rigControls", "ctrls", &status);
-	addAttribute(aRigControls);
-
-	// 3. Output Socket Matrix Array
-	aOutputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setArray(true);
-	mAttr.setUsesArrayDataBuilder(true);
-	mAttr.setWritable(false);
-	mAttr.setStorable(false);
-	mAttr.setWorldSpace(true);
-	addAttribute(aOutputSocketMatrix);
-
-	// Side
-	aSide = eAttr.create("side", "sd", 0);
-	eAttr.addField("Center", 0);
-	eAttr.addField("Left", 1);
-	eAttr.addField("Right", 2);
-	eAttr.setKeyable(false);
-	eAttr.setStorable(true);
-	addAttribute(aSide);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// ---------------------------------------------
+	if (status != MStatus::kSuccess)
+	{
+		return MStatus::kFailure;
+	}
 
 	// INPUT ATTRIBUTES
 	aInputRestMatrix = mAttr.create("inputRestMatrix", "irm", MFnMatrixAttribute::kDouble, &status);

@@ -57,46 +57,14 @@ MStatus AimModuleNode::initialize()
 {
     MStatus status;
 
-    // ---- Initialize Shared Attributes ----
-    MFnTypedAttribute tAttr;
+    status = AimModuleNode::initializeSharedAttributes(moduleData, aRigRoot, aRigControls, aOutputSocketMatrix, aSide);
+
+    if (status != MStatus::kSuccess)
+    {
+        return MStatus::kFailure;
+    }
+
     MFnMatrixAttribute mAttr;
-    MFnMessageAttribute msgAttr;
-    MFnEnumAttribute eAttr;
-    MFnNumericAttribute nAttr;
-
-    // 1. Metadata Attributes
-    moduleData = tAttr.create("moduleData", "md", MFnData::kString, MObject::kNullObj, &status);
-    tAttr.setStorable(true);
-    addAttribute(moduleData);
-
-    // 2. Network Message Plugs
-    aRigRoot = msgAttr.create("rigRoot", "rr", &status);
-    addAttribute(aRigRoot);
-
-    aRigControls = msgAttr.create("rigControls", "ctrls", &status);
-    addAttribute(aRigControls);
-
-    // 3. Output Socket Matrix Array
-    aOutputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setArray(true);
-    mAttr.setUsesArrayDataBuilder(true);
-    mAttr.setWritable(false);
-    mAttr.setStorable(false);
-    mAttr.setWorldSpace(true);
-    addAttribute(aOutputSocketMatrix);
-
-    // Side
-    aSide = eAttr.create("side", "sd", 0);
-    eAttr.addField("Center", 0);
-    eAttr.addField("Left", 1);
-    eAttr.addField("Right", 2);
-    eAttr.setKeyable(false);
-    eAttr.setStorable(true);
-    addAttribute(aSide);
-    CHECK_MSTATUS_AND_RETURN_IT(status);
-
-    // ---------------------------------------------
-    CHECK_MSTATUS_AND_RETURN_IT(status);
 
     // 1. DISCRETE INPUT REST MATRICES
     aInputAimRestMatrix = mAttr.create("inputAimRestMatrix", "iarm", MFnMatrixAttribute::kDouble, &status);
