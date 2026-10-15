@@ -198,7 +198,7 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 		oPreviousControlNode = oControl;
 	}
 
-	RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oLayoutModule);
+	RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oLayoutModule, aRigRoot);
 
 	// Always keep dgMod and dagMod up to date after creating a module
 	dgMod.doIt();

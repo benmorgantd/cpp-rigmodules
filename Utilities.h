@@ -34,7 +34,6 @@ public:
 	static MString getModuleNameFromArgs(const MArgDatabase& argData);
 	static MDagPathArray getJointsFromArgs(const MArgDatabase& argData, MStatus& status);
 	static MObject getRigRootFromArgs(const MArgDatabase& argData);
-	static MStatus connectModuleToRigRoot(const MArgDatabase& argData, MDGModifier& dgMod, const MObject& moduleNode);
 	static MSyntax createBaseModuleSyntax(MStatus& status);
 public:
 	// Shared attributes
@@ -49,3 +48,4 @@ public:
 	static const char* kRigRootLong;
 	static const char* kRigRootShort;
 };
+

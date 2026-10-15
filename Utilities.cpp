@@ -286,30 +286,6 @@ MDagPathArray RigModuleCommandUtils::getJointsFromArgs(const MArgDatabase& argDa
 	return jointDags;
 }
 
-MStatus RigModuleCommandUtils::connectModuleToRigRoot(const MArgDatabase& argData, MDGModifier& dgMod, const MObject& moduleNode)
-{
-	MStatus status;
-	MString rigRootName;
-	MObject oRigRoot;
-
-	if (argData.isFlagSet(kRigRootShort))
-	{
-		argData.getFlagArgument(kRigRootShort, 0, rigRootName);
-
-		MSelectionList rigRootSelList;
-		status = rigRootSelList.add(rigRootName);
-		rigRootSelList.getDependNode(0, oRigRoot);
-
-		if (!status || oRigRoot.isNull())
-		{
-			MGlobal::displayError("Rig Root name " + rigRootName + " does not exist.");
-			return MStatus::kFailure;
-		}
-	}
-
-	return RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, moduleNode);
-}
-
 MSyntax RigModuleCommandUtils::createBaseModuleSyntax(MStatus& status)
 {
 	MSyntax syntax;

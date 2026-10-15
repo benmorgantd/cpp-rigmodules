@@ -2,22 +2,23 @@
 #include "RigControlNode.h"
 #include "RigJsonStructs.h"
 #include "Utilities.h"
+#include "RigModule.h"
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnDagNode.h>
-#include <maya/MFnTransform.h>
-#include <maya/MFnMatrixData.h>
 #include <maya/MMatrix.h>
 #include <maya/MDataHandle.h>
 #include <maya/MArrayDataHandle.h>
 #include <maya/MPlug.h>
-#include <maya/MSelectionList.h>
 #include <maya/MDagPath.h>
 #include <maya/MGlobal.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
-#include <maya/MArrayDataBuilder.h>
+#include <maya/MFnTypedAttribute.h>
+#include <maya/MFnMessageAttribute.h>
+#include <maya/MFnEnumAttribute.h>
+#include <maya/MFnNumericAttribute.h>
 
 // ------------------------------------------------------------------
 // FkChainNode Implementation
@@ -29,6 +30,12 @@ MObject FkChainNode::aInputRestMatrix;
 MObject FkChainNode::aControlMatrix;
 MObject FkChainNode::aOutputJointOPM;
 MObject FkChainNode::aOutputControlOPM;
+// Shared Attributes
+MObject FkChainNode::moduleData;
+MObject FkChainNode::aRigControls;
+MObject FkChainNode::aRigRoot;
+MObject FkChainNode::aOutputSocketMatrix;
+MObject FkChainNode::aSide;
 
 FkChainNode::FkChainNode() {}
 FkChainNode::~FkChainNode() {}
@@ -44,10 +51,45 @@ MStatus FkChainNode::initialize()
 {
 	MStatus status;
 
-	status = RigModuleNodeBase::initializeBaseAttributes();
+	// ---- Initialize Shared Attributes ----
+	MFnTypedAttribute tAttr;
+	MFnMatrixAttribute mAttr;
+	MFnMessageAttribute msgAttr;
+	MFnEnumAttribute eAttr;
+	MFnNumericAttribute nAttr;
+
+	// 1. Metadata Attributes
+	moduleData = tAttr.create("moduleData", "md", MFnData::kString, MObject::kNullObj, &status);
+	tAttr.setStorable(true);
+	addAttribute(moduleData);
+
+	// 2. Network Message Plugs
+	aRigRoot = msgAttr.create("rigRoot", "rr", &status);
+	addAttribute(aRigRoot);
+
+	aRigControls = msgAttr.create("rigControls", "ctrls", &status);
+	addAttribute(aRigControls);
+
+	// 3. Output Socket Matrix Array
+	aOutputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
+	mAttr.setArray(true);
+	mAttr.setUsesArrayDataBuilder(true);
+	mAttr.setWritable(false);
+	mAttr.setStorable(false);
+	mAttr.setWorldSpace(true);
+	addAttribute(aOutputSocketMatrix);
+
+	// Side
+	aSide = eAttr.create("side", "sd", 0);
+	eAttr.addField("Center", 0);
+	eAttr.addField("Left", 1);
+	eAttr.addField("Right", 2);
+	eAttr.setKeyable(false);
+	eAttr.setStorable(true);
+	addAttribute(aSide);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MFnMatrixAttribute mAttr;
+	// ---------------------------------------------
 
 	// INPUT ATTRIBUTES
 	aInputRestMatrix = mAttr.create("inputRestMatrix", "irm", MFnMatrixAttribute::kDouble, &status);
@@ -95,7 +137,7 @@ MStatus FkChainNode::initialize()
 	return MStatus::kSuccess;
 }
 
-MStatus FkChainNode::evaluateModuleSolver(const MPlug& plug, MDataBlock& data)
+MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	unsigned int index = plug.isElement() ? plug.logicalIndex() : 0;
 
@@ -235,7 +277,7 @@ MObject FkChainNode::createModule(
 
 	if (!oRigRoot.isNull())
 	{
-		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oModule);
+		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oModule, aRigRoot);
 		dgMod.doIt();
 	}
 

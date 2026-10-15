@@ -15,7 +15,7 @@ public:
 
     static void* creator();
     static MStatus initialize();
-    virtual MStatus evaluateModuleSolver(const MPlug& plug, MDataBlock& data) override;
+    virtual MStatus compute(const MPlug& plug, MDataBlock& data) override;
 
     static MObject createModule(
         const MString& moduleName,
@@ -55,4 +55,11 @@ public:
     static MObject aOutputAimJointOPM;
     static MObject aOutputTargetJointOPM;
     static MObject aOutputUpJointOPM;
+
+public: // ---- Shared Attributes All Modules Have (but that must be unique) ----
+    static MObject moduleData;               // JSON string payload for custom module serialization
+    static MObject aRigRoot;                 // Message link to central RigRoot node
+    static MObject aRigControls;             // Message array link to controls on this module
+    static MObject aOutputSocketMatrix;      // Output matrix array providing connection sockets for downstream modules
+    static MObject aSide;                    // Module side (Center, Left, Right)
 };
