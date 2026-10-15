@@ -246,16 +246,29 @@ MUserData* RigControlDrawOverride::prepareForDraw(
     // This part runs every frame update. It is very fast though as it is not reading plug values.
     // It wasn't dirty, but we still need to do selection color change updates.
     MHWRender::DisplayStatus displayStatus = MHWRender::MGeometryUtilities::displayStatus(objPath);
-    if (displayStatus == MHWRender::kActiveAffected)
+
+    // For selection, do some fancy stuff to make it so that child selected controls that are not explicitely selected look different.
+    MSelectionList selList;
+    MGlobal::getActiveSelectionList(selList);
+    bool isObjectSelected = selList.hasItem(objPath);
+    unsigned int selLen = selList.length();
+
+    if (displayStatus == MHWRender::kLead && isObjectSelected && selLen != 1)
     {
         // Active selection (White)
         data->color = MColor(1.0f, 1.0f, 1.0f, data->dormantColor.a);
-        data->lineWidth = 1.0f;
+        data->lineWidth = 2.0f;
     }
-    else if (displayStatus == MHWRender::kLead)
+    else if ((displayStatus == MHWRender::kActive || displayStatus == MHWRender::kLead) && isObjectSelected)
     {
-        // Lead selection (Soft Green)
-        data->color = MColor(0.26f, 1.0f, 0.64f, data->dormantColor.a); 
+        // Affected selection (Soft Green)
+        data->color = MColor(0.0f, 1.0f, 0.64f, data->dormantColor.a);
+        data->lineWidth = 2.0f;
+    }
+    else if ((displayStatus == MHWRender::kActiveAffected) || (!isObjectSelected && displayStatus != MHWRender::kDormant))
+    {
+        // Affected selection (Soft Green but less alpha)
+        data->color = MColor(0.0f, 1.0f, 0.64f, data->dormantColor.a * 0.75);
         data->lineWidth = 1.0f;
     }
     else
