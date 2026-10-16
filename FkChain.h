@@ -48,5 +48,7 @@ public:
 		MDagModifier& dagMod
 	);
 
-	//static void parentControls()
+public:
+	static MStringArray getChildPlugNames(MObject& oModule);
+	static MStringArray getParentSocketNames(MObject& oModule);
 };

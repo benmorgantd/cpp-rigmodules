@@ -196,9 +196,13 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath)  // TODO: optionally
     oLayoutModule = LayoutModuleNode::createModule(oRigRoot, dgMod, dagMod, 3);
 
     // 5. Build all our modules, then run a control parenting pass.
-    MObjectArray oRigModules = RigModuleNodeBase::buildModules(rigData.rigModules, oRigRoot, dgMod, dagMod);
+    std::unordered_map<std::string, MObject> rigModuleMap = RigModuleNodeBase::buildModules(rigData.rigModules, oRigRoot, dgMod, dagMod);
+
+    // Add the layout module to the rig module map
+    rigModuleMap["layout"] = oLayoutModule;
+
     // TODO: we ONLY do dag parenting based ofof of the json data, but not any special matrix evaluation!
-    RigModuleNodeBase::parentModuleControls(oRigModules, rigData.rigModules, dgMod, dagMod);
+    RigModuleNodeBase::parentModuleControls(rigModuleMap, rigData.rigModules, dgMod, dagMod);
 
     // TODO: control parenting pass.
 

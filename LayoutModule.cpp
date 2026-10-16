@@ -3,6 +3,9 @@
 #include "Side.h"
 #include "RigModule.h"
 
+#include "vector"
+#include "utility"
+
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnMessageAttribute.h>
@@ -109,22 +112,23 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 
 	MObject oPreviousControlNode = MObject::kNullObj;
 
-	// For this module, set the numSockets value to the number of joints we have.
-	MFnDependencyNode fnLayoutModule(oLayoutModule);
-	MPlug pNumSockets = fnLayoutModule.findPlug("numSockets", false);
-
-	if (!pNumSockets.isNull())
-	{
-		dgMod.newPlugValueShort(pNumSockets, numControls);
-	}
+	std::vector<std::pair<MObject, MString>> parentSocketPairs;
 
 	for (unsigned int i = 0; i < numControls; ++i)
 	{
-		MObject oControl = RigControlNode::createRigControl(oLayoutModule, dagMod, MString("layout_") + i);
+		MString controlName = MString("layout_") + std::to_string(i).c_str();
+		MObject oControl = RigControlNode::createRigControl(oLayoutModule, dagMod, controlName);
 		MFnDependencyNode fnControl(oControl);
 		MPlug pShapeType(oControl, RigControlNode::aShapeType);
 		dgMod.newPlugValueShort(pShapeType, ShapeType::Square);
 
+		// Connect this control to its child plug and parent socket message attributes.
+		// Child plugs aren't valid for the layout module as it has no parents.
+		if (i == numControls - 1)
+		{
+			parentSocketPairs.push_back({ oControl, MString("end") });
+		}
+		
 		// Set decreasing radius using shape transform matrix
 		MPlug pShapeTransform(oControl, RigControlNode::aShapeTransform);
 		MTransformationMatrix mShapeTransform;
@@ -154,6 +158,7 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 		oPreviousControlNode = oControl;
 	}
 
+	RigModuleNodeBase::connectControlParentSockets(dgMod, oLayoutModule, parentSocketPairs);
 	RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oLayoutModule, aRigRoot);
 
 	// Always keep dgMod and dagMod up to date after creating a module
@@ -162,3 +167,34 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 
 	return oLayoutModule;
 }
+
+// You can only put controls under the layout module's last control. It cannot be the child of another module
+MStringArray LayoutModuleNode::getParentSocketNames(MObject& oModule)
+{
+	MStringArray parentSocketNames;
+	parentSocketNames.append("end");
+
+	if (oModule.isNull())
+	{
+		MGlobal::displayError("Could not extract child plug name info from null object.");
+		return MStringArray();
+	}
+
+	MFnDependencyNode fnModule(oModule);
+	MPlug pRigControls(oModule, aRigControls);
+	unsigned int numControls = pRigControls.numConnectedElements();
+
+	if (numControls > 0)
+	{
+		parentSocketNames.append(MString() + (numControls - 1));  // The parent sockets are "start" and "numControls -1" (2)
+
+	}
+
+	return parentSocketNames;
+}
+
+//MDagPath LayoutModuleNode::getTransformFromChildPlugName(MString childPlugName)
+//{
+//	// TODO: We need to list a message attribute we create when we create the node. This could be a compound attribute we add to for organization.
+//	return MDagPath;
+//}

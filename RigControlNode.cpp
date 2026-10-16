@@ -51,8 +51,11 @@ MObject RigControlNode::aShapeType;
 MObject RigControlNode::aWireColor;
 MObject RigControlNode::aWireAlpha;
 MObject RigControlNode::aShapeTransform;
-MObject RigControlNode::aRigModule;
 MObject RigControlNode::aFilled;
+
+MObject RigControlNode::aRigModule;
+MObject RigControlNode::aChildControlPlugs;
+MObject RigControlNode::aParentControlSockets;
 
 RigControlNode::RigControlNode() 
     : m_drawIsDirty(true)
@@ -128,6 +131,14 @@ MStatus RigControlNode::initialize() {
     // Rig Attributes
     aRigModule = msgAttr.create("rigModule", "rm");
     addAttribute(aRigModule);
+
+    aChildControlPlugs = msgAttr.create("childControlPlugs", "childControlPlugs");
+    msgAttr.setArray(true);
+    addAttribute(aChildControlPlugs);
+
+    aParentControlSockets = msgAttr.create("parentControlSockets", "parentControlSockets");
+    msgAttr.setArray(true);
+    addAttribute(aParentControlSockets);
 
     return MS::kSuccess;
 }
@@ -337,45 +348,76 @@ void RigControlDrawOverride::addUIDrawables(
     drawManager.endDrawable();
 }
 
-// Creates a rig control and wires it to the module
-MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName)
-{
-    // Get module side and color it based on that.
-    MFnDependencyNode fnModule(moduleNode);
-    MPlug pSide = fnModule.findPlug("side", false);
-    unsigned int sideInt = pSide.asInt();
-    Side sideEnum = getSideFromInt(sideInt);
-    const char* sideSuffix = getSideSuffix(sideEnum);
-    MColor sideColor = getColorFromSide(sideEnum);
-
-    // Create and name the control transform
-    MObject controlTransform = dagMod.createNode("rigControlNode");
-
-    MString ctrlName = jointName;
-    ctrlName.substitute("_jnt", "");  // TODO: global var for jnt suffix
-    ctrlName += "_ctrl";  // TODO: global naming method, global var for ctrl suffix
-    ctrlName += sideSuffix;
-    dagMod.renameNode(controlTransform, ctrlName);
-
-    // Connect the control to the module node
-    MPlug pRigModule(controlTransform, RigControlNode::aRigModule);
-    MPlug pRigControls = fnModule.findPlug("rigControls", false);
-
-    if (!pRigModule.isNull() && !pRigControls.isNull())
+    // Creates a rig control and wires it to the module
+    MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName)
     {
-        // Connect the attributes
-        dagMod.connect(pRigControls, pRigModule);
-    }
-    else
-    {
-        MGlobal::displayError("Unable to connect controls to module because plugs were null.");
-    }
+        MStatus status;
+        // Get module side and color it based on that.
+        MFnDependencyNode fnModule(moduleNode);
+        MPlug pSide = fnModule.findPlug("side", false, &status);
+        unsigned int sideInt = 0;
+        Side sideEnum = Side::Center;
 
-    // TODO: set rig control side color based on module side attr.
-    MPlug controlColor(controlTransform, RigControlNode::aWireColor);
-    dagMod.newPlugValueFloat(controlColor.child(0), sideColor.r);
-    dagMod.newPlugValueFloat(controlColor.child(1), sideColor.g);
-    dagMod.newPlugValueFloat(controlColor.child(2), sideColor.b);
+        if (!status || !pSide.isNull())
+        {
+            sideInt = pSide.asInt(&status);
+        }
+        else
+        {
+            MGlobal::displayError("Side was null for module " + fnModule.name());
+        }
 
-    return controlTransform;
-}
+        if (status != MStatus::kSuccess)
+        {
+            MGlobal::displayError("Falling back to center for module that has no side plug: " + fnModule.name());
+        }
+        else
+        {
+            sideEnum = getSideFromInt(sideInt);
+        }
+
+        const char* sideSuffix = getSideSuffix(sideEnum);
+        MColor sideColor = getColorFromSide(sideEnum);
+
+        // Create and name the control transform
+        MObject controlTransform = dagMod.createNode("rigControlNode");
+
+        MString ctrlName = jointName;
+        ctrlName.substitute("_jnt", "");  // TODO: global var for jnt suffix
+        ctrlName += "_ctrl";  // TODO: global naming method, global var for ctrl suffix
+        if (sideSuffix != nullptr)
+        {
+            ctrlName += sideSuffix;
+        }
+        else
+        {
+            MGlobal::displayInfo("side suffix was nullptr");
+        }
+
+        dagMod.renameNode(controlTransform, ctrlName);
+
+        // Connect the control to the module node
+        MPlug pRigModule(controlTransform, RigControlNode::aRigModule);
+        MPlug pRigControls = fnModule.findPlug("rigControls", false);
+
+        if (!pRigModule.isNull() && !pRigControls.isNull())
+        {
+            // Connect the attributes
+            dagMod.connect(pRigControls, pRigModule);
+        }
+        else
+        {
+            MGlobal::displayError("Unable to connect controls to module because plugs were null.");
+        }
+
+        // TODO: set rig control side color based on module side attr.
+        MPlug controlColor(controlTransform, RigControlNode::aWireColor);
+        if (!controlColor.isNull())
+        {
+            dagMod.newPlugValueFloat(controlColor.child(0), sideColor.r);
+            dagMod.newPlugValueFloat(controlColor.child(1), sideColor.g);
+            dagMod.newPlugValueFloat(controlColor.child(2), sideColor.b);
+        }
+
+        return controlTransform;
+    }

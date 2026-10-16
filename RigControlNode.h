@@ -43,7 +43,9 @@ public:
     static MString drawRegistrantId;
 
     // Rig related attributes
-    static MObject aRigModule;
+    static MObject aRigModule;                  // Connects to its rig module
+    static MObject aChildControlPlugs;          // Connects to the compound message attribute on the module that holds the possible names for this as a child plug
+    static MObject aParentControlSockets;       // Connects to the compound message attribute on the module that holds the possible names for this as a parent socket
     
     // Shape attributes
     static MObject aShapeType;

@@ -4,6 +4,9 @@
 #include "Utilities.h"
 #include "RigModule.h"
 
+#include "vector"
+#include "utility"
+
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnDagNode.h>
@@ -199,6 +202,8 @@ MObject FkChainNode::createModule(
 	MObject oPreviousControl;
 	unsigned int numJoints = jointDags.length();
 
+	std::vector<std::pair<MObject, MString>> parentSocketPairs;
+
 	for (unsigned int i = 0; i < numJoints; ++i)
 	{
 		MDagPath jointDag = jointDags[i];
@@ -209,6 +214,16 @@ MObject FkChainNode::createModule(
 		// Create control and flush modifier
 		MObject oControlTransform = RigControlNode::createRigControl(oModule, dagMod, jointDag.partialPathName());
 		dagMod.doIt();
+
+		if (i == 0)
+		{
+			parentSocketPairs.push_back({ oControlTransform, "start" });
+		}
+		else if (i == numJoints - 1)
+		{
+			parentSocketPairs.push_back({ oControlTransform, "end" });
+		}
+		parentSocketPairs.push_back({ oControlTransform, MString("index_") + std::to_string(i).c_str() });
 
 		// 4. Connect previous control (i-1) to current module slot (i)
 		if (!oPreviousControl.isNull())
@@ -238,6 +253,9 @@ MObject FkChainNode::createModule(
 		// Update persistent path for next iteration
 		oPreviousControl = oControlTransform;
 	}
+
+	RigModuleNodeBase::connectControlParentSockets(dgMod, oModule, parentSocketPairs);
+	dgMod.doIt();
 
 	if (!oRigRoot.isNull())
 	{
@@ -302,4 +320,49 @@ MObject FkChainNode::createModule(
 	}
 
 	return oModule;
+}
+
+
+// Only the start of the fkchain can be parented to another socket
+MStringArray FkChainNode::getChildPlugNames(MObject& oModule)
+{
+	MStringArray childPlugNames;
+	childPlugNames.append("start");
+
+	for (unsigned int i = 0; i < childPlugNames.length(); ++i)
+	{
+		MGlobal::displayInfo("FkChain Child plug names: " + childPlugNames[i]);
+	}
+
+	return childPlugNames;
+}
+
+// All controls in the fkchain can be parent sockets for other modules.
+MStringArray FkChainNode::getParentSocketNames(MObject& oModule)
+{
+	MStringArray parentSocketNames;
+	parentSocketNames.append("start");
+	parentSocketNames.append("end");
+
+	if (oModule.isNull())
+	{
+		MGlobal::displayError("Could not extract child plug name info from null object.");
+		return MStringArray();
+	}
+
+	MFnDependencyNode fnModule(oModule);
+	MPlug pRigControls(oModule, aRigControls);
+	unsigned int numControls = pRigControls.numConnectedElements();
+
+	for (unsigned int i = 0; i < numControls; ++i)
+	{
+		parentSocketNames.append(MString() + i);  // the constructor does not support MString(i)
+	}
+
+	for (unsigned int i = 0; i < parentSocketNames.length(); ++i)
+	{
+		MGlobal::displayInfo("Fk Parent Sockets: " + parentSocketNames[i]);
+	}
+
+	return parentSocketNames;
 }
