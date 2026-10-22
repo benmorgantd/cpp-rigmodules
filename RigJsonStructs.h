@@ -7,9 +7,10 @@
 #include <unordered_map>
 #include <maya/MString.h>
 
+
 struct ParentStructureData
 {
-    // Maps child plug key ("base", "target", "0") to parent sockets ("module_name.parentSocket")
+    // Maps child hook key ("base", "target", "0") to parent sockets ("module_name.parentSocket")
     std::unordered_map<std::string, std::string> childParentMap;
 };
 

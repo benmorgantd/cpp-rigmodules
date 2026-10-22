@@ -24,31 +24,31 @@ public:
 	static MObject aOutputControlOPM;
 
 public: // ---- Shared Attributes All Modules Have (but that must be unique) ----
-	static MObject aModuleData;               // JSON string payload for custom module serialization
+	static MObject aModuleData;              // JSON string payload for custom module serialization
 	static MObject aRigRoot;                 // Message link to central RigRoot node
 	static MObject aRigControls;             // Message array link to controls on this module
 	static MObject aOutputSocketMatrix;      // Output matrix array providing connection sockets for downstream modules
 	static MObject aSide;                    // Module side (Center, Left, Right)
-
 	// Command String
 	static const MString aCommandString;
 public:
-	static MObject createModule(
+	static MObject aDagParentMatrix;         // Matrix of the parent transform of the first fk control.
+	static MStatus reparentChildPlugs(       // Function used when parenting child transforms to other module parents
+		RigModuleDagReparentArgs
+	);      
+
+public:
+	static RigModuleBuildResult createModule(
 		const MString& moduleName,
 		const MDagPathArray& jointDags,
 		MObject oRigRoot,
 		MDGModifier& dgMod,
-		MDagModifier& dagMod,
-		MStatus* status = nullptr
+		MDagModifier& dagMod
 	);
-	static MObject createModule(
+	static RigModuleBuildResult createModule(
 		const RigModuleData& moduleData,
 		MObject rigRoot,
 		MDGModifier& dgMod,
 		MDagModifier& dagMod
 	);
-
-public:
-	static MStringArray getChildPlugNames(MObject& oModule);
-	static MStringArray getParentSocketNames(MObject& oModule);
 };

@@ -71,22 +71,28 @@ MStatus initializePlugin(MObject obj)
 
 MStatus uninitializePlugin(MObject obj)
 {
-	MFnPlugin plugin(obj);
 	MStatus status;
-	MStatus finalStatus;
+	MFnPlugin plugin(obj);
 
-	// Deregister in reverse order of creation. There might be dependencies here
-	status = plugin.deregisterNode(RigRootNode::id);
-	status = plugin.deregisterNode(AssetRootNode::id);
-	status = plugin.deregisterNode(LayoutModuleNode::id);
-	status = plugin.deregisterNode(FkChainNode::id);
-	status = plugin.deregisterNode(AimModuleNode::id);
-	MHWRender::MDrawRegistry::deregisterDrawOverrideCreator(
+	// 1. Deregister VP2 Draw Override FIRST (before node type is removed) to avoid crashes.
+	status = MHWRender::MDrawRegistry::deregisterDrawOverrideCreator(
 		RigControlNode::drawDbClassification,
 		RigControlNode::drawRegistrantId
 	);
-	status = plugin.deregisterNode(RigControlNode::id);
+	if (!status) {
+		status.perror("Failed to deregister RigControlDrawOverride");
+	}
+
+	// 2. Deregister custom command
 	status = plugin.deregisterCommand(CreateRigCmd::aCommandString);
 
-	return finalStatus;
+	// 3. Deregister node types (reverse order)
+	plugin.deregisterNode(RigControlNode::id);
+	plugin.deregisterNode(AimModuleNode::id);
+	plugin.deregisterNode(FkChainNode::id);
+	plugin.deregisterNode(LayoutModuleNode::id);
+	plugin.deregisterNode(RigRootNode::id);
+	plugin.deregisterNode(AssetRootNode::id);
+
+	return status;
 }

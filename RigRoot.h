@@ -1,4 +1,9 @@
 #pragma once
+#include "RigModule.h"
+
+#include <unordered_map>
+#include <vector>
+#include <string>
 
 #include <maya/MStatus.h>
 #include <maya/MPxNode.h>
@@ -31,6 +36,13 @@ public:
 	static MObject aRigTemplateName;
 	static MObject aAssetRoot;
 	static MObject aChildren;
+private:
+	static bool parseSocketIdentifier(const MString& fullIdentifier, std::string& outModuleName, std::string& outSocketName);
+	static void parentModuleControls(
+		const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,
+		const std::vector<RigModuleData>& flatModuleList,
+		MDGModifier& dgMod,
+		MDagModifier& dagMod);
 public:
 	static MObject createRigRoot(
 		const MString& name,

@@ -27,13 +27,8 @@ public: // ---- Shared Attributes All Modules Have (but that must be unique) ---
 	static MObject aRigControls;             // Message array link to controls on this module
 	static MObject aOutputSocketMatrix;      // Output matrix array providing connection sockets for downstream modules
 	static MObject aSide;                    // Module side (Center, Left, Right)
-	static MObject aChildPlugs;              // Child plugs that can parent to other controls
-	static MObject aParentSockets;           // Parent sockets that other module's child plugs can parent to.
-
 	// Command string
 	static const MString commandString;
 public:
-	static MObject createModule(MObject& oRigRoot, MDGModifier& dgMod, MDagModifier& dagMod, const unsigned short numControls);
-public:
-	static MStringArray getParentSocketNames(MObject& oModule);
+	static RigModuleBuildResult createModule(MObject& oRigRoot, MDGModifier& dgMod, MDagModifier& dagMod, const unsigned short numControls);
 };

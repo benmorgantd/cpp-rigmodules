@@ -4,8 +4,7 @@
 #include "Utilities.h"
 #include "RigModule.h"
 
-#include "vector"
-#include "utility"
+#include <string>
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnDependencyNode.h>
@@ -35,6 +34,9 @@ MObject FkChainNode::aRigControls;
 MObject FkChainNode::aRigRoot;
 MObject FkChainNode::aOutputSocketMatrix;
 MObject FkChainNode::aSide;
+
+// Attrs for this node
+MObject FkChainNode::aDagParentMatrix;
 
 FkChainNode::FkChainNode() {}
 FkChainNode::~FkChainNode() {}
@@ -71,6 +73,11 @@ MStatus FkChainNode::initialize()
 	mAttr.setKeyable(true);
 	addAttribute(aControlMatrix);
 
+	aDagParentMatrix = mAttr.create("dagParentMatrix", "dpm", MFnMatrixAttribute::kDouble, &status);
+	mAttr.setStorable(true);
+	mAttr.setKeyable(true);  // are these needed? 
+	addAttribute(aDagParentMatrix);
+
 	// OUTPUT ATTRIBUTES
 	aOutputJointOPM = mAttr.create("outputJointOPM", "jopm", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
@@ -94,10 +101,13 @@ MStatus FkChainNode::initialize()
 
 	// AFFECTS RELATIONSHIPS
 	attributeAffects(aInputRestMatrix, aOutputControlOPM);
+	attributeAffects(aDagParentMatrix, aOutputControlOPM);
 
+	attributeAffects(aDagParentMatrix, aOutputJointOPM);
 	attributeAffects(aControlMatrix, aOutputJointOPM);
 	attributeAffects(aInputRestMatrix, aOutputJointOPM);
 
+	attributeAffects(aDagParentMatrix, aOutputSocketMatrix);
 	attributeAffects(aControlMatrix, aOutputSocketMatrix);
 	attributeAffects(aInputRestMatrix, aOutputSocketMatrix);
 
@@ -115,8 +125,10 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 	{
 		// If aOutputControlOPM plug is never getting dirtied, why is that? 
 		MMatrix inputRestLocal = getInputMatrix(data, aInputRestMatrix, index);
+
+		// Our control's matrix is already going to be affected by its DAG relationship to the parent. 
+		// Therefore we don't have to include that parent matrix in this, or else we'd double-transform.
 		// By default, our control's offset parent matrix is just its baked starting offset.
-		// TODO: once we do parenting this will have to be relative to the control's arbitrary parent.
 		MMatrix controlOPM = inputRestLocal;
 
 		setOutputMatrix(data, aOutputControlOPM, index, controlOPM);
@@ -132,7 +144,18 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 		MMatrix controlLocal = getInputMatrix(data, aControlMatrix, index);
 		MMatrix jointOffset = getInputMatrix(data, aInputRestMatrix, index);
 
-		MMatrix jointOPM = controlLocal * jointOffset;
+		MMatrix jointOPM;
+
+		if (index == 0)
+		{
+			MMatrix parentMatrix = getInputMatrix(data, aDagParentMatrix);
+
+			jointOPM = controlLocal * jointOffset * parentMatrix;
+		}
+		else
+		{
+			jointOPM = controlLocal * jointOffset;
+		}
 
 		setOutputMatrix(data, aOutputJointOPM, index, jointOPM);
 		data.setClean(plug);
@@ -180,18 +203,21 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kUnknownParameter;
 }
 
-MObject FkChainNode::createModule(
+RigModuleBuildResult FkChainNode::createModule(
 	const MString& moduleName,
 	const MDagPathArray& jointDags,
 	MObject oRigRoot,
 	MDGModifier& dgMod,
-	MDagModifier& dagMod,
-	MStatus* status)
+	MDagModifier& dagMod)
 {
+	RigModuleBuildResult result;
+
 	// Instantiate module node in DG
 	MObject oModule = dgMod.createNode("fkChainModule");
 	dgMod.renameNode(oModule, moduleName);
 	dgMod.doIt();
+
+	result.moduleNode = oModule;
 
 	MFnDependencyNode moduleFn(oModule);
 	MPlug pInputRestMatrix = moduleFn.findPlug("inputRestMatrix", false);
@@ -201,8 +227,6 @@ MObject FkChainNode::createModule(
 
 	MObject oPreviousControl;
 	unsigned int numJoints = jointDags.length();
-
-	std::vector<std::pair<MObject, MString>> parentSocketPairs;
 
 	for (unsigned int i = 0; i < numJoints; ++i)
 	{
@@ -217,13 +241,15 @@ MObject FkChainNode::createModule(
 
 		if (i == 0)
 		{
-			parentSocketPairs.push_back({ oControlTransform, "start" });
+			result.parentSockets[std::string("start")] = oControlTransform;
+
+			result.childPlugs[std::string("start")] = oControlTransform;  // only the first control can be parented in a fkchain
 		}
 		else if (i == numJoints - 1)
 		{
-			parentSocketPairs.push_back({ oControlTransform, "end" });
+			result.parentSockets[std::string("end")] = oControlTransform;
 		}
-		parentSocketPairs.push_back({ oControlTransform, MString("index_") + std::to_string(i).c_str() });
+		result.parentSockets["index_" + std::to_string(i)] = oControlTransform;
 
 		// 4. Connect previous control (i-1) to current module slot (i)
 		if (!oPreviousControl.isNull())
@@ -241,7 +267,6 @@ MObject FkChainNode::createModule(
 		dgMod.connect(pOutputControlOPM.elementByLogicalIndex(i), pControlOpm);
 
 		MPlug pInputRestMatrixIndex = pInputRestMatrix.elementByLogicalIndex(i);
-		// TODO: now that we are changing the parents of controls we might not be able to share rest matrices between joints and controls.
 		DagUtils::setMatrixPlug(pInputRestMatrixIndex, mJointRest);
 
 		MFnDagNode jointFnDag(jointDag);
@@ -254,38 +279,37 @@ MObject FkChainNode::createModule(
 		oPreviousControl = oControlTransform;
 	}
 
-	RigModuleNodeBase::connectControlParentSockets(dgMod, oModule, parentSocketPairs);
-	dgMod.doIt();
-
 	if (!oRigRoot.isNull())
 	{
 		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oModule, aRigRoot);
 		dgMod.doIt();
 	}
 
-	if (status) *status = MS::kSuccess;
-	return oModule;
+	// Tie this module's reparent logic to the result callback called during creation.
+	result.dagParentCallback = FkChainNode::reparentChildPlugs;
+
+	result.status = MS::kSuccess;
+	return result;
 }
 
-MObject FkChainNode::createModule(
+RigModuleBuildResult FkChainNode::createModule(
 	const RigModuleData& moduleData,
 	MObject rigRoot,
 	MDGModifier& dgMod,
-	MDagModifier& dagMod
-)
+	MDagModifier& dagMod)
 {
-	MStatus status;
+	RigModuleBuildResult result;
 
 	// 1. Resolve string joint names from RigModuleData into MDagPath instances
-	MDagPathArray jointDags;
-	// TODO: I don't really understand what this is from gemini, but this is the pattern for getting our moduleArgs substruct.
 	const auto* fkArgs = std::get_if<FkModuleArgs>(&moduleData.moduleArgs);
 	if (!fkArgs)
 	{
 		MGlobal::displayError(MString("Invalid moduleArgs variant type for FkChainModule: ") + moduleData.name.c_str());
-		return MObject::kNullObj;
+		result.status = MStatus::kFailure;
+		return result;
 	}
 
+	MDagPathArray jointDags;
 	for (const std::string& jointName : fkArgs->joints)
 	{
 		MString jointNameStr(jointName.c_str());
@@ -301,68 +325,49 @@ MObject FkChainNode::createModule(
 		}
 	}
 
-	// 3. Delegate to the flattened arguments overload
-	MStatus executionStatus;
-	// TODO: pass in shape type.
-	MObject oModule = FkChainNode::createModule(
+	// 2. Delegate to the flattened arguments overload
+	result = FkChainNode::createModule(
 		moduleData.name.c_str(),
 		jointDags,
 		rigRoot,
 		dgMod,
-		dagMod,
-		&executionStatus
+		dagMod
 	);
 
-	if (!executionStatus)
+	if (!result)
 	{
 		MGlobal::displayError(MString("Failed to build FkChain module: ") + moduleData.name.c_str());
-		return MObject::kNullObj;
 	}
 
-	return oModule;
+	return result;
 }
 
-
-// Only the start of the fkchain can be parented to another socket
-MStringArray FkChainNode::getChildPlugNames(MObject& oModule)
+MStatus FkChainNode::reparentChildPlugs(RigModuleDagReparentArgs args)
 {
-	MStringArray childPlugNames;
-	childPlugNames.append("start");
-
-	for (unsigned int i = 0; i < childPlugNames.length(); ++i)
+	if (args.childPlugName != "start")
 	{
-		MGlobal::displayInfo("FkChain Child plug names: " + childPlugNames[i]);
+		MGlobal::displayError("The child plug name must be \'start\'");
+		return MStatus::kFailure;
 	}
 
-	return childPlugNames;
-}
+	// TODO: we will want to do the dag parenting, update offset parent matrices, and connect parent matrices to the module.
+	MGlobal::displayInfo("In fkchain reparent function");
 
-// All controls in the fkchain can be parent sockets for other modules.
-MStringArray FkChainNode::getParentSocketNames(MObject& oModule)
-{
-	MStringArray parentSocketNames;
-	parentSocketNames.append("start");
-	parentSocketNames.append("end");
+	MDagModifier& dagMod = args.dagMod;
+	MObject& oChildTransform = args.oChildPlugTransform;
+	MObject& oTargetSocketTrasform = args.oParentTargetTransform;
+	MObject& oChildModule = args.oChildModuleNode;
 
-	if (oModule.isNull())
-	{
-		MGlobal::displayError("Could not extract child plug name info from null object.");
-		return MStringArray();
-	}
+	dagMod.reparentNode(oChildTransform, oTargetSocketTrasform);
 
-	MFnDependencyNode fnModule(oModule);
-	MPlug pRigControls(oModule, aRigControls);
-	unsigned int numControls = pRigControls.numConnectedElements();
 
-	for (unsigned int i = 0; i < numControls; ++i)
-	{
-		parentSocketNames.append(MString() + i);  // the constructor does not support MString(i)
-	}
+	// Connect the parent socket transform's world matrix to the module's dagParentMatrix
+	MFnDependencyNode fnParentTransform(oTargetSocketTrasform);
+	MPlug pParentWorldMatrix = fnParentTransform.findPlug("worldMatrix", false).elementByLogicalIndex(0);
+	MPlug pDagParentMatarix(oChildModule, FkChainNode::aDagParentMatrix);
+	MDGModifier& dgMod = args.dgMod;
 
-	for (unsigned int i = 0; i < parentSocketNames.length(); ++i)
-	{
-		MGlobal::displayInfo("Fk Parent Sockets: " + parentSocketNames[i]);
-	}
+	dgMod.connect(pParentWorldMatrix, pDagParentMatarix);
 
-	return parentSocketNames;
+	return MStatus::kSuccess;
 }

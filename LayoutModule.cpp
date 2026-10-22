@@ -102,34 +102,45 @@ MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kUnknownParameter;
 }
 
-MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MDagModifier& dagMod, const unsigned short numControls)
+RigModuleBuildResult LayoutModuleNode::createModule(
+	MObject& oRigRoot,
+	MDGModifier& dgMod,
+	MDagModifier& dagMod,
+	const unsigned short numControls)
 {
+	RigModuleBuildResult result;
+
 	MGlobal::displayInfo("Creating Layout module.");
-	// First create the module node
+
+	// 1. Create layout module node
 	MObject oLayoutModule = dgMod.createNode(LayoutModuleNode::commandString);
 	dgMod.renameNode(oLayoutModule, "layoutModule"); // TODO: namespaces
-	const char* sideSuffix = getSideSuffix(Side::Center);
+	dgMod.doIt();
+
+	result.moduleNode = oLayoutModule;
 
 	MObject oPreviousControlNode = MObject::kNullObj;
 
-	std::vector<std::pair<MObject, MString>> parentSocketPairs;
-
+	// 2. Build layout controls hierarchy and populate in-memory socket registry
 	for (unsigned int i = 0; i < numControls; ++i)
 	{
 		MString controlName = MString("layout_") + std::to_string(i).c_str();
 		MObject oControl = RigControlNode::createRigControl(oLayoutModule, dagMod, controlName);
+
 		MFnDependencyNode fnControl(oControl);
 		MPlug pShapeType(oControl, RigControlNode::aShapeType);
 		dgMod.newPlugValueShort(pShapeType, ShapeType::Square);
 
-		// Connect this control to its child plug and parent socket message attributes.
-		// Child plugs aren't valid for the layout module as it has no parents.
+		// Record the "end" socket on the final layout control
 		if (i == numControls - 1)
 		{
-			parentSocketPairs.push_back({ oControl, MString("end") });
+			result.parentSockets[std::string("end")] = oControl;
 		}
-		
-		// Set decreasing radius using shape transform matrix
+
+		// Also record indexed socket handles for explicit index targeting
+		result.parentSockets[std::string("index_") + std::to_string(i).c_str()] = oControl;
+
+		// Set decreasing scale using shape transform matrix
 		MPlug pShapeTransform(oControl, RigControlNode::aShapeTransform);
 		MTransformationMatrix mShapeTransform;
 
@@ -137,19 +148,19 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 		const double matrixScale[3] = { scaleValue, scaleValue, scaleValue };
 		mShapeTransform.setScale(matrixScale, MSpace::kObject);
 
-		// While we have the shape transform, also set the normal and up vectors. 
-		// This is a 90 degree rotation about the Z axis.
+		// Orient control shape (90-degree rotation about Z axis)
 		mShapeTransform.setRotationQuaternion(0.0, 0.0, 0.7011, 0.7011);
 
 		MFnMatrixData fnShapeTransform;
 		MObject oShapeTransform = fnShapeTransform.create(mShapeTransform.asMatrix());
-		dgMod.newPlugValue(pShapeTransform, oShapeTransform); 
+		dgMod.newPlugValue(pShapeTransform, oShapeTransform);
 
-		// Wire the control's matrix to the module's control matrix input
+		// Wire control matrix to module controlMatrix array input
 		MPlug pControlOutputMatrix(oControl, RigControlNode::matrix);
 		MPlug pModuleInputMatrix(oLayoutModule, LayoutModuleNode::aControlMatrix);
 		dgMod.connect(pControlOutputMatrix, pModuleInputMatrix.elementByLogicalIndex(i));
 
+		// Parent sequentially in DAG
 		if (oPreviousControlNode != MObject::kNullObj)
 		{
 			dagMod.reparentNode(oControl, oPreviousControlNode);
@@ -158,43 +169,15 @@ MObject LayoutModuleNode::createModule(MObject& oRigRoot, MDGModifier& dgMod, MD
 		oPreviousControlNode = oControl;
 	}
 
-	RigModuleNodeBase::connectControlParentSockets(dgMod, oLayoutModule, parentSocketPairs);
-	RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oLayoutModule, aRigRoot);
+	// 3. Connect to RigRoot network plug
+	if (!oRigRoot.isNull())
+	{
+		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oLayoutModule, aRigRoot);
+	}
 
-	// Always keep dgMod and dagMod up to date after creating a module
 	dgMod.doIt();
 	dagMod.doIt();
 
-	return oLayoutModule;
+	result.status = MS::kSuccess;
+	return result;
 }
-
-// You can only put controls under the layout module's last control. It cannot be the child of another module
-MStringArray LayoutModuleNode::getParentSocketNames(MObject& oModule)
-{
-	MStringArray parentSocketNames;
-	parentSocketNames.append("end");
-
-	if (oModule.isNull())
-	{
-		MGlobal::displayError("Could not extract child plug name info from null object.");
-		return MStringArray();
-	}
-
-	MFnDependencyNode fnModule(oModule);
-	MPlug pRigControls(oModule, aRigControls);
-	unsigned int numControls = pRigControls.numConnectedElements();
-
-	if (numControls > 0)
-	{
-		parentSocketNames.append(MString() + (numControls - 1));  // The parent sockets are "start" and "numControls -1" (2)
-
-	}
-
-	return parentSocketNames;
-}
-
-//MDagPath LayoutModuleNode::getTransformFromChildPlugName(MString childPlugName)
-//{
-//	// TODO: We need to list a message attribute we create when we create the node. This could be a compound attribute we add to for organization.
-//	return MDagPath;
-//}
