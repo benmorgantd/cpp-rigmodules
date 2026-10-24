@@ -1,15 +1,12 @@
 #include "LayoutModule.h"
 #include "RigControlNode.h"
-#include "Side.h"
 #include "RigModule.h"
-
-#include "vector"
-#include "utility"
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnMessageAttribute.h>
 #include <maya/MFnNumericAttribute.h>
+#include <maya/MFnCompoundAttribute.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
 #include <maya/MGlobal.h>
@@ -22,7 +19,13 @@
 
 MTypeId LayoutModuleNode::id(0x00218C);
 
+MObject LayoutModuleNode::aControlInputData;
 MObject LayoutModuleNode::aControlMatrix;
+
+MObject LayoutModuleNode::aControlOPM;
+
+MObject LayoutModuleNode::aControlMessage;
+
 // Shared Attributes (Although shared, these need to be unique MObjects for each module)
 MObject LayoutModuleNode::aModuleData;
 MObject LayoutModuleNode::aRigControls;
@@ -49,17 +52,35 @@ MStatus LayoutModuleNode::initialize()
 	MFnMessageAttribute msgAttr;
 	MFnEnumAttribute eAttr;
 	MFnNumericAttribute nAttr;
+	MFnCompoundAttribute cAttr;
 
+	// TODO: the compound and array attrs for control data, opm, messages could become shared attributes.
 	status = RigModuleNodeBase::initializeSharedAttributes(aModuleData, aRigRoot, aRigControls, aOutputSocketMatrix, aSide);
 
-	// 1. INPUT ARRAYS
-	aControlMatrix = mAttr.create("controlMatrix", "cm", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setArray(true);
-	mAttr.setStorable(true);
-	mAttr.setKeyable(true);
-	addAttribute(aControlMatrix);
+	// Control compound input attr sub attrs
+	aControlMatrix = mAttr.create("localMatrix", "localMatrix", MFnMatrixAttribute::kDouble, &status);
 
-	// 3. AFFECTS RELATIONSHIPS
+	aControlInputData = cAttr.create("controlData", "controlData", &status);
+	cAttr.addChild(aControlMatrix);
+	cAttr.setArray(true);
+	cAttr.setUsesArrayDataBuilder(true);
+	addAttribute(aControlInputData);
+
+	// Control output array attr
+	aControlOPM = mAttr.create("controlOPM", "controlOPM", MFnMatrixAttribute::kDouble, &status);
+	mAttr.setArray(true);
+	mAttr.setWritable(false);
+	mAttr.setStorable(false);
+	mAttr.setUsesArrayDataBuilder(true);
+	addAttribute(aControlOPM);
+
+	// Control message attr connection
+	aControlMessage = msgAttr.create("controlMessage", "controlMessage", &status);
+	msgAttr.setArray(true);
+	addAttribute(aControlMessage);
+
+	// AFFECTS RELATIONSHIPS
+	attributeAffects(aControlMatrix, aControlOPM);
 	attributeAffects(aControlMatrix, aOutputSocketMatrix);
 
 	return MStatus::kSuccess;
@@ -69,32 +90,38 @@ MStatus LayoutModuleNode::initialize()
 // TODO: the solver for this module is not evaluating correctly
 MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 {
-	// TODO: child modules should attach to the last index of the layout module. Make "-1" the default.
-	// TODO: there are world-space calculation issues here.
-	if (plug == aOutputSocketMatrix || plug.array() == aOutputSocketMatrix)
+	unsigned int index = plug.isElement() ? plug.logicalIndex() : 0;
+
+	if (plug.attribute() == aControlOPM)
 	{
-		MArrayDataHandle hControlArray = data.inputArrayValue(aControlMatrix);
-		MArrayDataHandle hOutSocketArray = data.outputArrayValue(aOutputSocketMatrix);
+		MArrayDataHandle hInputDataArray = data.inputArrayValue(aControlInputData);
+		MArrayDataHandle hOutputOPMArray = data.outputArrayValue(aControlOPM);
 
-		// Start with identity
-		MMatrix mCurrentWorld = MMatrix::identity;
-		unsigned int elementCount = hControlArray.elementCount();
+		// Base incoming matrix (e.g. from upstream socket or asset root)
+		// TODO: if we had a module parent for layout it would go here
+		MMatrix mCurrentParentWorld = MMatrix::identity;
 
-		// Sequential downstream accumulation loop
+		unsigned int elementCount = hInputDataArray.elementCount();
+
 		for (unsigned int i = 0; i < elementCount; ++i)
 		{
-			hControlArray.jumpToElement(i);
-			MMatrix mControlLocal = hControlArray.inputValue().asMatrix();
-			// Maya Row-Major Order: Local Step * Current Accumulated World Matrix
-			MMatrix mSocketWorld = mControlLocal * mCurrentWorld;
+			hInputDataArray.jumpToElement(i);
+			MDataHandle hElement = hInputDataArray.inputValue();
 
-			RigModuleNodeBase::setOutputMatrix(data, aOutputSocketMatrix, i, mSocketWorld);
+			MMatrix mControlLocal = hElement.child(aControlMatrix).asMatrix();
+			// NOTE: We can't have the control's local matrix in its opm! That causes a double transformation.
+			MMatrix mControlOPM = mCurrentParentWorld;
 
-			mCurrentWorld = mSocketWorld;
+			// Write to output array in-place
+			hOutputOPMArray.jumpToElement(i);
+			hOutputOPMArray.outputValue().setMMatrix(mControlOPM);
+
+			// Carry world matrix forward for index i + 1
+			MMatrix mControlWorld = mControlLocal * mControlOPM;
+			mCurrentParentWorld = mControlWorld;
 		}
 
-		// Clean the entire output array block at once
-		hOutSocketArray.setAllClean();
+		hOutputOPMArray.setAllClean();
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
@@ -131,6 +158,12 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 		MPlug pShapeType(oControl, RigControlNode::aShapeType);
 		dgMod.newPlugValueShort(pShapeType, ShapeType::Square);
 
+		// Connect control message
+		MPlug pControlMessages(oLayoutModule, LayoutModuleNode::aControlMessage);
+		MPlug pControlMessageIndex = pControlMessages.elementByLogicalIndex(i);
+		MPlug pControlRigModule(oControl, RigControlNode::aRigModule);
+		dgMod.connect(pControlMessageIndex, pControlRigModule);
+
 		// Record the "end" socket on the final layout control
 		if (i == numControls - 1)
 		{
@@ -156,15 +189,25 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 		dgMod.newPlugValue(pShapeTransform, oShapeTransform);
 
 		// Wire control matrix to module controlMatrix array input
+		MPlug pControlInputData(oLayoutModule, LayoutModuleNode::aControlInputData);
+		MPlug pControlInputDataIndex = pControlInputData.elementByLogicalIndex(i);
 		MPlug pControlOutputMatrix(oControl, RigControlNode::matrix);
-		MPlug pModuleInputMatrix(oLayoutModule, LayoutModuleNode::aControlMatrix);
-		dgMod.connect(pControlOutputMatrix, pModuleInputMatrix.elementByLogicalIndex(i));
+
+		MPlug pModuleInputMatrix = pControlInputDataIndex.child(LayoutModuleNode::aControlMatrix);
+		dgMod.connect(pControlOutputMatrix, pModuleInputMatrix);
+
+		// Connect to OPM for control
+		MPlug pModuleOPM(oLayoutModule, LayoutModuleNode::aControlOPM);
+		MPlug pModuleOPMIndex = pModuleOPM.elementByLogicalIndex(i);
+		MPlug pControlOPM(oControl, RigControlNode::offsetParentMatrix);
+		dgMod.connect(pModuleOPMIndex, pControlOPM);
 
 		// Parent sequentially in DAG
 		if (oPreviousControlNode != MObject::kNullObj)
 		{
 			dagMod.reparentNode(oControl, oPreviousControlNode);
 		}
+
 		dagMod.doIt();
 		oPreviousControlNode = oControl;
 	}

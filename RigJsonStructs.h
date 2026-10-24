@@ -8,12 +8,6 @@
 #include <maya/MString.h>
 
 
-struct ParentStructureData
-{
-    // Maps child hook key ("base", "target", "0") to parent sockets ("module_name.parentSocket")
-    std::unordered_map<std::string, std::string> childParentMap;
-};
-
 struct FkModuleArgs
 {
     std::vector<std::string> joints;
@@ -34,7 +28,7 @@ struct RigModuleData
     std::string name;
     std::string shapeType;
     std::string side;
-    ParentStructureData parentStructure;
+    std::unordered_map<std::string, std::string> parentStructure;
     ModuleArgsVariant moduleArgs;
 };
 
@@ -54,7 +48,6 @@ struct RigRootData
 };
 
 // nlohmann JSON mapping macros
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ParentStructureData, childParentMap)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AssetRootData, assetId, assetType)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigRootData, rigTemplateName, rigVersion, rigType, rigAuthor, rigModules)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigModuleData, moduleType, name, shapeType, side, parentStructure, moduleArgs)

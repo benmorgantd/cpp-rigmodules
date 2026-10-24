@@ -59,6 +59,12 @@ public:
 	// Data access helpers
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx);
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr);
+	static MMatrix getInputCompoundMatrix(
+		MDataBlock& data,
+		const MObject& aParentCompound,
+		const MObject& aChildAttr,
+		unsigned int logicalIndex
+	);
 	static void setOutputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx, const MMatrix& mat);
 	static void setOutputMatrix(MDataBlock& data, const MObject& attr, const MMatrix& mat);
 

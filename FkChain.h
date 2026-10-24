@@ -16,12 +16,17 @@ public:
 	static MTypeId id;
 
 	// Top-Level Input Attributes
-	static MObject aInputRestMatrix;
-
-	// Control Array Attributes
+	static MObject aControlInputData;
 	static MObject aControlMatrix;
-	static MObject aOutputJointOPM;
-	static MObject aOutputControlOPM;
+	static MObject aControlRestOffset;
+	static MObject aControlParentMatrix;
+
+	// Output attributes
+	static MObject aControlOPM;
+	static MObject aJointOPM;
+
+	// Message attributes
+	static MObject aControlMessage;
 
 public: // ---- Shared Attributes All Modules Have (but that must be unique) ----
 	static MObject aModuleData;              // JSON string payload for custom module serialization
@@ -32,10 +37,9 @@ public: // ---- Shared Attributes All Modules Have (but that must be unique) ---
 	// Command String
 	static const MString aCommandString;
 public:
-	static MObject aDagParentMatrix;         // Matrix of the parent transform of the first fk control.
 	static MStatus reparentChildPlugs(       // Function used when parenting child transforms to other module parents
 		RigModuleDagReparentArgs
-	);      
+	);
 
 public:
 	static RigModuleBuildResult createModule(

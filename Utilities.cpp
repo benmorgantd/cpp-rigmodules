@@ -154,6 +154,40 @@ MMatrix DagUtils::bakeTransformsToOPM(const MDagPath& jointDag)
 	return mJointOffsetParent;
 }
 
+MStatus DagUtils::setInheritsTransforms(MObject& transform, bool value, MDagModifier& dagMod)
+{
+	if (!transform.hasFn(MFn::kTransform))
+	{
+		MGlobal::displayError("Given object is not a DAG transform, cannot set inheritsTransforms.");
+		return MStatus::kFailure;
+	}
+
+	MFnDependencyNode fnTransform(transform);
+	MPlug pInheritsTransform = fnTransform.findPlug("inheritsTransform", false);
+
+	if (pInheritsTransform.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	return dagMod.newPlugValueBool(pInheritsTransform, value);
+}
+
+MMatrix DagUtils::getMatrixFromPlug(const MPlug& pMatrixPlug)
+{
+	MMatrix matrixValue;
+
+	MObject dataObj;
+	MStatus status = pMatrixPlug.getValue(dataObj);
+
+	if (status && !dataObj.isNull() && dataObj.hasFn(MFn::kMatrixData))
+	{
+		MFnMatrixData fnMatrixData(dataObj);
+		matrixValue = fnMatrixData.matrix();
+	}
+
+	return matrixValue;
+}
 
 void DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix)
 {
@@ -162,6 +196,20 @@ void DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix)
 		MFnMatrixData fnMatrixData;
 		MObject oMatrixData = fnMatrixData.create(matrix);
 		matrixPlug.setValue(oMatrixData);
+	}
+	else
+	{
+		MGlobal::displayError("The given matrix plug was null or an array.");
+	}
+}
+
+void DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDGModifier& dgMod)
+{
+	if (!matrixPlug.isNull() && !matrixPlug.isArray())
+	{
+		MFnMatrixData fnMatrixData;
+		MObject oMatrixData = fnMatrixData.create(matrix);
+		dgMod.newPlugValue(matrixPlug, oMatrixData);
 	}
 	else
 	{

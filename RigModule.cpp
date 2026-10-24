@@ -109,26 +109,30 @@ MMatrix RigModuleNodeBase::getInputMatrix(MDataBlock& data, const MObject& attr,
 	return MMatrix::identity;
 }
 
-MMatrix getMatrixFromPlug(const MPlug& pMatrixPlug)
-{
-	MMatrix matrixValue;
-
-	MObject dataObj;
-	MStatus status = pMatrixPlug.getValue(dataObj);
-
-	if (status && !dataObj.isNull() && dataObj.hasFn(MFn::kMatrixData))
-	{
-		MFnMatrixData fnMatrixData(dataObj);
-		matrixValue = fnMatrixData.matrix();
-	}
-
-	return matrixValue;
-}
-
 MMatrix RigModuleNodeBase::getInputMatrix(MDataBlock& data, const MObject& attr)
 {
 	MDataHandle hData = data.inputValue(attr);
 	return hData.asMatrix();
+}
+
+MMatrix RigModuleNodeBase::getInputCompoundMatrix(
+	MDataBlock& data,
+	const MObject& aParentCompound,
+	const MObject& aChildAttr,
+	unsigned int logicalIndex)
+{
+	MStatus status;
+	MArrayDataHandle hCompoundArray = data.inputArrayValue(aParentCompound, &status);
+
+	if (status == MStatus::kSuccess && hCompoundArray.jumpToElement(logicalIndex) == MStatus::kSuccess)
+	{
+		MDataHandle hElement = hCompoundArray.inputValue();
+		MDataHandle hChild = hElement.child(aChildAttr);
+		return hChild.asMatrix();
+	}
+
+	// Return identity if the element is not found or uninitialized
+	return MMatrix::identity;
 }
 
 void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx, const MMatrix& mat)

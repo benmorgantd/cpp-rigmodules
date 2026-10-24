@@ -18,8 +18,15 @@ public:
 public:
 	static MTypeId id;
 
-	// Control Array Attributes
+	// Control input data compound array
+	static MObject aControlInputData;
 	static MObject aControlMatrix;
+
+	// Control output data array
+	static MObject aControlOPM;
+
+	// Control message connection array
+	static MObject aControlMessage;  // TODO: swap out with "aRigControls"
 
 public: // ---- Shared Attributes All Modules Have (but that must be unique) ----
 	static MObject aModuleData;              // JSON string payload for custom module serialization

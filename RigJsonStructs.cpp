@@ -15,10 +15,8 @@ void from_json(const nlohmann::json& jsonData, RigModuleData& module)
     module.side = jsonData.value("side", "Center");
 
     // 3. Parse sparse parentStructure topology if declared
-    if (jsonData.contains("parentStructure"))
-    {
-        module.parentStructure = jsonData["parentStructure"].get<ParentStructureData>();
-    }
+    std::unordered_map<std::string, std::string> emptyMap;
+    module.parentStructure = jsonData.value("parentStructure", emptyMap);
 
     // 4. Parse module-specific argument structs
     if (jsonData.contains("moduleArgs"))

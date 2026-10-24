@@ -25,7 +25,6 @@
 #include <maya/MSyntax.h>
 #include <maya/MArgDatabase.h>
 #include <maya/MString.h>
-#include <maya/MObjectArray.h>
 
 // Define the unique ID
 MTypeId RigRootNode::id(0x00218);
@@ -201,23 +200,20 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath)  // TODO: optionally
     // Add the layout module to the rig module map
     rigModuleMap["layout"] = layoutModuleBuildResult;
 
-    // TODO: we ONLY do dag parenting based off of the json data, but not any special matrix evaluation!
     parentModuleControls(rigModuleMap, rigData.rigModules, dgMod, dagMod);
-
-    // TODO: control parenting pass.
 
     // 6. Execute all DG and DAG mods
     status = dgMod.doIt();
     if (!status)
     {
-        MGlobal::displayError("Failed executing DG Modifiers during rig creation.");
+        MGlobal::displayError("Failed executing DG Modifiers during rig creation: " + status.errorString());
         return status;
     }
 
     status = dagMod.doIt();
     if (!status)
     {
-        MGlobal::displayError("Failed executing DAG Modifiers during rig creation.");
+        MGlobal::displayError("Failed executing DAG Modifiers during rig creation: " + status.errorString());
         return status;
     }
 
@@ -285,8 +281,8 @@ void RigRootNode::parentModuleControls(
 
 		// Call the module-specific function for doing dag parenting stored in the build result.
 
-		// Case A: Default parenting (No explicit childParentMap defined) -> Parent to Layout "end"
-		if (moduleJsonData.parentStructure.childParentMap.empty())
+		// Case A: Default parenting (No explicit parentStructure defined) -> Parent to Layout "end"
+		if (moduleJsonData.parentStructure.empty())
 		{
 			MGlobal::displayInfo(MString("Rig module ") + moduleName.c_str() + " did not define any dag parents. Defaulting to parenting all child plugs to the Layout module.");
 
@@ -327,10 +323,9 @@ void RigRootNode::parentModuleControls(
 			}
 		}
 		// Case B: Explicit parent/child map specified in JSON template
-		/*
 		else
 		{
-			for (const auto& [childPlugName, parentTargetIdentifier] : moduleJsonData.parentStructure.childParentMap)
+			for (const auto& [childPlugName, parentTargetIdentifier] : moduleJsonData.parentStructure)
 			{
 				MObject oChildTransform = RigModuleNodeBase::findPlugOrSocketTransform(buildResult.childPlugs, childPlugName);
 
@@ -348,10 +343,12 @@ void RigRootNode::parentModuleControls(
 
 				if (targetModuleName.length() == 0 || targetModuleName == "layout")
 				{
+					MGlobal::displayWarning("Invalid socket name given, defaulting to layout.");
 					oParentTargetTransform = RigModuleNodeBase::findPlugOrSocketTransform(layoutIt->second.parentSockets, targetSocketName);
 				}
 				else
 				{
+					// Get the transform related to that socket and parent the child to it.
 					auto targetModuleIt = rigModuleMap.find(targetModuleName);
 					if (targetModuleIt != rigModuleMap.end())
 					{
@@ -366,7 +363,28 @@ void RigRootNode::parentModuleControls(
 
 				if (!oParentTargetTransform.isNull())
 				{
-					dagMod.reparentNode(oChildTransform, oParentTargetTransform);
+					RigModuleDagReparentArgs args{
+						childPlugName,
+						oModule,
+						oChildTransform,
+						oParentTargetTransform,
+						dgMod,
+						dagMod
+					};
+
+					if (buildResult.dagParentCallback)
+					{
+						MStatus reparentResult = buildResult.dagParentCallback(args);
+
+						if (!reparentResult)
+						{
+							MGlobal::displayError(MString("Failed to do dag parenting for module ") + moduleName.c_str());
+						}
+					}
+					else
+					{
+						MGlobal::displayInfo(MString("Module did not define dag parenting function: ") + moduleName.c_str());
+					}
 				}
 				else
 				{
@@ -374,7 +392,6 @@ void RigRootNode::parentModuleControls(
 				}
 			}
 		}
-		*/
 	}
 
 	// 3. Atomic execution of all DAG reparenting commands

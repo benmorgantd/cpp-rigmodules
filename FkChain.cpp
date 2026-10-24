@@ -7,8 +7,9 @@
 #include <string>
 
 #include <maya/MFnMatrixAttribute.h>
+#include <maya/MFnMessageAttribute.h>
+#include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnDependencyNode.h>
-#include <maya/MFnDagNode.h>
 #include <maya/MMatrix.h>
 #include <maya/MArrayDataHandle.h>
 #include <maya/MPlug.h>
@@ -23,10 +24,15 @@
 
 MTypeId FkChainNode::id(0x00218B);
 
-MObject FkChainNode::aInputRestMatrix;
+MObject FkChainNode::aControlInputData;
 MObject FkChainNode::aControlMatrix;
-MObject FkChainNode::aOutputJointOPM;
-MObject FkChainNode::aOutputControlOPM;
+MObject FkChainNode::aControlRestOffset;
+MObject FkChainNode::aControlParentMatrix;
+
+MObject FkChainNode::aControlOPM;
+MObject FkChainNode::aJointOPM;
+
+MObject FkChainNode::aControlMessage;
 
 // Shared Attributes (Although shared, these need to be unique MObjects for each module)
 MObject FkChainNode::aModuleData;
@@ -34,9 +40,6 @@ MObject FkChainNode::aRigControls;
 MObject FkChainNode::aRigRoot;
 MObject FkChainNode::aOutputSocketMatrix;
 MObject FkChainNode::aSide;
-
-// Attrs for this node
-MObject FkChainNode::aDagParentMatrix;
 
 FkChainNode::FkChainNode() {}
 FkChainNode::~FkChainNode() {}
@@ -52,6 +55,8 @@ MStatus FkChainNode::initialize()
 {
 	MStatus status;
 	MFnMatrixAttribute mAttr;
+	MFnMessageAttribute msgAttr;
+	MFnCompoundAttribute cAttr;
 
 	status = FkChainNode::initializeSharedAttributes(aModuleData, aRigRoot, aRigControls, aOutputSocketMatrix, aSide);
 
@@ -61,37 +66,42 @@ MStatus FkChainNode::initialize()
 	}
 
 	// INPUT ATTRIBUTES
-	aInputRestMatrix = mAttr.create("inputRestMatrix", "irm", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setArray(true);
+	// Control compound input attr sub attrs
+	aControlMatrix = mAttr.create("localMatrix", "localMatrix", MFnMatrixAttribute::kDouble, &status);
+	aControlParentMatrix = mAttr.create("parentMatrix", "parentMatrix", MFnMatrixAttribute::kDouble, &status);
+	aControlRestOffset = mAttr.create("restOffset", "restOffset", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setStorable(true);
-	mAttr.setKeyable(true);
-	addAttribute(aInputRestMatrix);
 
-	aControlMatrix = mAttr.create("controlMatrix", "cm", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setArray(true);
-	mAttr.setStorable(true);
-	mAttr.setKeyable(true);
-	addAttribute(aControlMatrix);
+	aControlInputData = cAttr.create("controlData", "controlData", &status);
 
-	aDagParentMatrix = mAttr.create("dagParentMatrix", "dpm", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setStorable(true);
-	mAttr.setKeyable(true);  // are these needed? 
-	addAttribute(aDagParentMatrix);
+	cAttr.addChild(aControlMatrix);
+	cAttr.addChild(aControlParentMatrix);
+	cAttr.addChild(aControlRestOffset);
+
+	cAttr.setArray(true);
+	cAttr.setUsesArrayDataBuilder(true);
+	addAttribute(aControlInputData);
+
+	// Control message attr connection
+	aControlMessage = msgAttr.create("controlMessage", "controlMessage", &status);
+	msgAttr.setArray(true);
+	addAttribute(aControlMessage);
 
 	// OUTPUT ATTRIBUTES
-	aOutputJointOPM = mAttr.create("outputJointOPM", "jopm", MFnMatrixAttribute::kDouble, &status);
+	// Control output array attr
+	aControlOPM = mAttr.create("controlOPM", "controlOPM", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
-	mAttr.setUsesArrayDataBuilder(true);
 	mAttr.setWritable(false);
 	mAttr.setStorable(false);
-	addAttribute(aOutputJointOPM);
+	mAttr.setUsesArrayDataBuilder(true);
+	addAttribute(aControlOPM);
 
-	aOutputControlOPM = mAttr.create("outputControlOPM", "copm", MFnMatrixAttribute::kDouble, &status);
+	aJointOPM = mAttr.create("jointOPM", "jointOPM", MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
-	mAttr.setUsesArrayDataBuilder(true);
 	mAttr.setWritable(false);
 	mAttr.setStorable(false);
-	addAttribute(aOutputControlOPM);
+	mAttr.setUsesArrayDataBuilder(true);
+	addAttribute(aJointOPM);
 
 	if (status != MStatus::kSuccess)
 	{
@@ -100,16 +110,17 @@ MStatus FkChainNode::initialize()
 	}
 
 	// AFFECTS RELATIONSHIPS
-	attributeAffects(aInputRestMatrix, aOutputControlOPM);
-	attributeAffects(aDagParentMatrix, aOutputControlOPM);
+	attributeAffects(aControlMatrix, aControlOPM);
+	attributeAffects(aControlParentMatrix, aControlOPM);
+	attributeAffects(aControlRestOffset, aControlOPM);
 
-	attributeAffects(aDagParentMatrix, aOutputJointOPM);
-	attributeAffects(aControlMatrix, aOutputJointOPM);
-	attributeAffects(aInputRestMatrix, aOutputJointOPM);
+	attributeAffects(aControlMatrix, aJointOPM);
+	attributeAffects(aControlParentMatrix, aJointOPM);
+	attributeAffects(aControlRestOffset, aJointOPM);
 
-	attributeAffects(aDagParentMatrix, aOutputSocketMatrix);
-	attributeAffects(aControlMatrix, aOutputSocketMatrix);
-	attributeAffects(aInputRestMatrix, aOutputSocketMatrix);
+	//attributeAffects(aControlMatrix, aOutputSocketMatrix);
+	//attributeAffects(aControlParentMatrix, aOutputSocketMatrix);
+	//attributeAffects(aControlRestOffset, aOutputSocketMatrix);
 
 	return MStatus::kSuccess;
 }
@@ -119,83 +130,39 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 	unsigned int index = plug.isElement() ? plug.logicalIndex() : 0;
 
 	// -------------------------------------------------------------------
-	// 1. Output Control Offset Parent Matrix Array
+	// 1. Output Control Offset Parent Matrix Array OR Joint OPM array (the logic is the same)
 	// -------------------------------------------------------------------
-	if (plug.attribute() == aOutputControlOPM)
+	if (plug.attribute() == aControlOPM || plug.attribute() == aJointOPM)
 	{
-		// If aOutputControlOPM plug is never getting dirtied, why is that? 
-		MMatrix inputRestLocal = getInputMatrix(data, aInputRestMatrix, index);
+		MArrayDataHandle hInputDataArray = data.inputArrayValue(aControlInputData);
+		// the logic is the same for control and joint opm array
+		MArrayDataHandle hOutputOPMArray = plug.attribute() == aControlOPM ? data.outputArrayValue(aControlOPM) : data.outputArrayValue(aJointOPM);
 
-		// Our control's matrix is already going to be affected by its DAG relationship to the parent. 
-		// Therefore we don't have to include that parent matrix in this, or else we'd double-transform.
-		// By default, our control's offset parent matrix is just its baked starting offset.
-		MMatrix controlOPM = inputRestLocal;
+		// Base incoming matrix (e.g. from upstream socket or asset root)
+		MMatrix mCurrentParentWorld = getInputCompoundMatrix(data, aControlInputData, aControlParentMatrix, 0);
 
-		setOutputMatrix(data, aOutputControlOPM, index, controlOPM);
-		data.setClean(plug);
-		return MStatus::kSuccess;
-	}
+		unsigned int elementCount = hInputDataArray.elementCount();
 
-	// -------------------------------------------------------------------
-	// 2. Output Joint Offset Parent Matrix Array
-	// -------------------------------------------------------------------
-	if (plug.attribute() == aOutputJointOPM)
-	{
-		MMatrix controlLocal = getInputMatrix(data, aControlMatrix, index);
-		MMatrix jointOffset = getInputMatrix(data, aInputRestMatrix, index);
-
-		MMatrix jointOPM;
-
-		if (index == 0)
-		{
-			MMatrix parentMatrix = getInputMatrix(data, aDagParentMatrix);
-
-			jointOPM = controlLocal * jointOffset * parentMatrix;
-		}
-		else
-		{
-			jointOPM = controlLocal * jointOffset;
-		}
-
-		setOutputMatrix(data, aOutputJointOPM, index, jointOPM);
-		data.setClean(plug);
-		return MStatus::kSuccess;
-	}
-
-	// -------------------------------------------------------------------
-	// 3. Output Socket Matrix Array
-	// -------------------------------------------------------------------
-	if (plug.attribute() == aOutputSocketMatrix)
-	{
-		// Establish the base world space entering the module chain
-		// Local Step * Parent World (Row-Major)
-		MArrayDataHandle hControlArray = data.inputArrayValue(aControlMatrix);
-		MArrayDataHandle hOutSocketArray = data.outputArrayValue(aOutputSocketMatrix);
-
-		MMatrix mCurrentWorld = MMatrix::identity;
-
-		unsigned int elementCount = hControlArray.elementCount();
-
-		// Evaluate sequentially down the chain
 		for (unsigned int i = 0; i < elementCount; ++i)
 		{
-			MMatrix mControlLocal = getInputMatrix(data, aControlMatrix, i);
-			MMatrix mRestLocal = getInputMatrix(data, aInputRestMatrix, i);
+			hInputDataArray.jumpToElement(i);
+			MDataHandle hElement = hInputDataArray.inputValue();
 
-			// 1. Combine local control and rest matrices for this step
-			MMatrix mLocalStep = mControlLocal * mRestLocal;
+			MMatrix mControlLocal = hElement.child(aControlMatrix).asMatrix();
+			MMatrix mControlRestOffset = hElement.child(aControlRestOffset).asMatrix();
+			// NOTE: We can't have the control's local matrix in its opm! That causes a double transformation.
+			MMatrix mControlOPM = mControlRestOffset * mCurrentParentWorld;
 
-			// 2. Transform local step into current world space
-			MMatrix mSocketWorld = mLocalStep * mCurrentWorld;
+			// Write to output array in-place
+			hOutputOPMArray.jumpToElement(i);
+			hOutputOPMArray.outputValue().setMMatrix(mControlOPM);
 
-			setOutputMatrix(data, aOutputSocketMatrix, i, mSocketWorld);
-
-			// 3. Update accumulated world matrix for the next child downstream
-			mCurrentWorld = mSocketWorld;
+			// Carry world matrix forward for index i + 1
+			MMatrix mControlWorld = mControlLocal * mControlOPM;
+			mCurrentParentWorld = mControlWorld;
 		}
 
-		// NOTE: because this is world space in a hierarchy, we need to calculate all sockets at once.
-		hOutSocketArray.setAllClean();
+		hOutputOPMArray.setAllClean();
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
@@ -220,10 +187,10 @@ RigModuleBuildResult FkChainNode::createModule(
 	result.moduleNode = oModule;
 
 	MFnDependencyNode moduleFn(oModule);
-	MPlug pInputRestMatrix = moduleFn.findPlug("inputRestMatrix", false);
-	MPlug pControlMatrix = moduleFn.findPlug("controlMatrix", false);
-	MPlug pOutputControlOPM = moduleFn.findPlug("outputControlOPM", false);
-	MPlug pOutputJointOPM = moduleFn.findPlug("outputJointOPM", false);
+	MPlug pControlInputData(oModule, FkChainNode::aControlInputData);
+	MPlug pOutputControlOPM(oModule, FkChainNode::aControlOPM);
+	MPlug pOutputJointOPM(oModule, FkChainNode::aJointOPM);
+	MPlug pControlMessage(oModule, FkChainNode::aControlMessage);
 
 	MObject oPreviousControl;
 	unsigned int numJoints = jointDags.length();
@@ -232,8 +199,16 @@ RigModuleBuildResult FkChainNode::createModule(
 	{
 		MDagPath jointDag = jointDags[i];
 
-		// Bake rest matrices
+		MMatrix jointOriginalWorldMatrix = jointDag.inclusiveMatrix();
+
+		// Turn off inherits transform for all joints so their OPM can be in world space
+		MObject oJoint = jointDag.node();
+		DagUtils::setInheritsTransforms(oJoint, false, dagMod);
+
+		// Make sure the joint retains its original transform and bake them again
 		MMatrix mJointRest = DagUtils::bakeTransformsToOPM(jointDag);
+
+		// After toggling inherits transform, the joint will have moved. We have to now set its matrix back and bake that to the OPM
 
 		// Create control and flush modifier
 		MObject oControlTransform = RigControlNode::createRigControl(oModule, dagMod, jointDag.partialPathName());
@@ -242,7 +217,6 @@ RigModuleBuildResult FkChainNode::createModule(
 		if (i == 0)
 		{
 			result.parentSockets[std::string("start")] = oControlTransform;
-
 			result.childPlugs[std::string("start")] = oControlTransform;  // only the first control can be parented in a fkchain
 		}
 		else if (i == numJoints - 1)
@@ -250,29 +224,44 @@ RigModuleBuildResult FkChainNode::createModule(
 			result.parentSockets[std::string("end")] = oControlTransform;
 		}
 		result.parentSockets["index_" + std::to_string(i)] = oControlTransform;
+		
+		// 5. Setup Input connections for the control
+		MPlug pControlInputDataIndex = pControlInputData.elementByLogicalIndex(i);
+
+		MFnDependencyNode fnControl(oControlTransform);
+		MPlug pControlLocalMatrix(oControlTransform, RigControlNode::matrix);
+		MPlug pControlInputMatrix = pControlInputDataIndex.child(aControlMatrix);
+		dgMod.connect(pControlLocalMatrix, pControlInputMatrix);
+
+		MPlug pInputRestMatrix = pControlInputDataIndex.child(aControlRestOffset);
+		DagUtils::setMatrixPlug(pInputRestMatrix, mJointRest);
+
+		// Connect the message attribute
+		MPlug pControlMessages(oModule, FkChainNode::aControlMessage);
+		MPlug pControlMessageIndex = pControlMessages.elementByLogicalIndex(i);
+		MPlug pControlRigModule(oControlTransform, RigControlNode::aRigModule);
+		dgMod.connect(pControlMessageIndex, pControlRigModule);
 
 		// 4. Connect previous control (i-1) to current module slot (i)
 		if (!oPreviousControl.isNull())
 		{
 			dagMod.reparentNode(oControlTransform, oPreviousControl);
+
+			MPlug pParentMatrix = pControlInputDataIndex.child(aControlParentMatrix);
+			MPlug pPreviousMatrix(oPreviousControl, RigControlNode::matrix);  // TODO: world matrix?
+			dgMod.connect(pPreviousMatrix, pParentMatrix);
 		}
 		dagMod.doIt();
 
-		// 5. Connect local control & joint matrices for index i
-		MFnDependencyNode fnControl(oControlTransform);
-		MPlug pControlLocalMatrix = fnControl.findPlug("matrix", false);
-		dgMod.connect(pControlLocalMatrix, pControlMatrix.elementByLogicalIndex(i));
-
-		MPlug pControlOpm = fnControl.findPlug("offsetParentMatrix", false);
+		// Output connection setup
+		// Connect the control opm output to the control's opm
+		MPlug pControlOpm(oControlTransform, RigControlNode::offsetParentMatrix);
 		dgMod.connect(pOutputControlOPM.elementByLogicalIndex(i), pControlOpm);
 
-		MPlug pInputRestMatrixIndex = pInputRestMatrix.elementByLogicalIndex(i);
-		DagUtils::setMatrixPlug(pInputRestMatrixIndex, mJointRest);
-
-		MFnDagNode jointFnDag(jointDag);
-		MPlug pJointOpm = jointFnDag.findPlug("offsetParentMatrix", false);
+		MFnTransform fnJoint(oJoint);
+		MPlug pJointOpm = fnJoint.findPlug("offsetParentMatrix", false);
 		dgMod.connect(pOutputJointOPM.elementByLogicalIndex(i), pJointOpm);
-
+		
 		dgMod.doIt();
 
 		// Update persistent path for next iteration
@@ -350,24 +339,31 @@ MStatus FkChainNode::reparentChildPlugs(RigModuleDagReparentArgs args)
 		return MStatus::kFailure;
 	}
 
-	// TODO: we will want to do the dag parenting, update offset parent matrices, and connect parent matrices to the module.
-	MGlobal::displayInfo("In fkchain reparent function");
-
+	MDGModifier& dgMod = args.dgMod;
 	MDagModifier& dagMod = args.dagMod;
 	MObject& oChildTransform = args.oChildPlugTransform;
 	MObject& oTargetSocketTrasform = args.oParentTargetTransform;
 	MObject& oChildModule = args.oChildModuleNode;
 
+	MFnDependencyNode fnChildTransform(oChildTransform);
+	MPlug pChildWorldMatrix = fnChildTransform.findPlug("worldMatrix", false).elementByLogicalIndex(0);
+
+	MMatrix mChildWorldMatrix = DagUtils::getMatrixFromPlug(pChildWorldMatrix);
+
+	// Then do the actual reparenting but BEFORE we set the plug value
 	dagMod.reparentNode(oChildTransform, oTargetSocketTrasform);
+	dagMod.doIt();
 
+	// We are only doing this for the index 0 control (start)
+	// In other cases, we could traverse the message connection to find the control's index.
+	MPlug pModuleControlInputData(oChildModule, FkChainNode::aControlInputData);
+	MPlug pModuleControlInputDataIndex = pModuleControlInputData.elementByLogicalIndex(0);
+	MPlug pControlRestOffset = pModuleControlInputDataIndex.child(aControlRestOffset);
+	MPlug pControlParentMatrix = pModuleControlInputDataIndex.child(aControlParentMatrix);
 
-	// Connect the parent socket transform's world matrix to the module's dagParentMatrix
 	MFnDependencyNode fnParentTransform(oTargetSocketTrasform);
-	MPlug pParentWorldMatrix = fnParentTransform.findPlug("worldMatrix", false).elementByLogicalIndex(0);
-	MPlug pDagParentMatarix(oChildModule, FkChainNode::aDagParentMatrix);
-	MDGModifier& dgMod = args.dgMod;
-
-	dgMod.connect(pParentWorldMatrix, pDagParentMatarix);
+	MPlug pParentMatrix = fnParentTransform.findPlug("worldMatrix", false).elementByLogicalIndex(0);
+	dgMod.connect(pParentMatrix, pControlParentMatrix);
 
 	return MStatus::kSuccess;
 }

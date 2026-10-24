@@ -22,8 +22,11 @@ public:
 	static void lockAndHideRotate(MObject oControl);
 	static void lockAndHideScale(MObject oControl);
 	static MMatrix bakeTransformsToOPM(const MDagPath& jointDag);
-	static void setMatrixPlug(MPlug& matrixPlug, MMatrix matrix);
+	static MStatus setInheritsTransforms(MObject& transform, bool value, MDagModifier& dagMod);
 	static MDagPath getDagPathFromName(MString& name);
+	static MMatrix getMatrixFromPlug(const MPlug& pMatrixPlug);
+	static void setMatrixPlug(MPlug& matrixPlug, MMatrix matrix);
+	static void setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDGModifier& dgMod);
 };
 
 class RigModuleCommandUtils
