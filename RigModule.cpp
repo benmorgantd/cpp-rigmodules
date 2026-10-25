@@ -253,5 +253,57 @@ std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildMo
 	return rigModuleMap;
 }
 
+MStatus RigModuleNodeBase::connectParentMatrixToChildPlug(
+	MPlug pChildPlugs,
+	const MObject& oTargetSocketTransform,
+	const MString& targetChildPlugName,
+	MDGModifier& dgMod
+)
+{
+	MStatus status;
+
+	const unsigned int numElements = pChildPlugs.numElements(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	bool matchFound = false;
+
+	for (unsigned int i = 0; i < numElements; ++i)
+	{
+		MPlug pChildPlugElement = pChildPlugs.elementByLogicalIndex(i, &status);
+		if (!status || pChildPlugElement.isNull())
+		{
+			continue;
+		}
+
+		MPlug pChildPlugName = pChildPlugElement.child(FkChainNode::aChildPlugName);
+		MString childPlugName = pChildPlugName.asString();
+
+		if (childPlugName == targetChildPlugName)
+		{
+			MPlug pChildPlugParentMatrix = pChildPlugElement.child(FkChainNode::aChildPlugParentMatrix);
+
+			MFnDependencyNode fnParentTransform(oTargetSocketTransform, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			MPlug pParentMatrix = fnParentTransform.findPlug("worldMatrix", false, &status).elementByLogicalIndex(0, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			status = dgMod.connect(pParentMatrix, pChildPlugParentMatrix);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			matchFound = true;
+			break;
+		}
+	}
+
+	if (!matchFound)
+	{
+		MGlobal::displayError("Child plug name '" + targetChildPlugName + "' was not found on the module.");
+		return MS::kFailure;
+	}
+
+	return MS::kSuccess;
+}
+
 
 

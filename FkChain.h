@@ -19,7 +19,11 @@ public:
 	static MObject aControlInputData;
 	static MObject aControlMatrix;
 	static MObject aControlRestOffset;
-	static MObject aControlParentMatrix;
+
+	// Compound attribute for child plug relationships to their parent.
+	static MObject aChildPlugs;
+	static MObject aChildPlugName;
+	static MObject aChildPlugParentMatrix;
 
 	// Output attributes
 	static MObject aControlOPM;

@@ -71,6 +71,12 @@ public:
 	// Matrix calculation & socket parsing helpers
 	static MMatrix computeOffsetParentMatrix(const MMatrix& mControlWorld, const MMatrix& mDagParentWorld);
 	static int resolveSocketIndex(const MString& key, unsigned int totalElements);
+	static MStatus connectParentMatrixToChildPlug(
+		MPlug pChildPlugs,
+		const MObject& oTargetSocketTransform,
+		const MString& targetChildPlugName,
+		MDGModifier& dgMod
+	);
 public:
 	// Shared creation & build methods
 	static MStatus initializeSharedAttributes(MObject& moduleData, MObject& aRigRoot, MObject& aRigControls, MObject& aOutputSocketMatrix, MObject& aSide);
