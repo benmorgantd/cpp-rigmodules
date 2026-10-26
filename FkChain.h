@@ -1,6 +1,8 @@
 #pragma once
 
 #include "RigModule.h"
+#include "Side.h"
+#include "RigControlNode.h"
 
 class FkChainNode : public RigModuleNodeBase
 {
@@ -48,15 +50,15 @@ public:
 public:
 	static RigModuleBuildResult createModule(
 		const MString& moduleName,
+		const Side& side,
+		const ShapeType& shapeType,
 		const MDagPathArray& jointDags,
 		MObject oRigRoot,
-		MDGModifier& dgMod,
 		MDagModifier& dagMod
 	);
 	static RigModuleBuildResult createModule(
 		const RigModuleData& moduleData,
 		MObject rigRoot,
-		MDGModifier& dgMod,
 		MDagModifier& dagMod
 	);
 };

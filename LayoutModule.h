@@ -4,7 +4,7 @@
 // A Layout module has no joints, and is only used as a control hierarchy.
 // Its rest position is always at the origin.
 // It is also always the first module in the hierarchy and has no parent.
-class LayoutModuleNode : RigModuleNodeBase
+class LayoutModuleNode : public RigModuleNodeBase
 {
 public:
 	LayoutModuleNode();
@@ -37,5 +37,5 @@ public: // ---- Shared Attributes All Modules Have (but that must be unique) ---
 	// Command string
 	static const MString commandString;
 public:
-	static RigModuleBuildResult createModule(MObject& oRigRoot, MDGModifier& dgMod, MDagModifier& dagMod, const unsigned short numControls);
+	static RigModuleBuildResult createModule(MObject& oRigRoot, MDagModifier& dagMod, const unsigned short& numControls);
 };

@@ -320,7 +320,7 @@ MObject AimModuleNode::createModule(
     // 5. Connect to Rig Root Node
     if (!oRigRoot.isNull())
     {
-        RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oModule, aRigRoot);
+        RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dagMod, oModule, aRigRoot);
     }
 
     dgMod.doIt();

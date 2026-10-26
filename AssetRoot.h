@@ -3,9 +3,7 @@
 
 #include <maya/MStatus.h>
 #include <maya/MPxNode.h>
-#include <maya/MPxCommand.h>
 #include <maya/MDagModifier.h>
-#include <maya/MDGModifier.h>
 
 class AssetRootNode : public MPxNode
 {
@@ -31,5 +29,5 @@ public:
 	static MObject aAssetData; // Native string attribute containing JSON payload for serialization
 	static MObject aChildren;   // Message links to connected nodes
 public:
-	static MObject createAssetRoot(const MString& assetId, const AssetType& assetType, MDGModifier& dgMod);
+	static MObject createAssetRoot(const MString& assetId, const AssetType& assetType, MDagModifier& dgMod);
 };

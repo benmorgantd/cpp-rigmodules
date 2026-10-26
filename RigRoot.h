@@ -41,7 +41,6 @@ private:
 	static void parentModuleControls(
 		const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,
 		const std::vector<RigModuleData>& flatModuleList,
-		MDGModifier& dgMod,
 		MDagModifier& dagMod);
 public:
 	static MObject createRigRoot(
@@ -50,7 +49,7 @@ public:
 		int version,
 		const MString& templateName,
 		MObject oAssetRoot,
-		MDGModifier& dgMod);
+		MDagModifier& dagMod);
 	static MStatus createRig(const MString& jsonFilePath);
 };
 

@@ -3,6 +3,7 @@
 #include "RigJsonStructs.h"
 #include "Utilities.h"
 #include "RigModule.h"
+#include "Side.h"
 
 #include <string>
 
@@ -150,22 +151,10 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 	if (plug.attribute() == aControlOPM || plugIsJointOPM)
 	{
 		MArrayDataHandle hInputDataArray = data.inputArrayValue(aControlInputData);
-		//MArrayDataHandle hChildPlugArray = data.inputArrayValue(aChildPlugs);
 		// the logic is the same for control and joint opm array
 		MArrayDataHandle hOutputOPMArray = plugIsJointOPM ? data.outputArrayValue(aJointOPM) : data.outputArrayValue(aControlOPM);
 
-		// Base incoming matrix (e.g. from upstream socket or asset root)
-		//MMatrix mCurrentParentWorld;
-		//if (hChildPlugArray.elementCount() > 0)
-		//{
-		//	hChildPlugArray.jumpToElement(0);
-		//	MDataHandle hElement = hChildPlugArray.inputValue();
-		//	MMatrix mChildPlugParentMatrix = hElement.child(aChildPlugParentMatrix).asMatrix();
-		//	mCurrentParentWorld = mChildPlugParentMatrix;
-		//}
-
 		MMatrix mCurrentParentWorld = getInputCompoundMatrix(data, aChildPlugs, aChildPlugParentMatrix, 0);
-
 		unsigned int elementCount = hInputDataArray.elementCount();
 
 		for (unsigned int i = 0; i < elementCount; ++i)
@@ -179,7 +168,7 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 
 			if (plugIsJointOPM)
 			{
-				// we DO want to include control local transforms for joints
+				// we DO want to include control local transforms for joints or else they wont follow their parent controls...
 				mOutputOPM = mControlLocal * mControlRestOffset * mCurrentParentWorld;
 				mCurrentParentWorld = mOutputOPM; // This is already in world space
 			}
@@ -206,25 +195,30 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 
 RigModuleBuildResult FkChainNode::createModule(
 	const MString& moduleName,
+	const Side& side,
+	const ShapeType& shapeType,
 	const MDagPathArray& jointDags,
 	MObject oRigRoot,
-	MDGModifier& dgMod,
 	MDagModifier& dagMod)
 {
 	RigModuleBuildResult result;
 
 	// Instantiate module node in DG
-	MObject oModule = dgMod.createNode("fkChainModule");
-	dgMod.renameNode(oModule, moduleName);
-	dgMod.doIt();
+	MObject oFkChainModule = dagMod.MDGModifier::createNode("fkChainModule");
+	dagMod.renameNode(oFkChainModule, moduleName);
+	dagMod.doIt();
 
-	result.moduleNode = oModule;
+	MPlug pSide(oFkChainModule, FkChainNode::aSide);
 
-	MFnDependencyNode moduleFn(oModule);
-	MPlug pControlInputData(oModule, FkChainNode::aControlInputData);
-	MPlug pOutputControlOPM(oModule, FkChainNode::aControlOPM);
-	MPlug pOutputJointOPM(oModule, FkChainNode::aJointOPM);
-	MPlug pControlMessage(oModule, FkChainNode::aControlMessage);
+	dagMod.newPlugValueShort(pSide, getShortFromSide(side));
+
+	result.moduleNode = oFkChainModule;
+
+	MFnDependencyNode moduleFn(oFkChainModule);
+	MPlug pControlInputData(oFkChainModule, FkChainNode::aControlInputData);
+	MPlug pOutputControlOPM(oFkChainModule, FkChainNode::aControlOPM);
+	MPlug pOutputJointOPM(oFkChainModule, FkChainNode::aJointOPM);
+	MPlug pControlMessage(oFkChainModule, FkChainNode::aControlMessage);
 
 	MObject oPreviousControl;
 	unsigned int numJoints = jointDags.length();
@@ -233,11 +227,10 @@ RigModuleBuildResult FkChainNode::createModule(
 	{
 		MDagPath jointDag = jointDags[i];
 
-		MMatrix jointOriginalWorldMatrix = jointDag.inclusiveMatrix();
-
 		// Turn off inherits transform for all joints so their OPM can be in world space
 		MObject oJoint = jointDag.node();
 		DagUtils::setInheritsTransforms(oJoint, false, dagMod);
+		DagUtils::setSegmentScaleCompensate(oJoint, false, dagMod);
 
 		// Make sure the joint retains its original transform and bake them again
 		MMatrix mJointRest = DagUtils::bakeTransformsToOPM(jointDag);
@@ -245,7 +238,7 @@ RigModuleBuildResult FkChainNode::createModule(
 		// After toggling inherits transform, the joint will have moved. We have to now set its matrix back and bake that to the OPM
 
 		// Create control and flush modifier
-		MObject oControlTransform = RigControlNode::createRigControl(oModule, dagMod, jointDag.partialPathName());
+		MObject oControlTransform = RigControlNode::createRigControl(oFkChainModule, dagMod, jointDag.partialPathName(), shapeType);
 		dagMod.doIt();
 
 		if (i == 0)
@@ -253,14 +246,14 @@ RigModuleBuildResult FkChainNode::createModule(
 			result.parentSockets[std::string("start")] = oControlTransform;
 			result.childPlugs[std::string("start")] = oControlTransform;  // only the first control can be parented in a fkchain
 
-			MPlug pChildPlugs(oModule, FkChainNode::aChildPlugs);
+			MPlug pChildPlugs(oFkChainModule, FkChainNode::aChildPlugs);
 			MPlug pChildPlugElement = pChildPlugs.elementByLogicalIndex(0);
 
 			if (!pChildPlugElement.isNull())
 			{
 				MPlug pChildPlugName = pChildPlugElement.child(aChildPlugName);
-				dgMod.newPlugValueString(pChildPlugName, MString("start"));
-				dgMod.setPlugLockState(pChildPlugName, true);
+				dagMod.newPlugValueString(pChildPlugName, MString("start"));
+				dagMod.setPlugLockState(pChildPlugName, true);
 			}
 			else
 			{
@@ -279,16 +272,16 @@ RigModuleBuildResult FkChainNode::createModule(
 		MFnDependencyNode fnControl(oControlTransform);
 		MPlug pControlLocalMatrix(oControlTransform, RigControlNode::matrix);
 		MPlug pControlInputMatrix = pControlInputDataIndex.child(aControlMatrix);
-		dgMod.connect(pControlLocalMatrix, pControlInputMatrix);
+		dagMod.connect(pControlLocalMatrix, pControlInputMatrix);
 
 		MPlug pInputRestMatrix = pControlInputDataIndex.child(aControlRestOffset);
 		DagUtils::setMatrixPlug(pInputRestMatrix, mJointRest);
 
 		// Connect the message attribute
-		MPlug pControlMessages(oModule, FkChainNode::aControlMessage);
+		MPlug pControlMessages(oFkChainModule, FkChainNode::aControlMessage);
 		MPlug pControlMessageIndex = pControlMessages.elementByLogicalIndex(i);
 		MPlug pControlRigModule(oControlTransform, RigControlNode::aRigModule);
-		dgMod.connect(pControlMessageIndex, pControlRigModule);
+		dagMod.connect(pControlMessageIndex, pControlRigModule);
 
 		// 4. Connect previous control (i-1) to current module slot (i)
 		if (!oPreviousControl.isNull())
@@ -300,13 +293,13 @@ RigModuleBuildResult FkChainNode::createModule(
 		// Output connection setup
 		// Connect the control opm output to the control's opm
 		MPlug pControlOpm(oControlTransform, RigControlNode::offsetParentMatrix);
-		dgMod.connect(pOutputControlOPM.elementByLogicalIndex(i), pControlOpm);
+		dagMod.connect(pOutputControlOPM.elementByLogicalIndex(i), pControlOpm);
 
 		MFnTransform fnJoint(oJoint);
 		MPlug pJointOpm = fnJoint.findPlug("offsetParentMatrix", false);
-		dgMod.connect(pOutputJointOPM.elementByLogicalIndex(i), pJointOpm);
+		dagMod.connect(pOutputJointOPM.elementByLogicalIndex(i), pJointOpm);
 		
-		dgMod.doIt();
+		dagMod.doIt();
 
 		// Update persistent path for next iteration
 		oPreviousControl = oControlTransform;
@@ -314,8 +307,8 @@ RigModuleBuildResult FkChainNode::createModule(
 
 	if (!oRigRoot.isNull())
 	{
-		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oModule, aRigRoot);
-		dgMod.doIt();
+		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dagMod, oFkChainModule, aRigRoot);
+		dagMod.doIt();
 	}
 
 	// Tie this module's reparent logic to the result callback called during creation.
@@ -328,7 +321,6 @@ RigModuleBuildResult FkChainNode::createModule(
 RigModuleBuildResult FkChainNode::createModule(
 	const RigModuleData& moduleData,
 	MObject rigRoot,
-	MDGModifier& dgMod,
 	MDagModifier& dagMod)
 {
 	RigModuleBuildResult result;
@@ -361,9 +353,10 @@ RigModuleBuildResult FkChainNode::createModule(
 	// 2. Delegate to the flattened arguments overload
 	result = FkChainNode::createModule(
 		moduleData.name.c_str(),
+		getSideFromString(moduleData.side),
+		getShapeTypeFromString(moduleData.shapeType),
 		jointDags,
 		rigRoot,
-		dgMod,
 		dagMod
 	);
 
@@ -383,7 +376,6 @@ MStatus FkChainNode::reparentChildPlugs(RigModuleDagReparentArgs args)
 		return MStatus::kFailure;
 	}
 
-	MDGModifier& dgMod = args.dgMod;
 	MDagModifier& dagMod = args.dagMod;
 	MObject& oChildTransform = args.oChildPlugTransform;
 	MObject& oTargetSocketTrasform = args.oParentTargetTransform;
@@ -394,5 +386,5 @@ MStatus FkChainNode::reparentChildPlugs(RigModuleDagReparentArgs args)
 
 	// We are only doing this for the index 0 control (start)
 	MPlug pChildPlugs(oChildModule, FkChainNode::aChildPlugs);
-	return connectParentMatrixToChildPlug(pChildPlugs, oTargetSocketTrasform, args.childPlugName.c_str(), dgMod);
+	return connectParentMatrixToChildPlug(pChildPlugs, oTargetSocketTrasform, args.childPlugName.c_str(), dagMod);
 }

@@ -38,6 +38,7 @@ MStatus initializePlugin(MObject obj)
 	// -- RIG MODULE NODES --
 	// LayoutModule
 	status = plugin.registerNode(LayoutModuleNode::commandString, LayoutModuleNode::id, LayoutModuleNode::creator, LayoutModuleNode::initialize);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// FkChain
 	status = plugin.registerNode(FkChainNode::aCommandString, FkChainNode::id, FkChainNode::creator, FkChainNode::initialize);
@@ -56,15 +57,18 @@ MStatus initializePlugin(MObject obj)
 		MPxTransformationMatrix::baseTransformationMatrixId,
 		&RigControlNode::drawDbClassification
 	);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	status = MHWRender::MDrawRegistry::registerDrawOverrideCreator(
 		RigControlNode::drawDbClassification,
 		RigControlNode::drawRegistrantId,
 		RigControlDrawOverride::Creator
 	);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// -- REGISTER COMMANDS --
 	status = plugin.registerCommand(CreateRigCmd::aCommandString, CreateRigCmd::creator, CreateRigCmd::newSyntax);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;
 }
@@ -79,20 +83,30 @@ MStatus uninitializePlugin(MObject obj)
 		RigControlNode::drawDbClassification,
 		RigControlNode::drawRegistrantId
 	);
-	if (!status) {
-		status.perror("Failed to deregister RigControlDrawOverride");
-	}
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// 2. Deregister custom command
 	status = plugin.deregisterCommand(CreateRigCmd::aCommandString);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// 3. Deregister node types (reverse order)
-	plugin.deregisterNode(RigControlNode::id);
-	plugin.deregisterNode(AimModuleNode::id);
-	plugin.deregisterNode(FkChainNode::id);
-	plugin.deregisterNode(LayoutModuleNode::id);
-	plugin.deregisterNode(RigRootNode::id);
+	status = plugin.deregisterNode(RigControlNode::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(AimModuleNode::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(FkChainNode::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(LayoutModuleNode::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = plugin.deregisterNode(RigRootNode::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
 	plugin.deregisterNode(AssetRootNode::id);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;
 }

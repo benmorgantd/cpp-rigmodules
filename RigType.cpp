@@ -1,8 +1,9 @@
 #include "RigType.h"
+#include <string>
 #include <maya/MGlobal.h>
 
 // Asset Type ---------------------------------------------------
-RigType getRigTypeFromString(const char* rigType)
+RigType getRigTypeFromString(const std::string& rigType)
 {
 	if (rigType == "Prop") return RigType::Prop;
 	else if (rigType == "Character") return RigType::Character;

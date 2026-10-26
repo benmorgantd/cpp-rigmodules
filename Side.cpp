@@ -1,6 +1,7 @@
 #include "Side.h"
+#include <string>
 
-const char* getSideSuffix(Side sideEnum)
+const char* getSideSuffix(const Side& sideEnum)
 {
 	switch (sideEnum)
 	{
@@ -11,7 +12,7 @@ const char* getSideSuffix(Side sideEnum)
 	}
 }
 
-const char* getFullSideName(const Side sideEnum)
+const char* getFullSideName(const Side& sideEnum)
 {
 	switch (sideEnum)
 	{
@@ -22,9 +23,26 @@ const char* getFullSideName(const Side sideEnum)
 	}
 }
 
-Side getSideFromSuffix(const char* suffix)
+Side getSideFromString(const std::string& side)
 {
-	if (!suffix)
+	if (side == "Center")
+	{
+		return Side::Center;
+	}
+	else if (side == "Left")
+	{
+		return Side::Left;
+	}
+	else if (side == "Right")
+	{
+		return Side::Right;
+	}
+	return Side::Center;
+}
+
+Side getSideFromSuffix(const std::string& suffix)
+{
+	if (suffix.length() == 0)
 	{
 		return Side::Center;
 	}
@@ -40,18 +58,31 @@ Side getSideFromSuffix(const char* suffix)
 	return Side::Center;
 }
 
-Side getSideFromInt(unsigned int side)
+Side getSideFromShort(const short& side)
 {
-	switch (side)
-	{
-		case 0: return Side::Center;
-		case 1: return Side::Left;
-		case 2: return Side::Right;
-		default: return Side::Center;
-	}
+	return static_cast<Side>(side);
+	//switch (side)
+	//{
+	//	case 0: return Side::Center;
+	//	case 1: return Side::Left;
+	//	case 2: return Side::Right;
+	//	default: return Side::Center;
+	//}
 }
 
-MColor getColorFromSide(Side sideEnum)
+short getShortFromSide(const Side& side)
+{
+	return static_cast<short>(side);
+	//switch (side)
+	//{
+	//	case Side::Center: return 0;
+	//	case Side::Left: return 1;
+	//	case Side::Right: return 2;
+	//	default: return 0;
+	//}
+}
+
+MColor getColorFromSide(const Side& sideEnum)
 {
 	switch (sideEnum)
 	{

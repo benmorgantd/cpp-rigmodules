@@ -1,6 +1,7 @@
 #pragma once
 
 #include <maya/MColor.h>
+#include <string>
 
 enum class Side : int
 {
@@ -9,8 +10,10 @@ enum class Side : int
 	Right = 2,
 };
 
-const char* getSideSuffix(const Side sideEnum);
-const char* getFullSideName(const Side sideEnum);
-Side getSideFromSuffix(const char* suffix);
-Side getSideFromInt(unsigned int side);
-MColor getColorFromSide(Side sideEnum);
+const char* getSideSuffix(const Side& sideEnum);
+const char* getFullSideName(const Side& sideEnum);
+Side getSideFromSuffix(const std::string& suffix);
+Side getSideFromShort(const short& side);
+MColor getColorFromSide(const Side& sideEnum);
+short getShortFromSide(const Side& side);
+Side getSideFromString(const std::string& side);

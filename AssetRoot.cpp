@@ -71,21 +71,21 @@ MStatus AssetRootNode::compute(const MPlug& plug, MDataBlock& data)
 
 
 // Master rig builder static method ------------------------------------------
-MObject AssetRootNode::createAssetRoot(const MString& assetId, const AssetType& assetType, MDGModifier& dgMod)
+MObject AssetRootNode::createAssetRoot(const MString& assetId, const AssetType& assetType, MDagModifier& dagMod)
 {
-	MObject oAssetRoot = dgMod.createNode("assetRootNode");  // TODO: node names should be variables.
+	MObject oAssetRoot = dagMod.MDGModifier::createNode("assetRootNode");  // TODO: node names should be variables.
 
 	// Set asset id
 	MPlug pAssetId(oAssetRoot, AssetRootNode::aAssetId);
 	if (!assetId.isEmpty())
 	{
-		dgMod.newPlugValueString(pAssetId, assetId);
+		dagMod.newPlugValueString(pAssetId, assetId);
 	}
 
 	// Set asset type
 	short assetTypeShort = getShortFromAssetType(assetType);
 	MPlug pAssetType(oAssetRoot, AssetRootNode::aAssetType);
-	dgMod.newPlugValueShort(pAssetType, assetTypeShort);
+	dagMod.newPlugValueShort(pAssetType, assetTypeShort);
 
 	return oAssetRoot;
 

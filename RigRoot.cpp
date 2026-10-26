@@ -5,6 +5,7 @@
 #include "AssetType.h"
 #include "RigJsonStructs.h"
 #include "RigModule.h"
+#include "RigType.h"
 
 // Standard dependencies
 #include <filesystem>
@@ -12,6 +13,7 @@
 #include <vector>
 
 // Maya dependencies
+#include <maya/MDagModifier.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnAttribute.h>
 #include <maya/MFnTypedAttribute.h>
@@ -20,7 +22,6 @@
 #include <maya/MFnData.h>
 #include <maya/MFnNumericData.h>
 #include <maya/MPlug.h>
-#include <maya/MDGModifier.h>
 #include <maya/MGlobal.h>
 #include <maya/MSyntax.h>
 #include <maya/MArgDatabase.h>
@@ -70,7 +71,7 @@ MStatus RigRootNode::initialize()
     eAttr.addField("Light", 6);
     eAttr.addField("Environment", 7);
     eAttr.addField("Other", 8);
-	tAttr.setStorable(true);
+	eAttr.setStorable(true);
 	addAttribute(aRigType);
 
 	aRigVersion = nAttr.create("rigVersion", "rv", MFnNumericData::kLong, 0, &status);
@@ -110,32 +111,34 @@ MObject RigRootNode::createRigRoot(
     int version,
     const MString& templateName,
     MObject oAssetRoot,
-    MDGModifier& dgMod)
+    MDagModifier& dagMod)
 {
     // 1. Create the DG node (using a variable string for node type)
     MString nodeTypeName = "rigRootNode";
-    MObject oRigRoot = dgMod.createNode(nodeTypeName);
+    MObject oRigRoot = dagMod.MDGModifier::createNode(nodeTypeName);
 
     // 2. Set string and numeric attributes
     if (!name.isEmpty())
     {
         MPlug pRigName(oRigRoot, RigRootNode::aRigName);
-        dgMod.newPlugValueString(pRigName, name);
+        dagMod.newPlugValueString(pRigName, name);
     }
 
     if (!type.isEmpty())
     {
-        MPlug pRigType(oRigRoot, RigRootNode::aRigType);  // TODO: rigType enum should be what our AssetType enum currently is
-        dgMod.newPlugValueString(pRigType, type);
+		RigType rigType = getRigTypeFromString(type.asChar());
+		short rigTypeShort = getShortFromRigType(rigType);
+        MPlug pRigType(oRigRoot, RigRootNode::aRigType);
+		dagMod.newPlugValueShort(pRigType, rigTypeShort);
     }
 
     MPlug pRigVersion(oRigRoot, RigRootNode::aRigVersion);
-    dgMod.newPlugValueInt(pRigVersion, version);
+    dagMod.newPlugValueInt(pRigVersion, version);
 
     if (!templateName.isEmpty())
     {
         MPlug pTemplate(oRigRoot, RigRootNode::aRigTemplateName);
-        dgMod.newPlugValueString(pTemplate, templateName);
+        dagMod.newPlugValueString(pTemplate, templateName);
     }
 
     // 3. Wire network plug: RigRootNode.assetRoot -> AssetRootNode
@@ -143,15 +146,15 @@ MObject RigRootNode::createRigRoot(
     {
         MPlug pAssetRootPlug(oRigRoot, RigRootNode::aAssetRoot);
         MPlug pRigRootPlug(oAssetRoot, AssetRootNode::aChildren);
+
         if (!pAssetRootPlug.isNull() && !pRigRootPlug.isNull())
         { 
-            dgMod.connect(pRigRootPlug, pAssetRootPlug);
+            dagMod.connect(pRigRootPlug, pAssetRootPlug);
         }
         else
         {
             MGlobal::displayError("Failed to wire rig root to asset root.");
         }
-        
     }
 
     return oRigRoot;
@@ -171,45 +174,38 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath)  // TODO: optionally
         return MStatus::kFailure;
     }
 
-    MDGModifier dgMod;
     MDagModifier dagMod;
 
     // 2. Instantiate AssetRootNode
     // (Assuming assetType conversion and assetId mapping relative to MAYA_PROJECTS_ROOT)
     AssetType assetType = getAssetTypeFromString(assetData.assetType);  // TODO: there's some issue here with this string
     // TODO: optionally create the asset root.
-    MObject oAssetRoot = AssetRootNode::createAssetRoot(rigData.rigTemplateName.c_str(), assetType, dgMod);
+	// TODO: we have no asset id to pass in because that's not supposed to be apart of json data (it should not be tied to assets)
+    MObject oAssetRoot = AssetRootNode::createAssetRoot(rigData.rigTemplateName.c_str(), assetType, dagMod);
 
     // 3. Instantiate RigRootNode
     MObject oRigRoot = RigRootNode::createRigRoot(
         rigData.rigTemplateName.c_str(),
         rigData.rigType.c_str(),
         rigData.rigVersion,
-        jsonFilePath,
+        rigData.rigTemplateName.c_str(),
         oAssetRoot,
-        dgMod
+        dagMod
     );
 
     // 4. Create Implicit Base "Layout" Module
     // The Layout module acts as the fallback parent socket for all top-level modules.
-    RigModuleBuildResult layoutModuleBuildResult = LayoutModuleNode::createModule(oRigRoot, dgMod, dagMod, 3);
+    RigModuleBuildResult layoutModuleBuildResult = LayoutModuleNode::createModule(oRigRoot, dagMod, 3);
 
     // 5. Build all our modules, then run a control parenting pass.
-    std::unordered_map<std::string, RigModuleBuildResult> rigModuleMap = RigModuleNodeBase::buildModules(rigData.rigModules, oRigRoot, dgMod, dagMod);
+    std::unordered_map<std::string, RigModuleBuildResult> rigModuleMap = RigModuleNodeBase::buildModules(rigData.rigModules, oRigRoot, dagMod);
 
     // Add the layout module to the rig module map
     rigModuleMap["layout"] = layoutModuleBuildResult;
 
-    parentModuleControls(rigModuleMap, rigData.rigModules, dgMod, dagMod);
+    parentModuleControls(rigModuleMap, rigData.rigModules, dagMod);
 
-    // 6. Execute all DG and DAG mods
-    status = dgMod.doIt();
-    if (!status)
-    {
-        MGlobal::displayError("Failed executing DG Modifiers during rig creation: " + status.errorString());
-        return status;
-    }
-
+    // 6. Execute DAG mod
     status = dagMod.doIt();
     if (!status)
     {
@@ -240,7 +236,6 @@ bool RigRootNode::parseSocketIdentifier(const MString& fullIdentifier, std::stri
 void RigRootNode::parentModuleControls(
 	const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,
 	const std::vector<RigModuleData>& flatModuleList,
-	MDGModifier& dgMod,
 	MDagModifier& dagMod)
 {
 	// 1. Verify layout module exists in build map
@@ -303,7 +298,6 @@ void RigRootNode::parentModuleControls(
 						oModule,
 						oChildTransform,
 						oLayoutEndSocket,
-						dgMod,
 						dagMod
 					};
 
@@ -368,7 +362,6 @@ void RigRootNode::parentModuleControls(
 						oModule,
 						oChildTransform,
 						oParentTargetTransform,
-						dgMod,
 						dagMod
 					};
 
@@ -396,7 +389,6 @@ void RigRootNode::parentModuleControls(
 
 	// 3. Atomic execution of all DAG reparenting commands
 	dagMod.doIt();
-	dgMod.doIt();
 }
 
 

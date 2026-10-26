@@ -2,6 +2,8 @@
 #include "Side.h"
 #include "Utilities.h"
 
+#include <string>
+
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
@@ -356,25 +358,25 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
     // Get module side and color it based on that.
     MFnDependencyNode fnModule(moduleNode);
     MPlug pSide = fnModule.findPlug("side", false, &status);
-    unsigned int sideInt = 0;
+    short sideShort = 0;
     Side sideEnum = Side::Center;
 
-    if (!status || !pSide.isNull())
+    if (status && !pSide.isNull())
     {
-        sideInt = pSide.asInt(&status);
+        sideShort = pSide.asShort(&status);
     }
     else
     {
         MGlobal::displayError("Side was null for module " + fnModule.name());
     }
 
-    if (status != MStatus::kSuccess)
+    if (!status)
     {
         MGlobal::displayError("Falling back to center for module that has no side plug: " + fnModule.name());
     }
     else
     {
-        sideEnum = getSideFromInt(sideInt);
+        sideEnum = getSideFromShort(sideShort);
     }
 
     const char* sideSuffix = getSideSuffix(sideEnum);
@@ -389,6 +391,7 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
     MString ctrlName = jointName;
     ctrlName.substitute("_jnt", "");  // TODO: global var for jnt suffix
     ctrlName += "_ctrl";  // TODO: global naming method, global var for ctrl suffix
+    // TODO: strip out namespaces, characters like |
     if (sideSuffix != nullptr)
     {
         ctrlName += sideSuffix;
@@ -400,20 +403,6 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
 
     dagMod.renameNode(controlTransform, ctrlName);
 
-    // Connect the control to the module node
-    //MPlug pRigModule(controlTransform, RigControlNode::aRigModule);
-    //MPlug pRigControls = fnModule.findPlug("rigControls", false);
-
-    //if (!pRigModule.isNull() && !pRigControls.isNull())
-    //{
-    //    // Connect the attributes
-    //    dagMod.connect(pRigControls, pRigModule);
-    //}
-    //else
-    //{
-    //    MGlobal::displayError("Unable to connect controls to module because plugs were null.");
-    //}
-
     // TODO: set rig control side color based on module side attr.
     MPlug controlColor(controlTransform, RigControlNode::aWireColor);
     if (!controlColor.isNull())
@@ -424,4 +413,32 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
     }
 
     return controlTransform;
+}
+
+MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName, const ShapeType& shapeType)
+{
+    MObject oControl = createRigControl(moduleNode, dagMod, jointName);
+
+    if (oControl.isNull())
+    {
+        return oControl;
+    }
+
+    MFnDependencyNode fnControl(oControl);
+    MPlug pShapeType(oControl, aShapeType);
+    short shapeTypeShort = static_cast<short>(shapeType);
+    dagMod.newPlugValueShort(pShapeType, shapeTypeShort);
+
+    return oControl;
+}
+
+ShapeType getShapeTypeFromString(const std::string& value)
+{
+    auto shapeTypeIt = stringToShapeType.find(value);
+
+    if (shapeTypeIt != stringToShapeType.end())
+    {
+        return shapeTypeIt->second;
+    }
+    return ShapeType::Box;
 }

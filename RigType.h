@@ -14,6 +14,6 @@ enum class RigType : int
 	Other = 8
 };
 
-RigType getRigTypeFromString(const char* rigType);
+RigType getRigTypeFromString(const std::string& rigType);
 RigType getRigTypeFromShort(const short rigType);
 short getShortFromRigType(const RigType);

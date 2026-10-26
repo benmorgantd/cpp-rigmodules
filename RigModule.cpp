@@ -1,6 +1,7 @@
 #include "RigModule.h"
 #include "RigJsonStructs.h"
 #include "FkChain.h"
+
 #include "unordered_map"
 
 #include <maya/MDataBlock.h>
@@ -10,7 +11,6 @@
 #include <maya/MGlobal.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
-#include <maya/MFnMatrixData.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMessageAttribute.h>
@@ -158,7 +158,7 @@ void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, c
 }
 
 // Networking functionality --------------------------------------------
-MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDGModifier& dgMod, const MObject& oModule, MObject& aRigRoot)
+MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot)
 {
 	MStatus status;
 	MFnDependencyNode rigRootFn(oRigRoot);
@@ -179,7 +179,7 @@ MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDGModifier
 		return MStatus::kFailure;
 	}
 
-	status = dgMod.connect(pRigModules, pRigRoot);
+	status = dagMod.connect(pRigModules, pRigRoot);
 	return status;
 }
 
@@ -197,7 +197,6 @@ MObject RigModuleNodeBase::findPlugOrSocketTransform(const std::unordered_map<st
 std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildModules(
 	const std::vector<RigModuleData>& flatModuleList,
 	MObject oRigRoot,
-	MDGModifier& dgMod,
 	MDagModifier& dagMod)
 {
 	//MObjectArray oRigModules;
@@ -219,7 +218,6 @@ std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildMo
 			creationResult = FkChainNode::createModule(
 				moduleData,
 				oRigRoot,
-				dgMod,
 				dagMod
 			);
 		}

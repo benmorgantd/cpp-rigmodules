@@ -5,6 +5,8 @@
 #include <maya/MColor.h>
 #include <maya/MTypeId.h>
 
+#include <unordered_map>
+
 // Data payload passed to Viewport 2.0 draw thread
 // Read MPlugs in prepareForDraw, feed to this class, then read from it in addUIDrawables
 class ControlDrawData : public MUserData {
@@ -24,6 +26,38 @@ public:
     double height{ 1.0f };
     double depth{ 1.0f };
     bool filled{ false };
+};
+
+enum ShapeType : int
+{
+    Box = 0,
+    Sphere = 1,
+    Circle = 2,
+    Capsule = 3,
+    Triangle = 4,
+    Cylinder = 5,
+    Square = 6,
+};
+
+static const std::unordered_map<std::string, ShapeType> stringToShapeType =
+{
+    { "Box", ShapeType::Box },
+    { "Sphere", ShapeType::Sphere },
+    { "Circle", ShapeType::Circle },
+    { "Capsule", ShapeType::Capsule },
+    { "Triangle", ShapeType::Triangle },
+    { "Cylinder", ShapeType::Cylinder },
+    { "Square", ShapeType::Square }
+};
+
+ShapeType getShapeTypeFromString(const std::string& value);
+
+class CustomShapes
+{
+public:
+    static const MPointArray& Triangle();
+public:
+    static MPointArray transformPointArray(const MPointArray& points, const MMatrix& matrix);
 };
 
 // Custom Transform DAG Node that has efficient drawing logic
@@ -62,6 +96,7 @@ private:
     bool m_drawIsDirty{ true };
 public:
     static MObject createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName);
+    static MObject createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName, const ShapeType& shapeType);
 };
 
 // Viewport 2.0 Draw Override
@@ -102,21 +137,4 @@ public:
         const MUserData* data) override;
 };
 
-enum ShapeType : int
-{
-    Box = 0,
-    Sphere = 1,
-    Circle = 2,
-    Capsule = 3,
-    Triangle = 4,
-    Cylinder = 5,
-    Square = 6,
-};
 
-class CustomShapes
-{
-public:
-    static const MPointArray& Triangle();
-public:
-    static MPointArray transformPointArray(const MPointArray& points, const MMatrix& matrix);
-};

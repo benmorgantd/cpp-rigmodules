@@ -27,7 +27,6 @@ struct RigModuleDagReparentArgs
 
 	MObject oParentTargetTransform;
 
-	MDGModifier& dgMod;
 	MDagModifier& dagMod;
 };
 
@@ -70,7 +69,6 @@ public:
 
 	// Matrix calculation & socket parsing helpers
 	static MMatrix computeOffsetParentMatrix(const MMatrix& mControlWorld, const MMatrix& mDagParentWorld);
-	static int resolveSocketIndex(const MString& key, unsigned int totalElements);
 	static MStatus connectParentMatrixToChildPlug(
 		MPlug pChildPlugs,
 		const MObject& oTargetSocketTransform,
@@ -80,8 +78,8 @@ public:
 public:
 	// Shared creation & build methods
 	static MStatus initializeSharedAttributes(MObject& moduleData, MObject& aRigRoot, MObject& aRigControls, MObject& aOutputSocketMatrix, MObject& aSide);
-	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDGModifier& dgMod, const MObject& oModule, MObject& aRigRoot);
-	static std::unordered_map<std::string, RigModuleBuildResult> buildModules(const std::vector<RigModuleData>& flatModuleList, MObject oRigRoot, MDGModifier& dgMod, MDagModifier& dagMod);
+	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot);
+	static std::unordered_map<std::string, RigModuleBuildResult> buildModules(const std::vector<RigModuleData>& flatModuleList, MObject oRigRoot, MDagModifier& dagMod);
 	static MObject findPlugOrSocketTransform(const std::unordered_map<std::string, MObject>& socketPairs, const std::string& name);
 };
 

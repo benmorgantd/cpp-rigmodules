@@ -2,6 +2,7 @@
 #include "RigModule.h"
 
 #include <maya/MMatrix.h>
+#include <maya/MString.h>
 #include <maya/MVector.h>
 #include <maya/MObject.h>
 #include <maya/MFnTransform.h>
@@ -15,7 +16,7 @@
 #include <maya/MObjectArray.h>
 #include <maya/MSelectionList.h>
 #include <maya/MSyntax.h>
-#include <maya/MDGModifier.h>
+#include <maya/MDagModifier.h>
 #include <maya/MFnDependencyNode.h>
 
 // ---------------------------------
@@ -126,30 +127,27 @@ void DagUtils::lockAndHideScale(MObject oControl)
 }
 
 // Bakes joint world transform relative to its parent into its opm and zeroes its transforms.
-MMatrix DagUtils::bakeTransformsToOPM(const MDagPath& jointDag)
+MMatrix DagUtils::bakeTransformsToOPM(const MDagPath& dgTransform)
 {
-	MFnDagNode jointFnDag(jointDag);
-	MPlug pJointParentInvMat = jointFnDag.findPlug("parentInverseMatrix", false);
-
-	MMatrix mJointWorld = jointDag.inclusiveMatrix();
-
-	MObject parentInvObj;
-	pJointParentInvMat.elementByLogicalIndex(0).getValue(parentInvObj);
-	MFnMatrixData parentInvData(parentInvObj);
-	MMatrix mJointParentInv = parentInvData.matrix();
+	MFnTransform fnTransform(dgTransform);
+	MPlug pJointParentInvMat = fnTransform.findPlug("parentInverseMatrix", false).elementByLogicalIndex(0);
+	MMatrix mJointParentInv = DagUtils::getMatrixFromPlug(pJointParentInvMat);
+	MMatrix mJointWorld = dgTransform.inclusiveMatrix();
 
 	// Calculate offsetParentMatrix relative to parent world space
-	// TODO: do we need to include orient?
 	MMatrix mJointOffsetParent = mJointWorld * mJointParentInv;
-	MFnMatrixData matrixData;
-	MObject oMatrixData = matrixData.create(mJointOffsetParent);
 
-	MPlug pOffsetParentMatrix = jointFnDag.findPlug("offsetParentMatrix", false);
-	pOffsetParentMatrix.setValue(oMatrixData);
+	MPlug pOffsetParentMatrix = fnTransform.findPlug("offsetParentMatrix", false);
+	DagUtils::setMatrixPlug(pOffsetParentMatrix, mJointOffsetParent);
 
 	// Zero out local transform channels
-	MFnTransform jointFnTrans(jointDag);
-	jointFnTrans.set(MTransformationMatrix::identity);
+	fnTransform.set(MTransformationMatrix::identity);
+	// Zero out joint orient (this was in the inclusive matrix)
+	for (const char* axis : { "X", "Y", "Z" })
+	{
+		MPlug pJointOrient = fnTransform.findPlug(MString("jointOrient") + axis, false);
+		pJointOrient.setDouble(0.0);
+	}
 
 	return mJointOffsetParent;
 }
@@ -171,6 +169,25 @@ MStatus DagUtils::setInheritsTransforms(MObject& transform, bool value, MDagModi
 	}
 
 	return dagMod.newPlugValueBool(pInheritsTransform, value);
+}
+
+MStatus DagUtils::setSegmentScaleCompensate(MObject& oTransform, bool value, MDagModifier& dagMod)
+{
+	if (!oTransform.hasFn(MFn::kJoint))
+	{
+		MGlobal::displayError("Given object is not a DAG joint, cannot set segment scale compensate.");
+		return MStatus::kFailure;
+	}
+
+	MFnDependencyNode fnTransform(oTransform);
+	MPlug pSegmentScaleCompensate = fnTransform.findPlug("segmentScaleCompensate", false);
+
+	if (pSegmentScaleCompensate.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	return dagMod.newPlugValueBool(pSegmentScaleCompensate, value);
 }
 
 MMatrix DagUtils::getMatrixFromPlug(const MPlug& pMatrixPlug)
@@ -203,13 +220,13 @@ void DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix)
 	}
 }
 
-void DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDGModifier& dgMod)
+void DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod)
 {
 	if (!matrixPlug.isNull() && !matrixPlug.isArray())
 	{
 		MFnMatrixData fnMatrixData;
 		MObject oMatrixData = fnMatrixData.create(matrix);
-		dgMod.newPlugValue(matrixPlug, oMatrixData);
+		dagMod.newPlugValue(matrixPlug, oMatrixData);
 	}
 	else
 	{

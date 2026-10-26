@@ -11,7 +11,7 @@ void from_json(const nlohmann::json& jsonData, RigModuleData& module)
     jsonData.at("name").get_to(module.name);
 
     // 2. Parse optional common metadata with safe defaults
-    module.shapeType = jsonData.value("shapeType", "Cube");
+    module.shapeType = jsonData.value("shapeType", "Box");
     module.side = jsonData.value("side", "Center");
 
     // 3. Parse sparse parentStructure topology if declared

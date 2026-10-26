@@ -1,6 +1,7 @@
 #include "LayoutModule.h"
 #include "RigControlNode.h"
 #include "RigModule.h"
+#include "Side.h"
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnEnumAttribute.h>
@@ -131,18 +132,20 @@ MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 
 RigModuleBuildResult LayoutModuleNode::createModule(
 	MObject& oRigRoot,
-	MDGModifier& dgMod,
 	MDagModifier& dagMod,
-	const unsigned short numControls)
+	const unsigned short& numControls)
 {
 	RigModuleBuildResult result;
 
 	MGlobal::displayInfo("Creating Layout module.");
 
 	// 1. Create layout module node
-	MObject oLayoutModule = dgMod.createNode(LayoutModuleNode::commandString);
-	dgMod.renameNode(oLayoutModule, "layoutModule"); // TODO: namespaces
-	dgMod.doIt();
+	MObject oLayoutModule = dagMod.MDGModifier::createNode(LayoutModuleNode::commandString);
+	dagMod.renameNode(oLayoutModule, "layoutModule"); // TODO: namespaces
+	dagMod.doIt();
+
+	MPlug pSide(oLayoutModule, LayoutModuleNode::aSide);
+	dagMod.newPlugValueShort(pSide, getShortFromSide(Side::Center));
 
 	result.moduleNode = oLayoutModule;
 
@@ -156,13 +159,13 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 
 		MFnDependencyNode fnControl(oControl);
 		MPlug pShapeType(oControl, RigControlNode::aShapeType);
-		dgMod.newPlugValueShort(pShapeType, ShapeType::Square);
+		dagMod.newPlugValueShort(pShapeType, ShapeType::Square);
 
 		// Connect control message
 		MPlug pControlMessages(oLayoutModule, LayoutModuleNode::aControlMessage);
 		MPlug pControlMessageIndex = pControlMessages.elementByLogicalIndex(i);
 		MPlug pControlRigModule(oControl, RigControlNode::aRigModule);
-		dgMod.connect(pControlMessageIndex, pControlRigModule);
+		dagMod.connect(pControlMessageIndex, pControlRigModule);
 
 		// Record the "end" socket on the final layout control
 		if (i == numControls - 1)
@@ -186,7 +189,7 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 
 		MFnMatrixData fnShapeTransform;
 		MObject oShapeTransform = fnShapeTransform.create(mShapeTransform.asMatrix());
-		dgMod.newPlugValue(pShapeTransform, oShapeTransform);
+		dagMod.newPlugValue(pShapeTransform, oShapeTransform);
 
 		// Wire control matrix to module controlMatrix array input
 		MPlug pControlInputData(oLayoutModule, LayoutModuleNode::aControlInputData);
@@ -194,13 +197,13 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 		MPlug pControlOutputMatrix(oControl, RigControlNode::matrix);
 
 		MPlug pModuleInputMatrix = pControlInputDataIndex.child(LayoutModuleNode::aControlMatrix);
-		dgMod.connect(pControlOutputMatrix, pModuleInputMatrix);
+		dagMod.connect(pControlOutputMatrix, pModuleInputMatrix);
 
 		// Connect to OPM for control
 		MPlug pModuleOPM(oLayoutModule, LayoutModuleNode::aControlOPM);
 		MPlug pModuleOPMIndex = pModuleOPM.elementByLogicalIndex(i);
 		MPlug pControlOPM(oControl, RigControlNode::offsetParentMatrix);
-		dgMod.connect(pModuleOPMIndex, pControlOPM);
+		dagMod.connect(pModuleOPMIndex, pControlOPM);
 
 		// Parent sequentially in DAG
 		if (oPreviousControlNode != MObject::kNullObj)
@@ -215,10 +218,9 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 	// 3. Connect to RigRoot network plug
 	if (!oRigRoot.isNull())
 	{
-		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dgMod, oLayoutModule, aRigRoot);
+		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dagMod, oLayoutModule, aRigRoot);
 	}
 
-	dgMod.doIt();
 	dagMod.doIt();
 
 	result.status = MS::kSuccess;
