@@ -2,6 +2,7 @@
 
 #include <maya/MColor.h>
 #include <string>
+#include <unordered_map>
 
 enum class Side : int
 {

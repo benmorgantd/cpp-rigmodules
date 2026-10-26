@@ -20,20 +20,6 @@
 
 MTypeId LayoutModuleNode::id(0x00218C);
 
-MObject LayoutModuleNode::aControlInputData;
-MObject LayoutModuleNode::aControlMatrix;
-
-MObject LayoutModuleNode::aControlOPM;
-
-MObject LayoutModuleNode::aControlMessage;
-
-// Shared Attributes (Although shared, these need to be unique MObjects for each module)
-MObject LayoutModuleNode::aModuleData;
-MObject LayoutModuleNode::aRigControls;
-MObject LayoutModuleNode::aRigRoot;
-MObject LayoutModuleNode::aOutputSocketMatrix;
-MObject LayoutModuleNode::aSide;
-
 LayoutModuleNode::LayoutModuleNode() {}
 LayoutModuleNode::~LayoutModuleNode() {}
 
@@ -56,29 +42,7 @@ MStatus LayoutModuleNode::initialize()
 	MFnCompoundAttribute cAttr;
 
 	// TODO: the compound and array attrs for control data, opm, messages could become shared attributes.
-	status = RigModuleNodeBase::initializeSharedAttributes(aModuleData, aRigRoot, aRigControls, aOutputSocketMatrix, aSide);
-
-	// Control compound input attr sub attrs
-	aControlMatrix = mAttr.create("localMatrix", "localMatrix", MFnMatrixAttribute::kDouble, &status);
-
-	aControlInputData = cAttr.create("controlData", "controlData", &status);
-	cAttr.addChild(aControlMatrix);
-	cAttr.setArray(true);
-	cAttr.setUsesArrayDataBuilder(true);
-	addAttribute(aControlInputData);
-
-	// Control output array attr
-	aControlOPM = mAttr.create("controlOPM", "controlOPM", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setArray(true);
-	mAttr.setWritable(false);
-	mAttr.setStorable(false);
-	mAttr.setUsesArrayDataBuilder(true);
-	addAttribute(aControlOPM);
-
-	// Control message attr connection
-	aControlMessage = msgAttr.create("controlMessage", "controlMessage", &status);
-	msgAttr.setArray(true);
-	addAttribute(aControlMessage);
+	status = initializeSharedAttributes();
 
 	// AFFECTS RELATIONSHIPS
 	attributeAffects(aControlMatrix, aControlOPM);

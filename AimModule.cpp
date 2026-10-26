@@ -15,9 +15,6 @@
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
 #include <maya/MFnTypedAttribute.h>
-#include <maya/MFnMessageAttribute.h>
-#include <maya/MFnEnumAttribute.h>
-#include <maya/MFnNumericAttribute.h>
 
 MTypeId AimModuleNode::id(0x00218D);
 
@@ -38,7 +35,6 @@ MObject AimModuleNode::aOutputUpJointOPM;
 
 // Shared Attributes
 MObject AimModuleNode::moduleData;
-MObject AimModuleNode::aRigControls;
 MObject AimModuleNode::aRigRoot;
 MObject AimModuleNode::aOutputSocketMatrix;
 MObject AimModuleNode::aSide;
@@ -57,7 +53,7 @@ MStatus AimModuleNode::initialize()
 {
     MStatus status;
 
-    status = AimModuleNode::initializeSharedAttributes(moduleData, aRigRoot, aRigControls, aOutputSocketMatrix, aSide);
+    //status = AimModuleNode::initializeSharedAttributes(moduleData, aRigRoot, aRigControls, aOutputSocketMatrix, aSide);
 
     if (status != MStatus::kSuccess)
     {

@@ -26,25 +26,9 @@
 
 MTypeId FkChainNode::id(0x00218B);
 
-MObject FkChainNode::aControlInputData;
-MObject FkChainNode::aControlMatrix;
-MObject FkChainNode::aControlRestOffset;
-
 MObject FkChainNode::aChildPlugs;
 MObject FkChainNode::aChildPlugName;
 MObject FkChainNode::aChildPlugParentMatrix;
-
-MObject FkChainNode::aControlOPM;
-MObject FkChainNode::aJointOPM;
-
-MObject FkChainNode::aControlMessage;
-
-// Shared Attributes (Although shared, these need to be unique MObjects for each module)
-MObject FkChainNode::aModuleData;
-MObject FkChainNode::aRigControls;
-MObject FkChainNode::aRigRoot;
-MObject FkChainNode::aOutputSocketMatrix;
-MObject FkChainNode::aSide;
 
 FkChainNode::FkChainNode() {}
 FkChainNode::~FkChainNode() {}
@@ -64,25 +48,12 @@ MStatus FkChainNode::initialize()
 	MFnCompoundAttribute cAttr;
 	MFnTypedAttribute tAttr;
 
-	status = FkChainNode::initializeSharedAttributes(aModuleData, aRigRoot, aRigControls, aOutputSocketMatrix, aSide);
+	status = initializeSharedAttributes();
 
 	if (status != MStatus::kSuccess)
 	{
 		return MStatus::kFailure;
 	}
-
-	// INPUT ATTRIBUTES
-	// Control compound input attr sub attrs
-	aControlMatrix = mAttr.create("localMatrix", "localMatrix", MFnMatrixAttribute::kDouble, &status);
-	aControlRestOffset = mAttr.create("restOffset", "restOffset", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setStorable(true);
-
-	aControlInputData = cAttr.create("controlData", "controlData", &status);
-	cAttr.addChild(aControlMatrix);
-	cAttr.addChild(aControlRestOffset);
-	cAttr.setArray(true);
-	cAttr.setUsesArrayDataBuilder(true);
-	addAttribute(aControlInputData);
 
 	// Compound attribute for child plugs
 	aChildPlugName = tAttr.create("childPlugName", "childPlugName", MFnData::kString, MObject::kNullObj, &status);
@@ -96,27 +67,6 @@ MStatus FkChainNode::initialize()
 	cAttr.setArray(true);
 	cAttr.setUsesArrayDataBuilder(true);
 	addAttribute(aChildPlugs);
-
-	// Control message attr connection
-	aControlMessage = msgAttr.create("controlMessage", "controlMessage", &status);
-	msgAttr.setArray(true);
-	addAttribute(aControlMessage);
-
-	// OUTPUT ATTRIBUTES
-	// Control output array attr
-	aControlOPM = mAttr.create("controlOPM", "controlOPM", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setArray(true);
-	mAttr.setWritable(false);
-	mAttr.setStorable(false);
-	mAttr.setUsesArrayDataBuilder(true);
-	addAttribute(aControlOPM);
-
-	aJointOPM = mAttr.create("jointOPM", "jointOPM", MFnMatrixAttribute::kDouble, &status);
-	mAttr.setArray(true);
-	mAttr.setWritable(false);
-	mAttr.setStorable(false);
-	mAttr.setUsesArrayDataBuilder(true);
-	addAttribute(aJointOPM);
 
 	if (status != MStatus::kSuccess)
 	{

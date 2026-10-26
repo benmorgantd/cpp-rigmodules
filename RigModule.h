@@ -15,7 +15,12 @@
 #include <maya/MDataBlock.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
-
+#include <maya/MFnTypedAttribute.h>
+#include <maya/MFnMessageAttribute.h>
+#include <maya/MFnEnumAttribute.h>
+#include <maya/MFnNumericAttribute.h>
+#include <maya/MFnMatrixAttribute.h>
+#include <maya/MFnCompoundAttribute.h>
 
 // Common struct for the args used when parenting module plugs.
 struct RigModuleDagReparentArgs
@@ -77,9 +82,148 @@ public:
 	);
 public:
 	// Shared creation & build methods
-	static MStatus initializeSharedAttributes(MObject& moduleData, MObject& aRigRoot, MObject& aRigControls, MObject& aOutputSocketMatrix, MObject& aSide);
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot);
 	static std::unordered_map<std::string, RigModuleBuildResult> buildModules(const std::vector<RigModuleData>& flatModuleList, MObject oRigRoot, MDagModifier& dagMod);
 	static MObject findPlugOrSocketTransform(const std::unordered_map<std::string, MObject>& socketPairs, const std::string& name);
 };
 
+
+template <typename Derived>
+class RigModuleNode : public RigModuleNodeBase
+{
+public:
+	inline static MObject aModuleData;
+	inline static MObject aRigRoot;
+	inline static MObject aSide;
+
+	static MStatus initializeSharedAttributes();
+};
+
+template <typename Derived>
+MStatus RigModuleNode<Derived>::initializeSharedAttributes()
+{
+	MStatus status;
+
+	MFnTypedAttribute tAttr;
+	MFnMatrixAttribute mAttr;
+	MFnMessageAttribute msgAttr;
+	MFnEnumAttribute eAttr;
+	MFnNumericAttribute nAttr;
+	MFnCompoundAttribute cAttr;
+
+	// 1. Metadata Attributes
+	aModuleData = tAttr.create("moduleData", "md", MFnData::kString, MObject::kNullObj, &status);
+	tAttr.setStorable(true);
+	addAttribute(aModuleData);
+
+	// 2. Network Message Plugs
+	aRigRoot = msgAttr.create("rigRoot", "rr", &status);
+	addAttribute(aRigRoot);
+
+	// Side
+	aSide = eAttr.create("side", "sd", 0);
+	eAttr.addField("Center", 0);
+	eAttr.addField("Left", 1);
+	eAttr.addField("Right", 2);
+	eAttr.setKeyable(false);
+	eAttr.setStorable(true);
+	addAttribute(aSide);
+
+	return status;
+}
+
+template <typename Derived>
+class RigModuleWithControlsNode : public RigModuleNode<Derived>
+{
+public:
+	using Base = RigModuleNode<Derived>;
+
+	inline static MObject aControlInputData;
+	inline static MObject aControlMatrix;
+	inline static MObject aControlRestOffset;
+
+	inline static MObject aControlOPM;
+	inline static MObject aControlMessage;
+
+	inline static MObject aOutputSocketMatrix;
+
+	// Calls the layer below, then adds this layer's attributes.
+	static MStatus initializeSharedAttributes();
+};
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::initializeSharedAttributes()
+{
+	MStatus status = Base::initializeSharedAttributes();   // RigModuleNode<Derived>
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MFnMatrixAttribute mAttr;
+	MFnMessageAttribute msgAttr;
+	MFnCompoundAttribute cAttr;
+
+	aControlMatrix = mAttr.create("localMatrix", "localMatrix", MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	aControlRestOffset = mAttr.create("restOffset", "restOffset", MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	mAttr.setStorable(true);
+
+	aControlInputData = cAttr.create("controlData", "controlData", &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	cAttr.addChild(aControlMatrix);
+	cAttr.addChild(aControlRestOffset);
+	cAttr.setArray(true);
+	cAttr.setUsesArrayDataBuilder(true);
+	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aControlInputData));
+
+	aControlOPM = mAttr.create("controlOPM", "controlOPM", MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	mAttr.setArray(true);
+	mAttr.setWritable(false);
+	mAttr.setStorable(false);
+	mAttr.setUsesArrayDataBuilder(true);
+	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aControlOPM));
+
+	aControlMessage = msgAttr.create("controlMessage", "controlMessage", &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	msgAttr.setArray(true);
+	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aControlMessage));
+
+	// Output Socket Matrix Array
+	aOutputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
+	mAttr.setArray(true);
+	mAttr.setUsesArrayDataBuilder(true);
+	mAttr.setWritable(false);
+	mAttr.setStorable(false);
+	mAttr.setWorldSpace(true);
+	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aOutputSocketMatrix));
+
+	return MStatus::kSuccess;
+}
+
+template <typename Derived>
+class RigModuleWithJointsNode : public RigModuleWithControlsNode<Derived>
+{
+public:
+	using Base = RigModuleWithControlsNode<Derived>;
+
+	inline static MObject aJointOPM;
+
+	static MStatus initializeSharedAttributes();
+};
+
+template <typename Derived>
+MStatus RigModuleWithJointsNode<Derived>::initializeSharedAttributes()
+{
+	MStatus status = Base::initializeSharedAttributes();   // RigModuleWithControlsNode<Derived>
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MFnMatrixAttribute mAttr;
+	aJointOPM = mAttr.create("jointOPM", "jointOPM", MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	mAttr.setArray(true);
+	mAttr.setWritable(false);
+	mAttr.setStorable(false);
+	mAttr.setUsesArrayDataBuilder(true);
+	return Base::addAttribute(aJointOPM);
+}

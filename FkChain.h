@@ -4,7 +4,7 @@
 #include "Side.h"
 #include "RigControlNode.h"
 
-class FkChainNode : public RigModuleNodeBase
+class FkChainNode : public RigModuleWithJointsNode<FkChainNode>
 {
 public:
 	FkChainNode();
@@ -17,29 +17,11 @@ public:
 public:
 	static MTypeId id;
 
-	// Top-Level Input Attributes
-	static MObject aControlInputData;
-	static MObject aControlMatrix;
-	static MObject aControlRestOffset;
-
 	// Compound attribute for child plug relationships to their parent.
 	static MObject aChildPlugs;
 	static MObject aChildPlugName;
 	static MObject aChildPlugParentMatrix;
 
-	// Output attributes
-	static MObject aControlOPM;
-	static MObject aJointOPM;
-
-	// Message attributes
-	static MObject aControlMessage;
-
-public: // ---- Shared Attributes All Modules Have (but that must be unique) ----
-	static MObject aModuleData;              // JSON string payload for custom module serialization
-	static MObject aRigRoot;                 // Message link to central RigRoot node
-	static MObject aRigControls;             // Message array link to controls on this module
-	static MObject aOutputSocketMatrix;      // Output matrix array providing connection sockets for downstream modules
-	static MObject aSide;                    // Module side (Center, Left, Right)
 	// Command String
 	static const MString aCommandString;
 public:

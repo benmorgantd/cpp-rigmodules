@@ -59,7 +59,6 @@ public:
 public: // ---- Shared Attributes All Modules Have (but that must be unique) ----
     static MObject moduleData;               // JSON string payload for custom module serialization
     static MObject aRigRoot;                 // Message link to central RigRoot node
-    static MObject aRigControls;             // Message array link to controls on this module
     static MObject aOutputSocketMatrix;      // Output matrix array providing connection sockets for downstream modules
     static MObject aSide;                    // Module side (Center, Left, Right)
 };
