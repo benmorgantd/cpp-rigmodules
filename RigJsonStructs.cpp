@@ -13,26 +13,9 @@ void from_json(const nlohmann::json& jsonData, RigModuleData& module)
     // 2. Parse optional common metadata with safe defaults
     module.shapeType = jsonData.value("shapeType", "Box");
     module.side = jsonData.value("side", "Center");
-
-    // 3. Parse sparse parentStructure topology if declared
-    std::unordered_map<std::string, std::string> emptyMap;
-    module.parentStructure = jsonData.value("parentStructure", emptyMap);
-
-    // 4. Parse module-specific argument structs
-    if (jsonData.contains("moduleArgs"))
-    {
-        const auto& argsJson = jsonData["moduleArgs"];
-
-        if (module.moduleType == "FkChain")
-        {
-            module.moduleArgs = argsJson.get<FkModuleArgs>();
-        }
-        else if (module.moduleType == "AimModule")
-        {
-            module.moduleArgs = argsJson.get<AimModuleArgs>();
-        }
-        // Future modules (e.g., IkChain, SplineRibbon) branch here!
-    }
+    module.moduleVersion = jsonData.value("moduleVersion", 1);
+    module.parentStructure = jsonData.value("parentStructure", std::unordered_map<std::string, std::string>());
+    module.moduleArgs = jsonData.value("moduleArgs", nlohmann::json::object());
 }
 
 // -----------------------------------------------------------------------------

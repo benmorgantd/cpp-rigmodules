@@ -1,5 +1,6 @@
 #include "RigModule.h"
 #include "RigJsonStructs.h"
+#include "ModuleRegistry.h"
 #include "FkChain.h"
 
 #include "unordered_map"
@@ -141,38 +142,19 @@ std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildMo
 	// 5. Traverse and Build Module Hierarchy Recursively
 	for (unsigned int i = 0; i < flatModuleList.size(); ++i)
 	{
-		// Ensure our mods are up to date before we build the next module.
-		// This means that when we query attributes from previous modules we will have them declared and set.
-
 		RigModuleData moduleData = flatModuleList[i];
-		RigModuleBuildResult creationResult;
 
-		// 1. Branching creation logic based on moduleType
-		if (moduleData.moduleType == "FkChain")
+		// Not completely sure what this is doing with the pointers.
+		const ModuleDescriptor* pDescriptor = ModuleRegistry::find(moduleData.moduleType);
+		if (!pDescriptor || !pDescriptor->build)
 		{
-			// Call the static creation method for FkChain
-			creationResult = FkChainNode::createModule(
-				moduleData,
-				oRigRoot,
-				dagMod
-			);
-		}
-		// TODO: aimmodulee has to implement buildresult.
-		//else if (moduleData.moduleType == "AimModule")
-		//{
-		//	creationResult = AimModuleNode::createModule(
-		//		moduleData,
-		//		oRigRoot,
-		//		dgMod,
-		//		dagMod
-		//	);
-		//}
-		// Future module types (e.g., IkChain, SplineRibbon) branch here...
-		else
-		{
-			MGlobal::displayError(MString("Unknown module type: ") + moduleData.moduleType.c_str());
+			MGlobal::displayError(MString("Unknown or non-buildable module type: ") + moduleData.moduleType.c_str());
 			return std::unordered_map<std::string, RigModuleBuildResult>();
 		}
+
+		BuildContext ctx{ moduleData, oRigRoot, dagMod };
+		RigModuleBuildResult creationResult = pDescriptor->build(moduleData.moduleArgs, ctx);
+
 		if (!creationResult.moduleNode.isNull())
 		{
 			rigModuleMap[moduleData.name] = creationResult;

@@ -3,24 +3,9 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
-#include <variant>
 #include <unordered_map>
 #include <maya/MString.h>
 
-
-struct FkModuleArgs
-{
-    std::vector<std::string> joints;
-};
-
-struct AimModuleArgs
-{
-    std::string aimJoint;
-    std::string targetJoint;
-    std::string upJoint;
-};
-
-using ModuleArgsVariant = std::variant<std::monostate, FkModuleArgs, AimModuleArgs>;
 
 struct RigModuleData
 {
@@ -28,8 +13,9 @@ struct RigModuleData
     std::string name;
     std::string shapeType;
     std::string side;
+    int moduleVersion = 1;
     std::unordered_map<std::string, std::string> parentStructure;
-    ModuleArgsVariant moduleArgs;
+    nlohmann::json moduleArgs;
 };
 
 struct AssetRootData
@@ -50,9 +36,7 @@ struct RigRootData
 // nlohmann JSON mapping macros
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AssetRootData, assetId, assetType)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigRootData, rigTemplateName, rigVersion, rigType, rigAuthor, rigModules)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigModuleData, moduleType, name, shapeType, side, parentStructure, moduleArgs)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FkModuleArgs, joints)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AimModuleArgs, aimJoint, targetJoint, upJoint)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigModuleData, moduleType, name, shapeType, side, moduleVersion, parentStructure, moduleArgs)
 
 void from_json(const nlohmann::json& j, RigModuleData& module);
 bool loadRigTemplate(const MString& filePath, AssetRootData& assetData, RigRootData& rigData, MString& outErr);

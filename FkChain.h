@@ -4,6 +4,18 @@
 #include "Side.h"
 #include "RigControlNode.h"
 
+#include <vector>
+#include <string>
+
+#include <maya/MString.h>
+#include <maya/MObject.h>
+#include <maya/MDagModifier.h>
+#include <maya/MTypeId.h>
+#include <maya/MDagPathArray.h>
+#include <maya/MPlug.h>
+#include <maya/MDataBlock.h>
+#include <maya/MStatus.h>
+
 class FkChainNode : public RigModuleWithJointsNode<FkChainNode>
 {
 public:
@@ -16,14 +28,12 @@ public:
 
 public:
 	static MTypeId id;
+	static const MString aCommandString;
 
 	// Compound attribute for child plug relationships to their parent.
 	static MObject aChildPlugs;
 	static MObject aChildPlugName;
 	static MObject aChildPlugParentMatrix;
-
-	// Command String
-	static const MString aCommandString;
 public:
 	static MStatus reparentChildPlugs(       // Function used when parenting child transforms to other module parents
 		RigModuleDagReparentArgs
@@ -38,9 +48,12 @@ public:
 		MObject oRigRoot,
 		MDagModifier& dagMod
 	);
-	static RigModuleBuildResult createModule(
-		const RigModuleData& moduleData,
-		MObject rigRoot,
-		MDagModifier& dagMod
-	);
+	static RigModuleBuildResult buildFromJson(const nlohmann::json& args, BuildContext& ctx);
 };
+
+
+struct FkModuleArgs
+{
+	std::vector<std::string> joints;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FkModuleArgs, joints)

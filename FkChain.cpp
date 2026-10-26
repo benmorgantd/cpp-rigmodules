@@ -6,6 +6,7 @@
 #include "Side.h"
 
 #include <string>
+#include <nlohmann/json.hpp>
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnMessageAttribute.h>
@@ -25,6 +26,7 @@
 // ------------------------------------------------------------------
 
 MTypeId FkChainNode::id(0x00218B);
+const MString FkChainNode::aCommandString = "fkChainModule";
 
 MObject FkChainNode::aChildPlugs;
 MObject FkChainNode::aChildPlugName;
@@ -32,8 +34,6 @@ MObject FkChainNode::aChildPlugParentMatrix;
 
 FkChainNode::FkChainNode() {}
 FkChainNode::~FkChainNode() {}
-
-const MString FkChainNode::aCommandString = "fkChainModule";
 
 void* FkChainNode::creator()
 {
@@ -154,13 +154,14 @@ RigModuleBuildResult FkChainNode::createModule(
 	RigModuleBuildResult result;
 
 	// Instantiate module node in DG
-	MObject oFkChainModule = dagMod.MDGModifier::createNode("fkChainModule");
+	MObject oFkChainModule = dagMod.MDGModifier::createNode(FkChainNode::aCommandString);
 	dagMod.renameNode(oFkChainModule, moduleName);
 	dagMod.doIt();
 
 	MPlug pSide(oFkChainModule, FkChainNode::aSide);
 
 	dagMod.newPlugValueShort(pSide, getShortFromSide(side));
+	dagMod.doIt(); // write the side to the module so that future created controls get that.
 
 	result.moduleNode = oFkChainModule;
 
@@ -268,54 +269,44 @@ RigModuleBuildResult FkChainNode::createModule(
 	return result;
 }
 
-RigModuleBuildResult FkChainNode::createModule(
-	const RigModuleData& moduleData,
-	MObject rigRoot,
-	MDagModifier& dagMod)
+RigModuleBuildResult FkChainNode::buildFromJson(const nlohmann::json& args, BuildContext& ctx)
 {
 	RigModuleBuildResult result;
+	FkModuleArgs fkArgs;
 
-	// 1. Resolve string joint names from RigModuleData into MDagPath instances
-	const auto* fkArgs = std::get_if<FkModuleArgs>(&moduleData.moduleArgs);
-	if (!fkArgs)
+	try
 	{
-		MGlobal::displayError(MString("Invalid moduleArgs variant type for FkChainModule: ") + moduleData.name.c_str());
-		result.status = MStatus::kFailure;
-		return result;
+		// Version migration goes here: branch on ctx.moduleData.moduleVersion
+		// and rewrite old arg layouts into the current FkModuleArgs shape.
+		fkArgs = args.get<FkModuleArgs>();
+	}
+	catch (const nlohmann::json::exception& e)
+	{
+		MGlobal::displayError(MString("Invalid FkChain args for ") + ctx.moduleData.name.c_str() + ": " + e.what());
+		return result;   // status defaults to kFailure
 	}
 
 	MDagPathArray jointDags;
-	for (const std::string& jointName : fkArgs->joints)
+	for (const std::string& jointName : fkArgs.joints)
 	{
 		MString jointNameStr(jointName.c_str());
 		MDagPath jointDag = DagUtils::getDagPathFromName(jointNameStr);
 
-		if (!jointDag.node().isNull())
-		{
-			jointDags.append(jointDag);
-		}
-		else
+		if (jointDag.node().isNull())
 		{
 			MGlobal::displayError(MString("Joint does not exist in scene: ") + jointNameStr);
+			return result;
 		}
+		jointDags.append(jointDag);
 	}
 
-	// 2. Delegate to the flattened arguments overload
-	result = FkChainNode::createModule(
-		moduleData.name.c_str(),
-		getSideFromString(moduleData.side),
-		getShapeTypeFromString(moduleData.shapeType),
-		jointDags,
-		rigRoot,
-		dagMod
-	);
-
-	if (!result)
-	{
-		MGlobal::displayError(MString("Failed to build FkChain module: ") + moduleData.name.c_str());
-	}
-
-	return result;
+	return FkChainNode::createModule(
+		ctx.moduleData.name.c_str(), 
+		getSideFromString(ctx.moduleData.side),
+		getShapeTypeFromString(ctx.moduleData.shapeType),
+		jointDags, 
+		ctx.oRigRoot, 
+		ctx.dagMod);
 }
 
 MStatus FkChainNode::reparentChildPlugs(RigModuleDagReparentArgs args)

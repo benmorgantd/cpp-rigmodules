@@ -51,6 +51,29 @@ struct RigModuleBuildResult
 	explicit operator bool() const { return status == MStatus::kSuccess; }
 };
 
+struct BuildContext
+{
+	const RigModuleData& moduleData;
+	MObject oRigRoot;
+	MDagModifier& dagMod;
+};
+
+// Aliases so the descriptor reads cleanly. These match what registerNode expects.
+using NodeCreatorFn = void* (*)();
+using NodeInitializeFn = MStatus(*)();
+using ModuleBuildFn = std::function<RigModuleBuildResult(const nlohmann::json& args, BuildContext& ctx)>;
+
+struct ModuleDescriptor
+{
+	MString nodeName;       // Maya node type, e.g. "fkChainModule"
+	const char* moduleType;     // JSON type, e.g. "FkChain"
+	MTypeId typeId;
+	NodeCreatorFn creator;
+	NodeInitializeFn initialize;
+	int currentVersion;
+	ModuleBuildFn build;        // nullptr = registered with Maya but not buildable from JSON
+};
+
 // This class is just a class with shared helper methods for rig module nodes. 
 // You CAN NOT have "inheritance" for Maya nodes because of MObject pointers.
 class RigModuleNodeBase : public MPxNode

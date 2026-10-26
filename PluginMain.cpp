@@ -3,13 +3,14 @@
 #include <maya/MFnPlugin.h>  // only include MFnPlugin in the file that has the plugin declaration to avoid build errors.
 #include <maya/MDrawRegistry.h>
 
+#include <vector>
+
 // Include headers for all custom nodes
-#include "RigRoot.h"
+#include "ModuleRegistry.h"
 #include "AssetRoot.h"
-#include "LayoutModule.h"
-#include "FkChain.h"
+#include "RigRoot.h"
 #include "RigControlNode.h"
-#include "AimModule.h"
+#include "RigModule.h"
 
 // Plugin Registration
 MStatus initializePlugin(MObject obj)
@@ -19,6 +20,7 @@ MStatus initializePlugin(MObject obj)
 	// Register our plugin
 	MFnPlugin plugin(obj, "Ben Morgan", "0.1", "Any");
 
+	// TODO: these two nodes don't live in the ModuleRegistry but they could still live in another type of registry.
 	// Asset root node
 	status = plugin.registerNode("assetRootNode", AssetRootNode::id, AssetRootNode::creator, AssetRootNode::initialize);
 	if (!status)
@@ -36,17 +38,17 @@ MStatus initializePlugin(MObject obj)
 	}
 
 	// -- RIG MODULE NODES --
-	// LayoutModule
-	status = plugin.registerNode(LayoutModuleNode::commandString, LayoutModuleNode::id, LayoutModuleNode::creator, LayoutModuleNode::initialize);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// FkChain
-	status = plugin.registerNode(FkChainNode::aCommandString, FkChainNode::id, FkChainNode::creator, FkChainNode::initialize);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	status = plugin.registerNode(AimModuleNode::aCommandString, AimModuleNode::id, AimModuleNode::creator, AimModuleNode::initialize);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
+	// This loop is possible because we have the ModuleRegistry. It makes it so that when we add a new module we don't have to touch so many files.
+	for (const ModuleDescriptor& descriptor : ModuleRegistry::all())
+	{
+		status = plugin.registerNode(descriptor.nodeName, descriptor.typeId, descriptor.creator, descriptor.initialize);
+		if (!status)
+		{
+			status.perror(MString("Failed to register ") + descriptor.nodeName);
+			return status;
+		}
+	}
+	
 	// Shape node
 	status = plugin.registerTransform(
 		"rigControlNode",
@@ -66,6 +68,7 @@ MStatus initializePlugin(MObject obj)
 	);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	// TODO: we could do a command registry too.
 	// -- REGISTER COMMANDS --
 	status = plugin.registerCommand(CreateRigCmd::aCommandString, CreateRigCmd::creator, CreateRigCmd::newSyntax);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -93,14 +96,11 @@ MStatus uninitializePlugin(MObject obj)
 	status = plugin.deregisterNode(RigControlNode::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = plugin.deregisterNode(AimModuleNode::id);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	status = plugin.deregisterNode(FkChainNode::id);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	status = plugin.deregisterNode(LayoutModuleNode::id);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const std::vector<ModuleDescriptor>& descriptors = ModuleRegistry::all();
+	for (auto it = descriptors.rbegin(); it != descriptors.rend(); ++it)
+	{
+		plugin.deregisterNode(it->typeId);
+	}
 
 	status = plugin.deregisterNode(RigRootNode::id);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
