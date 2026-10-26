@@ -294,9 +294,11 @@ void RigRootNode::parentModuleControls(
 					MObject oModule = buildResult.moduleNode;
 			
 					RigModuleDagReparentArgs args{
-						plugName,
+						"start",
+						"end",
 						oModule,
 						oChildTransform,
+						oLayoutModule,
 						oLayoutEndSocket,
 						dagMod
 					};
@@ -333,6 +335,7 @@ void RigRootNode::parentModuleControls(
 				std::string targetModuleName, targetSocketName;
 				parseSocketIdentifier(parentTargetIdentifier.c_str(), targetModuleName, targetSocketName);
 
+				MObject oParentTargetModule = MObject::kNullObj;
 				MObject oParentTargetTransform = MObject::kNullObj;
 
 				if (targetModuleName.length() == 0 || targetModuleName == "layout")
@@ -346,6 +349,7 @@ void RigRootNode::parentModuleControls(
 					auto targetModuleIt = rigModuleMap.find(targetModuleName);
 					if (targetModuleIt != rigModuleMap.end())
 					{
+						oParentTargetModule = targetModuleIt->second.moduleNode;
 						oParentTargetTransform = RigModuleNodeBase::findPlugOrSocketTransform(targetModuleIt->second.parentSockets, targetSocketName);
 					}
 					else
@@ -359,8 +363,10 @@ void RigRootNode::parentModuleControls(
 				{
 					RigModuleDagReparentArgs args{
 						childPlugName,
+						targetSocketName,
 						oModule,
 						oChildTransform,
+						oParentTargetModule,
 						oParentTargetTransform,
 						dagMod
 					};

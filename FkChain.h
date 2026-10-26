@@ -29,16 +29,10 @@ public:
 public:
 	static MTypeId id;
 	static const MString aCommandString;
-
-	// Compound attribute for child plug relationships to their parent.
-	static MObject aChildPlugs;
-	static MObject aChildPlugName;
-	static MObject aChildPlugParentMatrix;
 public:
 	static MStatus reparentChildPlugs(       // Function used when parenting child transforms to other module parents
 		RigModuleDagReparentArgs
 	);
-
 public:
 	static RigModuleBuildResult createModule(
 		const MString& moduleName,

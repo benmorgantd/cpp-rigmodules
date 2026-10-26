@@ -21,15 +21,18 @@
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnCompoundAttribute.h>
+#include <maya/MTypeId.h>
 
 // Common struct for the args used when parenting module plugs.
 struct RigModuleDagReparentArgs
 {
 	std::string childPlugName;
+	std::string targetSocketName;
 
 	MObject oChildModuleNode;
 	MObject oChildPlugTransform;
 
+	MObject oParentTargetModuleNode;
 	MObject oParentTargetTransform;
 
 	MDagModifier& dagMod;
@@ -97,12 +100,6 @@ public:
 
 	// Matrix calculation & socket parsing helpers
 	static MMatrix computeOffsetParentMatrix(const MMatrix& mControlWorld, const MMatrix& mDagParentWorld);
-	static MStatus connectParentMatrixToChildPlug(
-		MPlug pChildPlugs,
-		const MObject& oTargetSocketTransform,
-		const MString& targetChildPlugName,
-		MDGModifier& dgMod
-	);
 public:
 	// Shared creation & build methods
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot);
@@ -165,13 +162,25 @@ public:
 	inline static MObject aControlMatrix;
 	inline static MObject aControlRestOffset;
 
+	inline static MObject aChildPlugs;
+	inline static MObject aChildPlugName;
+	inline static MObject aChildPlugParentMatrix;
+
 	inline static MObject aControlOPM;
 	inline static MObject aControlMessage;
 
 	inline static MObject aOutputSocketMatrix;
+	inline static MObject aSocketNames;
 
 	// Calls the layer below, then adds this layer's attributes.
 	static MStatus initializeSharedAttributes();
+	static MStatus connectSocketMatrixToChildPlug(
+		const MObject& oChildModule,
+		const MString& childPlugName,
+		const MObject& oParentModule,
+		const MString& parentSocketName,
+		MDGModifier& dgMod
+	);
 };
 
 template <typename Derived>
@@ -183,6 +192,7 @@ MStatus RigModuleWithControlsNode<Derived>::initializeSharedAttributes()
 	MFnMatrixAttribute mAttr;
 	MFnMessageAttribute msgAttr;
 	MFnCompoundAttribute cAttr;
+	MFnTypedAttribute tAttr;
 
 	aControlMatrix = mAttr.create("localMatrix", "localMatrix", MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -198,6 +208,23 @@ MStatus RigModuleWithControlsNode<Derived>::initializeSharedAttributes()
 	cAttr.setArray(true);
 	cAttr.setUsesArrayDataBuilder(true);
 	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aControlInputData));
+	
+	// Compound attribute for child plugs
+	aChildPlugName = tAttr.create("childPlugName", "childPlugName", MFnData::kString, MObject::kNullObj, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	tAttr.setStorable(true);
+
+	aChildPlugParentMatrix = mAttr.create("childPlugParentMatrix", "childPlugParentMatrix", MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	aChildPlugs = cAttr.create("childPlugs", "childPlugs", &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	cAttr.addChild(aChildPlugName);
+	cAttr.addChild(aChildPlugParentMatrix);
+	cAttr.setArray(true);
+	cAttr.setUsesArrayDataBuilder(true);
+	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aChildPlugs));
 
 	aControlOPM = mAttr.create("controlOPM", "controlOPM", MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -221,7 +248,91 @@ MStatus RigModuleWithControlsNode<Derived>::initializeSharedAttributes()
 	mAttr.setWorldSpace(true);
 	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aOutputSocketMatrix));
 
+	// Socket names array
+	aSocketNames = tAttr.create("socketNames", "socketNames", MFnData::kString, MObject::kNullObj, &status);
+	tAttr.setStorable(true);
+	tAttr.setArray(true);
+	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aSocketNames));
+
 	return MStatus::kSuccess;
+}
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::connectSocketMatrixToChildPlug(
+	const MObject& oChildModule,
+	const MString& childPlugName,
+	const MObject& oParentModule,
+	const MString& parentSocketName,
+	MDGModifier& dgMod
+)
+{
+	MStatus status;
+
+	MPlug pChildPlugs(oChildModule, RigModuleWithControlsNode::aChildPlugs);
+	const unsigned int numElements = pChildPlugs.numElements(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	bool matchFound = false;
+
+	for (unsigned int i = 0; i < numElements; ++i)
+	{
+		MPlug pChildPlugElement = pChildPlugs.elementByLogicalIndex(i, &status);
+		if (!status || pChildPlugElement.isNull())
+		{
+			continue;
+		}
+
+		MPlug pElementChildPlugName = pChildPlugElement.child(aChildPlugName);
+		MString elementChildPlugName = pElementChildPlugName.asString();
+
+		if (elementChildPlugName.indexW(childPlugName) != -1)
+		{
+			MPlug pChildPlugParentMatrix = pChildPlugElement.child(aChildPlugParentMatrix);
+
+			MFnDependencyNode fnParentModule(oParentModule);
+			MPlug pParentSocketNames = fnParentModule.findPlug(aSocketNames, false, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			MPlug pParentSockets = fnParentModule.findPlug(aOutputSocketMatrix, false, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			unsigned int parentSocketIndex;
+			bool foundSocket = false;
+
+			for (unsigned int i = 0; i < pParentSocketNames.numElements(); ++i)
+			{
+				MPlug pParentSocketNamesElement = pParentSocketNames.elementByLogicalIndex(i);
+				CHECK_MSTATUS_AND_RETURN_IT(status);
+				MString elementSocketName = pParentSocketNamesElement.asString();
+
+				// this is the open maya MString contains method
+				if (elementSocketName.indexW(parentSocketName) != -1)
+				{
+					parentSocketIndex = i;
+					foundSocket = true;
+					break;
+				}
+			}
+
+			if (foundSocket && status && !pParentSocketMatrix.isNull() && !pChildPlugParentMatrix.isNull())
+			{
+				MPlug pParentSocketMatrix = pParentSockets.elementByLogicalIndex(parentSocketIndex);
+				CHECK_MSTATUS_AND_RETURN_IT(status);
+				// TODO: there is now a jump on the child when connected if the parent plug isn't identity.
+				status = dgMod.connect(pParentSocketMatrix, pChildPlugParentMatrix);
+				CHECK_MSTATUS_AND_RETURN_IT(status);
+				matchFound = true;
+				break;
+			}
+		}
+	}
+
+	if (!matchFound)
+	{
+		MGlobal::displayError("Child plug name '" + childPlugName + "' was not found on the module.");
+		return MS::kFailure;
+	}
+
+	return MS::kSuccess;
 }
 
 template <typename Derived>

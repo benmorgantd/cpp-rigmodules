@@ -3,15 +3,12 @@
 #include "RigModule.h"
 #include "Side.h"
 
-#include <maya/MFnMatrixAttribute.h>
-#include <maya/MFnEnumAttribute.h>
-#include <maya/MFnMessageAttribute.h>
-#include <maya/MFnNumericAttribute.h>
-#include <maya/MFnCompoundAttribute.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
 #include <maya/MGlobal.h>
 #include <maya/MFnMatrixData.h>
+#include <maya/MPlug.h>
+#include <maya/MDataBlock.h>
 
 
 // ------------------------------------------------------------------
@@ -33,14 +30,6 @@ MStatus LayoutModuleNode::initialize()
 {
 	MStatus status;
 
-	// TODO: this module does not really need all of these attributes. 
-	MFnMatrixAttribute mAttr;
-	MFnMessageAttribute msgAttr;
-	MFnEnumAttribute eAttr;
-	MFnNumericAttribute nAttr;
-	MFnCompoundAttribute cAttr;
-
-	// TODO: the compound and array attrs for control data, opm, messages could become shared attributes.
 	status = initializeSharedAttributes();
 
 	// AFFECTS RELATIONSHIPS
@@ -51,15 +40,17 @@ MStatus LayoutModuleNode::initialize()
 }
 
 // In the case of this node, there is only one output to compute, the outputSocketMatrix.
-// TODO: the solver for this module is not evaluating correctly
 MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	unsigned int index = plug.isElement() ? plug.logicalIndex() : 0;
+	bool plugAttrIsControlOPM = plug.attribute() == aControlOPM;
+	bool plugAttrIsOutputSocketMatrix = plug.attribute() == aOutputSocketMatrix;
 
-	if (plug.attribute() == aControlOPM)
+	if (plugAttrIsControlOPM || plugAttrIsOutputSocketMatrix)
 	{
 		MArrayDataHandle hInputDataArray = data.inputArrayValue(aControlInputData);
 		MArrayDataHandle hOutputOPMArray = data.outputArrayValue(aControlOPM);
+		MArrayDataHandle hOutputSocketArrray = data.outputArrayValue(aOutputSocketMatrix);
 
 		// Base incoming matrix (e.g. from upstream socket or asset root)
 		// TODO: if we had a module parent for layout it would go here
@@ -77,15 +68,30 @@ MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 			MMatrix mControlOPM = mCurrentParentWorld;
 
 			// Write to output array in-place
-			hOutputOPMArray.jumpToElement(i);
-			hOutputOPMArray.outputValue().setMMatrix(mControlOPM);
+			if (plugAttrIsControlOPM)
+			{
+				hOutputOPMArray.jumpToElement(i);
+				hOutputOPMArray.outputValue().setMMatrix(mControlOPM);
+			}
 
 			// Carry world matrix forward for index i + 1
 			MMatrix mControlWorld = mControlLocal * mControlOPM;
 			mCurrentParentWorld = mControlWorld;
 		}
 
-		hOutputOPMArray.setAllClean();
+		if (plug.attribute() == aControlOPM)
+		{
+			hOutputOPMArray.setAllClean();
+		}
+		else
+		{
+			// We only need to set data for the socket matrix once (we only have one available socket)
+			hOutputSocketArrray.jumpToElement(0);
+			// Set it to the last computed control matrix
+			hOutputSocketArrray.outputValue().setMMatrix(mCurrentParentWorld);
+			hOutputSocketArrray.setAllClean();
+		}
+		
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
@@ -134,10 +140,13 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 		if (i == numControls - 1)
 		{
 			result.parentSockets[std::string("end")] = oControl;
-		}
 
-		// Also record indexed socket handles for explicit index targeting
-		result.parentSockets[std::string("index_") + std::to_string(i).c_str()] = oControl;
+			// Also append to socket names
+			MPlug pSocketNames(oLayoutModule, aSocketNames);
+			MPlug pSocketNamesElement = pSocketNames.elementByLogicalIndex(0);
+			dagMod.newPlugValueString(pSocketNamesElement, MString("end"));
+			dagMod.setPlugLockState(pSocketNamesElement, true);
+		}
 
 		// Set decreasing scale using shape transform matrix
 		MPlug pShapeTransform(oControl, RigControlNode::aShapeTransform);
