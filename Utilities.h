@@ -31,6 +31,13 @@ public:
 	static void setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod);
 };
 
+class DagPlugAndSocketUtils
+{
+public:
+	static MStatus setParentSocketName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod);
+	static MStatus setChildPlugName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod);
+};
+
 class StringUtils
 {
 public:

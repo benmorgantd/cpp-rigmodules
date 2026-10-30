@@ -5,7 +5,6 @@
 
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
-#include <maya/MGlobal.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MPlug.h>
 #include <maya/MDataBlock.h>
@@ -105,11 +104,9 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 {
 	RigModuleBuildResult result;
 
-	MGlobal::displayInfo("Creating Layout module.");
-
 	// 1. Create layout module node
 	MObject oLayoutModule = dagMod.MDGModifier::createNode(LayoutModuleNode::id);
-	dagMod.renameNode(oLayoutModule, "layoutModule"); // TODO: namespaces
+	dagMod.renameNode(oLayoutModule, "layoutModule");
 	dagMod.doIt();
 
 	MPlug pSide(oLayoutModule, LayoutModuleNode::aSide);
@@ -130,10 +127,7 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 		dagMod.newPlugValueShort(pShapeType, ShapeType::Square);
 
 		// Connect control message
-		MPlug pControlMessages(oLayoutModule, LayoutModuleNode::aControlMessage);
-		MPlug pControlMessageIndex = pControlMessages.elementByLogicalIndex(i);
-		MPlug pControlRigModule(oControl, RigControlNode::aRigModule);
-		dagMod.connect(pControlMessageIndex, pControlRigModule);
+		connectControlToRigModule(oLayoutModule, oControl, i, dagMod);
 
 		// Record the "end" socket on the final layout control
 		if (i == numControls - 1)
@@ -141,10 +135,7 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 			result.parentSockets[std::string("end")] = oControl;
 
 			// Also append to socket names
-			MPlug pSocketNames(oLayoutModule, aSocketNames);
-			MPlug pSocketNamesElement = pSocketNames.elementByLogicalIndex(0);
-			dagMod.newPlugValueString(pSocketNamesElement, MString("end"));
-			dagMod.setPlugLockState(pSocketNamesElement, true);
+			DagPlugAndSocketUtils::setParentSocketName(oLayoutModule, 0, "end", dagMod);
 		}
 
 		// Set decreasing scale using shape transform matrix

@@ -3,6 +3,7 @@
 #include "RigJsonStructs.h"
 #include "Utilities.h"
 #include "Constants.h"
+#include "RigControlNode.h"
 
 #include <vector>
 #include <unordered_map>
@@ -181,6 +182,31 @@ public:
 		const MString& parentSocketName,
 		MDagModifier& dagMod
 	);
+	static MStatus solveFkChain(
+		MDataBlock& data,
+		MArrayDataHandle& hControlInputData,
+		MArrayDataHandle& hOutputData,
+		const unsigned int& childPlugIndex,
+		const bool& useLocalMatrix
+	);
+	static MStatus connectControlToRigModule(
+		const MObject& oModule,
+		MObject& oControl,
+		const unsigned int& index,
+		MDagModifier& dagMod
+	);
+	static MStatus connectControlInputMatrix(
+		MObject& oModule,
+		MObject& oControl,
+		unsigned int& index,
+		MDagModifier& dagMod
+	);
+	static MStatus setControlRestMatrix(
+		MObject& oModule,
+		MMatrix& worldMatrix,
+		unsigned int& index,
+		MDagModifier& dagMod
+	);
 };
 
 template <typename Derived>
@@ -268,8 +294,7 @@ MStatus RigModuleWithControlsNode<Derived>::connectSocketMatrixToChildPlug(
 	const MString& childPlugName,
 	const MObject& oParentModule,
 	const MString& parentSocketName,
-	MDagModifier& dagMod
-)
+	MDagModifier& dagMod)
 {
 	MStatus status;
 
@@ -350,6 +375,152 @@ MStatus RigModuleWithControlsNode<Derived>::connectSocketMatrixToChildPlug(
 
 	return MS::kSuccess;
 }
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::solveFkChain(
+	MDataBlock& data,
+	MArrayDataHandle& hControlInputData,
+	MArrayDataHandle& hOutputData,
+	const unsigned int& childPlugIndex,
+	const bool& useLocalMatrix
+)
+{
+	MStatus status;
+
+	// Socket live world and its world at the time of parenting. Both identity if unparented.
+	MMatrix mParentWorld = RigModuleNodeBase::getInputCompoundMatrix(data, aChildPlugs, aChildPlugParentMatrix, childPlugIndex);
+	MMatrix mParentRest = RigModuleNodeBase::getInputCompoundMatrix(data, aChildPlugs, aChildPlugParentRestMatrix, childPlugIndex);
+
+	const unsigned int elementCount = hControlInputData.elementCount();
+
+	for (unsigned int i = 0; i < elementCount; ++i)
+	{
+		status = hControlInputData.jumpToElement(i);
+		if (!status)
+		{
+			return MStatus::kFailure;
+		}
+		
+		MDataHandle hElement = hControlInputData.inputValue(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// TODO: we may have to get the attr for aControlMatrix by doing string lookup, which we don't want in computes.
+		// We want to use the statics in computes. An alternative is to pass in a struct of that class's statics?
+		// Another could be to move this function somewhere different.
+		const MMatrix mControlLocal = hElement.child(aControlMatrix).asMatrix();
+		const MMatrix mControlRestWorld = hElement.child(aControlRestWorld).asMatrix();
+
+		// Motion of the parent since rest. Identity at rest.
+		const MMatrix mParentDelta = mParentRest.inverse() * mParentWorld;
+
+		// World-space OPM: the control's rest carried by the parent's motion. No local in here.
+		const MMatrix mControlOPM = mControlRestWorld * mParentDelta;
+		const MMatrix mControlWorld = mControlLocal * mControlOPM;
+
+		// Carry state: identical for every output plug.
+		mParentWorld = mControlWorld;
+		mParentRest = mControlRestWorld;
+
+		// Only the written value depends on the plug.
+		const MMatrix& mOut = useLocalMatrix ? mControlWorld : mControlOPM;
+
+		status = hOutputData.jumpToElement(i);
+		if (status == MStatus::kSuccess)
+		{
+			hOutputData.outputValue().setMMatrix(mOut);
+		}
+	}
+	return status;
+}
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::connectControlToRigModule(
+	const MObject& oModule, 
+	MObject& oControl,
+	const unsigned int& index,
+	MDagModifier& dagMod)
+{
+	MStatus status;
+	MPlug pControlMessages(oModule, aControlMessage);
+
+	if (pControlMessages.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MPlug pControlMessageIndex = pControlMessages.elementByLogicalIndex(index, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MPlug pControlRigModule(oControl, RigControlNode::aRigModule);
+
+	if (pControlRigModule.isNull() || pControlMessageIndex.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	return dagMod.connect(pControlMessageIndex, pControlRigModule);
+}
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::connectControlInputMatrix(
+	MObject& oModule,
+	MObject& oControl,
+	unsigned int& index,
+	MDagModifier& dagMod
+)
+{
+	MPlug pControlInputData(oModule, aControlInputData);
+
+	if (pControlInputData.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MPlug pControlInputDataIndex = pControlInputData.elementByLogicalIndex(index);
+	if (pControlInputDataIndex.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MPlug pControlInputMatrix = pControlInputDataIndex.child(aControlMatrix);
+
+	MPlug pControlLocalMatrix(oControl, RigControlNode::matrix);
+
+	if (pControlLocalMatrix.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+
+	return dagMod.connect(pControlLocalMatrix, pControlInputMatrix);
+	
+}
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::setControlRestMatrix(
+	MObject& oModule,
+	MMatrix& worldMatrix,
+	unsigned int& index,
+	MDagModifier& dagMod
+)
+{
+	MPlug pControlInputData(oModule, aControlInputData);
+
+	if (pControlInputData.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MPlug pControlInputDataIndex = pControlInputData.elementByLogicalIndex(index);
+	if (pControlInputDataIndex.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MPlug pControlRestWorld = pControlInputDataIndex.child(aControlRestWorld);
+	DagUtils::setMatrixPlug(pControlRestWorld, worldMatrix, dagMod);
+}
+
 
 template <typename Derived>
 class RigModuleWithJointsNode : public RigModuleWithControlsNode<Derived>

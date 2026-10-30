@@ -1,5 +1,6 @@
 #include "Utilities.h"
 #include "RigModule.h"
+#include "Constants.h"
 
 #include <maya/MMatrix.h>
 #include <maya/MString.h>
@@ -251,6 +252,59 @@ MDagPath DagUtils::getDagPathFromName(MString& name)
 	}
 
 	return jointDag;
+}
+
+// DAG plug and socket utils -----------------------------------------------
+MStatus DagPlugAndSocketUtils::setParentSocketName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod)
+{
+	if (oModule.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MFnDependencyNode fnModule(oModule);
+
+	MPlug pSocketNames = fnModule.findPlug(RigAttr::SocketNames, false);
+	if (pSocketNames.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MPlug pSocketNamesElement = pSocketNames.elementByLogicalIndex(index);
+	if (pSocketNamesElement.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	return dagMod.newPlugValueString(pSocketNamesElement, MString(name));
+}
+
+
+MStatus DagPlugAndSocketUtils::setChildPlugName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod)
+{
+	if (oModule.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MFnDependencyNode fnModule(oModule);
+
+	MPlug pChildPlugs = fnModule.findPlug(RigAttr::ChildPlugs, false);
+	if (pChildPlugs.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MPlug pChildPlugsElement = pChildPlugs.elementByLogicalIndex(index);
+	if (pChildPlugsElement.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MObject oChildPlugName = fnModule.attribute(RigAttr::ChildPlugName);
+	MPlug pChildPlugsElementName = pChildPlugsElement.child(oChildPlugName);
+
+	return dagMod.newPlugValueString(pChildPlugsElementName, MString(name));
 }
 
 // String Utils -----------------------------------------------------------

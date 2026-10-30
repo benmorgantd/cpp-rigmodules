@@ -129,10 +129,9 @@ std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildMo
 	MObject oRigRoot,
 	MDagModifier& dagMod)
 {
-	//MObjectArray oRigModules;
 	std::unordered_map<std::string, RigModuleBuildResult> rigModuleMap;
 
-	// 5. Traverse and Build Module Hierarchy Recursively
+	// 5. Traverse and Build Modules from the flat list. Parenting between module controls will happen in the second pass.
 	for (unsigned int i = 0; i < flatModuleList.size(); ++i)
 	{
 		RigModuleData moduleData = flatModuleList[i];
@@ -144,11 +143,12 @@ std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildMo
 			MGlobal::displayError(MString("Unknown or non-buildable module type: ") + moduleData.moduleType.c_str());
 			return std::unordered_map<std::string, RigModuleBuildResult>();
 		}
+		MGlobal::displayInfo(MString("Building module '") + moduleData.name.c_str() + "' of type " + moduleData.moduleType.c_str());
 
 		BuildContext ctx{ moduleData, oRigRoot, dagMod };
 		RigModuleBuildResult creationResult = pDescriptor->build(moduleData.moduleArgs, ctx);
 
-		if (!creationResult.moduleNode.isNull())
+		if (!creationResult.moduleNode.isNull() && creationResult.status == MStatus::kSuccess)
 		{
 			rigModuleMap[moduleData.name] = creationResult;
 		}
