@@ -1,6 +1,8 @@
 #pragma once
 
 #include "RigJsonStructs.h"
+#include "Utilities.h"
+#include "Constants.h"
 
 #include <vector>
 #include <unordered_map>
@@ -97,9 +99,6 @@ public:
 	);
 	static void setOutputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx, const MMatrix& mat);
 	static void setOutputMatrix(MDataBlock& data, const MObject& attr, const MMatrix& mat);
-
-	// Matrix calculation & socket parsing helpers
-	static MMatrix computeOffsetParentMatrix(const MMatrix& mControlWorld, const MMatrix& mDagParentWorld);
 public:
 	// Shared creation & build methods
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot);
@@ -132,19 +131,19 @@ MStatus RigModuleNode<Derived>::initializeSharedAttributes()
 	MFnCompoundAttribute cAttr;
 
 	// 1. Metadata Attributes
-	aModuleData = tAttr.create("moduleData", "md", MFnData::kString, MObject::kNullObj, &status);
+	aModuleData = tAttr.create(RigAttr::ModuleData, RigAttr::ModuleData, MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	addAttribute(aModuleData);
 
 	// 2. Network Message Plugs
-	aRigRoot = msgAttr.create("rigRoot", "rr", &status);
+	aRigRoot = msgAttr.create(RigAttr::RigRoot, RigAttr::RigRoot, &status);
 	addAttribute(aRigRoot);
 
 	// Side
-	aSide = eAttr.create("side", "sd", 0);
-	eAttr.addField("Center", 0);
-	eAttr.addField("Left", 1);
-	eAttr.addField("Right", 2);
+	aSide = eAttr.create(RigAttr::Side, RigAttr::Side, 0);
+	eAttr.addField(SideNames::Center, 0);
+	eAttr.addField(SideNames::Left, 1);
+	eAttr.addField(SideNames::Right, 2);
 	eAttr.setKeyable(false);
 	eAttr.setStorable(true);
 	addAttribute(aSide);
@@ -160,11 +159,12 @@ public:
 
 	inline static MObject aControlInputData;
 	inline static MObject aControlMatrix;
-	inline static MObject aControlRestOffset;
+	inline static MObject aControlRestWorld;
 
 	inline static MObject aChildPlugs;
 	inline static MObject aChildPlugName;
 	inline static MObject aChildPlugParentMatrix;
+	inline static MObject aChildPlugParentRestMatrix;
 
 	inline static MObject aControlOPM;
 	inline static MObject aControlMessage;
@@ -179,7 +179,7 @@ public:
 		const MString& childPlugName,
 		const MObject& oParentModule,
 		const MString& parentSocketName,
-		MDGModifier& dgMod
+		MDagModifier& dagMod
 	);
 };
 
@@ -194,39 +194,44 @@ MStatus RigModuleWithControlsNode<Derived>::initializeSharedAttributes()
 	MFnCompoundAttribute cAttr;
 	MFnTypedAttribute tAttr;
 
-	aControlMatrix = mAttr.create("localMatrix", "localMatrix", MFnMatrixAttribute::kDouble, &status);
+	aControlMatrix = mAttr.create(RigAttr::ControlLocalMatrix, RigAttr::ControlLocalMatrix, MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	aControlRestOffset = mAttr.create("restOffset", "restOffset", MFnMatrixAttribute::kDouble, &status);
+	aControlRestWorld = mAttr.create(RigAttr::ControlRestWorld, RigAttr::ControlRestWorld, MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	mAttr.setStorable(true);
 
-	aControlInputData = cAttr.create("controlData", "controlData", &status);
+	aControlInputData = cAttr.create(RigAttr::ControlInputData, RigAttr::ControlInputData, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	cAttr.addChild(aControlMatrix);
-	cAttr.addChild(aControlRestOffset);
+	cAttr.addChild(aControlRestWorld);
 	cAttr.setArray(true);
 	cAttr.setUsesArrayDataBuilder(true);
 	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aControlInputData));
 	
 	// Compound attribute for child plugs
-	aChildPlugName = tAttr.create("childPlugName", "childPlugName", MFnData::kString, MObject::kNullObj, &status);
+	aChildPlugName = tAttr.create(RigAttr::ChildPlugName, RigAttr::ChildPlugName, MFnData::kString, MObject::kNullObj, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	tAttr.setStorable(true);
 
-	aChildPlugParentMatrix = mAttr.create("childPlugParentMatrix", "childPlugParentMatrix", MFnMatrixAttribute::kDouble, &status);
+	aChildPlugParentMatrix = mAttr.create(RigAttr::ChildPlugParentMatrix, RigAttr::ChildPlugParentMatrix, MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	aChildPlugs = cAttr.create("childPlugs", "childPlugs", &status);
+	aChildPlugParentRestMatrix = mAttr.create(RigAttr::ChildPlugParentRestMatrix, RigAttr::ChildPlugParentRestMatrix, MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	mAttr.setStorable(true);
+
+	aChildPlugs = cAttr.create(RigAttr::ChildPlugs, RigAttr::ChildPlugs, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	cAttr.addChild(aChildPlugName);
 	cAttr.addChild(aChildPlugParentMatrix);
+	cAttr.addChild(aChildPlugParentRestMatrix);
 	cAttr.setArray(true);
 	cAttr.setUsesArrayDataBuilder(true);
 	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aChildPlugs));
 
-	aControlOPM = mAttr.create("controlOPM", "controlOPM", MFnMatrixAttribute::kDouble, &status);
+	aControlOPM = mAttr.create(RigAttr::ControlOPM, RigAttr::ControlOPM, MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	mAttr.setArray(true);
 	mAttr.setWritable(false);
@@ -234,13 +239,13 @@ MStatus RigModuleWithControlsNode<Derived>::initializeSharedAttributes()
 	mAttr.setUsesArrayDataBuilder(true);
 	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aControlOPM));
 
-	aControlMessage = msgAttr.create("controlMessage", "controlMessage", &status);
+	aControlMessage = msgAttr.create(RigAttr::ControlMessage, RigAttr::ControlMessage, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	msgAttr.setArray(true);
 	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aControlMessage));
 
 	// Output Socket Matrix Array
-	aOutputSocketMatrix = mAttr.create("outputSocketMatrix", "soc", MFnMatrixAttribute::kDouble, &status);
+	aOutputSocketMatrix = mAttr.create(RigAttr::OutputSocketMatrix, RigAttr::OutputSocketMatrix, MFnMatrixAttribute::kDouble, &status);
 	mAttr.setArray(true);
 	mAttr.setUsesArrayDataBuilder(true);
 	mAttr.setWritable(false);
@@ -249,7 +254,7 @@ MStatus RigModuleWithControlsNode<Derived>::initializeSharedAttributes()
 	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aOutputSocketMatrix));
 
 	// Socket names array
-	aSocketNames = tAttr.create("socketNames", "socketNames", MFnData::kString, MObject::kNullObj, &status);
+	aSocketNames = tAttr.create(RigAttr::SocketNames, RigAttr::SocketNames, MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	tAttr.setArray(true);
 	CHECK_MSTATUS_AND_RETURN_IT(Base::addAttribute(aSocketNames));
@@ -263,12 +268,15 @@ MStatus RigModuleWithControlsNode<Derived>::connectSocketMatrixToChildPlug(
 	const MString& childPlugName,
 	const MObject& oParentModule,
 	const MString& parentSocketName,
-	MDGModifier& dgMod
+	MDagModifier& dagMod
 )
 {
 	MStatus status;
 
-	MPlug pChildPlugs(oChildModule, RigModuleWithControlsNode::aChildPlugs);
+	MFnDependencyNode fnChildModule(oChildModule);
+	// NOTE: we are using strings with findPlug because of MObject issues 
+	MPlug pChildPlugs = fnChildModule.findPlug(RigAttr::ChildPlugs, false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 	const unsigned int numElements = pChildPlugs.numElements(&status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
@@ -285,14 +293,14 @@ MStatus RigModuleWithControlsNode<Derived>::connectSocketMatrixToChildPlug(
 		MPlug pElementChildPlugName = pChildPlugElement.child(aChildPlugName);
 		MString elementChildPlugName = pElementChildPlugName.asString();
 
-		if (elementChildPlugName.indexW(childPlugName) != -1)
+		if (StringUtils::nameListContains(elementChildPlugName, childPlugName))
 		{
 			MPlug pChildPlugParentMatrix = pChildPlugElement.child(aChildPlugParentMatrix);
 
 			MFnDependencyNode fnParentModule(oParentModule);
-			MPlug pParentSocketNames = fnParentModule.findPlug(aSocketNames, false, &status);
+			MPlug pParentSocketNames = fnParentModule.findPlug(RigAttr::SocketNames, false, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
-			MPlug pParentSockets = fnParentModule.findPlug(aOutputSocketMatrix, false, &status);
+			MPlug pParentSockets = fnParentModule.findPlug(RigAttr::OutputSocketMatrix, false, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			unsigned int parentSocketIndex;
@@ -305,7 +313,7 @@ MStatus RigModuleWithControlsNode<Derived>::connectSocketMatrixToChildPlug(
 				MString elementSocketName = pParentSocketNamesElement.asString();
 
 				// this is the open maya MString contains method
-				if (elementSocketName.indexW(parentSocketName) != -1)
+				if (StringUtils::nameListContains(elementSocketName, parentSocketName))
 				{
 					parentSocketIndex = i;
 					foundSocket = true;
@@ -313,14 +321,22 @@ MStatus RigModuleWithControlsNode<Derived>::connectSocketMatrixToChildPlug(
 				}
 			}
 
-			if (foundSocket && status && !pParentSocketMatrix.isNull() && !pChildPlugParentMatrix.isNull())
+			if (foundSocket && status && !pChildPlugParentMatrix.isNull())
 			{
 				MPlug pParentSocketMatrix = pParentSockets.elementByLogicalIndex(parentSocketIndex);
 				CHECK_MSTATUS_AND_RETURN_IT(status);
-				// TODO: there is now a jump on the child when connected if the parent plug isn't identity.
-				status = dgMod.connect(pParentSocketMatrix, pChildPlugParentMatrix);
-				CHECK_MSTATUS_AND_RETURN_IT(status);
-				matchFound = true;
+
+				if (!pParentSocketMatrix.isNull())
+				{
+					// Same source as the live connection, so rest == live at connection time and the delta is identity.
+					const MMatrix mSocketRest = DagUtils::getMatrixFromPlug(pParentSocketMatrix);
+					MPlug pChildPlugParentRest = pChildPlugElement.child(aChildPlugParentRestMatrix);
+					DagUtils::setMatrixPlug(pChildPlugParentRest, mSocketRest, dagMod);
+
+					status = dagMod.connect(pParentSocketMatrix, pChildPlugParentMatrix);
+					CHECK_MSTATUS_AND_RETURN_IT(status);
+					matchFound = true;
+				}
 				break;
 			}
 		}
@@ -353,7 +369,7 @@ MStatus RigModuleWithJointsNode<Derived>::initializeSharedAttributes()
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	MFnMatrixAttribute mAttr;
-	aJointOPM = mAttr.create("jointOPM", "jointOPM", MFnMatrixAttribute::kDouble, &status);
+	aJointOPM = mAttr.create(RigAttr::JointOPM, RigAttr::JointOPM, MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	mAttr.setArray(true);
 	mAttr.setWritable(false);

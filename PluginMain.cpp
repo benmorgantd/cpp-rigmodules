@@ -20,23 +20,6 @@ MStatus initializePlugin(MObject obj)
 	// Register our plugin
 	MFnPlugin plugin(obj, "Ben Morgan", "0.1", "Any");
 
-	// TODO: these two nodes don't live in the ModuleRegistry but they could still live in another type of registry.
-	// Asset root node
-	status = plugin.registerNode("assetRootNode", AssetRootNode::id, AssetRootNode::creator, AssetRootNode::initialize);
-	if (!status)
-	{
-		status.perror("Failed to register assetRootNode");
-		return status;
-	}
-
-	// Rig root node
-	status = plugin.registerNode("rigRootNode", RigRootNode::id, RigRootNode::creator, RigRootNode::initialize);
-	if (!status)
-	{
-		status.perror("Failed to register rigRootNode");
-		return status;
-	}
-
 	// -- RIG MODULE NODES --
 	// This loop is possible because we have the ModuleRegistry. It makes it so that when we add a new module we don't have to touch so many files.
 	for (const ModuleDescriptor& descriptor : ModuleRegistry::all())
@@ -101,12 +84,6 @@ MStatus uninitializePlugin(MObject obj)
 	{
 		plugin.deregisterNode(it->typeId);
 	}
-
-	status = plugin.deregisterNode(RigRootNode::id);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	plugin.deregisterNode(AssetRootNode::id);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;
 }

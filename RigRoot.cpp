@@ -26,6 +26,8 @@
 #include <maya/MSyntax.h>
 #include <maya/MArgDatabase.h>
 #include <maya/MString.h>
+#include <maya/MNamespace.h>
+#include <maya/MTypeId.h>
 
 // Define the unique ID
 MTypeId RigRootNode::id(0x00218);
@@ -57,11 +59,11 @@ MStatus RigRootNode::initialize()
     MFnEnumAttribute eAttr;
 	MStatus status;
 
-	aRigName = tAttr.create("rigName", "rn", MFnData::kString, MObject::kNullObj, &status);
+	aRigName = tAttr.create("rigName", "rigName", MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	addAttribute(aRigName);
 
-	aRigType = eAttr.create("rigType", "rt", 0);
+	aRigType = eAttr.create("rigType", "rigType", 0);
     eAttr.addField("Prop", 0);
     eAttr.addField("Character", 1);
     eAttr.addField("Vehicle", 2);
@@ -74,22 +76,22 @@ MStatus RigRootNode::initialize()
 	eAttr.setStorable(true);
 	addAttribute(aRigType);
 
-	aRigVersion = nAttr.create("rigVersion", "rv", MFnNumericData::kLong, 0, &status);
+	aRigVersion = nAttr.create("rigVersion", "rigVersion", MFnNumericData::kLong, 0, &status);
 	nAttr.setStorable(true);
 	addAttribute(aRigVersion);
 
-	aRigTemplateName = tAttr.create("rigTemplateName", "rtn", MFnData::kString, MObject::kNullObj, &status);
+	aRigTemplateName = tAttr.create("rigTemplateName", "rigTemplateName", MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	addAttribute(aRigTemplateName);
 
 	// Message attributes can't be storable since they don't contain data
-	aRigModules = msgAttr.create("rigModules", "rm", &status);
+	aRigModules = msgAttr.create("rigModules", "rigModules", &status);
 	addAttribute(aRigModules);
 
-	aAssetRoot = msgAttr.create("assetRoot", "ar", &status);
+	aAssetRoot = msgAttr.create("assetRoot", "assetRoot", &status);
 	addAttribute(aAssetRoot);
 
-	aChildren = msgAttr.create("children", "c", &status);
+	aChildren = msgAttr.create("children", "cildren", &status);
 	addAttribute(aChildren);
 
 	// In the case of this node, there are no attribute affect relationships.
@@ -114,8 +116,7 @@ MObject RigRootNode::createRigRoot(
     MDagModifier& dagMod)
 {
     // 1. Create the DG node (using a variable string for node type)
-    MString nodeTypeName = "rigRootNode";
-    MObject oRigRoot = dagMod.MDGModifier::createNode(nodeTypeName);
+    MObject oRigRoot = dagMod.MDGModifier::createNode(RigRootNode::id);
 
     // 2. Set string and numeric attributes
     if (!name.isEmpty())
@@ -164,6 +165,10 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath)  // TODO: optionally
 {
     MStatus status;
 
+	MString originalNamespace = MNamespace::currentNamespace();
+	//MNamespace::addNamespace("rig");
+	//MNamespace::setCurrentNamespace("rig");  // TODO: we will have to move input joints into the namespace also
+
     // 1. Parse JSON File into C++ Structs
     AssetRootData assetData;
     RigRootData rigData;
@@ -178,7 +183,7 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath)  // TODO: optionally
 
     // 2. Instantiate AssetRootNode
     // (Assuming assetType conversion and assetId mapping relative to MAYA_PROJECTS_ROOT)
-    AssetType assetType = getAssetTypeFromString(assetData.assetType);  // TODO: there's some issue here with this string
+    AssetType assetType = getAssetTypeFromString(assetData.assetType);
     // TODO: optionally create the asset root.
 	// TODO: we have no asset id to pass in because that's not supposed to be apart of json data (it should not be tied to assets)
     MObject oAssetRoot = AssetRootNode::createAssetRoot(rigData.rigTemplateName.c_str(), assetType, dagMod);
@@ -214,6 +219,9 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath)  // TODO: optionally
     }
 
     MGlobal::displayInfo("Rig successfully created from template: " + jsonFilePath);
+
+	// MNamespace::setCurrentNamespace(originalNamespace);  // TODO: this should be a fallback\finally call.
+
     return MStatus::kSuccess;
 }
 

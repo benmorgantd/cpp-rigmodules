@@ -1,4 +1,6 @@
 #include "Side.h"
+#include "Constants.h"
+
 #include <string>
 
 const char* getSideSuffix(const Side& sideEnum)
@@ -16,10 +18,10 @@ const char* getFullSideName(const Side& sideEnum)
 {
 	switch (sideEnum)
 	{
-		case Side::Left: return "Left";
-		case Side::Right: return "Right";
-		case Side::Center: return "Center";
-		default: return "Center";
+		case Side::Left: return SideNames::Left;
+		case Side::Right: return SideNames::Right;
+		case Side::Center: return SideNames::Center;
+		default: return SideNames::Center;
 	}
 }
 
@@ -61,34 +63,20 @@ Side getSideFromSuffix(const std::string& suffix)
 Side getSideFromShort(const short& side)
 {
 	return static_cast<Side>(side);
-	//switch (side)
-	//{
-	//	case 0: return Side::Center;
-	//	case 1: return Side::Left;
-	//	case 2: return Side::Right;
-	//	default: return Side::Center;
-	//}
 }
 
 short getShortFromSide(const Side& side)
 {
 	return static_cast<short>(side);
-	//switch (side)
-	//{
-	//	case Side::Center: return 0;
-	//	case Side::Left: return 1;
-	//	case Side::Right: return 2;
-	//	default: return 0;
-	//}
 }
 
 MColor getColorFromSide(const Side& sideEnum)
 {
 	switch (sideEnum)
 	{
-		case Side::Left: return MColor(0.0f, 1.0f, 0.0f);  // TODO: pull this out of a constants file
-		case Side::Right: return MColor(1.0f, 0.0f, 0.0f);
-		case Side::Center: return MColor(1.0f, 1.0f, 0.0f);
-		default: return MColor(1.0f, 1.0f, 0.0f);
+		case Side::Center: return Colors::RigCenter;
+		case Side::Left: return Colors::RigLeft;
+		case Side::Right: return Colors::RigRight;
+		default: return Colors::RigCenter;
 	}
 }

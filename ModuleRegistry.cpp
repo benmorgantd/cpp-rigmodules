@@ -2,6 +2,8 @@
 #include "ModuleRegistry.h"
 #include "RigModule.h"
 #include "LayoutModule.h"
+#include "AssetRoot.h"
+#include "RigRoot.h"
 #include "FkChain.h"
 
 #include <vector>
@@ -13,12 +15,24 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
     static const std::vector<ModuleDescriptor> descriptors =
     {
         {
-            LayoutModuleNode::aCommmandString, "Layout", LayoutModuleNode::id,
+            "assetRootModule", "AssetRoot", AssetRootNode::id,
+            AssetRootNode::creator, AssetRootNode::initialize,
+            1, nullptr
+        },
+
+        {
+            "rigRootModule", "RigRoot", RigRootNode::id,
+            RigRootNode::creator, RigRootNode::initialize,
+            1, nullptr
+        },
+
+        {
+            "layoutModule", "Layout", LayoutModuleNode::id,
             LayoutModuleNode::creator, LayoutModuleNode::initialize,
             1, nullptr   // built implicitly by RigRootNode::createRig, not from JSON
         },
         {
-            FkChainNode::aCommandString, "FkChain", FkChainNode::id,
+            "fkChainModule", "FkChain", FkChainNode::id,
             FkChainNode::creator, FkChainNode::initialize,
             1, FkChainNode::buildFromJson
         }

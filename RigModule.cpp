@@ -1,9 +1,10 @@
 #include "RigModule.h"
 #include "RigJsonStructs.h"
 #include "ModuleRegistry.h"
-#include "FkChain.h"
+#include "Constants.h"
 
-#include "unordered_map"
+#include <unordered_map>
+#include <string>
 
 #include <maya/MDataBlock.h>
 #include <maya/MMatrix.h>
@@ -24,14 +25,6 @@ MStatus RigModuleNodeBase::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kSuccess; 
 }
 
-
-
-// Matrix Calculation Helpers --------------------------------------------
-MMatrix RigModuleNodeBase::computeOffsetParentMatrix(const MMatrix& mControlWorld, const MMatrix& mDagParentWorld)
-{
-	// M_OPM = M_ControlWorld * M_DAGParentWorld_Inverse
-	return mControlWorld * mDagParentWorld.inverse();
-}
 
 // DataBlock Handles Access --------------------------------------------
 MMatrix RigModuleNodeBase::getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx)
@@ -99,7 +92,7 @@ MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDagModifie
 {
 	MStatus status;
 	MFnDependencyNode rigRootFn(oRigRoot);
-	MPlug pRigModules = rigRootFn.findPlug("rm", false);
+	MPlug pRigModules = rigRootFn.findPlug(RigAttr::RigModules, false);
 
 	if (pRigModules.isNull())
 	{

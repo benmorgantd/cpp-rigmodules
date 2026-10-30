@@ -28,7 +28,6 @@ public:
 
 public:
 	static MTypeId id;
-	static const MString aCommandString;
 public:
 	static MStatus reparentChildPlugs(       // Function used when parenting child transforms to other module parents
 		RigModuleDagReparentArgs

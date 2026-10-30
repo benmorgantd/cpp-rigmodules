@@ -20,13 +20,13 @@
 #include <maya/MGlobal.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
+#include <maya/MFnMatrixData.h>
 
 // ------------------------------------------------------------------
 // FkChainNode Implementation
 // ------------------------------------------------------------------
 
 MTypeId FkChainNode::id(0x00218B);
-const MString FkChainNode::aCommandString = "fkChainModule";
 
 FkChainNode::FkChainNode() {}
 FkChainNode::~FkChainNode() {}
@@ -50,21 +50,74 @@ MStatus FkChainNode::initialize()
 	// AFFECTS RELATIONSHIPS
 	attributeAffects(aControlMatrix, aControlOPM);
 	attributeAffects(aChildPlugParentMatrix, aControlOPM);
-	attributeAffects(aControlRestOffset, aControlOPM);
+	attributeAffects(aChildPlugParentRestMatrix, aControlOPM);
+	attributeAffects(aControlRestWorld, aControlOPM);
 
 	attributeAffects(aControlMatrix, aJointOPM);
 	attributeAffects(aChildPlugParentMatrix, aJointOPM);
-	attributeAffects(aControlRestOffset, aJointOPM);
+	attributeAffects(aChildPlugParentRestMatrix, aJointOPM);
+	attributeAffects(aControlRestWorld, aJointOPM);
 
 	attributeAffects(aControlMatrix, aOutputSocketMatrix);
 	attributeAffects(aChildPlugParentMatrix, aOutputSocketMatrix);
-	attributeAffects(aControlRestOffset, aOutputSocketMatrix);
+	attributeAffects(aChildPlugParentRestMatrix, aOutputSocketMatrix);
+	attributeAffects(aControlRestWorld, aOutputSocketMatrix);
 
 	return MStatus::kSuccess;
 }
 
 MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 {
+	unsigned int index = plug.isElement() ? plug.logicalIndex() : 0;
+	bool plugIsControlOPM = plug.attribute() == aControlOPM;
+	bool plugIsJointOPM = plug.attribute() == aJointOPM;
+	bool plugIsOutputSocketMatrix = plug.attribute() == aOutputSocketMatrix;
+
+	if (plugIsControlOPM || plugIsJointOPM || plugIsOutputSocketMatrix)
+	{
+		MArrayDataHandle hInputDataArray = data.inputArrayValue(aControlInputData);
+		MArrayDataHandle hOutputArray = data.outputArrayValue(
+			plugIsJointOPM ? aJointOPM : (plugIsControlOPM ? aControlOPM : aOutputSocketMatrix));
+
+		// Socket live world and its world at the time of parenting. Both identity if unparented.
+		MMatrix mParentWorld = getInputCompoundMatrix(data, aChildPlugs, aChildPlugParentMatrix, 0);
+		MMatrix mParentRest = getInputCompoundMatrix(data, aChildPlugs, aChildPlugParentRestMatrix, 0);
+
+		const unsigned int elementCount = hInputDataArray.elementCount();
+
+		for (unsigned int i = 0; i < elementCount; ++i)
+		{
+			hInputDataArray.jumpToElement(i);
+			MDataHandle hElement = hInputDataArray.inputValue();
+
+			const MMatrix mControlLocal = hElement.child(aControlMatrix).asMatrix();
+			const MMatrix mControlRestWorld = hElement.child(aControlRestWorld).asMatrix();
+
+			// Motion of the parent since rest. Identity at rest.
+			const MMatrix mParentDelta = mParentRest.inverse() * mParentWorld;
+
+			// World-space OPM: the control's rest carried by the parent's motion. No local in here.
+			const MMatrix mControlOPM = mControlRestWorld * mParentDelta;
+			const MMatrix mControlWorld = mControlLocal * mControlOPM;
+
+			// Carry state: identical for every output plug.
+			mParentWorld = mControlWorld;
+			mParentRest = mControlRestWorld;
+
+			// Only the written value depends on the plug.
+			const MMatrix& mOut = plugIsControlOPM ? mControlOPM : mControlWorld;
+
+			if (hOutputArray.jumpToElement(i) == MStatus::kSuccess)
+			{
+				hOutputArray.outputValue().setMMatrix(mOut);
+			}
+		}
+
+		hOutputArray.setAllClean();
+		data.setClean(plug);
+		return MStatus::kSuccess;
+	}
+	/*
 	unsigned int index = plug.isElement() ? plug.logicalIndex() : 0;
 	bool plugIsControlOPM = plug.attribute() == aControlOPM;
 	bool plugIsJointOPM = plug.attribute() == aJointOPM;
@@ -81,6 +134,7 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 		MArrayDataHandle hOutputSocketMatrixArray = data.outputArrayValue(aOutputSocketMatrix);
 
 		MMatrix mCurrentParentWorld = getInputCompoundMatrix(data, aChildPlugs, aChildPlugParentMatrix, 0);
+		MMatrix mCurrentParentWorldRest = getInputCompoundMatrix(data, aChildPlugs, aChildPlugParentRestMatrix, 0);
 		unsigned int elementCount = hInputDataArray.elementCount();
 
 		for (unsigned int i = 0; i < elementCount; ++i)
@@ -89,22 +143,31 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 			MDataHandle hElement = hInputDataArray.inputValue();
 
 			MMatrix mControlLocal = hElement.child(aControlMatrix).asMatrix();
-			MMatrix mControlRestOffset = hElement.child(aControlRestOffset).asMatrix();
+			MMatrix mControlWorldRest = hElement.child(aControlRestWorld).asMatrix();
 			MMatrix mOutputOPM;
+
+			// TODO: our issue with the jump is here in the compute. 
+			// When dealing with world spaces, we're double-applying transformations.
+			// The end transform OPM has to be in world space, but we also have to apply the parent's in world space. 
+
+			MMatrix mParentDelta = mCurrentParentWorldRest.inverse() * mCurrentParentWorld;
+			MMatrix mWorldOffset = mControlWorldRest * mParentDelta;
 
 			if (plugIsJointOPM)
 			{
 				// we DO want to include control local transforms for joints or else they wont follow their parent controls...
-				mOutputOPM = mControlLocal * mControlRestOffset * mCurrentParentWorld;
-				mCurrentParentWorld = mOutputOPM; // This is already in world space
+				mOutputOPM = mControlLocal * mWorldOffset;
 			}
-			else 
+			else
 			{
 				// NOTE: We can't have the control's local matrix in its own opm! That causes a double transformation.
-				mOutputOPM = mControlRestOffset * mCurrentParentWorld;
-				// Carry world matrix forward for index i + 1
-				mCurrentParentWorld = mControlLocal * mOutputOPM;
+				mOutputOPM = mWorldOffset;
 			}
+
+			// Carry world matrix forward for index i + 1
+			mCurrentParentWorld = mControlLocal * mOutputOPM;
+			// Make sure we also update the world rest so we know the delta
+			mCurrentParentWorldRest = mWorldOffset;
 
 			if (plugIsOutputSocketMatrix)
 			{
@@ -133,6 +196,7 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 	}
 
 	return MStatus::kUnknownParameter;
+	*/
 }
 
 RigModuleBuildResult FkChainNode::createModule(
@@ -146,7 +210,7 @@ RigModuleBuildResult FkChainNode::createModule(
 	RigModuleBuildResult result;
 
 	// Instantiate module node in DG
-	MObject oFkChainModule = dagMod.MDGModifier::createNode(FkChainNode::aCommandString);
+	MObject oFkChainModule = dagMod.MDGModifier::createNode(FkChainNode::id);
 	dagMod.renameNode(oFkChainModule, moduleName);
 	dagMod.doIt();
 
@@ -172,11 +236,14 @@ RigModuleBuildResult FkChainNode::createModule(
 
 		// Turn off inherits transform for all joints so their OPM can be in world space
 		MObject oJoint = jointDag.node();
-		DagUtils::setInheritsTransforms(oJoint, false, dagMod);
-		DagUtils::setSegmentScaleCompensate(oJoint, false, dagMod);
 
 		// Make sure the joint retains its original transform and bake them again
-		MMatrix mJointRest = DagUtils::bakeTransformsToOPM(jointDag);
+		MMatrix mJointRestLocal = DagUtils::bakeTransformsToOPM(jointDag);
+		MMatrix mJointRestWorld = jointDag.inclusiveMatrix();
+
+		DagUtils::setInheritsTransforms(oJoint, false, dagMod);
+		DagUtils::setSegmentScaleCompensate(oJoint, false, dagMod);
+		dagMod.doIt();
 
 		// After toggling inherits transform, the joint will have moved. We have to now set its matrix back and bake that to the OPM
 
@@ -237,8 +304,9 @@ RigModuleBuildResult FkChainNode::createModule(
 		MPlug pControlInputMatrix = pControlInputDataIndex.child(aControlMatrix);
 		dagMod.connect(pControlLocalMatrix, pControlInputMatrix);
 
-		MPlug pInputRestMatrix = pControlInputDataIndex.child(aControlRestOffset);
-		DagUtils::setMatrixPlug(pInputRestMatrix, mJointRest);
+		// Store the control rest world matrix and never touch it
+		MPlug pControlRestWorld = pControlInputDataIndex.child(aControlRestWorld);
+		DagUtils::setMatrixPlug(pControlRestWorld, mJointRestWorld, dagMod);
 
 		// Connect the message attribute
 		MPlug pControlMessages(oFkChainModule, FkChainNode::aControlMessage);
@@ -323,11 +391,15 @@ RigModuleBuildResult FkChainNode::buildFromJson(const nlohmann::json& args, Buil
 
 MStatus FkChainNode::reparentChildPlugs(RigModuleDagReparentArgs args)
 {
+	MStatus status;
+
 	if (args.childPlugName != "start")
 	{
 		MGlobal::displayError("The child plug name must be \'start\'");
 		return MStatus::kFailure;
 	}
+
+	// TODO: all this is broken and needs fixin'
 
 	MDagModifier& dagMod = args.dagMod;
 	MString targetSocketName = args.targetSocketName.c_str();
@@ -337,9 +409,17 @@ MStatus FkChainNode::reparentChildPlugs(RigModuleDagReparentArgs args)
 	MObject& oChildTransform = args.oChildPlugTransform;
 	MObject& oTargetSocketTransform = args.oParentTargetTransform;
 
-	dagMod.reparentNode(oChildTransform, oTargetSocketTransform);
-	dagMod.doIt();
+	status = dagMod.reparentNode(oChildTransform, oTargetSocketTransform);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	status = dagMod.doIt();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MDagPath dagParent;
+	MDagPath::getAPathTo(oTargetSocketTransform, dagParent);
+	MMatrix mParentOrigWorld = dagParent.inclusiveMatrix();
 
 	// We are only doing this for the index 0 control (start)
-	return connectSocketMatrixToChildPlug(oChildModule, childPlugName, oTargetModule, targetSocketName, dagMod);
+	status = connectSocketMatrixToChildPlug(oChildModule, childPlugName, oTargetModule, targetSocketName, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	return status;
 }

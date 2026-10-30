@@ -253,6 +253,23 @@ MDagPath DagUtils::getDagPathFromName(MString& name)
 	return jointDag;
 }
 
+// String Utils -----------------------------------------------------------
+// Separate a string by semicolons and see if the given token is in it 
+bool StringUtils::nameListContains(const MString& nameList, const MString& token)
+{
+	MStringArray splitString;
+	nameList.split(';', splitString);
+
+	for (unsigned int i = 0; i < splitString.length(); ++i)
+	{
+		if (splitString[i] == token)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 
 // RigModuleCommandHelpers ------------------------------------------------
 const char* RigModuleCommandUtils::kNameFlagShort = "-n";

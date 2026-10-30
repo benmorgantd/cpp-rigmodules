@@ -31,6 +31,12 @@ public:
 	static void setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod);
 };
 
+class StringUtils
+{
+public:
+	static bool nameListContains(const MString& nameList, const MString& name);  // For semicolon-separated lists to compare whole tokens.
+};
+
 class RigModuleCommandUtils
 {
 public:

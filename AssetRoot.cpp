@@ -1,6 +1,8 @@
 // Internal dependencies
 #include "AssetRoot.h"
 #include "AssetType.h"
+#include "Constants.h"
+#include "ModuleRegistry.h"
 
 // Maya dependencies
 #include <maya/MFnAttribute.h>
@@ -37,12 +39,12 @@ MStatus AssetRootNode::initialize()
 	MStatus status;
 
 	// Asset ID: Hierarchy path separated by pipes ("project_name|assets|my_rig")
-	aAssetId = tAttr.create("assetId", "aid", MFnData::kString, MObject::kNullObj, &status);
+	aAssetId = tAttr.create(RigAttr::AssetId, RigAttr::AssetId, MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	addAttribute(aAssetId);
 
 	// Asset Type: High-level classification string 
-	aAssetType = eAttr.create("assetType", "at", 0);
+	aAssetType = eAttr.create(RigAttr::AssetType, RigAttr::AssetType, 0);
 	eAttr.addField("Mesh", 0);
 	eAttr.addField("Rig", 1);
 	eAttr.addField("Other", 2);
@@ -50,12 +52,12 @@ MStatus AssetRootNode::initialize()
 	addAttribute(aAssetType);
 
 	// Asset Data: Native string attribute storing JSON formatted payload for graph metadata
-	aAssetData = tAttr.create("assetData", "ad", MFnData::kString, MObject::kNullObj, &status);
+	aAssetData = tAttr.create(RigAttr::AssetData, RigAttr::AssetData, MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	addAttribute(aAssetData);
 
 	// Message attributes are non-storable DG connection pins
-	aChildren = msgAttr.create("children", "c", &status);
+	aChildren = msgAttr.create(RigAttr::Children, RigAttr::Children, &status);
 	addAttribute(aChildren);
 
 	// No attribute affect relationships are needed since this is a pure metadata/network node.
@@ -73,7 +75,7 @@ MStatus AssetRootNode::compute(const MPlug& plug, MDataBlock& data)
 // Master rig builder static method ------------------------------------------
 MObject AssetRootNode::createAssetRoot(const MString& assetId, const AssetType& assetType, MDagModifier& dagMod)
 {
-	MObject oAssetRoot = dagMod.MDGModifier::createNode("assetRootNode");  // TODO: node names should be variables.
+	MObject oAssetRoot = dagMod.MDGModifier::createNode(AssetRootNode::id);
 
 	// Set asset id
 	MPlug pAssetId(oAssetRoot, AssetRootNode::aAssetId);

@@ -19,7 +19,6 @@ public:
 
 public:
 	static MTypeId id;
-	static const MString aCommmandString;
 public:
 	static RigModuleBuildResult createModule(MObject& oRigRoot, MDagModifier& dagMod, const unsigned short& numControls);
 };

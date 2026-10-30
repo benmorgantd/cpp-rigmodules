@@ -1,6 +1,7 @@
 #include "RigControlNode.h"
 #include "Side.h"
 #include "Utilities.h"
+#include "Constants.h"
 
 #include <string>
 
@@ -57,8 +58,6 @@ MObject RigControlNode::aShapeTransform;
 MObject RigControlNode::aFilled;
 
 MObject RigControlNode::aRigModule;
-MObject RigControlNode::aChildControlPlugs;
-MObject RigControlNode::aParentControlSockets;
 
 RigControlNode::RigControlNode() 
     : m_drawIsDirty(true) {}
@@ -95,7 +94,7 @@ MStatus RigControlNode::initialize() {
     MFnMessageAttribute msgAttr;
     MFnMatrixAttribute mAttr;
 
-    aShapeType = eAttr.create("shapeType", "st", 0);
+    aShapeType = eAttr.create(RigControlNodeAttr::ShapeType, RigControlNodeAttr::ShapeType, 0);
     // TODO: the maya enum and cpp enum are not tied together. 
     eAttr.addField("Box", 0);
     eAttr.addField("Sphere", 1);
@@ -108,40 +107,32 @@ MStatus RigControlNode::initialize() {
     eAttr.setStorable(true);
     addAttribute(aShapeType);
 
-    aWireColor = nAttr.createColor("wireframeColor", "wc");
+    aWireColor = nAttr.createColor(RigControlNodeAttr::WireframeColor, RigControlNodeAttr::WireframeColor);
     nAttr.setDefault(1.0f, 0.0f, 0.0f);  // note that this was silently failing when trying to set alpha
     nAttr.setKeyable(false);
     nAttr.setStorable(true);
     addAttribute(aWireColor);
 
-    aWireAlpha = nAttr.create("wireframeAlpha", "wa", MFnNumericData::kFloat, 1.0f);
+    aWireAlpha = nAttr.create(RigControlNodeAttr::WireframeAlpha, RigControlNodeAttr::WireframeAlpha, MFnNumericData::kFloat, 1.0f);
     nAttr.setMin(0.0f);
     nAttr.setMax(1.0f);
     nAttr.setKeyable(false);
     nAttr.setStorable(true);
     addAttribute(aWireAlpha);
 
-    aShapeTransform = mAttr.create("shapeTransform", "sxf", MFnMatrixAttribute::kDouble);
+    aShapeTransform = mAttr.create(RigControlNodeAttr::ShapeTransform, RigControlNodeAttr::ShapeTransform, MFnMatrixAttribute::kDouble);
     mAttr.setWritable(true);
     mAttr.setStorable(true);
     addAttribute(aShapeTransform);
 
-    aFilled = nAttr.create("filled", "fill", MFnNumericData::kBoolean, false);
+    aFilled = nAttr.create(RigControlNodeAttr::Filled, RigControlNodeAttr::Filled, MFnNumericData::kBoolean, false);
     nAttr.setWritable(true);
     nAttr.setStorable(true);
     addAttribute(aFilled);
 
     // Rig Attributes
-    aRigModule = msgAttr.create("rigModule", "rm");
+    aRigModule = msgAttr.create(RigControlNodeAttr::RigModule, RigControlNodeAttr::RigModule);
     addAttribute(aRigModule);
-
-    aChildControlPlugs = msgAttr.create("childControlPlugs", "childControlPlugs");
-    msgAttr.setArray(true);
-    addAttribute(aChildControlPlugs);
-
-    aParentControlSockets = msgAttr.create("parentControlSockets", "parentControlSockets");
-    msgAttr.setArray(true);
-    addAttribute(aParentControlSockets);
 
     return MS::kSuccess;
 }
@@ -267,29 +258,30 @@ MUserData* RigControlDrawOverride::prepareForDraw(
     bool isObjectSelected = selList.hasItem(objPath);
     unsigned int selLen = selList.length();
 
+    MColor newColor = data->dormantColor;
+    data->lineWidth = 1.0f;
+
     if (displayStatus == MHWRender::kLead && isObjectSelected && selLen != 1)
     {
         // Active selection (White)
-        data->color = MColor(1.0f, 1.0f, 1.0f, data->dormantColor.a);
+        data->color = MColor(Colors::ActiveLead.r, Colors::ActiveLead.g, Colors::ActiveLead.b, data->dormantColor.a);
         data->lineWidth = 2.0f;
     }
     else if ((displayStatus == MHWRender::kActive || displayStatus == MHWRender::kLead) && isObjectSelected)
     {
         // Affected selection (Soft Green)
-        data->color = MColor(0.0f, 1.0f, 0.64f, data->dormantColor.a);
+        data->color = MColor(Colors::ActiveSelected.r, Colors::ActiveSelected.g, Colors::ActiveSelected.b, data->dormantColor.a);
         data->lineWidth = 2.0f;
     }
     else if ((displayStatus == MHWRender::kActiveAffected) || (!isObjectSelected && displayStatus != MHWRender::kDormant))
     {
         // Affected selection (Soft Green but less alpha)
-        data->color = MColor(0.0f, 1.0f, 0.64f, data->dormantColor.a * 0.75);
-        data->lineWidth = 1.0f;
+        data->color = MColor(Colors::ActiveSelected.r, Colors::ActiveSelected.g, Colors::ActiveSelected.b, data->dormantColor.a * 0.75);
     }
     else
     {
         // Dormant (Unselected) -> Use cached base color extracted from plugs
-        data->color = data->dormantColor;
-        data->lineWidth = 1.0f;
+        data->color = newColor;
     }
     
     return data;
@@ -357,7 +349,7 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
     MStatus status;
     // Get module side and color it based on that.
     MFnDependencyNode fnModule(moduleNode);
-    MPlug pSide = fnModule.findPlug("side", false, &status);
+    MPlug pSide = fnModule.findPlug(RigAttr::Side, false, &status);
     short sideShort = 0;
     Side sideEnum = Side::Center;
 
@@ -383,7 +375,7 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
     MColor sideColor = getColorFromSide(sideEnum);
 
     // Create and name the control transform
-    MObject controlTransform = dagMod.createNode("rigControlNode");
+    MObject controlTransform = dagMod.createNode(RigControlNode::id);
 
     // All transforms on rig controls get ignored and calculated by modules instead
     DagUtils::setInheritsTransforms(controlTransform, false, dagMod);

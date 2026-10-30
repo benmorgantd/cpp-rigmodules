@@ -16,7 +16,6 @@
 // ------------------------------------------------------------------
 
 MTypeId LayoutModuleNode::id(0x00218C);
-const MString LayoutModuleNode::aCommmandString = "layoutModule";
 
 LayoutModuleNode::LayoutModuleNode() {}
 LayoutModuleNode::~LayoutModuleNode() {}
@@ -109,7 +108,7 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 	MGlobal::displayInfo("Creating Layout module.");
 
 	// 1. Create layout module node
-	MObject oLayoutModule = dagMod.MDGModifier::createNode(LayoutModuleNode::aCommmandString);
+	MObject oLayoutModule = dagMod.MDGModifier::createNode(LayoutModuleNode::id);
 	dagMod.renameNode(oLayoutModule, "layoutModule"); // TODO: namespaces
 	dagMod.doIt();
 
