@@ -11,6 +11,8 @@
 #include <filesystem>
 #include <unordered_map>
 #include <vector>
+#include <stdexcept>
+#include <string>
 
 // Maya dependencies
 #include <maya/MDagModifier.h>
@@ -161,67 +163,88 @@ MObject RigRootNode::createRigRoot(
     return oRigRoot;
 }
 
-MStatus RigRootNode::createRig(const MString& jsonFilePath)  // TODO: optionally pass in the asset root. If none, we create one.
+// TODO: optionally pass in the asset root. If none, we create one.
+MStatus RigRootNode::createRig(const MString& jsonFilePath, MDagModifier& dagMod)
 {
     MStatus status;
-
 	MString originalNamespace = MNamespace::currentNamespace();
-	//MNamespace::addNamespace("rig");
-	//MNamespace::setCurrentNamespace("rig");  // TODO: we will have to move input joints into the namespace also
 
-    // 1. Parse JSON File into C++ Structs
-    AssetRootData assetData;
-    RigRootData rigData;
-    MString parseErr;
-    if (!loadRigTemplate(jsonFilePath, assetData, rigData, parseErr))
-    {
-        MGlobal::displayError(parseErr);
-        return MStatus::kFailure;
-    }
+	try
+	{
+		MNamespace::addNamespace("rig");
+		// TODO: we will have to move input joints into the namespace also
+		MNamespace::setCurrentNamespace("rig");  
 
-    MDagModifier dagMod;
+		// 1. Parse JSON File into C++ Structs
+		AssetRootData assetData;
+		RigRootData rigData;
+		MString parseErr;
 
-    // 2. Instantiate AssetRootNode
-    // (Assuming assetType conversion and assetId mapping relative to MAYA_PROJECTS_ROOT)
-    AssetType assetType = getAssetTypeFromString(assetData.assetType);
-    // TODO: optionally create the asset root.
-	// TODO: we have no asset id to pass in because that's not supposed to be apart of json data (it should not be tied to assets)
-    MObject oAssetRoot = AssetRootNode::createAssetRoot(rigData.rigTemplateName.c_str(), assetType, dagMod);
+		if (!loadRigTemplate(jsonFilePath, assetData, rigData, parseErr))
+		{
+			MGlobal::displayError(parseErr);
+			dagMod.undoIt();
+			return MStatus::kFailure;
+		}
 
-    // 3. Instantiate RigRootNode
-    MObject oRigRoot = RigRootNode::createRigRoot(
-        rigData.rigTemplateName.c_str(),
-        rigData.rigType.c_str(),
-        rigData.rigVersion,
-        rigData.rigTemplateName.c_str(),
-        oAssetRoot,
-        dagMod
-    );
+		// 2. Instantiate AssetRootNode
+		// (Assuming assetType conversion and assetId mapping relative to MAYA_PROJECTS_ROOT)
+		AssetType assetType = getAssetTypeFromString(assetData.assetType);
+		// TODO: optionally create the asset root.
+		// TODO: we have no asset id to pass in because that's not supposed to be apart of json data (it should not be tied to assets)
+		// TODO: we need to pass in an MStatus reference so we can see if this succeeded.
+		MObject oAssetRoot = AssetRootNode::createAssetRoot(rigData.rigTemplateName.c_str(), assetType, dagMod);
 
-    // 4. Create Implicit Base "Layout" Module
-    // The Layout module acts as the fallback parent socket for all top-level modules.
-    RigModuleBuildResult layoutModuleBuildResult = LayoutModuleNode::createModule(oRigRoot, dagMod, 3);
+		// 3. Create RigRootNode
+		MObject oRigRoot = RigRootNode::createRigRoot(
+			rigData.rigTemplateName.c_str(),
+			rigData.rigType.c_str(),
+			rigData.rigVersion,
+			rigData.rigTemplateName.c_str(),
+			oAssetRoot,
+			dagMod
+		);
 
-    // 5. Build all our modules, then run a control parenting pass.
-    std::unordered_map<std::string, RigModuleBuildResult> rigModuleMap = RigModuleNodeBase::buildModules(rigData.rigModules, oRigRoot, dagMod);
+		// 4. Create Implicit Base "Layout" Module
+		// The Layout module acts as the fallback parent socket for all top-level modules.
+		RigModuleBuildResult layoutModuleBuildResult = LayoutModuleNode::createModule(oRigRoot, dagMod, 3);
+		status = layoutModuleBuildResult.status;
+		if (!status)
+		{
+			MGlobal::displayError(MString("Failure building layout module: ") + status.errorString());
+			return status;
+		}
+		
+		// 5. Build all our modules, then run a control parenting pass.
+		std::unordered_map<std::string, RigModuleBuildResult> rigModuleMap;
 
-    // Add the layout module to the rig module map
-    rigModuleMap["layout"] = layoutModuleBuildResult;
+		// Build the remainder of the modules.
+		rigModuleMap = RigModuleNodeBase::buildModules(rigData.rigModules, oRigRoot, dagMod);
 
-    parentModuleControls(rigModuleMap, rigData.rigModules, dagMod);
+		// Append the layout module to the rig module map
+		rigModuleMap["layout"] = layoutModuleBuildResult;
 
-    // 6. Execute DAG mod
-    status = dagMod.doIt();
-    if (!status)
-    {
-        MGlobal::displayError("Failed executing DAG Modifiers during rig creation: " + status.errorString());
-        return status;
-    }
+		// Parent the controls together.
+		parentModuleControls(rigModuleMap, rigData.rigModules, dagMod);
 
-    MGlobal::displayInfo("Rig successfully created from template: " + jsonFilePath);
+		// 6. Execute DAG mod ONE time. For this to work, we have to do the read phase previously so that we know what transforms are.
+		status = dagMod.doIt();
+		if (!status)
+		{
+			MGlobal::displayError("Failed executing DAG Modifiers during rig creation: " + status.errorString());
+			return status;
+		}
 
-	// MNamespace::setCurrentNamespace(originalNamespace);  // TODO: this should be a fallback\finally call.
-
+		MGlobal::displayInfo("Rig successfully created from template: " + jsonFilePath);
+	}
+	catch (const std::runtime_error& e)
+	{
+		MGlobal::displayError(MString("Exception raised when building rig: ") + e.what());
+		// Undo if we hit an exception.
+		dagMod.undoIt();
+	}
+	
+	MNamespace::setCurrentNamespace(originalNamespace);
     return MStatus::kSuccess;
 }
 
@@ -253,24 +276,25 @@ void RigRootNode::parentModuleControls(
 		MGlobal::displayError("Unable to parent module controls: 'layout' module not found in build registry.");
 		return;
 	}
-	MObject oLayoutModule = layoutIt->second.moduleNode;
+	const RigModuleBuildResult& layoutResult = layoutIt->second;
+	MObject oLayoutModule = layoutResult.moduleNode;
 
-	// Ensure build map (including 'layout') matches flat JSON list length. 
+	// Ensure build map (including 'layout') matches flat JSON list length.
 	// We subtract one because we added Layout during build.
-	if ((rigModuleMap.size() - 1) != static_cast<unsigned int>(flatModuleList.size()))
+	if ((rigModuleMap.size() - 1) != flatModuleList.size())
 	{
 		MGlobal::displayError("Unable to parent module controls because object map and module list from json are not equal lengths.");
 		return;
 	}
 
-	// Default fallback parent transform (Layout module "end" socket)
-	MObject oLayoutEndSocket = RigModuleNodeBase::findPlugOrSocketTransform(layoutIt->second.parentSockets, "end");
+	// Default fallback parent socket (Layout module "end"). Can be nullptr, checked where it is used.
+	const RigModuleSocketInfo* pLayoutEndSocket = RigModuleNodeBase::findInfo(layoutResult.parentSockets, "end");
 
 	// 2. Process parenting for each module defined in JSON
 	for (unsigned int i = 0; i < flatModuleList.size(); ++i)
 	{
 		const RigModuleData& moduleJsonData = flatModuleList[i];
-		std::string moduleName = moduleJsonData.name;
+		const std::string& moduleName = moduleJsonData.name;
 
 		auto moduleIt = rigModuleMap.find(moduleName);
 		if (moduleIt == rigModuleMap.end())
@@ -282,47 +306,43 @@ void RigRootNode::parentModuleControls(
 		const RigModuleBuildResult& buildResult = moduleIt->second;
 		MObject oModule = buildResult.moduleNode;
 
-		// Call the module-specific function for doing dag parenting stored in the build result.
+		// Every path below ends in the module-specific callback stored in the build result.
+		if (!buildResult.dagParentCallback)
+		{
+			MGlobal::displayInfo(MString("Module did not define dag parenting function: ") + moduleName.c_str());
+			continue;
+		}
 
 		// Case A: Default parenting (No explicit parentStructure defined) -> Parent to Layout "end"
 		if (moduleJsonData.parentStructure.empty())
 		{
 			MGlobal::displayInfo(MString("Rig module ") + moduleName.c_str() + " did not define any dag parents. Defaulting to parenting all child plugs to the Layout module.");
 
-			if (oLayoutEndSocket.isNull())
+			if (pLayoutEndSocket == nullptr)
 			{
 				MGlobal::displayError("Layout module 'end' socket is invalid. Cannot default parent controls.");
 				continue;
 			}
 
-			for (const auto& [plugName, oChildTransform] : buildResult.childPlugs)
+			for (const auto& [plugName, childPlugInfo] : buildResult.childPlugs)
 			{
-				if (!oChildTransform.isNull())
+				if (childPlugInfo.oTransform.isNull())
 				{
-					MObject oModule = buildResult.moduleNode;
-			
-					RigModuleDagReparentArgs args{
-						"start",
-						"end",
-						oModule,
-						oChildTransform,
-						oLayoutModule,
-						oLayoutEndSocket,
-						dagMod
-					};
+					continue;
+				}
 
-					if (buildResult.dagParentCallback)
-					{
-						MStatus reparentResult = buildResult.dagParentCallback(args);
-						if (!reparentResult)
-						{
-							MGlobal::displayError(MString("Failed to do dag parenting for module ") + moduleName.c_str());
-						}
-					}
-					else
-					{
-						MGlobal::displayInfo(MString("Module did not define dag parenting function: ") + moduleName.c_str());
-					}
+				RigModuleDagReparentArgs args{
+					childPlugInfo,
+					*pLayoutEndSocket,
+					oModule,
+					oLayoutModule,
+					dagMod
+				};
+
+				MStatus reparentResult = buildResult.dagParentCallback(args);
+				if (!reparentResult)
+				{
+					MGlobal::displayError(MString("Failed to do dag parenting for module ") + moduleName.c_str());
 				}
 			}
 		}
@@ -331,9 +351,8 @@ void RigRootNode::parentModuleControls(
 		{
 			for (const auto& [childPlugName, parentTargetIdentifier] : moduleJsonData.parentStructure)
 			{
-				MObject oChildTransform = RigModuleNodeBase::findPlugOrSocketTransform(buildResult.childPlugs, childPlugName);
-
-				if (oChildTransform.isNull())
+				const RigModuleChildPlugInfo* pChildInfo = RigModuleNodeBase::findInfo(buildResult.childPlugs, childPlugName);
+				if (pChildInfo == nullptr)
 				{
 					MGlobal::displayError(MString("Child plug '") + childPlugName.c_str() + "' not found in module '" + moduleName.c_str() + "'.");
 					continue;
@@ -344,69 +363,57 @@ void RigRootNode::parentModuleControls(
 				parseSocketIdentifier(parentTargetIdentifier.c_str(), targetModuleName, targetSocketName);
 
 				MObject oParentTargetModule = MObject::kNullObj;
-				MObject oParentTargetTransform = MObject::kNullObj;
+				const RigModuleSocketInfo* pSocketInfo = nullptr;
 
-				if (targetModuleName.length() == 0 || targetModuleName == "layout")
+				if (targetModuleName.empty() || targetModuleName == "layout")
 				{
-					MGlobal::displayWarning("Invalid socket name given, defaulting to layout.");
-					oParentTargetTransform = RigModuleNodeBase::findPlugOrSocketTransform(layoutIt->second.parentSockets, targetSocketName);
+					if (targetModuleName.empty())
+					{
+						MGlobal::displayWarning("Invalid socket name given, defaulting to layout.");
+					}
+
+					oParentTargetModule = oLayoutModule;
+					pSocketInfo = RigModuleNodeBase::findInfo(layoutResult.parentSockets, targetSocketName);
 				}
 				else
 				{
-					// Get the transform related to that socket and parent the child to it.
 					auto targetModuleIt = rigModuleMap.find(targetModuleName);
-					if (targetModuleIt != rigModuleMap.end())
-					{
-						oParentTargetModule = targetModuleIt->second.moduleNode;
-						oParentTargetTransform = RigModuleNodeBase::findPlugOrSocketTransform(targetModuleIt->second.parentSockets, targetSocketName);
-					}
-					else
+					if (targetModuleIt == rigModuleMap.end())
 					{
 						MGlobal::displayError(MString("Target parent module '") + targetModuleName.c_str() + "' not found in build map.");
 						continue;
 					}
+
+					oParentTargetModule = targetModuleIt->second.moduleNode;
+					pSocketInfo = RigModuleNodeBase::findInfo(targetModuleIt->second.parentSockets, targetSocketName);
 				}
 
-				if (!oParentTargetTransform.isNull())
-				{
-					RigModuleDagReparentArgs args{
-						childPlugName,
-						targetSocketName,
-						oModule,
-						oChildTransform,
-						oParentTargetModule,
-						oParentTargetTransform,
-						dagMod
-					};
-
-					if (buildResult.dagParentCallback)
-					{
-						MStatus reparentResult = buildResult.dagParentCallback(args);
-
-						if (!reparentResult)
-						{
-							MGlobal::displayError(MString("Failed to do dag parenting for module ") + moduleName.c_str());
-						}
-					}
-					else
-					{
-						MGlobal::displayInfo(MString("Module did not define dag parenting function: ") + moduleName.c_str());
-					}
-				}
-				else
+				if (pSocketInfo == nullptr)
 				{
 					MGlobal::displayError(MString("Target parent socket '") + targetSocketName.c_str() + "' not found on module '" + targetModuleName.c_str() + "'.");
+					continue;
+				}
+
+				RigModuleDagReparentArgs args{
+					*pChildInfo,
+					*pSocketInfo,
+					oModule,
+					oParentTargetModule,
+					dagMod
+				};
+
+				MStatus reparentResult = buildResult.dagParentCallback(args);
+				if (!reparentResult)
+				{
+					MGlobal::displayError(MString("Failed to do dag parenting for module ") + moduleName.c_str());
 				}
 			}
 		}
 	}
-
-	// 3. Atomic execution of all DAG reparenting commands
-	dagMod.doIt();
 }
 
 
-// Creat Rig Command ---------------------------------
+// Create Rig Command ---------------------------------
 const char* CreateRigCmd::aCommandString = "createRigFromTemplate";
 
 CreateRigCmd::CreateRigCmd()
@@ -453,15 +460,27 @@ MStatus CreateRigCmd::doIt(const MArgList& args)
     }
 
     // Delegate creation directly to AssetRootNode entry method
-    return RigRootNode::createRig(jsonFilePath);
+    status = RigRootNode::createRig(jsonFilePath, fDagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	return redoIt();
 }
 
 MStatus CreateRigCmd::redoIt()
 {
-    return MStatus::kSuccess;
+	MStatus status = fDagMod.doIt();
+	if (!status)
+	{
+		MGlobal::displayError("Failed executing DAG modifier during rig creation: " + status.errorString());
+		return status;
+	}
+
+	MGlobal::displayInfo("Rig successfully created.");
+	return MStatus::kSuccess;
 }
 
 MStatus CreateRigCmd::undoIt()
 {
-    return MStatus::kSuccess;
+	MGlobal::displayInfo("Undoing creating the rig.");
+	return fDagMod.undoIt();
 }

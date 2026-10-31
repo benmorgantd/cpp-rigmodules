@@ -22,13 +22,13 @@ public:
 	static void lockAndHideTranslate(MObject oControl);
 	static void lockAndHideRotate(MObject oControl);
 	static void lockAndHideScale(MObject oControl);
-	static MMatrix bakeTransformsToOPM(const MDagPath& jointDag);
-	static MStatus setInheritsTransforms(MObject& transform, bool value, MDagModifier& dagMod);
+	static MStatus bakeJointTransformsToOPM(const MObject& oTransform, const MMatrix& mTransformWorld, MDagModifier& dagMod);
+	static MStatus zeroLocalTransforms(const MObject& oTransform, MDagModifier& dagMod);
+	static MStatus setInheritsTransforms(const MObject& transform, bool value, MDagModifier& dagMod);
 	static MStatus setSegmentScaleCompensate(MObject& oTransform, bool value, MDagModifier& dagMod);
 	static MDagPath getDagPathFromName(MString& name);
 	static MMatrix getMatrixFromPlug(const MPlug& pMatrixPlug);
-	static void setMatrixPlug(MPlug& matrixPlug, MMatrix matrix);
-	static void setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod);
+	static MStatus setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod);
 };
 
 class DagPlugAndSocketUtils

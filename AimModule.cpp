@@ -258,13 +258,13 @@ MObject AimModuleNode::createModule(
 
     // 2. Bake Joint Transforms & Input Rest Matrices using Utilities
     MMatrix mAimRest = DagUtils::bakeTransformsToOPM(aimJoint);
-    DagUtils::setMatrixPlug(pInputAimRestMatrix, mAimRest);
+    DagUtils::setMatrixPlug(pInputAimRestMatrix, mAimRest, dagMod);
 
     MMatrix mTargetRest = DagUtils::bakeTransformsToOPM(targetJoint);
-    DagUtils::setMatrixPlug(pInputTargetRestMatrix, mTargetRest);
+    DagUtils::setMatrixPlug(pInputTargetRestMatrix, mTargetRest, dagMod);
 
     MMatrix mUpRest = DagUtils::bakeTransformsToOPM(upJoint);
-    DagUtils::setMatrixPlug(pInputUpRestMatrix, mUpRest);
+    DagUtils::setMatrixPlug(pInputUpRestMatrix, mUpRest, dagMod);
 
     // Connect Aim Joint OPM directly (Aim joint has no control)
     MFnDagNode aimJointFn(aimJoint);

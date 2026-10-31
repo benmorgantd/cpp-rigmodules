@@ -107,7 +107,6 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 	// 1. Create layout module node
 	MObject oLayoutModule = dagMod.MDGModifier::createNode(LayoutModuleNode::id);
 	dagMod.renameNode(oLayoutModule, "layoutModule");
-	dagMod.doIt();
 
 	MPlug pSide(oLayoutModule, LayoutModuleNode::aSide);
 	dagMod.newPlugValueShort(pSide, getShortFromSide(Side::Center));
@@ -120,11 +119,7 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 	for (unsigned int i = 0; i < numControls; ++i)
 	{
 		MString controlName = MString("layout_") + std::to_string(i).c_str();
-		MObject oControl = RigControlNode::createRigControl(oLayoutModule, dagMod, controlName);
-
-		MFnDependencyNode fnControl(oControl);
-		MPlug pShapeType(oControl, RigControlNode::aShapeType);
-		dagMod.newPlugValueShort(pShapeType, ShapeType::Square);
+		MObject oControl = RigControlNode::createRigControl(oLayoutModule, dagMod, controlName, ShapeType::Square, Side::Center);
 
 		// Connect control message
 		connectControlToRigModule(oLayoutModule, oControl, i, dagMod);
@@ -132,7 +127,11 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 		// Record the "end" socket on the final layout control
 		if (i == numControls - 1)
 		{
-			result.parentSockets[std::string("end")] = oControl;
+			RigModuleSocketInfo socketInfo;
+			socketInfo.oTransform = oControl;
+			socketInfo.mRestWorld = MMatrix::identity;
+			socketInfo.outputIndex = 0;
+			result.parentSockets[std::string("end")] = socketInfo;
 
 			// Also append to socket names
 			DagPlugAndSocketUtils::setParentSocketName(oLayoutModule, 0, "end", dagMod);
@@ -173,7 +172,6 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 			dagMod.reparentNode(oControl, oPreviousControlNode);
 		}
 
-		dagMod.doIt();
 		oPreviousControlNode = oControl;
 	}
 
@@ -182,8 +180,6 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 	{
 		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dagMod, oLayoutModule, aRigRoot);
 	}
-
-	dagMod.doIt();
 
 	result.status = MS::kSuccess;
 	return result;

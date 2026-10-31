@@ -1,4 +1,8 @@
 #pragma once
+#include "Side.h"
+
+#include <maya/MUIDrawManager.h>
+#include <maya/MFrameContext.h>
 #include <maya/MPxTransform.h>
 #include <maya/MPxDrawOverride.h>
 #include <maya/MUserData.h>
@@ -95,8 +99,7 @@ public:
 private:
     bool m_drawIsDirty{ true };
 public:
-    static MObject createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName);
-    static MObject createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName, const ShapeType& shapeType);
+    static MObject createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName, const ShapeType& shapeType, const Side& side);
 };
 
 // Viewport 2.0 Draw Override

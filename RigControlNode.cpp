@@ -344,59 +344,26 @@ void RigControlDrawOverride::addUIDrawables(
 }
 
 // Creates a rig control and wires it to the module
-MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName)
+MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName, const ShapeType& shapeType, const Side& side)
 {
     MStatus status;
-    // Get module side and color it based on that.
-    MFnDependencyNode fnModule(moduleNode);
-    MPlug pSide = fnModule.findPlug(RigAttr::Side, false, &status);
-    short sideShort = 0;
-    Side sideEnum = Side::Center;
-
-    if (status && !pSide.isNull())
-    {
-        sideShort = pSide.asShort(&status);
-    }
-    else
-    {
-        MGlobal::displayError("Side was null for module " + fnModule.name());
-    }
-
-    if (!status)
-    {
-        MGlobal::displayError("Falling back to center for module that has no side plug: " + fnModule.name());
-    }
-    else
-    {
-        sideEnum = getSideFromShort(sideShort);
-    }
-
-    const char* sideSuffix = getSideSuffix(sideEnum);
-    MColor sideColor = getColorFromSide(sideEnum);
 
     // Create and name the control transform
-    MObject controlTransform = dagMod.createNode(RigControlNode::id);
+    MObject oControl = dagMod.createNode(RigControlNode::id);
 
     // All transforms on rig controls get ignored and calculated by modules instead
-    DagUtils::setInheritsTransforms(controlTransform, false, dagMod);
+    DagUtils::setInheritsTransforms(oControl, false, dagMod);
 
     MString ctrlName = jointName;
     ctrlName.substitute("_jnt", "");  // TODO: global var for jnt suffix
     ctrlName += "_ctrl";  // TODO: global naming method, global var for ctrl suffix
-    // TODO: strip out namespaces, characters like |
-    if (sideSuffix != nullptr)
-    {
-        ctrlName += sideSuffix;
-    }
-    else
-    {
-        MGlobal::displayInfo("side suffix was nullptr");
-    }
-
-    dagMod.renameNode(controlTransform, ctrlName);
+    ctrlName += getSideSuffix(side);
+    dagMod.renameNode(oControl, ctrlName);
 
     // TODO: set rig control side color based on module side attr.
-    MPlug controlColor(controlTransform, RigControlNode::aWireColor);
+    MPlug controlColor(oControl, RigControlNode::aWireColor);
+    MColor sideColor = getColorFromSide(side);
+
     if (!controlColor.isNull())
     {
         dagMod.newPlugValueFloat(controlColor.child(0), sideColor.r);
@@ -404,19 +371,6 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
         dagMod.newPlugValueFloat(controlColor.child(2), sideColor.b);
     }
 
-    return controlTransform;
-}
-
-MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName, const ShapeType& shapeType)
-{
-    MObject oControl = createRigControl(moduleNode, dagMod, jointName);
-
-    if (oControl.isNull())
-    {
-        return oControl;
-    }
-
-    MFnDependencyNode fnControl(oControl);
     MPlug pShapeType(oControl, aShapeType);
     short shapeTypeShort = static_cast<short>(shapeType);
     dagMod.newPlugValueShort(pShapeType, shapeTypeShort);

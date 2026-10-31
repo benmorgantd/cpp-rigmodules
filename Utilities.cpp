@@ -19,6 +19,8 @@
 #include <maya/MSyntax.h>
 #include <maya/MDagModifier.h>
 #include <maya/MFnDependencyNode.h>
+#include <maya/MStatus.h>
+#include <maya/MStringArray.h>
 
 // ---------------------------------
 // Math Utilities
@@ -128,32 +130,77 @@ void DagUtils::lockAndHideScale(MObject oControl)
 }
 
 // Bakes joint world transform relative to its parent into its opm and zeroes its transforms.
-MMatrix DagUtils::bakeTransformsToOPM(const MDagPath& dgTransform)
+// TODO: pass in transform matrix gathered from read phase.
+// NOTE: this is already happening when inheritsTransforms has been turned off, so we just need to write the world matrix to OPM
+MStatus DagUtils::bakeJointTransformsToOPM(const MObject& oJoint, const MMatrix& mTransformWorld, MDagModifier& dagMod)
 {
-	MFnTransform fnTransform(dgTransform);
-	MPlug pJointParentInvMat = fnTransform.findPlug("parentInverseMatrix", false).elementByLogicalIndex(0);
-	MMatrix mJointParentInv = DagUtils::getMatrixFromPlug(pJointParentInvMat);
-	MMatrix mJointWorld = dgTransform.inclusiveMatrix();
-
-	// Calculate offsetParentMatrix relative to parent world space
-	MMatrix mJointOffsetParent = mJointWorld * mJointParentInv;
-
-	MPlug pOffsetParentMatrix = fnTransform.findPlug("offsetParentMatrix", false);
-	DagUtils::setMatrixPlug(pOffsetParentMatrix, mJointOffsetParent);
-
-	// Zero out local transform channels
-	fnTransform.set(MTransformationMatrix::identity);
-	// Zero out joint orient (this was in the inclusive matrix)
-	for (const char* axis : { "X", "Y", "Z" })
+	MStatus status;
+	MFnTransform fnTransform(oJoint);
+	if (!fnTransform.object().hasFn(MFn::kJoint))
 	{
-		MPlug pJointOrient = fnTransform.findPlug(MString("jointOrient") + axis, false);
-		pJointOrient.setDouble(0.0);
+		MGlobal::displayError("Given object must be a joint");
+		return MStatus::kFailure;
+	}
+	
+	MPlug pInheritsTransforms = fnTransform.findPlug("inheritsTransforms", false);
+	if (pInheritsTransforms.asBool() == true)
+	{
+		MGlobal::displayError("Given joint must have inheritsTransforms off before baking to OPM");
+		return MStatus::kFailure;
 	}
 
-	return mJointOffsetParent;
+	// First zero out the current local matrix joint orient so that we can position the joint in world space locally using OPM
+	// TODO: separate this into a fn
+	for (const char* axis : { "X", "Y", "Z" })
+	{
+		MPlug pJointOrient = fnTransform.findPlug(MString("jointOrient") + axis, false, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = dagMod.newPlugValueDouble(pJointOrient, 0.0);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+
+	// Zero out local matrix
+	status = zeroLocalTransforms(oJoint, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Now that we've zeroed out all transforms, we can place the joint in world space using its OPM (because inherits transforms is off)
+	MPlug pOffsetParentMatrix = fnTransform.findPlug("offsetParentMatrix", false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	status = DagUtils::setMatrixPlug(pOffsetParentMatrix, mTransformWorld, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	return status;
 }
 
-MStatus DagUtils::setInheritsTransforms(MObject& transform, bool value, MDagModifier& dagMod)
+MStatus DagUtils::zeroLocalTransforms(const MObject& oTransform, MDagModifier& dagMod)
+{
+	if (oTransform.isNull() || !oTransform.hasFn(MFn::kTransform))
+	{
+		MGlobal::displayError("Given object is null or is not a transform");
+		return MStatus::kFailure;
+	}
+
+	MFnTransform fnTransform(oTransform);
+	for (const char* xform : { "translate", "rotate", "scale" })
+	{
+		for (const char* axis : { "X", "Y", "Z" })
+		{
+			MPlug pTransform = fnTransform.findPlug(MString(xform) + axis, false);
+
+			if (!pTransform.isNull() && !pTransform.isLocked())
+			{
+				dagMod.newPlugValueDouble(pTransform, (xform == "scale") ? 1.0 : 0.0);
+			}
+			else
+			{
+				MGlobal::displayError(MString("Plug was locked and could not be zeroed: ") + xform + axis);
+			}
+		}
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus DagUtils::setInheritsTransforms(const MObject& transform, bool value, MDagModifier& dagMod)
 {
 	if (!transform.hasFn(MFn::kTransform))
 	{
@@ -207,31 +254,19 @@ MMatrix DagUtils::getMatrixFromPlug(const MPlug& pMatrixPlug)
 	return matrixValue;
 }
 
-void DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix)
-{
-	if (!matrixPlug.isNull() && !matrixPlug.isArray())
-	{
-		MFnMatrixData fnMatrixData;
-		MObject oMatrixData = fnMatrixData.create(matrix);
-		matrixPlug.setValue(oMatrixData);
-	}
-	else
-	{
-		MGlobal::displayError("The given matrix plug was null or an array.");
-	}
-}
 
-void DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod)
+MStatus DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod)
 {
 	if (!matrixPlug.isNull() && !matrixPlug.isArray())
 	{
 		MFnMatrixData fnMatrixData;
 		MObject oMatrixData = fnMatrixData.create(matrix);
-		dagMod.newPlugValue(matrixPlug, oMatrixData);
+		return dagMod.newPlugValue(matrixPlug, oMatrixData);
 	}
 	else
 	{
 		MGlobal::displayError("The given matrix plug was null or an array.");
+		return MStatus::kFailure;
 	}
 }
 

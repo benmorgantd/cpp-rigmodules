@@ -50,7 +50,7 @@ public:
 		const MString& templateName,
 		MObject oAssetRoot,
 		MDagModifier& dagMod);
-	static MStatus createRig(const MString& jsonFilePath);
+	static MStatus createRig(const MString& jsonFilePath, MDagModifier& dagMod);
 };
 
 
@@ -78,6 +78,5 @@ private:
 	static const char* kFilePathArgShort;
 	static const char* kFilePathArgLong;
 
-	MDGModifier fDgMod;
 	MDagModifier fDagMod;
 };

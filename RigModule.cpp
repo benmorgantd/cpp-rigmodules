@@ -113,16 +113,6 @@ MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDagModifie
 	return status;
 }
 
-MObject RigModuleNodeBase::findPlugOrSocketTransform(const std::unordered_map<std::string, MObject>& socketPairs, const std::string& name)
-{
-	auto it = socketPairs.find(name);
-	if (it != socketPairs.end())
-	{
-		return it->second;
-	}
-	return MObject::kNullObj;
-};
-
 // First Pass Module Builder ------------------------------------------
 std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildModules(
 	const std::vector<RigModuleData>& flatModuleList,

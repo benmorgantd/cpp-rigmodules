@@ -37,8 +37,9 @@ public:
 		const MString& moduleName,
 		const Side& side,
 		const ShapeType& shapeType,
-		const MDagPathArray& jointDags,
-		MObject oRigRoot,
+		const MObjectArray& oJoints,
+		const MMatrixArray& mJointMatrices,
+		MObject& oRigRoot,
 		MDagModifier& dagMod
 	);
 	static RigModuleBuildResult buildFromJson(const nlohmann::json& args, BuildContext& ctx);
