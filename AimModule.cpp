@@ -3,387 +3,277 @@
 #include "RigJsonStructs.h"
 #include "Utilities.h"
 #include "RigModule.h"
+#include "Side.h"
+
+#include <string>
+#include <nlohmann/json.hpp>
 
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnDependencyNode.h>
-#include <maya/MFnDagNode.h>
+#include <maya/MArrayDataHandle.h>
+#include <maya/MDataBlock.h>
 #include <maya/MMatrix.h>
+#include <maya/MPoint.h>
 #include <maya/MPlug.h>
-#include <maya/MSelectionList.h>
-#include <maya/MDagPath.h>
 #include <maya/MGlobal.h>
-#include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
-#include <maya/MFnTypedAttribute.h>
 
 MTypeId AimModuleNode::id(0x00218D);
+MObject AimModuleNode::aAimRestOffset;
 
-// Discrete Attribute Declarations
-MObject AimModuleNode::aInputAimRestMatrix;
-MObject AimModuleNode::aInputTargetRestMatrix;
-MObject AimModuleNode::aInputUpRestMatrix;
-
-MObject AimModuleNode::aTargetControlMatrix;
-MObject AimModuleNode::aUpControlMatrix;
-
-MObject AimModuleNode::aOutputTargetControlOPM;
-MObject AimModuleNode::aOutputUpControlOPM;
-
-MObject AimModuleNode::aOutputAimJointOPM;
-MObject AimModuleNode::aOutputTargetJointOPM;
-MObject AimModuleNode::aOutputUpJointOPM;
-
-// Shared Attributes
-MObject AimModuleNode::moduleData;
-MObject AimModuleNode::aRigRoot;
-MObject AimModuleNode::aOutputSocketMatrix;
-MObject AimModuleNode::aSide;
+namespace
+{
+	// Used for both child plug names and parent socket names. Index matches AimPart.
+	const char* const kAimPartNames[AimPart::Count] = { "aim", "target", "up" };
+}
 
 AimModuleNode::AimModuleNode() {}
 AimModuleNode::~AimModuleNode() {}
 
-const MString AimModuleNode::aCommandString = "aimModule";
-
 void* AimModuleNode::creator()
 {
-    return new AimModuleNode();
+	return new AimModuleNode();
 }
 
 MStatus AimModuleNode::initialize()
 {
-    MStatus status;
+	MStatus status;
+	MFnMatrixAttribute mAttr;
 
-    //status = AimModuleNode::initializeSharedAttributes(moduleData, aRigRoot, aRigControls, aOutputSocketMatrix, aSide);
+	status = initializeSharedAttributes();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    if (status != MStatus::kSuccess)
-    {
-        return MStatus::kFailure;
-    }
+	aAimRestOffset = mAttr.create("aimRestOffset", "aimRestOffset", MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	mAttr.setStorable(true);
+	status = addAttribute(aAimRestOffset);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    MFnMatrixAttribute mAttr;
+	// AFFECTS RELATIONSHIPS
+	declareStandardAffects();
+	attributeAffects(aAimRestOffset, aJointOPM);
+	attributeAffects(aAimRestOffset, aOutputSocketMatrix);
 
-    // 1. DISCRETE INPUT REST MATRICES
-    aInputAimRestMatrix = mAttr.create("inputAimRestMatrix", "iarm", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setStorable(true);
-    mAttr.setKeyable(true);
-    addAttribute(aInputAimRestMatrix);
+	return MStatus::kSuccess;
+}
 
-    aInputTargetRestMatrix = mAttr.create("inputTargetRestMatrix", "itrm", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setStorable(true);
-    mAttr.setKeyable(true);
-    addAttribute(aInputTargetRestMatrix);
+// Solves all three parts once. Cheap enough that every output array re-solves rather than caching between computes.
+MStatus AimModuleNode::solveAim(MDataBlock& data, AimSolveResult& outResult)
+{
+	MStatus status;
 
-    aInputUpRestMatrix = mAttr.create("inputUpRestMatrix", "iurm", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setStorable(true);
-    mAttr.setKeyable(true);
-    addAttribute(aInputUpRestMatrix);
+	MArrayDataHandle hControlInputData = data.inputArrayValue(aControlInputData, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MArrayDataHandle hChildPlugs = data.inputArrayValue(aChildPlugs, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-    // 2. DISCRETE CONTROL INPUT MATRICES
-    aTargetControlMatrix = mAttr.create("targetControlMatrix", "tcm", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setStorable(true);
-    mAttr.setKeyable(true);
-    addAttribute(aTargetControlMatrix);
+	// 1. Each part is an independent control step carried by its own parent socket.
+	for (unsigned int i = 0; i < AimPart::Count; ++i)
+	{
+		MMatrix mControlLocal = MMatrix::identity;     // stays identity for the aim part, nothing is wired to it
+		MMatrix mControlRestWorld = MMatrix::identity;
+		readControlInput(hControlInputData, i, mControlLocal, mControlRestWorld);
 
-    aUpControlMatrix = mAttr.create("upControlMatrix", "ucm", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setStorable(true);
-    mAttr.setKeyable(true);
-    addAttribute(aUpControlMatrix);
+		const MMatrix mParentDelta = readChildPlugParentDelta(hChildPlugs, i);
+		const ControlSolveStep step = solveControlStep(mControlLocal, mControlRestWorld, mParentDelta);
 
-    // 3. DISCRETE OUTPUT CONTROL OPMs
-    aOutputTargetControlOPM = mAttr.create("outputTargetControlOPM", "tcopm", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setWritable(false);
-    mAttr.setStorable(false);
-    addAttribute(aOutputTargetControlOPM);
+		outResult.mControlOPM[i] = step.mOPM;
+		outResult.mPartWorld[i] = step.mWorld;
+	}
 
-    aOutputUpControlOPM = mAttr.create("outputUpControlOPM", "ucopm", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setWritable(false);
-    mAttr.setStorable(false);
-    addAttribute(aOutputUpControlOPM);
+	// 2. Aim solve (+X toward target, +Z toward up) from the three world positions.
+	const MMatrix& mAimWorld = outResult.mPartWorld[AimPart::Aim];
+	const MMatrix& mTargetWorld = outResult.mPartWorld[AimPart::Target];
+	const MMatrix& mUpWorld = outResult.mPartWorld[AimPart::Up];
 
-    // 4. DISCRETE OUTPUT JOINT OPMs
-    aOutputAimJointOPM = mAttr.create("outputAimJointOPM", "ajopm", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setWritable(false);
-    mAttr.setStorable(false);
-    addAttribute(aOutputAimJointOPM);
+	const MPoint pAim(mAimWorld[3][0], mAimWorld[3][1], mAimWorld[3][2]);
+	const MPoint pTarget(mTargetWorld[3][0], mTargetWorld[3][1], mTargetWorld[3][2]);
+	const MPoint pUp(mUpWorld[3][0], mUpWorld[3][1], mUpWorld[3][2]);
 
-    aOutputTargetJointOPM = mAttr.create("outputTargetJointOPM", "tjopm", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setWritable(false);
-    mAttr.setStorable(false);
-    addAttribute(aOutputTargetJointOPM);
+	const MMatrix mAimSolved = MathUtils::computeAimMatrix(pAim, pTarget, pUp, mAimWorld);
 
-    aOutputUpJointOPM = mAttr.create("outputUpJointOPM", "ujopm", MFnMatrixAttribute::kDouble, &status);
-    mAttr.setWritable(false);
-    mAttr.setStorable(false);
-    addAttribute(aOutputUpJointOPM);
+	// 3. Row-major: offset first, then the live solve. At rest this equals the joint's original rest matrix.
+	const MMatrix mAimRestOffset = data.inputValue(aAimRestOffset).asMatrix();
+	outResult.mPartWorld[AimPart::Aim] = mAimRestOffset * mAimSolved;
 
-    // 5. AFFECTS RELATIONSHIPS
-    // Control OPM Outputs
-    attributeAffects(aInputTargetRestMatrix, aOutputTargetControlOPM);
-
-    attributeAffects(aInputUpRestMatrix, aOutputUpControlOPM);
-
-    // Joint OPM Outputs
-    attributeAffects(aInputAimRestMatrix, aOutputAimJointOPM);
-    attributeAffects(aInputTargetRestMatrix, aOutputAimJointOPM);
-    attributeAffects(aInputUpRestMatrix, aOutputAimJointOPM);
-    attributeAffects(aTargetControlMatrix, aOutputAimJointOPM);
-    attributeAffects(aUpControlMatrix, aOutputAimJointOPM);
-
-    attributeAffects(aInputTargetRestMatrix, aOutputTargetJointOPM);
-    attributeAffects(aTargetControlMatrix, aOutputTargetJointOPM);
-
-    attributeAffects(aInputUpRestMatrix, aOutputUpJointOPM);
-    attributeAffects(aUpControlMatrix, aOutputUpJointOPM);
-
-    // Socket Matrix Outputs
-    attributeAffects(aInputAimRestMatrix, aOutputSocketMatrix);
-    attributeAffects(aInputTargetRestMatrix, aOutputSocketMatrix);
-    attributeAffects(aInputUpRestMatrix, aOutputSocketMatrix);
-    attributeAffects(aTargetControlMatrix, aOutputSocketMatrix);
-    attributeAffects(aUpControlMatrix, aOutputSocketMatrix);
-
-    return MStatus::kSuccess;
+	return MStatus::kSuccess;
 }
 
 MStatus AimModuleNode::compute(const MPlug& plug, MDataBlock& data)
 {
-    return MStatus::kSuccess;
-    /*
-    // -------------------------------------------------------------------
-    // 1. Output Control Offset Parent Matrices
-    // -------------------------------------------------------------------
-    if (plug == aOutputTargetControlOPM || plug == aOutputUpControlOPM)
-    {
-        MMatrix mParentWorld = getInputMatrix(data, aParentWorldMatrix);
-        MMatrix mParentOffset = getInputMatrix(data, aParentModuleOffset);
+	const MObject oOutputAttr = plug.attribute();
+	const bool plugIsControlOPM = oOutputAttr == aControlOPM;
+	const bool plugIsJointOPM = oOutputAttr == aJointOPM;
+	const bool plugIsOutputSocketMatrix = oOutputAttr == aOutputSocketMatrix;
 
-        // Row-Major: Local Step * Parent World
-        MMatrix mModuleBaseWorld = mParentOffset * mParentWorld;
+	if (!plugIsControlOPM && !plugIsJointOPM && !plugIsOutputSocketMatrix)
+	{
+		return MStatus::kUnknownParameter;
+	}
 
-        MMatrix mRestTarget = getInputMatrix(data, aInputTargetRestMatrix);
-        MMatrix mRestUp = getInputMatrix(data, aInputUpRestMatrix);
+	MStatus status;
+	AimSolveResult solve;
+	status = solveAim(data, solve);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-        setOutputMatrix(data, aOutputTargetControlOPM, mRestTarget * mModuleBaseWorld);
-        setOutputMatrix(data, aOutputUpControlOPM, mRestUp * mModuleBaseWorld);
+	MArrayDataHandle hOutputData = data.outputArrayValue(oOutputAttr, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-        data.setClean(plug);
-        return MStatus::kSuccess;
-    }
+	// Control OPM excludes the control's local matrix. Joint OPM and socket both want the solved world matrix.
+	// Elements that were never created (e.g. controlOPM[0], there is no aim control) are skipped.
+	for (unsigned int i = 0; i < AimPart::Count; ++i)
+	{
+		writeOutputMatrix(hOutputData, i, plugIsControlOPM ? solve.mControlOPM[i] : solve.mPartWorld[i]);
+	}
 
-    // -------------------------------------------------------------------
-    // 2. Output Joint Offset Parent Matrices & Socket Matrices
-    // -------------------------------------------------------------------
-    if (plug == aOutputAimJointOPM || plug == aOutputTargetJointOPM || plug == aOutputUpJointOPM ||
-        plug == aOutputSocketMatrix || plug.array() == aOutputSocketMatrix)
-    {
-        MMatrix mParentWorld = getInputMatrix(data, aParentWorldMatrix);
-        MMatrix mParentOffset = getInputMatrix(data, aParentModuleOffset);
-
-        MMatrix mModuleBaseWorld = mParentOffset * mParentWorld;
-
-        // Aim joint world base position
-        MMatrix mRestAim = getInputMatrix(data, aInputAimRestMatrix);
-        MMatrix mAimBaseWorld = mRestAim * mModuleBaseWorld;
-
-        // Target control world matrix
-        MMatrix mRestTarget = getInputMatrix(data, aInputTargetRestMatrix);
-        MMatrix mControlTarget = getInputMatrix(data, aTargetControlMatrix);
-        MMatrix mTargetWorld = mControlTarget * mRestTarget * mModuleBaseWorld;
-
-        // Up control world matrix
-        MMatrix mRestUp = getInputMatrix(data, aInputUpRestMatrix);
-        MMatrix mControlUp = getInputMatrix(data, aUpControlMatrix);
-        MMatrix mUpWorld = mControlUp * mRestUp * mModuleBaseWorld;
-
-        MPoint pAim(mAimBaseWorld[3][0], mAimBaseWorld[3][1], mAimBaseWorld[3][2]);
-        MPoint pTarget(mTargetWorld[3][0], mTargetWorld[3][1], mTargetWorld[3][2]);
-        MPoint pUp(mUpWorld[3][0], mUpWorld[3][1], mUpWorld[3][2]);
-
-        // Calculate aim solution matrix (+X aim, +Z up)
-        MMatrix mAimSolvedJointWorld = MathUtils::computeAimMatrix(pAim, pTarget, pUp, mAimBaseWorld);
-
-        // Drive Discrete Joint OPM outputs
-        setOutputMatrix(data, aOutputAimJointOPM, mAimSolvedJointWorld);
-        setOutputMatrix(data, aOutputTargetJointOPM, mTargetWorld);
-        setOutputMatrix(data, aOutputUpJointOPM, mUpWorld);
-
-        // Drive Output Socket Matrices for child modules (0: Aim, 1: Target, 2: Up)
-        setOutputMatrix(data, aOutputSocketMatrix, 0, mAimSolvedJointWorld);
-        setOutputMatrix(data, aOutputSocketMatrix, 1, mTargetWorld);
-        setOutputMatrix(data, aOutputSocketMatrix, 2, mUpWorld);
-
-        MArrayDataHandle hOutSocketArray = data.outputArrayValue(aOutputSocketMatrix);
-        hOutSocketArray.setAllClean();
-
-        data.setClean(plug);
-        return MStatus::kSuccess;
-    }
-
-    return MStatus::kUnknownParameter;
-    */
+	hOutputData.setAllClean();
+	data.setClean(plug);
+	return MStatus::kSuccess;
 }
 
-MObject AimModuleNode::createModule(
-    const MString& moduleName,
-    const MDagPath& aimJoint,
-    const MDagPath& targetJoint,
-    const MDagPath& upJoint,
-    MObject oRigRoot,
-    MDGModifier& dgMod,
-    MDagModifier& dagMod,
-    MStatus* status)
+RigModuleBuildResult AimModuleNode::createModule(
+	const MString& moduleName,
+	const Side& side,
+	const ShapeType& shapeType,
+	const std::array<AimPartInput, AimPart::Count>& parts,
+	MObject& oRigRoot,
+	MDagModifier& dagMod)
 {
-    MStatus localStat;
+	RigModuleBuildResult result;
+	MStatus status;
 
-    // 1. Create the AimModule node
-    MObject oModule = dgMod.createNode("aimModule");
-    dgMod.renameNode(oModule, moduleName);
+	// 1. Module node
+	MObject oAimModule = dagMod.MDGModifier::createNode(AimModuleNode::id);
+	dagMod.renameNode(oAimModule, moduleName);
 
-    // Retrieve discrete module plugs
-    MFnDependencyNode moduleFn(oModule);
+	MPlug pSide(oAimModule, AimModuleNode::aSide);
+	dagMod.newPlugValueShort(pSide, getShortFromSide(side));
+	result.moduleNode = oAimModule;
 
-    MPlug pInputAimRestMatrix = moduleFn.findPlug("inputAimRestMatrix", false);
-    MPlug pInputTargetRestMatrix = moduleFn.findPlug("inputTargetRestMatrix", false);
-    MPlug pInputUpRestMatrix = moduleFn.findPlug("inputUpRestMatrix", false);
+	MPlug pOutputJointOPM(oAimModule, AimModuleNode::aJointOPM);
 
-    MPlug pTargetControlMatrix = moduleFn.findPlug("targetControlMatrix", false);
-    MPlug pUpControlMatrix = moduleFn.findPlug("upControlMatrix", false);
+	// 2. Per-part: bake joint, store rest, wire joint OPM, and create a control for target/up.
+	for (unsigned int i = 0; i < AimPart::Count; ++i)
+	{
+		MObject oJoint = parts[i].oJoint;
+		MMatrix mRestWorld = parts[i].mRestWorld;
+		MFnDependencyNode fnJoint(oJoint);
+		const char* partName = kAimPartNames[i];
 
-    MPlug pOutputTargetControlOPM = moduleFn.findPlug("outputTargetControlOPM", false);
-    MPlug pOutputUpControlOPM = moduleFn.findPlug("outputUpControlOPM", false);
+		// The module drives the joint's world transform through its OPM, so nothing may be inherited.
+		DagUtils::setInheritsTransforms(oJoint, false, dagMod);
+		DagUtils::setSegmentScaleCompensate(oJoint, false, dagMod);
+		status = DagUtils::bakeJointTransformsToOPM(oJoint, mRestWorld, dagMod);
+		if (!status)
+		{
+			MGlobal::displayError(MString("Failed to bake aim module joint: ") + fnJoint.name());
+			result.status = status;
+			return result;
+		}
 
-    MPlug pOutputAimJointOPM = moduleFn.findPlug("outputAimJointOPM", false);
-    MPlug pOutputTargetJointOPM = moduleFn.findPlug("outputTargetJointOPM", false);
-    MPlug pOutputUpJointOPM = moduleFn.findPlug("outputUpJointOPM", false);
+		MPlug pJointOpm = fnJoint.findPlug("offsetParentMatrix", false, &status);
+		if (!status)
+		{
+			result.status = status;
+			return result;
+		}
+		dagMod.connect(pOutputJointOPM.elementByLogicalIndex(i), pJointOpm);
 
-    // 2. Bake Joint Transforms & Input Rest Matrices using Utilities
-    MMatrix mAimRest = DagUtils::bakeTransformsToOPM(aimJoint);
-    DagUtils::setMatrixPlug(pInputAimRestMatrix, mAimRest, dagMod);
+		// Only target and up have controls. The aim joint is purely solved.
+		MObject oControl = MObject::kNullObj;
+		if (i == AimPart::Aim)
+		{
+			setControlRestMatrix(oAimModule, mRestWorld, i, dagMod);   // rest only, nothing is wired to the local matrix
+		}
+		else
+		{
+			oControl = RigControlNode::createRigControl(oAimModule, dagMod, fnJoint.name(), shapeType, side);
+			status = wireControl(oAimModule, oControl, i, mRestWorld, dagMod);
+			if (!status)
+			{
+				result.status = status;
+				return result;
+			}
+		}
 
-    MMatrix mTargetRest = DagUtils::bakeTransformsToOPM(targetJoint);
-    DagUtils::setMatrixPlug(pInputTargetRestMatrix, mTargetRest, dagMod);
+		// Socket and child plug share a name. They live in separate maps/namespaces ("layout.end" vs. "target").
+		RigModuleSocketInfo socketInfo;
+		socketInfo.oTransform = oControl;      // null for aim, children get the matrix but no DAG parent
+		socketInfo.mRestWorld = mRestWorld;
+		socketInfo.outputIndex = i;
+		result.parentSockets[partName] = socketInfo;
+		result.childPlugs[partName] = RigModuleChildPlugInfo{ oControl, i };
 
-    MMatrix mUpRest = DagUtils::bakeTransformsToOPM(upJoint);
-    DagUtils::setMatrixPlug(pInputUpRestMatrix, mUpRest, dagMod);
+		DagPlugAndSocketUtils::setParentSocketName(oAimModule, i, partName, dagMod);
+		DagPlugAndSocketUtils::setChildPlugName(oAimModule, i, partName, dagMod);
+	}
 
-    // Connect Aim Joint OPM directly (Aim joint has no control)
-    MFnDagNode aimJointFn(aimJoint);
-    MPlug pAimJointOpm = aimJointFn.findPlug("offsetParentMatrix", false);
-    dgMod.connect(pOutputAimJointOPM, pAimJointOpm);
+	// 3. Orientation offset so the aim joint keeps its original rest orientation (bind pose safe).
+	const MMatrix& mAimRest = parts[AimPart::Aim].mRestWorld;
+	const MMatrix& mTargetRest = parts[AimPart::Target].mRestWorld;
+	const MMatrix& mUpRest = parts[AimPart::Up].mRestWorld;
 
-    // 3. Create Target Control & Wire Plugs
-    MObject oTargetControl = RigControlNode::createRigControl(oModule, dagMod, targetJoint.partialPathName());
-    DagUtils::lockAndHideRotate(oTargetControl);
-    DagUtils::lockAndHideScale(oTargetControl);
+	const MMatrix mAimSolvedRest = MathUtils::computeAimMatrix(
+		MPoint(mAimRest[3][0], mAimRest[3][1], mAimRest[3][2]),
+		MPoint(mTargetRest[3][0], mTargetRest[3][1], mTargetRest[3][2]),
+		MPoint(mUpRest[3][0], mUpRest[3][1], mUpRest[3][2]),
+		mAimRest);
 
-    MFnDependencyNode targetControlMFn(oTargetControl);
-    MPlug pTargetControlMatrixPlug = targetControlMFn.findPlug("matrix", false);
-    MPlug pTargetControlOpmPlug = targetControlMFn.findPlug("offsetParentMatrix", false);
+	MMatrix mAimRestOffset = mAimRest * mAimSolvedRest.inverse();
+	MPlug pAimRestOffset(oAimModule, AimModuleNode::aAimRestOffset);
+	DagUtils::setMatrixPlug(pAimRestOffset, mAimRestOffset, dagMod);
 
-    MFnDagNode targetJointFn(targetJoint);
-    MPlug pTargetJointOpm = targetJointFn.findPlug("offsetParentMatrix", false);
+	// 4. Network
+	if (!oRigRoot.isNull())
+	{
+		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dagMod, oAimModule, aRigRoot);
+	}
 
-    dgMod.connect(pTargetControlMatrixPlug, pTargetControlMatrix);
-    dgMod.connect(pOutputTargetControlOPM, pTargetControlOpmPlug);
-    dgMod.connect(pOutputTargetJointOPM, pTargetJointOpm);
-
-    // 4. Create Up Control & Wire Plugs
-    MObject oUpControl = RigControlNode::createRigControl(oModule, dagMod, upJoint.partialPathName());
-    DagUtils::lockAndHideRotate(oUpControl);
-    DagUtils::lockAndHideScale(oUpControl);
-
-    MFnDependencyNode upControlMFn(oUpControl);
-    MPlug pUpControlMatrixPlug = upControlMFn.findPlug("matrix", false);
-    MPlug pUpControlOpmPlug = upControlMFn.findPlug("offsetParentMatrix", false);
-
-    MFnDagNode upJointFn(upJoint);
-    MPlug pUpJointOpm = upJointFn.findPlug("offsetParentMatrix", false);
-
-    dgMod.connect(pUpControlMatrixPlug, pUpControlMatrix);
-    dgMod.connect(pOutputUpControlOPM, pUpControlOpmPlug);
-    dgMod.connect(pOutputUpJointOPM, pUpJointOpm);
-
-    // Force creation of controls in scene to retrieve Target control's world position
-    dgMod.doIt();
-    dagMod.doIt();
-
-    MSelectionList sel;
-    sel.add(oTargetControl);
-    MDagPath targetControlDag;
-    sel.getDagPath(0, targetControlDag);
-    MMatrix mFirstControlWorld = targetControlDag.inclusiveMatrix();
-
-    // 5. Connect to Rig Root Node
-    if (!oRigRoot.isNull())
-    {
-        RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dagMod, oModule, aRigRoot);
-    }
-
-    dgMod.doIt();
-    dagMod.doIt();
-
-    if (status)
-    {
-        *status = MStatus::kSuccess;
-    }
-    return oModule;
+	// Shared callback: skips the DAG reparent for control-less plugs/sockets (aim), always connects matrices.
+	result.dagParentCallback = AimModuleNode::reparentChildPlugToSocket;
+	result.status = MStatus::kSuccess;
+	return result;
 }
 
-MObject AimModuleNode::createModule(
-    const RigModuleData& moduleData,
-    MObject rigRoot,
-    MDGModifier& dgMod,
-    MDagModifier& dagMod)
+RigModuleBuildResult AimModuleNode::buildFromJson(const nlohmann::json& args, BuildContext& ctx)
 {
-    MStatus status;
+	RigModuleBuildResult result;
+	AimModuleArgs aimArgs;
 
-    const auto* aimArgs = std::get_if<AimModuleArgs>(&moduleData.moduleArgs);
-    if (!aimArgs)
-    {
-        MGlobal::displayError(MString("Invalid moduleArgs variant type for AimModule: ") + moduleData.name.c_str());
-        return MObject::kNullObj;
-    }
+	try
+	{
+		// Version migration goes here: branch on ctx.moduleData.moduleVersion.
+		aimArgs = args.get<AimModuleArgs>();
+	}
+	catch (const nlohmann::json::exception& e)
+	{
+		MGlobal::displayError(MString("Invalid Aim args for ") + ctx.moduleData.name.c_str() + ": " + e.what());
+		return result;
+	}
 
-    const std::string jointNames[3] = { aimArgs->aimJoint, aimArgs->targetJoint, aimArgs->upJoint };
-    MDagPath jointDags[3];
+	if (aimArgs.aimJoint == aimArgs.targetJoint || aimArgs.aimJoint == aimArgs.upJoint || aimArgs.targetJoint == aimArgs.upJoint)
+	{
+		MGlobal::displayError(MString("Aim module needs three distinct joints: ") + ctx.moduleData.name.c_str());
+		return result;
+	}
 
-    for (unsigned int i = 0; i < 3; ++i)
-    {
-        MSelectionList selList;
-        status = selList.add(jointNames[i].c_str());
-        if (status && selList.length() > 0)
-        {
-            status = selList.getDagPath(0, jointDags[i]);
-            if (!status)
-            {
-                MGlobal::displayError(MString("Failed to retrieve MDagPath for joint: ") + jointNames[i].c_str());
-                return MObject::kNullObj;
-            }
-        }
-        else
-        {
-            MGlobal::displayError(MString("Could not find joint in scene: ") + jointNames[i].c_str());
-            return MObject::kNullObj;
-        }
-    }
+	const std::string jointNames[AimPart::Count] = { aimArgs.aimJoint, aimArgs.targetJoint, aimArgs.upJoint };
+	std::array<AimPartInput, AimPart::Count> parts;
 
-    MStatus executionStatus;
-    MObject oModule = AimModuleNode::createModule(
-        moduleData.name.c_str(),
-        jointDags[0],
-        jointDags[1],
-        jointDags[2],
-        rigRoot,
-        dgMod,
-        dagMod,
-        &executionStatus
-    );
+	for (unsigned int i = 0; i < AimPart::Count; ++i)
+	{
+		MStatus status = DagUtils::getJointAndWorldMatrix(jointNames[i].c_str(), parts[i].oJoint, parts[i].mRestWorld);
+		if (!status)
+		{
+			return result;   // helper already reported which joint failed
+		}
+	}
 
-    if (!executionStatus)
-    {
-        MGlobal::displayError(MString("Failed to build Aim module: ") + moduleData.name.c_str());
-        return MObject::kNullObj;
-    }
-
-    return oModule;
+	return AimModuleNode::createModule(
+		ctx.moduleData.name.c_str(),
+		getSideFromString(ctx.moduleData.side),
+		getShapeTypeFromString(ctx.moduleData.shapeType),
+		parts,
+		ctx.oRigRoot,
+		ctx.dagMod);
 }

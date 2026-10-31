@@ -153,4 +153,20 @@ std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildMo
 }
 
 
+ControlSolveStep RigModuleNodeBase::solveControlStep(const MMatrix& mLocal, const MMatrix& mRestWorld, const MMatrix& mParentDelta)
+{
+	ControlSolveStep step;
+	step.mOPM = mRestWorld * mParentDelta;   // no local in here, or the control double transforms
+	step.mWorld = mLocal * step.mOPM;
+	return step;
+}
+
+void RigModuleNodeBase::writeOutputMatrix(MArrayDataHandle& hOutputData, unsigned int logicalIndex, const MMatrix& mMatrix)
+{
+	if (hOutputData.jumpToElement(logicalIndex) == MStatus::kSuccess)
+	{
+		hOutputData.outputValue().setMMatrix(mMatrix);
+	}
+}
+
 

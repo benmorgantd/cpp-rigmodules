@@ -29,6 +29,8 @@ public:
 	static MDagPath getDagPathFromName(MString& name);
 	static MMatrix getMatrixFromPlug(const MPlug& pMatrixPlug);
 	static MStatus setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod);
+	static MStatus getJointAndWorldMatrix(const MString& jointName, MObject& oJoint, MMatrix& mWorld);
+
 };
 
 class DagPlugAndSocketUtils

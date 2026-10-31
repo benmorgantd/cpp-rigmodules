@@ -11,7 +11,6 @@
 #include <maya/MObject.h>
 #include <maya/MDagModifier.h>
 #include <maya/MTypeId.h>
-#include <maya/MDagPathArray.h>
 #include <maya/MPlug.h>
 #include <maya/MDataBlock.h>
 #include <maya/MStatus.h>
@@ -28,10 +27,6 @@ public:
 
 public:
 	static MTypeId id;
-public:
-	static MStatus reparentChildPlugs(       // Function used when parenting child transforms to other module parents
-		RigModuleDagReparentArgs
-	);
 public:
 	static RigModuleBuildResult createModule(
 		const MString& moduleName,

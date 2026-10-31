@@ -326,11 +326,6 @@ void RigRootNode::parentModuleControls(
 
 			for (const auto& [plugName, childPlugInfo] : buildResult.childPlugs)
 			{
-				if (childPlugInfo.oTransform.isNull())
-				{
-					continue;
-				}
-
 				RigModuleDagReparentArgs args{
 					childPlugInfo,
 					*pLayoutEndSocket,

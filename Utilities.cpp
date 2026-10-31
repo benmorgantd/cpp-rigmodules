@@ -289,6 +289,30 @@ MDagPath DagUtils::getDagPathFromName(MString& name)
 	return jointDag;
 }
 
+MStatus DagUtils::getJointAndWorldMatrix(const MString& jointName, MObject& oJoint, MMatrix& mWorld)
+{
+	MStatus status;
+	MSelectionList sel;
+	status = sel.add(jointName);
+	if (!status)
+	{
+		MGlobal::displayError(MString("Joint does not exist in scene: ") + jointName);
+		return status;
+	}
+
+	MDagPath jointDag;
+	status = sel.getDagPath(0, jointDag);
+	if (!status || !jointDag.hasFn(MFn::kJoint))
+	{
+		MGlobal::displayError(MString("Object is not a joint: ") + jointName);
+		return MStatus::kFailure;
+	}
+
+	oJoint = jointDag.node();
+	mWorld = jointDag.inclusiveMatrix(&status);
+	return status;
+}
+
 // DAG plug and socket utils -----------------------------------------------
 MStatus DagPlugAndSocketUtils::setParentSocketName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod)
 {

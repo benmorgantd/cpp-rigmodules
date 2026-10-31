@@ -22,6 +22,7 @@
 #include <maya/MDagModifier.h>
 #include <maya/MMatrixArray.h>
 #include <maya/MSelectionList.h>
+#include <maya/MFnTransform.h>
 
 // ------------------------------------------------------------------
 // FkChainNode Implementation
@@ -40,61 +41,33 @@ void* FkChainNode::creator()
 MStatus FkChainNode::initialize()
 {
 	MStatus status;
-	MFnMatrixAttribute mAttr;
-	MFnMessageAttribute msgAttr;
-	MFnCompoundAttribute cAttr;
-	MFnTypedAttribute tAttr;
-
 	status = initializeSharedAttributes();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// AFFECTS RELATIONSHIPS
-	attributeAffects(aControlMatrix, aControlOPM);
-	attributeAffects(aChildPlugParentMatrix, aControlOPM);
-	attributeAffects(aChildPlugParentRestMatrix, aControlOPM);
-	attributeAffects(aControlRestWorld, aControlOPM);
-
-	attributeAffects(aControlMatrix, aJointOPM);
-	attributeAffects(aChildPlugParentMatrix, aJointOPM);
-	attributeAffects(aChildPlugParentRestMatrix, aJointOPM);
-	attributeAffects(aControlRestWorld, aJointOPM);
-
-	attributeAffects(aControlMatrix, aOutputSocketMatrix);
-	attributeAffects(aChildPlugParentMatrix, aOutputSocketMatrix);
-	attributeAffects(aChildPlugParentRestMatrix, aOutputSocketMatrix);
-	attributeAffects(aControlRestWorld, aOutputSocketMatrix);
+	// Every control/child-plug input affects control OPM, joint OPM and socket matrix outputs.
+	declareStandardAffects();
 
 	return MStatus::kSuccess;
 }
 
 MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 {
-	unsigned int index = plug.isElement() ? plug.logicalIndex() : 0;
 	const MObject oOutputAttr = plug.attribute();
-	bool plugIsControlOPM = oOutputAttr == aControlOPM;
-	bool plugIsJointOPM = oOutputAttr == aJointOPM;
-	bool plugIsOutputSocketMatrix = oOutputAttr == aOutputSocketMatrix;
-
-	if (!plugIsControlOPM && !plugIsJointOPM && !plugIsOutputSocketMatrix)
-	{
-		return MStatus::kUnknownParameter;
-	}
-
-	MStatus status;
-	MArrayDataHandle hControlInputData = data.inputArrayValue(aControlInputData, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MArrayDataHandle hOutputData = data.outputArrayValue(oOutputAttr, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Control OPM is the only output that excludes the control's local matrix.
 	// Joint OPM and socket matrix both want the control's world matrix.
-	status = solveFkChain(data, hControlInputData, hOutputData, 0, !plugIsControlOPM);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-		
-	hOutputData.setAllClean();
-	data.setClean(plug);
-	return MStatus::kSuccess;
+	if (oOutputAttr == aControlOPM)
+	{
+		return computeChainOutput(plug, data, false);
+	}
+
+	if (oOutputAttr == aJointOPM || oOutputAttr == aOutputSocketMatrix)
+	{
+		return computeChainOutput(plug, data, true);
+	}
+
+	return MStatus::kUnknownParameter;
 }
 
 RigModuleBuildResult FkChainNode::createModule(
@@ -118,7 +91,6 @@ RigModuleBuildResult FkChainNode::createModule(
 
 	MFnDependencyNode moduleFn(oFkChainModule);
 	MPlug pControlInputData(oFkChainModule, FkChainNode::aControlInputData);
-	MPlug pOutputControlOPM(oFkChainModule, FkChainNode::aControlOPM);
 	MPlug pOutputJointOPM(oFkChainModule, FkChainNode::aJointOPM);
 	MPlug pControlMessage(oFkChainModule, FkChainNode::aControlMessage);
 
@@ -132,9 +104,16 @@ RigModuleBuildResult FkChainNode::createModule(
 		MMatrix mJointRestWorld = mJointWorldRests[i];
 
 		// Make sure the joint retains its original transform and bake them again
+		// The module drives the joint's world transform through its OPM, so nothing may be inherited.
 		DagUtils::setInheritsTransforms(oJoint, false, dagMod);
 		DagUtils::setSegmentScaleCompensate(oJoint, false, dagMod);
-		result.status = DagUtils::bakeJointTransformsToOPM(oJoint, mJointRestWorld, dagMod);
+		MStatus bakeStatus = DagUtils::bakeJointTransformsToOPM(oJoint, mJointRestWorld, dagMod);
+
+		if (!bakeStatus)
+		{
+			result.status = bakeStatus;
+			return result;
+		}
 
 		// Create control and flush modifier
 		MFnTransform fnJoint(oJoint);
@@ -152,7 +131,7 @@ RigModuleBuildResult FkChainNode::createModule(
 		if (i == 0)
 		{
 			// Only the first control in an FK chain can be parented to another module.
-			result.parentSockets["start"] = socketInfo;;
+			result.parentSockets["start"] = socketInfo;
 			result.childPlugs["start"] = RigModuleChildPlugInfo{ oControlTransform, 0 };
 			socketNames += ";start";
 
@@ -167,24 +146,12 @@ RigModuleBuildResult FkChainNode::createModule(
 
 		DagPlugAndSocketUtils::setParentSocketName(oFkChainModule, i, socketNames.asChar(), dagMod);
 
-		// 5. Setup Input connections for the control
-		connectControlInputMatrix(oFkChainModule, oControlTransform, i, dagMod);
-		// Store the control rest world matrix and never touch it
-		setControlRestMatrix(oFkChainModule, mJointRestWorld, i, dagMod);
-
-		// Connect the message attribute
-		connectControlToRigModule(oFkChainModule, oControlTransform, i, dagMod);
-
-		// 4. Connect previous control (i-1) to current module slot (i)
-		if (!oPreviousControl.isNull())
+		MStatus wireStatus = wireControl(oFkChainModule, oControlTransform, i, mJointRestWorld, dagMod);
+		if (!wireStatus)
 		{
-			dagMod.reparentNode(oControlTransform, oPreviousControl);		
+			result.status = wireStatus;
+			return result;
 		}
-
-		// Output connection setup
-		// Connect the control opm output to the control's opm
-		MPlug pControlOpm(oControlTransform, RigControlNode::offsetParentMatrix);
-		dagMod.connect(pOutputControlOPM.elementByLogicalIndex(i), pControlOpm);
 
 		MPlug pJointOpm = fnJoint.findPlug("offsetParentMatrix", false);
 		dagMod.connect(pOutputJointOPM.elementByLogicalIndex(i), pJointOpm);
@@ -199,7 +166,7 @@ RigModuleBuildResult FkChainNode::createModule(
 	}
 
 	// Tie this module's reparent logic to the result callback called during creation.
-	result.dagParentCallback = FkChainNode::reparentChildPlugs;
+	result.dagParentCallback = FkChainNode::reparentChildPlugToSocket;
 	result.status = MS::kSuccess;
 	return result;
 }
@@ -221,29 +188,27 @@ RigModuleBuildResult FkChainNode::buildFromJson(const nlohmann::json& args, Buil
 		return result;   // status defaults to kFailure
 	}
 
+	if (fkArgs.joints.empty())
+	{
+		MGlobal::displayError(MString("FkChain needs at least one joint: ") + ctx.moduleData.name.c_str());
+		return result;
+	}
+
 	MObjectArray oJoints;
 	MMatrixArray mWorldMatrices;
 
 	for (const std::string& jointName : fkArgs.joints)
 	{
-		MString jointNameStr(jointName.c_str());
-		MSelectionList sel;
-		sel.add(jointNameStr);
 		MObject oJoint;
-		sel.getDependNode(0, oJoint);
-
-		if (oJoint.isNull())
+		MMatrix mWorld;
+		MStatus status = DagUtils::getJointAndWorldMatrix(jointName.c_str(), oJoint, mWorld);
+		if (!status)
 		{
-			MGlobal::displayError(MString("Joint does not exist in scene: ") + jointNameStr);
-			return result;
+			return result;  // helper already reported which joint failed
 		}
-		oJoints.append(oJoint);
 
-		// Get the world matrix and append it
-		MStatus status;
-		MDagPath jointDag;
-		MDagPath::getAPathTo(oJoint, jointDag);
-		mWorldMatrices.append(jointDag.inclusiveMatrix());
+		oJoints.append(oJoint);
+		mWorldMatrices.append(mWorld);
 	}
 
 	return FkChainNode::createModule(
@@ -254,19 +219,4 @@ RigModuleBuildResult FkChainNode::buildFromJson(const nlohmann::json& args, Buil
 		mWorldMatrices,
 		ctx.oRigRoot, 
 		ctx.dagMod);
-}
-
-MStatus FkChainNode::reparentChildPlugs(RigModuleDagReparentArgs args)
-{
-	MStatus status = args.dagMod.reparentNode(args.childPlug.oTransform, args.parentSocket.oTransform);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	return connectSocketMatrixToChildPlug(
-		args.oChildModuleNode,
-		args.childPlug.plugIndex,
-		args.oParentTargetModuleNode,
-		args.parentSocket.outputIndex,
-		args.parentSocket.mRestWorld,
-		args.dagMod
-	);
 }

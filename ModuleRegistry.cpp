@@ -5,6 +5,7 @@
 #include "AssetRoot.h"
 #include "RigRoot.h"
 #include "FkChain.h"
+#include "AimModule.h"
 
 #include <vector>
 
@@ -35,6 +36,11 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
             "fkChainModule", "FkChain", FkChainNode::id,
             FkChainNode::creator, FkChainNode::initialize,
             1, FkChainNode::buildFromJson
+        },
+        {
+            "aimModule", "Aim", AimModuleNode::id,
+            AimModuleNode::creator, AimModuleNode::initialize,
+            1, AimModuleNode::buildFromJson
         }
     };
     return descriptors;

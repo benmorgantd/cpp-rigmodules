@@ -2,13 +2,17 @@
 #include "RigControlNode.h"
 #include "RigModule.h"
 #include "Side.h"
+#include "Utilities.h"
+
+#include <string>
 
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
 #include <maya/MFnMatrixData.h>
+#include <maya/MTransformationMatrix.h>
 #include <maya/MPlug.h>
 #include <maya/MDataBlock.h>
-
+#include <maya/MGlobal.h>
 
 // ------------------------------------------------------------------
 // LayoutModuleNode Implementation
@@ -26,72 +30,28 @@ void* LayoutModuleNode::creator()
 
 MStatus LayoutModuleNode::initialize()
 {
-	MStatus status;
+	MStatus status = initializeSharedAttributes();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = initializeSharedAttributes();
-
-	// AFFECTS RELATIONSHIPS
-	attributeAffects(aControlMatrix, aControlOPM);
-	attributeAffects(aControlMatrix, aOutputSocketMatrix);
+	declareControlAffects();
 
 	return MStatus::kSuccess;
 }
 
-// In the case of this node, there is only one output to compute, the outputSocketMatrix.
+// A layout is a chain of controls with identity rests and no parent: OPM[i] is the world of control i-1.
+// That is the FK chain solve, so the compute is just dispatch.
 MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 {
-	unsigned int index = plug.isElement() ? plug.logicalIndex() : 0;
-	bool plugAttrIsControlOPM = plug.attribute() == aControlOPM;
-	bool plugAttrIsOutputSocketMatrix = plug.attribute() == aOutputSocketMatrix;
+	const MObject oOutputAttr = plug.attribute();
 
-	if (plugAttrIsControlOPM || plugAttrIsOutputSocketMatrix)
+	if (oOutputAttr == aControlOPM)
 	{
-		MArrayDataHandle hInputDataArray = data.inputArrayValue(aControlInputData);
-		MArrayDataHandle hOutputOPMArray = data.outputArrayValue(aControlOPM);
-		MArrayDataHandle hOutputSocketArrray = data.outputArrayValue(aOutputSocketMatrix);
+		return computeChainOutput(plug, data, false);
+	}
 
-		// Base incoming matrix (e.g. from upstream socket or asset root)
-		// TODO: if we had a module parent for layout it would go here
-		MMatrix mCurrentParentWorld = MMatrix::identity;
-
-		unsigned int elementCount = hInputDataArray.elementCount();
-
-		for (unsigned int i = 0; i < elementCount; ++i)
-		{
-			hInputDataArray.jumpToElement(i);
-			MDataHandle hElement = hInputDataArray.inputValue();
-
-			MMatrix mControlLocal = hElement.child(aControlMatrix).asMatrix();
-			// NOTE: We can't have the control's local matrix in its opm! That causes a double transformation.
-			MMatrix mControlOPM = mCurrentParentWorld;
-
-			// Write to output array in-place
-			if (plugAttrIsControlOPM)
-			{
-				hOutputOPMArray.jumpToElement(i);
-				hOutputOPMArray.outputValue().setMMatrix(mControlOPM);
-			}
-
-			// Carry world matrix forward for index i + 1
-			MMatrix mControlWorld = mControlLocal * mControlOPM;
-			mCurrentParentWorld = mControlWorld;
-		}
-
-		if (plug.attribute() == aControlOPM)
-		{
-			hOutputOPMArray.setAllClean();
-		}
-		else
-		{
-			// We only need to set data for the socket matrix once (we only have one available socket)
-			hOutputSocketArrray.jumpToElement(0);
-			// Set it to the last computed control matrix
-			hOutputSocketArrray.outputValue().setMMatrix(mCurrentParentWorld);
-			hOutputSocketArrray.setAllClean();
-		}
-		
-		data.setClean(plug);
-		return MStatus::kSuccess;
+	if (oOutputAttr == aOutputSocketMatrix)
+	{
+		return computeChainOutput(plug, data, true);
 	}
 
 	return MStatus::kUnknownParameter;
@@ -104,7 +64,13 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 {
 	RigModuleBuildResult result;
 
-	// 1. Create layout module node
+	if (numControls == 0)
+	{
+		MGlobal::displayError("Layout module needs at least one control.");
+		return result;
+	}
+
+	// 1. Layout module node
 	MObject oLayoutModule = dagMod.MDGModifier::createNode(LayoutModuleNode::id);
 	dagMod.renameNode(oLayoutModule, "layoutModule");
 
@@ -113,74 +79,71 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 
 	result.moduleNode = oLayoutModule;
 
-	MObject oPreviousControlNode = MObject::kNullObj;
+	// Rotates the control shape 90 degrees about Z (a unit quaternion).
+	constexpr double kHalfSqrt2 = 0.70710678118654757;
 
-	// 2. Build layout controls hierarchy and populate in-memory socket registry
+	MObject oPreviousControl = MObject::kNullObj;
+
+	// 2. Controls, sockets and wiring
 	for (unsigned int i = 0; i < numControls; ++i)
 	{
 		MString controlName = MString("layout_") + std::to_string(i).c_str();
 		MObject oControl = RigControlNode::createRigControl(oLayoutModule, dagMod, controlName, ShapeType::Square, Side::Center);
 
-		// Connect control message
-		connectControlToRigModule(oLayoutModule, oControl, i, dagMod);
+		// Layout is rooted at the origin, so every rest is identity.
+		MStatus status = wireControl(oLayoutModule, oControl, i, MMatrix::identity, dagMod);
+		if (!status)
+		{
+			result.status = status;
+			return result;
+		}
 
-		// Record the "end" socket on the final layout control
+		// Every control is a socket, like the FK chain. The last one is also "end".
+		const std::string indexName = "index_" + std::to_string(i);
+		MString socketNames = indexName.c_str();
+
+		RigModuleSocketInfo socketInfo;
+		socketInfo.oTransform = oControl;
+		socketInfo.mRestWorld = MMatrix::identity;
+		socketInfo.outputIndex = i;
+		result.parentSockets[indexName] = socketInfo;
+
 		if (i == numControls - 1)
 		{
-			RigModuleSocketInfo socketInfo;
-			socketInfo.oTransform = oControl;
-			socketInfo.mRestWorld = MMatrix::identity;
-			socketInfo.outputIndex = 0;
-			result.parentSockets[std::string("end")] = socketInfo;
-
-			// Also append to socket names
-			DagPlugAndSocketUtils::setParentSocketName(oLayoutModule, 0, "end", dagMod);
+			result.parentSockets["end"] = socketInfo;
+			socketNames += ";end";
 		}
 
-		// Set decreasing scale using shape transform matrix
-		MPlug pShapeTransform(oControl, RigControlNode::aShapeTransform);
-		MTransformationMatrix mShapeTransform;
+		DagPlugAndSocketUtils::setParentSocketName(oLayoutModule, i, socketNames.asChar(), dagMod);
 
-		double scaleValue = 1.0 - (0.1 * i);
+		// Decreasing scale, rotated about Z, through the shape transform
+		const double scaleValue = 1.0 - (0.1 * i);
 		const double matrixScale[3] = { scaleValue, scaleValue, scaleValue };
-		mShapeTransform.setScale(matrixScale, MSpace::kObject);
 
-		// Orient control shape (90-degree rotation about Z axis)
-		mShapeTransform.setRotationQuaternion(0.0, 0.0, 0.7011, 0.7011);
+		MTransformationMatrix tShapeTransform;
+		tShapeTransform.setScale(matrixScale, MSpace::kObject);
+		tShapeTransform.setRotationQuaternion(0.0, 0.0, kHalfSqrt2, kHalfSqrt2);
 
 		MFnMatrixData fnShapeTransform;
-		MObject oShapeTransform = fnShapeTransform.create(mShapeTransform.asMatrix());
+		MObject oShapeTransform = fnShapeTransform.create(tShapeTransform.asMatrix());
+		MPlug pShapeTransform(oControl, RigControlNode::aShapeTransform);
 		dagMod.newPlugValue(pShapeTransform, oShapeTransform);
 
-		// Wire control matrix to module controlMatrix array input
-		MPlug pControlInputData(oLayoutModule, LayoutModuleNode::aControlInputData);
-		MPlug pControlInputDataIndex = pControlInputData.elementByLogicalIndex(i);
-		MPlug pControlOutputMatrix(oControl, RigControlNode::matrix);
-
-		MPlug pModuleInputMatrix = pControlInputDataIndex.child(LayoutModuleNode::aControlMatrix);
-		dagMod.connect(pControlOutputMatrix, pModuleInputMatrix);
-
-		// Connect to OPM for control
-		MPlug pModuleOPM(oLayoutModule, LayoutModuleNode::aControlOPM);
-		MPlug pModuleOPMIndex = pModuleOPM.elementByLogicalIndex(i);
-		MPlug pControlOPM(oControl, RigControlNode::offsetParentMatrix);
-		dagMod.connect(pModuleOPMIndex, pControlOPM);
-
-		// Parent sequentially in DAG
-		if (oPreviousControlNode != MObject::kNullObj)
+		// Parent sequentially in the DAG
+		if (!oPreviousControl.isNull())
 		{
-			dagMod.reparentNode(oControl, oPreviousControlNode);
+			dagMod.reparentNode(oControl, oPreviousControl);
 		}
-
-		oPreviousControlNode = oControl;
+		oPreviousControl = oControl;
 	}
 
-	// 3. Connect to RigRoot network plug
+	// 3. Network
 	if (!oRigRoot.isNull())
 	{
 		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dagMod, oLayoutModule, aRigRoot);
 	}
 
+	// No child plugs, so there is no dagParentCallback. parentModuleControls already skips modules without one.
 	result.status = MS::kSuccess;
 	return result;
 }

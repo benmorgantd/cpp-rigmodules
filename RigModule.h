@@ -11,6 +11,7 @@
 #include <functional>
 
 #include <maya/MPxNode.h>
+#include <maya/MArrayDataHandle.h>
 #include <maya/MMatrix.h>
 #include <maya/MObject.h>
 #include <maya/MString.h>
@@ -91,6 +92,13 @@ struct ModuleDescriptor
 	ModuleBuildFn build;        // nullptr = registered with Maya but not buildable from JSON
 };
 
+// Result of solving one control step. Shared by every module that carries controls.
+struct ControlSolveStep
+{
+	MMatrix mOPM;     // Control rest carried by the parent's motion. Excludes the control's local matrix.
+	MMatrix mWorld;   // mLocal * mOPM
+};
+
 // This class is just a class with shared helper methods for rig module nodes. 
 // You CAN NOT have "inheritance" for Maya nodes because of MObject pointers.
 class RigModuleNodeBase : public MPxNode
@@ -103,6 +111,10 @@ public:
 	// Data access helpers
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx);
 	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr);
+	// Control rest carried by parent motion, then the control's local on top.
+	static ControlSolveStep solveControlStep(const MMatrix& mLocal, const MMatrix& mRestWorld, const MMatrix& mParentDelta);
+	// In-place write to an existing output array element. Never builds new elements (see the MArrayDataBuilder rule).
+	static void writeOutputMatrix(MArrayDataHandle& hOutputData, unsigned int logicalIndex, const MMatrix& mMatrix);
 	static MMatrix getInputCompoundMatrix(
 		MDataBlock& data,
 		const MObject& aParentCompound,
@@ -220,20 +232,51 @@ public:
 	);
 	static MStatus connectControlToRigModule(
 		const MObject& oModule,
-		MObject& oControl,
-		const unsigned int& index,
+		const MObject& oControl,
+		const unsigned int index,
 		MDagModifier& dagMod
 	);
 	static MStatus connectControlInputMatrix(
-		MObject& oModule,
-		MObject& oControl,
-		unsigned int& index,
+		const MObject& oModule,
+		const MObject& oControl,
+		unsigned int index,
 		MDagModifier& dagMod
 	);
 	static MStatus setControlRestMatrix(
-		MObject& oModule,
-		MMatrix& worldMatrix,
-		unsigned int& index,
+		const MObject& oModule,
+		const MMatrix& worldMatrix,
+		unsigned int index,
+		MDagModifier& dagMod
+	);
+	// Reads element logicalIndex of aControlInputData. Leaves outputs untouched if the element is missing.
+	static MStatus readControlInput(MArrayDataHandle& hControlInputData, unsigned int logicalIndex, MMatrix& mOutLocal, MMatrix& mOutRestWorld);
+
+	// Motion of a child plug's parent socket since rest. Identity if the plug is unconnected or missing.
+	static MMatrix readChildPlugParentDelta(MArrayDataHandle& hChildPlugs, unsigned int logicalIndex);
+
+	// Shared dag-parent callback. Skips the DAG reparent when either side has no control (e.g. the aim plug/socket),
+	// but always connects the socket matrix to the child plug.
+	static MStatus reparentChildPlugToSocket(const RigModuleDagReparentArgs& args);
+
+	// Inputs (control local/rest, child plug parent/rest) affect controlOPM and the socket matrix.
+// Call after initializeSharedAttributes().
+	static void declareControlAffects();
+
+	// Full compute body for any output array produced by solveFkChain.
+	// useWorldMatrix false writes control OPMs, true writes control world matrices (joint OPM, socket matrix).
+	static MStatus computeChainOutput(
+		const MPlug& plug,
+		MDataBlock& data,
+		bool useWorldMatrix,
+		unsigned int childPlugIndex = 0
+	);
+
+	// Module-side wiring for one control: local matrix in, rest world, message link, OPM out.
+	static MStatus wireControl(
+		const MObject& oModule,
+		const MObject& oControl,
+		unsigned int index,
+		const MMatrix& mRestWorld,
 		MDagModifier& dagMod
 	);
 };
@@ -355,6 +398,7 @@ MStatus RigModuleWithControlsNode<Derived>::connectSocketMatrixToChildPlug(
 
 	return MStatus::kSuccess;
 }
+
 template <typename Derived>
 MStatus RigModuleWithControlsNode<Derived>::solveFkChain(
 	MDataBlock& data,
@@ -366,57 +410,36 @@ MStatus RigModuleWithControlsNode<Derived>::solveFkChain(
 {
 	MStatus status;
 
-	// Socket live world and its world at the time of parenting. Both identity if unparented.
-	MMatrix mParentWorld = RigModuleNodeBase::getInputCompoundMatrix(data, aChildPlugs, aChildPlugParentMatrix, childPlugIndex);
-	MMatrix mParentRest = RigModuleNodeBase::getInputCompoundMatrix(data, aChildPlugs, aChildPlugParentRestMatrix, childPlugIndex);
+	MArrayDataHandle hChildPlugs = data.inputArrayValue(aChildPlugs, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Motion of the chain's parent socket since rest. Identity if unparented.
+	MMatrix mParentDelta = readChildPlugParentDelta(hChildPlugs, childPlugIndex);
 
 	const unsigned int elementCount = hControlInputData.elementCount();
 
 	for (unsigned int i = 0; i < elementCount; ++i)
 	{
-		status = hControlInputData.jumpToElement(i);
-		if (!status)
-		{
-			return MStatus::kFailure;
-		}
-		
-		MDataHandle hElement = hControlInputData.inputValue(&status);
+		MMatrix mControlLocal = MMatrix::identity;
+		MMatrix mControlRestWorld = MMatrix::identity;
+		status = readControlInput(hControlInputData, i, mControlLocal, mControlRestWorld);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		// TODO: we may have to get the attr for aControlMatrix by doing string lookup, which we don't want in computes.
-		// We want to use the statics in computes. An alternative is to pass in a struct of that class's statics?
-		// Another could be to move this function somewhere different.
-		const MMatrix& mControlLocal = hElement.child(aControlMatrix).asMatrix();
-		const MMatrix& mControlRestWorld = hElement.child(aControlRestWorld).asMatrix();
+		const ControlSolveStep step = RigModuleNodeBase::solveControlStep(mControlLocal, mControlRestWorld, mParentDelta);
 
-		// Motion of the parent since rest. Identity at rest.
-		const MMatrix mParentDelta = mParentRest.inverse() * mParentWorld;
+		// The next control's parent is this control. Its delta is this control's world relative to its own rest.
+		mParentDelta = mControlRestWorld.inverse() * step.mWorld;
 
-		// World-space OPM: the control's rest carried by the parent's motion. No local in here.
-		const MMatrix mControlOPM = mControlRestWorld * mParentDelta;
-		const MMatrix mControlWorld = mControlLocal * mControlOPM;
-
-		// Carry state: identical for every output plug.
-		mParentWorld = mControlWorld;
-		mParentRest = mControlRestWorld;
-
-		// Only the written value depends on the plug.
-		const MMatrix& mOut = useLocalMatrix ? mControlWorld : mControlOPM;
-
-		status = hOutputData.jumpToElement(i);
-		if (status == MStatus::kSuccess)
-		{
-			hOutputData.outputValue().setMMatrix(mOut);
-		}
+		RigModuleNodeBase::writeOutputMatrix(hOutputData, i, useLocalMatrix ? step.mWorld : step.mOPM);
 	}
-	return status;
+	return MStatus::kSuccess;
 }
 
 template <typename Derived>
 MStatus RigModuleWithControlsNode<Derived>::connectControlToRigModule(
 	const MObject& oModule, 
-	MObject& oControl,
-	const unsigned int& index,
+	const MObject& oControl,
+	const unsigned int index,
 	MDagModifier& dagMod)
 {
 	MStatus status;
@@ -442,9 +465,9 @@ MStatus RigModuleWithControlsNode<Derived>::connectControlToRigModule(
 
 template <typename Derived>
 MStatus RigModuleWithControlsNode<Derived>::connectControlInputMatrix(
-	MObject& oModule,
-	MObject& oControl,
-	unsigned int& index,
+	const MObject& oModule,
+	const MObject& oControl,
+	unsigned int index,
 	MDagModifier& dagMod
 )
 {
@@ -477,9 +500,9 @@ MStatus RigModuleWithControlsNode<Derived>::connectControlInputMatrix(
 
 template <typename Derived>
 MStatus RigModuleWithControlsNode<Derived>::setControlRestMatrix(
-	MObject& oModule,
-	MMatrix& worldMatrix,
-	unsigned int& index,
+	const MObject& oModule,
+	const MMatrix& worldMatrix,
+	unsigned int index,
 	MDagModifier& dagMod
 )
 {
@@ -497,7 +520,134 @@ MStatus RigModuleWithControlsNode<Derived>::setControlRestMatrix(
 	}
 
 	MPlug pControlRestWorld = pControlInputDataIndex.child(aControlRestWorld);
-	DagUtils::setMatrixPlug(pControlRestWorld, worldMatrix, dagMod);
+	return DagUtils::setMatrixPlug(pControlRestWorld, worldMatrix, dagMod);
+}
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::readControlInput(
+	MArrayDataHandle& hControlInputData,
+	unsigned int logicalIndex,
+	MMatrix& mOutLocal,
+	MMatrix& mOutRestWorld)
+{
+	MStatus status = hControlInputData.jumpToElement(logicalIndex);
+	if (!status)
+	{
+		return status;
+	}
+
+	MDataHandle hElement = hControlInputData.inputValue(&status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	mOutLocal = hElement.child(aControlMatrix).asMatrix();
+	mOutRestWorld = hElement.child(aControlRestWorld).asMatrix();
+	return MStatus::kSuccess;
+}
+
+template <typename Derived>
+MMatrix RigModuleWithControlsNode<Derived>::readChildPlugParentDelta(MArrayDataHandle& hChildPlugs, unsigned int logicalIndex)
+{
+	if (hChildPlugs.jumpToElement(logicalIndex) != MStatus::kSuccess)
+	{
+		return MMatrix::identity;
+	}
+
+	MDataHandle hElement = hChildPlugs.inputValue();
+	const MMatrix mParentWorld = hElement.child(aChildPlugParentMatrix).asMatrix();
+	const MMatrix mParentRest = hElement.child(aChildPlugParentRestMatrix).asMatrix();
+	return mParentRest.inverse() * mParentWorld;
+}
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::reparentChildPlugToSocket(const RigModuleDagReparentArgs& args)
+{
+	MStatus status;
+
+	const bool childHasControl = !args.childPlug.oTransform.isNull();
+	const bool socketHasControl = !args.parentSocket.oTransform.isNull();
+	if (childHasControl && socketHasControl)
+	{
+		status = args.dagMod.reparentNode(args.childPlug.oTransform, args.parentSocket.oTransform);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+
+	return connectSocketMatrixToChildPlug(
+		args.oChildModuleNode,
+		args.childPlug.plugIndex,
+		args.oParentTargetModuleNode,
+		args.parentSocket.outputIndex,
+		args.parentSocket.mRestWorld,
+		args.dagMod
+	);
+}
+
+template <typename Derived>
+void RigModuleWithControlsNode<Derived>::declareControlAffects()
+{
+	const MObject oInputs[] =
+	{
+		aControlMatrix,
+		aControlRestWorld,
+		aChildPlugParentMatrix,
+		aChildPlugParentRestMatrix
+	};
+	const MObject oOutputs[] = { aControlOPM, aOutputSocketMatrix };
+
+	for (const MObject& oInput : oInputs)
+	{
+		for (const MObject& oOutput : oOutputs)
+		{
+			MPxNode::attributeAffects(oInput, oOutput);
+		}
+	}
+}
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::computeChainOutput(
+	const MPlug& plug,
+	MDataBlock& data,
+	bool useWorldMatrix,
+	unsigned int childPlugIndex)
+{
+	MStatus status;
+
+	MArrayDataHandle hControlInputData = data.inputArrayValue(aControlInputData, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MArrayDataHandle hOutputData = data.outputArrayValue(plug.attribute(), &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = solveFkChain(data, hControlInputData, hOutputData, childPlugIndex, useWorldMatrix);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	hOutputData.setAllClean();
+	data.setClean(plug);
+	return MStatus::kSuccess;
+}
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::wireControl(
+	const MObject& oModule,
+	const MObject& oControl,
+	unsigned int index,
+	const MMatrix& mRestWorld,
+	MDagModifier& dagMod)
+{
+	MStatus status;
+
+	status = connectControlInputMatrix(oModule, oControl, index, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Stored once at build time and never touched again.
+	status = setControlRestMatrix(oModule, mRestWorld, index, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	status = connectControlToRigModule(oModule, oControl, index, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MPlug pOutputControlOPM(oModule, aControlOPM);
+	MPlug pControlOPM(oControl, RigControlNode::offsetParentMatrix);
+	return dagMod.connect(pOutputControlOPM.elementByLogicalIndex(index), pControlOPM);
 }
 
 
@@ -510,6 +660,7 @@ public:
 	inline static MObject aJointOPM;
 
 	static MStatus initializeSharedAttributes();
+	static void declareStandardAffects();
 };
 
 template <typename Derived>
@@ -526,4 +677,27 @@ MStatus RigModuleWithJointsNode<Derived>::initializeSharedAttributes()
 	mAttr.setStorable(false);
 	mAttr.setUsesArrayDataBuilder(true);
 	return Base::addAttribute(aJointOPM);
+}
+
+// Every control/child-plug input affects every control OPM, joint OPM and socket output.
+// Call after initializeSharedAttributes() and after any module-specific attributes are added.
+template <typename Derived>
+void RigModuleWithJointsNode<Derived>::declareStandardAffects()
+{
+	// controlOPM and outputSocketMatrix
+	Base::declareControlAffects();
+
+	// Joint OPM is the only output this layer adds
+	const MObject oInputs[] =
+	{
+		Base::aControlMatrix,
+		Base::aControlRestWorld,
+		Base::aChildPlugParentMatrix,
+		Base::aChildPlugParentRestMatrix
+	};
+		
+	for (const MObject& oInput : oInputs)
+	{
+		MPxNode::attributeAffects(oInput, aJointOPM);
+	}
 }
