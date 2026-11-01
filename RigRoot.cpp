@@ -6,6 +6,7 @@
 #include "RigJsonStructs.h"
 #include "RigModule.h"
 #include "RigType.h"
+#include "Constraints.h"
 
 // Standard dependencies
 #include <filesystem>
@@ -42,6 +43,7 @@ MObject RigRootNode::aRigModules;
 MObject RigRootNode::aRigTemplateName;
 MObject RigRootNode::aAssetRoot;
 MObject RigRootNode::aChildren;
+MObject RigRootNode::aConstraints;
 
 // Boilerplate constructor, destructor, and creator
 RigRootNode::RigRootNode() {}
@@ -78,6 +80,7 @@ MStatus RigRootNode::initialize()
 	eAttr.setStorable(true);
 	addAttribute(aRigType);
 
+	// TODO: replace with constants references.
 	aRigVersion = nAttr.create("rigVersion", "rigVersion", MFnNumericData::kLong, 0, &status);
 	nAttr.setStorable(true);
 	addAttribute(aRigVersion);
@@ -95,6 +98,10 @@ MStatus RigRootNode::initialize()
 
 	aChildren = msgAttr.create("children", "cildren", &status);
 	addAttribute(aChildren);
+
+	aConstraints = msgAttr.create(RigAttr::Constraints, RigAttr::Constraints, &status);
+	msgAttr.setArray(true);
+	addAttribute(aConstraints);
 
 	// In the case of this node, there are no attribute affect relationships.
 
@@ -233,6 +240,18 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath, MDagModifier& dagMod
 		{
 			MGlobal::displayError("Failed executing DAG Modifiers during rig creation: " + status.errorString());
 			return status;
+		}
+
+		// 7. Constraint pass. This has to run after the first doIt: it adds an enum attribute to controls that must exist by then.
+		if (!rigData.rigConstraints.empty())
+		{
+			status = ParentConstraintNode::buildFromTemplate(rigData.rigConstraints, rigModuleMap, oRigRoot, dagMod);
+			if (!status)
+			{
+				MGlobal::displayError("Failed building rig constraints.");
+				dagMod.undoIt();
+				return status;
+			}
 		}
 
 		MGlobal::displayInfo("Rig successfully created from template: " + jsonFilePath);

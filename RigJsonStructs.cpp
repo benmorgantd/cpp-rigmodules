@@ -38,6 +38,11 @@ bool loadRigTemplate(const MString& filePath, AssetRootData& assetData, RigRootD
         // Deserialize full JSON directly into typed AssetRootData and RigRootData structs
         rigData = jsonData.get<RigRootData>();
         assetData = jsonData.get<AssetRootData>();
+
+        if (jsonData.contains("constraints"))
+        {
+            rigData.rigConstraints = jsonData.at("constraints").get<std::vector<RigConstraintData>>();
+        }
     }
     catch (const std::exception& e)
     {

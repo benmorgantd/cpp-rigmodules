@@ -7,10 +7,7 @@
 
 // Include headers for all custom nodes
 #include "ModuleRegistry.h"
-#include "AssetRoot.h"
-#include "RigRoot.h"
-#include "RigControlNode.h"
-#include "RigModule.h"
+#include "CommandRegistry.h"
 
 // Plugin Registration
 MStatus initializePlugin(MObject obj)
@@ -51,10 +48,16 @@ MStatus initializePlugin(MObject obj)
 	);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// TODO: we could do a command registry too.
 	// -- REGISTER COMMANDS --
-	status = plugin.registerCommand(CreateRigCmd::aCommandString, CreateRigCmd::creator, CreateRigCmd::newSyntax);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	for (const CommandDescriptor& descriptor : CommandRegistry::all())
+	{
+		status = plugin.registerCommand(descriptor.name, descriptor.creator, descriptor.syntax);
+		if (!status)
+		{
+			status.perror(MString("Failed to register command ") + descriptor.name);
+			return status;
+		}
+	}
 
 	return status;
 }
@@ -71,9 +74,12 @@ MStatus uninitializePlugin(MObject obj)
 	);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// 2. Deregister custom command
-	status = plugin.deregisterCommand(CreateRigCmd::aCommandString);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	// -- Deregister Commands --
+	const std::vector<CommandDescriptor>& commands = CommandRegistry::all();
+	for (auto it = commands.rbegin(); it != commands.rend(); ++it)
+	{
+		plugin.deregisterCommand(it->name);
+	}
 
 	// 3. Deregister node types (reverse order)
 	status = plugin.deregisterNode(RigControlNode::id);

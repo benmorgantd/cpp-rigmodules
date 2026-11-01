@@ -6,6 +6,20 @@
 #include <unordered_map>
 #include <maya/MString.h>
 
+struct RigConstraintDriverData
+{
+	std::string socket;           // "module.socket"
+	std::string label;            // enum label. Defaults to the socket string.
+	double weight = 0.0;          // > 0 marks the initial active driver
+};
+
+struct RigConstraintData
+{
+	std::string name;
+	std::string type = "Parent";
+	std::string target;           // "module.childPlug"
+	std::vector<RigConstraintDriverData> drivers;
+};
 
 struct RigModuleData
 {
@@ -31,6 +45,7 @@ struct RigRootData
     int rigVersion = -1;
     std::string rigAuthor;
     std::vector<RigModuleData> rigModules; // 1D Flat List of modules
+	std::vector<RigConstraintData> rigConstraints;
 };
 
 // nlohmann JSON mapping macros
@@ -40,3 +55,31 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigModuleData, moduleType, name, shapeType, s
 
 void from_json(const nlohmann::json& j, RigModuleData& module);
 bool loadRigTemplate(const MString& filePath, AssetRootData& assetData, RigRootData& rigData, MString& outErr);
+
+// Constraints ==================================================================
+
+inline void from_json(const nlohmann::json& jsonData, RigConstraintDriverData& driver)
+{
+	jsonData.at("socket").get_to(driver.socket);
+	driver.label = jsonData.value("label", driver.socket);
+	driver.weight = jsonData.value("weight", 0.0);
+}
+
+inline void to_json(nlohmann::json& jsonData, const RigConstraintDriverData& driver)
+{
+	jsonData = nlohmann::json{ { "socket", driver.socket }, { "label", driver.label }, { "weight", driver.weight } };
+}
+
+inline void from_json(const nlohmann::json& jsonData, RigConstraintData& constraint)
+{
+	jsonData.at("name").get_to(constraint.name);
+	jsonData.at("target").get_to(constraint.target);
+	jsonData.at("drivers").get_to(constraint.drivers);
+	constraint.type = jsonData.value("type", "Parent");
+}
+
+inline void to_json(nlohmann::json& jsonData, const RigConstraintData& constraint)
+{
+	jsonData = nlohmann::json{ { "name", constraint.name }, { "type", constraint.type },
+		{ "target", constraint.target }, { "drivers", constraint.drivers } };
+}

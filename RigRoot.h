@@ -8,7 +8,6 @@
 #include <maya/MStatus.h>
 #include <maya/MPxNode.h>
 #include <maya/MPxCommand.h>
-#include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
 
 class RigRootNode : public MPxNode
@@ -36,6 +35,7 @@ public:
 	static MObject aRigTemplateName;
 	static MObject aAssetRoot;
 	static MObject aChildren;
+	static MObject aConstraints;
 private:
 	static bool parseSocketIdentifier(const MString& fullIdentifier, std::string& outModuleName, std::string& outSocketName);
 	static void parentModuleControls(

@@ -6,6 +6,7 @@
 #include "RigRoot.h"
 #include "FkChain.h"
 #include "AimModule.h"
+#include "Constraints.h"
 
 #include <vector>
 
@@ -41,6 +42,11 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
             "aimModule", "Aim", AimModuleNode::id,
             AimModuleNode::creator, AimModuleNode::initialize,
             1, AimModuleNode::buildFromJson
+        },
+        {
+            "bmParentConstraint", "ParentConstraint", ParentConstraintNode::id,
+            ParentConstraintNode::creator, ParentConstraintNode::initialize,
+            1, nullptr   // built by ParentConstraintNode::buildFromTemplate, not as a module
         }
     };
     return descriptors;
