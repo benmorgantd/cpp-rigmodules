@@ -45,9 +45,10 @@ MStatus AssetRootNode::initialize()
 
 	// Asset Type: High-level classification string 
 	aAssetType = eAttr.create(RigAttr::AssetType, RigAttr::AssetType, 0);
-	eAttr.addField("Mesh", 0);
-	eAttr.addField("Rig", 1);
-	eAttr.addField("Other", 2);
+	for (short i = 0; i < RigAttr::AssetTypes::All.size(); ++i)
+	{
+		eAttr.addField(RigAttr::AssetTypes::All[i], i);
+	}
 	eAttr.setStorable(true);
 	addAttribute(aAssetType);
 

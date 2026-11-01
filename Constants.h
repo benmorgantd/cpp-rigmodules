@@ -1,6 +1,8 @@
 #pragma once
-#include <maya/MColor.h>
 
+#include <array>
+
+#include <maya/MColor.h>
 
 namespace RigControlNodeAttr
 {
@@ -21,10 +23,38 @@ namespace RigAttr
 	inline constexpr const char* AssetId{ "assetId" };
 	inline constexpr const char* AssetRoot{ "assetRoot" };
 	inline constexpr const char* AssetType{ "assetType" };
+	namespace AssetTypes
+	{
+		inline constexpr std::array All =
+		{
+			"Mesh",
+			"Rig",
+			"Other"
+		};
+	}
 	inline constexpr const char* AssetData{ "assetData" };
 	inline constexpr const char* Children{ "children" };
 
 	// RigRoot layer
+	inline constexpr const char* RigName{ "rigName" };
+	inline constexpr const char* RigType{ "rigType" };
+	namespace RigTypes
+	{
+		inline constexpr std::array All =
+		{
+			"Prop",
+			"Character",
+			"Vehicle",
+			"Head",
+			"Weapon",
+			"VFX",
+			"Light",
+			"Environment",
+			"Other"
+		};
+	}
+
+	inline constexpr const char* RigVersion{ "rigVersion" };
 
 	// RigModuleNode layer
 	inline constexpr const char* ModuleData{ "moduleData" };

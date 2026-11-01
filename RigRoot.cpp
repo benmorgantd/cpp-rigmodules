@@ -7,6 +7,7 @@
 #include "RigModule.h"
 #include "RigType.h"
 #include "Constraints.h"
+#include "Constants.h"
 
 // Standard dependencies
 #include <filesystem>
@@ -63,21 +64,15 @@ MStatus RigRootNode::initialize()
     MFnEnumAttribute eAttr;
 	MStatus status;
 
-	aRigName = tAttr.create("rigName", "rigName", MFnData::kString, MObject::kNullObj, &status);
+	aRigName = tAttr.create(RigAttr::RigName, RigAttr::RigName, MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	addAttribute(aRigName);
 
-	aRigType = eAttr.create("rigType", "rigType", 0);
-    eAttr.addField("Prop", 0);
-    eAttr.addField("Character", 1);
-    eAttr.addField("Vehicle", 2);
-    eAttr.addField("Head", 3);
-    eAttr.addField("Weapon", 4);
-    eAttr.addField("VFX", 5);
-    eAttr.addField("Light", 6);
-    eAttr.addField("Environment", 7);
-    eAttr.addField("Other", 8);
-	eAttr.setStorable(true);
+	aRigType = eAttr.create(RigAttr::RigType, RigAttr::RigType, 0);
+	for (short i = 0; i < RigAttr::RigTypes::All.size(); ++i)
+	{
+		eAttr.addField(RigAttr::RigTypes::All[i], i);
+	}
 	addAttribute(aRigType);
 
 	// TODO: replace with constants references.
