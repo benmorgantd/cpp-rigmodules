@@ -3,14 +3,16 @@
 
 #include <string>
 
+#include <maya/MColor.h>
+
 const char* getSideSuffix(const Side& sideEnum)
 {
 	switch (sideEnum)
 	{
-		case Side::Left: return "_l";
-		case Side::Right: return "_r";
-		case Side::Center: return "_c";
-		default: return "_c";
+		case Side::Left: return RigNaming::LeftSuffix;
+		case Side::Right: return RigNaming::RightSuffix;
+		case Side::Center: return RigNaming::CenterSuffix;
+		default: return RigNaming::CenterSuffix;
 	}
 }
 
@@ -27,15 +29,15 @@ const char* getFullSideName(const Side& sideEnum)
 
 Side getSideFromString(const std::string& side)
 {
-	if (side == "Center")
+	if (side == SideNames::Center)
 	{
 		return Side::Center;
 	}
-	else if (side == "Left")
+	else if (side == SideNames::Left)
 	{
 		return Side::Left;
 	}
-	else if (side == "Right")
+	else if (side == SideNames::Right)
 	{
 		return Side::Right;
 	}
@@ -49,11 +51,11 @@ Side getSideFromSuffix(const std::string& suffix)
 		return Side::Center;
 	}
 
-	if (suffix == "_l" || suffix == "l")
+	if (suffix == RigNaming::LeftSuffix)
 	{
 		return Side::Left;
 	}
-	else if (suffix == "_r" || suffix == "r")
+	else if (suffix == RigNaming::RightSuffix)
 	{
 		return Side::Right;
 	}

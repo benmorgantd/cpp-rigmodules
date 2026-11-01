@@ -3,6 +3,8 @@
 #include "Utilities.h"
 #include "Constants.h"
 
+#include <unordered_map>
+
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnTypedAttribute.h>
@@ -14,7 +16,6 @@
 #include <maya/MArgDatabase.h>
 #include <maya/MSelectionList.h>
 #include <maya/MGlobal.h>
-#include <maya/MStringArray.h>
 
 MTypeId ParentConstraintNode::id(0x00218E);
 

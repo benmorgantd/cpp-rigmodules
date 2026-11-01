@@ -383,6 +383,18 @@ bool StringUtils::nameListContains(const MString& nameList, const MString& token
 	return false;
 }
 
+MString StringUtils::joinStringArray(const MStringArray& stringArray, const char* joinChar)
+{
+	MString joinedArray = "";
+	for (int i = 0; i < stringArray.length(); ++i)
+	{
+		joinedArray += stringArray[i];
+		joinedArray += joinChar;
+	}
+	return joinedArray;
+}
+
+
 
 // RigModuleCommandHelpers ------------------------------------------------
 const char* RigModuleCommandUtils::kNameFlagShort = "-n";

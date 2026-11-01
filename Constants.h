@@ -7,6 +7,20 @@
 namespace RigControlNodeAttr
 {
 	inline constexpr const char* ShapeType{ "shapeType" };
+	// NOTE: this array should be kept in sync with the ShapeType enum in RigControlNode.
+	namespace ShapeTypes
+	{
+		inline constexpr std::array All =
+		{
+			"Box",
+			"Sphere",
+			"Circle",
+			"Capsule",
+			"Triangle",
+			"Cylinder",
+			"Square"
+		};
+	}
 	inline constexpr const char* ShapeTransform{ "shapeTransform" };
 	inline constexpr const char* WireframeColor{ "wireframeColor" };
 	inline constexpr const char* WireframeAlpha{ "wireframeAlpha" };
@@ -85,6 +99,13 @@ namespace RigAttr
 	inline constexpr const char* ControlSpace{ "space" };           // dynamic enum on a constrained control
 }
 
+namespace PlugAndSocketNames
+{
+	inline constexpr const char* Start{ "start" };
+	inline constexpr const char* End{ "end" };
+	inline constexpr const char* Index{ "index_" };
+}
+
 namespace ConstraintAttr
 {
 	inline constexpr const char* Drivers{ "drivers" };
@@ -102,6 +123,15 @@ namespace SideNames
 	inline constexpr const char* Center{ "Center" };
 	inline constexpr const char* Left{ "Left" };
 	inline constexpr const char* Right{ "Right" };
+}
+
+namespace RigNaming
+{
+	inline constexpr const char* JointSuffix{ "_jnt" };
+	inline constexpr const char* ControlSuffix{ "_ctrl" };
+	inline constexpr const char* LeftSuffix{ "_l" };
+	inline constexpr const char* RightSuffix{ "_r" };
+	inline constexpr const char* CenterSuffix{ "_c" };
 }
 
 namespace Colors

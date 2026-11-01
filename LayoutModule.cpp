@@ -99,8 +99,9 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 		}
 
 		// Every control is a socket, like the FK chain. The last one is also "end".
-		const std::string indexName = "index_" + std::to_string(i);
-		MString socketNames = indexName.c_str();
+		const std::string indexName = PlugAndSocketNames::Index + std::to_string(i);
+		MStringArray socketNames;
+		socketNames.append(indexName.c_str());
 
 		RigModuleSocketInfo socketInfo;
 		socketInfo.oTransform = oControl;
@@ -110,11 +111,12 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 
 		if (i == numControls - 1)
 		{
-			result.parentSockets["end"] = socketInfo;
-			socketNames += ";end";
+			result.parentSockets[PlugAndSocketNames::End] = socketInfo;
+			socketNames.append(PlugAndSocketNames::End);
 		}
 
-		DagPlugAndSocketUtils::setParentSocketName(oLayoutModule, i, socketNames.asChar(), dagMod);
+		MString socketNamesJoined = StringUtils::joinStringArray(socketNames, ";");
+		DagPlugAndSocketUtils::setParentSocketName(oLayoutModule, i, socketNamesJoined.asChar(), dagMod);
 
 		// Decreasing scale, rotated about Z, through the shape transform
 		const double scaleValue = 1.0 - (0.1 * i);

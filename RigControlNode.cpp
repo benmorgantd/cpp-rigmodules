@@ -95,14 +95,10 @@ MStatus RigControlNode::initialize() {
     MFnMatrixAttribute mAttr;
 
     aShapeType = eAttr.create(RigControlNodeAttr::ShapeType, RigControlNodeAttr::ShapeType, 0);
-    // TODO: the maya enum and cpp enum are not tied together. 
-    eAttr.addField("Box", 0);
-    eAttr.addField("Sphere", 1);
-    eAttr.addField("Circle", 2);
-    eAttr.addField("Capsule", 3);
-    eAttr.addField("Triangle", 4);
-    eAttr.addField("Cylinder", 5);
-    eAttr.addField("Square", 6);
+    for (short i = 0; i < RigControlNodeAttr::ShapeTypes::All.size(); ++i)
+    {
+        eAttr.addField(RigControlNodeAttr::ShapeTypes::All[i], i);
+    }
     eAttr.setKeyable(false);
     eAttr.setStorable(true);
     addAttribute(aShapeType);
@@ -355,8 +351,8 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
     DagUtils::setInheritsTransforms(oControl, false, dagMod);
 
     MString ctrlName = jointName;
-    ctrlName.substitute("_jnt", "");  // TODO: global var for jnt suffix
-    ctrlName += "_ctrl";  // TODO: global naming method, global var for ctrl suffix
+    ctrlName.substitute(RigNaming::JointSuffix, "");
+    ctrlName += RigNaming::ControlSuffix;
     ctrlName += getSideSuffix(side);
     dagMod.renameNode(oControl, ctrlName);
 
@@ -378,13 +374,3 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
     return oControl;
 }
 
-ShapeType getShapeTypeFromString(const std::string& value)
-{
-    auto shapeTypeIt = stringToShapeType.find(value);
-
-    if (shapeTypeIt != stringToShapeType.end())
-    {
-        return shapeTypeIt->second;
-    }
-    return ShapeType::Box;
-}

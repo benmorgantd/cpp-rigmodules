@@ -1,5 +1,6 @@
 #pragma once
 #include "Side.h"
+#include "Constants.h"
 
 #include <maya/MUIDrawManager.h>
 #include <maya/MFrameContext.h>
@@ -7,9 +8,6 @@
 #include <maya/MPxDrawOverride.h>
 #include <maya/MUserData.h>
 #include <maya/MColor.h>
-#include <maya/MTypeId.h>
-
-#include <unordered_map>
 
 // Data payload passed to Viewport 2.0 draw thread
 // Read MPlugs in prepareForDraw, feed to this class, then read from it in addUIDrawables
@@ -32,6 +30,7 @@ public:
     bool filled{ false };
 };
 
+// NOTE: This enum should be kept in sync with the RigControlNodeAttr::ShapeTypes array.
 enum ShapeType : int
 {
     Box = 0,
@@ -43,18 +42,32 @@ enum ShapeType : int
     Square = 6,
 };
 
-static const std::unordered_map<std::string, ShapeType> stringToShapeType =
+// String -> Enum
+inline ShapeType getShapeTypeFromString(std::string_view value)
 {
-    { "Box", ShapeType::Box },
-    { "Sphere", ShapeType::Sphere },
-    { "Circle", ShapeType::Circle },
-    { "Capsule", ShapeType::Capsule },
-    { "Triangle", ShapeType::Triangle },
-    { "Cylinder", ShapeType::Cylinder },
-    { "Square", ShapeType::Square }
-};
+    const auto& all = RigControlNodeAttr::ShapeTypes::All;
 
-ShapeType getShapeTypeFromString(const std::string& value);
+    auto it = std::find(all.begin(), all.end(), value);
+    if (it != all.end())
+    {
+        return static_cast<ShapeType>(std::distance(all.begin(), it));
+    }
+
+    return ShapeType::Box;
+}
+
+inline const char* getShapeTypeString(ShapeType shape)
+{
+    const auto index = static_cast<size_t>(shape);
+    const auto& all = RigControlNodeAttr::ShapeTypes::All;
+
+    if (index < all.size())
+    {
+        return all[index];
+    }
+
+    return "Box";
+}
 
 class CustomShapes
 {

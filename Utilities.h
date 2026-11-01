@@ -43,6 +43,7 @@ public:
 class StringUtils
 {
 public:
+	static MString joinStringArray(const MStringArray& stringArray, const char* joinChar);  // for joining MString arrays to char separated strings
 	static bool nameListContains(const MString& nameList, const MString& name);  // For semicolon-separated lists to compare whole tokens.
 };
 

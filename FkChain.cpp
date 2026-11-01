@@ -6,6 +6,7 @@
 #include "Side.h"
 
 #include <string>
+#include <string_view>
 #include <nlohmann/json.hpp>
 
 #include <maya/MFnDependencyNode.h>
@@ -113,8 +114,9 @@ RigModuleBuildResult FkChainNode::createModule(
 		MFnTransform fnJoint(oJoint);
 		MObject oControlTransform = RigControlNode::createRigControl(oFkChainModule, dagMod, fnJoint.name(), shapeType, side);
 
-		const std::string indexName = "index_" + std::to_string(i);
-		MString socketNames = indexName.c_str();
+		const std::string indexName = PlugAndSocketNames::Index + std::to_string(i);
+		MStringArray socketNames;
+		socketNames.append(indexName.c_str());
 
 		RigModuleSocketInfo socketInfo;
 		socketInfo.oTransform = oControlTransform;
@@ -125,11 +127,12 @@ RigModuleBuildResult FkChainNode::createModule(
 		if (i == 0)
 		{
 			// Only the first control in an FK chain can be parented to another module.
-			result.parentSockets["start"] = socketInfo;
-			result.childPlugs["start"] = RigModuleChildPlugInfo{ oControlTransform, 0 };
-			socketNames += ";start";
+			result.parentSockets[PlugAndSocketNames::Start] = socketInfo;
+			result.childPlugs[PlugAndSocketNames::Start] = RigModuleChildPlugInfo{ oControlTransform, 0 };
+			const char* _socketName = ";";
+			socketNames.append(PlugAndSocketNames::Start);
 
-			DagPlugAndSocketUtils::setChildPlugName(oFkChainModule, 0, "start", dagMod);
+			DagPlugAndSocketUtils::setChildPlugName(oFkChainModule, 0, PlugAndSocketNames::Start, dagMod);
 		}
 		else
 		{
@@ -139,11 +142,12 @@ RigModuleBuildResult FkChainNode::createModule(
 
 		if (i == numJoints - 1)
 		{
-			result.parentSockets["end"] = socketInfo;
-			socketNames += ";end";
+			result.parentSockets[PlugAndSocketNames::End] = socketInfo;
+			socketNames.append(PlugAndSocketNames::End);
 		}
 
-		DagPlugAndSocketUtils::setParentSocketName(oFkChainModule, i, socketNames.asChar(), dagMod);
+		MString joinedSocketNames = StringUtils::joinStringArray(socketNames, ";");
+		DagPlugAndSocketUtils::setParentSocketName(oFkChainModule, i, joinedSocketNames.asChar(), dagMod);
 
 		MStatus wireStatus = wireControl(oFkChainModule, oControlTransform, i, mJointRestWorld, dagMod);
 		if (!wireStatus)
