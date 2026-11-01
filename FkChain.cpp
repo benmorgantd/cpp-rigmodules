@@ -8,20 +8,13 @@
 #include <string>
 #include <nlohmann/json.hpp>
 
-#include <maya/MFnMatrixAttribute.h>
-#include <maya/MFnMessageAttribute.h>
-#include <maya/MFnCompoundAttribute.h>
-#include <maya/MFnTypedAttribute.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MMatrix.h>
-#include <maya/MArrayDataHandle.h>
 #include <maya/MPlug.h>
-#include <maya/MDagPath.h>
 #include <maya/MGlobal.h>
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
 #include <maya/MMatrixArray.h>
-#include <maya/MSelectionList.h>
 #include <maya/MFnTransform.h>
 
 // ------------------------------------------------------------------
@@ -70,6 +63,7 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kUnknownParameter;
 }
 
+// TODO: set rotate order for +x down and +z bend
 RigModuleBuildResult FkChainNode::createModule(
 	const MString& moduleName,
 	const Side& side,
@@ -136,6 +130,11 @@ RigModuleBuildResult FkChainNode::createModule(
 			socketNames += ";start";
 
 			DagPlugAndSocketUtils::setChildPlugName(oFkChainModule, 0, "start", dagMod);
+		}
+		else
+		{
+			// Parent the control in the fk hierarchy.
+			dagMod.reparentNode(oControlTransform, oPreviousControl);
 		}
 
 		if (i == numJoints - 1)

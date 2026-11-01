@@ -17,6 +17,8 @@
 #include <maya/MPlug.h>
 #include <maya/MGlobal.h>
 #include <maya/MDagModifier.h>
+#include <maya/MObject.h>
+#include <maya/MTypeId.h>
 
 MTypeId AimModuleNode::id(0x00218D);
 MObject AimModuleNode::aAimRestOffset;

@@ -570,6 +570,10 @@ MStatus RigModuleWithControlsNode<Derived>::reparentChildPlugToSocket(const RigM
 		status = args.dagMod.reparentNode(args.childPlug.oTransform, args.parentSocket.oTransform);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
+	else
+	{
+		MGlobal::displayWarning(MString("Socket or child plug did not exist for DAG reparent"));  // we no longer have the child plug or parent socket namee
+	}
 
 	return connectSocketMatrixToChildPlug(
 		args.oChildModuleNode,
