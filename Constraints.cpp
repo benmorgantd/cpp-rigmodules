@@ -350,18 +350,21 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 	MObject oConstraint = dagMod.MDGModifier::createNode(ParentConstraintNode::id);
 	dagMod.renameNode(oConstraint, args.name.c_str());
 
-	MFnEnumAttribute eAttr;
-	MObject oSpaceAttr = eAttr.create(RigAttr::ControlSpace, RigAttr::ControlSpace, static_cast<short>(args.initialDriver), &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	for (unsigned int i = 0; i < args.drivers.size(); ++i)
+	if (args.exposeSpace)
 	{
-		eAttr.addField(args.drivers[i].label.c_str(), static_cast<short>(i));
-	}
-	eAttr.setKeyable(true);
-	eAttr.setStorable(true);
+		MFnEnumAttribute eAttr;
+		MObject oSpaceAttr = eAttr.create(RigAttr::ControlSpace, RigAttr::ControlSpace, static_cast<short>(args.initialDriver), &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		for (unsigned int i = 0; i < args.drivers.size(); ++i)
+		{
+			eAttr.addField(args.drivers[i].label.c_str(), static_cast<short>(i));
+		}
+		eAttr.setKeyable(true);
+		eAttr.setStorable(true);
 
-	status = dagMod.addAttribute(args.oControl, oSpaceAttr);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = dagMod.addAttribute(args.oControl, oSpaceAttr);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
 
 	status = dagMod.doIt();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -390,12 +393,18 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 		DagUtils::setMatrixPlug(pDriverOffset, mOffset, dagMod);
 	}
 
-	// The control's enum drives the constraint's int.
-	MPlug pControlSpace = fnControl.findPlug(RigAttr::ControlSpace, false, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
 	MPlug pActiveDriver(oConstraint, aActiveDriver);
-	status = dagMod.connect(pControlSpace, pActiveDriver);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (args.exposeSpace)
+	{
+		MPlug pControlSpace = fnControl.findPlug(RigAttr::ControlSpace, false, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = dagMod.connect(pControlSpace, pActiveDriver);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+	else
+	{
+		dagMod.newPlugValueInt(pActiveDriver, static_cast<int>(args.initialDriver));
+	}
 
 	// Replace whatever the parenting pass connected to the child plug.
 	MPlug pOldSource = pParentMatrix.source();
@@ -477,6 +486,7 @@ MStatus ParentConstraintNode::buildFromTemplate(
 		args.oControl = pChildPlug->oTransform;
 		args.oModule = moduleIt->second.moduleNode;
 		args.plugIndex = pChildPlug->plugIndex;
+		args.exposeSpace = constraintData.exposeSpace;
 		args.oRigRoot = oRigRoot;
 
 		// Drivers resolve through the build results, the same way pass 2 resolves parents.

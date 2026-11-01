@@ -37,6 +37,7 @@ struct ConstraintBuildArgs
 	unsigned int plugIndex = 0;      // child plug (and control) index on that module
 	std::vector<ConstraintDriverInfo> drivers;
 	unsigned int initialDriver = 0;
+	bool exposeSpace = true;
 	MObject oRigRoot;                // may be null
 };
 
