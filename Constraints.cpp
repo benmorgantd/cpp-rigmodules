@@ -30,6 +30,7 @@ MObject ParentConstraintNode::aRigRoot;
 
 namespace
 {
+	// TODO: these 2 already exist in "utilities"
 	// "module.name" -> ("module", "name")
 	bool splitIdentifier(const std::string& identifier, std::string& outModule, std::string& outName)
 	{
@@ -55,6 +56,7 @@ namespace
 	}
 
 	// Motion of a driver since rest.
+	// TODO: I'm not sure how useful this is to have as a fn
 	MMatrix driverDelta(const MMatrix& mRest, const MMatrix& mWorld)
 	{
 		return mRest.inverse() * mWorld;
@@ -335,6 +337,8 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 		}
 	}
 
+	bool createEnumAttr = args.drivers.size() > 1;
+
 	MPlug pParentMatrix;
 	MPlug pParentRest;
 	status = getChildPlugMatrixPlugs(args.oModule, args.plugIndex, pParentMatrix, pParentRest);
@@ -350,7 +354,7 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 	MObject oConstraint = dagMod.MDGModifier::createNode(ParentConstraintNode::id);
 	dagMod.renameNode(oConstraint, args.name.c_str());
 
-	if (args.exposeSpace)
+	if (createEnumAttr)
 	{
 		MFnEnumAttribute eAttr;
 		MObject oSpaceAttr = eAttr.create(RigAttr::ControlSpace, RigAttr::ControlSpace, static_cast<short>(args.initialDriver), &status);
@@ -394,7 +398,7 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 	}
 
 	MPlug pActiveDriver(oConstraint, aActiveDriver);
-	if (args.exposeSpace)
+	if (createEnumAttr)
 	{
 		MPlug pControlSpace = fnControl.findPlug(RigAttr::ControlSpace, false, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -486,7 +490,6 @@ MStatus ParentConstraintNode::buildFromTemplate(
 		args.oControl = pChildPlug->oTransform;
 		args.oModule = moduleIt->second.moduleNode;
 		args.plugIndex = pChildPlug->plugIndex;
-		args.exposeSpace = constraintData.exposeSpace;
 		args.oRigRoot = oRigRoot;
 
 		// Drivers resolve through the build results, the same way pass 2 resolves parents.

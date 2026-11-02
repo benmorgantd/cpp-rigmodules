@@ -19,7 +19,6 @@ struct RigConstraintData
 	std::string type = "Parent";
 	std::string target;           // "module.childPlug"
 	std::vector<RigConstraintDriverData> drivers;
-	bool exposeSpace = true;  // For constraints with 1 parent we don't always need it switchable in the channel box
 };
 
 struct RigModuleData
@@ -77,12 +76,10 @@ inline void from_json(const nlohmann::json& jsonData, RigConstraintData& constra
 	jsonData.at("target").get_to(constraint.target);
 	jsonData.at("drivers").get_to(constraint.drivers);
 	constraint.type = jsonData.value("type", "Parent");
-	// A single driver defaults to hidden in the Channel Box
-	constraint.exposeSpace = jsonData.value("exposeSpace", constraint.drivers.size() > 1);
 }
 
 inline void to_json(nlohmann::json& jsonData, const RigConstraintData& constraint)
 {
 	jsonData = nlohmann::json{ { "name", constraint.name }, { "type", constraint.type },
-		{ "target", constraint.target }, { "drivers", constraint.drivers }, { "exposeSpace", constraint.exposeSpace } };
+		{ "target", constraint.target }, { "drivers", constraint.drivers } };
 }
