@@ -1,6 +1,7 @@
 #include "Utilities.h"
-#include "RigModule.h"
 #include "Constants.h"
+
+#include <string>
 
 #include <maya/MMatrix.h>
 #include <maya/MString.h>
@@ -21,6 +22,7 @@
 #include <maya/MFnDependencyNode.h>
 #include <maya/MStatus.h>
 #include <maya/MStringArray.h>
+#include <maya/MFnAttribute.h>
 
 // ---------------------------------
 // Math Utilities
@@ -181,20 +183,18 @@ MStatus DagUtils::zeroLocalTransforms(const MObject& oTransform, MDagModifier& d
 	}
 
 	MFnTransform fnTransform(oTransform);
-	for (const char* xform : { "translate", "rotate", "scale" })
+	for (const auto& transform : kDefaultTransformValues)
 	{
-		for (const char* axis : { "X", "Y", "Z" })
-		{
-			MPlug pTransform = fnTransform.findPlug(MString(xform) + axis, false);
+		MPlug pTransform(oTransform, transform.attr);
 
-			if (!pTransform.isNull() && !pTransform.isLocked())
-			{
-				dagMod.newPlugValueDouble(pTransform, (xform == "scale") ? 1.0 : 0.0);
-			}
-			else
-			{
-				MGlobal::displayError(MString("Plug was locked and could not be zeroed: ") + xform + axis);
-			}
+		if (!pTransform.isNull() && !pTransform.isLocked())
+		{
+			dagMod.newPlugValueDouble(pTransform, transform.value);
+		}
+		else
+		{
+			MFnAttribute fnAttr(transform.attr);
+			MGlobal::displayError(MString("Plug was locked and could not be zeroed: " + fnAttr.name()));
 		}
 	}
 	return MStatus::kSuccess;
@@ -270,7 +270,7 @@ MStatus DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier&
 	}
 }
 
-MDagPath DagUtils::getDagPathFromName(MString& name)
+MDagPath DagUtils::getDagPathFromName(const MString& name)
 {
 	MDagPath jointDag;
 	MStatus status;
@@ -311,6 +311,17 @@ MStatus DagUtils::getJointAndWorldMatrix(const MString& jointName, MObject& oJoi
 	oJoint = jointDag.node();
 	mWorld = jointDag.inclusiveMatrix(&status);
 	return status;
+}
+
+MStatus DagUtils::getNodeFromName(const MString& name, MObject& oNode)
+{
+	MSelectionList sel;
+	MStatus status = sel.add(name);
+	if (!status)
+	{
+		return status;
+	}
+	return sel.getDependNode(0, oNode);
 }
 
 // DAG plug and socket utils -----------------------------------------------
@@ -394,7 +405,17 @@ MString StringUtils::joinStringArray(const MStringArray& stringArray, const char
 	return joinedArray;
 }
 
-
+bool StringUtils::splitIdentifier(const std::string& identifier, std::string& outModule, std::string& outName)
+{
+	const size_t dot = identifier.find('.');
+	if (dot == std::string::npos || dot == 0 || dot + 1 >= identifier.size())
+	{
+		return false;
+	}
+	outModule = identifier.substr(0, dot);
+	outName = identifier.substr(dot + 1);
+	return true;
+}
 
 // RigModuleCommandHelpers ------------------------------------------------
 const char* RigModuleCommandUtils::kNameFlagShort = "-n";
@@ -425,21 +446,13 @@ MObject RigModuleCommandUtils::getRigRootFromArgs(const MArgDatabase& argData)
 {
 	MString rigRootName;
 	MObject oRigRoot;
-	MStatus status;
 
 	if (argData.isFlagSet(kRigRootShort))
 	{
-		status = argData.getFlagArgument(kRigRootShort, 0, rigRootName);
-
-		if (status == MStatus::kSuccess && !rigRootName.isEmpty())
+		MStatus status = argData.getFlagArgument(kRigRootShort, 0, rigRootName);
+		if (status && !rigRootName.isEmpty())
 		{
-			MSelectionList sel;
-			status = sel.add(rigRootName);
-
-			if (status == MStatus::kSuccess)
-			{
-				status = sel.getDependNode(0, oRigRoot);
-			}
+			DagUtils::getNodeFromName(rigRootName, oRigRoot);
 		}
 	}
 	return oRigRoot;

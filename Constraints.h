@@ -68,8 +68,6 @@ public:
 	static MObject aRigRoot;           // message
 
 public:
-	// Scene resolution helpers (used by the commands, and by the template path for validation)
-	static MStatus resolveControl(const MObject& oControl, MObject& oOutModule, unsigned int& outPlugIndex);
 	static MStatus resolveSocket(const std::string& socketId, ConstraintDriverInfo& outDriver);
 
 	// Two-stage build. Runs dagMod.doIt() twice, so it must run after the controls exist in the scene.
@@ -84,10 +82,6 @@ public:
 
 	// Switch space without a jump: captures the offset for the new driver, then sets the enum.
 	static MStatus matchSwitchSpace(const MObject& oConstraint, unsigned int newDriver, MDagModifier& dagMod);
-
-private:
-	static MStatus getChildPlugMatrixPlugs(const MObject& oModule, unsigned int plugIndex, MPlug& pOutParentMatrix, MPlug& pOutParentRest);
-	static MPlug getSocketPlug(const ConstraintDriverInfo& driver);
 };
 
 // createRigParentConstraint -control <rigControl> -driver "module.socket" [-driver ...] [-label ...] [-initial n] [-name n]

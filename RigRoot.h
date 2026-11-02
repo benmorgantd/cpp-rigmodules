@@ -37,7 +37,6 @@ public:
 	static MObject aChildren;
 	static MObject aConstraints;
 private:
-	static bool parseSocketIdentifier(const MString& fullIdentifier, std::string& outModuleName, std::string& outSocketName);
 	static void parentModuleControls(
 		const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,
 		const std::vector<RigModuleData>& flatModuleList,

@@ -14,7 +14,6 @@
 #include <maya/MFnDependencyNode.h>
 #include <maya/MArrayDataHandle.h>
 #include <maya/MArgDatabase.h>
-#include <maya/MSelectionList.h>
 #include <maya/MGlobal.h>
 
 MTypeId ParentConstraintNode::id(0x00218E);
@@ -27,41 +26,6 @@ MObject ParentConstraintNode::aDriverLabel;
 MObject ParentConstraintNode::aActiveDriver;
 MObject ParentConstraintNode::aOutParentMatrix;
 MObject ParentConstraintNode::aRigRoot;
-
-namespace
-{
-	// TODO: these 2 already exist in "utilities"
-	// "module.name" -> ("module", "name")
-	bool splitIdentifier(const std::string& identifier, std::string& outModule, std::string& outName)
-	{
-		const size_t dot = identifier.find('.');
-		if (dot == std::string::npos || dot == 0 || dot + 1 >= identifier.size())
-		{
-			return false;
-		}
-		outModule = identifier.substr(0, dot);
-		outName = identifier.substr(dot + 1);
-		return true;
-	}
-
-	MStatus getNodeByName(const MString& name, MObject& oOutNode)
-	{
-		MSelectionList sel;
-		MStatus status = sel.add(name);
-		if (!status)
-		{
-			return status;
-		}
-		return sel.getDependNode(0, oOutNode);
-	}
-
-	// Motion of a driver since rest.
-	// TODO: I'm not sure how useful this is to have as a fn
-	MMatrix driverDelta(const MMatrix& mRest, const MMatrix& mWorld)
-	{
-		return mRest.inverse() * mWorld;
-	}
-}
 
 ParentConstraintNode::ParentConstraintNode() {}
 ParentConstraintNode::~ParentConstraintNode() {}
@@ -155,7 +119,7 @@ MStatus ParentConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 		const MMatrix mWorld = hDriver.child(aDriverMatrix).asMatrix();
 		const MMatrix mRest = hDriver.child(aDriverRest).asMatrix();
 		const MMatrix mOffset = hDriver.child(aDriverOffset).asMatrix();
-		mOut = mOffset * driverDelta(mRest, mWorld);
+		mOut = mOffset * MathUtils::computeDeltaFromRest(mRest, mWorld);
 	}
 
 	data.outputValue(aOutParentMatrix).setMMatrix(mOut);
@@ -167,139 +131,36 @@ MStatus ParentConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 // Scene resolution
 // ------------------------------------------------------------------
 
-// A constrained control must be a rig control wired to a module, and its index must be a named child plug.
-// Child plug index == control index on every current module.
-MStatus ParentConstraintNode::resolveControl(const MObject& oControl, MObject& oOutModule, unsigned int& outPlugIndex)
-{
-	MStatus status;
-	if (oControl.isNull() || !oControl.hasFn(MFn::kTransform))
-	{
-		MGlobal::displayError("Constraint control must be a rigControlNode transform.");
-		return MStatus::kFailure;
-	}
-
-	MFnDependencyNode fnControl(oControl);
-	if (fnControl.typeId() != RigControlNode::id)
-	{
-		MGlobal::displayError(MString("Not a rig control: ") + fnControl.name());
-		return MStatus::kFailure;
-	}
-
-	MPlug pRigModule(oControl, RigControlNode::aRigModule);
-	MPlug pModuleSource = pRigModule.source(&status);
-	if (!status || pModuleSource.isNull() || !pModuleSource.isElement())
-	{
-		MGlobal::displayError(MString("Rig control does not belong to a module: ") + fnControl.name());
-		return MStatus::kFailure;
-	}
-
-	oOutModule = pModuleSource.node();
-	outPlugIndex = pModuleSource.logicalIndex();
-
-	MFnDependencyNode fnModule(oOutModule);
-	MPlug pChildPlugs = fnModule.findPlug(RigAttr::ChildPlugs, false, &status);
-	if (!status || pChildPlugs.isNull())
-	{
-		MGlobal::displayError(MString("Node is not a rig module: ") + fnModule.name());
-		return MStatus::kFailure;
-	}
-
-	// Walk physical elements so we don't create sparse elements by asking for a logical index.
-	MObject oChildPlugName = fnModule.attribute(RigAttr::ChildPlugName);
-	for (unsigned int e = 0; e < pChildPlugs.numElements(); ++e)
-	{
-		MPlug pElement = pChildPlugs.elementByPhysicalIndex(e);
-		if (pElement.logicalIndex() == outPlugIndex)
-		{
-			if (pElement.child(oChildPlugName).asString().length() > 0)
-			{
-				return MStatus::kSuccess;
-			}
-			break;
-		}
-	}
-
-	MGlobal::displayError(MString("Control is not a child plug of its module: ") + fnControl.name());
-	return MStatus::kFailure;
-}
-
 // "module.socket" -> module node, socket index, rest matrix. Socket names live in socketNames as ';' separated tokens.
 MStatus ParentConstraintNode::resolveSocket(const std::string& socketId, ConstraintDriverInfo& outDriver)
 {
-	MStatus status;
 	std::string moduleName, socketName;
-	if (!splitIdentifier(socketId, moduleName, socketName))
+	if (!StringUtils::splitIdentifier(socketId, moduleName, socketName))
 	{
 		MGlobal::displayError(MString("Driver must be 'module.socket': ") + socketId.c_str());
 		return MStatus::kFailure;
 	}
 
 	MObject oModule;
-	if (!getNodeByName(moduleName.c_str(), oModule))
+	MStatus status = RigModuleNodeBase::findModuleByName(moduleName.c_str(), oModule);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	RigModuleSocketInfo socketInfo;
+	status = RigModuleNodeBase::resolveSocket(oModule, socketName.c_str(), socketInfo);
+	if (!status)
 	{
-		MGlobal::displayError(MString("Driver module not found: ") + moduleName.c_str());
+		MGlobal::displayError(MString("Socket '") + socketName.c_str() + "' not found on module '" + moduleName.c_str() + "'.");
 		return MStatus::kFailure;
 	}
 
-	MFnDependencyNode fnModule(oModule);
-	MPlug pSocketNames = fnModule.findPlug(RigAttr::SocketNames, false, &status);
-	if (!status || pSocketNames.isNull())
+	outDriver.oModule = oModule;
+	outDriver.socketIndex = socketInfo.outputIndex;
+	outDriver.mRestWorld = socketInfo.mRestWorld;
+	if (outDriver.label.empty())
 	{
-		MGlobal::displayError(MString("Node has no sockets: ") + moduleName.c_str());
-		return MStatus::kFailure;
+		outDriver.label = socketId;
 	}
-
-	for (unsigned int e = 0; e < pSocketNames.numElements(); ++e)
-	{
-		MPlug pElement = pSocketNames.elementByPhysicalIndex(e);
-		if (StringUtils::nameListContains(pElement.asString(), socketName.c_str()))
-		{
-			const unsigned int socketIndex = pElement.logicalIndex();
-
-			// Socket i is always control i's element in controlData, so the rest lives there.
-			MPlug pControlData = fnModule.findPlug(RigAttr::ControlInputData, false);
-			MPlug pControlElement = pControlData.elementByLogicalIndex(socketIndex);
-			MObject oControlRestWorld = fnModule.attribute(RigAttr::ControlRestWorld);
-			MPlug pRest = pControlElement.child(oControlRestWorld);
-
-			outDriver.oModule = oModule;
-			outDriver.socketIndex = socketIndex;
-			outDriver.mRestWorld = DagUtils::getMatrixFromPlug(pRest);
-			if (outDriver.label.empty())
-			{
-				outDriver.label = socketId;
-			}
-			return MStatus::kSuccess;
-		}
-	}
-
-	MGlobal::displayError(MString("Socket '") + socketName.c_str() + "' not found on module '" + moduleName.c_str() + "'.");
-	return MStatus::kFailure;
-}
-
-MStatus ParentConstraintNode::getChildPlugMatrixPlugs(const MObject& oModule, unsigned int plugIndex, MPlug& pOutParentMatrix, MPlug& pOutParentRest)
-{
-	MStatus status;
-	MFnDependencyNode fnModule(oModule);
-	MPlug pChildPlugs = fnModule.findPlug(RigAttr::ChildPlugs, false, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug pElement = pChildPlugs.elementByLogicalIndex(plugIndex, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MObject oChildPlugParentMatrix = fnModule.attribute(RigAttr::ChildPlugParentMatrix);
-	pOutParentMatrix = pElement.child(oChildPlugParentMatrix, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MObject oChildPlugParentRestMatrix = fnModule.attribute(RigAttr::ChildPlugParentRestMatrix);
-	pOutParentRest = pElement.child(oChildPlugParentRestMatrix, &status);
-	return status;
-}
-
-MPlug ParentConstraintNode::getSocketPlug(const ConstraintDriverInfo& driver)
-{
-	MFnDependencyNode fnModule(driver.oModule);
-	MPlug pSockets = fnModule.findPlug(RigAttr::OutputSocketMatrix, false);
-	return pSockets.elementByLogicalIndex(driver.socketIndex);
+	return MStatus::kSuccess;
 }
 
 // ------------------------------------------------------------------
@@ -341,14 +202,16 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 
 	MPlug pParentMatrix;
 	MPlug pParentRest;
-	status = getChildPlugMatrixPlugs(args.oModule, args.plugIndex, pParentMatrix, pParentRest);
+	status = RigModuleNodeBase::getChildPlugMatrixPlugs(args.oModule, args.plugIndex, pParentMatrix, pParentRest);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Capture the parent motion the control has right now, before anything is rewired. This is what the initial driver must reproduce.
-	const MMatrix mCurrentDelta = driverDelta(DagUtils::getMatrixFromPlug(pParentRest), DagUtils::getMatrixFromPlug(pParentMatrix));
+	const MMatrix mCurrentDelta = MathUtils::computeDeltaFromRest(
+		DagUtils::getMatrixFromPlug(pParentRest), DagUtils::getMatrixFromPlug(pParentMatrix));
 
 	const ConstraintDriverInfo& initialDriver = args.drivers[args.initialDriver];
-	const MMatrix mInitialDriverDelta = driverDelta(initialDriver.mRestWorld, DagUtils::getMatrixFromPlug(getSocketPlug(initialDriver)));
+	const MMatrix mInitialDriverDelta = MathUtils::computeDeltaFromRest(
+		initialDriver.mRestWorld,
+		DagUtils::getMatrixFromPlug(RigModuleNodeBase::getSocketMatrixPlug(initialDriver.oModule, initialDriver.socketIndex)));
 
 	// STAGE 1: the constraint node and the control's enum. The enum must exist in the scene before it can be wired.
 	MObject oConstraint = dagMod.MDGModifier::createNode(ParentConstraintNode::id);
@@ -386,7 +249,7 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 		MPlug pDriverOffset = pDriver.child(aDriverOffset);
 		MPlug pDriverLabel = pDriver.child(aDriverLabel);
 
-		status = dagMod.connect(getSocketPlug(driver), pDriverMatrix);
+		status = dagMod.connect(RigModuleNodeBase::getSocketMatrixPlug(driver.oModule, driver.socketIndex), pDriverMatrix);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		DagUtils::setMatrixPlug(pDriverRest, driver.mRestWorld, dagMod);
@@ -461,20 +324,13 @@ MStatus ParentConstraintNode::buildFromTemplate(
 		}
 
 		// Target "module.childPlug" -> the control and plug index from the build result.
-		std::string targetModuleName, targetPlugName;
-		if (!splitIdentifier(constraintData.target, targetModuleName, targetPlugName))
+		const RigModuleBuildResult* pTargetModule = nullptr;
+		const RigModuleChildPlugInfo* pChildPlug = nullptr;
+		if (!RigModuleNodeBase::lookupChildPlug(rigModuleMap, constraintData.target, pTargetModule, pChildPlug))
 		{
-			MGlobal::displayError(MString("Constraint target must be 'module.childPlug': ") + constraintData.name.c_str());
-			anyFailed = true;
-			continue;
-		}
-
-		auto moduleIt = rigModuleMap.find(targetModuleName);
-		const RigModuleChildPlugInfo* pChildPlug =
-			(moduleIt != rigModuleMap.end()) ? RigModuleNodeBase::findInfo(moduleIt->second.childPlugs, targetPlugName) : nullptr;
-		if (pChildPlug == nullptr)
-		{
-			MGlobal::displayError(MString("Constraint target not found: ") + constraintData.target.c_str());
+			MGlobal::displayError(
+				MString("Constraint target must be an existing 'module.childPlug': ") + constraintData.target.c_str() +
+				" (constraint " + constraintData.name.c_str() + ")");
 			anyFailed = true;
 			continue;
 		}
@@ -488,7 +344,7 @@ MStatus ParentConstraintNode::buildFromTemplate(
 		ConstraintBuildArgs args;
 		args.name = constraintData.name;
 		args.oControl = pChildPlug->oTransform;
-		args.oModule = moduleIt->second.moduleNode;
+		args.oModule = pTargetModule->moduleNode;
 		args.plugIndex = pChildPlug->plugIndex;
 		args.oRigRoot = oRigRoot;
 
@@ -498,26 +354,18 @@ MStatus ParentConstraintNode::buildFromTemplate(
 		for (unsigned int i = 0; i < constraintData.drivers.size(); ++i)
 		{
 			const RigConstraintDriverData& driverData = constraintData.drivers[i];
-			std::string driverModuleName, driverSocketName;
-			if (!splitIdentifier(driverData.socket, driverModuleName, driverSocketName))
-			{
-				MGlobal::displayError(MString("Driver must be 'module.socket': ") + driverData.socket.c_str());
-				driversValid = false;
-				break;
-			}
 
-			auto driverModuleIt = rigModuleMap.find(driverModuleName);
-			const RigModuleSocketInfo* pSocket =
-				(driverModuleIt != rigModuleMap.end()) ? RigModuleNodeBase::findInfo(driverModuleIt->second.parentSockets, driverSocketName) : nullptr;
-			if (pSocket == nullptr)
+			const RigModuleBuildResult* pDriverModule = nullptr;
+			const RigModuleSocketInfo* pSocket = nullptr;
+			if (!RigModuleNodeBase::lookupParentSocket(rigModuleMap, driverData.socket, pDriverModule, pSocket))
 			{
-				MGlobal::displayError(MString("Driver socket not found: ") + driverData.socket.c_str());
+				MGlobal::displayError(MString("Driver must be an existing 'module.socket': ") + driverData.socket.c_str());
 				driversValid = false;
 				break;
 			}
 
 			ConstraintDriverInfo driver;
-			driver.oModule = driverModuleIt->second.moduleNode;
+			driver.oModule = pDriverModule->moduleNode;
 			driver.socketIndex = pSocket->outputIndex;
 			driver.mRestWorld = pSocket->mRestWorld;
 			driver.label = driverData.label;
@@ -570,7 +418,7 @@ MStatus ParentConstraintNode::matchSwitchSpace(const MObject& oConstraint, unsig
 	const MMatrix mOld = DagUtils::getMatrixFromPlug(pOut);
 
 	// D_new: motion of the new driver since its rest.
-	const MMatrix mNewDelta = driverDelta(
+	const MMatrix mNewDelta = MathUtils::computeDeltaFromRest(
 		DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverRest)),
 		DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverMatrix)));
 
@@ -632,14 +480,14 @@ MStatus CreateParentConstraintCmd::doIt(const MArgList& args)
 	MString controlName;
 	argData.getFlagArgument("-c", 0, controlName);
 	MObject oControl;
-	if (!getNodeByName(controlName, oControl))
+	if (!DagUtils::getNodeFromName(controlName, oControl))
 	{
 		MGlobal::displayError(MString("Control not found: ") + controlName);
 		return MStatus::kFailure;
 	}
 
 	ConstraintBuildArgs buildArgs;
-	status = ParentConstraintNode::resolveControl(oControl, buildArgs.oModule, buildArgs.plugIndex);
+	status = RigModuleNodeBase::resolveControlChildPlug(oControl, buildArgs.oModule, buildArgs.plugIndex);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	buildArgs.oControl = oControl;
 
@@ -737,7 +585,7 @@ MStatus SetConstraintSpaceCmd::doIt(const MArgList& args)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	MObject oConstraint;
-	if (!getNodeByName(argData.commandArgumentString(0), oConstraint) ||
+	if (!DagUtils::getNodeFromName(argData.commandArgumentString(0), oConstraint) ||
 		MFnDependencyNode(oConstraint).typeId() != ParentConstraintNode::id)
 	{
 		MGlobal::displayError("First argument must be a parentConstraint node.");

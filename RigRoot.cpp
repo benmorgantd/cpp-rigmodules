@@ -262,22 +262,6 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath, MDagModifier& dagMod
     return MStatus::kSuccess;
 }
 
-bool RigRootNode::parseSocketIdentifier(const MString& fullIdentifier, std::string& outModuleName, std::string& outSocketName)
-{
-	MStringArray tokens;
-	if (fullIdentifier.split('.', tokens) == MS::kSuccess && tokens.length() == 2)
-	{
-		outModuleName = tokens[0].asChar();
-		outSocketName = tokens[1].asChar();
-		return true;
-	}
-
-	// Single token represents a standalone node or root control
-	outModuleName = "";
-	outSocketName = fullIdentifier.asChar();
-	return false;
-}
-
 void RigRootNode::parentModuleControls(
 	const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,
 	const std::vector<RigModuleData>& flatModuleList,
@@ -369,7 +353,12 @@ void RigRootNode::parentModuleControls(
 
 				// Parse "moduleName.socketName" target string
 				std::string targetModuleName, targetSocketName;
-				parseSocketIdentifier(parentTargetIdentifier.c_str(), targetModuleName, targetSocketName);
+				if (!StringUtils::splitIdentifier(parentTargetIdentifier, targetModuleName, targetSocketName))
+				{
+					// A single token is a socket name on the layout module.
+					targetModuleName.clear();
+					targetSocketName = parentTargetIdentifier;
+				}
 
 				MObject oParentTargetModule = MObject::kNullObj;
 				const RigModuleSocketInfo* pSocketInfo = nullptr;

@@ -69,6 +69,8 @@ struct RigModuleBuildResult
 	explicit operator bool() const { return status == MStatus::kSuccess; }
 };
 
+using RigModuleMap = std::unordered_map<std::string, RigModuleBuildResult>;
+
 struct BuildContext
 {
 	const RigModuleData& moduleData;
@@ -126,11 +128,36 @@ public:
 public:
 	// Shared creation & build methods
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot);
-	static std::unordered_map<std::string, RigModuleBuildResult> buildModules(const std::vector<RigModuleData>& flatModuleList, MObject oRigRoot, MDagModifier& dagMod);
+	static RigModuleMap buildModules(const std::vector<RigModuleData>& flatModuleList, MObject oRigRoot, MDagModifier& dagMod);
 	
 	// Returns a pointer to the entry for the given name, or nullptr if the name isn't in the map.
 	template <typename TInfo>
 	static const TInfo* findInfo(const std::unordered_map<std::string, TInfo>& infoMap, const std::string& name);
+	// Inside RigModuleNodeBase, public
+public:
+	// Build-map lookups (pass 1 results, no scene access). Silent, the caller reports.
+	static bool lookupParentSocket(
+		const RigModuleMap& moduleMap, const std::string& identifier,
+		const RigModuleBuildResult*& pOutModule, const RigModuleSocketInfo*& pOutSocket);
+	static bool lookupChildPlug(
+		const RigModuleMap& moduleMap, const std::string& identifier,
+		const RigModuleBuildResult*& pOutModule, const RigModuleChildPlugInfo*& pOutChildPlug);
+
+	// Plug lookups by name. Attribute lookups only, so they are safe on nodes still pending in a dagMod.
+	static MStatus getChildPlugMatrixPlugs(const MObject& oModule, unsigned int plugIndex, MPlug& pOutParentMatrix, MPlug& pOutParentRest);
+	static MPlug getSocketMatrixPlug(const MObject& oModule, unsigned int socketIndex, MStatus* pStatus = nullptr);
+
+	// Scene queries. These read plug values and connections, so run them after the modifier's doIt.
+	static bool isRigModule(const MObject& oNode);
+	static MStatus findModuleByName(const MString& name, MObject& oOutModule);
+	static MStatus findSocketIndex(const MObject& oModule, const MString& socketName, unsigned int& outIndex);
+	static MStatus findChildPlugIndex(const MObject& oModule, const MString& plugName, unsigned int& outIndex);
+	static MMatrix getControlRestWorld(const MObject& oModule, unsigned int index);
+	// Fills the same structs pass 1 produces, so scene-built and template-built paths converge.
+	static MStatus resolveSocket(const MObject& oModule, const MString& socketName, RigModuleSocketInfo& outInfo);
+	static MStatus resolveChildPlug(const MObject& oModule, const MString& plugName, RigModuleChildPlugInfo& outInfo);
+	// Control -> owning module and index, requiring that index to be a named child plug.
+	static MStatus resolveControlChildPlug(const MObject& oControl, MObject& oOutModule, unsigned int& outPlugIndex);
 };
 
 // Pointer to the struct means “found, and here it is”.
@@ -371,32 +398,17 @@ MStatus RigModuleWithControlsNode<Derived>::connectSocketMatrixToChildPlug(
 {
 	MStatus status;
 
-	// Child side. These statics belong to the child's Derived type, which is the type this function runs on.
-	MPlug pChildPlugs(oChildModule, aChildPlugs);
-	MPlug pChildPlugElement = pChildPlugs.elementByLogicalIndex(childPlugIndex, &status);
+	MPlug pChildPlugParentMatrix;
+	MPlug pChildPlugParentRest;
+	status = RigModuleNodeBase::getChildPlugMatrixPlugs(oChildModule, childPlugIndex, pChildPlugParentMatrix, pChildPlugParentRest);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MPlug pChildPlugParentMatrix = pChildPlugElement.child(aChildPlugParentMatrix, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MPlug pChildPlugParentRest = pChildPlugElement.child(aChildPlugParentRestMatrix, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Parent side. The parent is a different Derived type, so its statics are not ours. Look the attribute up by name.
-	MFnDependencyNode fnParentModule(oParentModule);
-	MObject oParentSocketAttr = fnParentModule.attribute(RigAttr::OutputSocketMatrix, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	MPlug pParentSockets(oParentModule, oParentSocketAttr);
-	MPlug pParentSocketMatrix = pParentSockets.elementByLogicalIndex(parentSocketIndex, &status);
+	MPlug pParentSocketMatrix = RigModuleNodeBase::getSocketMatrixPlug(oParentModule, parentSocketIndex, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Rest comes from pass 1 data. Live == rest at connection time, so the delta is identity.
 	DagUtils::setMatrixPlug(pChildPlugParentRest, mSocketRest, dagMod);
-
-	status = dagMod.connect(pParentSocketMatrix, pChildPlugParentMatrix);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	return MStatus::kSuccess;
+	return dagMod.connect(pParentSocketMatrix, pChildPlugParentMatrix);
 }
 
 template <typename Derived>
@@ -428,7 +440,7 @@ MStatus RigModuleWithControlsNode<Derived>::solveFkChain(
 		const ControlSolveStep step = RigModuleNodeBase::solveControlStep(mControlLocal, mControlRestWorld, mParentDelta);
 
 		// The next control's parent is this control. Its delta is this control's world relative to its own rest.
-		mParentDelta = mControlRestWorld.inverse() * step.mWorld;
+		mParentDelta = MathUtils::computeDeltaFromRest(mControlRestWorld, step.mWorld);
 
 		RigModuleNodeBase::writeOutputMatrix(hOutputData, i, useLocalMatrix ? step.mWorld : step.mOPM);
 	}
@@ -555,7 +567,8 @@ MMatrix RigModuleWithControlsNode<Derived>::readChildPlugParentDelta(MArrayDataH
 	MDataHandle hElement = hChildPlugs.inputValue();
 	const MMatrix mParentWorld = hElement.child(aChildPlugParentMatrix).asMatrix();
 	const MMatrix mParentRest = hElement.child(aChildPlugParentRestMatrix).asMatrix();
-	return mParentRest.inverse() * mParentWorld;
+	return MathUtils::computeDeltaFromRest(mParentRest, mParentWorld);
+
 }
 
 template <typename Derived>
