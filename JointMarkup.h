@@ -33,6 +33,10 @@ std::string serializeJointMarkup(const JointMarkup& markup);
 bool validateJointMarkup(const JointMarkup& markup, std::string& outError);
 bool isValidSideName(const std::string& side);
 
+// Key mapping only. No validation, so callers go through parseJointMarkup.
+void from_json(const nlohmann::json& jsonData, JointMarkup& markup);
+void to_json(nlohmann::json& jsonData, const JointMarkup& markup);
+
 // A module arg that picks one joint: ["Left", "upperArm"].
 struct JointSelector
 {

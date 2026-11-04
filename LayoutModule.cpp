@@ -5,6 +5,7 @@
 #include "Utilities.h"
 
 #include <string>
+#include <vector>
 
 #include <maya/MDGModifier.h>
 #include <maya/MDagModifier.h>
@@ -100,8 +101,7 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 
 		// Every control is a socket, like the FK chain. The last one is also "end".
 		const std::string indexName = PlugAndSocketNames::Index + std::to_string(i);
-		MStringArray socketNames;
-		socketNames.append(indexName.c_str());
+		std::vector<std::string> socketNames{ indexName };
 
 		RigModuleSocketInfo socketInfo;
 		socketInfo.oTransform = oControl;
@@ -112,11 +112,10 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 		if (i == numControls - 1)
 		{
 			result.parentSockets[PlugAndSocketNames::End] = socketInfo;
-			socketNames.append(PlugAndSocketNames::End);
+			socketNames.push_back(PlugAndSocketNames::End);
 		}
 
-		MString socketNamesJoined = StringUtils::joinStringArray(socketNames, ";");
-		DagPlugAndSocketUtils::setParentSocketName(oLayoutModule, i, socketNamesJoined.asChar(), dagMod);
+		DagPlugAndSocketUtils::setParentSocketNames(oLayoutModule, i, socketNames, dagMod);
 
 		// Decreasing scale, rotated about Z, through the shape transform
 		const double scaleValue = 1.0 - (0.1 * i);

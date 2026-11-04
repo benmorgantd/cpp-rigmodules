@@ -7,6 +7,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 #include <nlohmann/json.hpp>
 
 #include <maya/MFnDependencyNode.h>
@@ -115,8 +116,7 @@ RigModuleBuildResult FkChainNode::createModule(
 		MObject oControlTransform = RigControlNode::createRigControl(oFkChainModule, dagMod, fnJoint.name(), shapeType, side);
 
 		const std::string indexName = PlugAndSocketNames::Index + std::to_string(i);
-		MStringArray socketNames;
-		socketNames.append(indexName.c_str());
+		std::vector<std::string> socketNames{ indexName };
 
 		RigModuleSocketInfo socketInfo;
 		socketInfo.oTransform = oControlTransform;
@@ -129,8 +129,7 @@ RigModuleBuildResult FkChainNode::createModule(
 			// Only the first control in an FK chain can be parented to another module.
 			result.parentSockets[PlugAndSocketNames::Start] = socketInfo;
 			result.childPlugs[PlugAndSocketNames::Start] = RigModuleChildPlugInfo{ oControlTransform, 0 };
-			const char* _socketName = ";";
-			socketNames.append(PlugAndSocketNames::Start);
+			socketNames.push_back(PlugAndSocketNames::Start);
 
 			DagPlugAndSocketUtils::setChildPlugName(oFkChainModule, 0, PlugAndSocketNames::Start, dagMod);
 		}
@@ -143,11 +142,10 @@ RigModuleBuildResult FkChainNode::createModule(
 		if (i == numJoints - 1)
 		{
 			result.parentSockets[PlugAndSocketNames::End] = socketInfo;
-			socketNames.append(PlugAndSocketNames::End);
+			socketNames.push_back(PlugAndSocketNames::End);
 		}
 
-		MString joinedSocketNames = StringUtils::joinStringArray(socketNames, ";");
-		DagPlugAndSocketUtils::setParentSocketName(oFkChainModule, i, joinedSocketNames.asChar(), dagMod);
+		DagPlugAndSocketUtils::setParentSocketNames(oFkChainModule, i, socketNames, dagMod);
 
 		MStatus wireStatus = wireControl(oFkChainModule, oControlTransform, i, mJointRestWorld, dagMod);
 		if (!wireStatus)

@@ -140,6 +140,20 @@ Each joint carries one JSON string attribute, `rigMarkup`: `{"markupVersion":1, 
 
 ---
 
+## Data storage
+
+### D16. String attributes on nodes store JSON
+**Status:** Decided (2026-11-04). Built, not yet verified in Maya.
+
+Any string attribute that holds structured data stores JSON text, read and written through `JsonUtils::readJsonString` / `writeJsonString` (`JsonUtils.h`, Maya-free). `socketNames[i]` is a JSON string list of every name for socket `i`, for example `["index_0","start"]` or `["aim"]`. Joint markup (D15) goes through the same helpers via `from_json`/`to_json` on `JointMarkup`.
+
+- **Why:** one storage format and one parser instead of a mix of JSON and ad hoc delimiters. JSON handles escaping, and nothing needs a list-specific split or join helper.
+- **Rejected:** `;` separated socket name strings (the previous format, with a trailing `;`), and `StringUtils::joinStringArray` / `nameListContains`, which were removed. Putting the helper in `Utilities.h`, because that header includes Maya and `JointMarkup.cpp` must stay Maya-free (D13).
+- **Not changed:** `"module.socket"` identifiers in templates, which are already JSON strings split by `StringUtils::splitIdentifier`. `childPlugName`, which holds one plain name.
+- **Consequence:** scenes with rigs built before this change hold `;` strings, so socket lookups (`setRigConstraintSpace`, `createRigParentConstraint`) on them report an invalid `socketNames` error. There is no migration. Rebuild those rigs from their templates. Socket names themselves did not change.
+
+---
+
 ## Open items
 
 - **Connect-time jump:** the child jumps when a pin connects to a non-identity socket. Still to do.

@@ -131,7 +131,7 @@ MStatus ParentConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 // Scene resolution
 // ------------------------------------------------------------------
 
-// "module.socket" -> module node, socket index, rest matrix. Socket names live in socketNames as ';' separated tokens.
+// "module.socket" -> module node, socket index, rest matrix. Socket names live in socketNames as JSON string lists.
 MStatus ParentConstraintNode::resolveSocket(const std::string& socketId, ConstraintDriverInfo& outDriver)
 {
 	std::string moduleName, socketName;

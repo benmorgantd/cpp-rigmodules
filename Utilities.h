@@ -6,6 +6,9 @@
 #include <maya/MObject.h>
 #include <maya/MPxTransform.h>
 
+#include <string>
+#include <vector>
+
 struct TransformAttrEntry
 {
 	const MObject& attr;
@@ -60,7 +63,8 @@ public:
 class DagPlugAndSocketUtils
 {
 public:
-	static MStatus setParentSocketName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod);
+	// Stores every name of socket `index` as a JSON string list in socketNames[index], e.g. ["index_0","start"].
+	static MStatus setParentSocketNames(const MObject& oModule, const unsigned int index, const std::vector<std::string>& names, MDagModifier& dagMod);
 	static MStatus setChildPlugName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod);
 };
 
@@ -69,8 +73,6 @@ class StringUtils
 public:
 	// Splits "module.name" on the first '.'. False if there is no '.', or either side is empty.
 	static bool splitIdentifier(const std::string& identifier, std::string& outModule, std::string& outName);
-	static MString joinStringArray(const MStringArray& stringArray, const char* joinChar);  // for joining MString arrays to char separated strings
-	static bool nameListContains(const MString& nameList, const MString& name);  // For semicolon-separated lists to compare whole tokens.
 };
 
 class RigModuleCommandUtils

@@ -2,9 +2,12 @@
 #include "RigJsonStructs.h"
 #include "ModuleRegistry.h"
 #include "Constants.h"
+#include "JsonUtils.h"
 
+#include <algorithm>
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 #include <maya/MDataBlock.h>
 #include <maya/MMatrix.h>
@@ -310,7 +313,7 @@ MStatus RigModuleNodeBase::findModuleByName(const MString& name, MObject& oOutMo
 	return MStatus::kSuccess;
 }
 
-// socketNames elements hold ';' separated tokens ("index_3;end").
+// socketNames elements hold JSON string lists (["index_3","end"]), written by DagPlugAndSocketUtils::setParentSocketNames.
 MStatus RigModuleNodeBase::findSocketIndex(const MObject& oModule, const MString& socketName, unsigned int& outIndex)
 {
 	MStatus status;
@@ -318,10 +321,20 @@ MStatus RigModuleNodeBase::findSocketIndex(const MObject& oModule, const MString
 	MPlug pSocketNames = fnModule.findPlug(RigAttr::SocketNames, false, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	const std::string name = socketName.asChar();
+	std::vector<std::string> names;
+	std::string error;
 	for (unsigned int e = 0; e < pSocketNames.numElements(); ++e)
 	{
 		MPlug pElement = pSocketNames.elementByPhysicalIndex(e);
-		if (StringUtils::nameListContains(pElement.asString(), socketName))
+		// Rigs built before D16 stored ';' separated text, which fails here. Rebuild them from the template.
+		if (!JsonUtils::readJsonString(pElement.asString().asChar(), names, error))
+		{
+			const std::string index = std::to_string(pElement.logicalIndex());
+			MGlobal::displayError(MString("Invalid socketNames[") + index.c_str() + "] on " + fnModule.name() + ": " + error.c_str());
+			return MStatus::kFailure;
+		}
+		if (std::find(names.begin(), names.end(), name) != names.end())
 		{
 			outIndex = pElement.logicalIndex();
 			return MStatus::kSuccess;

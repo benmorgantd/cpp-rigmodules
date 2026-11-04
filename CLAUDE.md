@@ -60,6 +60,7 @@ Do not add a new module casually. Before proposing one:
 - Shared attribute names are string constants in `Constants.h` (namespace `RigAttr`). Node type names live in the `NodeCreateCommands` namespace.
 - Module-level code uses the module's own static `MObject` attributes. Shared rigmodule code looks attributes up by name (`findAttr`) and uses string-based `findPlug`.
 - Do not duplicate attribute name strings. Add them to `RigAttr`.
+- Structured data in a string attribute is JSON, read and written with `JsonUtils`. Do not invent delimited formats.
 - Open question: whether node creation names should live only in the `ModuleRegistry`. Do not move them without asking.
 
 ## Repo map
@@ -72,7 +73,8 @@ Flat layout: every source file sits at the repo root, and there are no `src/` or
 | `ModuleRegistry.cpp/.h` | The only file that includes every module header. Holds each node's type name, JSON `moduleType`, `MTypeId` and `buildFromJson`. Add new nodes here. |
 | `CommandRegistry.cpp/.h` | The only file that includes every command header. Add new commands here. |
 | `RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/pin lookup, `buildModules` pass 1), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `BuildContext`, `RigModuleBuildResult`, `ModuleDescriptor`. |
-| `Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils`, `StringUtils`, `RigModuleCommandUtils`. |
+| `Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `StringUtils`, `RigModuleCommandUtils`. |
+| `JsonUtils.h` | Maya-free, header-only `readJsonString` / `writeJsonString`. Every string attribute that holds structured data (socket names, joint markup) goes through these (D16). |
 | `Constants.h` | `RigAttr`, `JointMarkupKey`, `PlugAndSocketNames`, `ConstraintAttr`, `SideNames`, `RigNaming`, `RigControlNodeAttr`. It has no Maya headers, because the Maya-free core includes it. Keep it that way. |
 | `Colors.h` | `Colors`, the Maya `MColor` constants, split out of `Constants.h`. |
 | `RigJsonStructs.h/.cpp` | Template structs (`RigRootData`, `RigModuleData`, constraint data) and `loadRigTemplate`. |
@@ -86,7 +88,7 @@ Flat layout: every source file sits at the repo root, and there are no `src/` or
 | `JointMarkupCmd.h/.cpp` | `rigJointMarkup` command. |
 | `RigTemplates/LayoutRig.json` | The only example template. Its joints use `[side, usage]` selectors. |
 | `include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
-| `docs/decisions.md` | Decision log (D1–D15). |
+| `docs/decisions.md` | Decision log (D1–D16). |
 | `RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files. |
 
 **Maya commands:** `createRigFromTemplate <path> [-namespace ns]`, `rigJointMarkup`, `createRigParentConstraint`, `setRigConstraintSpace`.

@@ -206,7 +206,7 @@ RigModuleBuildResult AimModuleNode::createModule(
 		result.parentSockets[partName] = socketInfo;
 		result.childPlugs[partName] = RigModuleChildPlugInfo{ oControl, i };
 
-		DagPlugAndSocketUtils::setParentSocketName(oAimModule, i, partName, dagMod);
+		DagPlugAndSocketUtils::setParentSocketNames(oAimModule, i, { partName }, dagMod);
 		DagPlugAndSocketUtils::setChildPlugName(oAimModule, i, partName, dagMod);
 	}
 

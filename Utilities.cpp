@@ -1,5 +1,6 @@
 #include "Utilities.h"
 #include "Constants.h"
+#include "JsonUtils.h"
 
 #include <string>
 
@@ -324,7 +325,7 @@ MStatus DagUtils::getMObjectFromName(const MString& name, MObject& oNode)
 }
 
 // DAG plug and socket utils -----------------------------------------------
-MStatus DagPlugAndSocketUtils::setParentSocketName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod)
+MStatus DagPlugAndSocketUtils::setParentSocketNames(const MObject& oModule, const unsigned int index, const std::vector<std::string>& names, MDagModifier& dagMod)
 {
 	if (oModule.isNull())
 	{
@@ -345,7 +346,7 @@ MStatus DagPlugAndSocketUtils::setParentSocketName(const MObject& oModule, const
 		return MStatus::kFailure;
 	}
 
-	return dagMod.newPlugValueString(pSocketNamesElement, MString(name));
+	return dagMod.newPlugValueString(pSocketNamesElement, MString(JsonUtils::writeJsonString(names).c_str()));
 }
 
 
@@ -377,33 +378,6 @@ MStatus DagPlugAndSocketUtils::setChildPlugName(const MObject& oModule, const un
 }
 
 // String Utils -----------------------------------------------------------
-// Separate a string by semicolons and see if the given token is in it 
-bool StringUtils::nameListContains(const MString& nameList, const MString& token)
-{
-	MStringArray splitString;
-	nameList.split(';', splitString);
-
-	for (unsigned int i = 0; i < splitString.length(); ++i)
-	{
-		if (splitString[i] == token)
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-MString StringUtils::joinStringArray(const MStringArray& stringArray, const char* joinChar)
-{
-	MString joinedArray = "";
-	for (int i = 0; i < stringArray.length(); ++i)
-	{
-		joinedArray += stringArray[i];
-		joinedArray += joinChar;
-	}
-	return joinedArray;
-}
-
 bool StringUtils::splitIdentifier(const std::string& identifier, std::string& outModule, std::string& outName)
 {
 	const size_t dot = identifier.find('.');
