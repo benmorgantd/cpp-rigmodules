@@ -480,7 +480,7 @@ MStatus CreateParentConstraintCmd::doIt(const MArgList& args)
 	MString controlName;
 	argData.getFlagArgument("-c", 0, controlName);
 	MObject oControl;
-	if (!DagUtils::getNodeFromName(controlName, oControl))
+	if (!DagUtils::getMObjectFromName(controlName, oControl))
 	{
 		MGlobal::displayError(MString("Control not found: ") + controlName);
 		return MStatus::kFailure;
@@ -585,7 +585,7 @@ MStatus SetConstraintSpaceCmd::doIt(const MArgList& args)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	MObject oConstraint;
-	if (!DagUtils::getNodeFromName(argData.commandArgumentString(0), oConstraint) ||
+	if (!DagUtils::getMObjectFromName(argData.commandArgumentString(0), oConstraint) ||
 		MFnDependencyNode(oConstraint).typeId() != ParentConstraintNode::id)
 	{
 		MGlobal::displayError("First argument must be a parentConstraint node.");

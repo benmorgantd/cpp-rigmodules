@@ -289,7 +289,7 @@ MDagPath DagUtils::getDagPathFromName(const MString& name)
 	return jointDag;
 }
 
-MStatus DagUtils::getJointFromName(const MString& jointName, MObject& oJoint)
+MStatus DagUtils::getJointObjectFromName(const MString& jointName, MObject& oJoint)
 {
 	MStatus status;
 	MSelectionList sel;
@@ -312,7 +312,7 @@ MStatus DagUtils::getJointFromName(const MString& jointName, MObject& oJoint)
 	return MStatus::kSuccess;
 }
 
-MStatus DagUtils::getNodeFromName(const MString& name, MObject& oNode)
+MStatus DagUtils::getMObjectFromName(const MString& name, MObject& oNode)
 {
 	MSelectionList sel;
 	MStatus status = sel.add(name);
@@ -451,7 +451,7 @@ MObject RigModuleCommandUtils::getRigRootFromArgs(const MArgDatabase& argData)
 		MStatus status = argData.getFlagArgument(kRigRootShort, 0, rigRootName);
 		if (status && !rigRootName.isEmpty())
 		{
-			DagUtils::getNodeFromName(rigRootName, oRigRoot);
+			DagUtils::getMObjectFromName(rigRootName, oRigRoot);
 		}
 	}
 	return oRigRoot;

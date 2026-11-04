@@ -49,11 +49,11 @@ public:
 	static MStatus setSegmentScaleCompensate(MObject& oTransform, bool value, MDagModifier& dagMod);
 	static MDagPath getDagPathFromName(const MString& name);
 	// Resolves any DG or DAG node by name. Reports nothing, the caller decides what a miss means.
-	static MStatus getNodeFromName(const MString& name, MObject& oNode);
+	static MStatus getMObjectFromName(const MString& name, MObject& oNode);
 	static MMatrix getMatrixFromPlug(const MPlug& pMatrixPlug);
 	static MStatus setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod);
 	// Reports a missing node or a non-joint. Modules get joints through JointMarkupScene::claimJoint instead.
-	static MStatus getJointFromName(const MString& jointName, MObject& oJoint);
+	static MStatus getJointObjectFromName(const MString& jointName, MObject& oJoint);
 
 };
 

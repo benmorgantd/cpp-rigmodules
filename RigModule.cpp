@@ -295,7 +295,7 @@ bool RigModuleNodeBase::isRigModule(const MObject& oNode)
 
 MStatus RigModuleNodeBase::findModuleByName(const MString& name, MObject& oOutModule)
 {
-	MStatus status = DagUtils::getNodeFromName(name, oOutModule);
+	MStatus status = DagUtils::getMObjectFromName(name, oOutModule);
 	if (!status)
 	{
 		MGlobal::displayError(MString("Module not found: ") + name);

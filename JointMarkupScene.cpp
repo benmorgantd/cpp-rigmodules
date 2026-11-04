@@ -6,6 +6,7 @@
 #include <maya/MItDag.h>
 #include <maya/MNamespace.h>
 #include <maya/MPlug.h>
+#include <maya/MDagPath.h>
 
 namespace
 {
@@ -71,7 +72,7 @@ MStatus JointMarkupScene::collectMarkedJoints(const MString& namespaceName, Mark
 			MGlobal::displayError(MString("Joint markup: ") + error.c_str());
 			return MStatus::kFailure;
 		}
-		outSet.dagPaths.push_back(jointPath);
+		outSet.dagPaths.append(jointPath);
 	}
 
 	return MStatus::kSuccess;
@@ -121,7 +122,7 @@ MStatus JointMarkupScene::claimJoint(
 	}
 
 	MStatus status;
-	const MDagPath& jointPath = markedJoints.dagPaths[entry];
+	const MDagPath& jointPath = markedJoints.dagPaths[static_cast<unsigned int>(entry)];
 	oOutJoint = jointPath.node();
 	mOutRestWorld = jointPath.inclusiveMatrix(&status);
 	return status;

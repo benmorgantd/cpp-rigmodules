@@ -3,9 +3,8 @@
 #include "JointMarkup.h"
 
 #include <string>
-#include <vector>
 
-#include <maya/MDagPath.h>
+#include <maya/MDagPathArray.h>
 #include <maya/MMatrix.h>
 #include <maya/MObject.h>
 #include <maya/MStatus.h>
@@ -15,7 +14,7 @@
 struct MarkedJointSet
 {
 	JointMarkupIndex index;
-	std::vector<MDagPath> dagPaths;
+	MDagPathArray dagPaths;
 };
 
 // Scene side of joint markup: reading the attribute and finding joints. All errors are reported here.

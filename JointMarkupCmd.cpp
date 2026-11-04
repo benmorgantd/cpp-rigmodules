@@ -161,7 +161,7 @@ MStatus JointMarkupCmd::doIt(const MArgList& args)
 	for (unsigned int i = 0; i < jointNames.length(); ++i)
 	{
 		MObject oJoint;
-		status = DagUtils::getJointFromName(jointNames[i], oJoint);
+		status = DagUtils::getJointObjectFromName(jointNames[i], oJoint);
 		if (!status)
 		{
 			return status;   // helper already reported which joint failed
