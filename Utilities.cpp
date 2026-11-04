@@ -289,7 +289,7 @@ MDagPath DagUtils::getDagPathFromName(const MString& name)
 	return jointDag;
 }
 
-MStatus DagUtils::getJointAndWorldMatrix(const MString& jointName, MObject& oJoint, MMatrix& mWorld)
+MStatus DagUtils::getJointFromName(const MString& jointName, MObject& oJoint)
 {
 	MStatus status;
 	MSelectionList sel;
@@ -309,8 +309,7 @@ MStatus DagUtils::getJointAndWorldMatrix(const MString& jointName, MObject& oJoi
 	}
 
 	oJoint = jointDag.node();
-	mWorld = jointDag.inclusiveMatrix(&status);
-	return status;
+	return MStatus::kSuccess;
 }
 
 MStatus DagUtils::getNodeFromName(const MString& name, MObject& oNode)

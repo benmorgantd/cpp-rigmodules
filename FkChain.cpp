@@ -200,14 +200,14 @@ RigModuleBuildResult FkChainNode::buildFromJson(const nlohmann::json& args, Buil
 	MObjectArray oJoints;
 	MMatrixArray mWorldMatrices;
 
-	for (const std::string& jointName : fkArgs.joints)
+	for (const JointSelector& selector : fkArgs.joints)
 	{
 		MObject oJoint;
 		MMatrix mWorld;
-		MStatus status = DagUtils::getJointAndWorldMatrix(jointName.c_str(), oJoint, mWorld);
+		MStatus status = JointMarkupScene::claimJoint(ctx.markedJoints, selector, ctx.moduleData.name, oJoint, mWorld);
 		if (!status)
 		{
-			return result;  // helper already reported which joint failed
+			return result;  // helper already reported which selector failed
 		}
 
 		oJoints.append(oJoint);

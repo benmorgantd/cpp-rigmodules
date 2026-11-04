@@ -2,6 +2,7 @@
 #include "CommandRegistry.h"
 #include "RigRoot.h"
 #include "Constraints.h"
+#include "JointMarkupCmd.h"
 
 const std::vector<CommandDescriptor>& CommandRegistry::all()
 {
@@ -10,7 +11,8 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 	{
 		{ CreateRigCmd::aCommandString, CreateRigCmd::creator, CreateRigCmd::newSyntax },
 		{ CreateParentConstraintCmd::aCommandString, CreateParentConstraintCmd::creator, CreateParentConstraintCmd::newSyntax },
-		{ SetConstraintSpaceCmd::aCommandString, SetConstraintSpaceCmd::creator, SetConstraintSpaceCmd::newSyntax }
+		{ SetConstraintSpaceCmd::aCommandString, SetConstraintSpaceCmd::creator, SetConstraintSpaceCmd::newSyntax },
+		{ JointMarkupCmd::aCommandString, JointMarkupCmd::creator, JointMarkupCmd::newSyntax }
 	};
 	return descriptors;
 }

@@ -253,21 +253,16 @@ RigModuleBuildResult AimModuleNode::buildFromJson(const nlohmann::json& args, Bu
 		return result;
 	}
 
-	if (aimArgs.aimJoint == aimArgs.targetJoint || aimArgs.aimJoint == aimArgs.upJoint || aimArgs.targetJoint == aimArgs.upJoint)
-	{
-		MGlobal::displayError(MString("Aim module needs three distinct joints: ") + ctx.moduleData.name.c_str());
-		return result;
-	}
-
-	const std::string jointNames[AimPart::Count] = { aimArgs.aimJoint, aimArgs.targetJoint, aimArgs.upJoint };
+	// claimJoint rejects a joint picked twice, which also covers the "three distinct joints" requirement.
+	const JointSelector* selectors[AimPart::Count] = { &aimArgs.aim, &aimArgs.target, &aimArgs.up };
 	std::array<AimPartInput, AimPart::Count> parts;
 
 	for (unsigned int i = 0; i < AimPart::Count; ++i)
 	{
-		MStatus status = DagUtils::getJointAndWorldMatrix(jointNames[i].c_str(), parts[i].oJoint, parts[i].mRestWorld);
+		MStatus status = JointMarkupScene::claimJoint(ctx.markedJoints, *selectors[i], ctx.moduleData.name, parts[i].oJoint, parts[i].mRestWorld);
 		if (!status)
 		{
-			return result;   // helper already reported which joint failed
+			return result;   // helper already reported which selector failed
 		}
 	}
 

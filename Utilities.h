@@ -52,7 +52,8 @@ public:
 	static MStatus getNodeFromName(const MString& name, MObject& oNode);
 	static MMatrix getMatrixFromPlug(const MPlug& pMatrixPlug);
 	static MStatus setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod);
-	static MStatus getJointAndWorldMatrix(const MString& jointName, MObject& oJoint, MMatrix& mWorld);
+	// Reports a missing node or a non-joint. Modules get joints through JointMarkupScene::claimJoint instead.
+	static MStatus getJointFromName(const MString& jointName, MObject& oJoint);
 
 };
 

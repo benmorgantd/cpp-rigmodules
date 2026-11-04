@@ -49,7 +49,8 @@ public:
 		const MString& templateName,
 		MObject oAssetRoot,
 		MDagModifier& dagMod);
-	static MStatus createRig(const MString& jsonFilePath, MDagModifier& dagMod);
+	// jointNamespace: where to look for marked joints. ":" is the root namespace.
+	static MStatus createRig(const MString& jsonFilePath, const MString& jointNamespace, MDagModifier& dagMod);
 };
 
 
@@ -76,6 +77,7 @@ public:
 private:
 	static const char* kFilePathArgShort;
 	static const char* kFilePathArgLong;
+	static const char* kNamespaceFlag;
 
 	MDagModifier fDagMod;
 };

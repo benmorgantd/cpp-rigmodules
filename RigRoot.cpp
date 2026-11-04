@@ -166,7 +166,7 @@ MObject RigRootNode::createRigRoot(
 }
 
 // TODO: optionally pass in the asset root. If none, we create one.
-MStatus RigRootNode::createRig(const MString& jsonFilePath, MDagModifier& dagMod)
+MStatus RigRootNode::createRig(const MString& jsonFilePath, const MString& jointNamespace, MDagModifier& dagMod)
 {
     MStatus status;
 	MString originalNamespace = MNamespace::currentNamespace();
@@ -187,6 +187,15 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath, MDagModifier& dagMod
 			MGlobal::displayError(parseErr);
 			dagMod.undoIt();
 			return MStatus::kFailure;
+		}
+
+		// Read joint markup before anything is queued, so a markup error leaves nothing to undo.
+		MarkedJointSet markedJoints;
+		status = JointMarkupScene::collectMarkedJoints(jointNamespace, markedJoints);
+		if (!status)
+		{
+			MNamespace::setCurrentNamespace(originalNamespace);
+			return status;
 		}
 
 		// 2. Instantiate AssetRootNode
@@ -221,7 +230,17 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath, MDagModifier& dagMod
 		std::unordered_map<std::string, RigModuleBuildResult> rigModuleMap;
 
 		// Build the remainder of the modules.
-		rigModuleMap = RigModuleNodeBase::buildModules(rigData.rigModules, oRigRoot, dagMod);
+		rigModuleMap = RigModuleNodeBase::buildModules(rigData.rigModules, oRigRoot, markedJoints, dagMod);
+
+		// buildModules returns an empty map when any module fails, and a smaller map when two modules share a name.
+		// Stop before doIt so the queued nodes for the modules that did build never reach the scene.
+		if (rigModuleMap.size() != rigData.rigModules.size())
+		{
+			MGlobal::displayError(MString("Rig build stopped: built ") + static_cast<int>(rigModuleMap.size()) + " of "
+				+ static_cast<int>(rigData.rigModules.size()) + " modules. A module failed or two modules share a name.");
+			MNamespace::setCurrentNamespace(originalNamespace);
+			return MStatus::kFailure;
+		}
 
 		// Append the layout module to the rig module map
 		rigModuleMap["layout"] = layoutModuleBuildResult;
@@ -432,10 +451,14 @@ bool CreateRigCmd::isUndoable() const
     return true;
 }
 
+// Read by long name only. MSyntax::addFlag requires a short name of at most 3 letters, so it appears only here.
+const char* CreateRigCmd::kNamespaceFlag = "-namespace";
+
 MSyntax CreateRigCmd::newSyntax()
 {
     MSyntax syntax;
     syntax.addArg(MSyntax::kString);
+    CHECK_MSTATUS(syntax.addFlag("-ns", kNamespaceFlag, MSyntax::kString));
     return syntax;
 }
 
@@ -457,8 +480,15 @@ MStatus CreateRigCmd::doIt(const MArgList& args)
         return MStatus::kFailure;
     }
 
+    MString jointNamespace(":");
+    if (argData.isFlagSet(kNamespaceFlag))
+    {
+        status = argData.getFlagArgument(kNamespaceFlag, 0, jointNamespace);
+        CHECK_MSTATUS_AND_RETURN_IT(status);
+    }
+
     // Delegate creation directly to AssetRootNode entry method
-    status = RigRootNode::createRig(jsonFilePath, fDagMod);
+    status = RigRootNode::createRig(jsonFilePath, jointNamespace, fDagMod);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return redoIt();

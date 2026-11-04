@@ -30,13 +30,14 @@ struct AimPartInput
 	MMatrix mRestWorld;
 };
 
+// Field names are the JSON keys: "aim": ["Left","eye"], "target": [...], "up": [...]
 struct AimModuleArgs
 {
-	std::string aimJoint;
-	std::string targetJoint;
-	std::string upJoint;
+	JointSelector aim;
+	JointSelector target;
+	JointSelector up;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AimModuleArgs, aimJoint, targetJoint, upJoint)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AimModuleArgs, aim, target, up)
 
 // Points the aim joint's +X at the target control, with +Z toward the up control.
 // Child plugs ("aim", "target", "up") take their parent sockets independently.

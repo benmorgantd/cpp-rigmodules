@@ -41,8 +41,9 @@ public:
 };
 
 
+// "joints": [["Left","upperArm"], ["Left","lowerArm"], ["Left","hand"]], root to tip.
 struct FkModuleArgs
 {
-	std::vector<std::string> joints;
+	std::vector<JointSelector> joints;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FkModuleArgs, joints)

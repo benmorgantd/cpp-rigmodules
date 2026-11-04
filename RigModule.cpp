@@ -118,6 +118,7 @@ MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDagModifie
 std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildModules(
 	const std::vector<RigModuleData>& flatModuleList,
 	MObject oRigRoot,
+	MarkedJointSet& markedJoints,
 	MDagModifier& dagMod)
 {
 	std::unordered_map<std::string, RigModuleBuildResult> rigModuleMap;
@@ -136,7 +137,7 @@ std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildMo
 		}
 		MGlobal::displayInfo(MString("Building module '") + moduleData.name.c_str() + "' of type " + moduleData.moduleType.c_str());
 
-		BuildContext ctx{ moduleData, oRigRoot, dagMod };
+		BuildContext ctx{ moduleData, oRigRoot, dagMod, markedJoints };
 		RigModuleBuildResult creationResult = pDescriptor->build(moduleData.moduleArgs, ctx);
 
 		if (!creationResult.moduleNode.isNull() && creationResult.status == MStatus::kSuccess)

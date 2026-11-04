@@ -4,6 +4,7 @@
 #include "Utilities.h"
 #include "Constants.h"
 #include "RigControlNode.h"
+#include "JointMarkupScene.h"
 
 #include <vector>
 #include <unordered_map>
@@ -76,6 +77,7 @@ struct BuildContext
 	const RigModuleData& moduleData;
 	MObject oRigRoot;
 	MDagModifier& dagMod;
+	MarkedJointSet& markedJoints;   // Modules resolve their [side, usage] args through JointMarkupScene::claimJoint
 };
 
 // Aliases so the descriptor reads cleanly. These match what registerNode expects.
@@ -128,7 +130,7 @@ public:
 public:
 	// Shared creation & build methods
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot);
-	static RigModuleMap buildModules(const std::vector<RigModuleData>& flatModuleList, MObject oRigRoot, MDagModifier& dagMod);
+	static RigModuleMap buildModules(const std::vector<RigModuleData>& flatModuleList, MObject oRigRoot, MarkedJointSet& markedJoints, MDagModifier& dagMod);
 	
 	// Returns a pointer to the entry for the given name, or nullptr if the name isn't in the map.
 	template <typename TInfo>

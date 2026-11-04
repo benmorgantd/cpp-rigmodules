@@ -1,8 +1,8 @@
 #pragma once
 
+// No Maya headers here: the Maya-free core (JointMarkup) includes this file.
+// Maya-typed constants live in Colors.h.
 #include <array>
-
-#include <maya/MColor.h>
 
 namespace RigControlNodeAttr
 {
@@ -91,6 +91,9 @@ namespace RigAttr
 	// RigModuleWithJointsNode layer
 	inline constexpr const char* JointOPM{ "jointOPM" };
 
+	// Joint markup: one JSON string per joint, see JointMarkup.h
+	inline constexpr const char* JointMarkup{ "rigMarkup" };
+
 	// RigRootNode
 	inline constexpr const char* RigModules{ "rigModules" };
 
@@ -118,6 +121,16 @@ namespace ConstraintAttr
 	inline constexpr const char* RigRoot{ "rigRoot" };
 }
 
+// Keys inside the RigAttr::JointMarkup JSON. The side key reuses RigAttr::Side.
+// These are public API: saved markup on every skeleton depends on them.
+namespace JointMarkupKey
+{
+	inline constexpr const char* MarkupVersion{ "markupVersion" };
+	inline constexpr const char* Usage{ "usage" };
+	inline constexpr const char* Export{ "export" };
+	inline constexpr const char* Skin{ "skin" };
+}
+
 namespace SideNames
 {
 	inline constexpr const char* Center{ "Center" };
@@ -132,16 +145,4 @@ namespace RigNaming
 	inline constexpr const char* LeftSuffix{ "_l" };
 	inline constexpr const char* RightSuffix{ "_r" };
 	inline constexpr const char* CenterSuffix{ "_c" };
-}
-
-namespace Colors
-{
-	// Control Colors
-	inline MColor RigLeft(0.0f, 1.0f, 0.0f);
-	inline MColor RigRight(1.0f, 0.0f, 0.0f);
-	inline MColor RigCenter(1.0f, 1.0f, 0.0f);
-
-	// Selection Colors
-	inline MColor ActiveLead(1.0f, 1.0f, 1.0f);  // White
-	inline MColor ActiveSelected(0.0f, 1.0f, 0.64f);  // Green
 }
