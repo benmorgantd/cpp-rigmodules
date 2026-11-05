@@ -258,7 +258,7 @@ namespace
 		}
 	}
 
-	// Pass 2. Every pin gets a parent: its parentStructure entry, or layout.end when the template does not list it.
+	// Pass 2. Every child plug gets a parent: its parentStructure entry, or layout.end when the template does not list it.
 	// The template was validated, so a failed lookup here means a module built something its plan did not declare.
 	MStatus parentModuleControls(const RigModuleMap& rigModuleMap, const std::vector<RigModuleData>& modules, MDagModifier& dagMod)
 	{
@@ -273,23 +273,23 @@ namespace
 				return MStatus::kFailure;
 			}
 
-			for (const auto& [pinName, childPlugInfo] : pModule->childPlugs)
+			for (const auto& [plugName, childPlugInfo] : pModule->childPlugs)
 			{
-				auto it = moduleData.parentStructure.find(pinName);
+				auto it = moduleData.parentStructure.find(plugName);
 				const std::string& socketIdentifier = it != moduleData.parentStructure.end() ? it->second : defaultSocket;
 
 				const RigModuleBuildResult* pParentModule = nullptr;
 				const RigModuleSocketInfo* pSocket = nullptr;
 				if (!RigModuleNodeBase::lookupParentSocket(rigModuleMap, socketIdentifier, pParentModule, pSocket))
 				{
-					MGlobal::displayError(MString("Socket '") + socketIdentifier.c_str() + "' not found for pin '"
-						+ moduleData.name.c_str() + "." + pinName.c_str() + "'.");
+					MGlobal::displayError(MString("Socket '") + socketIdentifier.c_str() + "' not found for child plug '"
+						+ moduleData.name.c_str() + "." + plugName.c_str() + "'.");
 					return MStatus::kFailure;
 				}
 
 				if (!pModule->dagParentCallback)
 				{
-					MGlobal::displayError(MString("Module has pins but no dag parenting function: ") + moduleData.name.c_str());
+					MGlobal::displayError(MString("Module has child plugs but no dag parenting function: ") + moduleData.name.c_str());
 					return MStatus::kFailure;
 				}
 

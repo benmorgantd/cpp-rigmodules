@@ -25,13 +25,13 @@ bool ValidationReport::hasErrors() const
 }
 
 // ModuleInterface -------------------------------------------------------------
-const ModulePinInfo* ModuleInterface::findPin(const std::string& name) const
+const ModulePlugInfo* ModuleInterface::findChildPlug(const std::string& name) const
 {
-	for (const ModulePinInfo& pin : pins)
+	for (const ModulePlugInfo& plug : childPlugs)
 	{
-		if (pin.name == name)
+		if (plug.name == name)
 		{
-			return &pin;
+			return &plug;
 		}
 	}
 	return nullptr;
@@ -75,12 +75,12 @@ namespace
 		return false;
 	}
 
-	std::string pinNames(const ModuleInterface& moduleInterface)
+	std::string childPlugNames(const ModuleInterface& moduleInterface)
 	{
 		std::vector<std::string> names;
-		for (const ModulePinInfo& pin : moduleInterface.pins)
+		for (const ModulePlugInfo& plug : moduleInterface.childPlugs)
 		{
-			names.push_back(pin.name);
+			names.push_back(plug.name);
 		}
 		return joinNames(names);
 	}
@@ -232,13 +232,13 @@ namespace
 		// Sorted, so messages come out in a stable order.
 		const std::map<std::string, std::string> parentStructure(module.parentStructure.begin(), module.parentStructure.end());
 
-		for (const auto& [pinName, socketIdentifier] : parentStructure)
+		for (const auto& [plugName, socketIdentifier] : parentStructure)
 		{
-			const std::string entryPath = where + "." + TemplateKey::ParentStructure + "." + pinName;
+			const std::string entryPath = where + "." + TemplateKey::ParentStructure + "." + plugName;
 
-			if (moduleInterface.findPin(pinName) == nullptr)
+			if (moduleInterface.findChildPlug(plugName) == nullptr)
 			{
-				report.addError(entryPath, "no pin '" + pinName + "' on this module (has: " + pinNames(moduleInterface) + ")");
+				report.addError(entryPath, "no child plug '" + plugName + "' on this module (has: " + childPlugNames(moduleInterface) + ")");
 			}
 
 			std::string parentModule;
@@ -254,7 +254,7 @@ namespace
 
 			if (parentModule == module.name)
 			{
-				// Every module input affects every output, so any pin on the module's own socket is a DG cycle.
+				// Every module input affects every output, so any child plug on the module's own socket is a DG cycle.
 				report.addError(entryPath, "a module cannot parent to its own socket ('" + socketIdentifier + "'), it makes a DG cycle");
 				continue;
 			}
@@ -277,7 +277,7 @@ namespace
 		ValidationReport& report)
 	{
 		std::map<std::string, std::size_t> constraintNames;   // name -> first index
-		std::map<std::string, std::string> constrainedPins;   // "module.pin" -> constraint name
+		std::map<std::string, std::string> constrainedPlugs;   // "module.childPlug" -> constraint name
 
 		for (std::size_t c = 0; c < constraints.size(); ++c)
 		{
@@ -298,30 +298,30 @@ namespace
 				report.addError(where + "." + TemplateKey::ConstraintType, "unknown constraint type '" + constraint.type + "' (has: " + ConstraintTypes::Parent + ")");
 			}
 
-			// Target pin
+			// Target child plug
 			std::string targetModule;
-			std::string targetPin;
+			std::string targetPlug;
 			const ModuleInterface* pTargetInterface = nullptr;
 			const std::string targetPath = where + "." + TemplateKey::ConstraintTarget;
-			LookupResult targetResult = lookupModule(constraint.target, declaredModules, interfaces, "module.pin",
-				targetPath, report, targetModule, targetPin, pTargetInterface);
+			LookupResult targetResult = lookupModule(constraint.target, declaredModules, interfaces, "module.childPlug",
+				targetPath, report, targetModule, targetPlug, pTargetInterface);
 
 			if (targetResult == LookupResult::Found)
 			{
-				const ModulePinInfo* pPin = pTargetInterface->findPin(targetPin);
-				if (pPin == nullptr)
+				const ModulePlugInfo* pPlugInfo = pTargetInterface->findChildPlug(targetPlug);
+				if (pPlugInfo == nullptr)
 				{
-					report.addError(targetPath, "no pin '" + targetPin + "' on '" + targetModule + "' (has: " + pinNames(*pTargetInterface) + ")");
+					report.addError(targetPath, "no child plug '" + targetPlug + "' on '" + targetModule + "' (has: " + childPlugNames(*pTargetInterface) + ")");
 					targetResult = LookupResult::Failed;
 				}
-				else if (!pPin->hasControl)
+				else if (!pPlugInfo->hasControl)
 				{
-					report.addError(targetPath, "pin '" + constraint.target + "' has no control to hold the space attribute");
+					report.addError(targetPath, "child plug '" + constraint.target + "' has no control to hold the space attribute");
 				}
-				else if (!constrainedPins.emplace(constraint.target, constraint.name).second)
+				else if (!constrainedPlugs.emplace(constraint.target, constraint.name).second)
 				{
-					// The control can only hold one space attribute, and the pin one parent matrix.
-					report.addError(targetPath, "pin '" + constraint.target + "' is already the target of constraint '" + constrainedPins[constraint.target] + "'");
+					// The control can only hold one space attribute, and the child plug one parent matrix.
+					report.addError(targetPath, "child plug '" + constraint.target + "' is already the target of constraint '" + constrainedPlugs[constraint.target] + "'");
 				}
 			}
 
@@ -385,7 +385,7 @@ namespace
 				{
 					if (driverModule == targetModule)
 					{
-						report.addError(socketPath, "a module cannot drive its own pin, it makes a DG cycle");
+						report.addError(socketPath, "a module cannot drive its own child plug, it makes a DG cycle");
 						continue;
 					}
 					graph[driverModule].insert(targetModule);

@@ -181,7 +181,7 @@ std::vector<std::string> FkChainNode::socketNamesAt(unsigned int index, unsigned
 ModuleInterface FkChainNode::makeInterface(unsigned int count)
 {
 	ModuleInterface moduleInterface;
-	moduleInterface.pins.push_back(ModulePinInfo{ PlugAndSocketNames::Start, true });
+	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Start, true });
 	for (unsigned int i = 0; i < count; ++i)
 	{
 		const std::vector<std::string> names = socketNamesAt(i, count);

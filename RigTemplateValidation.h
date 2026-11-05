@@ -26,19 +26,19 @@ struct ValidationReport
 	bool hasErrors() const;
 };
 
-struct ModulePinInfo
+struct ModulePlugInfo
 {
 	std::string name;
-	bool hasControl = true;   // A constraint needs a control on its target pin to host the space attribute.
+	bool hasControl = true;   // A constraint needs a control on its target child plug to host the space attribute.
 };
 
-// The pin and socket names a module will create, known before anything is built.
+// The child plug and socket names a module will create, known before anything is built.
 struct ModuleInterface
 {
-	std::vector<ModulePinInfo> pins;
+	std::vector<ModulePlugInfo> childPlugs;
 	std::vector<std::string> sockets;
 
-	const ModulePinInfo* findPin(const std::string& name) const;
+	const ModulePlugInfo* findChildPlug(const std::string& name) const;
 	bool hasSocket(const std::string& name) const;
 };
 

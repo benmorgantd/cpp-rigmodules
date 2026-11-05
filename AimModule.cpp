@@ -34,13 +34,13 @@ namespace
 	constexpr double kMinAimDistance = 1.0e-4;
 	constexpr double kMinAimUpSine = 1.0e-4;
 
-	// Mirrors createModule: every part is a pin and a socket, and only the aim part has no control.
+	// Mirrors createModule: every part is a child plug and a socket, and only the aim part has no control.
 	ModuleInterface makeAimInterface()
 	{
 		ModuleInterface moduleInterface;
 		for (unsigned int i = 0; i < AimPart::Count; ++i)
 		{
-			moduleInterface.pins.push_back(ModulePinInfo{ kAimPartNames[i], i != AimPart::Aim });
+			moduleInterface.childPlugs.push_back(ModulePlugInfo{ kAimPartNames[i], i != AimPart::Aim });
 			moduleInterface.sockets.push_back(kAimPartNames[i]);
 		}
 		return moduleInterface;

@@ -119,14 +119,14 @@ MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDagModifie
 
 namespace
 {
-	// Guards against a module's plan and createModule naming pins or sockets differently.
+	// Guards against a module's plan and createModule naming child plugs or sockets differently.
 	bool matchesInterface(const RigModuleBuildResult& result, const ModuleInterface& moduleInterface, std::string& outError)
 	{
-		bool pinsMatch = result.childPlugs.size() == moduleInterface.pins.size();
-		for (const ModulePinInfo& pin : moduleInterface.pins)
+		bool plugsMatch = result.childPlugs.size() == moduleInterface.childPlugs.size();
+		for (const ModulePlugInfo& plug : moduleInterface.childPlugs)
 		{
-			auto it = result.childPlugs.find(pin.name);
-			pinsMatch = pinsMatch && it != result.childPlugs.end() && pin.hasControl == !it->second.oTransform.isNull();
+			auto it = result.childPlugs.find(plug.name);
+			plugsMatch = plugsMatch && it != result.childPlugs.end() && plug.hasControl == !it->second.oTransform.isNull();
 		}
 
 		bool socketsMatch = result.parentSockets.size() == moduleInterface.sockets.size();
@@ -135,15 +135,15 @@ namespace
 			socketsMatch = socketsMatch && result.parentSockets.count(socket) > 0;
 		}
 
-		if (!pinsMatch)
+		if (!plugsMatch)
 		{
-			outError = "built pins differ from the planned pins";
+			outError = "built child plugs differ from the planned child plugs";
 		}
 		else if (!socketsMatch)
 		{
 			outError = "built sockets differ from the planned sockets";
 		}
-		return pinsMatch && socketsMatch;
+		return plugsMatch && socketsMatch;
 	}
 
 	std::string buildableModuleTypes()

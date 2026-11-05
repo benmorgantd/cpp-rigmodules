@@ -146,7 +146,7 @@ public:
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot);
 	// Read phase: one plan per module that planned cleanly. Every problem goes into the report.
 	static std::vector<ModulePlan> planModules(const std::vector<RigModuleData>& modules, MarkedJointSet& markedJoints, ValidationReport& report);
-	// Write phase, pass 1. Fails if a module fails, or builds pins or sockets that differ from its plan.
+	// Write phase, pass 1. Fails if a module fails, or builds child plugs or sockets that differ from its plan.
 	static MStatus buildModules(const std::vector<ModulePlan>& plans, MObject oRigRoot, MDagModifier& dagMod, RigModuleMap& outModuleMap);
 
 	// Plan step helpers, shared by every module built from JSON. Both report into ctx.report and return false on failure.

@@ -12,7 +12,7 @@ Design decisions and their history are in `docs/decisions.md`. Read it before pr
 
 ## Working style
 
-- Plan before code. For any new module or architectural change, propose the design first (inputs, outputs, pins, sockets, attributes, affects relationships, failure modes) and wait for sign-off before writing implementation.
+- Plan before code. For any new module or architectural change, propose the design first (inputs, outputs, child plugs, sockets, attributes, affects relationships, failure modes) and wait for sign-off before writing implementation.
 - When a design decision is made, changed, or reversed, add or update its entry in `docs/decisions.md` in the same change.
 - Prefer small, reviewable diffs. Do not refactor unrelated code in the same change.
 - If a requirement is ambiguous, ask. Do not guess at rig behavior.
@@ -34,14 +34,14 @@ Design every module with likely future needs in mind, even when they are not bui
 - Pose libraries and animation libraries (stable, predictable control and attribute names; data that can be saved, loaded, and mirrored)
 - Rig versioning and migration (an older rig or older animation should have a defined path forward)
 
-Name stability matters: renaming a control, attribute, pin, or socket can break saved poses, animation, and exports. Treat names as public API.
+Name stability matters: renaming a control, attribute, child plug, or socket can break saved poses, animation, and exports. Treat names as public API.
 
 ### Gate for new modules
 
 Do not add a new module casually. Before proposing one:
 1. State the animator-facing problem it solves.
 2. Check whether an existing module, or a small extension of one, already covers it.
-3. Write the design (inputs, outputs, pins, sockets, attributes, JSON schema impact, export impact, pose/animation library impact) and get sign-off before implementing.
+3. Write the design (inputs, outputs, child plugs, sockets, attributes, JSON schema impact, export impact, pose/animation library impact) and get sign-off before implementing.
 4. Name what it adds to the long-term maintenance surface.
 
 ## Architecture
@@ -49,10 +49,10 @@ Do not add a new module casually. Before proposing one:
 - Custom module nodes are the rig's brain. All transform math happens inside the nodes. `inheritsTransform` is OFF for every control and joint, so DAG parenting does not drive transforms. Never rely on DAG inheritance for results.
 - Joints are the main input. A JSON file is the rig template and the main user input. It is read in C++ with nlohmann json. A simple Python command builds the rig from that JSON.
 - Module inputs are control world-space matrices and their parent world-space matrices.
-- Modules define **pins** (child-side attachment inputs) and **sockets** (parent-side attachment outputs). Sockets are world-space matrices, and pins are the inputs those matrices connect to. Both are named by the module at creation (for example `start`, `end`).
+- Modules define **child plugs** (child-side attachment inputs) and **sockets** (parent-side attachment outputs). Sockets are world-space matrices, and child plugs are the inputs those matrices connect to. Both are named by the module at creation (for example `start`, `end`).
 - The rig is built in two passes:
   1. Create every module separately.
-  2. Parent them as defined by the JSON `parentStructure`, which maps child pin to parent socket.
+  2. Parent them as defined by the JSON `parentStructure`, which maps child plug to parent socket.
 - Existing modules include Layout, FkChain and Aim. Use FkChain and Layout as the reference for new modules.
 
 ### Shared constants and attribute lookup
@@ -72,7 +72,7 @@ Flat layout: every source file sits at the repo root, and there are no `src/` or
 | `PluginMain.cpp` | Plugin entry. Loops over `ModuleRegistry` and `CommandRegistry`, and registers `rigControlNode` plus its VP2 draw override. |
 | `ModuleRegistry.cpp/.h` | The only file that includes every module header. Holds each node's type name, JSON `moduleType`, `MTypeId` and `planFromJson`. Add new nodes here. |
 | `CommandRegistry.cpp/.h` | The only file that includes every command header. Add new commands here. |
-| `RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/pin lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
+| `RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/child plug lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
 | `Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `StringUtils`, `RigModuleCommandUtils`. |
 | `JsonUtils.h` | Maya-free, header-only `readJsonString` / `writeJsonString`. Every string attribute that holds structured data (socket names, joint markup) goes through these (D16). |
 | `Constants.h` | `RigAttr`, `JointMarkupKey`, `PlugAndSocketNames`, `ConstraintAttr`, `SideNames`, `RigNaming`, `RigControlNodeAttr`. It has no Maya headers, because the Maya-free core includes it. Keep it that way. |
@@ -117,7 +117,7 @@ Complexity grows through duplication and one-off special cases. Resist both.
 
 - **Rule of three.** Tolerate duplication twice. On the third occurrence, extract it into a shared function. Do not extract speculatively before there are real call sites.
 - **One home per concept.** Each piece of logic, constant, and string lives in exactly one place. Shared code goes in the shared layer. Module-specific code stays in the module.
-- **Modules stay thin.** A module declares its attributes, pins, and sockets, then delegates to shared code for common behavior. If two modules share behavior, move it up to `rigmodule.h` or `utilities.h` instead of copying.
+- **Modules stay thin.** A module declares its attributes, child plugs, and sockets, then delegates to shared code for common behavior. If two modules share behavior, move it up to `rigmodule.h` or `utilities.h` instead of copying.
 - **Prefer composition and data over inheritance and branching.** Avoid deep class hierarchies and long `if (moduleType == ...)` chains. Extend through shared helpers and the `ModuleRegistry`.
 - **Consistent patterns.** A new module should look like the existing ones (FkChain, Layout). If you need to break the pattern, say why. If the pattern itself is wrong, propose changing it everywhere rather than diverging once.
 - **Small, single-purpose functions** with clear inputs and outputs. Avoid functions that need many flags to behave differently.
@@ -168,7 +168,7 @@ Use long flag names everywhere: in code that reads flags, in comments, in docs a
 
 Studio-style split, matching how the author structures their Python code:
 
-- **Core library (no Maya headers):** pin and socket resolution, `parentStructure` ordering and cycle detection, JSON parsing and validation, matrix math. Testable with GoogleTest and no Maya install.
+- **Core library (no Maya headers):** child plug and socket resolution, `parentStructure` ordering and cycle detection, JSON parsing and validation, matrix math. Testable with GoogleTest and no Maya install.
 - **Plugin layer (Maya API):** nodes, attribute definitions, plug I/O, and the commands that bridge to the core.
 - **Python:** the build command, JSON validation, and user-facing error messages.
 
@@ -212,7 +212,7 @@ Before declaring work done, check:
 - [ ] Pure logic placed in the core library, not the plugin layer
 - [ ] Searched `utilities.h` and `rigmodule.h` first; reused or minimally extended existing code
 - [ ] No duplicated logic, constants, or strings; shared code in the shared layer
-- [ ] No names (controls, attributes, pins, sockets) changed without flagging the pose, animation, and export impact
+- [ ] No names (controls, attributes, child plugs, sockets) changed without flagging the pose, animation, and export impact
 - [ ] Animator-facing behavior is simple and predictable
 - [ ] Complexity added by this change is stated and justified
 - [ ] Stated clearly what was and was not verified
@@ -221,5 +221,5 @@ Before declaring work done, check:
 
 These go stale quickly. Verify against the repo before acting on them.
 
-- Connect-time jump on the child when a pin connects to a non-identity socket.
-- Reviewing `compute()` plug grouping and the layout `end` socket to first FkChain `start` pin connection.
+- Connect-time jump on the child when a child plug connects to a non-identity socket.
+- Reviewing `compute()` plug grouping and the layout `end` socket to first FkChain `start` child plug connection.
