@@ -125,7 +125,7 @@ The author is interested in splitting the code into a Maya-free core library and
 - Pass lvalue `MObject`s to any function taking a non-const `MObject&` (for example `MPlug::child`). Look the attribute up on its own line into a named variable first. Details in `CLAUDE.md`.
 - Command flags are read and documented by long name only (`-usage`, not `-us`). `MSyntax::addFlag` requires a short name and rejects anything over 3 letters (verified in Maya 2026: `-skin` and `-usage` fail and the flag silently never registers), so short names appear only inside `newSyntax()`, wrapped in `CHECK_MSTATUS`. Added 2026-11-04.
 - Commands share one shape (2026-11-05, every command migrated). Long flag names are file-local `constexpr` constants. A file-local helper reads the flags into a struct (`RigBuildInputs`, `ConstraintBuildArgs`) or a value before anything is queued. `doIt` only parses, delegates and returns. The nodes a command acts on are string objects passed by name, never the selection (`useSelectionAsDefault(false)`). When a helper already displays its error, the caller returns its status with a plain `if`, not `CHECK_MSTATUS_AND_RETURN_IT`, which would print a second "API error detected" line.
-  - **Signature changes:** `createRigParentConstraint` takes the control as its one object instead of `-control`: `createRigParentConstraint -driver "rig:layoutModule.end" -label "World" rig:up_ctrl_r`. `setRigConstraintSpace` takes the constraint as an object, which is call-compatible with the old positional argument, and now fails when both `-space` and `-label` are given. A negative `-initial` is now an error instead of being clamped to 0.
+  - **Signature changes:** `createRigParentConstraint` takes the control as its one object instead of `-control`: `createRigParentConstraint -driver "rig:layoutModule.end" -label "World" rig:up_ctrl_r` (since D19, `-driver layout.end`). `setRigConstraintSpace` takes the constraint as an object, which is call-compatible with the old positional argument, and now fails when both `-space` and `-label` are given. A negative `-initial` is now an error instead of being clamped to 0.
   - **Removed:** `RigModuleCommandUtils` (`-name`, `-joints`, `-parentModule`, `-parentSocketIndex`, `-rigRoot` helpers). It had no callers and belonged to the per-module creation commands that the template build replaced.
 
 ---
@@ -185,6 +185,20 @@ Any string attribute that holds structured data stores JSON text, read and writt
 - **Rejected:** skipping unmarked joints (it hides a missed markup pass), and leaving joints in their own namespace.
 - **Fixed with this change:** redo ran the modifier with the user's current namespace, so redone controls and modules landed in the root namespace. `doIt` and `redoIt` now both make the rig namespace current through `ScopedRigNamespace`. Control names strip the joint's namespace, so `skel:a_jnt` gives `a_ctrl_c` in the rig namespace, not `skel:a_ctrl_c`.
 - **Consequence:** the joint rename is part of the command's undo, but namespace creation is not, so undo leaves an empty rig namespace. Callers that passed a positional path or relied on the namespace scan must change. `JointMarkupScene::collectMarkedJoints` now takes a joint list and adds its errors to the `ValidationReport`.
+
+---
+
+### D19. Commands take the same socket ids as templates
+**Status:** Decided (2026-11-05). Built and run in mayapy 2026 with rig namespaces `rig`, `char:rig` and the root: create, space switch, undo, redo, and each failure case below.
+
+`createRigParentConstraint -driver layout.end -driver fkchain_1.start <control>` uses the same `module.socket` ids as a template's `parentStructure` and `constraints`.
+
+- **The layout node is named `layout`** (`RigNaming::LayoutModule`), not `layoutModule`. Every module's scene name is now its template id, so the command path needs no special case for the reserved name. The read phase checks that `<rigNamespace>:layout` is free, like every other module name.
+- **Drivers resolve in the constrained control's namespace.** A module name without `:` is looked up as `<control namespace>:<module>`, as an absolute name, so the user's current namespace does not matter. A name that already has a namespace (`other:layout.end`) is used as given. The default enum label stays exactly what was typed.
+- **The constraint node goes in the control's namespace too.** The default name is `<control short name>_space`, and an unqualified `-name` gets the same namespace. A qualified `-name` is used as given. The name is absolute, so redo recreates the node under the same name whatever the current namespace is. Before this, the node landed in the current namespace and redo could put it somewhere else.
+- **Why:** a socket id names a socket within one rig, and the control already says which rig that is. Templates and commands now share one vocabulary, which pose and animation tools can rely on later.
+- **Rejected:** mapping `layout` to `layoutModule` in the command path, because it adds a special case that must stay in sync with the build. Resolving in the current namespace was rejected because it is fragile (the D18 redo bug). A `-namespace` flag was rejected because it adds a flag for something the command already knows.
+- **Consequence:** rigs built before this change keep a `layoutModule` node until they are rebuilt. Only the module node's name changed. Controls, sockets, child plugs and attributes did not, so poses, animation and exports are unaffected. `setRigConstraintSpace` matches labels, not socket ids, and is unchanged.
 
 ---
 

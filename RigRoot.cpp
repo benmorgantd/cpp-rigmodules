@@ -271,6 +271,7 @@ namespace
 			}
 		};
 
+		checkName(qualifiedName(rigNamespace, RigNaming::LayoutModule), MObject::kNullObj, RigNaming::LayoutModule);
 		for (std::size_t i = 0; i < modules.size(); ++i)
 		{
 			checkName(qualifiedName(rigNamespace, modules[i].name.c_str()), MObject::kNullObj,

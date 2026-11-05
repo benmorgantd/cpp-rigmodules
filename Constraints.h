@@ -14,6 +14,7 @@
 #include <maya/MArgList.h>
 #include <maya/MObject.h>
 #include <maya/MMatrix.h>
+#include <maya/MString.h>
 #include <maya/MPlug.h>
 #include <maya/MTypeId.h>
 #include <maya/MDagModifier.h>
@@ -68,7 +69,8 @@ public:
 	static MObject aRigRoot;           // message
 
 public:
-	static MStatus resolveSocket(const std::string& socketId, ConstraintDriverInfo& outDriver);
+	// An unqualified module name resolves in rigNamespace (the constrained control's namespace), the same ids templates use.
+	static MStatus resolveSocket(const std::string& socketId, const MString& rigNamespace, ConstraintDriverInfo& outDriver);
 
 	// Two-stage build. Runs dagMod.doIt() twice, so it must run after the controls exist in the scene.
 	static MStatus createConstraint(const ConstraintBuildArgs& args, MDagModifier& dagMod, MObject& oOutConstraint);
@@ -87,6 +89,7 @@ public:
 // Nodes are always passed by name. The selection is never used.
 // createRigParentConstraint -driver "module.socket" [-driver ...] [-label "Space" ...] [-initial n] [-name n] rigControl
 //   -> the constraint node name. -label is given once per -driver or not at all. Default name: <control>_space.
+//   Driver modules and an unqualified -name resolve in the control's namespace (D19).
 class CreateParentConstraintCmd : public MPxCommand
 {
 public:

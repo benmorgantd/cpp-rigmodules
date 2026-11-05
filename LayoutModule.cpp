@@ -73,7 +73,8 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 
 	// 1. Layout module node
 	MObject oLayoutModule = dagMod.MDGModifier::createNode(LayoutModuleNode::id);
-	dagMod.renameNode(oLayoutModule, "layoutModule");
+	// Named like template modules (scene name == socket id module half), so "layout.end" resolves in commands too (D19).
+	dagMod.renameNode(oLayoutModule, RigNaming::LayoutModule);
 
 	MPlug pSide(oLayoutModule, LayoutModuleNode::aSide);
 	dagMod.newPlugValueShort(pSide, getShortFromSide(Side::Center));

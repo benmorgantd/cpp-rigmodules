@@ -16,6 +16,7 @@
 #include <maya/MArgDatabase.h>
 #include <maya/MGlobal.h>
 #include <maya/MStringArray.h>
+#include <maya/MNamespace.h>
 
 MTypeId ParentConstraintNode::id(0x00218E);
 
@@ -133,7 +134,8 @@ MStatus ParentConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 // ------------------------------------------------------------------
 
 // "module.socket" -> module node, socket index, rest matrix. Socket names live in socketNames as JSON string lists.
-MStatus ParentConstraintNode::resolveSocket(const std::string& socketId, ConstraintDriverInfo& outDriver)
+// A module name that already carries a namespace ("other:layout") is used as given.
+MStatus ParentConstraintNode::resolveSocket(const std::string& socketId, const MString& rigNamespace, ConstraintDriverInfo& outDriver)
 {
 	std::string moduleName, socketName;
 	if (!StringUtils::splitIdentifier(socketId, moduleName, socketName))
@@ -142,8 +144,14 @@ MStatus ParentConstraintNode::resolveSocket(const std::string& socketId, Constra
 		return MStatus::kFailure;
 	}
 
+	MString moduleNodeName(moduleName.c_str());
+	if (moduleName.find(':') == std::string::npos)
+	{
+		moduleNodeName = rigNamespace + ":" + moduleNodeName;
+	}
+
 	MObject oModule;
-	MStatus status = RigModuleNodeBase::findModuleByName(moduleName.c_str(), oModule);
+	MStatus status = RigModuleNodeBase::findModuleByName(moduleNodeName, oModule);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	RigModuleSocketInfo socketInfo;
@@ -490,6 +498,10 @@ namespace
 			return status;   // helper already reported why the control has no child plug
 		}
 
+		// Drivers are socket ids within the control's rig. From an absolute name this is ":rig", or "" for the root,
+		// so "<ns>:<module>" stays absolute and does not depend on the current namespace.
+		const MString rigNamespace = MNamespace::getNamespaceFromName(MFnDependencyNode(outArgs.oControl).absoluteName());
+
 		const unsigned int numDrivers = argData.numberOfFlagUses(kDriverFlag);
 		const unsigned int numLabels = argData.numberOfFlagUses(kLabelFlag);
 		if (numDrivers == 0 || (numLabels != 0 && numLabels != numDrivers))
@@ -513,7 +525,7 @@ namespace
 				driver.label = labelArgs.asString(0).asChar();
 			}
 
-			status = ParentConstraintNode::resolveSocket(driverArgs.asString(0).asChar(), driver);
+			status = ParentConstraintNode::resolveSocket(driverArgs.asString(0).asChar(), rigNamespace, driver);
 			if (!status)
 			{
 				return status;   // helper already reported which driver failed
@@ -535,11 +547,16 @@ namespace
 		}
 		outArgs.initialDriver = static_cast<unsigned int>(initialDriver);
 
-		MString name = MFnDependencyNode(outArgs.oControl).name() + kDefaultConstraintSuffix;
+		MString name = MNamespace::stripNamespaceFromName(MFnDependencyNode(outArgs.oControl).name()) + kDefaultConstraintSuffix;
 		if (argData.isFlagSet(kNameFlag))
 		{
 			status = argData.getFlagArgument(kNameFlag, 0, name);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		// An unqualified name goes in the control's rig namespace. Absolute, so redo does not depend on the current namespace.
+		if (name.index(':') < 0)
+		{
+			name = rigNamespace + ":" + name;
 		}
 		outArgs.name = name.asChar();
 

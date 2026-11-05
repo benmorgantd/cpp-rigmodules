@@ -90,7 +90,7 @@ Flat layout: every source file sits at the repo root, and there are no `src/` or
 | `JointMarkupCmd.h/.cpp` | `rigJointMarkup` command. |
 | `RigTemplates/LayoutRig.json` | The only example template. Its joints use `[side, usage]` selectors. |
 | `include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
-| `docs/decisions.md` | Decision log (D1–D18). |
+| `docs/decisions.md` | Decision log (D1–D19). |
 | `RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files. |
 
 **Maya commands:** `createRigFromTemplate -template <path> [-namespace ns] <joint>...`, `rigJointMarkup`, `createRigParentConstraint -driver module.socket ... <control>`, `setRigConstraintSpace (-space n | -label l) <constraint>`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
