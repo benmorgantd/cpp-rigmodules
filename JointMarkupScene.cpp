@@ -1,109 +1,83 @@
 #include "JointMarkupScene.h"
 #include "Constants.h"
+#include "RigTemplateValidation.h"
 
 #include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
-#include <maya/MItDag.h>
-#include <maya/MNamespace.h>
 #include <maya/MPlug.h>
 #include <maya/MDagPath.h>
 
 namespace
 {
-	// Maya reports the root namespace as "" from parentNamespace() but users write ":".
-	// Leading and trailing colons are dropped so ":char", "char:" and "char" all compare equal.
-	MString normalizeNamespace(const MString& namespaceName)
+	// Shared by readMarkup, which displays outError, and collectMarkedJoints, which reports it.
+	// outError is empty when a Maya call failed rather than the markup text.
+	MStatus readMarkupAttr(const MObject& oJoint, bool& outHasMarkup, JointMarkup& outMarkup, std::string& outError)
 	{
-		std::string text = namespaceName.asChar();
-		while (!text.empty() && text.front() == ':')
+		MStatus status;
+		MFnDependencyNode fnJoint(oJoint, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		outHasMarkup = fnJoint.hasAttribute(RigAttr::JointMarkup);
+		if (!outHasMarkup)
 		{
-			text.erase(0, 1);
+			return MStatus::kSuccess;
 		}
-		while (!text.empty() && text.back() == ':')
+
+		MPlug pMarkup = fnJoint.findPlug(RigAttr::JointMarkup, false, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		const MString markupText = pMarkup.asString(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		if (!parseJointMarkup(markupText.asChar(), outMarkup, outError))
 		{
-			text.pop_back();
+			return MStatus::kFailure;
 		}
-		return MString(text.c_str());
+
+		return MStatus::kSuccess;
 	}
 }
 
-MStatus JointMarkupScene::collectMarkedJoints(const MString& namespaceName, MarkedJointSet& outSet)
+void JointMarkupScene::collectMarkedJoints(const MDagPathArray& joints, MarkedJointSet& outSet, ValidationReport& report)
 {
-	MStatus status;
-	const MString targetNamespace = normalizeNamespace(namespaceName);
-
-	if (targetNamespace.length() > 0 && !MNamespace::namespaceExists(MString(":") + targetNamespace))
+	for (unsigned int i = 0; i < joints.length(); ++i)
 	{
-		MGlobal::displayError(MString("Joint markup namespace does not exist: ") + namespaceName);
-		return MStatus::kFailure;
-	}
-
-	MItDag itJoints(MItDag::kDepthFirst, MFn::kJoint, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	for (; !itJoints.isDone(); itJoints.next())
-	{
-		MDagPath jointPath;
-		status = itJoints.getPath(jointPath);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
-		MObject oJoint = jointPath.node();
-		MFnDependencyNode fnJoint(oJoint);
-		if (normalizeNamespace(fnJoint.parentNamespace()) != targetNamespace)
-		{
-			continue;
-		}
+		const MDagPath& jointPath = joints[i];
+		const std::string jointName = jointPath.fullPathName().asChar();
 
 		bool hasMarkup = false;
 		JointMarkup markup;
-		status = readMarkup(oJoint, hasMarkup, markup);
+		std::string error;
+		MStatus status = readMarkupAttr(jointPath.node(), hasMarkup, markup, error);
 		if (!status)
 		{
-			return status;
+			report.addError(jointName, error.empty() ? "could not read rigMarkup: " + std::string(status.errorString().asChar()) : "invalid rigMarkup: " + error);
+			continue;
 		}
 		if (!hasMarkup)
 		{
+			report.addError(jointName, "has no rigMarkup. Mark it with rigJointMarkup, or do not pass it");
 			continue;
 		}
 
-		std::string error;
-		if (!outSet.index.add(markup, jointPath.fullPathName().asChar(), error))
+		if (!outSet.index.add(markup, jointName, error))
 		{
-			MGlobal::displayError(MString("Joint markup: ") + error.c_str());
-			return MStatus::kFailure;
+			report.addError(jointName, error);
+			continue;
 		}
 		outSet.dagPaths.append(jointPath);
 	}
-
-	return MStatus::kSuccess;
 }
 
 MStatus JointMarkupScene::readMarkup(const MObject& oJoint, bool& outHasMarkup, JointMarkup& outMarkup)
 {
-	MStatus status;
-	MFnDependencyNode fnJoint(oJoint, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	outHasMarkup = fnJoint.hasAttribute(RigAttr::JointMarkup);
-	if (!outHasMarkup)
-	{
-		return MStatus::kSuccess;
-	}
-
-	MPlug pMarkup = fnJoint.findPlug(RigAttr::JointMarkup, false, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	const MString markupText = pMarkup.asString(&status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
 	std::string error;
-	if (!parseJointMarkup(markupText.asChar(), outMarkup, error))
+	MStatus status = readMarkupAttr(oJoint, outHasMarkup, outMarkup, error);
+	if (!status && !error.empty())
 	{
-		MGlobal::displayError(MString("Invalid joint markup on ") + fnJoint.name() + ": " + error.c_str());
-		return MStatus::kFailure;
+		MGlobal::displayError(MString("Invalid joint markup on ") + MFnDependencyNode(oJoint).name() + ": " + error.c_str());
 	}
-
-	return MStatus::kSuccess;
+	return status;
 }
 
 MStatus JointMarkupScene::claimJoint(

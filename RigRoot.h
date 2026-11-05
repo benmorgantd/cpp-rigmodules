@@ -9,6 +9,19 @@
 #include <maya/MPxNode.h>
 #include <maya/MPxCommand.h>
 #include <maya/MDagModifier.h>
+#include <maya/MDagPathArray.h>
+#include <maya/MString.h>
+
+// Everything createRig needs. CreateRigCmd resolves it before anything touches the scene.
+struct RigBuildInputs
+{
+	MString templatePath;
+	// The rig's final namespace, without leading or trailing ':'. Empty is the root namespace.
+	// Every node the build creates goes here, and every input joint is moved here.
+	MString rigNamespace;
+	// Every joint must carry markup. Names may be in any namespace.
+	MDagPathArray joints;
+};
 
 class RigRootNode : public MPxNode
 {
@@ -44,14 +57,13 @@ public:
 		const MString& templateName,
 		MObject oAssetRoot,
 		MDagModifier& dagMod);
-	// jointNamespace: where to look for marked joints. ":" is the root namespace.
-	static MStatus createRig(const MString& jsonFilePath, const MString& jointNamespace, MDagModifier& dagMod);
+	static MStatus createRig(const RigBuildInputs& inputs, MDagModifier& dagMod);
 };
 
 
-/// <summary>
-/// Main function to run for creating rigs.
-/// </summary>
+// Joints are always passed by full name. The selection is never used.
+// createRigFromTemplate -template "C:/rigs/LayoutRig.json" -namespace "rig" skel:root_jnt skel:spine_jnt
+// -namespace is the rig's final namespace (default "rig"). The joints are moved into it.
 class CreateRigCmd : public MPxCommand
 {
 public:
@@ -66,13 +78,10 @@ public:
 	static void* creator();
 	static MSyntax newSyntax();
 
-	// Command registration attribute
 	static const char* aCommandString;
 
 private:
-	static const char* kFilePathArgShort;
-	static const char* kFilePathArgLong;
-	static const char* kNamespaceFlag;
-
 	MDagModifier fDagMod;
+	// Redo must run fDagMod with the rig namespace current, because its node names are relative to it.
+	MString fRigNamespace;
 };

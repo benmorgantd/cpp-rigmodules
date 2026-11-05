@@ -10,7 +10,9 @@
 #include <maya/MStatus.h>
 #include <maya/MString.h>
 
-// Marked joints from one namespace. dagPaths[i] is the joint for index entry i.
+struct ValidationReport;
+
+// The marked joints a rig is built from. dagPaths[i] is the joint for index entry i.
 struct MarkedJointSet
 {
 	JointMarkupIndex index;
@@ -18,13 +20,13 @@ struct MarkedJointSet
 };
 
 // Scene side of joint markup: reading the attribute and finding joints.
-// collectMarkedJoints and readMarkup report their own errors. claimJoint returns its error for the caller's report.
+// readMarkup displays its own errors. collectMarkedJoints and claimJoint return theirs for the caller's report.
 class JointMarkupScene
 {
 public:
-	// Collects every joint in exactly this namespace (nested namespaces excluded) that carries markup.
-	// ":" is the root namespace. Fails on unparseable markup or a duplicate (side, usage).
-	static MStatus collectMarkedJoints(const MString& namespaceName, MarkedJointSet& outSet);
+	// Indexes exactly these joints. Every one must carry valid markup, and (side, usage) must be unique across them.
+	// Adds every problem to report instead of stopping at the first.
+	static void collectMarkedJoints(const MDagPathArray& joints, MarkedJointSet& outSet, ValidationReport& report);
 
 	// outHasMarkup is false, with success, when the joint has no markup attribute.
 	static MStatus readMarkup(const MObject& oJoint, bool& outHasMarkup, JointMarkup& outMarkup);

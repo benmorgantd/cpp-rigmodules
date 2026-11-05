@@ -48,7 +48,7 @@ void from_json(const nlohmann::json& jsonData, JointSelector& selector);
 // Required by NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE on module args structs, which always generates both directions.
 void to_json(nlohmann::json& jsonData, const JointSelector& selector);
 
-// Every marked joint in one namespace, keyed by (side, usage).
+// Every marked joint a rig is built from, keyed by (side, usage).
 // Entry indices follow add order, so a caller can keep scene handles in a parallel array.
 class JointMarkupIndex
 {

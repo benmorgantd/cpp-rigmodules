@@ -9,6 +9,8 @@
 #include "Constraints.h"
 #include "Constants.h"
 #include "RigTemplateValidation.h"
+#include "JointMarkupScene.h"
+#include "Utilities.h"
 
 // Standard dependencies
 #include <filesystem>
@@ -34,6 +36,9 @@
 #include <maya/MNamespace.h>
 #include <maya/MTypeId.h>
 #include <maya/MSelectionList.h>
+#include <maya/MFnDependencyNode.h>
+#include <maya/MStringArray.h>
+#include <maya/MDagPath.h>
 
 // Define the unique ID
 MTypeId RigRootNode::id(0x00218);
@@ -171,7 +176,57 @@ namespace
 {
 	// Fixed until templates can configure the layout.
 	constexpr unsigned short kLayoutControlCount = 3;
-	const char* const kRigNamespace = "rig";
+
+	// Nodes are created and renamed relative to the current namespace, so every dagMod.doIt of a rig (the build and
+	// every redo) must run with the rig namespace current. RAII: the destructor restores the user's namespace on
+	// every exit path. Absolute paths, so the result does not depend on which namespace the user had current.
+	// The namespace is not part of the dagMod, so undo leaves it behind, empty.
+	class ScopedRigNamespace
+	{
+	public:
+		explicit ScopedRigNamespace(const MString& rigNamespace)
+			: fOriginalNamespace(MNamespace::currentNamespace())
+		{
+			const MString namespacePath = MString(":") + rigNamespace;
+			if (!MNamespace::namespaceExists(namespacePath))
+			{
+				fStatus = MNamespace::addNamespace(namespacePath);
+				if (!fStatus)
+				{
+					MGlobal::displayError("Could not create the rig namespace '" + namespacePath + "': " + fStatus.errorString());
+					return;
+				}
+			}
+			fStatus = MNamespace::setCurrentNamespace(namespacePath);
+		}
+
+		~ScopedRigNamespace()
+		{
+			MNamespace::setCurrentNamespace(fOriginalNamespace);
+		}
+
+		ScopedRigNamespace(const ScopedRigNamespace&) = delete;
+		ScopedRigNamespace& operator=(const ScopedRigNamespace&) = delete;
+
+		MStatus status() const
+		{
+			return fStatus;
+		}
+
+	private:
+		MString fOriginalNamespace;
+		MStatus fStatus;
+	};
+
+	// ":rig:name", or ":name" when rigNamespace is the root.
+	MString qualifiedName(const MString& rigNamespace, const MString& shortName)
+	{
+		if (rigNamespace.length() == 0)
+		{
+			return MString(":") + shortName;
+		}
+		return MString(":") + rigNamespace + ":" + shortName;
+	}
 
 	void displayReport(const ValidationReport& report)
 	{
@@ -185,19 +240,67 @@ namespace
 		}
 	}
 
-	// renameNode silently makes a clashing name unique, and the module would no longer match its template name.
-	void checkModuleNamesFree(const std::vector<RigModuleData>& modules, ValidationReport& report)
+	// renameNode silently makes a clashing name unique, so a module would no longer match its template name
+	// and a joint would no longer match its skeleton name. Checks each target name against the scene and the others.
+	void checkTargetNamesFree(
+		const MString& rigNamespace,
+		const std::vector<RigModuleData>& modules,
+		const MDagPathArray& joints,
+		ValidationReport& report)
 	{
+		std::unordered_map<std::string, std::string> takenBy;   // target name -> the "where" that claimed it
+
+		// oSelf is the node being renamed. A joint already in the rig namespace already holds its target name.
+		auto checkName = [&](const MString& targetName, const MObject& oSelf, const std::string& where)
+		{
+			const std::string target = targetName.asChar();
+			auto [it, inserted] = takenBy.emplace(target, where);
+			if (!inserted)
+			{
+				report.addError(where, "would be named '" + target + "', the same as " + it->second);
+				return;
+			}
+
+			MSelectionList existing;
+			MObject oExisting;
+			if (existing.add(targetName) == MStatus::kSuccess
+				&& existing.getDependNode(0, oExisting) == MStatus::kSuccess
+				&& oExisting != oSelf)
+			{
+				report.addError(where, "a node named '" + target + "' already exists in the scene");
+			}
+		};
+
 		for (std::size_t i = 0; i < modules.size(); ++i)
 		{
-			const MString nodeName = MString(":") + kRigNamespace + ":" + modules[i].name.c_str();
-			MSelectionList existing;
-			if (existing.add(nodeName) == MStatus::kSuccess)
-			{
-				report.addError(RigTemplateValidation::modulePath(i, modules[i].name),
-					std::string("a node named '") + nodeName.asChar() + "' already exists in the scene");
-			}
+			checkName(qualifiedName(rigNamespace, modules[i].name.c_str()), MObject::kNullObj,
+				RigTemplateValidation::modulePath(i, modules[i].name));
 		}
+		for (unsigned int i = 0; i < joints.length(); ++i)
+		{
+			const MFnDependencyNode fnJoint(joints[i].node());
+			checkName(qualifiedName(rigNamespace, MNamespace::stripNamespaceFromName(fnJoint.name())), joints[i].node(),
+				joints[i].fullPathName().asChar());
+		}
+	}
+
+	// Write phase. Keeps each joint's name and changes only its namespace. Names were checked free in the read phase.
+	MStatus queueJointMoves(const MDagPathArray& joints, const MString& rigNamespace, MDagModifier& dagMod)
+	{
+		for (unsigned int i = 0; i < joints.length(); ++i)
+		{
+			MObject oJoint = joints[i].node();
+			const MFnDependencyNode fnJoint(oJoint);
+			const MString targetName = qualifiedName(rigNamespace, MNamespace::stripNamespaceFromName(fnJoint.name()));
+			if (fnJoint.absoluteName() == targetName)
+			{
+				continue;
+			}
+
+			MStatus status = dagMod.renameNode(oJoint, targetName);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		return MStatus::kSuccess;
 	}
 
 	// The layout goes through the same plan/build path as template modules, so pass 2 and constraints find it by name.
@@ -215,27 +318,27 @@ namespace
 
 	// Read phase. Reads the scene, never writes it. Fills plans (layout first) as far as validation gets.
 	void planRig(
-		const MString& jsonFilePath,
-		const MString& jointNamespace,
+		const RigBuildInputs& inputs,
 		AssetRootData& assetData,
 		RigRootData& rigData,
 		std::vector<ModulePlan>& plans,
 		ValidationReport& report)
 	{
-		if (!loadRigTemplate(jsonFilePath.asChar(), assetData, rigData, report))
+		if (!loadRigTemplate(inputs.templatePath.asChar(), assetData, rigData, report))
 		{
 			return;
 		}
 
 		RigTemplateValidation::validateHeader(rigData, assetData, report);
 		RigTemplateValidation::validateModuleNames(rigData.rigModules, report);
-		checkModuleNamesFree(rigData.rigModules, report);
+		checkTargetNamesFree(inputs.rigNamespace, rigData.rigModules, inputs.joints, report);
 
-		// collectMarkedJoints displays its own errors.
+		// Module plans claim joints from this set, so bad markup stops here instead of surfacing as missing joints.
+		const std::size_t errorCountBeforeMarkup = report.errors.size();
 		MarkedJointSet markedJoints;
-		if (!JointMarkupScene::collectMarkedJoints(jointNamespace, markedJoints))
+		JointMarkupScene::collectMarkedJoints(inputs.joints, markedJoints, report);
+		if (report.errors.size() > errorCountBeforeMarkup)
 		{
-			report.addError("joint markup", std::string("could not read joint markup in namespace '") + jointNamespace.asChar() + "'");
 			return;
 		}
 
@@ -314,7 +417,12 @@ namespace
 
 	// Write phase. Runs only on a clean report. Constraints come after the first doIt because they add an enum
 	// attribute to controls that must exist by then.
-	MStatus buildRig(const RigRootData& rigData, const AssetRootData& assetData, const std::vector<ModulePlan>& plans, MDagModifier& dagMod)
+	MStatus buildRig(
+		const RigBuildInputs& inputs,
+		const RigRootData& rigData,
+		const AssetRootData& assetData,
+		const std::vector<ModulePlan>& plans,
+		MDagModifier& dagMod)
 	{
 		MStatus status;
 
@@ -345,7 +453,14 @@ namespace
 			return status;
 		}
 
-		// Execute the DAG modifier once for every module and the parenting pass.
+		status = queueJointMoves(inputs.joints, inputs.rigNamespace, dagMod);
+		if (!status)
+		{
+			MGlobal::displayError("Failed queueing the input joint moves into the rig namespace.");
+			return status;
+		}
+
+		// Execute the DAG modifier once for every module, the parenting pass and the joint moves.
 		status = dagMod.doIt();
 		if (!status)
 		{
@@ -369,33 +484,34 @@ namespace
 }
 
 // TODO: optionally pass in the asset root. If none, we create one.
-MStatus RigRootNode::createRig(const MString& jsonFilePath, const MString& jointNamespace, MDagModifier& dagMod)
+MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMod)
 {
 	// Read phase: nothing touches the scene until the whole template validates, so a bad template leaves nothing behind.
 	AssetRootData assetData;
 	RigRootData rigData;
 	std::vector<ModulePlan> plans;
 	ValidationReport report;
-	planRig(jsonFilePath, jointNamespace, assetData, rigData, plans, report);
+	planRig(inputs, assetData, rigData, plans, report);
 
 	displayReport(report);
 	if (report.hasErrors())
 	{
 		MGlobal::displayError(MString("Rig template failed validation with ") + static_cast<int>(report.errors.size())
-			+ " error(s). Nothing was built: " + jsonFilePath);
+			+ " error(s). Nothing was built: " + inputs.templatePath);
 		return MStatus::kFailure;
 	}
 
 	// Write phase.
-	const MString originalNamespace = MNamespace::currentNamespace();
-	MNamespace::addNamespace(kRigNamespace);
-	// TODO: we will have to move input joints into the namespace also
-	MNamespace::setCurrentNamespace(kRigNamespace);
+	const ScopedRigNamespace rigNamespaceScope(inputs.rigNamespace);
+	MStatus status = rigNamespaceScope.status();
+	if (!status)
+	{
+		return status;
+	}
 
-	MStatus status;
 	try
 	{
-		status = buildRig(rigData, assetData, plans, dagMod);
+		status = buildRig(inputs, rigData, assetData, plans, dagMod);
 	}
 	catch (const std::exception& e)
 	{
@@ -404,16 +520,87 @@ MStatus RigRootNode::createRig(const MString& jsonFilePath, const MString& joint
 		status = MStatus::kFailure;
 	}
 
-	MNamespace::setCurrentNamespace(originalNamespace);
 	if (status)
 	{
-		MGlobal::displayInfo("Rig successfully created from template: " + jsonFilePath);
+		MGlobal::displayInfo("Rig successfully created from template: " + inputs.templatePath);
 	}
 	return status;
 }
 
 
 // Create Rig Command ---------------------------------
+namespace
+{
+	// Code reads flags by long name only. MSyntax::addFlag requires a short name of at most 3 letters
+	// (a long name there is rejected and the flag silently never registers), so short names appear only in newSyntax().
+	constexpr const char* kTemplateFlag{ "-template" };
+	constexpr const char* kNamespaceFlag{ "-namespace" };
+
+	constexpr const char* kDefaultRigNamespace{ "rig" };
+
+	// Leading and trailing colons are dropped so ":rig", "rig:" and "rig" all mean the same namespace, and ":" is the root.
+	MString normalizeNamespace(const MString& namespaceName)
+	{
+		std::string text = namespaceName.asChar();
+		while (!text.empty() && text.front() == ':')
+		{
+			text.erase(0, 1);
+		}
+		while (!text.empty() && text.back() == ':')
+		{
+			text.pop_back();
+		}
+		return MString(text.c_str());
+	}
+
+	// Resolves every joint name before createRig runs, so a bad name fails before the read phase.
+	MStatus readBuildInputs(const MArgDatabase& argData, RigBuildInputs& inputs)
+	{
+		MStatus status;
+		if (!argData.isFlagSet(kTemplateFlag))
+		{
+			MGlobal::displayError("createRigFromTemplate needs -template.");
+			return MStatus::kFailure;
+		}
+		status = argData.getFlagArgument(kTemplateFlag, 0, inputs.templatePath);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		if (inputs.templatePath.length() == 0 || !std::filesystem::exists(inputs.templatePath.asChar()))
+		{
+			MGlobal::displayError("Rig template file does not exist: " + inputs.templatePath);
+			return MStatus::kFailure;
+		}
+
+		MString rigNamespace(kDefaultRigNamespace);
+		if (argData.isFlagSet(kNamespaceFlag))
+		{
+			status = argData.getFlagArgument(kNamespaceFlag, 0, rigNamespace);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		inputs.rigNamespace = normalizeNamespace(rigNamespace);
+
+		MStringArray jointNames;
+		status = argData.getObjects(jointNames);
+		if (!status || jointNames.length() == 0)
+		{
+			MGlobal::displayError("createRigFromTemplate needs at least one joint name.");
+			return MStatus::kFailure;
+		}
+
+		for (unsigned int i = 0; i < jointNames.length(); ++i)
+		{
+			MDagPath jointPath;
+			status = DagUtils::getJointDagPathFromName(jointNames[i], jointPath);
+			if (!status)
+			{
+				return status;   // helper already reported which joint failed
+			}
+			inputs.joints.append(jointPath);
+		}
+
+		return MStatus::kSuccess;
+	}
+}
+
 const char* CreateRigCmd::aCommandString = "createRigFromTemplate";
 
 CreateRigCmd::CreateRigCmd()
@@ -426,60 +613,61 @@ CreateRigCmd::~CreateRigCmd()
 
 void* CreateRigCmd::creator()
 {
-    return new CreateRigCmd();
+	return new CreateRigCmd();
 }
 
 bool CreateRigCmd::isUndoable() const
 {
-    return true;
+	return true;
 }
-
-// Read by long name only. MSyntax::addFlag requires a short name of at most 3 letters, so it appears only here.
-const char* CreateRigCmd::kNamespaceFlag = "-namespace";
 
 MSyntax CreateRigCmd::newSyntax()
 {
-    MSyntax syntax;
-    syntax.addArg(MSyntax::kString);
-    CHECK_MSTATUS(syntax.addFlag("-ns", kNamespaceFlag, MSyntax::kString));
-    return syntax;
+	MSyntax syntax;
+	CHECK_MSTATUS(syntax.addFlag("-tp", kTemplateFlag, MSyntax::kString));
+	CHECK_MSTATUS(syntax.addFlag("-ns", kNamespaceFlag, MSyntax::kString));
+	syntax.setObjectType(MSyntax::kStringObjects, 1);
+	syntax.useSelectionAsDefault(false);
+	return syntax;
 }
 
 MStatus CreateRigCmd::doIt(const MArgList& args)
 {
-    MStatus status;
-    MArgDatabase argData(syntax(), args, &status);
-    if (!status)
-    {
-        MGlobal::displayError("Error parsing command arguments.");
-        return status;
-    }
+	MStatus status;
+	MArgDatabase argData(syntax(), args, &status);
+	if (!status)
+	{
+		MGlobal::displayError("Error parsing createRigFromTemplate arguments.");
+		return status;
+	}
 
-    MString jsonFilePath = argData.commandArgumentString(0);
+	RigBuildInputs inputs;
+	status = readBuildInputs(argData, inputs);
+	if (!status)
+	{
+		return status;
+	}
 
-    if (jsonFilePath.isEmpty() || !std::filesystem::exists(jsonFilePath.asChar()))
-    {
-        MGlobal::displayError("Please enter a valid json rig template filepath.");
-        return MStatus::kFailure;
-    }
+	status = RigRootNode::createRig(inputs, fDagMod);
+	if (!status)
+	{
+		return status;
+	}
 
-    MString jointNamespace(":");
-    if (argData.isFlagSet(kNamespaceFlag))
-    {
-        status = argData.getFlagArgument(kNamespaceFlag, 0, jointNamespace);
-        CHECK_MSTATUS_AND_RETURN_IT(status);
-    }
-
-    // Delegate creation directly to AssetRootNode entry method
-    status = RigRootNode::createRig(jsonFilePath, jointNamespace, fDagMod);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
+	fRigNamespace = inputs.rigNamespace;
 	return redoIt();
 }
 
 MStatus CreateRigCmd::redoIt()
 {
-	MStatus status = fDagMod.doIt();
+	const ScopedRigNamespace rigNamespaceScope(fRigNamespace);
+	MStatus status = rigNamespaceScope.status();
+	if (!status)
+	{
+		return status;
+	}
+
+	status = fDagMod.doIt();
 	if (!status)
 	{
 		MGlobal::displayError("Failed executing DAG modifier during rig creation: " + status.errorString());

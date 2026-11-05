@@ -90,10 +90,10 @@ Flat layout: every source file sits at the repo root, and there are no `src/` or
 | `JointMarkupCmd.h/.cpp` | `rigJointMarkup` command. |
 | `RigTemplates/LayoutRig.json` | The only example template. Its joints use `[side, usage]` selectors. |
 | `include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
-| `docs/decisions.md` | Decision log (D1–D17). |
+| `docs/decisions.md` | Decision log (D1–D18). |
 | `RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files. |
 
-**Maya commands:** `createRigFromTemplate <path> [-namespace ns]`, `rigJointMarkup`, `createRigParentConstraint`, `setRigConstraintSpace`.
+**Maya commands:** `createRigFromTemplate -template <path> [-namespace ns] <joint>...`, `rigJointMarkup`, `createRigParentConstraint`, `setRigConstraintSpace`.
 
 **Node types and MTypeIds:** `rigRootModule` 0x00218, `assetRootModule` 0x00219, `fkChainModule` 0x00218B, `layoutModule` 0x00218C, `aimModule` 0x00218D, `bmParentConstraint` 0x00218E, `rigControlNode` 0x0013B5C0. Check this list before picking an id for a new node.
 

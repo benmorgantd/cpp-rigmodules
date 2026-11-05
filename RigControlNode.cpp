@@ -17,6 +17,7 @@
 #include <maya/MDagModifier.h>
 #include <maya/MGlobal.h>
 #include <maya/MFnMatrixData.h>
+#include <maya/MNamespace.h>
 
 const MPointArray& CustomShapes::Triangle()
 {
@@ -351,7 +352,8 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
     // All transforms on rig controls get ignored and calculated by modules instead
     DagUtils::setInheritsTransform(oControl, false, dagMod);
 
-    MString ctrlName = jointName;
+    // Input joints can sit in another namespace when modules are built. The control belongs in the current (rig) namespace.
+    MString ctrlName = MNamespace::stripNamespaceFromName(jointName);
     ctrlName.substitute(RigNaming::JointSuffix, "");
     ctrlName += RigNaming::ControlSuffix;
     ctrlName += getSideSuffix(side);

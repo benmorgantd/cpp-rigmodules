@@ -285,7 +285,7 @@ MDagPath DagUtils::getDagPathFromName(const MString& name)
 	return jointDag;
 }
 
-MStatus DagUtils::getJointObjectFromName(const MString& jointName, MObject& oJoint)
+MStatus DagUtils::getJointDagPathFromName(const MString& jointName, MDagPath& jointPath)
 {
 	MStatus status;
 	MSelectionList sel;
@@ -296,15 +296,26 @@ MStatus DagUtils::getJointObjectFromName(const MString& jointName, MObject& oJoi
 		return status;
 	}
 
-	MDagPath jointDag;
-	status = sel.getDagPath(0, jointDag);
-	if (!status || !jointDag.hasFn(MFn::kJoint))
+	status = sel.getDagPath(0, jointPath);
+	if (!status || !jointPath.hasFn(MFn::kJoint))
 	{
 		MGlobal::displayError(MString("Object is not a joint: ") + jointName);
 		return MStatus::kFailure;
 	}
 
-	oJoint = jointDag.node();
+	return MStatus::kSuccess;
+}
+
+MStatus DagUtils::getJointObjectFromName(const MString& jointName, MObject& oJoint)
+{
+	MDagPath jointPath;
+	MStatus status = getJointDagPathFromName(jointName, jointPath);
+	if (!status)
+	{
+		return status;
+	}
+
+	oJoint = jointPath.node();
 	return MStatus::kSuccess;
 }
 
