@@ -1,4 +1,6 @@
 #include "RigJsonStructs.h"
+#include "RigTemplateValidation.h"
+
 #include <fstream>
 
 // -----------------------------------------------------------------------------
@@ -7,46 +9,62 @@
 void from_json(const nlohmann::json& jsonData, RigModuleData& module)
 {
     // 1. Parse required common metadata
-    jsonData.at("moduleType").get_to(module.moduleType);
-    jsonData.at("name").get_to(module.name);
+    jsonData.at(TemplateKey::ModuleType).get_to(module.moduleType);
+    jsonData.at(TemplateKey::Name).get_to(module.name);
 
     // 2. Parse optional common metadata with safe defaults
-    module.shapeType = jsonData.value("shapeType", "Box");
-    module.side = jsonData.value("side", "Center");
-    module.moduleVersion = jsonData.value("moduleVersion", 1);
-    module.parentStructure = jsonData.value("parentStructure", std::unordered_map<std::string, std::string>());
-    module.moduleArgs = jsonData.value("moduleArgs", nlohmann::json::object());
+    module.shapeType = jsonData.value(TemplateKey::ShapeType, "Box");
+    module.side = jsonData.value(TemplateKey::Side, SideNames::Center);
+    module.moduleVersion = jsonData.value(TemplateKey::ModuleVersion, 1);
+    module.parentStructure = jsonData.value(TemplateKey::ParentStructure, std::unordered_map<std::string, std::string>());
+    module.moduleArgs = jsonData.value(TemplateKey::ModuleArgs, nlohmann::json::object());
 }
 
 // -----------------------------------------------------------------------------
 // High-Level File Loading Function
 // -----------------------------------------------------------------------------
-bool loadRigTemplate(const MString& filePath, AssetRootData& assetData, RigRootData& rigData, MString& outErr)
+bool loadRigTemplate(const std::string& filePath, AssetRootData& assetData, RigRootData& rigData, ValidationReport& report)
 {
-    std::ifstream file(filePath.asChar());
+    std::ifstream file(filePath);
     if (!file.is_open())
     {
-        outErr = MString("Failed to open rig JSON file at path: ") + filePath;
+        report.addError(filePath, "failed to open rig template");
+        return false;
+    }
+
+    nlohmann::json jsonData;
+    try
+    {
+        file >> jsonData;
+    }
+    catch (const std::exception& e)
+    {
+        report.addError(filePath, std::string("invalid JSON: ") + e.what());
+        return false;
+    }
+
+    // Key checks first: they name the module or constraint, where nlohmann's own errors do not.
+    RigTemplateValidation::checkTemplateKeys(jsonData, report);
+    if (report.hasErrors())
+    {
         return false;
     }
 
     try
     {
-        nlohmann::json jsonData;
-        file >> jsonData;
-
-        // Deserialize full JSON directly into typed AssetRootData and RigRootData structs
         rigData = jsonData.get<RigRootData>();
         assetData = jsonData.get<AssetRootData>();
+        rigData.rigName = jsonData.value(TemplateKey::RigName, rigData.rigTemplateName);
 
-        if (jsonData.contains("constraints"))
+        if (jsonData.contains(TemplateKey::Constraints))
         {
-            rigData.rigConstraints = jsonData.at("constraints").get<std::vector<RigConstraintData>>();
+            rigData.rigConstraints = jsonData.at(TemplateKey::Constraints).get<std::vector<RigConstraintData>>();
         }
     }
     catch (const std::exception& e)
     {
-        outErr = MString("JSON Parse Error: ") + e.what();
+        // Keys are present by now, so this is a wrong value type.
+        report.addError(filePath, std::string("JSON value has the wrong type: ") + e.what());
         return false;
     }
 

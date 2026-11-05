@@ -21,4 +21,9 @@ public:
 	static MTypeId id;
 public:
 	static RigModuleBuildResult createModule(MObject& oRigRoot, MDagModifier& dagMod, const unsigned short& numControls);
+
+	// Names of socket index among count controls: index_N, plus end on the last. No pins.
+	// createRig's layout plan and createModule both read this, so they cannot drift apart.
+	static std::vector<std::string> socketNamesAt(unsigned int index, unsigned int count);
+	static ModuleInterface makeInterface(unsigned int count);
 };

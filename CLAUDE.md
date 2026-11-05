@@ -70,15 +70,17 @@ Flat layout: every source file sits at the repo root, and there are no `src/` or
 | File | Contents |
 |---|---|
 | `PluginMain.cpp` | Plugin entry. Loops over `ModuleRegistry` and `CommandRegistry`, and registers `rigControlNode` plus its VP2 draw override. |
-| `ModuleRegistry.cpp/.h` | The only file that includes every module header. Holds each node's type name, JSON `moduleType`, `MTypeId` and `buildFromJson`. Add new nodes here. |
+| `ModuleRegistry.cpp/.h` | The only file that includes every module header. Holds each node's type name, JSON `moduleType`, `MTypeId` and `planFromJson`. Add new nodes here. |
 | `CommandRegistry.cpp/.h` | The only file that includes every command header. Add new commands here. |
-| `RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/pin lookup, `buildModules` pass 1), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `BuildContext`, `RigModuleBuildResult`, `ModuleDescriptor`. |
+| `RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/pin lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
 | `Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `StringUtils`, `RigModuleCommandUtils`. |
 | `JsonUtils.h` | Maya-free, header-only `readJsonString` / `writeJsonString`. Every string attribute that holds structured data (socket names, joint markup) goes through these (D16). |
 | `Constants.h` | `RigAttr`, `JointMarkupKey`, `PlugAndSocketNames`, `ConstraintAttr`, `SideNames`, `RigNaming`, `RigControlNodeAttr`. It has no Maya headers, because the Maya-free core includes it. Keep it that way. |
 | `Colors.h` | `Colors`, the Maya `MColor` constants, split out of `Constants.h`. |
-| `RigJsonStructs.h/.cpp` | Template structs (`RigRootData`, `RigModuleData`, constraint data) and `loadRigTemplate`. |
-| `RigRoot.h/.cpp` | `RigRootNode`, `createRig` (the whole build: parse, scan markup, root, layout, `buildModules`, parenting pass, constraints) and `CreateRigCmd`. |
+| `RigJsonStructs.h/.cpp` | Maya-free. Template structs (`RigRootData`, `RigModuleData`, constraint data) and `loadRigTemplate` (key checks, then parse). |
+| `RigTemplateValidation.h/.cpp` | Maya-free core: `ValidationReport`, `ModuleInterface`, and the read-phase template checks (D17). |
+| `StringUtils.h` | Maya-free, header-only `splitIdentifier` for `"module.name"`. Included by `Utilities.h`. |
+| `RigRoot.h/.cpp` | `RigRootNode`, `createRig` (read phase: parse, scan markup, `planModules`, validate. Write phase: roots, `buildModules`, parenting pass, constraints) and `CreateRigCmd`. |
 | `AssetRoot`, `AssetType`, `RigType`, `Side` | Root node and enum/string helpers. |
 | `LayoutModule`, `FkChain`, `AimModule` | Module nodes. FkChain is the reference pattern. |
 | `Constraints.h/.cpp` | `ParentConstraintNode`, `createRigParentConstraint`, `setRigConstraintSpace`. |
@@ -88,7 +90,7 @@ Flat layout: every source file sits at the repo root, and there are no `src/` or
 | `JointMarkupCmd.h/.cpp` | `rigJointMarkup` command. |
 | `RigTemplates/LayoutRig.json` | The only example template. Its joints use `[side, usage]` selectors. |
 | `include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
-| `docs/decisions.md` | Decision log (D1–D16). |
+| `docs/decisions.md` | Decision log (D1–D17). |
 | `RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files. |
 
 **Maya commands:** `createRigFromTemplate <path> [-namespace ns]`, `rigJointMarkup`, `createRigParentConstraint`, `setRigConstraintSpace`.

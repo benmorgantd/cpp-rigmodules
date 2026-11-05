@@ -5,6 +5,7 @@
 #include "Constants.h"
 #include "RigControlNode.h"
 #include "JointMarkupScene.h"
+#include "RigTemplateValidation.h"
 
 #include <vector>
 #include <unordered_map>
@@ -72,18 +73,31 @@ struct RigModuleBuildResult
 
 using RigModuleMap = std::unordered_map<std::string, RigModuleBuildResult>;
 
-struct BuildContext
+// Read-phase inputs for one module's plan step.
+struct PlanContext
 {
 	const RigModuleData& moduleData;
-	MObject oRigRoot;
-	MDagModifier& dagMod;
-	MarkedJointSet& markedJoints;   // Modules resolve their [side, usage] args through JointMarkupScene::claimJoint
+	const std::string& where;         // RigTemplateValidation::modulePath, the prefix for report messages
+	MarkedJointSet& markedJoints;     // Plan steps resolve [side, usage] args through RigModuleNodeBase::claimJoint
+	ValidationReport& report;
+};
+
+// One module's read-phase result. Only build touches the dagMod, and it runs after the whole template validated.
+struct ModulePlan
+{
+	std::string name;
+	ModuleInterface moduleInterface;   // buildModules checks the built result against this
+	// Captures the module's resolved inputs by value, so each module keeps its own typed data
+	// without this header knowing every module's input type.
+	std::function<RigModuleBuildResult(MObject& oRigRoot, MDagModifier& dagMod)> build;
 };
 
 // Aliases so the descriptor reads cleanly. These match what registerNode expects.
 using NodeCreatorFn = void* (*)();
 using NodeInitializeFn = MStatus(*)();
-using ModuleBuildFn = std::function<RigModuleBuildResult(const nlohmann::json& args, BuildContext& ctx)>;
+// Parses moduleArgs, claims joints, reads rest matrices and fills outPlan. Never touches the dagMod.
+// Returns false when it reported an error.
+using ModulePlanFn = std::function<bool(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)>;
 
 struct ModuleDescriptor
 {
@@ -93,7 +107,7 @@ struct ModuleDescriptor
 	NodeCreatorFn creator;
 	NodeInitializeFn initialize;
 	int currentVersion;
-	ModuleBuildFn build;        // nullptr = registered with Maya but not buildable from JSON
+	ModulePlanFn plan;          // nullptr = registered with Maya but not buildable from JSON
 };
 
 // Result of solving one control step. Shared by every module that carries controls.
@@ -130,7 +144,16 @@ public:
 public:
 	// Shared creation & build methods
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot);
-	static RigModuleMap buildModules(const std::vector<RigModuleData>& flatModuleList, MObject oRigRoot, MarkedJointSet& markedJoints, MDagModifier& dagMod);
+	// Read phase: one plan per module that planned cleanly. Every problem goes into the report.
+	static std::vector<ModulePlan> planModules(const std::vector<RigModuleData>& modules, MarkedJointSet& markedJoints, ValidationReport& report);
+	// Write phase, pass 1. Fails if a module fails, or builds pins or sockets that differ from its plan.
+	static MStatus buildModules(const std::vector<ModulePlan>& plans, MObject oRigRoot, MDagModifier& dagMod, RigModuleMap& outModuleMap);
+
+	// Plan step helpers, shared by every module built from JSON. Both report into ctx.report and return false on failure.
+	// knownKeys are every moduleArgs key, all required. They must match the field names TArgs's JSON macro maps.
+	template <typename TArgs>
+	static bool readModuleArgs(const nlohmann::json& args, std::initializer_list<const char*> knownKeys, PlanContext& ctx, TArgs& outArgs);
+	static bool claimJoint(PlanContext& ctx, const JointSelector& selector, MObject& oOutJoint, MMatrix& mOutRestWorld);
 	
 	// Returns a pointer to the entry for the given name, or nullptr if the name isn't in the map.
 	template <typename TInfo>
@@ -161,6 +184,30 @@ public:
 	// Control -> owning module and index, requiring that index to be a named child plug.
 	static MStatus resolveControlChildPlug(const MObject& oControl, MObject& oOutModule, unsigned int& outPlugIndex);
 };
+
+template <typename TArgs>
+bool RigModuleNodeBase::readModuleArgs(const nlohmann::json& args, std::initializer_list<const char*> knownKeys, PlanContext& ctx, TArgs& outArgs)
+{
+	const std::string argsPath = ctx.where + "." + TemplateKey::ModuleArgs;
+	const std::size_t errorCount = ctx.report.errors.size();
+	RigTemplateValidation::checkKeys(args, knownKeys, {}, argsPath, ctx.report);
+	if (ctx.report.errors.size() != errorCount)
+	{
+		return false;
+	}
+
+	try
+	{
+		// Version migration goes here: branch on ctx.moduleData.moduleVersion and rewrite old arg layouts.
+		outArgs = args.get<TArgs>();
+	}
+	catch (const nlohmann::json::exception& e)
+	{
+		ctx.report.addError(argsPath, e.what());
+		return false;
+	}
+	return true;
+}
 
 // Pointer to the struct means “found, and here it is”.
 template <typename TInfo>

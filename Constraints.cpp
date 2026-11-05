@@ -316,7 +316,7 @@ MStatus ParentConstraintNode::buildFromTemplate(
 
 	for (const RigConstraintData& constraintData : constraints)
 	{
-		if (constraintData.type != "Parent")
+		if (constraintData.type != ConstraintTypes::Parent)
 		{
 			MGlobal::displayError(MString("Unknown constraint type '") + constraintData.type.c_str() + "' on " + constraintData.name.c_str());
 			anyFailed = true;

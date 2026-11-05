@@ -154,6 +154,24 @@ Any string attribute that holds structured data stores JSON text, read and writt
 
 ---
 
+## Build
+
+### D17. Read-phase validation before any scene change
+**Status:** Decided (2026-11-04). Built and run in mayapy 2026 against valid and broken templates.
+
+`createRig` runs in two phases. The read phase loads the template, reads joint markup, plans every module and validates the whole template. It writes nothing, not even the `rig` namespace. Only a report with no errors reaches the write phase, which creates nodes, parents, runs `doIt` and builds constraints. Errors are collected and all printed at once, each prefixed with its JSON path, for example `rigModules[1] 'fkchain_2'.parentStructure.start`.
+
+- **Plan step per module.** `ModuleDescriptor::build` became `plan` (`ModulePlanFn`). A module's plan step parses `moduleArgs`, claims joints, reads rest matrices and returns a `ModulePlan`: its `ModuleInterface` (pin and socket names, and whether each pin has a control) plus a `build` closure that captures the resolved inputs. The layout goes through the same path. `buildModules` checks each built result against its plan's interface, so a plan and `createModule` that disagree fail before `doIt`. FkChain and Layout get their socket names from one `socketNamesAt` function each, used by both sides.
+- **Maya-free core.** `RigTemplateValidation.h/.cpp` checks keys, header enums, module names and fields, `parentStructure`, constraints and cycles. `RigJsonStructs.h` and `StringUtils.h` became Maya-free so the core can use them.
+- **Checks:** required and unknown keys at every level (`moduleArgs` included). `rigType`, `assetType`, `side`, `shapeType` and selector sides are checked strictly, with no silent fallback. `rigVersion` must be at least 1. `moduleVersion` must be between 1 and the descriptor's `currentVersion`. Module names must be unique, valid Maya node names (so no `.`), not `layout`, and not already present as `:rig:<name>`. Selectors must resolve, and each joint can be claimed only once. A joint whose `offsetParentMatrix` is already driven fails. An Aim rest pose with target or up on the aim joint, or up on the aim line, fails. Every `parentStructure` key must be a pin, and every value must be `module.socket` naming an existing socket. Constraint names must be unique, `type` must be `Parent`, the target must be a pin with a control that no other constraint targets, there must be at least one driver, driver sockets must exist, labels must be non-empty and unique, and weights must be at least 0. No cycles are allowed through `parentStructure` plus constraint drivers, and a self-reference counts as a cycle, since every module input affects every output.
+- **Warnings:** a marked joint with `export: true` that no module claims, and several drivers that tie for the highest weight.
+- **Behaviour changes:** unknown keys are errors. A bare socket name in `parentStructure` (`"end"`) is an error, so write `layout.end`. Pins a `parentStructure` does not list now parent to `layout.end`, the same as a module with no `parentStructure`. Before, they were left unconnected. `rigName` is now read (optional, defaults to `rigTemplateName`) and names the rig root. Before, the rig root always took `rigTemplateName`.
+- **Why:** a broken template used to fail partway through, after the namespace existed and after nodes were queued, or worse, built a half-parented rig that only logged errors. Template authors also got one error per attempt.
+- **Rejected:** a separate `describe` function per module that only returns names, which would parse args twice and let names drift from `createModule`. A `std::variant` of every module's plan type, which would make `RigModule.h` know every module.
+- **Consequence:** every new module needs a plan step that declares its full interface. Validation lives in the C++ core, not Python as CLAUDE.md's planned structure says, because module interfaces come from the C++ registry. Python can call the core later.
+
+---
+
 ## Open items
 
 - **Connect-time jump:** the child jumps when a pin connects to a non-identity socket. Still to do.

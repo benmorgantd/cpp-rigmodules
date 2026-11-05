@@ -377,19 +377,6 @@ MStatus DagPlugAndSocketUtils::setChildPlugName(const MObject& oModule, const un
 	return dagMod.newPlugValueString(pChildPlugsElementName, MString(name));
 }
 
-// String Utils -----------------------------------------------------------
-bool StringUtils::splitIdentifier(const std::string& identifier, std::string& outModule, std::string& outName)
-{
-	const size_t dot = identifier.find('.');
-	if (dot == std::string::npos || dot == 0 || dot + 1 >= identifier.size())
-	{
-		return false;
-	}
-	outModule = identifier.substr(0, dot);
-	outName = identifier.substr(dot + 1);
-	return true;
-}
-
 // RigModuleCommandHelpers ------------------------------------------------
 const char* RigModuleCommandUtils::kNameFlagShort = "-n";
 const char* RigModuleCommandUtils::kNameFlagLong = "-name";

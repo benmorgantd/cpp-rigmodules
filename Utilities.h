@@ -1,5 +1,7 @@
 #pragma once
 
+#include "StringUtils.h"   // Maya-free, so the template validator can share it
+
 #include <maya/MMatrix.h>
 #include <maya/MPoint.h>
 #include <maya/MDagModifier.h>
@@ -68,12 +70,6 @@ public:
 	static MStatus setChildPlugName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod);
 };
 
-class StringUtils
-{
-public:
-	// Splits "module.name" on the first '.'. False if there is no '.', or either side is empty.
-	static bool splitIdentifier(const std::string& identifier, std::string& outModule, std::string& outName);
-};
 
 class RigModuleCommandUtils
 {

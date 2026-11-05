@@ -17,7 +17,8 @@ struct MarkedJointSet
 	MDagPathArray dagPaths;
 };
 
-// Scene side of joint markup: reading the attribute and finding joints. All errors are reported here.
+// Scene side of joint markup: reading the attribute and finding joints.
+// collectMarkedJoints and readMarkup report their own errors. claimJoint returns its error for the caller's report.
 class JointMarkupScene
 {
 public:
@@ -29,10 +30,13 @@ public:
 	static MStatus readMarkup(const MObject& oJoint, bool& outHasMarkup, JointMarkup& outMarkup);
 
 	// Resolves a module's selector to its joint and rest world matrix, and claims the joint for that module.
+	// Read-only, so module plan steps call it before anything is queued. Also fails if something already
+	// drives the joint's offsetParentMatrix, because the module's connection to it would fail at doIt.
 	static MStatus claimJoint(
 		MarkedJointSet& markedJoints,
 		const JointSelector& selector,
 		const std::string& moduleName,
 		MObject& oOutJoint,
-		MMatrix& mOutRestWorld);
+		MMatrix& mOutRestWorld,
+		std::string& outError);
 };

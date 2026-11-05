@@ -94,12 +94,19 @@ bool JointMarkupIndex::add(const JointMarkup& markup, const std::string& jointNa
 	}
 
 	fLookup[key] = fEntries.size();
-	fEntries.push_back(Entry{ jointName, std::string() });
+	fEntries.push_back(Entry{ jointName, std::string(), markup.isExported });
 	return true;
 }
 
 bool JointMarkupIndex::claim(const JointSelector& selector, const std::string& moduleName, std::size_t& outEntry, std::string& outError)
 {
+	if (!isValidSideName(selector.side))
+	{
+		outError = "module '" + moduleName + "': selector side '" + selector.side + "' is not one of "
+			+ SideNames::Center + ", " + SideNames::Left + ", " + SideNames::Right;
+		return false;
+	}
+
 	auto it = fLookup.find({ selector.side, selector.usage });
 	if (it == fLookup.end())
 	{
@@ -117,4 +124,17 @@ bool JointMarkupIndex::claim(const JointSelector& selector, const std::string& m
 	entry.claimedBy = moduleName;
 	outEntry = it->second;
 	return true;
+}
+
+std::vector<std::string> JointMarkupIndex::unclaimedExportedJoints() const
+{
+	std::vector<std::string> jointNames;
+	for (const Entry& entry : fEntries)
+	{
+		if (entry.isExported && entry.claimedBy.empty())
+		{
+			jointNames.push_back(entry.jointName);
+		}
+	}
+	return jointNames;
 }

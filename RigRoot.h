@@ -36,11 +36,6 @@ public:
 	static MObject aAssetRoot;
 	static MObject aChildren;
 	static MObject aConstraints;
-private:
-	static void parentModuleControls(
-		const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,
-		const std::vector<RigModuleData>& flatModuleList,
-		MDagModifier& dagMod);
 public:
 	static MObject createRigRoot(
 		const MString& name,

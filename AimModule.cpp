@@ -14,6 +14,7 @@
 #include <maya/MDataBlock.h>
 #include <maya/MMatrix.h>
 #include <maya/MPoint.h>
+#include <maya/MVector.h>
 #include <maya/MPlug.h>
 #include <maya/MGlobal.h>
 #include <maya/MDagModifier.h>
@@ -25,8 +26,30 @@ MObject AimModuleNode::aAimRestOffset;
 
 namespace
 {
-	// Used for both child plug names and parent socket names. Index matches AimPart.
+	// Used for child plug names, parent socket names and the moduleArgs keys (they must match AimModuleArgs's fields).
+	// Index matches AimPart.
 	const char* const kAimPartNames[AimPart::Count] = { "aim", "target", "up" };
+
+	// Below these the aim solve has no defined direction.
+	constexpr double kMinAimDistance = 1.0e-4;
+	constexpr double kMinAimUpSine = 1.0e-4;
+
+	// Mirrors createModule: every part is a pin and a socket, and only the aim part has no control.
+	ModuleInterface makeAimInterface()
+	{
+		ModuleInterface moduleInterface;
+		for (unsigned int i = 0; i < AimPart::Count; ++i)
+		{
+			moduleInterface.pins.push_back(ModulePinInfo{ kAimPartNames[i], i != AimPart::Aim });
+			moduleInterface.sockets.push_back(kAimPartNames[i]);
+		}
+		return moduleInterface;
+	}
+
+	MVector restPosition(const MMatrix& mRestWorld)
+	{
+		return MVector(mRestWorld[3][0], mRestWorld[3][1], mRestWorld[3][2]);
+	}
 }
 
 AimModuleNode::AimModuleNode() {}
@@ -237,40 +260,51 @@ RigModuleBuildResult AimModuleNode::createModule(
 	return result;
 }
 
-RigModuleBuildResult AimModuleNode::buildFromJson(const nlohmann::json& args, BuildContext& ctx)
+bool AimModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
-	RigModuleBuildResult result;
 	AimModuleArgs aimArgs;
-
-	try
+	if (!readModuleArgs(args, { kAimPartNames[AimPart::Aim], kAimPartNames[AimPart::Target], kAimPartNames[AimPart::Up] }, ctx, aimArgs))
 	{
-		// Version migration goes here: branch on ctx.moduleData.moduleVersion.
-		aimArgs = args.get<AimModuleArgs>();
-	}
-	catch (const nlohmann::json::exception& e)
-	{
-		MGlobal::displayError(MString("Invalid Aim args for ") + ctx.moduleData.name.c_str() + ": " + e.what());
-		return result;
+		return false;
 	}
 
 	// claimJoint rejects a joint picked twice, which also covers the "three distinct joints" requirement.
+	// Claim all three even after a failure, so the report lists every bad selector at once.
 	const JointSelector* selectors[AimPart::Count] = { &aimArgs.aim, &aimArgs.target, &aimArgs.up };
 	std::array<AimPartInput, AimPart::Count> parts;
-
+	bool allClaimed = true;
 	for (unsigned int i = 0; i < AimPart::Count; ++i)
 	{
-		MStatus status = JointMarkupScene::claimJoint(ctx.markedJoints, *selectors[i], ctx.moduleData.name, parts[i].oJoint, parts[i].mRestWorld);
-		if (!status)
-		{
-			return result;   // helper already reported which selector failed
-		}
+		allClaimed = claimJoint(ctx, *selectors[i], parts[i].oJoint, parts[i].mRestWorld) && allClaimed;
+	}
+	if (!allClaimed)
+	{
+		return false;
 	}
 
-	return AimModuleNode::createModule(
-		ctx.moduleData.name.c_str(),
-		getSideFromString(ctx.moduleData.side),
-		getShapeTypeFromString(ctx.moduleData.shapeType),
-		parts,
-		ctx.oRigRoot,
-		ctx.dagMod);
+	// A degenerate rest pose gives the aim solve no direction, and the rest offset would be garbage.
+	const MVector aimToTarget = restPosition(parts[AimPart::Target].mRestWorld) - restPosition(parts[AimPart::Aim].mRestWorld);
+	const MVector aimToUp = restPosition(parts[AimPart::Up].mRestWorld) - restPosition(parts[AimPart::Aim].mRestWorld);
+	const std::string argsPath = ctx.where + "." + TemplateKey::ModuleArgs;
+	if (aimToTarget.length() < kMinAimDistance || aimToUp.length() < kMinAimDistance)
+	{
+		ctx.report.addError(argsPath, "the target and up joints must not sit on the aim joint");
+		return false;
+	}
+	if ((aimToTarget.normal() ^ aimToUp.normal()).length() < kMinAimUpSine)
+	{
+		ctx.report.addError(argsPath, "the up joint lies on the aim line, so the up direction is undefined");
+		return false;
+	}
+
+	outPlan.moduleInterface = makeAimInterface();
+
+	const MString moduleName = ctx.moduleData.name.c_str();
+	const Side side = getSideFromString(ctx.moduleData.side);
+	const ShapeType shapeType = getShapeTypeFromString(ctx.moduleData.shapeType);
+	outPlan.build = [moduleName, side, shapeType, parts](MObject& oRigRoot, MDagModifier& dagMod)
+	{
+		return AimModuleNode::createModule(moduleName, side, shapeType, parts, oRigRoot, dagMod);
+	};
+	return true;
 }

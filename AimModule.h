@@ -67,7 +67,7 @@ public:
 		MObject& oRigRoot,
 		MDagModifier& dagMod
 	);
-	static RigModuleBuildResult buildFromJson(const nlohmann::json& args, BuildContext& ctx);
+	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
 
 private:
 	struct AimSolveResult

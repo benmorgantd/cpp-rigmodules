@@ -99,22 +99,16 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 			return result;
 		}
 
-		// Every control is a socket, like the FK chain. The last one is also "end".
-		const std::string indexName = PlugAndSocketNames::Index + std::to_string(i);
-		std::vector<std::string> socketNames{ indexName };
-
 		RigModuleSocketInfo socketInfo;
 		socketInfo.oTransform = oControl;
 		socketInfo.mRestWorld = MMatrix::identity;
 		socketInfo.outputIndex = i;
-		result.parentSockets[indexName] = socketInfo;
 
-		if (i == numControls - 1)
+		const std::vector<std::string> socketNames = socketNamesAt(i, numControls);
+		for (const std::string& socketName : socketNames)
 		{
-			result.parentSockets[PlugAndSocketNames::End] = socketInfo;
-			socketNames.push_back(PlugAndSocketNames::End);
+			result.parentSockets[socketName] = socketInfo;
 		}
-
 		DagPlugAndSocketUtils::setParentSocketNames(oLayoutModule, i, socketNames, dagMod);
 
 		// Decreasing scale, rotated about Z, through the shape transform
@@ -144,7 +138,28 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dagMod, oLayoutModule, aRigRoot);
 	}
 
-	// No child plugs, so there is no dagParentCallback. parentModuleControls already skips modules without one.
+	// No child plugs, so there is no dagParentCallback. The parenting pass only walks template modules, never the layout.
 	result.status = MS::kSuccess;
 	return result;
+}
+
+std::vector<std::string> LayoutModuleNode::socketNamesAt(unsigned int index, unsigned int count)
+{
+	std::vector<std::string> names{ PlugAndSocketNames::Index + std::to_string(index) };
+	if (index == count - 1)
+	{
+		names.push_back(PlugAndSocketNames::End);
+	}
+	return names;
+}
+
+ModuleInterface LayoutModuleNode::makeInterface(unsigned int count)
+{
+	ModuleInterface moduleInterface;
+	for (unsigned int i = 0; i < count; ++i)
+	{
+		const std::vector<std::string> names = socketNamesAt(i, count);
+		moduleInterface.sockets.insert(moduleInterface.sockets.end(), names.begin(), names.end());
+	}
+	return moduleInterface;
 }

@@ -59,13 +59,18 @@ public:
 	// Finds the joint for a selector and records that moduleName drives it.
 	// Fails if nothing matches, or the joint is already claimed (by any module, including this one),
 	// because a joint's OPM can only have one driver.
+	// Also fails on a selector side outside SideNames, so a typo is not reported as a missing joint.
 	bool claim(const JointSelector& selector, const std::string& moduleName, std::size_t& outEntry, std::string& outError);
+
+	// Joints marked for export that no module claimed. Nothing drives them, so they stay at rest in exported animation.
+	std::vector<std::string> unclaimedExportedJoints() const;
 
 private:
 	struct Entry
 	{
 		std::string jointName;
 		std::string claimedBy;
+		bool isExported = false;
 	};
 
 	std::vector<Entry> fEntries;

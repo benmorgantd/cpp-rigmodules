@@ -117,44 +117,125 @@ MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDagModifie
 	return status;
 }
 
-// First Pass Module Builder ------------------------------------------
-std::unordered_map<std::string, RigModuleBuildResult> RigModuleNodeBase::buildModules(
-	const std::vector<RigModuleData>& flatModuleList,
-	MObject oRigRoot,
-	MarkedJointSet& markedJoints,
-	MDagModifier& dagMod)
+namespace
 {
-	std::unordered_map<std::string, RigModuleBuildResult> rigModuleMap;
-
-	// 5. Traverse and Build Modules from the flat list. Parenting between module controls will happen in the second pass.
-	for (unsigned int i = 0; i < flatModuleList.size(); ++i)
+	// Guards against a module's plan and createModule naming pins or sockets differently.
+	bool matchesInterface(const RigModuleBuildResult& result, const ModuleInterface& moduleInterface, std::string& outError)
 	{
-		RigModuleData moduleData = flatModuleList[i];
+		bool pinsMatch = result.childPlugs.size() == moduleInterface.pins.size();
+		for (const ModulePinInfo& pin : moduleInterface.pins)
+		{
+			auto it = result.childPlugs.find(pin.name);
+			pinsMatch = pinsMatch && it != result.childPlugs.end() && pin.hasControl == !it->second.oTransform.isNull();
+		}
 
-		// Not completely sure what this is doing with the pointers.
+		bool socketsMatch = result.parentSockets.size() == moduleInterface.sockets.size();
+		for (const std::string& socket : moduleInterface.sockets)
+		{
+			socketsMatch = socketsMatch && result.parentSockets.count(socket) > 0;
+		}
+
+		if (!pinsMatch)
+		{
+			outError = "built pins differ from the planned pins";
+		}
+		else if (!socketsMatch)
+		{
+			outError = "built sockets differ from the planned sockets";
+		}
+		return pinsMatch && socketsMatch;
+	}
+
+	std::string buildableModuleTypes()
+	{
+		std::string types;
+		for (const ModuleDescriptor& descriptor : ModuleRegistry::all())
+		{
+			if (descriptor.plan)
+			{
+				types += types.empty() ? descriptor.moduleType : std::string(", ") + descriptor.moduleType;
+			}
+		}
+		return types;
+	}
+}
+
+// Read phase ---------------------------------------------------------
+std::vector<ModulePlan> RigModuleNodeBase::planModules(
+	const std::vector<RigModuleData>& modules,
+	MarkedJointSet& markedJoints,
+	ValidationReport& report)
+{
+	std::vector<ModulePlan> plans;
+
+	for (std::size_t i = 0; i < modules.size(); ++i)
+	{
+		const RigModuleData& moduleData = modules[i];
+		const std::string where = RigTemplateValidation::modulePath(i, moduleData.name);
+
 		const ModuleDescriptor* pDescriptor = ModuleRegistry::find(moduleData.moduleType);
-		if (!pDescriptor || !pDescriptor->build)
+		if (!pDescriptor || !pDescriptor->plan)
 		{
-			MGlobal::displayError(MString("Unknown or non-buildable module type: ") + moduleData.moduleType.c_str());
-			return std::unordered_map<std::string, RigModuleBuildResult>();
+			report.addError(where + "." + TemplateKey::ModuleType,
+				"'" + moduleData.moduleType + "' is not a module type templates can build (has: " + buildableModuleTypes() + ")");
+			continue;
 		}
-		MGlobal::displayInfo(MString("Building module '") + moduleData.name.c_str() + "' of type " + moduleData.moduleType.c_str());
 
-		BuildContext ctx{ moduleData, oRigRoot, dagMod, markedJoints };
-		RigModuleBuildResult creationResult = pDescriptor->build(moduleData.moduleArgs, ctx);
+		RigTemplateValidation::validateModuleFields(moduleData, where, pDescriptor->currentVersion, report);
 
-		if (!creationResult.moduleNode.isNull() && creationResult.status == MStatus::kSuccess)
+		PlanContext ctx{ moduleData, where, markedJoints, report };
+		ModulePlan plan;
+		plan.name = moduleData.name;
+		if (pDescriptor->plan(moduleData.moduleArgs, ctx, plan))
 		{
-			rigModuleMap[moduleData.name] = creationResult;
-		}
-		else
-		{
-			MGlobal::displayError("Error creating a rig module. Null returned.");
-			return std::unordered_map<std::string, RigModuleBuildResult>();
+			plans.push_back(std::move(plan));
 		}
 	}
-	
-	return rigModuleMap;
+
+	return plans;
+}
+
+bool RigModuleNodeBase::claimJoint(PlanContext& ctx, const JointSelector& selector, MObject& oOutJoint, MMatrix& mOutRestWorld)
+{
+	std::string error;
+	if (!JointMarkupScene::claimJoint(ctx.markedJoints, selector, ctx.moduleData.name, oOutJoint, mOutRestWorld, error))
+	{
+		ctx.report.addError(ctx.where + "." + TemplateKey::ModuleArgs, error);
+		return false;
+	}
+	return true;
+}
+
+// First Pass Module Builder ------------------------------------------
+MStatus RigModuleNodeBase::buildModules(
+	const std::vector<ModulePlan>& plans,
+	MObject oRigRoot,
+	MDagModifier& dagMod,
+	RigModuleMap& outModuleMap)
+{
+	// Parenting between module controls happens in the second pass.
+	for (const ModulePlan& plan : plans)
+	{
+		MGlobal::displayInfo(MString("Building module '") + plan.name.c_str() + "'");
+
+		RigModuleBuildResult result = plan.build(oRigRoot, dagMod);
+		if (!result || result.moduleNode.isNull())
+		{
+			MGlobal::displayError(MString("Failed building module '") + plan.name.c_str() + "'.");
+			return MStatus::kFailure;
+		}
+
+		std::string error;
+		if (!matchesInterface(result, plan.moduleInterface, error))
+		{
+			MGlobal::displayError(MString("Module '") + plan.name.c_str() + "': " + error.c_str() + ". Its plan step and createModule disagree.");
+			return MStatus::kFailure;
+		}
+
+		outModuleMap[plan.name] = result;
+	}
+
+	return MStatus::kSuccess;
 }
 
 

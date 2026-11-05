@@ -36,12 +36,12 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
         {
             "fkChainModule", "FkChain", FkChainNode::id,
             FkChainNode::creator, FkChainNode::initialize,
-            1, FkChainNode::buildFromJson
+            1, FkChainNode::planFromJson
         },
         {
             "aimModule", "Aim", AimModuleNode::id,
             AimModuleNode::creator, AimModuleNode::initialize,
-            1, AimModuleNode::buildFromJson
+            1, AimModuleNode::planFromJson
         },
         {
             "bmParentConstraint", "ParentConstraint", ParentConstraintNode::id,

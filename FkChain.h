@@ -37,13 +37,19 @@ public:
 		MObject& oRigRoot,
 		MDagModifier& dagMod
 	);
-	static RigModuleBuildResult buildFromJson(const nlohmann::json& args, BuildContext& ctx);
+	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
+
+	// Names of socket index in a chain of count controls: index_N, plus start on the first and end on the last.
+	// The plan step and createModule both read this, so they cannot drift apart.
+	static std::vector<std::string> socketNamesAt(unsigned int index, unsigned int count);
+	static ModuleInterface makeInterface(unsigned int count);
 };
 
 
 // "joints": [["Left","upperArm"], ["Left","lowerArm"], ["Left","hand"]], root to tip.
 struct FkModuleArgs
 {
+	static constexpr const char* JointsKey{ "joints" };   // Must match the field name the macro below maps.
 	std::vector<JointSelector> joints;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FkModuleArgs, joints)

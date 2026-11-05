@@ -4,7 +4,12 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <maya/MString.h>
+
+#include "Constants.h"
+
+// Maya-free core: no Maya headers in this file or its .cpp.
+
+struct ValidationReport;
 
 struct RigConstraintDriverData
 {
@@ -16,7 +21,7 @@ struct RigConstraintDriverData
 struct RigConstraintData
 {
 	std::string name;
-	std::string type = "Parent";
+	std::string type = ConstraintTypes::Parent;
 	std::string target;           // "module.childPlug"
 	std::vector<RigConstraintDriverData> drivers;
 };
@@ -41,6 +46,7 @@ struct AssetRootData
 struct RigRootData
 {
     std::string rigTemplateName;
+    std::string rigName;          // Optional key, defaults to rigTemplateName. Not in the macro below, which requires every field.
     std::string rigType;
     int rigVersion = -1;
     std::string rigAuthor;
@@ -54,32 +60,34 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigRootData, rigTemplateName, rigVersion, rig
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigModuleData, moduleType, name, shapeType, side, moduleVersion, parentStructure, moduleArgs)
 
 void from_json(const nlohmann::json& j, RigModuleData& module);
-bool loadRigTemplate(const MString& filePath, AssetRootData& assetData, RigRootData& rigData, MString& outErr);
+// Reads the file, checks required and unknown keys, then parses. Every problem goes into the report.
+// False if the template could not be parsed into the structs. Errors in the report still need checking on true.
+bool loadRigTemplate(const std::string& filePath, AssetRootData& assetData, RigRootData& rigData, ValidationReport& report);
 
 // Constraints ==================================================================
 
 inline void from_json(const nlohmann::json& jsonData, RigConstraintDriverData& driver)
 {
-	jsonData.at("socket").get_to(driver.socket);
-	driver.label = jsonData.value("label", driver.socket);
-	driver.weight = jsonData.value("weight", 0.0);
+	jsonData.at(TemplateKey::DriverSocket).get_to(driver.socket);
+	driver.label = jsonData.value(TemplateKey::DriverLabel, driver.socket);
+	driver.weight = jsonData.value(TemplateKey::DriverWeight, 0.0);
 }
 
 inline void to_json(nlohmann::json& jsonData, const RigConstraintDriverData& driver)
 {
-	jsonData = nlohmann::json{ { "socket", driver.socket }, { "label", driver.label }, { "weight", driver.weight } };
+	jsonData = nlohmann::json{ { TemplateKey::DriverSocket, driver.socket }, { TemplateKey::DriverLabel, driver.label }, { TemplateKey::DriverWeight, driver.weight } };
 }
 
 inline void from_json(const nlohmann::json& jsonData, RigConstraintData& constraint)
 {
-	jsonData.at("name").get_to(constraint.name);
-	jsonData.at("target").get_to(constraint.target);
-	jsonData.at("drivers").get_to(constraint.drivers);
-	constraint.type = jsonData.value("type", "Parent");
+	jsonData.at(TemplateKey::Name).get_to(constraint.name);
+	jsonData.at(TemplateKey::ConstraintTarget).get_to(constraint.target);
+	jsonData.at(TemplateKey::ConstraintDrivers).get_to(constraint.drivers);
+	constraint.type = jsonData.value(TemplateKey::ConstraintType, ConstraintTypes::Parent);
 }
 
 inline void to_json(nlohmann::json& jsonData, const RigConstraintData& constraint)
 {
-	jsonData = nlohmann::json{ { "name", constraint.name }, { "type", constraint.type },
-		{ "target", constraint.target }, { "drivers", constraint.drivers } };
+	jsonData = nlohmann::json{ { TemplateKey::Name, constraint.name }, { TemplateKey::ConstraintType, constraint.type },
+		{ TemplateKey::ConstraintTarget, constraint.target }, { TemplateKey::ConstraintDrivers, constraint.drivers } };
 }

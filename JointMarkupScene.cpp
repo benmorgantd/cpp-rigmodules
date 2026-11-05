@@ -111,19 +111,28 @@ MStatus JointMarkupScene::claimJoint(
 	const JointSelector& selector,
 	const std::string& moduleName,
 	MObject& oOutJoint,
-	MMatrix& mOutRestWorld)
+	MMatrix& mOutRestWorld,
+	std::string& outError)
 {
 	std::size_t entry = 0;
-	std::string error;
-	if (!markedJoints.index.claim(selector, moduleName, entry, error))
+	if (!markedJoints.index.claim(selector, moduleName, entry, outError))
 	{
-		MGlobal::displayError(MString("Joint markup: ") + error.c_str());
 		return MStatus::kFailure;
 	}
 
 	MStatus status;
 	const MDagPath& jointPath = markedJoints.dagPaths[static_cast<unsigned int>(entry)];
 	oOutJoint = jointPath.node();
+
+	MFnDependencyNode fnJoint(oOutJoint);
+	MPlug pOffsetParentMatrix = fnJoint.findPlug("offsetParentMatrix", false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (pOffsetParentMatrix.isDestination())
+	{
+		outError = "joint '" + std::string(fnJoint.name().asChar()) + "' already has an incoming offsetParentMatrix connection";
+		return MStatus::kFailure;
+	}
+
 	mOutRestWorld = jointPath.inclusiveMatrix(&status);
 	return status;
 }

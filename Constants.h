@@ -109,6 +109,42 @@ namespace PlugAndSocketNames
 	inline constexpr const char* Index{ "index_" };
 }
 
+// JSON keys in a rig template. Public API: every saved template depends on them.
+// RigRootData and AssetRootData map their keys through NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE, which uses the field names,
+// so those field names must match the keys listed here.
+namespace TemplateKey
+{
+	inline constexpr const char* AssetId{ "assetId" };
+	inline constexpr const char* AssetType{ "assetType" };
+	inline constexpr const char* RigName{ "rigName" };
+	inline constexpr const char* RigType{ "rigType" };
+	inline constexpr const char* RigVersion{ "rigVersion" };
+	inline constexpr const char* RigTemplateName{ "rigTemplateName" };
+	inline constexpr const char* RigAuthor{ "rigAuthor" };
+	inline constexpr const char* RigModules{ "rigModules" };
+	inline constexpr const char* Constraints{ "constraints" };
+
+	inline constexpr const char* ModuleType{ "moduleType" };
+	inline constexpr const char* Name{ "name" };
+	inline constexpr const char* ShapeType{ "shapeType" };
+	inline constexpr const char* Side{ "side" };
+	inline constexpr const char* ModuleVersion{ "moduleVersion" };
+	inline constexpr const char* ParentStructure{ "parentStructure" };
+	inline constexpr const char* ModuleArgs{ "moduleArgs" };
+
+	inline constexpr const char* ConstraintType{ "type" };
+	inline constexpr const char* ConstraintTarget{ "target" };
+	inline constexpr const char* ConstraintDrivers{ "drivers" };
+	inline constexpr const char* DriverSocket{ "socket" };
+	inline constexpr const char* DriverLabel{ "label" };
+	inline constexpr const char* DriverWeight{ "weight" };
+}
+
+namespace ConstraintTypes
+{
+	inline constexpr const char* Parent{ "Parent" };
+}
+
 namespace ConstraintAttr
 {
 	inline constexpr const char* Drivers{ "drivers" };
@@ -140,6 +176,8 @@ namespace SideNames
 
 namespace RigNaming
 {
+	// Reserved module name for the implicit layout module. Templates address it as "layout.end".
+	inline constexpr const char* LayoutModule{ "layout" };
 	inline constexpr const char* JointSuffix{ "_jnt" };
 	inline constexpr const char* ControlSuffix{ "_ctrl" };
 	inline constexpr const char* LeftSuffix{ "_l" };

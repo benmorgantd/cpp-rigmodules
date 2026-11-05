@@ -115,22 +115,22 @@ RigModuleBuildResult FkChainNode::createModule(
 		MFnTransform fnJoint(oJoint);
 		MObject oControlTransform = RigControlNode::createRigControl(oFkChainModule, dagMod, fnJoint.name(), shapeType, side);
 
-		const std::string indexName = PlugAndSocketNames::Index + std::to_string(i);
-		std::vector<std::string> socketNames{ indexName };
-
 		RigModuleSocketInfo socketInfo;
 		socketInfo.oTransform = oControlTransform;
 		socketInfo.mRestWorld = mJointRestWorld;
 		socketInfo.outputIndex = i;
-		result.parentSockets[indexName] = socketInfo;
+
+		const std::vector<std::string> socketNames = socketNamesAt(i, numJoints);
+		for (const std::string& socketName : socketNames)
+		{
+			result.parentSockets[socketName] = socketInfo;
+		}
+		DagPlugAndSocketUtils::setParentSocketNames(oFkChainModule, i, socketNames, dagMod);
 
 		if (i == 0)
 		{
 			// Only the first control in an FK chain can be parented to another module.
-			result.parentSockets[PlugAndSocketNames::Start] = socketInfo;
 			result.childPlugs[PlugAndSocketNames::Start] = RigModuleChildPlugInfo{ oControlTransform, 0 };
-			socketNames.push_back(PlugAndSocketNames::Start);
-
 			DagPlugAndSocketUtils::setChildPlugName(oFkChainModule, 0, PlugAndSocketNames::Start, dagMod);
 		}
 		else
@@ -138,14 +138,6 @@ RigModuleBuildResult FkChainNode::createModule(
 			// Parent the control in the fk hierarchy.
 			dagMod.reparentNode(oControlTransform, oPreviousControl);
 		}
-
-		if (i == numJoints - 1)
-		{
-			result.parentSockets[PlugAndSocketNames::End] = socketInfo;
-			socketNames.push_back(PlugAndSocketNames::End);
-		}
-
-		DagPlugAndSocketUtils::setParentSocketNames(oFkChainModule, i, socketNames, dagMod);
 
 		MStatus wireStatus = wireControl(oFkChainModule, oControlTransform, i, mJointRestWorld, dagMod);
 		if (!wireStatus)
@@ -172,52 +164,75 @@ RigModuleBuildResult FkChainNode::createModule(
 	return result;
 }
 
-RigModuleBuildResult FkChainNode::buildFromJson(const nlohmann::json& args, BuildContext& ctx)
+std::vector<std::string> FkChainNode::socketNamesAt(unsigned int index, unsigned int count)
 {
-	RigModuleBuildResult result;
-	FkModuleArgs fkArgs;
-
-	try
+	std::vector<std::string> names{ PlugAndSocketNames::Index + std::to_string(index) };
+	if (index == 0)
 	{
-		// Version migration goes here: branch on ctx.moduleData.moduleVersion
-		// and rewrite old arg layouts into the current FkModuleArgs shape.
-		fkArgs = args.get<FkModuleArgs>();
+		names.push_back(PlugAndSocketNames::Start);
 	}
-	catch (const nlohmann::json::exception& e)
+	if (index == count - 1)
 	{
-		MGlobal::displayError(MString("Invalid FkChain args for ") + ctx.moduleData.name.c_str() + ": " + e.what());
-		return result;   // status defaults to kFailure
+		names.push_back(PlugAndSocketNames::End);
+	}
+	return names;
+}
+
+ModuleInterface FkChainNode::makeInterface(unsigned int count)
+{
+	ModuleInterface moduleInterface;
+	moduleInterface.pins.push_back(ModulePinInfo{ PlugAndSocketNames::Start, true });
+	for (unsigned int i = 0; i < count; ++i)
+	{
+		const std::vector<std::string> names = socketNamesAt(i, count);
+		moduleInterface.sockets.insert(moduleInterface.sockets.end(), names.begin(), names.end());
+	}
+	return moduleInterface;
+}
+
+bool FkChainNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
+{
+	FkModuleArgs fkArgs;
+	if (!readModuleArgs(args, { FkModuleArgs::JointsKey }, ctx, fkArgs))
+	{
+		return false;
 	}
 
 	if (fkArgs.joints.empty())
 	{
-		MGlobal::displayError(MString("FkChain needs at least one joint: ") + ctx.moduleData.name.c_str());
-		return result;
+		ctx.report.addError(ctx.where + "." + TemplateKey::ModuleArgs + "." + FkModuleArgs::JointsKey, "needs at least one joint");
+		return false;
 	}
 
+	// Claim every joint even after a failure, so the report lists every bad selector at once.
 	MObjectArray oJoints;
 	MMatrixArray mWorldMatrices;
-
+	bool allClaimed = true;
 	for (const JointSelector& selector : fkArgs.joints)
 	{
 		MObject oJoint;
 		MMatrix mWorld;
-		MStatus status = JointMarkupScene::claimJoint(ctx.markedJoints, selector, ctx.moduleData.name, oJoint, mWorld);
-		if (!status)
+		if (!claimJoint(ctx, selector, oJoint, mWorld))
 		{
-			return result;  // helper already reported which selector failed
+			allClaimed = false;
+			continue;
 		}
-
 		oJoints.append(oJoint);
 		mWorldMatrices.append(mWorld);
 	}
+	if (!allClaimed)
+	{
+		return false;
+	}
 
-	return FkChainNode::createModule(
-		ctx.moduleData.name.c_str(),
-		getSideFromString(ctx.moduleData.side),
-		getShapeTypeFromString(ctx.moduleData.shapeType),
-		oJoints,
-		mWorldMatrices,
-		ctx.oRigRoot, 
-		ctx.dagMod);
+	outPlan.moduleInterface = makeInterface(oJoints.length());
+
+	const MString moduleName = ctx.moduleData.name.c_str();
+	const Side side = getSideFromString(ctx.moduleData.side);
+	const ShapeType shapeType = getShapeTypeFromString(ctx.moduleData.shapeType);
+	outPlan.build = [moduleName, side, shapeType, oJoints, mWorldMatrices](MObject& oRigRoot, MDagModifier& dagMod)
+	{
+		return FkChainNode::createModule(moduleName, side, shapeType, oJoints, mWorldMatrices, oRigRoot, dagMod);
+	};
+	return true;
 }
