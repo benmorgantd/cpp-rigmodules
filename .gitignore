@@ -1,0 +1,10 @@
+# Visual Studio build output (x64\Release, RigModules\x64\Release)
+x64/
+
+# Per-user Visual Studio settings
+*.vcxproj.user
+.vs/
+
+# Python bytecode (RigTests.cmd already turns it off for test runs)
+__pycache__/
+*.pyc
