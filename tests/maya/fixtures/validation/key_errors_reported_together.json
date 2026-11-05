@@ -1,0 +1,13 @@
+{
+  "description": "Every top-level key error is reported in one pass, not one per attempt",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    { "remove": "/rigAuthor" },
+    { "set": "/rigAuthr", "value": "me" }
+  ],
+  "expectErrors": [
+    { "path": "template", "contains": "rigAuthor" },
+    { "path": "template", "contains": "rigAuthr" }
+  ]
+}

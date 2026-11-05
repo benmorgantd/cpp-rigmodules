@@ -1,0 +1,16 @@
+{
+  "description": "An unknown moduleType is an error",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/2/moduleType",
+      "value": "Foo"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "Foo"
+    }
+  ]
+}

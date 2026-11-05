@@ -1,0 +1,16 @@
+{
+  "description": "rigVersion must be at least 1",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigVersion",
+      "value": 0
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "rigVersion"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "description": "Two modules parented to each other form a cycle",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": []
+    },
+    {
+      "set": "/rigModules/0/parentStructure",
+      "value": {
+        "start": "fkchain_2.end"
+      }
+    },
+    {
+      "set": "/rigModules/1/parentStructure",
+      "value": {
+        "start": "fkchain_1.end"
+      }
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "cycle"
+    }
+  ]
+}

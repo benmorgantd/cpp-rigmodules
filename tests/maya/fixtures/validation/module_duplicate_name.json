@@ -1,0 +1,16 @@
+{
+  "description": "Module names are unique within a template",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/1/name",
+      "value": "fkchain_1"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "fkchain_1"
+    }
+  ]
+}

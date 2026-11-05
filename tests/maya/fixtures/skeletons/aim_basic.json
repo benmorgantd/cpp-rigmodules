@@ -1,0 +1,7 @@
+{
+  "joints": [
+    { "name": "eye_jnt", "side": "Right", "usage": "eye", "translate": [0, 0, 0] },
+    { "name": "eyeTarget_jnt", "side": "Right", "usage": "eyeTarget", "translate": [0, 0, 5], "export": false, "skin": false },
+    { "name": "eyeUp_jnt", "side": "Right", "usage": "eyeUp", "translate": [0, 3, 0], "export": false, "skin": false }
+  ]
+}

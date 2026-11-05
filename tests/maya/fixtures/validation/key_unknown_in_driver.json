@@ -1,0 +1,19 @@
+{
+  "description": "A typo in a constraint driver key is an error",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/0/drivers/1/lable",
+      "value": "Aim"
+    },
+    {
+      "remove": "/constraints/0/drivers/1/label"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "lable"
+    }
+  ]
+}

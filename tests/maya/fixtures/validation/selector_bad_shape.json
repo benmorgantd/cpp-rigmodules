@@ -1,0 +1,19 @@
+{
+  "description": "A selector is a [side, usage] pair, not a joint name",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/joints",
+      "value": [
+        "fkchain4"
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "",
+      "path": "rigModules[1] 'fkchain_2'"
+    }
+  ]
+}

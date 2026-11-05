@@ -1,0 +1,17 @@
+{
+  "description": "A parentStructure value must name an existing module",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/2/parentStructure/up",
+      "value": "missing_module.start"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "missing_module",
+      "path": "rigModules[2] 'aim_1'.parentStructure.up"
+    }
+  ]
+}

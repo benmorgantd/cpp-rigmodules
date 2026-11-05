@@ -1,0 +1,11 @@
+{
+  "description": "Rotating the last FK control rotates only its own joint",
+  "skeleton": "fk_three",
+  "template": "fkchain_three",
+  "set": { "c_ctrl_c.rotateX": 45 },
+  "expect": {
+    "a_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, 0] },
+    "b_jnt": { "translate": [0, 2, 0], "rotate": [0, 0, 0] },
+    "c_jnt": { "translate": [0, 4, 0], "rotate": [45, 0, 0] }
+  }
+}

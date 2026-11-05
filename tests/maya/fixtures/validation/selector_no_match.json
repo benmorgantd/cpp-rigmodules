@@ -1,0 +1,22 @@
+{
+  "description": "A selector must match a passed joint",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/joints",
+      "value": [
+        [
+          "Left",
+          "nope"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "nope",
+      "path": "rigModules[1] 'fkchain_2'"
+    }
+  ]
+}

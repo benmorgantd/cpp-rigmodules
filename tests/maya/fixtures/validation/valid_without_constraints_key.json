@@ -1,0 +1,11 @@
+{
+  "description": "The constraints key is optional",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "remove": "/constraints"
+    }
+  ],
+  "expectErrors": []
+}

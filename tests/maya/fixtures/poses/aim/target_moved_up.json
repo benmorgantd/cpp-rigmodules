@@ -1,0 +1,10 @@
+{
+  "description": "Raising the target pitches the aim joint up by atan(3/5) = 30.96 degrees",
+  "skeleton": "aim_basic",
+  "template": "aim_basic",
+  "set": { "eyeTarget_ctrl_r.translateY": 3 },
+  "expect": {
+    "eye_jnt": { "translate": [0, 0, 0], "rotate": [-30.963757, 0, 0] },
+    "eyeTarget_jnt": { "translate": [0, 3, 5] }
+  }
+}

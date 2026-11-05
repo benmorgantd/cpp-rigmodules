@@ -1,0 +1,28 @@
+{
+  "description": "A cycle that only closes through a constraint driver is still a cycle",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": [
+        {
+          "name": "loop",
+          "type": "Parent",
+          "target": "fkchain_1.start",
+          "drivers": [
+            {
+              "socket": "fkchain_2.end",
+              "label": "Loop"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "cycle"
+    }
+  ]
+}

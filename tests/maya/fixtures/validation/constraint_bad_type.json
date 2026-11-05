@@ -1,0 +1,16 @@
+{
+  "description": "Only Parent constraints exist",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/0/type",
+      "value": "Point"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "Point"
+    }
+  ]
+}

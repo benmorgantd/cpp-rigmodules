@@ -1,0 +1,68 @@
+{
+    "assetId": "example|asset|id",
+    "assetType": "Rig",
+    "rigName": "fktest",
+    "rigType": "Prop",
+    "rigVersion": 1,
+    "rigTemplateName": "TestRig",
+    "rigAuthor" : "Ben Morgan",
+    "rigModules": [
+      {
+        "moduleType": "FkChain",
+        "name": "fkchain_1",
+        "shapeType": "Box",
+        "side": "Center",
+        "moduleArgs" : 
+        {
+          "joints": [ ["Center", "fkchain1"], ["Center", "fkchain2"], ["Center", "fkchain3"] ]
+        }
+      },
+      {
+        "moduleType": "FkChain",
+        "name": "fkchain_2",
+        "shapeType": "Capsule",
+        "side": "Left",
+        "moduleArgs" : 
+        {
+          "joints": [ ["Left", "fkchain4"] ]
+        },
+        "parentStructure" :
+        {
+          "start" : "fkchain_1.start"
+        }
+      },
+      {
+        "moduleType" : "Aim",
+        "name" : "aim_1",
+        "shapeType" : "Box",
+        "side" : "Right",
+        "moduleArgs" : 
+        {
+          "aim" : ["Right", "aim"], "target" : ["Right", "target"], "up" : ["Right", "up"]
+        },
+        "parentStructure":
+        {
+          "aim" : "fkchain_1.start", "target" : "fkchain_1.start", "up" : "fkchain_1.start"
+        }
+      }
+    ],
+  "constraints": [
+  {
+    "name": "fkchain_2_space",
+    "type": "Parent",
+    "target": "fkchain_2.start",
+    "drivers": [
+      { "socket": "fkchain_1.start", "label": "FkChain", "weight": 1.0 },
+      { "socket": "aim_1.aim", "label": "Aim" }
+    ]
+  },
+  {
+    "name" : "aim_target_space",
+    "type" : "Parent",
+    "target" : "aim_1.target",
+    "drivers" : [
+      { "socket" : "layout.end", "label" : "Layout", "weight" : 1.0 }
+    ]
+  }
+]
+}

@@ -1,0 +1,16 @@
+{
+  "description": "'layout' is reserved for the implicit layout module",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/1/name",
+      "value": "layout"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "layout"
+    }
+  ]
+}

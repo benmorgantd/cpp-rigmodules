@@ -1,0 +1,17 @@
+{
+  "description": "A parentStructure value must name an existing socket",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/1/parentStructure/start",
+      "value": "fkchain_1.ned"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "ned",
+      "path": "rigModules[1] 'fkchain_2'.parentStructure.start"
+    }
+  ]
+}

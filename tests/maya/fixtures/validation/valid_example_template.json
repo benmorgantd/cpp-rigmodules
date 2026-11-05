@@ -1,0 +1,6 @@
+{
+  "description": "The unedited reference template builds",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "expectErrors": []
+}

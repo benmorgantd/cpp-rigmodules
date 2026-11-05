@@ -1,0 +1,12 @@
+{
+  "description": "Translating the top layout control moves every joint and control",
+  "skeleton": "fk_three",
+  "template": "fkchain_three",
+  "set": { "layout_0_ctrl_c.translateX": 5 },
+  "expect": {
+    "a_jnt": { "translate": [5, 0, 0] },
+    "b_jnt": { "translate": [5, 2, 0] },
+    "c_jnt": { "translate": [5, 4, 0] },
+    "a_ctrl_c": { "translate": [5, 0, 0] }
+  }
+}

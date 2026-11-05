@@ -1,0 +1,16 @@
+{
+  "description": "A constraint needs at least one driver",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/0/drivers",
+      "value": []
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "driver"
+    }
+  ]
+}

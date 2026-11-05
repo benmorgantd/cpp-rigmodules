@@ -1,0 +1,17 @@
+{
+  "description": "An unknown moduleArgs key is an error",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/extra",
+      "value": 1
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "extra",
+      "path": "rigModules[1] 'fkchain_2'"
+    }
+  ]
+}

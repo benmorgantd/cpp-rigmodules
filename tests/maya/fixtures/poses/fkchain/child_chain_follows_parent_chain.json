@@ -1,0 +1,11 @@
+{
+  "description": "Rotating the parent chain's root carries a chain attached to its end socket",
+  "skeleton": "fk_two_chains",
+  "template": "fkchain_two_chains",
+  "set": { "a_ctrl_c.rotateZ": 90 },
+  "expect": {
+    "b_jnt": { "translate": [-2, 0, 0] },
+    "c_jnt": { "translate": [-3, 1, 0], "rotate": [0, 0, 90] },
+    "c_ctrl_l": { "translate": [-3, 1, 0] }
+  }
+}

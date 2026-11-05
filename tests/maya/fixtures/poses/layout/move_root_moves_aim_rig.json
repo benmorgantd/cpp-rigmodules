@@ -1,0 +1,10 @@
+{
+  "description": "Translating the top layout control moves the aim rig without changing where it looks",
+  "skeleton": "aim_basic",
+  "template": "aim_basic",
+  "set": { "layout_0_ctrl_c.translateY": 10 },
+  "expect": {
+    "eye_jnt": { "translate": [0, 10, 0], "rotate": [0, 0, 0] },
+    "eyeTarget_jnt": { "translate": [0, 10, 5] }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "description": "Translating the middle FK control moves it and its children, not its parent",
+  "skeleton": "fk_three",
+  "template": "fkchain_three",
+  "set": { "b_ctrl_c.translateX": 1 },
+  "expect": {
+    "a_jnt": { "translate": [0, 0, 0] },
+    "b_jnt": { "translate": [1, 2, 0] },
+    "c_jnt": { "translate": [1, 4, 0] },
+    "c_ctrl_c": { "translate": [1, 4, 0] }
+  }
+}

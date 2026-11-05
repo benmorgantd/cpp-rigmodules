@@ -1,0 +1,38 @@
+{
+  "description": "Public names of a single Aim module",
+  "template": "aim_basic",
+  "skeleton": "aim_basic",
+  "interface": {
+    "modules": {
+      "aim_1": {
+        "type": "aimModule",
+        "sockets": [["aim"], ["target"], ["up"]],
+        "childPlugs": ["aim", "target", "up"]
+      },
+      "layout": {
+        "type": "layoutModule",
+        "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
+        "childPlugs": []
+      }
+    },
+    "controls": {
+      "eyeTarget_ctrl_r": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "eyeUp_ctrl_r": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "layout_0_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "layout_1_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "layout_2_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      }
+    },
+    "joints": ["eyeTarget_jnt", "eyeUp_jnt", "eye_jnt"],
+    "constraints": {}
+  }
+}

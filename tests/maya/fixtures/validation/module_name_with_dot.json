@@ -1,0 +1,16 @@
+{
+  "description": "A module name must be a valid node name, so no '.'",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/2/name",
+      "value": "aim.1"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "aim.1"
+    }
+  ]
+}

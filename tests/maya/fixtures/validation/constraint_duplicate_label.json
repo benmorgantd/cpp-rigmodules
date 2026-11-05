@@ -1,0 +1,16 @@
+{
+  "description": "Driver labels are unique within a constraint",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/0/drivers/1/label",
+      "value": "FkChain"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "FkChain"
+    }
+  ]
+}

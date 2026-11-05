@@ -1,0 +1,16 @@
+{
+  "description": "A constraint target must be a child plug with a control",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/1/target",
+      "value": "aim_1.aim"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "aim_1.aim"
+    }
+  ]
+}

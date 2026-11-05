@@ -1,0 +1,64 @@
+{
+  "description": "Public names of the reference template RigTemplates/LayoutRig.json",
+  "template": "RigTemplates/LayoutRig.json",
+  "skeleton": "layout_rig",
+  "interface": {
+    "modules": {
+      "aim_1": {
+        "type": "aimModule",
+        "sockets": [["aim"], ["target"], ["up"]],
+        "childPlugs": ["aim", "target", "up"]
+      },
+      "fkchain_1": {
+        "type": "fkChainModule",
+        "sockets": [["index_0", "start"], ["index_1"], ["index_2", "end"]],
+        "childPlugs": ["start"]
+      },
+      "fkchain_2": {
+        "type": "fkChainModule",
+        "sockets": [["index_0", "start", "end"]],
+        "childPlugs": ["start"]
+      },
+      "layout": {
+        "type": "layoutModule",
+        "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
+        "childPlugs": []
+      }
+    },
+    "controls": {
+      "fkchain1_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "fkchain2_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "fkchain3_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "fkchain4_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ", "space"],
+        "spaces": ["FkChain", "Aim"]
+      },
+      "layout_0_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "layout_1_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "layout_2_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "target_ctrl_r": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "up_ctrl_r": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      }
+    },
+    "joints": ["aim_jnt", "fkchain1_jnt", "fkchain2_jnt", "fkchain3_jnt", "fkchain4_jnt", "target_jnt", "up_jnt"],
+    "constraints": {
+      "aim_target_space": ["Layout"],
+      "fkchain_2_space": ["FkChain", "Aim"]
+    }
+  }
+}

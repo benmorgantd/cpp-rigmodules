@@ -1,0 +1,19 @@
+{
+  "description": "A module parented to its own socket is a cycle",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "remove": "/constraints/1"
+    },
+    {
+      "set": "/rigModules/2/parentStructure/target",
+      "value": "aim_1.up"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "cycle"
+    }
+  ]
+}

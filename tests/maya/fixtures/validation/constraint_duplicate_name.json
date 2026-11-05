@@ -1,0 +1,16 @@
+{
+  "description": "Constraint names are unique",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/1/name",
+      "value": "fkchain_2_space"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "fkchain_2_space"
+    }
+  ]
+}

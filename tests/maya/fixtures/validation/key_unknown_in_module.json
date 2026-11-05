@@ -1,0 +1,22 @@
+{
+  "description": "A typo in a module key is an error",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/1/parentStucture",
+      "value": {
+        "start": "fkchain_1.start"
+      }
+    },
+    {
+      "remove": "/rigModules/1/parentStructure"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "parentStucture",
+      "path": "rigModules[1] 'fkchain_2'"
+    }
+  ]
+}

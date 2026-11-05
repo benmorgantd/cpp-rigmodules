@@ -1,0 +1,17 @@
+{
+  "description": "moduleVersion cannot be newer than the module's current version",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleVersion",
+      "value": 5
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "moduleVersion",
+      "path": "rigModules[0] 'fkchain_1'"
+    }
+  ]
+}

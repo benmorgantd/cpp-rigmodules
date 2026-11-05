@@ -1,0 +1,17 @@
+{
+  "description": "A module side is checked strictly, with no Center fallback",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/0/side",
+      "value": "left"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "left",
+      "path": "rigModules[0] 'fkchain_1'"
+    }
+  ]
+}

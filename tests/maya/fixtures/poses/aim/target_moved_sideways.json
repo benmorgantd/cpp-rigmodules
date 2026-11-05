@@ -1,0 +1,10 @@
+{
+  "description": "Moving the target along X yaws the aim joint 45 degrees about Y",
+  "skeleton": "aim_basic",
+  "template": "aim_basic",
+  "set": { "eyeTarget_ctrl_r.translateX": 5 },
+  "expect": {
+    "eye_jnt": { "translate": [0, 0, 0], "rotate": [0, 45, 0] },
+    "eyeTarget_jnt": { "translate": [5, 0, 5] }
+  }
+}

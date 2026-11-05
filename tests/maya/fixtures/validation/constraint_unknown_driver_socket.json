@@ -1,0 +1,16 @@
+{
+  "description": "A driver socket must exist",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/0/drivers/1/socket",
+      "value": "aim_1.nope"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "no socket 'nope' on 'aim_1'"
+    }
+  ]
+}

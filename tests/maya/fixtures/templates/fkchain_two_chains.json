@@ -1,0 +1,10 @@
+{
+  "assetId": "test|asset|id", "assetType": "Rig", "rigType": "Prop", "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "FkChainTwoChains",
+  "rigModules": [
+    { "moduleType": "FkChain", "name": "fkchain_1", "shapeType": "Box", "side": "Center",
+      "moduleArgs": { "joints": [ ["Center", "a"], ["Center", "b"] ] } },
+    { "moduleType": "FkChain", "name": "fkchain_2", "shapeType": "Box", "side": "Left",
+      "moduleArgs": { "joints": [ ["Left", "c"] ] }, "parentStructure": { "start": "fkchain_1.end" } }
+  ]
+}

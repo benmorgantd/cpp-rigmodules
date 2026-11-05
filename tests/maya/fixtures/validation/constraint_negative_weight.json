@@ -1,0 +1,16 @@
+{
+  "description": "Driver weights cannot be negative",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/0/drivers/0/weight",
+      "value": -1
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "weight"
+    }
+  ]
+}

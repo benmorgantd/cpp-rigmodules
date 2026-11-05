@@ -1,0 +1,15 @@
+{
+  "description": "A missing required top-level key is reported",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "remove": "/rigAuthor"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "rigAuthor"
+    }
+  ]
+}

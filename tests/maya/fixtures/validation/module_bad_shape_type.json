@@ -1,0 +1,17 @@
+{
+  "description": "shapeType must be a known control shape",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/0/shapeType",
+      "value": "Cube"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "Cube",
+      "path": "rigModules[0] 'fkchain_1'"
+    }
+  ]
+}

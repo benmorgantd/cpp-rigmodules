@@ -1,0 +1,12 @@
+{
+  "description": "A template with no constraints builds",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": []
+    }
+  ],
+  "expectErrors": []
+}

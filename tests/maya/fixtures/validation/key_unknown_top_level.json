@@ -1,0 +1,16 @@
+{
+  "description": "An unknown top-level key is an error, not ignored",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigAuthr",
+      "value": "me"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "rigAuthr"
+    }
+  ]
+}

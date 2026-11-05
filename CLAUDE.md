@@ -17,6 +17,8 @@ Design decisions and their history are in `docs/decisions.md`. Read it before pr
 - Prefer small, reviewable diffs. Do not refactor unrelated code in the same change.
 - If a requirement is ambiguous, ask. Do not guess at rig behavior.
 - Never claim code compiles or behaves correctly in Maya unless you actually built and ran it. Say what was verified and what was not.
+- **Every build is followed by the full test suite** (see "Tests" under Local build and test). A change is not done until the suite passes on the build that contains it. Report the TOTAL line, and report any tier that failed, crashed or was blocked.
+- **Verification lives in the suite, not in temp scripts.** Every change adds or updates tests in `tests/`. Throwaway mayapy probes are fine while exploring. Before finishing, either turn each check a probe made into a suite test, or list it in your summary as a proposed test (what it checks, which tier, data case or code) for the author to accept. Never leave a check only in the scratchpad.
 
 ## Product context and priorities
 
@@ -41,7 +43,7 @@ Name stability matters: renaming a control, attribute, child plug, or socket can
 Do not add a new module casually. Before proposing one:
 1. State the animator-facing problem it solves.
 2. Check whether an existing module, or a small extension of one, already covers it.
-3. Write the design (inputs, outputs, child plugs, sockets, attributes, JSON schema impact, export impact, pose/animation library impact) and get sign-off before implementing.
+3. Write the design (inputs, outputs, child plugs, sockets, attributes, JSON schema impact, export impact, pose/animation library impact, tests) and get sign-off before implementing. The tests are a `ModuleContract` subclass, pose cases and a golden snapshot (see `tests/README.md`).
 4. Name what it adds to the long-term maintenance surface.
 
 ## Architecture
@@ -65,7 +67,7 @@ Do not add a new module casually. Before proposing one:
 
 ## Repo map
 
-Flat layout: every source file sits at the repo root, and there are no `src/` or `tests/` folders yet. Read this table before searching the repo.
+Flat layout: every source file sits at the repo root, and there is no `src/` folder. Tests live in `tests/` (see `tests/README.md`). Read this table before searching the repo.
 
 | File | Contents |
 |---|---|
@@ -90,7 +92,8 @@ Flat layout: every source file sits at the repo root, and there are no `src/` or
 | `JointMarkupCmd.h/.cpp` | `rigJointMarkup` command. |
 | `RigTemplates/LayoutRig.json` | The only example template. Its joints use `[side, usage]` selectors. |
 | `include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
-| `docs/decisions.md` | Decision log (D1–D19). |
+| `docs/decisions.md` | Decision log (D1–D20). |
+| `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. |
 | `RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files. |
 
 **Maya commands:** `createRigFromTemplate -template <path> [-namespace ns] <joint>...`, `rigJointMarkup`, `createRigParentConstraint -driver module.socket ... <control>`, `setRigConstraintSpace (-space n | -label l) <constraint>`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
@@ -186,6 +189,7 @@ Rule: if logic can live in the core, it goes in the core. The plugin layer shoul
 - **Visual Studio project:** `RigModules.vcxproj`. The devkit path comes from the `MAYA_DEVKIT_LOCATION` env var (`C:\Users\bmorgan\Documents\dev\maya\devkit\devkitBase`).
 - **Build:** `& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" RigModules.vcxproj /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal`
   - Output: `x64\Release\RigModules.mll`.
+  - **Then always run the tests**, even for a change that looks unrelated. Run `cmd /c tests\RigTests.cmd`, or the suite at the end of your own mayapy script (see Tests below).
   - Warnings that already existed and can be ignored: nlohmann C5260, `RigControlNode.cpp` C4244, `Utilities.cpp` C4018.
 - **Run Maya headless:** `C:\Program Files\Autodesk\Maya2026\bin\mayapy.exe script.py`. Start the script with `maya.standalone.initialize(name="python")`, then `cmds.loadPlugin(path)`.
 - **Copy the .mll before loading it.** A loaded plugin locks the file, so a Maya session that has it loaded makes the next build fail. Copy the .mll to the scratchpad and load the copy.
@@ -197,7 +201,21 @@ Rule: if logic can live in the core, it goes in the core. The plugin layer shoul
 - **Line endings:** source files are CRLF. Git Bash `sed -i` rewrites a file as LF, so prefer the Edit tool. Otherwise run `unix2dos` afterwards.
 - **Locked files:** `RigRoot.cpp` and other files may be open and locked in Visual Studio, so writing them from a Python script fails with a permission error. The Edit tool still works.
 - **Short flag names:** `MSyntax::addFlag` rejects short names longer than 3 letters, and the flag then silently never registers. Wrap each `addFlag` in `CHECK_MSTATUS`.
-- **No unit tests:** no GoogleTest harness exists yet. Verify changes with ad hoc mayapy scripts.
+- **Tests:** run them after every build, in one of two ways:
+  - **Already running a mayapy script to check a change:** end that script with the suite instead of starting Maya again (about 4 s, no second startup). It must be the last thing the script does, because every test starts with `file -new`. It has no crash protection, so if Maya crashes, rerun with `RigTests.cmd` to find the test.
+    ```python
+    sys.path.insert(0, r"C:\Users\bmorgan\Documents\dev\maya\cpp\repos\RigModules\RigModules\tests")
+    import run_tests
+    ok = run_tests.run_in_current_maya()
+    ```
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 182 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
+  - **Adding tests:**
+    - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.
+    - Follow `tests/README.md`.
+    - Write pose expectations by hand. Never record them from the rig.
+  - **Filtering:** pass a filter to run part of the suite, for example `RigTests.cmd fkchain`. Run the full suite before calling a change done.
+  - **Not covered:** there is no GoogleTest harness for the Maya-free core yet (D20).
 
 ## Review checklist
 
@@ -215,6 +233,8 @@ Before declaring work done, check:
 - [ ] No names (controls, attributes, child plugs, sockets) changed without flagging the pose, animation, and export impact
 - [ ] Animator-facing behavior is simple and predictable
 - [ ] Complexity added by this change is stated and justified
+- [ ] Tests added or updated for the change, and the full suite passes on the build that contains it
+- [ ] Every check a temp mayapy probe made is now a suite test, or is listed in the summary as a proposed test
 - [ ] Stated clearly what was and was not verified
 
 ## Known open items

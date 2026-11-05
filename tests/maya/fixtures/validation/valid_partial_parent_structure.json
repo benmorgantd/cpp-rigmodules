@@ -1,0 +1,18 @@
+{
+  "description": "Child plugs a parentStructure leaves out default to layout.end",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": []
+    },
+    {
+      "set": "/rigModules/2/parentStructure",
+      "value": {
+        "aim": "fkchain_1.start"
+      }
+    }
+  ],
+  "expectErrors": []
+}

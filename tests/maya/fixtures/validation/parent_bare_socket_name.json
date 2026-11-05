@@ -1,0 +1,17 @@
+{
+  "description": "A bare socket name is an error: write module.socket, e.g. layout.end",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/1/parentStructure/start",
+      "value": "end"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "",
+      "path": "rigModules[1] 'fkchain_2'.parentStructure.start"
+    }
+  ]
+}

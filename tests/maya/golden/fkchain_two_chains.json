@@ -1,0 +1,46 @@
+{
+  "description": "Public names of two FkChains, the second attached to the first one's end socket",
+  "template": "fkchain_two_chains",
+  "skeleton": "fk_two_chains",
+  "interface": {
+    "modules": {
+      "fkchain_1": {
+        "type": "fkChainModule",
+        "sockets": [["index_0", "start"], ["index_1", "end"]],
+        "childPlugs": ["start"]
+      },
+      "fkchain_2": {
+        "type": "fkChainModule",
+        "sockets": [["index_0", "start", "end"]],
+        "childPlugs": ["start"]
+      },
+      "layout": {
+        "type": "layoutModule",
+        "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
+        "childPlugs": []
+      }
+    },
+    "controls": {
+      "a_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "b_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "c_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "layout_0_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "layout_1_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      },
+      "layout_2_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+      }
+    },
+    "joints": ["a_jnt", "b_jnt", "c_jnt"],
+    "constraints": {}
+  }
+}

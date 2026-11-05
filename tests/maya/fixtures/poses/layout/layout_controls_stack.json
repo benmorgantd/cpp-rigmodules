@@ -1,0 +1,10 @@
+{
+  "description": "Offsets on each layout control add up down the layout hierarchy",
+  "skeleton": "fk_three",
+  "template": "fkchain_three",
+  "set": { "layout_0_ctrl_c.translateX": 5, "layout_1_ctrl_c.translateY": 1, "layout_2_ctrl_c.translateZ": -2 },
+  "expect": {
+    "a_jnt": { "translate": [5, 1, -2] },
+    "c_jnt": { "translate": [5, 5, -2] }
+  }
+}

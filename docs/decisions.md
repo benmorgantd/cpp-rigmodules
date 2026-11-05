@@ -202,6 +202,28 @@ Any string attribute that holds structured data stores JSON text, read and writt
 
 ---
 
+## Testing
+
+### D20. mayapy test suite with data-driven expectations
+**Status:** Decided (2026-11-05). Built and run in mayapy 2026: 182 tests pass against the Release build. Tier gating, `--keep-going`, a crash through Maya's crash handler mid-tier and a plugin that fails to load were each forced and reported as intended. The forced crash left no processes, dialogs or recovery files behind.
+
+`tests\RigTests.cmd` runs Python `unittest` tests in mayapy against a copy of the built `.mll` (details in `tests/README.md`). Tests are grouped by rig module (`modules/`), Maya command (`commands/`) and concept (`concepts/`: naming, sockets, undo/redo, template loading and validation, plugin registration). Known bugs go in `known/` as expected failures.
+
+- **Tiers:** tests run in dependency order: registration, read only, build smoke, modules, constraints, then known bugs, which never block anything. Animation and import/export tiers will go after constraints. A tier runs only if every earlier tier passed (`--keep-going` overrides this), so a broken plugin or build is reported once at its root, not as a failure in every later test. `TIERS` in `run_tests.py` is the only place that assigns files to tiers. A file it doesn't list fails the run, and a file that mixes tiers is split. Constraint id resolution moved from `concepts/test_naming.py` to `commands/test_constraint_cmds.py` for this reason.
+- **One watched mayapy process:** `run_tests.py` starts one mayapy child that runs every tier, and watches it. The child writes outcomes as they happen and records the running test before it starts. A crash then names the test, keeps the earlier results and blocks the later tiers (`--keep-going` starts a new child at the next tier), and a startup failure prints its error. A full run takes about 10 s.
+  - **Rejected:** one process per tier. It isolated tiers from each other's crashes, but cost about 4 s of Maya startup per tier and gained nothing over the watched child, because a crash already stops the tiers after it.
+- **Crash hygiene:** the child runs with `MAYA_DISABLE_CER=1`, because otherwise a crash starts `senddmp.exe` and an "Autodesk MAYA 2026 Error Report" dialog (`cer_dialog.exe`). Its `TEMP`/`TMP` point at the run folder, so crash dumps and recovery scenes stay out of the user's Temp folder. After a crash, the runner closes any crash reporter processes started by the child, matched by parent process id so the user's own Maya is never touched. The child calls `maya.standalone.uninitialize()` before exiting, because without it Maya 2026 crashes on exit. All of this was observed with Maya 2026.3 on 2026-11-05.
+- **Data or code:** expected results that are data live in JSON case files. There are three types: pose cases (control values in, world transforms out), validation cases (JSON pointer edits to a template, expected error path and substring) and golden interface snapshots. Sequences of steps (undo/redo, namespaces, command errors) stay in code. Every case file rejects unknown keys.
+- **Hand-written expectations:** pose expectations are written by hand and never recorded from the rig, because recording would turn a bug into the expected result. Golden snapshots are the one generated type (`--update-golden`). They capture public names only, and a change to them must come with a decision entry.
+- **Shared module tests:** `ModuleContract` gives every module the same tests: builds, rest pose kept, joints driven by the module, nothing inherits transform, and undo/redo round trip. A new module supplies data, not copies of these tests.
+- **Why:** past changes were verified with ad hoc scripts that drifted from the API (positional template path, `layoutModule`) and printed results for a person to judge. Data-driven cases keep most new tests as small, reviewable files.
+- **Rejected:** pytest, which is not shipped with mayapy, and a compiled launcher `.exe`, because the `.cmd` gives the same double-click run.
+- **Deferred:** GoogleTest for the Maya-free core (`JointMarkup`, `RigTemplateValidation`, `RigJsonStructs`). It needs a new dependency, so it waits for sign-off.
+- **Running with every build:** the suite runs after every build. A script that already has mayapy running to check a change ends with `run_tests.run_in_current_maya()`, which reuses that Maya (about 4 s, no crash protection, refuses interactive Maya). Checks made by temp probe scripts become suite tests, or are proposed as tests, before the change is done.
+- **Consequence:** every new module, command or bug fix comes with tests (see `tests/README.md`). The case-file formats are maintained surface, so a fourth case type needs a stated reason.
+
+---
+
 ## Open items
 
 - **Connect-time jump:** the child jumps when a child plug connects to a non-identity socket. Still to do.

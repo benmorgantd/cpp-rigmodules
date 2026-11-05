@@ -1,0 +1,19 @@
+{
+  "description": "A parentStructure key must be one of the module's child plugs",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/1/parentStructure",
+      "value": {
+        "strat": "fkchain_1.start"
+      }
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "strat",
+      "path": "rigModules[1] 'fkchain_2'"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "description": "A selector side is checked strictly",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/joints/1",
+      "value": [
+        "Lft",
+        "fkchain2"
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "Lft",
+      "path": "rigModules[0] 'fkchain_1'"
+    }
+  ]
+}

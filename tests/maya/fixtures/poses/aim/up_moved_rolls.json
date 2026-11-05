@@ -1,0 +1,10 @@
+{
+  "description": "Moving the up object to (3, 3, 0) rolls the aim joint -45 degrees about its aim axis",
+  "skeleton": "aim_basic",
+  "template": "aim_basic",
+  "set": { "eyeUp_ctrl_r.translateX": 3 },
+  "expect": {
+    "eye_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, -45] },
+    "eyeUp_jnt": { "translate": [3, 3, 0] }
+  }
+}

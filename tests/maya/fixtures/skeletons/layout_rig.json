@@ -1,0 +1,11 @@
+{
+  "joints": [
+    { "name": "fkchain1_jnt", "side": "Center", "usage": "fkchain1", "translate": [0, 0, 0] },
+    { "name": "fkchain2_jnt", "side": "Center", "usage": "fkchain2", "translate": [0, 2, 0] },
+    { "name": "fkchain3_jnt", "side": "Center", "usage": "fkchain3", "translate": [0, 4, 0] },
+    { "name": "fkchain4_jnt", "side": "Left", "usage": "fkchain4", "translate": [2, 4, 0] },
+    { "name": "aim_jnt", "side": "Right", "usage": "aim", "translate": [-2, 0, 0] },
+    { "name": "target_jnt", "side": "Right", "usage": "target", "translate": [-2, 0, 5] },
+    { "name": "up_jnt", "side": "Right", "usage": "up", "translate": [-2, 3, 0] }
+  ]
+}

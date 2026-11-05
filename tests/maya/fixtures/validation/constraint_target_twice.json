@@ -1,0 +1,16 @@
+{
+  "description": "Two constraints cannot target the same child plug",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/1/target",
+      "value": "fkchain_2.start"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "fkchain_2.start"
+    }
+  ]
+}
