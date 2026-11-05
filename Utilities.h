@@ -71,27 +71,3 @@ public:
 	static MStatus setChildPlugName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod);
 };
 
-
-class RigModuleCommandUtils
-{
-public:
-	// TODO: moving the functionality (the implementation) back in the cpp file will improve compile times. 
-	// Helper methods
-	static MString getModuleNameFromArgs(const MArgDatabase& argData);
-	static MDagPathArray getJointsFromArgs(const MArgDatabase& argData, MStatus& status);
-	static MObject getRigRootFromArgs(const MArgDatabase& argData);
-	static MSyntax createBaseModuleSyntax(MStatus& status);
-public:
-	// Shared attributes
-	static const char* kNameFlagShort;
-	static const char* kNameFlagLong;
-	static const char* kJointsFlagShort;
-	static const char* kJointsFlagLong;
-	static const char* kParentModuleShort;
-	static const char* kParentModuleLong;
-	static const char* kParentSocketIndexShort;
-	static const char* kParentSocketIndexLong;
-	static const char* kRigRootLong;
-	static const char* kRigRootShort;
-};
-

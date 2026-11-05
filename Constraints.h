@@ -84,7 +84,9 @@ public:
 	static MStatus matchSwitchSpace(const MObject& oConstraint, unsigned int newDriver, MDagModifier& dagMod);
 };
 
-// createRigParentConstraint -control <rigControl> -driver "module.socket" [-driver ...] [-label ...] [-initial n] [-name n]
+// Nodes are always passed by name. The selection is never used.
+// createRigParentConstraint -driver "module.socket" [-driver ...] [-label "Space" ...] [-initial n] [-name n] rigControl
+//   -> the constraint node name. -label is given once per -driver or not at all. Default name: <control>_space.
 class CreateParentConstraintCmd : public MPxCommand
 {
 public:
@@ -104,7 +106,8 @@ private:
 	MDagModifier fDagMod;
 };
 
-// setRigConstraintSpace <constraintNode> (-space n | -label name)
+// setRigConstraintSpace -space n constraintNode
+// setRigConstraintSpace -label "Space" constraintNode   (exactly one of -space or -label)
 class SetConstraintSpaceCmd : public MPxCommand
 {
 public:

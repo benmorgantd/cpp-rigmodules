@@ -73,7 +73,7 @@ Flat layout: every source file sits at the repo root, and there are no `src/` or
 | `ModuleRegistry.cpp/.h` | The only file that includes every module header. Holds each node's type name, JSON `moduleType`, `MTypeId` and `planFromJson`. Add new nodes here. |
 | `CommandRegistry.cpp/.h` | The only file that includes every command header. Add new commands here. |
 | `RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/child plug lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
-| `Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `StringUtils`, `RigModuleCommandUtils`. |
+| `Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `StringUtils`. |
 | `JsonUtils.h` | Maya-free, header-only `readJsonString` / `writeJsonString`. Every string attribute that holds structured data (socket names, joint markup) goes through these (D16). |
 | `Constants.h` | `RigAttr`, `JointMarkupKey`, `PlugAndSocketNames`, `ConstraintAttr`, `SideNames`, `RigNaming`, `RigControlNodeAttr`. It has no Maya headers, because the Maya-free core includes it. Keep it that way. |
 | `Colors.h` | `Colors`, the Maya `MColor` constants, split out of `Constants.h`. |
@@ -93,7 +93,7 @@ Flat layout: every source file sits at the repo root, and there are no `src/` or
 | `docs/decisions.md` | Decision log (D1–D18). |
 | `RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files. |
 
-**Maya commands:** `createRigFromTemplate -template <path> [-namespace ns] <joint>...`, `rigJointMarkup`, `createRigParentConstraint`, `setRigConstraintSpace`.
+**Maya commands:** `createRigFromTemplate -template <path> [-namespace ns] <joint>...`, `rigJointMarkup`, `createRigParentConstraint -driver module.socket ... <control>`, `setRigConstraintSpace (-space n | -label l) <constraint>`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
 
 **Node types and MTypeIds:** `rigRootModule` 0x00218, `assetRootModule` 0x00219, `fkChainModule` 0x00218B, `layoutModule` 0x00218C, `aimModule` 0x00218D, `bmParentConstraint` 0x00218E, `rigControlNode` 0x0013B5C0. Check this list before picking an id for a new node.
 

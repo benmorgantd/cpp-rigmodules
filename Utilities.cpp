@@ -13,16 +13,10 @@
 #include <maya/MFnMatrixData.h>
 #include <maya/MDagPath.h>
 #include <maya/MGlobal.h>
-#include <maya/MArgDatabase.h>
-#include <maya/MArgList.h>
-#include <maya/MDagPathArray.h>
-#include <maya/MObjectArray.h>
 #include <maya/MSelectionList.h>
-#include <maya/MSyntax.h>
 #include <maya/MDagModifier.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MStatus.h>
-#include <maya/MStringArray.h>
 #include <maya/MFnAttribute.h>
 
 // ---------------------------------
@@ -382,105 +376,3 @@ MStatus DagPlugAndSocketUtils::setChildPlugName(const MObject& oModule, const un
 
 	return dagMod.newPlugValueString(pChildPlugsElementName, MString(name));
 }
-
-// RigModuleCommandHelpers ------------------------------------------------
-const char* RigModuleCommandUtils::kNameFlagShort = "-n";
-const char* RigModuleCommandUtils::kNameFlagLong = "-name";
-const char* RigModuleCommandUtils::kJointsFlagShort = "-j";
-const char* RigModuleCommandUtils::kJointsFlagLong = "-joints";
-const char* RigModuleCommandUtils::kParentModuleShort = "-pm";
-const char* RigModuleCommandUtils::kParentModuleLong = "-parentModule";
-const char* RigModuleCommandUtils::kParentSocketIndexShort = "-psi";
-const char* RigModuleCommandUtils::kParentSocketIndexLong = "-parentSocketIndex";
-const char* RigModuleCommandUtils::kRigRootLong = "-rigRoot";
-const char* RigModuleCommandUtils::kRigRootShort = "-rr";
-
-
-MString RigModuleCommandUtils::getModuleNameFromArgs(const MArgDatabase& argData)
-{
-	// Gather the passed in module name
-	MString moduleName = "fkChainModule_01";
-	if (argData.isFlagSet(kNameFlagShort))
-	{
-		argData.getFlagArgument(kNameFlagShort, 0, moduleName);
-	}
-
-	return moduleName;
-}
-
-MObject RigModuleCommandUtils::getRigRootFromArgs(const MArgDatabase& argData)
-{
-	MString rigRootName;
-	MObject oRigRoot;
-
-	if (argData.isFlagSet(kRigRootShort))
-	{
-		MStatus status = argData.getFlagArgument(kRigRootShort, 0, rigRootName);
-		if (status && !rigRootName.isEmpty())
-		{
-			DagUtils::getMObjectFromName(rigRootName, oRigRoot);
-		}
-	}
-	return oRigRoot;
-}
-
-MDagPathArray RigModuleCommandUtils::getJointsFromArgs(const MArgDatabase& argData, MStatus& status)
-{
-	MDagPathArray jointDags;
-	MObjectArray jointObjs;
-	unsigned int numJoints = 0;
-
-	if (argData.isFlagSet(kJointsFlagShort))
-	{
-		numJoints = argData.numberOfFlagUses(kJointsFlagShort);
-
-		for (unsigned int i = 0; i < numJoints; ++i)
-		{
-			MArgList flagArgs;
-			// Fetch the argument list for the i-th occurance of the joints flag
-			status = argData.getFlagArgumentList(kJointsFlagShort, i, flagArgs);
-			if (status == MStatus::kSuccess)
-			{
-				for (unsigned int j = 0; j < flagArgs.length(); ++j)
-				{
-					MString jointName = flagArgs.asString(j, &status);
-					MDagPath jointDag;
-					MSelectionList jointSel;
-					jointSel.add(jointName);
-					status = jointSel.getDagPath(0, jointDag);
-
-					if (status == MStatus::kSuccess && !jointDag.node().isNull())
-					{
-						jointDags.append(jointDag);
-					}
-					else
-					{
-						MGlobal::displayError("Failure getting joint depend node: " + jointName);
-						status = MStatus::kFailure;
-					}
-
-				}
-			}
-		}
-	}
-
-	if (jointDags.length() == 0 || numJoints == 0)
-	{
-		MGlobal::displayError("At least one joint must be given with the -j flag.");
-		return MDagPathArray();
-	}
-	return jointDags;
-}
-
-MSyntax RigModuleCommandUtils::createBaseModuleSyntax(MStatus& status)
-{
-	MSyntax syntax;
-	status = syntax.addFlag(kNameFlagShort, kNameFlagLong, MSyntax::kString);
-	status = syntax.addFlag(kJointsFlagShort, kJointsFlagLong, MSyntax::kString);
-	status = syntax.makeFlagMultiUse(kJointsFlagShort);
-	status = syntax.addFlag(kParentModuleShort, kParentModuleLong, MSyntax::kString);
-	status = syntax.addFlag(kParentSocketIndexShort, kParentSocketIndexLong, MSyntax::kLong);
-	status = syntax.addFlag(kRigRootShort, kRigRootLong, MSyntax::kString);
-	return syntax;
-}
-
