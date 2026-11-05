@@ -101,7 +101,7 @@ RigModuleBuildResult FkChainNode::createModule(
 
 		// Make sure the joint retains its original transform and bake them again
 		// The module drives the joint's world transform through its OPM, so nothing may be inherited.
-		DagUtils::setInheritsTransforms(oJoint, false, dagMod);
+		DagUtils::setInheritsTransform(oJoint, false, dagMod);
 		DagUtils::setSegmentScaleCompensate(oJoint, false, dagMod);
 		MStatus bakeStatus = DagUtils::bakeJointTransformsToOPM(oJoint, mJointRestWorld, dagMod);
 

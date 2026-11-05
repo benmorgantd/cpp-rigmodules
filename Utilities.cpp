@@ -134,7 +134,7 @@ void DagUtils::lockAndHideScale(MObject oControl)
 
 // Bakes joint world transform relative to its parent into its opm and zeroes its transforms.
 // TODO: pass in transform matrix gathered from read phase.
-// NOTE: this is already happening when inheritsTransforms has been turned off, so we just need to write the world matrix to OPM
+// NOTE: this is already happening when inheritsTransform has been turned off, so we just need to write the world matrix to OPM
 MStatus DagUtils::bakeJointTransformsToOPM(const MObject& oJoint, const MMatrix& mTransformWorld, MDagModifier& dagMod)
 {
 	MStatus status;
@@ -145,12 +145,7 @@ MStatus DagUtils::bakeJointTransformsToOPM(const MObject& oJoint, const MMatrix&
 		return MStatus::kFailure;
 	}
 	
-	MPlug pInheritsTransforms = fnTransform.findPlug("inheritsTransforms", false);
-	if (pInheritsTransforms.asBool() == true)
-	{
-		MGlobal::displayError("Given joint must have inheritsTransforms off before baking to OPM");
-		return MStatus::kFailure;
-	}
+	// NOTE: we can't do a verification pass here of the current value of inheritsTransform because dagMod hasn't run yet.
 
 	// First zero out the current local matrix joint orient so that we can position the joint in world space locally using OPM
 	// TODO: separate this into a fn
@@ -201,11 +196,11 @@ MStatus DagUtils::zeroLocalTransforms(const MObject& oTransform, MDagModifier& d
 	return MStatus::kSuccess;
 }
 
-MStatus DagUtils::setInheritsTransforms(const MObject& transform, bool value, MDagModifier& dagMod)
+MStatus DagUtils::setInheritsTransform(const MObject& transform, bool value, MDagModifier& dagMod)
 {
 	if (!transform.hasFn(MFn::kTransform))
 	{
-		MGlobal::displayError("Given object is not a DAG transform, cannot set inheritsTransforms.");
+		MGlobal::displayError("Given object is not a DAG transform, cannot set inheritsTransform.");
 		return MStatus::kFailure;
 	}
 

@@ -349,7 +349,7 @@ MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagM
     MObject oControl = dagMod.createNode(RigControlNode::id);
 
     // All transforms on rig controls get ignored and calculated by modules instead
-    DagUtils::setInheritsTransforms(oControl, false, dagMod);
+    DagUtils::setInheritsTransform(oControl, false, dagMod);
 
     MString ctrlName = jointName;
     ctrlName.substitute(RigNaming::JointSuffix, "");

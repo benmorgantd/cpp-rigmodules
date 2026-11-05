@@ -50,7 +50,7 @@ public:
 	static void lockAndHideScale(MObject oControl);
 	static MStatus bakeJointTransformsToOPM(const MObject& oTransform, const MMatrix& mTransformWorld, MDagModifier& dagMod);
 	static MStatus zeroLocalTransforms(const MObject& oTransform, MDagModifier& dagMod);
-	static MStatus setInheritsTransforms(const MObject& transform, bool value, MDagModifier& dagMod);
+	static MStatus setInheritsTransform(const MObject& transform, bool value, MDagModifier& dagMod);
 	static MStatus setSegmentScaleCompensate(MObject& oTransform, bool value, MDagModifier& dagMod);
 	static MDagPath getDagPathFromName(const MString& name);
 	// Resolves any DG or DAG node by name. Reports nothing, the caller decides what a miss means.

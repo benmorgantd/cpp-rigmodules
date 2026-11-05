@@ -186,7 +186,7 @@ RigModuleBuildResult AimModuleNode::createModule(
 		const char* partName = kAimPartNames[i];
 
 		// The module drives the joint's world transform through its OPM, so nothing may be inherited.
-		DagUtils::setInheritsTransforms(oJoint, false, dagMod);
+		DagUtils::setInheritsTransform(oJoint, false, dagMod);
 		DagUtils::setSegmentScaleCompensate(oJoint, false, dagMod);
 		status = DagUtils::bakeJointTransformsToOPM(oJoint, mRestWorld, dagMod);
 		if (!status)
