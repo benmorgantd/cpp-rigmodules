@@ -140,7 +140,8 @@ RigTemplates/        example template
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
-| `design/decisions.md` | Decision log (D1–D23). |
+| `design/decisions.md` | Decision log (D1–D24). |
+| `design/mayadev-integration.md` | Survey of the sibling mayadev repo, conflicts with RigModules, the proposed boundary and phases (D24). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. |
 | `cpp/RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files, with its folder relative to `cpp/` (`core\X.cpp`). The filters file has one filter per folder. |
@@ -228,7 +229,17 @@ Studio-style split, matching how the author structures their Python code. The fo
 
 - **Core (`core/`, no Maya headers):** JSON parsing and validation, joint markup, shared constants. Still to move here: child plug and socket resolution, `parentStructure` ordering, matrix math. Meant to be testable with GoogleTest and no Maya install (no harness yet).
 - **Plugin layer (`maya/`, Maya API):** nodes, attribute definitions, plug I/O, and the commands that bridge to the core.
-- **Python (not started):** the build command, JSON validation, and user-facing error messages.
+- **Python (not started):** a thin package in a top-level `python/` folder: a build wrapper, a rig query API (rig root, modules, controls, sockets, rest values), template validation passed through to the core, shape IO and pose data read and write, and user-facing error messages. Placement rule: Python goes here only if it would have to change when a RigModules node, attribute, flag or template key changes. It imports no Qt or `bmaya` and reads no environment variables or asset paths (D24).
+
+## Sibling repo: mayadev
+
+The author's Python pipeline lives in a separate repo: https://github.com/benmorgantd/mayadev, local checkout `C:\Users\bmorgan\Documents\dev\maya\mayadev`, package `bmaya` under `py/scripts/bmaya`. The author will use it for skinning, animation and GUI tools. Read `design/mayadev-integration.md` before touching either side of the boundary. The boundary is decided (D24).
+
+- **Dependency direction:** mayadev depends on RigModules, never the reverse. mayadev tools reach rig internals only through the RigModules Python query API, never by walking node connections or parsing names.
+- **Legacy rig builder:** mayadev has its own builder (`maya/rigging/base/` with `Rig`, `Module`, `Layout`, plus `maya/rigging/modules/`). It uses cmds constraints, DAG offset groups, name-based joints and `L/R/M` sides. It is being deleted, with a tag kept for reference. No rigs built with it need a migration path. Do not extend it, port its code, or copy its conventions into RigModules. Read its modules only as a list of animator-facing requirements when a new module goes through the gate.
+- **Reusable in mayadev:** `core/` (log, progress manager, tool registry, batch framework), `maya/asset/` (asset id `project|type|name`, the same format as `assetId` here, plus component files), `maya/rigging/weights/` (skinning), `maya/eventsregistry.py`, `maya_ui/qtbase.py`, and the tool menu.
+- **Same words, different meanings:** both repos have `Layout`, `FkChain` and `LayoutRig.json`. In this repo they always mean the RigModules ones. Call mayadev's versions "legacy".
+- mayadev is a different repo with its own conventions. This file's rules (Allman, docs pass, suite) apply only to this repo. Changes to mayadev need the author's go-ahead and a commit in that repo.
 
 Rule: if logic can live in the core, it goes in `core/`. The plugin layer should be thin adapters. A new file goes in `core/` when it needs no Maya header, including through what it includes.
 
@@ -251,7 +262,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
 - **Reading results in standalone:**
   - `MGlobal::displayError` text surfaces as the `RuntimeError` message from the `cmds` call.
   - Not enough command objects raises `TypeError`.
-  - The user's `userSetup.py` prints startup noise, so filter the output.
+  - The author's `userSetup.py` is mayadev's custom startup (logging, tool registry, menus), and it's wanted. It prints startup messages in mayapy, so filter them out of results rather than disabling it. The suite skips it on purpose (`MAYA_SKIP_USERSETUP_PY=1`), so tests see the plugin alone.
   - Turn undo on with `cmds.undoInfo(state=True, infinity=True)` before testing undo/redo.
 - **Line endings:** source files are CRLF. Git Bash `sed -i` rewrites a file as LF, so prefer the Edit tool. Otherwise run `unix2dos` afterwards.
 - **Locked files:** `maya/nodes/RigRoot.cpp` and other files may be open and locked in Visual Studio, so writing them from a Python script fails with a permission error. The Edit tool still works.

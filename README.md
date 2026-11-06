@@ -115,6 +115,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/modules.md](docs/modules.md) | Each module's joints, controls, child plugs and sockets |
 | [tests/README.md](tests/README.md) | Running and writing tests |
 | [design/decisions.md](design/decisions.md) | Why the system is built the way it is (decision log) |
+| [design/mayadev-integration.md](design/mayadev-integration.md) | Plan for how RigModules and the mayadev Python pipeline fit together |
 
 [docs/README.md](docs/README.md) explains how the documentation is organized and kept current.
 

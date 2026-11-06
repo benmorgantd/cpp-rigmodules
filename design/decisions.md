@@ -263,12 +263,28 @@ Any string attribute that holds structured data stores JSON text, read and writt
 
 ---
 
+## Python and the wider pipeline
+
+### D24. mayadev depends on RigModules, never the reverse
+**Status:** Decided (2026-11-06). The author signed off on the two-repo split, the placement rule and the migration steps in `mayadev-integration.md`. Nothing is built yet.
+
+The author's Python pipeline repo, mayadev (package `bmaya`), has its own rig builder, which works completely differently. It will hold skinning, animation and GUI tools. Proposal: keep two repos. RigModules holds the plugin and a thin Python front end in `python/` (build wrapper, rig query API, template validation passthrough; no Qt, no asset paths). mayadev holds assets, build orchestration, skinning, animation tools and UI, and reaches rig internals only through the query API. mayadev's legacy rig builder (`rigging/base`, `rigging/modules`) is frozen, then deleted. Its modules are kept as requirements reference, not code to port. Full survey, conflict table and phases are in `design/mayadev-integration.md`.
+
+- **Why:** RigModules names are public API for animation (D11), so rig behavior should version apart from fast-moving tools. The plugin must load headless without Qt or a pipeline environment. And mayadev's code would not meet this repo's tests, docs and conventions without a rewrite.
+- **Rejected (for now):** one repo with all of `bmaya` under `python/`. It stays the fallback if two checkouts get painful.
+- **Placement rule:** Python goes in `python/` if it would have to change when a RigModules node, attribute, flag or template key changes. Otherwise it stays in mayadev. `python/` never imports Qt or `bmaya` and reads no environment variables or asset paths.
+- **Author's answers (2026-11-06):** no legacy rigs need to survive (personal portfolio work), so the legacy builder can be tagged and deleted with no migration. Riggers edit control shapes per asset through `shapeTransform`, so shape IO is a TODO on the RigModules side and the asset folder layout is a TODO on the mayadev side. Each repo ships a `.mod`.
+- **Consequence:** every legacy conflict (cmds constraints, name-based joints, nested `children` templates, `L/R/M` sides, network-node metadata) resolves in RigModules' favour. Mirroring and control sets are still open.
+
+---
+
 ## Open items
 
 - **Connect-time jump:** the child jumps when a child plug connects to a non-identity socket. Still to do.
 - **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
+- **D24:** the TODOs in `mayadev-integration.md` (shape IO, asset folders, the `python/` package, `.mod` files), plus control sets and mirroring.
 
 ## Adding an entry
 
