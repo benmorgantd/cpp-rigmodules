@@ -57,6 +57,7 @@ TIERS = [
     ]),
     ("constraints", True, [
         "commands.test_constraint_cmds",
+        "concepts.test_docs_examples",     # the README quick start ends with a space switch
     ]),
     # Animation, then import/export tiers go here, after constraints.
     ("known bugs", False, [                # expected failures, never block anything

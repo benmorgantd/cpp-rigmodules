@@ -62,8 +62,8 @@ public:
 
 
 // Joints are always passed by full name. The selection is never used.
-// createRigFromTemplate -template "C:/rigs/LayoutRig.json" -namespace "rig" skel:root_jnt skel:spine_jnt
-// -namespace is the rig's final namespace (default "rig"). The joints are moved into it.
+// cmds.createRigFromTemplate("skel:root_jnt", "skel:spine_jnt", template="C:/rigs/LayoutRig.json", namespace="rig")
+// namespace is the rig's final namespace (default "rig"). The joints are moved into it.
 class CreateRigCmd : public MPxCommand
 {
 public:

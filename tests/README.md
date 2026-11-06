@@ -50,7 +50,7 @@ Maya tests can't each run in isolation. If the plugin doesn't load, every test f
 | 2 read only | commands and checks that never build a rig | joint markup command, template loading, validation cases that expect errors |
 | 3 build smoke | every fixture template builds | `concepts/test_smoke` (each golden file's template and skeleton, plus valid validation cases), `commands/test_create_rig` |
 | 4 modules | each module poses correctly, and the rig around it is wired and named right | `modules/*`, sockets, naming, undo/redo |
-| 5 constraints | constraint commands and space switching | `commands/test_constraint_cmds` |
+| 5 constraints | constraint commands and space switching | `commands/test_constraint_cmds`, `concepts/test_docs_examples` (the README quick start ends with a space switch) |
 | 6 known bugs | expected failures. Never blocks anything. | `known/*` |
 
 - **Gating:** a tier runs only if every earlier tier passed. A blocked tier prints `NOT RUN (blocked by ...)` instead of a failure for every test in it, so the first failure shown is the root cause. Within a tier, every test runs, each from a new scene.
@@ -80,7 +80,7 @@ tests/
     golden/                      golden interface snapshots
     modules/                     one file per rig module
     commands/                    one file per Maya command
-    concepts/                    naming, sockets, undo/redo, validation, loading, plugin
+    concepts/                    naming, sockets, undo/redo, validation, loading, plugin, doc examples
     known/                       known bugs as expected failures
 ```
 
@@ -132,7 +132,7 @@ Expected results that are data (a pose and the transforms it gives, a template e
 Golden snapshots record the rig's public names: modules with their sockets and child plugs, controls with their keyable attributes and space labels, joints, and constraint labels.
 
 - **Adding one:** write `description`, `template` and `skeleton`, then run `RigTests.cmd --update-golden golden`.
-- **When one fails:** a public name changed, which breaks saved poses, animation and exports. If the change is intended, update the golden file and record it in `docs/decisions.md` in the same change.
+- **When one fails:** a public name changed, which breaks saved poses, animation and exports. If the change is intended, update the golden file and record it in `design/decisions.md` in the same change.
 
 ### Unknown keys
 
@@ -145,7 +145,7 @@ Every new test file goes into `TIERS` in `run_tests.py`, in the earliest tier wh
 - **New module:** create `modules/test_<module>.py` with a `ModuleContract` subclass (template, skeleton, node type and joint owners), `add_pose_cases(<Class>, "<module>")`, and module-specific tests. Add the fixtures it needs, a `fixtures/poses/<module>/` folder and a golden snapshot.
 - **New command:** create `commands/test_<command>.py`. Cover flags, objects passed by name (the selection is never used), every error path, and undo/redo. Add its long flags to `concepts/test_plugin.py`.
 - **New template check:** add a validation case. Write a code test in `concepts/test_template_validation.py` only when the check needs a scene change, such as a driven OPM.
-- **Bug fix:** write the failing test first. If the bug can't be fixed yet, put the test in `known/` with `@unittest.expectedFailure` and name the open item in `docs/decisions.md`.
+- **Bug fix:** write the failing test first. If the bug can't be fixed yet, put the test in `known/` with `@unittest.expectedFailure` and name the open item in `design/decisions.md`.
 
 ### Temp probes become tests
 

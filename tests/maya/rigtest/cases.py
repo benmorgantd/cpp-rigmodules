@@ -174,7 +174,7 @@ def _run_golden_case(test, path):
     if expected_text != actual_text:
         diff = "\n".join(difflib.unified_diff(expected_text, actual_text, "golden", "built", lineterm="", n=2))
         test.fail("public rig names changed. This breaks saved poses, animation and exports.\n"
-                  "If the change is intended, run --update-golden and record it in docs/decisions.md.\n" + diff)
+                  "If the change is intended, run --update-golden and record it in design/decisions.md.\n" + diff)
 
 
 def add_golden_cases(cls):

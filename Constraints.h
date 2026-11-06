@@ -87,9 +87,9 @@ public:
 };
 
 // Nodes are always passed by name. The selection is never used.
-// createRigParentConstraint -driver "module.socket" [-driver ...] [-label "Space" ...] [-initial n] [-name n] rigControl
-//   -> the constraint node name. -label is given once per -driver or not at all. Default name: <control>_space.
-//   Driver modules and an unqualified -name resolve in the control's namespace (D19).
+// cmds.createRigParentConstraint("rigControl", driver=["module.socket", ...], label=["Space", ...], initial=n, name="n")
+//   -> the constraint node name. label is given once per driver or not at all. Default name: <control>_space.
+//   Driver modules and an unqualified name resolve in the control's namespace (D19).
 class CreateParentConstraintCmd : public MPxCommand
 {
 public:
@@ -109,8 +109,8 @@ private:
 	MDagModifier fDagMod;
 };
 
-// setRigConstraintSpace -space n constraintNode
-// setRigConstraintSpace -label "Space" constraintNode   (exactly one of -space or -label)
+// cmds.setRigConstraintSpace("constraintNode", space=n)
+// cmds.setRigConstraintSpace("constraintNode", label="Space")   (exactly one of space or label)
 class SetConstraintSpaceCmd : public MPxCommand
 {
 public:

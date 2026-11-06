@@ -125,7 +125,7 @@ The author is interested in splitting the code into a Maya-free core library and
 - Pass lvalue `MObject`s to any function taking a non-const `MObject&` (for example `MPlug::child`). Look the attribute up on its own line into a named variable first. Details in `CLAUDE.md`.
 - Command flags are read and documented by long name only (`-usage`, not `-us`). `MSyntax::addFlag` requires a short name and rejects anything over 3 letters (verified in Maya 2026: `-skin` and `-usage` fail and the flag silently never registers), so short names appear only inside `newSyntax()`, wrapped in `CHECK_MSTATUS`. Added 2026-11-04.
 - Commands share one shape (2026-11-05, every command migrated). Long flag names are file-local `constexpr` constants. A file-local helper reads the flags into a struct (`RigBuildInputs`, `ConstraintBuildArgs`) or a value before anything is queued. `doIt` only parses, delegates and returns. The nodes a command acts on are string objects passed by name, never the selection (`useSelectionAsDefault(false)`). When a helper already displays its error, the caller returns its status with a plain `if`, not `CHECK_MSTATUS_AND_RETURN_IT`, which would print a second "API error detected" line.
-  - **Signature changes:** `createRigParentConstraint` takes the control as its one object instead of `-control`: `createRigParentConstraint -driver "rig:layoutModule.end" -label "World" rig:up_ctrl_r` (since D19, `-driver layout.end`). `setRigConstraintSpace` takes the constraint as an object, which is call-compatible with the old positional argument, and now fails when both `-space` and `-label` are given. A negative `-initial` is now an error instead of being clamped to 0.
+  - **Signature changes:** `createRigParentConstraint` takes the control as its one object instead of `-control`: `cmds.createRigParentConstraint("rig:up_ctrl_r", driver="rig:layoutModule.end", label="World")` (since D19, `driver="layout.end"`). `setRigConstraintSpace` takes the constraint as an object, which is call-compatible with the old positional argument, and now fails when both `-space` and `-label` are given. A negative `-initial` is now an error instead of being clamped to 0.
   - **Removed:** `RigModuleCommandUtils` (`-name`, `-joints`, `-parentModule`, `-parentSocketIndex`, `-rigRoot` helpers). It had no callers and belonged to the per-module creation commands that the template build replaced.
 
 ---
@@ -178,7 +178,7 @@ Any string attribute that holds structured data stores JSON text, read and writt
 ### D18. createRigFromTemplate takes its joints by name and owns the rig namespace
 **Status:** Decided (2026-11-05). Built and run in mayapy 2026: build, undo, redo, nested and root namespaces, and each failure case below.
 
-`createRigFromTemplate -template <path> [-namespace <ns>] <joint> [<joint> ...]`. Joints are string objects with their namespace in the name (`skel:upperArm_jnt`), and the selection is never used, the same as `rigJointMarkup`. `-template` replaced the positional path. `-namespace` is the rig's final namespace, `rig` by default. `:` is the root, nested paths such as `char:rig` work, and an existing namespace is reused. Every node the build creates goes there, and every input joint is moved there with its name unchanged.
+`cmds.createRigFromTemplate(*joints, template=path, namespace=ns)`, where `namespace` is optional. Joints are string objects with their namespace in the name (`skel:upperArm_jnt`), and the selection is never used, the same as `rigJointMarkup`. `-template` replaced the positional path. `-namespace` is the rig's final namespace, `rig` by default. `:` is the root, nested paths such as `char:rig` work, and an existing namespace is reused. Every node the build creates goes there, and every input joint is moved there with its name unchanged.
 
 - **Why:** the caller says exactly which joints are rig inputs instead of the build scanning a namespace, and the finished rig (joints included) lives under one namespace.
 - **Rules (read phase, D17):** every passed joint must carry valid markup, so an unmarked joint is an error, not skipped. Each joint's and module's target name in the rig namespace must be free in the scene and unique within the build. For example, `skel:a` and `other:a` cannot both be passed. A joint already in the rig namespace keeps its place. Joint name resolution fails before the read phase, like `rigJointMarkup`.
@@ -191,7 +191,7 @@ Any string attribute that holds structured data stores JSON text, read and writt
 ### D19. Commands take the same socket ids as templates
 **Status:** Decided (2026-11-05). Built and run in mayapy 2026 with rig namespaces `rig`, `char:rig` and the root: create, space switch, undo, redo, and each failure case below.
 
-`createRigParentConstraint -driver layout.end -driver fkchain_1.start <control>` uses the same `module.socket` ids as a template's `parentStructure` and `constraints`.
+`cmds.createRigParentConstraint(control, driver=["layout.end", "fkchain_1.start"])` uses the same `module.socket` ids as a template's `parentStructure` and `constraints`.
 
 - **The layout node is named `layout`** (`RigNaming::LayoutModule`), not `layoutModule`. Every module's scene name is now its template id, so the command path needs no special case for the reserved name. The read phase checks that `<rigNamespace>:layout` is free, like every other module name.
 - **Drivers resolve in the constrained control's namespace.** A module name without `:` is looked up as `<control namespace>:<module>`, as an absolute name, so the user's current namespace does not matter. A name that already has a namespace (`other:layout.end`) is used as given. The default enum label stays exactly what was typed.
@@ -221,6 +221,20 @@ Any string attribute that holds structured data stores JSON text, read and writt
 - **Deferred:** GoogleTest for the Maya-free core (`JointMarkup`, `RigTemplateValidation`, `RigJsonStructs`). It needs a new dependency, so it waits for sign-off.
 - **Running with every build:** the suite runs after every build. A script that already has mayapy running to check a change ends with `run_tests.run_in_current_maya()`, which reuses that Maya (about 4 s, no crash protection, refuses interactive Maya). Checks made by temp probe scripts become suite tests, or are proposed as tests, before the change is done.
 - **Consequence:** every new module, command or bug fix comes with tests (see `tests/README.md`). The case-file formats are maintained surface, so a fourth case type needs a stated reason.
+
+---
+
+## Documentation
+
+### D21. User docs in `docs/`, design docs in `design/`
+**Status:** Decided (2026-11-05)
+
+`README.md` (overview, install, quick start) and `docs/` (templates, commands, modules) describe what the system does now, for people using it. `design/` (this log and the planning PDF) records why, for people changing it. `docs/README.md` holds the process: each topic has one owning page, and a user-visible change updates that page in the same change. Docs are plain Markdown in the repo, with no generator.
+
+- **Why:** `docs/` held only design material, so there was nowhere to put user documentation without mixing the two audiences.
+- **Rejected:** moving the design docs into `.claude/`, because the decision log is for the author as much as for Claude. A doc generator (Doxygen, MkDocs), because it is a new dependency and nothing needs it yet.
+- **Consequence:** reference pages repeat facts the code holds (keys, flags, socket names), so they can drift. The guards are the owning-page rule, the docs pass that ends every change (`CLAUDE.md`, Working style), and the README quick start running as a suite test. When a page and the code disagree, the code wins and the page is fixed.
+- **Command examples are Python `maya.cmds`, never MEL** (author's call, 2026-11-05). This applies to every doc, this log, comments and replies. Flags are keywords named by the long flag name. The earlier MEL examples in D14, D18 and D19 were rewritten.
 
 ---
 

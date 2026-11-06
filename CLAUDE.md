@@ -6,14 +6,23 @@ The author is a senior rigging technical artist (AAA background, advanced Maya, 
 
 Goal: excellent, efficient, scalable rig modules for Autodesk Maya 2026+, synthesizing the author's lessons from complex rigging systems at large AAA studios. Emphasize planning before writing code.
 
-The rigmodules PDF (`Rigging System Planning.pdf`) holds the author's design instructions, and the repo holds the actual code. The README and the PDF may be slightly out of date. When they disagree with the code, the code wins. Flag the discrepancy instead of silently picking one.
+The rigmodules PDF (`design/Rigging System Planning.pdf`) holds the author's design instructions, and the repo holds the actual code. The PDF may be slightly out of date. When it disagrees with the code, the code wins. Flag the discrepancy instead of silently picking one.
 
-Design decisions and their history are in `docs/decisions.md`. Read it before proposing architectural changes.
+Design decisions and their history are in `design/decisions.md`. Read it before proposing architectural changes.
+
+Documentation has two homes (D21). `design/` is for people working on the system: why it is built the way it is. `README.md` and `docs/` are for people using it: what it does now. The process is in `docs/README.md`.
 
 ## Working style
 
 - Plan before code. For any new module or architectural change, propose the design first (inputs, outputs, child plugs, sockets, attributes, affects relationships, failure modes) and wait for sign-off before writing implementation.
-- When a design decision is made, changed, or reversed, add or update its entry in `docs/decisions.md` in the same change.
+- When a design decision is made, changed, or reversed, add or update its entry in `design/decisions.md` in the same change.
+- **Docs change with the code, in the same change.** Every change ends with a docs pass:
+  1. List what the change touches that a user or maintainer can see: a command or flag, a template key, a module, its `moduleArgs`, child plugs, sockets or controls, a validation rule, a build or test step, the repo layout.
+  2. Update the owning page for each one (`docs/README.md` maps topics to pages): `README.md`, a `docs/` page, `tests/README.md`, or this file.
+  3. If something new has no owning page (a new module, command, workflow or tool), add it to the existing page that fits. If none fits, write a new page and add it to the table in `docs/README.md` and the README's documentation list. A new module or command is never done without its docs.
+  4. Search the docs for the old names and behaviour and fix every stale mention, including examples.
+  5. A new or changed worked example gets a test in `tests/maya/concepts/test_docs_examples.py`.
+  6. In the change summary, list the docs updated or added, or say why none were needed.
 - Prefer small, reviewable diffs. Do not refactor unrelated code in the same change.
 - If a requirement is ambiguous, ask. Do not guess at rig behavior.
 - Never claim code compiles or behaves correctly in Maya unless you actually built and ran it. Say what was verified and what was not.
@@ -92,11 +101,14 @@ Flat layout: every source file sits at the repo root, and there is no `src/` fol
 | `JointMarkupCmd.h/.cpp` | `rigJointMarkup` command. |
 | `RigTemplates/LayoutRig.json` | The only example template. Its joints use `[side, usage]` selectors. |
 | `include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
-| `docs/decisions.md` | Decision log (D1–D20). |
+| `README.md` | User-facing overview: install, quick start, links into `docs/`. |
+| `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
+| `design/decisions.md` | Decision log (D1–D21). |
+| `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. |
 | `RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files. |
 
-**Maya commands:** `createRigFromTemplate -template <path> [-namespace ns] <joint>...`, `rigJointMarkup`, `createRigParentConstraint -driver module.socket ... <control>`, `setRigConstraintSpace (-space n | -label l) <constraint>`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
+**Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, namespace=ns)`, `cmds.rigJointMarkup(...)`, `cmds.createRigParentConstraint(control, driver=["module.socket", ...])`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`. Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
 
 **Node types and MTypeIds:** `rigRootModule` 0x00218, `assetRootModule` 0x00219, `fkChainModule` 0x00218B, `layoutModule` 0x00218C, `aimModule` 0x00218D, `bmParentConstraint` 0x00218E, `rigControlNode` 0x0013B5C0. Check this list before picking an id for a new node.
 
@@ -159,6 +171,8 @@ if (status != MS::kSuccess)
 
 Use long flag names everywhere: in code that reads flags, in comments, in docs and in examples (`-usage`, never `-us`). Short names get confusing when reading code. `MSyntax::addFlag` still requires a short name, so short names appear only inside `newSyntax()` and nowhere else. Keep long flag names in file-local constants and read them through those constants.
 
+**Command examples are Python `maya.cmds`, never MEL.** This applies to docs, `design/decisions.md`, comments, commit messages and replies to the author: `cmds.rigJointMarkup("skel:arm_jnt", usage="arm", side="Left", export=True, skin=True)`, not `rigJointMarkup -usage "arm" ...`. Keywords are the long flag names, and a multi-use flag takes a list. Flag tables name the keyword (`usage`), without the leading `-`.
+
 ### Maya API rules
 
 - **Pass lvalue MObjects to non-const `MObject&` parameters.** `MPlug::child(MObject& attr, MStatus*)` does not accept a temporary, so `pElement.child(fnModule.attribute("name"))` fails with E0304. Look the attribute up on its own line into a named `oAttrName` variable, then pass that variable. This applies to any Maya API function taking a non-const `MObject&`, including the result of `fnNode.attribute(...)` and `MFnAttribute::create(...)`. Check the header signature before nesting a call as an argument.
@@ -208,7 +222,7 @@ Rule: if logic can live in the core, it goes in the core. The plugin layer shoul
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 182 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 185 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.
@@ -235,6 +249,8 @@ Before declaring work done, check:
 - [ ] Complexity added by this change is stated and justified
 - [ ] Tests added or updated for the change, and the full suite passes on the build that contains it
 - [ ] Every check a temp mayapy probe made is now a suite test, or is listed in the summary as a proposed test
+- [ ] Docs pass done: every visible change is in its owning page, new topics have a page, no stale mentions remain, and the summary lists the docs touched
+- [ ] Command examples use Python `maya.cmds`, not MEL
 - [ ] Stated clearly what was and was not verified
 
 ## Known open items

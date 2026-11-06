@@ -7,11 +7,11 @@
 #include <maya/MSyntax.h>
 
 // Joints are always passed by name. The selection is never used.
-// Create: rigJointMarkup -usage "upperArm" -side "Left" -export true -skin true jointA
-// Edit:   rigJointMarkup -edit -usage "shoulder" jointA jointB
-// Query:  rigJointMarkup -query -usage jointA jointB   -> one value per joint, "" for unmarked joints
-//         rigJointMarkup -query jointA                 -> full markup JSON per joint
-// Remove: rigJointMarkup -remove jointA
+// Create: cmds.rigJointMarkup("jointA", usage="upperArm", side="Left", export=True, skin=True)
+// Edit:   cmds.rigJointMarkup("jointA", "jointB", edit=True, usage="shoulder")
+// Query:  cmds.rigJointMarkup("jointA", "jointB", query=True, usage=True)   -> one value per joint, "" for unmarked joints
+//         cmds.rigJointMarkup("jointA", query=True)                         -> full markup JSON per joint
+// Remove: cmds.rigJointMarkup("jointA", remove=True)
 class JointMarkupCmd : public MPxCommand
 {
 public:
