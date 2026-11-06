@@ -29,7 +29,8 @@ import unittest
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 MAYA_TESTS_DIR = os.path.join(TESTS_DIR, "maya")
 REPO_DIR = os.path.dirname(TESTS_DIR)
-DEFAULT_PLUGIN = os.path.join(REPO_DIR, "x64", "Release", "RigModules.mll")
+CPP_DIR = os.path.join(REPO_DIR, "cpp")
+DEFAULT_PLUGIN = os.path.join(CPP_DIR, "x64", "Release", "RigModules.mll")
 
 # Every test file belongs to exactly one tier. Order is dependency order: a tier may assume every
 # earlier tier passed. A file missing from this table fails the run, so new suites must be placed.
@@ -37,6 +38,7 @@ DEFAULT_PLUGIN = os.path.join(REPO_DIR, "x64", "Release", "RigModules.mll")
 TIERS = [
     ("registration", True, [
         "concepts.test_plugin",
+        "concepts.test_source_layout",     # core/ stays Maya-free; reads files, not the scene
     ]),
     ("read only", True, [                  # commands and checks that never build a rig
         "commands.test_joint_markup_cmd",
@@ -386,8 +388,11 @@ def check_tier_table():
 def stale_sources(plugin):
     """Source files newer than the plugin: testing an old build has hidden changes before."""
     built = os.path.getmtime(plugin)
-    sources = glob.glob(os.path.join(REPO_DIR, "*.cpp")) + glob.glob(os.path.join(REPO_DIR, "*.h"))
-    return sorted(os.path.basename(s) for s in sources if os.path.getmtime(s) > built)
+    sources = []
+    for folder in ("core", "maya"):
+        for extension in ("*.cpp", "*.h"):
+            sources += glob.glob(os.path.join(CPP_DIR, folder, "**", extension), recursive=True)
+    return sorted(os.path.relpath(s, CPP_DIR) for s in sources if os.path.getmtime(s) > built)
 
 
 def mayapy_path():

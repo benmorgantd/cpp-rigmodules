@@ -68,7 +68,7 @@ Do not add a new module casually. Before proposing one:
 
 ### Shared constants and attribute lookup
 
-- Shared attribute names are string constants in `Constants.h` (namespace `RigAttr`). Node type names live in the `NodeCreateCommands` namespace.
+- Shared attribute names are string constants in `core/Constants.h` (namespace `RigAttr`). Node type names live in the `NodeCreateCommands` namespace.
 - Module-level code uses the module's own static `MObject` attributes. Shared rigmodule code looks attributes up by name (`findAttr`) and uses string-based `findPlug`.
 - Do not duplicate attribute name strings. Add them to `RigAttr`.
 - Structured data in a string attribute is JSON, read and written with `JsonUtils`. Do not invent delimited formats.
@@ -76,44 +76,81 @@ Do not add a new module casually. Before proposing one:
 
 ## Repo map
 
-Flat layout: every source file sits at the repo root, and there is no `src/` folder. Tests live in `tests/` (see `tests/README.md`). Read this table before searching the repo.
+All C++ lives under `cpp/`, with its Visual Studio project (D23). Inside it, source is split by dependency (D13): `core/` holds code with no Maya headers, and `maya/` holds code that uses the Maya API, grouped by role (D22). **C++ paths in this file and in includes are relative to `cpp/`**: `maya/shared/RigModule.h` means `cpp/maya/shared/RigModule.h`. Tests live in `tests/` (see `tests/README.md`). Read these tables before searching the repo.
+
+```
+cpp/                 the C++ root and include root: RigModules.vcxproj + .filters, .clang-format
+  core/              Maya-free, flat
+  maya/              PluginMain.cpp, ModuleRegistry, CommandRegistry
+    modules/         one file pair per module node (FkChain, Layout, Aim)
+    commands/        one file pair per MPxCommand (or per closely related set)
+    nodes/           every other node: roots, constraint, control
+    shared/          code used across those folders: module base, utilities, scene helpers, enums
+  include/           vendored third-party headers (nlohmann json)
+  x64/Release/       build output (ignored)
+tests/               mayapy suite
+docs/, design/       user docs, design docs
+RigTemplates/        example template
+```
+
+**Where a new file goes:** no Maya header needed → `core/`. A module node → `maya/modules/`. A command → `maya/commands/`, and its node-side logic stays in the node or `shared/` (the command parses flags and delegates, D14). Any other node → `maya/nodes/`. Used by more than one of those folders → `maya/shared/`. A new folder is a layout decision: add it to `SOURCE_FOLDERS` in the layout test and to this map.
+
+**Include rules** (checked by `tests/maya/concepts/test_source_layout.py`):
+- `core/` includes only other `core/` headers (by bare name, `"Constants.h"`), the standard library and `<nlohmann/json.hpp>`. Never Maya, never `maya/`. Bare names keep `core/` self-contained if it becomes its own library.
+- `maya/` includes every project header by its path from `cpp/` (`"core/Constants.h"`, `"maya/shared/RigModule.h"`), including headers in its own folder. The include line says where the header lives.
+- `cpp/` (the project dir) and `cpp/include/` are on the include path. There is no separate core library yet: both folders build into the one `.mll`.
+
+**`core/`** (Maya-free)
+
+| File | Contents |
+|---|---|
+| `Constants.h` | `RigAttr`, `JointMarkupKey`, `PlugAndSocketNames`, `ConstraintAttr`, `SideNames`, `RigNaming`, `RigControlNodeAttr`. |
+| `JsonUtils.h` | Header-only `readJsonString` / `writeJsonString`. Every string attribute that holds structured data (socket names, joint markup) goes through these (D16). |
+| `StringUtils.h` | Header-only `splitIdentifier` for `"module.name"`. Included by `maya/shared/Utilities.h`. |
+| `RigJsonStructs.h/.cpp` | Template structs (`RigRootData`, `RigModuleData`, constraint data) and `loadRigTemplate` (key checks, then parse). |
+| `RigTemplateValidation.h/.cpp` | `ValidationReport`, `ModuleInterface`, and the read-phase template checks (D17). |
+| `JointMarkup.h/.cpp` | Markup schema, `JointSelector`, `JointMarkupIndex`. |
+
+**`maya/`** (Maya API)
 
 | File | Contents |
 |---|---|
 | `PluginMain.cpp` | Plugin entry. Loops over `ModuleRegistry` and `CommandRegistry`, and registers `rigControlNode` plus its VP2 draw override. |
 | `ModuleRegistry.cpp/.h` | The only file that includes every module header. Holds each node's type name, JSON `moduleType`, `MTypeId` and `planFromJson`. Add new nodes here. |
 | `CommandRegistry.cpp/.h` | The only file that includes every command header. Add new commands here. |
-| `RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/child plug lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
-| `Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `StringUtils`. |
-| `JsonUtils.h` | Maya-free, header-only `readJsonString` / `writeJsonString`. Every string attribute that holds structured data (socket names, joint markup) goes through these (D16). |
-| `Constants.h` | `RigAttr`, `JointMarkupKey`, `PlugAndSocketNames`, `ConstraintAttr`, `SideNames`, `RigNaming`, `RigControlNodeAttr`. It has no Maya headers, because the Maya-free core includes it. Keep it that way. |
-| `Colors.h` | `Colors`, the Maya `MColor` constants, split out of `Constants.h`. |
-| `RigJsonStructs.h/.cpp` | Maya-free. Template structs (`RigRootData`, `RigModuleData`, constraint data) and `loadRigTemplate` (key checks, then parse). |
-| `RigTemplateValidation.h/.cpp` | Maya-free core: `ValidationReport`, `ModuleInterface`, and the read-phase template checks (D17). |
-| `StringUtils.h` | Maya-free, header-only `splitIdentifier` for `"module.name"`. Included by `Utilities.h`. |
-| `RigRoot.h/.cpp` | `RigRootNode`, `createRig` (read phase: parse, scan markup, `planModules`, validate. Write phase: roots, `buildModules`, parenting pass, constraints) and `CreateRigCmd`. |
-| `AssetRoot`, `AssetType`, `RigType`, `Side` | Root node and enum/string helpers. |
-| `LayoutModule`, `FkChain`, `AimModule` | Module nodes. FkChain is the reference pattern. |
-| `Constraints.h/.cpp` | `ParentConstraintNode`, `createRigParentConstraint`, `setRigConstraintSpace`. |
-| `RigControlNode.h/.cpp` | Custom control transform and its draw override. |
-| `JointMarkup.h/.cpp` | Maya-free core: markup schema, `JointSelector`, `JointMarkupIndex`. |
-| `JointMarkupScene.h/.cpp` | Plugin side of markup: namespace joint scan, attribute read, `claimJoint`. |
-| `JointMarkupCmd.h/.cpp` | `rigJointMarkup` command. |
+| `modules/LayoutModule`, `modules/FkChain`, `modules/AimModule` | Module nodes. FkChain is the reference pattern. |
+| `commands/CreateRigCmd.h/.cpp` | `createRigFromTemplate`. Reads flags into `RigBuildInputs`, then calls `RigRootNode::createRig`. |
+| `commands/ConstraintCmds.h/.cpp` | `createRigParentConstraint` and `setRigConstraintSpace`. They call `ParentConstraintNode`'s static helpers. |
+| `commands/JointMarkupCmd.h/.cpp` | `rigJointMarkup`. The reference command shape (D14). |
+| `nodes/RigRoot.h/.cpp` | `RigRootNode`, `RigBuildInputs` and `createRig` (read phase: parse, scan markup, `planModules`, validate. Write phase: roots, `buildModules`, parenting pass, constraints). |
+| `nodes/AssetRoot.h/.cpp` | `AssetRootNode`. |
+| `nodes/Constraints.h/.cpp` | `ParentConstraintNode`: compute, `resolveSocket`, `createConstraint`, `buildFromTemplate`, `matchSwitchSpace`. |
+| `nodes/RigControlNode.h/.cpp` | Custom control transform and its draw override. |
+| `shared/RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/child plug lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
+| `shared/Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `ScopedRigNamespace` (RAII current namespace for a rig build and its redo). |
+| `shared/JointMarkupScene.h/.cpp` | Plugin side of markup: namespace joint scan, attribute read, `claimJoint`. |
+| `shared/Colors.h` | `Colors`, the Maya `MColor` constants, split out of `core/Constants.h`. |
+| `shared/AssetType`, `shared/RigType`, `shared/Side` | Enum/string helpers. `AssetType.h` is Maya-free but `AssetType.cpp` reports errors through `MGlobal`, so the pair lives here. |
+
+**Everything else**
+
+| Path | Contents |
+|---|---|
 | `RigTemplates/LayoutRig.json` | The only example template. Its joints use `[side, usage]` selectors. |
-| `include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
+| `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
-| `design/decisions.md` | Decision log (D1–D21). |
+| `design/decisions.md` | Decision log (D1–D23). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. |
-| `RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files. |
+| `cpp/RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files, with its folder relative to `cpp/` (`core\X.cpp`). The filters file has one filter per folder. |
 
 **Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, namespace=ns)`, `cmds.rigJointMarkup(...)`, `cmds.createRigParentConstraint(control, driver=["module.socket", ...])`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`. Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
 
 **Node types and MTypeIds:** `rigRootModule` 0x00218, `assetRootModule` 0x00219, `fkChainModule` 0x00218B, `layoutModule` 0x00218C, `aimModule` 0x00218D, `bmParentConstraint` 0x00218E, `rigControlNode` 0x0013B5C0. Check this list before picking an id for a new node.
 
 Known discrepancies with the text above:
-- There is no `NodeCreateCommands` namespace in `Constants.h`. Node type names live only in `ModuleRegistry.cpp`.
+- There is no `NodeCreateCommands` namespace in `core/Constants.h`. Node type names live only in `maya/ModuleRegistry.cpp`.
 - There is no Python in the repo yet. The build entry point is the `createRigFromTemplate` command.
 
 ## Reuse and complexity control
@@ -122,7 +159,7 @@ Complexity grows through duplication and one-off special cases. Resist both.
 
 ### Look before you write
 
-1. Before writing any helper, search `utilities.h` and `rigmodule.h` (and their implementations) for existing functionality.
+1. Before writing any helper, search `maya/shared/Utilities.h`, `maya/shared/RigModule.h` and `core/` (and their implementations) for existing functionality.
 2. If something close exists, **reuse it**. If it nearly fits, **make a small, backward-compatible edit** (new overload, optional parameter, clearer name) instead of writing a parallel version.
 3. Only write a new shared function when nothing close exists. Put it in the right shared location, not inside a module.
 4. When you reuse or edit a shared function, check its other callers so you do not change their behavior.
@@ -132,7 +169,7 @@ Complexity grows through duplication and one-off special cases. Resist both.
 
 - **Rule of three.** Tolerate duplication twice. On the third occurrence, extract it into a shared function. Do not extract speculatively before there are real call sites.
 - **One home per concept.** Each piece of logic, constant, and string lives in exactly one place. Shared code goes in the shared layer. Module-specific code stays in the module.
-- **Modules stay thin.** A module declares its attributes, child plugs, and sockets, then delegates to shared code for common behavior. If two modules share behavior, move it up to `rigmodule.h` or `utilities.h` instead of copying.
+- **Modules stay thin.** A module declares its attributes, child plugs, and sockets, then delegates to shared code for common behavior. If two modules share behavior, move it up to `maya/shared/RigModule.h` or `maya/shared/Utilities.h` (or `core/` when it needs no Maya) instead of copying.
 - **Prefer composition and data over inheritance and branching.** Avoid deep class hierarchies and long `if (moduleType == ...)` chains. Extend through shared helpers and the `ModuleRegistry`.
 - **Consistent patterns.** A new module should look like the existing ones (FkChain, Layout). If you need to break the pattern, say why. If the pattern itself is wrong, propose changing it everywhere rather than diverging once.
 - **Small, single-purpose functions** with clear inputs and outputs. Avoid functions that need many flags to behave differently.
@@ -149,7 +186,11 @@ When a change adds notable complexity, call it out and justify it: a new shared 
 ## Code conventions
 
 ### Formatting
-Every curly bracket goes on its own new line (Allman), with no exceptions. This includes functions, control flow, namespaces, classes, lambdas, and initializer blocks.
+Every curly bracket goes on its own new line (Allman), with no exceptions. This includes functions, control flow, namespaces, classes, lambdas, empty bodies (`X::X()` then `{` and `}` on their own lines), and multi-line initializer blocks. A braced init list that fits on one line is a value, not a block, and stays inline: `int v{ 1 }`, `foo(a, {}, b)`, `{ attr, 0.0 }`. `test_source_layout.py` checks this.
+
+Indentation is tabs. `cpp/.clang-format` encodes these rules (Allman, tabs, a parameter list that doesn't fit on one line goes one parameter per line, sorted includes).
+
+**Includes** are grouped in blank-line-separated blocks: the file's own header first, then project headers, the standard library and Maya, in whatever groups the file already uses. Each block is sorted alphabetically, ignoring case. `test_source_layout.py` checks the order. Select the include lines and run Format Selection to sort them. Do not run it over whole files yet: it would also re-align hand-formatted code. Use it on new code or a selection.
 
 ```cpp
 if (status != MS::kSuccess)
@@ -181,15 +222,15 @@ Use long flag names everywhere: in code that reads flags, in comments, in docs a
 - In `compute()`, group plug reads and writes by purpose and avoid re-querying the same plug.
 - Keep `compute()` free of allocations and string lookups. Resolve plugs and attributes outside the hot path where possible.
 
-## Planned structure: Maya-free core plus thin plugin layer
+## Structure: Maya-free core plus thin plugin layer
 
-Studio-style split, matching how the author structures their Python code:
+Studio-style split, matching how the author structures their Python code. The folders exist (D13); the rest of the split is still planned.
 
-- **Core library (no Maya headers):** child plug and socket resolution, `parentStructure` ordering and cycle detection, JSON parsing and validation, matrix math. Testable with GoogleTest and no Maya install.
-- **Plugin layer (Maya API):** nodes, attribute definitions, plug I/O, and the commands that bridge to the core.
-- **Python:** the build command, JSON validation, and user-facing error messages.
+- **Core (`core/`, no Maya headers):** JSON parsing and validation, joint markup, shared constants. Still to move here: child plug and socket resolution, `parentStructure` ordering, matrix math. Meant to be testable with GoogleTest and no Maya install (no harness yet).
+- **Plugin layer (`maya/`, Maya API):** nodes, attribute definitions, plug I/O, and the commands that bridge to the core.
+- **Python (not started):** the build command, JSON validation, and user-facing error messages.
 
-Rule: if logic can live in the core, it goes in the core. The plugin layer should be thin adapters.
+Rule: if logic can live in the core, it goes in `core/`. The plugin layer should be thin adapters. A new file goes in `core/` when it needs no Maya header, including through what it includes.
 
 ## Environments
 
@@ -200,11 +241,11 @@ Rule: if logic can live in the core, it goes in the core. The plugin layer shoul
 
 ### Local build and test (Windows)
 
-- **Visual Studio project:** `RigModules.vcxproj`. The devkit path comes from the `MAYA_DEVKIT_LOCATION` env var (`C:\Users\bmorgan\Documents\dev\maya\devkit\devkitBase`).
-- **Build:** `& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" RigModules.vcxproj /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal`
-  - Output: `x64\Release\RigModules.mll`.
+- **Visual Studio project:** `cpp\RigModules.vcxproj`. The devkit path comes from the `MAYA_DEVKIT_LOCATION` env var (`C:\Users\bmorgan\Documents\dev\maya\devkit\devkitBase`).
+- **Build** (from the repo root): `& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" cpp\RigModules.vcxproj /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal`
+  - Output: `cpp\x64\Release\RigModules.mll`. That is the runner's default `--plugin`.
   - **Then always run the tests**, even for a change that looks unrelated. Run `cmd /c tests\RigTests.cmd`, or the suite at the end of your own mayapy script (see Tests below).
-  - Warnings that already existed and can be ignored: nlohmann C5260, `RigControlNode.cpp` C4244, `Utilities.cpp` C4018.
+  - Warnings that already existed and can be ignored: nlohmann C5260, `maya/nodes/RigControlNode.cpp` C4244, `maya/shared/Utilities.cpp` C4018.
 - **Run Maya headless:** `C:\Program Files\Autodesk\Maya2026\bin\mayapy.exe script.py`. Start the script with `maya.standalone.initialize(name="python")`, then `cmds.loadPlugin(path)`.
 - **Copy the .mll before loading it.** A loaded plugin locks the file, so a Maya session that has it loaded makes the next build fail. Copy the .mll to the scratchpad and load the copy.
 - **Reading results in standalone:**
@@ -213,7 +254,7 @@ Rule: if logic can live in the core, it goes in the core. The plugin layer shoul
   - The user's `userSetup.py` prints startup noise, so filter the output.
   - Turn undo on with `cmds.undoInfo(state=True, infinity=True)` before testing undo/redo.
 - **Line endings:** source files are CRLF. Git Bash `sed -i` rewrites a file as LF, so prefer the Edit tool. Otherwise run `unix2dos` afterwards.
-- **Locked files:** `RigRoot.cpp` and other files may be open and locked in Visual Studio, so writing them from a Python script fails with a permission error. The Edit tool still works.
+- **Locked files:** `maya/nodes/RigRoot.cpp` and other files may be open and locked in Visual Studio, so writing them from a Python script fails with a permission error. The Edit tool still works.
 - **Short flag names:** `MSyntax::addFlag` rejects short names longer than 3 letters, and the flag then silently never registers. Wrap each `addFlag` in `CHECK_MSTATUS`.
 - **Tests:** run them after every build, in one of two ways:
   - **Already running a mayapy script to check a change:** end that script with the suite instead of starting Maya again (about 4 s, no second startup). It must be the last thing the script does, because every test starts with `file -new`. It has no crash protection, so if Maya crashes, rerun with `RigTests.cmd` to find the test.
@@ -222,7 +263,7 @@ Rule: if logic can live in the core, it goes in the core. The plugin layer shoul
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 185 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 190 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.
@@ -241,8 +282,9 @@ Before declaring work done, check:
 - [ ] New attributes have create, add, and `attributeAffects`
 - [ ] Attribute name strings come from `RigAttr`, not literals
 - [ ] `MStatus` checked on Maya API calls
-- [ ] Pure logic placed in the core library, not the plugin layer
-- [ ] Searched `utilities.h` and `rigmodule.h` first; reused or minimally extended existing code
+- [ ] Pure logic placed in `core/`, not the plugin layer
+- [ ] Searched `maya/shared/Utilities.h`, `maya/shared/RigModule.h` and `core/` first; reused or minimally extended existing code
+- [ ] New files placed by dependency: `core/` if no Maya header is needed, otherwise `maya/`
 - [ ] No duplicated logic, constants, or strings; shared code in the shared layer
 - [ ] No names (controls, attributes, child plugs, sockets) changed without flagging the pose, animation, and export impact
 - [ ] Animator-facing behavior is simple and predictable

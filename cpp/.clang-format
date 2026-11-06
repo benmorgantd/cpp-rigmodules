@@ -1,0 +1,55 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: ForIndentation
+NamespaceIndentation: None
+AccessModifierOffset: -4
+IndentCaseLabels: true
+
+# Allman braces everywhere. Every brace goes on its own line, with no exceptions.
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: true
+  BeforeWhile: true
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+
+# Never collapse a braced body onto one line, or the brace rule breaks.
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: None
+AllowShortLoopsOnASingleLine: false
+
+# Style
+PointerAlignment: Left
+ColumnLimit: 120
+
+# A parameter list that does not fit on one line puts every parameter on its own line,
+# with the closing parenthesis back at the start indent.
+BinPackParameters: false
+AlignAfterOpenBracket: BlockIndent
+# Includes are sorted within each blank-line-separated block, so the hand-written groups
+# (own header, project, standard library, Maya) and their comments stay as written.
+SortIncludes: CaseInsensitive
+IncludeBlocks: Preserve
+...

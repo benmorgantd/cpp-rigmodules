@@ -1,0 +1,404 @@
+#include "maya/shared/Utilities.h"
+#include "core/Constants.h"
+#include "core/JsonUtils.h"
+
+#include <string>
+
+#include <maya/MDagModifier.h>
+#include <maya/MDagPath.h>
+#include <maya/MFnAttribute.h>
+#include <maya/MFnDependencyNode.h>
+#include <maya/MFnMatrixData.h>
+#include <maya/MFnTransform.h>
+#include <maya/MGlobal.h>
+#include <maya/MMatrix.h>
+#include <maya/MNamespace.h>
+#include <maya/MObject.h>
+#include <maya/MPlug.h>
+#include <maya/MSelectionList.h>
+#include <maya/MStatus.h>
+#include <maya/MString.h>
+#include <maya/MVector.h>
+
+// ---------------------------------
+// Math Utilities
+// ---------------------------------
+
+MMatrix MathUtils::computeAimMatrix(
+	const MPoint& pAim,
+	const MPoint& pTarget,
+	const MPoint& pUp,
+	const MMatrix& fallbackMatrix,
+	const float epsilon)
+{
+	// 1. Primary Aim Axis (+X)
+	MVector vAim = pTarget - pAim;
+	double aimLen = vAim.length();
+	MVector hatX;  // the normalized matrix x axis.
+
+	if (aimLen > epsilon)
+	{
+		hatX = vAim / aimLen;
+	}
+	else
+	{
+		// Fallback to primary X axis of fallback matrix if target overlaps aim origin
+		hatX = MVector(fallbackMatrix[0][0], fallbackMatrix[0][1], fallbackMatrix[0][2]).normal();
+	}
+
+	// 2. Up Direction Vector (+Z raw direction)
+	MVector vUpRaw = pUp - pAim;
+	if (vUpRaw.length() < epsilon)
+	{
+		vUpRaw = MVector(fallbackMatrix[2][0], fallbackMatrix[2][1], fallbackMatrix[2][2]);
+	}
+
+	// 3. Side Axis (+Y) via Cross Product
+	// Right-handed basis where +X is Aim and +Z is Up:
+	// hatZ x hatX = hatY
+	MVector hatY = vUpRaw ^ hatX;
+	double yLen = hatY.length();
+
+	if (yLen > epsilon)
+	{
+		hatY /= yLen;
+	}
+	else
+	{
+		// Singular/Collinear Fallback: choose orthogonal reference axis
+		MVector fallbackUp(0.0, 1.0, 0.0);
+		if (std::abs(hatX.y) > 0.9)
+		{
+			fallbackUp = MVector(0.0, 0.0, 1.0);
+		}
+		hatY = (fallbackUp ^ hatX).normal();
+	}
+
+	// 4. Orthonormalized Up Axis (+Z)
+	// hatX x hatY = hatZ
+	MVector hatZ = hatX ^ hatY;
+
+	// 5. Construct Row-Major Maya Matrix
+	double mData[4][4];
+
+	// Row 0: +X Aim Axis
+	mData[0][0] = hatX.x; mData[0][1] = hatX.y; mData[0][2] = hatX.z; mData[0][3] = 0.0;
+
+	// Row 1: +Y Side Axis
+	mData[1][0] = hatY.x; mData[1][1] = hatY.y; mData[1][2] = hatY.z; mData[1][3] = 0.0;
+
+	// Row 2: +Z Up Axis
+	mData[2][0] = hatZ.x; mData[2][1] = hatZ.y; mData[2][2] = hatZ.z; mData[2][3] = 0.0;
+
+	// Row 3: Origin Position
+	mData[3][0] = pAim.x; mData[3][1] = pAim.y; mData[3][2] = pAim.z; mData[3][3] = 1.0;
+
+	return MMatrix(mData);
+}
+
+// ---------------------------------
+// DAG Utilities
+// ---------------------------------
+// Locks and hides rotation and scale channels on a control object
+void DagUtils::lockAndHideTranslate(MObject oControl)
+{
+	MFnTransform fnControl(oControl);
+	MPlug pTranslate = fnControl.findPlug("translate", false);
+	pTranslate.setLocked(true);
+	pTranslate.setKeyable(false);
+	pTranslate.setChannelBox(false);
+}
+
+void DagUtils::lockAndHideRotate(MObject oControl)
+{
+	MFnTransform fnControl(oControl);
+	MPlug pRotation = fnControl.findPlug("rotate", false);
+	pRotation.setLocked(true);
+	pRotation.setKeyable(false);
+	pRotation.setChannelBox(false);
+}
+
+void DagUtils::lockAndHideScale(MObject oControl)
+{
+	MFnTransform fnControl(oControl);
+	MPlug pScale = fnControl.findPlug("scale", false);
+	pScale.setLocked(true);
+	pScale.setKeyable(false);
+	pScale.setChannelBox(false);
+}
+
+// Bakes joint world transform relative to its parent into its opm and zeroes its transforms.
+// TODO: pass in transform matrix gathered from read phase.
+// NOTE: this is already happening when inheritsTransform has been turned off, so we just need to write the world matrix to OPM
+MStatus DagUtils::bakeJointTransformsToOPM(const MObject& oJoint, const MMatrix& mTransformWorld, MDagModifier& dagMod)
+{
+	MStatus status;
+	MFnTransform fnTransform(oJoint);
+	if (!fnTransform.object().hasFn(MFn::kJoint))
+	{
+		MGlobal::displayError("Given object must be a joint");
+		return MStatus::kFailure;
+	}
+	
+	// NOTE: we can't do a verification pass here of the current value of inheritsTransform because dagMod hasn't run yet.
+
+	// First zero out the current local matrix joint orient so that we can position the joint in world space locally using OPM
+	// TODO: separate this into a fn
+	for (const char* axis : { "X", "Y", "Z" })
+	{
+		MPlug pJointOrient = fnTransform.findPlug(MString("jointOrient") + axis, false, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = dagMod.newPlugValueDouble(pJointOrient, 0.0);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+
+	// Zero out local matrix
+	status = zeroLocalTransforms(oJoint, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Now that we've zeroed out all transforms, we can place the joint in world space using its OPM (because inherits transforms is off)
+	MPlug pOffsetParentMatrix = fnTransform.findPlug("offsetParentMatrix", false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	status = DagUtils::setMatrixPlug(pOffsetParentMatrix, mTransformWorld, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	return status;
+}
+
+MStatus DagUtils::zeroLocalTransforms(const MObject& oTransform, MDagModifier& dagMod)
+{
+	if (oTransform.isNull() || !oTransform.hasFn(MFn::kTransform))
+	{
+		MGlobal::displayError("Given object is null or is not a transform");
+		return MStatus::kFailure;
+	}
+
+	MFnTransform fnTransform(oTransform);
+	for (const auto& transform : kDefaultTransformValues)
+	{
+		MPlug pTransform(oTransform, transform.attr);
+
+		if (!pTransform.isNull() && !pTransform.isLocked())
+		{
+			dagMod.newPlugValueDouble(pTransform, transform.value);
+		}
+		else
+		{
+			MFnAttribute fnAttr(transform.attr);
+			MGlobal::displayError(MString("Plug was locked and could not be zeroed: " + fnAttr.name()));
+		}
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus DagUtils::setInheritsTransform(const MObject& transform, bool value, MDagModifier& dagMod)
+{
+	if (!transform.hasFn(MFn::kTransform))
+	{
+		MGlobal::displayError("Given object is not a DAG transform, cannot set inheritsTransform.");
+		return MStatus::kFailure;
+	}
+
+	MFnDependencyNode fnTransform(transform);
+	MPlug pInheritsTransform = fnTransform.findPlug("inheritsTransform", false);
+
+	if (pInheritsTransform.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	return dagMod.newPlugValueBool(pInheritsTransform, value);
+}
+
+MStatus DagUtils::setSegmentScaleCompensate(MObject& oTransform, bool value, MDagModifier& dagMod)
+{
+	if (!oTransform.hasFn(MFn::kJoint))
+	{
+		MGlobal::displayError("Given object is not a DAG joint, cannot set segment scale compensate.");
+		return MStatus::kFailure;
+	}
+
+	MFnDependencyNode fnTransform(oTransform);
+	MPlug pSegmentScaleCompensate = fnTransform.findPlug("segmentScaleCompensate", false);
+
+	if (pSegmentScaleCompensate.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	return dagMod.newPlugValueBool(pSegmentScaleCompensate, value);
+}
+
+MMatrix DagUtils::getMatrixFromPlug(const MPlug& pMatrixPlug)
+{
+	MMatrix matrixValue;
+
+	MObject dataObj;
+	MStatus status = pMatrixPlug.getValue(dataObj);
+
+	if (status && !dataObj.isNull() && dataObj.hasFn(MFn::kMatrixData))
+	{
+		MFnMatrixData fnMatrixData(dataObj);
+		matrixValue = fnMatrixData.matrix();
+	}
+
+	return matrixValue;
+}
+
+
+MStatus DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod)
+{
+	if (!matrixPlug.isNull() && !matrixPlug.isArray())
+	{
+		MFnMatrixData fnMatrixData;
+		MObject oMatrixData = fnMatrixData.create(matrix);
+		return dagMod.newPlugValue(matrixPlug, oMatrixData);
+	}
+	else
+	{
+		MGlobal::displayError("The given matrix plug was null or an array.");
+		return MStatus::kFailure;
+	}
+}
+
+MDagPath DagUtils::getDagPathFromName(const MString& name)
+{
+	MDagPath jointDag;
+	MStatus status;
+	MSelectionList selList;
+	status = selList.add(name);
+
+	if (status && selList.length() > 0)
+	{
+		status = selList.getDagPath(0, jointDag);
+	}
+	else
+	{
+		MGlobal::displayError(MString("Failed to find a dag path from given string ") + name);
+	}
+
+	return jointDag;
+}
+
+MStatus DagUtils::getJointDagPathFromName(const MString& jointName, MDagPath& jointPath)
+{
+	MStatus status;
+	MSelectionList sel;
+	status = sel.add(jointName);
+	if (!status)
+	{
+		MGlobal::displayError(MString("Joint does not exist in scene: ") + jointName);
+		return status;
+	}
+
+	status = sel.getDagPath(0, jointPath);
+	if (!status || !jointPath.hasFn(MFn::kJoint))
+	{
+		MGlobal::displayError(MString("Object is not a joint: ") + jointName);
+		return MStatus::kFailure;
+	}
+
+	return MStatus::kSuccess;
+}
+
+MStatus DagUtils::getJointObjectFromName(const MString& jointName, MObject& oJoint)
+{
+	MDagPath jointPath;
+	MStatus status = getJointDagPathFromName(jointName, jointPath);
+	if (!status)
+	{
+		return status;
+	}
+
+	oJoint = jointPath.node();
+	return MStatus::kSuccess;
+}
+
+MStatus DagUtils::getMObjectFromName(const MString& name, MObject& oNode)
+{
+	MSelectionList sel;
+	MStatus status = sel.add(name);
+	if (!status)
+	{
+		return status;
+	}
+	return sel.getDependNode(0, oNode);
+}
+
+// DAG plug and socket utils -----------------------------------------------
+MStatus DagPlugAndSocketUtils::setParentSocketNames(const MObject& oModule, const unsigned int index, const std::vector<std::string>& names, MDagModifier& dagMod)
+{
+	if (oModule.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MFnDependencyNode fnModule(oModule);
+
+	MPlug pSocketNames = fnModule.findPlug(RigAttr::SocketNames, false);
+	if (pSocketNames.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MPlug pSocketNamesElement = pSocketNames.elementByLogicalIndex(index);
+	if (pSocketNamesElement.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	return dagMod.newPlugValueString(pSocketNamesElement, MString(JsonUtils::writeJsonString(names).c_str()));
+}
+
+
+MStatus DagPlugAndSocketUtils::setChildPlugName(const MObject& oModule, const unsigned int index, const char* name, MDagModifier& dagMod)
+{
+	if (oModule.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MFnDependencyNode fnModule(oModule);
+
+	MPlug pChildPlugs = fnModule.findPlug(RigAttr::ChildPlugs, false);
+	if (pChildPlugs.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MPlug pChildPlugsElement = pChildPlugs.elementByLogicalIndex(index);
+	if (pChildPlugsElement.isNull())
+	{
+		return MStatus::kFailure;
+	}
+
+	MObject oChildPlugName = fnModule.attribute(RigAttr::ChildPlugName);
+	MPlug pChildPlugsElementName = pChildPlugsElement.child(oChildPlugName);
+
+	return dagMod.newPlugValueString(pChildPlugsElementName, MString(name));
+}
+
+// ---------------------------------
+// Scoped rig namespace
+// ---------------------------------
+
+ScopedRigNamespace::ScopedRigNamespace(const MString& rigNamespace)
+	: fOriginalNamespace(MNamespace::currentNamespace())
+{
+	const MString namespacePath = MString(":") + rigNamespace;
+	if (!MNamespace::namespaceExists(namespacePath))
+	{
+		fStatus = MNamespace::addNamespace(namespacePath);
+		if (!fStatus)
+		{
+			MGlobal::displayError("Could not create the rig namespace '" + namespacePath + "': " + fStatus.errorString());
+			return;
+		}
+	}
+	fStatus = MNamespace::setCurrentNamespace(namespacePath);
+}
+
+ScopedRigNamespace::~ScopedRigNamespace()
+{
+	MNamespace::setCurrentNamespace(fOriginalNamespace);
+}

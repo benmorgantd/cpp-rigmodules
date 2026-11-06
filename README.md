@@ -22,18 +22,18 @@ Inside the rig:
 ## Requirements
 
 - Maya 2026 and its devkit. Set `MAYA_DEVKIT_LOCATION` to the devkit's `devkitBase` folder.
-- Visual Studio with the C++ desktop workload. The project is `RigModules.vcxproj`, and builds target x64.
-- [nlohmann/json](https://github.com/nlohmann/json) 3.12 is vendored in `include/`. Nothing else needs installing.
+- Visual Studio with the C++ desktop workload. The project is `cpp\RigModules.vcxproj`, and builds target x64.
+- [nlohmann/json](https://github.com/nlohmann/json) 3.12 is vendored in `cpp/include/`. Nothing else needs installing.
 
 ## Build
 
 From the repo root, in PowerShell:
 
 ```powershell
-& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" RigModules.vcxproj /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal
+& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" cpp\RigModules.vcxproj /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal
 ```
 
-The plugin is written to `x64\Release\RigModules.mll`. You can also build the Release x64 configuration from Visual Studio.
+The plugin is written to `cpp\x64\Release\RigModules.mll`. You can also build the Release x64 configuration from Visual Studio.
 
 A Maya session that has the plugin loaded locks the `.mll`, so the next build fails. Unload the plugin first, or load a copy of the `.mll` from somewhere else.
 
@@ -73,7 +73,7 @@ Load the plugin, mark up the skeleton (joints `skel:spine1_jnt`, `skel:spine2_jn
 ```python
 from maya import cmds
 
-cmds.loadPlugin(r"<repo>\x64\Release\RigModules.mll")
+cmds.loadPlugin(r"<repo>\cpp\x64\Release\RigModules.mll")
 
 # Joints are always passed by name. The selection is never used.
 for usage in ("spine1", "spine2", "spine3"):
@@ -130,16 +130,18 @@ It runs in tiers (plugin registration, read-only checks, build smoke tests, modu
 
 ## Repository layout
 
-Source files sit at the repo root.
+All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is split by whether it uses the Maya API: code in `cpp/core/` has no Maya headers, and code in `cpp/maya/` uses the Maya API and builds on `core/`.
 
 | Path | Contents |
 |---|---|
-| `PluginMain.cpp`, `ModuleRegistry.*`, `CommandRegistry.*` | Plugin entry and the registries every node and command is added to |
-| `RigModule.*`, `Utilities.*` | Shared module layer and helpers |
-| `LayoutModule.*`, `FkChain.*`, `AimModule.*` | Module nodes |
-| `RigRoot.*` | The build: template read, validation, module creation, parenting, constraints |
-| `RigTemplateValidation.*`, `RigJsonStructs.*`, `JointMarkup.*`, `JsonUtils.h`, `StringUtils.h`, `Constants.h` | Maya-free core |
-| `Constraints.*`, `RigControlNode.*`, `JointMarkupScene.*`, `JointMarkupCmd.*` | Constraints, the control node, joint markup |
+| `cpp/` | `RigModules.vcxproj`, and the build output in `cpp/x64/` |
+| `cpp/core/` | Maya-free: template structs and loading (`RigJsonStructs`), template validation, joint markup schema, JSON string helpers, shared name constants |
+| `cpp/maya/` | Plugin entry (`PluginMain.cpp`) and the registries every node and command is added to |
+| `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim |
+| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigParentConstraint`, `setRigConstraintSpace`, `rigJointMarkup` |
+| `cpp/maya/nodes/` | Other nodes: rig and asset roots (the root also runs the build), the parent constraint, the control node |
+| `cpp/maya/shared/` | Code used across those folders: the module base, utilities, joint markup in the scene, enums |
+| `cpp/include/` | Vendored third-party headers (nlohmann json) |
 | `RigTemplates/` | Example template |
 | `docs/` | User documentation |
 | `design/` | Decision log and original planning document |

@@ -62,7 +62,7 @@ DAG parenting is working. Earlier review items 1 and 2 were addressed. The speci
 ### D7. Shared attribute names live in `Constants.h` (`RigAttr`)
 **Status:** Decided
 
-- Shared attribute names are string constants in `Constants.h`, namespace `RigAttr`.
+- Shared attribute names are string constants in `core/Constants.h`, namespace `RigAttr`.
 - Module-level code keeps using the module's own static `MObject` attributes.
 - Shared rigmodule code looks attributes up by name (`findAttr`) and uses string-based `findPlug`.
 - This fixed the socket-to-child-plug connection (switching `findPlug` to strings).
@@ -71,7 +71,7 @@ DAG parenting is working. Earlier review items 1 and 2 were addressed. The speci
 ### D8. Reuse before writing new helpers
 **Status:** Decided (working rule)
 
-Before writing a helper, check `utilities.h` and `rigmodule.h`. Reuse what exists, or make a small backward-compatible edit. Follow code-sharing and structural reuse practices to limit complexity growth. Full rules are in `CLAUDE.md`.
+Before writing a helper, check `maya/shared/Utilities.h`, `maya/shared/RigModule.h` and `core/`. Reuse what exists, or make a small backward-compatible edit. Follow code-sharing and structural reuse practices to limit complexity growth. Full rules are in `CLAUDE.md`.
 
 ### D9. Where node creation names live
 **Status:** Open
@@ -107,11 +107,15 @@ Plan carefully before adding modules. A new module needs a stated animator-facin
 ## Structure
 
 ### D13. Maya-free core plus thin plugin layer
-**Status:** Leaning
+**Status:** Decided (folder split, 2026-11-05). Separate library and core tests still open.
 
-The author is interested in splitting the code into a Maya-free core library and a thin Maya plugin layer. It matches how they structure their Python code. The intended split is in `CLAUDE.md` ("Planned structure"). Not yet implemented in the repo as far as the recorded notes show.
+The code splits into a Maya-free core and a thin Maya plugin layer, matching how the author structures their Python code. The intended split is in `CLAUDE.md` ("Structure").
 
-- **Rationale not recorded** beyond consistency with their Python structure. A likely benefit is testing without a Maya install, but that is not a recorded decision.
+- **Folder split (2026-11-05):** source moved off the repo root into `core/` (no Maya headers: `Constants.h`, `JsonUtils.h`, `StringUtils.h`, `JointMarkup`, `RigJsonStructs`, `RigTemplateValidation`) and `maya/` (everything else). Done before adding more modules, so new files have an obvious home. Only files that were already Maya-free moved to `core/`. Nothing was rewritten to qualify.
+- **Include rule:** `core/` includes only `core/` headers, the standard library and nlohmann. `maya/` includes core headers as `"core/X.h"`, so a core dependency is visible at the include line and a stray Maya include in `core/` is easy to find. `tests/maya/concepts/test_source_layout.py` enforces both, in the registration tier. D22 extended the path rule to every header `maya/` includes.
+- **Why:** a likely benefit is testing the core without a Maya install, and a hard boundary keeps Maya types from leaking into code that does not need them.
+- **Rejected (at the time):** a `src/core` + `src/maya` tree (one more level with nothing else under `src/`). D23 later added that level as `cpp/`. Adding `core/` and `maya/` to the include path so includes stay bare (`"Constants.h"`), because that hides which side a header is on. Building `core/` as its own static library now, because nothing but the plugin links it yet. Revisit when the GoogleTest harness lands.
+- **Stayed in `maya/` though close:** `AssetType.h` is Maya-free but `AssetType.cpp` reports errors through `MGlobal`. `Side.h` and `RigType.h` use `MColor` and `MString`. Moving them needs a small rewrite first.
 
 ---
 
@@ -121,6 +125,7 @@ The author is interested in splitting the code into a Maya-free core library and
 **Status:** Decided
 
 - Every curly bracket starts on a new line.
+- **Enforced and tooled (2026-11-06).** `cpp/.clang-format` uses tabs (`UseTab: ForIndentation`, matching the code), Allman braces, and one parameter per line when a list does not fit (`BinPackParameters: false`, `AlignAfterOpenBracket: BlockIndent`), as the author prefers. The brace violations that existed were fixed by hand: empty constructor and destructor bodies, K&R braces and one-line bodies in `RigControlNode`, `operator bool` in `RigModule.h`, and two initializer blocks. `test_source_layout.py` now fails on a block brace that shares its line with code. One-line braced init lists stay allowed. Includes are sorted within each blank-line-separated block (`SortIncludes: CaseInsensitive`, `IncludeBlocks: Preserve`), so the hand-written groups and their comments stay. Rejected: `IncludeBlocks: Regroup`, which would rebuild the groups from category rules and drop the section comments. 27 files were re-sorted with clang-format's own order, and the layout test checks it. **Not done:** a whole-tree clang-format pass. It would change about 2,000 more lines, mostly re-aligning hand-formatted continuation lines and comments, so the code is not yet clang-format clean.
 - `MObject`: `oMyName`. `MPlug`: `pMyPlug`. `MFn*`: `fnMyMfn`. Module attributes: `aMyAttributeName`.
 - Pass lvalue `MObject`s to any function taking a non-const `MObject&` (for example `MPlug::child`). Look the attribute up on its own line into a named variable first. Details in `CLAUDE.md`.
 - Command flags are read and documented by long name only (`-usage`, not `-us`). `MSyntax::addFlag` requires a short name and rejects anything over 3 letters (verified in Maya 2026: `-skin` and `-usage` fail and the flag silently never registers), so short names appear only inside `newSyntax()`, wrapped in `CHECK_MSTATUS`. Added 2026-11-04.
@@ -236,6 +241,26 @@ Any string attribute that holds structured data stores JSON text, read and writt
 - **Consequence:** reference pages repeat facts the code holds (keys, flags, socket names), so they can drift. The guards are the owning-page rule, the docs pass that ends every change (`CLAUDE.md`, Working style), and the README quick start running as a suite test. When a page and the code disagree, the code wins and the page is fixed.
 - **Command examples are Python `maya.cmds`, never MEL** (author's call, 2026-11-05). This applies to every doc, this log, comments and replies. Flags are keywords named by the long flag name. The earlier MEL examples in D14, D18 and D19 were rewritten.
 
+### D22. `maya/` grouped by role: modules, commands, nodes, shared
+**Status:** Decided (2026-11-05)
+
+`maya/` holds the plugin entry and the two registries. Under it, `modules/` holds module nodes, `commands/` holds `MPxCommand`s, `nodes/` holds every other node (rig and asset roots, the parent constraint, the control), and `shared/` holds code used across them (`RigModule`, `Utilities`, `JointMarkupScene`, the enum helpers, `Colors`). `core/` stays flat. Every `maya/` file includes project headers by path from the include root (`"maya/shared/RigModule.h"`), including headers in its own folder. Since D23 that root is `cpp/`.
+
+- **Why:** more modules and commands are coming, and one flat folder mixed them with the base layer. Modules and commands are the two things that grow. Each now has its own folder, which matches `tests/maya/modules` and `tests/maya/commands`.
+- **Command split:** `CreateRigCmd` moved out of `RigRoot.cpp` into `commands/CreateRigCmd`, and `CreateParentConstraintCmd` and `SetConstraintSpaceCmd` moved out of `Constraints.cpp` into `commands/ConstraintCmds`. Code was moved, not changed. `ScopedRigNamespace` was file-local in `RigRoot.cpp` and both `createRig` and `CreateRigCmd::redoIt` use it, so it moved to `shared/Utilities` unchanged.
+- **Rejected:** subfolders in `core/` (9 files, so a folder per topic would hold one or two files each). Bare includes for headers in the same folder, because a file could then not move between `maya/` folders without breaking its includers' paths, and two rules are harder to check than one. `RigModule` in `modules/`, because `RigRoot` and the constraint commands use it too.
+- **Consequence:** a new folder is a layout decision. It is added to `SOURCE_FOLDERS` in `test_source_layout.py` and to the repo map in `CLAUDE.md`, or the layout test fails.
+
+### D23. All C++ under `cpp/`, with its project
+**Status:** Decided (2026-11-06)
+
+`cpp/` holds `core/`, `maya/`, the vendored `include/`, `RigModules.vcxproj` and `.filters`, and `.clang-format` (renamed from `clang-format`, which clang-format never read). The repo root keeps only non-code folders (`design/`, `docs/`, `tests/`, `RigTemplates/`) and the top-level docs. Build output moves to `cpp/x64/Release/RigModules.mll`, which is the test runner's default `--plugin`.
+
+- **Why:** after D13 and D22, `core/` and `maya/` sat next to `docs/` and `tests/` with no single code root. A Python front end is planned and will want its own top-level folder beside `cpp/`.
+- **Project file inside `cpp/`:** the project dir is the include root, so every include (`"core/X.h"`, `"maya/shared/X.h"`) and every item path in the project kept working with no edits. Only the build command, the output path and the runner's paths changed.
+- **Rejected:** keeping the `.vcxproj` at the root and adding `cpp/` to the include path. The project would then reach into a folder it does not own, and the include root would differ from the project dir. Naming the folder `src/`, because the Python code will also be source.
+- **Consequence:** C++ paths in `CLAUDE.md`, this log and includes are relative to `cpp/`. User-facing docs write the full `cpp/...` path. Visual Studio must reopen the project from `cpp\RigModules.vcxproj`. `tests/run_tests.py` checks for stale sources under `cpp/core` and `cpp/maya`. That check had silently found nothing since D13, because it still looked at the repo root.
+
 ---
 
 ## Open items
@@ -243,7 +268,7 @@ Any string attribute that holds structured data stores JSON text, read and writt
 - **Connect-time jump:** the child jumps when a child plug connects to a non-identity socket. Still to do.
 - **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.
 - **D9:** where node creation names should live.
-- **D13:** whether and when to split out the Maya-free core. `JointMarkup.h/.cpp` is the first Maya-free file, but it still sits at the repo root with no separate library or tests.
+- **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
 
 ## Adding an entry
 

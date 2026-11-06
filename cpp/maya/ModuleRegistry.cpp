@@ -1,0 +1,65 @@
+// This is the only file that includes every module header
+#include "maya/ModuleRegistry.h"
+#include "maya/modules/AimModule.h"
+#include "maya/modules/FkChain.h"
+#include "maya/modules/LayoutModule.h"
+#include "maya/nodes/AssetRoot.h"
+#include "maya/nodes/Constraints.h"
+#include "maya/nodes/RigRoot.h"
+#include "maya/shared/RigModule.h"
+
+#include <vector>
+
+const std::vector<ModuleDescriptor>& ModuleRegistry::all()
+{
+    // Function-local static: built on first call (during initializePlugin),
+    // after every module's static MTypeId has been constructed.
+    static const std::vector<ModuleDescriptor> descriptors =
+    {
+        {
+            "assetRootModule", "AssetRoot", AssetRootNode::id,
+            AssetRootNode::creator, AssetRootNode::initialize,
+            1, nullptr
+        },
+
+        {
+            "rigRootModule", "RigRoot", RigRootNode::id,
+            RigRootNode::creator, RigRootNode::initialize,
+            1, nullptr
+        },
+
+        {
+            "layoutModule", "Layout", LayoutModuleNode::id,
+            LayoutModuleNode::creator, LayoutModuleNode::initialize,
+            1, nullptr   // built implicitly by RigRootNode::createRig, not from JSON
+        },
+        {
+            "fkChainModule", "FkChain", FkChainNode::id,
+            FkChainNode::creator, FkChainNode::initialize,
+            1, FkChainNode::planFromJson
+        },
+        {
+            "aimModule", "Aim", AimModuleNode::id,
+            AimModuleNode::creator, AimModuleNode::initialize,
+            1, AimModuleNode::planFromJson
+        },
+        {
+            "bmParentConstraint", "ParentConstraint", ParentConstraintNode::id,
+            ParentConstraintNode::creator, ParentConstraintNode::initialize,
+            1, nullptr   // built by ParentConstraintNode::buildFromTemplate, not as a module
+        }
+    };
+    return descriptors;
+}
+
+const ModuleDescriptor* ModuleRegistry::find(const std::string& moduleType)
+{
+    for (const ModuleDescriptor& descriptor : all())
+    {
+        if (moduleType == descriptor.moduleType)
+        {
+            return &descriptor;
+        }
+    }
+    return nullptr;
+}

@@ -1,0 +1,176 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="core">
+      <UniqueIdentifier>{02C4999D-43FE-5BE2-B13C-3C194CCE421B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="maya">
+      <UniqueIdentifier>{2735F3EB-8EEF-5FA0-B583-EF70E754A6EB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="maya\commands">
+      <UniqueIdentifier>{2DD58D33-39EF-5AB3-BA94-9AE58F80CEBF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="maya\modules">
+      <UniqueIdentifier>{F2C34D53-D26D-5365-A52A-9174680199FC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="maya\nodes">
+      <UniqueIdentifier>{EE79D80E-5620-514A-B00C-4420F4ECDCE7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="maya\shared">
+      <UniqueIdentifier>{27D02808-0B64-539B-B972-575FD08D45EC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RigTemplates">
+      <UniqueIdentifier>{735B0032-6772-50E2-A746-4C7CFF621EF0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="core\JointMarkup.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\RigJsonStructs.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\RigTemplateValidation.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\CommandRegistry.cpp">
+      <Filter>maya</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\ModuleRegistry.cpp">
+      <Filter>maya</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\PluginMain.cpp">
+      <Filter>maya</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\commands\ConstraintCmds.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\commands\CreateRigCmd.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\commands\JointMarkupCmd.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\modules\AimModule.cpp">
+      <Filter>maya\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\modules\FkChain.cpp">
+      <Filter>maya\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\modules\LayoutModule.cpp">
+      <Filter>maya\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\nodes\AssetRoot.cpp">
+      <Filter>maya\nodes</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\nodes\Constraints.cpp">
+      <Filter>maya\nodes</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\nodes\RigControlNode.cpp">
+      <Filter>maya\nodes</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\nodes\RigRoot.cpp">
+      <Filter>maya\nodes</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\AssetType.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\JointMarkupScene.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\RigModule.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\RigType.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\Side.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\Utilities.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="core\Constants.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\JointMarkup.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\JsonUtils.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\RigJsonStructs.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\RigTemplateValidation.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\StringUtils.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\CommandRegistry.h">
+      <Filter>maya</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\ModuleRegistry.h">
+      <Filter>maya</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\commands\ConstraintCmds.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\commands\CreateRigCmd.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\commands\JointMarkupCmd.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\modules\AimModule.h">
+      <Filter>maya\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\modules\FkChain.h">
+      <Filter>maya\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\modules\LayoutModule.h">
+      <Filter>maya\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\nodes\AssetRoot.h">
+      <Filter>maya\nodes</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\nodes\Constraints.h">
+      <Filter>maya\nodes</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\nodes\RigControlNode.h">
+      <Filter>maya\nodes</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\nodes\RigRoot.h">
+      <Filter>maya\nodes</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\AssetType.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\Colors.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\JointMarkupScene.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\RigModule.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\RigType.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\Side.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\Utilities.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\RigTemplates\LayoutRig.json">
+      <Filter>RigTemplates</Filter>
+    </None>
+  </ItemGroup>
+</Project>

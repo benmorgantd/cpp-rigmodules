@@ -46,7 +46,7 @@ Maya tests can't each run in isolation. If the plugin doesn't load, every test f
 
 | Tier | Proves | Test files |
 |---|---|---|
-| 1 registration | the plugin loads, and every node type, command and long flag exists | `concepts/test_plugin` |
+| 1 registration | the plugin loads, every node type, command and long flag exists, and the source layout holds (`core/` Maya-free, known folders, include paths, sorted include blocks, braces on their own lines) | `concepts/test_plugin`, `concepts/test_source_layout` (reads the source tree, not the scene) |
 | 2 read only | commands and checks that never build a rig | joint markup command, template loading, validation cases that expect errors |
 | 3 build smoke | every fixture template builds | `concepts/test_smoke` (each golden file's template and skeleton, plus valid validation cases), `commands/test_create_rig` |
 | 4 modules | each module poses correctly, and the rig around it is wired and named right | `modules/*`, sockets, naming, undo/redo |

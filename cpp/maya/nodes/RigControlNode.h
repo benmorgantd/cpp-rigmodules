@@ -1,0 +1,179 @@
+#pragma once
+#include "core/Constants.h"
+#include "maya/shared/Side.h"
+
+#include <maya/MColor.h>
+#include <maya/MFrameContext.h>
+#include <maya/MPxDrawOverride.h>
+#include <maya/MPxTransform.h>
+#include <maya/MUIDrawManager.h>
+#include <maya/MUserData.h>
+
+// Data payload passed to Viewport 2.0 draw thread
+// Read MPlugs in prepareForDraw, feed to this class, then read from it in addUIDrawables
+class ControlDrawData : public MUserData
+{
+public:
+    ControlDrawData() : MUserData()
+    {
+    }
+    ~ControlDrawData() override = default;
+
+    int shapeType{ 0 };
+    MColor color{ 1.0f, 0.0f, 0.0f, 1.0f };
+    MColor dormantColor{ 1.0f, 0.0f, 0.0f, 1.0f };
+    float lineWidth{ 1.0f };
+    MMatrix shapeTransform;
+    MPoint centerOffset{ 0.0f, 0.0f, 0.0f };
+    MVector normalVector{ 1.0f, 0.0f, 0.0f };
+    MVector upVector{ 0.0f, 0.0f, 1.0f };
+    double width{ 1.0f };
+    double height{ 1.0f };
+    double depth{ 1.0f };
+    bool filled{ false };
+};
+
+// NOTE: This enum should be kept in sync with the RigControlNodeAttr::ShapeTypes array.
+enum ShapeType : int
+{
+    Box = 0,
+    Sphere = 1,
+    Circle = 2,
+    Capsule = 3,
+    Triangle = 4,
+    Cylinder = 5,
+    Square = 6,
+};
+
+// String -> Enum
+inline ShapeType getShapeTypeFromString(std::string_view value)
+{
+    const auto& all = RigControlNodeAttr::ShapeTypes::All;
+
+    auto it = std::find(all.begin(), all.end(), value);
+    if (it != all.end())
+    {
+        return static_cast<ShapeType>(std::distance(all.begin(), it));
+    }
+
+    return ShapeType::Box;
+}
+
+inline const char* getShapeTypeString(ShapeType shape)
+{
+    const auto index = static_cast<size_t>(shape);
+    const auto& all = RigControlNodeAttr::ShapeTypes::All;
+
+    if (index < all.size())
+    {
+        return all[index];
+    }
+
+    return "Box";
+}
+
+class CustomShapes
+{
+public:
+    static const MPointArray& Triangle();
+public:
+    static MPointArray transformPointArray(const MPointArray& points, const MMatrix& matrix);
+};
+
+// Custom Transform DAG Node that has efficient drawing logic
+class RigControlNode : public MPxTransform
+{
+public:
+    RigControlNode();
+    ~RigControlNode() override;
+
+    static void* creator();
+    static MStatus initialize();
+
+    // Override setDependentsDirty from MPxNode / MPxTransform so each draw doesn't trigger MPlug reads
+    MStatus setDependentsDirty(const MPlug& plugBeingDirtied, MPlugArray& affectedPlugs) override;
+
+    static MTypeId id;
+    static MString drawDbClassification;
+    static MString drawRegistrantId;
+
+    // Rig related attributes
+    static MObject aRigModule;                  // Connects to its rig module
+    static MObject aChildControlPlugs;          // Connects to the compound message attribute on the module that holds the possible names for this as a child plug
+    static MObject aParentControlSockets;       // Connects to the compound message attribute on the module that holds the possible names for this as a parent socket
+    
+    // Shape attributes
+    static MObject aShapeType;
+    static MObject aWireColor;
+    static MObject aWireAlpha;
+    static MObject aShapeTransform;
+    static MObject aFilled;
+
+    bool isDrawDirty() const
+    {
+        return m_drawIsDirty;
+    }
+    void setDrawClean()
+    {
+        m_drawIsDirty = false;
+    }
+    void setDrawDirty()
+    {
+        m_drawIsDirty = true;
+    }
+
+private:
+    bool m_drawIsDirty{ true };
+public:
+    static MObject createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName, const ShapeType& shapeType, const Side& side);
+};
+
+// Viewport 2.0 Draw Override
+class RigControlDrawOverride : public MHWRender::MPxDrawOverride
+{
+public:
+    static MHWRender::MPxDrawOverride* Creator(const MObject& obj);
+
+    RigControlDrawOverride(const MObject& obj);
+    ~RigControlDrawOverride() override = default;
+
+    MHWRender::DrawAPI supportedDrawAPIs() const override 
+    {
+        return (MHWRender::kOpenGL | MHWRender::kDirectX11 | MHWRender::kOpenGLCoreProfile);
+    }
+
+    bool isBounded(const MDagPath& objPath, const MDagPath& cameraPath) const override
+    {
+        return true;
+    }
+
+    MBoundingBox boundingBox(const MDagPath& objPath, const MDagPath& cameraPath) const override 
+    {
+        return MBoundingBox(MPoint(-1.0, -1.0, -1.0), MPoint(1.0, 1.0, 1.0));
+    }
+
+    // Tell VP2 to place this drawable in the transparent render queue
+    virtual bool isTransparent() const override
+    {
+        return true;
+    }
+
+    bool hasUIDrawables() const override
+    {
+        return true;
+    }
+
+    MUserData* prepareForDraw(
+        const MDagPath& objPath,
+        const MDagPath& cameraPath,
+        const MHWRender::MFrameContext& frameContext,
+        MUserData* oldData) override;
+
+    void addUIDrawables(
+        const MDagPath& objPath,
+        MHWRender::MUIDrawManager& drawManager,
+        const MHWRender::MFrameContext& frameContext,
+        const MUserData* data) override;
+};
+
+
