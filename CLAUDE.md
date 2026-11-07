@@ -24,6 +24,11 @@ Documentation has two homes (D21). `design/` is for people working on the system
   5. A new or changed worked example gets a test in `tests/maya/concepts/test_docs_examples.py`.
   6. In the change summary, list the docs updated or added, or say why none were needed.
 - Prefer small, reviewable diffs. Do not refactor unrelated code in the same change.
+- **Commit messages are documentation.** Write them more fully than the repo's older one-line history. Use an imperative summary line under about 72 characters, a blank line, then bullet points that cover:
+  - what changed, grouped by area (core, plugin, tests, docs, tools)
+  - why, including the alternative that was rejected when there was a real choice, and the decision id (`D26`)
+  - what is public API or user-visible: renamed or added names, changed shapes or defaults, and the impact on saved poses, animation, shape files and exports
+  - what was verified (the build and the suite TOTAL line) and what was not, such as the viewport gallery or a GUI check
 - If a requirement is ambiguous, ask. Do not guess at rig behavior.
 - Never claim code compiles or behaves correctly in Maya unless you actually built and ran it. Say what was verified and what was not.
 - **Every build is followed by the full test suite** (see "Tests" under Local build and test). A change is not done until the suite passes on the build that contains it. Report the TOTAL line, and report any tier that failed, crashed or was blocked.
