@@ -4,6 +4,7 @@
 // Read-phase checks on a rig template. Nothing here touches the scene, so all of it runs
 // before createRig queues its first dagMod operation.
 
+#include "ControlMarkup.h"
 #include "RigJsonStructs.h"
 
 #include <nlohmann/json.hpp>
@@ -37,6 +38,7 @@ struct ModuleInterface
 {
 	std::vector<ModulePlugInfo> childPlugs;
 	std::vector<std::string> sockets;
+	std::vector<ControlMarkup> controls;   // One per control the module creates, in creation order
 
 	const ModulePlugInfo* findChildPlug(const std::string& name) const;
 	bool hasSocket(const std::string& name) const;
@@ -74,4 +76,8 @@ namespace RigTemplateValidation
 	// parentStructure and constraints against the planned interfaces, then cycle detection over both.
 	// A module missing from interfaces failed its own plan step. References to it are skipped, since that error is already reported.
 	void validateConnections(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report);
+
+	// (side, usage) must be unique across every control in the rig, because shape files and pose data key on it.
+	// Joint markup is already unique, so this only fails when a joint's usage matches a layout control's (layout_N).
+	void validateControlMarkup(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report);
 }

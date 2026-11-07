@@ -28,6 +28,7 @@ struct AimPartInput
 {
 	MObject oJoint;
 	MMatrix mRestWorld;
+	ControlMarkup controlMarkup;   // The joint's (side, usage). Unused for the aim part, which has no control.
 };
 
 // Field names are the JSON keys: "aim": ["Left","eye"], "target": [...], "up": [...]

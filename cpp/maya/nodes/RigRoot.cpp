@@ -314,6 +314,7 @@ namespace
 			interfaces.emplace(plan.name, plan.moduleInterface);
 		}
 		RigTemplateValidation::validateConnections(rigData, interfaces, report);
+		RigTemplateValidation::validateControlMarkup(rigData, interfaces, report);
 
 		for (const std::string& jointName : markedJoints.index.unclaimedExportedJoints())
 		{

@@ -24,7 +24,19 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="core\ControlMarkup.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\ControlShapeFile.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\ControlShapes.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\JointMarkup.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\RigControlFilter.cpp">
       <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="core\RigJsonStructs.cpp">
@@ -51,6 +63,9 @@
     <ClCompile Include="maya\commands\JointMarkupCmd.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
+    <ClCompile Include="maya\commands\RigControlCmds.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
     <ClCompile Include="maya\modules\AimModule.cpp">
       <Filter>maya\modules</Filter>
     </ClCompile>
@@ -75,10 +90,16 @@
     <ClCompile Include="maya\shared\AssetType.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
+    <ClCompile Include="maya\shared\ControlShapeScene.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
     <ClCompile Include="maya\shared\JointMarkupScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
     <ClCompile Include="maya\shared\RigModule.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\RigTraversal.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
     <ClCompile Include="maya\shared\RigType.cpp">
@@ -95,10 +116,22 @@
     <ClInclude Include="core\Constants.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="core\ControlMarkup.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\ControlShapeFile.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\ControlShapes.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\JointMarkup.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\JsonUtils.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\RigControlFilter.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\RigJsonStructs.h">
@@ -123,6 +156,9 @@
       <Filter>maya\commands</Filter>
     </ClInclude>
     <ClInclude Include="maya\commands\JointMarkupCmd.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\commands\RigControlCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
     <ClInclude Include="maya\modules\AimModule.h">
@@ -152,10 +188,16 @@
     <ClInclude Include="maya\shared\Colors.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
+    <ClInclude Include="maya\shared\ControlShapeScene.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
     <ClInclude Include="maya\shared\JointMarkupScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigModule.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\RigTraversal.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigType.h">

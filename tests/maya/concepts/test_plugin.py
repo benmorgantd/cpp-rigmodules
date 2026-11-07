@@ -14,6 +14,9 @@ COMMAND_FLAGS = {
     "rigJointMarkup": ["usage", "side", "export", "skin", "remove", "query", "edit"],
     "createRigParentConstraint": ["name", "driver", "label", "initial"],
     "setRigConstraintSpace": ["space", "label"],
+    "getRigControls": ["moduleType", "side", "usage"],
+    "saveRigControlShapes": ["file"],
+    "loadRigControlShapes": ["file"],
 }
 
 

@@ -132,6 +132,8 @@ def rig_interface(namespace=config.RIG_NAMESPACE):
     controls = {}
     for node in cmds.ls(pattern, type="rigControlNode") or []:
         entry = {"keyable": cmds.listAttr(node, keyable=True) or []}
+        control_markup = json.loads(cmds.getAttr(node + ".controlMarkup"))
+        entry["markup"] = [control_markup["side"], control_markup["usage"]]
         if cmds.attributeQuery("space", node=node, exists=True):
             entry["spaces"] = cmds.attributeQuery("space", node=node, listEnum=True)[0].split(":")
         controls[_short(node)] = entry

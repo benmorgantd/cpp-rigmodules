@@ -34,6 +34,7 @@ public:
 		const ShapeType& shapeType,
 		const MObjectArray& oJoints,
 		const MMatrixArray& mJointMatrices,
+		const std::vector<ControlMarkup>& controlMarkups,
 		MObject& oRigRoot,
 		MDagModifier& dagMod
 	);

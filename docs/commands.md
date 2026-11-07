@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection.
-- Is undoable.
+- Is undoable, apart from `getRigControls` (a query) and `saveRigControlShapes` (writes a file, changes nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -108,3 +108,58 @@ cmds.setRigConstraintSpace("rig:arm_ctrl_l_space", space=0)
 Give exactly one of `space` or `label`. Object: the constraint node.
 
 The command stores an offset for the new driver so the child keeps its current world position, then sets the control's enum (or the constraint's active driver when there is no enum). It does not set keys.
+
+## getRigControls
+
+Returns a rig's controls, found through the rig's connections. Filter by module type and control markup (see [controls.md](controls.md#control-markup)).
+
+```python
+cmds.getRigControls("rig:rigRootModule1")                                # every control
+cmds.getRigControls("rig:rigRootModule1", moduleType="FkChain", side="Left")
+cmds.getRigControls("rig:rigRootModule1", usage=["spine1", "spine2"])
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `moduleType` | string, multi-use | A template `moduleType`: `Layout`, `FkChain` or `Aim` |
+| `side` | string, multi-use | `Center`, `Left` or `Right` |
+| `usage` | string, multi-use | A control markup usage |
+
+Object: the rig root node (type `rigRootModule`).
+
+- Values of one flag are alternatives. Every flag given must match.
+- Returns control names, grouped by module in module-name order, then in each module's control order. No match returns an empty list.
+- An unknown `side` or `moduleType` is an error, not an empty result. So is a control without valid markup.
+- Not undoable: it changes nothing.
+
+## saveRigControlShapes
+
+Writes every control's shape to a shape file (format in [controls.md](controls.md#shape-file)).
+
+```python
+cmds.saveRigControlShapes("rig:rigRootModule1", file="C:/assets/hero/shapes.json")
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The file to write. Required. Overwritten if it exists. |
+
+Object: the rig root node. Returns the names of the controls saved. Not undoable: it writes a file and changes nothing in the scene.
+
+## loadRigControlShapes
+
+Sets control shapes from a shape file, matching controls by markup.
+
+```python
+cmds.loadRigControlShapes("rig:rigRootModule1", file="C:/assets/hero/shapes.json")
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The file to read. Required. |
+
+Object: the rig root node. Returns the names of the controls changed.
+
+- The whole file is validated first. Any error is reported and nothing changes.
+- A control with no entry in the file keeps its shape, and an entry with no matching control is skipped. Both print a warning.
+- Sets `shapeType`, `shapeTransform` and `filled`. Color is left alone.

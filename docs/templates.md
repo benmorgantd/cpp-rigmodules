@@ -62,7 +62,7 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 | `moduleType` | yes | A module type from [modules.md](modules.md): `FkChain` or `Aim` |
 | `name` | yes | The module's id. Unique in the template, a valid Maya node name (no `.`), and not `layout`. The module node gets this name in the rig namespace. |
 | `side` | no | `Center` (default), `Left` or `Right`. Sets the control name suffix (`_c`, `_l`, `_r`). |
-| `shapeType` | no | Control shape: `Box` (default), `Sphere`, `Circle`, `Capsule`, `Triangle`, `Cylinder`, `Square` |
+| `shapeType` | no | Control shape for the module's controls: `Box` (default) or any shape in [controls.md](controls.md#shapes) |
 | `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Every module is at version 1. |
 | `moduleArgs` | no | Module-specific arguments, mostly joint selectors. See [modules.md](modules.md). |
 | `parentStructure` | no | Maps this module's child plugs to parent sockets (below) |

@@ -113,6 +113,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/templates.md](docs/templates.md) | Template file format, every key, validation rules |
 | [docs/commands.md](docs/commands.md) | Every Maya command and flag |
 | [docs/modules.md](docs/modules.md) | Each module's joints, controls, child plugs and sockets |
+| [docs/controls.md](docs/controls.md) | Control markup, shapes, and the shape file |
 | [tests/README.md](tests/README.md) | Running and writing tests |
 | [design/decisions.md](design/decisions.md) | Why the system is built the way it is (decision log) |
 | [design/mayadev-integration.md](design/mayadev-integration.md) | Plan for how RigModules and the mayadev Python pipeline fit together |
@@ -136,12 +137,12 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | Path | Contents |
 |---|---|
 | `cpp/` | `RigModules.vcxproj`, and the build output in `cpp/x64/` |
-| `cpp/core/` | Maya-free: template structs and loading (`RigJsonStructs`), template validation, joint markup schema, JSON string helpers, shared name constants |
+| `cpp/core/` | Maya-free: template structs and loading (`RigJsonStructs`), template validation, joint and control markup schemas, the control shape library and shape file format, JSON string helpers, shared name constants |
 | `cpp/maya/` | Plugin entry (`PluginMain.cpp`) and the registries every node and command is added to |
 | `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim |
-| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigParentConstraint`, `setRigConstraintSpace`, `rigJointMarkup` |
+| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigParentConstraint`, `setRigConstraintSpace`, `rigJointMarkup`, `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes` |
 | `cpp/maya/nodes/` | Other nodes: rig and asset roots (the root also runs the build), the parent constraint, the control node |
-| `cpp/maya/shared/` | Code used across those folders: the module base, utilities, joint markup in the scene, enums |
+| `cpp/maya/shared/` | Code used across those folders: the module base, utilities, joint markup in the scene, rig traversal, control shapes in the scene, enums |
 | `cpp/include/` | Vendored third-party headers (nlohmann json) |
 | `RigTemplates/` | Example template |
 | `docs/` | User documentation |

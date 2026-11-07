@@ -65,6 +65,8 @@ Do not add a new module casually. Before proposing one:
   1. Create every module separately.
   2. Parent them as defined by the JSON `parentStructure`, which maps child plug to parent socket.
 - Existing modules include Layout, FkChain and Aim. Use FkChain and Layout as the reference for new modules.
+- Every control carries `controlMarkup` (side, usage), unique per rig (D25). A module's plan declares it in `ModuleInterface::controls` and passes the same values to `createRigControl`. Tools find controls through `RigTraversal`, never by name.
+- Control shapes use one convention: +X is the normal of flat shapes and the long axis of Capsule and Cylinder (D26).
 
 ### Shared constants and attribute lookup
 
@@ -110,6 +112,10 @@ RigTemplates/        example template
 | `RigJsonStructs.h/.cpp` | Template structs (`RigRootData`, `RigModuleData`, constraint data) and `loadRigTemplate` (key checks, then parse). |
 | `RigTemplateValidation.h/.cpp` | `ValidationReport`, `ModuleInterface`, and the read-phase template checks (D17). |
 | `JointMarkup.h/.cpp` | Markup schema, `JointSelector`, `JointMarkupIndex`. |
+| `ControlMarkup.h/.cpp` | Control markup schema (`controlMarkup` attribute): `markupVersion`, `side`, `usage` (D25). |
+| `ControlShapes.h/.cpp` | `ShapeType` enum, shape name lookups, the curve shape point library (+X normal, D26). |
+| `ControlShapeFile.h/.cpp` | Shape file format: `ControlShape`, `ControlShapeMap`, `serializeControlShapes` / `deserializeControlShapes` (D26). |
+| `RigControlFilter.h/.cpp` | `RigControlFilter` for `getRigControls`: moduleType, side and usage lists. |
 
 **`maya/`** (Maya API)
 
@@ -122,13 +128,16 @@ RigTemplates/        example template
 | `commands/CreateRigCmd.h/.cpp` | `createRigFromTemplate`. Reads flags into `RigBuildInputs`, then calls `RigRootNode::createRig`. |
 | `commands/ConstraintCmds.h/.cpp` | `createRigParentConstraint` and `setRigConstraintSpace`. They call `ParentConstraintNode`'s static helpers. |
 | `commands/JointMarkupCmd.h/.cpp` | `rigJointMarkup`. The reference command shape (D14). |
+| `commands/RigControlCmds.h/.cpp` | `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`. They call `RigTraversal` and `ControlShapeScene`. |
 | `nodes/RigRoot.h/.cpp` | `RigRootNode`, `RigBuildInputs` and `createRig` (read phase: parse, scan markup, `planModules`, validate. Write phase: roots, `buildModules`, parenting pass, constraints). |
 | `nodes/AssetRoot.h/.cpp` | `AssetRootNode`. |
 | `nodes/Constraints.h/.cpp` | `ParentConstraintNode`: compute, `resolveSocket`, `createConstraint`, `buildFromTemplate`, `matchSwitchSpace`. |
-| `nodes/RigControlNode.h/.cpp` | Custom control transform and its draw override. |
+| `nodes/RigControlNode.h/.cpp` | Custom control transform (shape attributes, `controlMarkup`, bounds from `shapeTransform`) and its draw override. |
 | `shared/RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/child plug lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
 | `shared/Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `ScopedRigNamespace` (RAII current namespace for a rig build and its redo). |
 | `shared/JointMarkupScene.h/.cpp` | Plugin side of markup: namespace joint scan, attribute read, `claimJoint`. |
+| `shared/RigTraversal.h/.cpp` | Walks a built rig by connections: rig root, modules, controls, control markup, filtered `getRigControls`. |
+| `shared/ControlShapeScene.h/.cpp` | `getControlShape` / `setControlShape` and the rig-wide versions behind the shape file commands. |
 | `shared/Colors.h` | `Colors`, the Maya `MColor` constants, split out of `core/Constants.h`. |
 | `shared/AssetType`, `shared/RigType`, `shared/Side` | Enum/string helpers. `AssetType.h` is Maya-free but `AssetType.cpp` reports errors through `MGlobal`, so the pair lives here. |
 
@@ -140,13 +149,13 @@ RigTemplates/        example template
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
-| `design/decisions.md` | Decision log (D1–D24). |
+| `design/decisions.md` | Decision log (D1–D26). |
 | `design/mayadev-integration.md` | Survey of the sibling mayadev repo, conflicts with RigModules, the proposed boundary and phases (D24). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
-| `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. |
+| `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. `ViewportGallery.cmd` is the manual VP2 shape check. |
 | `cpp/RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files, with its folder relative to `cpp/` (`core\X.cpp`). The filters file has one filter per folder. |
 
-**Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, namespace=ns)`, `cmds.rigJointMarkup(...)`, `cmds.createRigParentConstraint(control, driver=["module.socket", ...])`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`. Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
+**Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, namespace=ns)`, `cmds.rigJointMarkup(...)`, `cmds.createRigParentConstraint(control, driver=["module.socket", ...])`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`, `cmds.getRigControls(rigRoot, moduleType=[...], side=[...], usage=[...])`, `cmds.saveRigControlShapes(rigRoot, file=path)`, `cmds.loadRigControlShapes(rigRoot, file=path)`. Name API functions and commands in verb pairs: get/set for scene data (`getRigControls`, `setControlShape`), save/load for files this system owns (`saveRigControlShapes`, `loadRigControlShapes`), import/export for data going to or from other tools or formats. Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
 
 **Node types and MTypeIds:** `rigRootModule` 0x00218, `assetRootModule` 0x00219, `fkChainModule` 0x00218B, `layoutModule` 0x00218C, `aimModule` 0x00218D, `bmParentConstraint` 0x00218E, `rigControlNode` 0x0013B5C0. Check this list before picking an id for a new node.
 
@@ -256,8 +265,9 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
 - **Build** (from the repo root): `& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" cpp\RigModules.vcxproj /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal`
   - Output: `cpp\x64\Release\RigModules.mll`. That is the runner's default `--plugin`.
   - **Then always run the tests**, even for a change that looks unrelated. Run `cmd /c tests\RigTests.cmd`, or the suite at the end of your own mayapy script (see Tests below).
-  - Warnings that already existed and can be ignored: nlohmann C5260, `maya/nodes/RigControlNode.cpp` C4244, `maya/shared/Utilities.cpp` C4018.
+  - Warnings that already existed and can be ignored: nlohmann C5260, `maya/shared/Utilities.cpp` C4018.
 - **Run Maya headless:** `C:\Program Files\Autodesk\Maya2026\bin\mayapy.exe script.py`. Start the script with `maya.standalone.initialize(name="python")`, then `cmds.loadPlugin(path)`.
+- **Viewport (VP2) checks need a GUI session.** mayapy, `mayabatch` and `ogsRender` don't draw UI drawables or curves, so a draw override can't be checked there. After changing control drawing or shapes, run `cmd /c tests\ViewportGallery.cmd` and look at the images (see `tests/README.md`). It starts `maya.exe -command "python(\"exec(open('<script>').read())\")"`. The script runs its work through `maya.utils.executeDeferred` (so the UI exists), sets the camera on `cmds.playblast(activeEditor=True)` (not the first model panel, which playblast may not capture), playblasts with `offScreen=True`, then calls `cmds.quit(force=True)`. `exec` gives it no `__file__`, so paths come through env vars.
 - **Copy the .mll before loading it.** A loaded plugin locks the file, so a Maya session that has it loaded makes the next build fail. Copy the .mll to the scratchpad and load the copy.
 - **Reading results in standalone:**
   - `MGlobal::displayError` text surfaces as the `RuntimeError` message from the `cmds` call.
@@ -274,7 +284,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 190 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 234 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.

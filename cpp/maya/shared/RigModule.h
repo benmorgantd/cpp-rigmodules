@@ -111,6 +111,7 @@ struct ModuleDescriptor
 	NodeInitializeFn initialize;
 	int currentVersion;
 	ModulePlanFn plan;          // nullptr = registered with Maya but not buildable from JSON
+	bool isRigModule;           // Connects to a rig root's rigModules. Its moduleType is a getRigControls filter value.
 };
 
 // Result of solving one control step. Shared by every module that carries controls.

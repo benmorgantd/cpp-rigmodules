@@ -40,7 +40,7 @@ RigModules wins each of these, because each is already a decision.
 | Template | Nested `children` tree. Keys are Python `__init__` arguments, found by introspection. `modType` | Flat `rigModules` list, `parentStructure`, `moduleType`, `moduleArgs`, read-phase validation (D17) | RigModules. Old `build.json` files are not converted (no rigs need to survive) |
 | Rig metadata | Every Python instance attribute stamped as a locked string attribute on network nodes. A general `BMETADATA` JSON attribute | Typed attributes on rig nodes, JSON in string attributes through `JsonUtils` (D16) | RigModules on rig nodes. `BMETADATA` may stay for tool tagging, never on rig nodes or joints |
 | Sides | `L`, `R`, `M` | `Left`, `Right`, `Center` (`SideNames`) | RigModules. Python reads side names from one place and does not copy them |
-| Control shapes | nurbsCurves, shape edits saved as world-space CVs in `cvs.json` | `rigControlNode` drawn by VP2 from `shapeType`, `shapeTransform`, `wireColor`, `wireAlpha`, `filled` | RigModules node. Shape IO saves those attributes per asset (TODO below) |
+| Control shapes | nurbsCurves, shape edits saved as world-space CVs in `cvs.json` | `rigControlNode` drawn by VP2 from `shapeType`, `shapeTransform`, `wireframeColor`, `wireframeAlpha`, `filled` | RigModules node. Shape IO saves `shapeType`, `shapeTransform` and `filled` per rig (built, D26) |
 | Mirroring | Build a second module instance with mirrored arguments | Not built | Open. Design it on the RigModules side |
 | Validation | None | C++ read phase | RigModules |
 | Names | `Layout`, `FkChain`, `LayoutRig.json`, "build" | The same words mean different things | Deleting the legacy builder removes the clash. Until then, "legacy" means mayadev's builder |
@@ -66,7 +66,7 @@ Two hard limits on `python/`, whatever the answer: it imports no Qt and no `bmay
 | Rig query API: rig root from any node, modules, controls, sockets, child plugs, rest values | RigModules `python/` | Knows the node graph. This is the only way tools reach rig internals |
 | Template load and validate (calls the C++ core) | RigModules `python/` | Template schema |
 | Module interface query (`moduleArgs`, child plugs, sockets per `moduleType`) | RigModules: a C++ command, wrapped in `python/` | Comes from the `ModuleRegistry`. The template editor reads it so it never copies the schema |
-| Shape IO: read and write control shape data | RigModules `python/` (or a C++ command, decided in its design) | The data is `rigControlNode` attributes |
+| Shape IO: read and write control shape data | RigModules C++ commands `saveRigControlShapes` / `loadRigControlShapes` (D26) | The data is `rigControlNode` attributes |
 | Pose data read and write (control name → values) | RigModules `python/` | Keyed on control names and attributes, which are rig public API |
 | Asset id → folder paths, component files, versioning | mayadev | Pipeline layout, uses `RIGGING_PROJECT_DIR` |
 | Build orchestration (import skeleton and mesh, build, apply shapes, load weights, post-ops, save) | mayadev | Calls the RigModules wrapper and shape IO with paths from the asset layer |
@@ -120,18 +120,14 @@ TODO for the RigModules era:
 - Keep `weights/`, `postops.py`, `animRig.ma` and versioning as they are.
 - A tool can go from a node in the scene to the asset folder: query API → rig root → asset root `assetId` → mayadev `Asset`.
 
-## Shape IO (TODO, RigModules side)
+## Shape IO (built, RigModules side)
 
-Riggers edit control shapes per asset. Artists and animators don't. A rig rebuilt from its template has to come back with the rigger's shapes. The shape is already data on `rigControlNode`: `shapeType`, `shapeTransform` (the shape's matrix relative to the control), `wireColor`, `wireAlpha` and `filled`. What's missing is a way to save it next to the asset and apply it after a build.
+Riggers edit control shapes per asset. Artists and animators don't. A rig rebuilt from its template has to come back with the rigger's shapes. Built 2026-11-07 (D25, D26):
 
-To design before building it (CLAUDE.md "plan before code"):
-- **Format:** JSON keyed by control name, one entry per control, holding those five attributes. Control names are public API, so renaming a control drops its saved shape. The apply step should report controls in the file that aren't in the rig, and the other way round.
-- **Export:** from a built rig, all controls or a selection, through the query API.
-- **Apply:** after `createRigFromTemplate`. Either a `python/` function called by mayadev's build, or a flag on the build command. Decide in the design. Undoable either way.
-- **Mirror:** legacy `shapeio.mirror` copied left shapes to right. Riggers will want the same, keyed on control side (markup), not on name strings.
-- **Where:** `python/` if it can be done with `cmds` on the five attributes. A C++ command if it needs the node internals or must work in one undo chunk with the build.
-- **Tests:** export, apply and round-trip on a fixture rig, missing-control reporting, mirror.
-- **Docs:** `docs/commands.md` or a new Python API page, and the asset file in mayadev's docs.
+- **Format:** one JSON file per rig, keyed by control markup `(side, usage)`, not by control name. Each entry holds `shapeType`, `shapeTransform` and `filled`. Color is not saved: it follows the module's side. Format reference in `docs/controls.md`.
+- **Commands:** `cmds.saveRigControlShapes(rigRoot, file=path)` and the undoable `cmds.loadRigControlShapes(rigRoot, file=path)`. Load reports controls missing from the file and entries with no control, and applies the rest.
+- **Apply:** mayadev's asset build calls `loadRigControlShapes` after `createRigFromTemplate`, with the path from the asset layer.
+- **Still TODO:** mirroring Left to Right (legacy `shapeio.mirror`), keyed on markup `usage` across sides. Documenting the asset's `shapes.json` in mayadev's docs.
 
 ## How a rig build maps across
 
@@ -181,7 +177,7 @@ Animator-facing features found there, which RigModules does not have yet:
 0. **Done (docs only):** this page, D24, CLAUDE.md, memory.
 1. **mayadev cleanup:** tag `legacy-builder`, delete the legacy builder, add `mayadev.mod`, load the plugin at startup.
 2. **RigModules `python/` package:** design first, then the build wrapper, the query API and the module interface query, with tests in the suite. Add `RigModules.mod`.
-3. **Shape IO:** design, then build (see "Shape IO").
+3. **Shape IO:** built (see "Shape IO"). Mirroring still to do.
 4. **mayadev asset build:** the asset folder TODOs, a build that calls the RigModules wrapper and shape IO, and rigManager rewritten as a template editor.
 5. **Skinning and animation tools** on the query API: pose data, reset, key all, IK/FK match once IK modules exist.
 
@@ -189,7 +185,7 @@ Animator-facing features found there, which RigModules does not have yet:
 
 1. **Boundary:** two repos. `python/` here holds only the wrappers tied to the rig modules. Skinning, Qt, animation tools, the events registry and the rest stay in mayadev. The author asked how the move should work. "The boundary" above is that answer, signed off the same day.
 2. **Legacy rigs:** none need to survive. This is personal portfolio work, run as if it were a studio pipeline.
-3. **Control shapes:** riggers edit shapes per asset, artists don't. That is what `shapeTransform` is for. Shape IO and the asset folder layout are TODOs above.
+3. **Control shapes:** riggers edit shapes per asset, artists don't. That is what `shapeTransform` is for. Shape IO is built (D26). The asset folder layout is a TODO above.
 4. **Distribution:** `.mod` packaging is fine. This plan proposes one `.mod` per repo.
 
-Still open: control sets (`CTRL_set` and a bind or export set), mirroring, and whether shape IO is Python or a C++ command.
+Still open: control sets (`CTRL_set` and a bind or export set) and mirroring. Shape IO is C++ commands (D26).

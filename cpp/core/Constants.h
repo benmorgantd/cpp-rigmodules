@@ -7,7 +7,8 @@
 namespace RigControlNodeAttr
 {
 	inline constexpr const char* ShapeType{ "shapeType" };
-	// NOTE: this array should be kept in sync with the ShapeType enum in RigControlNode.
+	// Same order as the ShapeType enum in ControlShapes.h, which static_asserts the count.
+	// Public API: templates and shape files store these names.
 	namespace ShapeTypes
 	{
 		inline constexpr std::array All =
@@ -18,7 +19,17 @@ namespace RigControlNodeAttr
 			"Capsule",
 			"Triangle",
 			"Cylinder",
-			"Square"
+			"Square",
+			"HalfCircleArrow",
+			"ArchedDoubleArrow",
+			"PointedCircle",
+			"Diamond",
+			"CircleArrow",
+			"Dome",
+			"SingleArrow",
+			"FourArrow",
+			"CircleStick",
+			"Pivot"
 		};
 	}
 	inline constexpr const char* ShapeTransform{ "shapeTransform" };
@@ -26,6 +37,16 @@ namespace RigControlNodeAttr
 	inline constexpr const char* WireframeAlpha{ "wireframeAlpha" };
 	inline constexpr const char* Filled{ "filled" };
 	inline constexpr const char* RigModule{ "rigModule" };
+	// One JSON string per control, see ControlMarkup.h. Its keys reuse JointMarkupKey and RigAttr::Side.
+	inline constexpr const char* ControlMarkup{ "controlMarkup" };
+}
+
+// Keys in a control shape file, see ControlShapeFile.h. Public API: saved shape files depend on them.
+// The per-control keys reuse the RigControlNodeAttr attribute names.
+namespace ControlShapeFileKey
+{
+	inline constexpr const char* FormatVersion{ "formatVersion" };
+	inline constexpr const char* Controls{ "controls" };
 }
 
 // Compute stays on the statics. Only construction and tool code uses the name lookups.

@@ -1,52 +1,77 @@
 #include "maya/nodes/RigControlNode.h"
 #include "core/Constants.h"
 #include "maya/shared/Colors.h"
-#include "maya/shared/Side.h"
 #include "maya/shared/Utilities.h"
 
 #include <string>
 
 #include <maya/MDagModifier.h>
+#include <maya/MFnDependencyNode.h>
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MFnMessageAttribute.h>
 #include <maya/MFnNumericAttribute.h>
+#include <maya/MFnTypedAttribute.h>
 #include <maya/MGlobal.h>
 #include <maya/MHWGeometryUtilities.h>
 #include <maya/MNamespace.h>
 #include <maya/MPlug.h>
-#include <maya/MUIDrawManager.h>
-#include <maya/MVector.h>
+#include <maya/MSelectionList.h>
 
-const MPointArray& CustomShapes::Triangle()
+namespace
 {
-    // Lives for the duration of the Maya session.
-    static const MPointArray points = []() 
-    {
-        MPointArray pArray;
-        pArray.append(0.0, 0.0, 1.0);
-        pArray.append(-1.0, 0.0, -1.0);
-        pArray.append(1.0, 0.0, -1.0);
-        pArray.append(0.0, 0.0, 1.0);
-        return pArray;
-    }();
-    return points;
-}
+	// Half extents of a primitive along the frame's axes, matching what addUIDrawables asks the draw manager for.
+	// Measured against a +-1 cube in VP2 (2026-11-07): box, sphere, circle and rect sizes are half extents and radii,
+	// while capsule and cylinder heights are full lengths. The round shapes don't scale linearly with the matrix
+	// (a capsule's caps follow its radius, a sphere uses one radius), so the box is built from the sizes, not by
+	// pushing a unit box through shapeTransform.
+	MVector primitiveHalfExtents(ShapeType shapeType, const ShapeFrame& frame)
+	{
+		switch (shapeType)
+		{
+			case ShapeType::Sphere:
+				return MVector(frame.sizeX, frame.sizeX, frame.sizeX);
+			case ShapeType::Circle:
+				return MVector(0.0, frame.sizeY, frame.sizeY);
+			case ShapeType::Capsule:
+				return MVector(0.5 * frame.sizeX + frame.sizeY, frame.sizeY, frame.sizeY);
+			case ShapeType::Cylinder:
+				return MVector(0.5 * frame.sizeX, frame.sizeY, frame.sizeY);
+			case ShapeType::Square:
+				return MVector(0.0, frame.sizeY, frame.sizeZ);
+			default:
+				return MVector(frame.sizeX, frame.sizeY, frame.sizeZ);
+		}
+	}
 
-MPointArray CustomShapes::transformPointArray(const MPointArray& points, const MMatrix& matrix)
-{
-    MPointArray outputPoints;
-    const unsigned int count = points.length();
-    outputPoints.setLength(count);
+	MBoundingBox primitiveShapeBounds(ShapeType shapeType, const ShapeFrame& frame)
+	{
+		const MVector halfExtents = primitiveHalfExtents(shapeType, frame);
+		MBoundingBox bounds;
+		for (const double signX : { -1.0, 1.0 })
+		{
+			for (const double signY : { -1.0, 1.0 })
+			{
+				for (const double signZ : { -1.0, 1.0 })
+				{
+					bounds.expand(frame.center + frame.axisX * (signX * halfExtents.x) + frame.axisY * (signY * halfExtents.y)
+						+ frame.axisZ * (signZ * halfExtents.z));
+				}
+			}
+		}
+		return bounds;
+	}
 
-    for (unsigned int i = 0; i < count; ++i)
-    {
-        // Row-major post-multiplication in Maya C++ API
-        outputPoints[i] = points[i] * matrix;
-    }
-
-    return outputPoints;
+	MBoundingBox curveShapeBounds(const std::vector<ShapePoint>& points)
+	{
+		MBoundingBox bounds;
+		for (const ShapePoint& point : points)
+		{
+			bounds.expand(MPoint(point.x, point.y, point.z));
+		}
+		return bounds;
+	}
 }
 
 MTypeId RigControlNode::id(0x0013B5C0);
@@ -60,9 +85,9 @@ MObject RigControlNode::aShapeTransform;
 MObject RigControlNode::aFilled;
 
 MObject RigControlNode::aRigModule;
+MObject RigControlNode::aControlMarkup;
 
 RigControlNode::RigControlNode()
-    : m_drawIsDirty(true)
 {
 }
 
@@ -70,318 +95,325 @@ RigControlNode::~RigControlNode()
 {
 }
 
-void* RigControlNode::creator() 
+void* RigControlNode::creator()
 {
-    return new RigControlNode();
+	return new RigControlNode();
 }
 
 MStatus RigControlNode::setDependentsDirty(const MPlug& plugBeingDirtied, MPlugArray& affectedPlugs)
 {
-    // Check if the plug being dirtied matches any visual, transform, or matrix attributes
-    MObject attr = plugBeingDirtied.attribute();
-    MObject parentAttr = plugBeingDirtied.parent().attribute();
+	const MObject attr = plugBeingDirtied.attribute();
+	// wireframeColor is a compound, so a change to one channel arrives on a child plug.
+	const bool isColorChannel = plugBeingDirtied.isChild() && plugBeingDirtied.parent().attribute() == aWireColor;
 
-    // use this block for simple attributes that have no children (aren't vectors or colors)
-    if (attr == aShapeType || attr == aShapeTransform || attr == aWireAlpha ||
-        attr == aWireColor || parentAttr == aWireColor || attr == aFilled)
-    {
-        setDrawDirty(); // Flag for Viewport 2.0 MPxDrawOverride
-        // Importantly, set this to be dirty so that the viewport redraws while we're changing attributes.
-        MHWRender::MRenderer::setGeometryDrawDirty(thisMObject());
-    }
- 
-    // Call base class MPxTransform implementation
-    return MPxTransform::setDependentsDirty(plugBeingDirtied, affectedPlugs);
+	if (attr == aShapeType || attr == aShapeTransform || attr == aWireAlpha || attr == aWireColor || attr == aFilled || isColorChannel)
+	{
+		m_drawIsDirty = true;
+		// Redraw while the attribute is being changed, not only on the next unrelated refresh.
+		MHWRender::MRenderer::setGeometryDrawDirty(thisMObject());
+	}
+
+	return MPxTransform::setDependentsDirty(plugBeingDirtied, affectedPlugs);
+}
+
+bool RigControlNode::isBounded() const
+{
+	return true;
+}
+
+MBoundingBox RigControlNode::boundingBox() const
+{
+	const MObject oControl = thisMObject();
+	const ShapeType shapeType = getShapeType(oControl);
+	const MMatrix mShapeTransform = getShapeTransform(oControl);
+	const std::vector<ShapePoint>* pCurvePoints = getCurveShapePoints(shapeType);
+	if (pCurvePoints == nullptr)
+	{
+		return primitiveShapeBounds(shapeType, getShapeFrame(mShapeTransform));
+	}
+
+	MBoundingBox bounds = curveShapeBounds(*pCurvePoints);
+	bounds.transformUsing(mShapeTransform);
+	return bounds;
+}
+
+ShapeFrame RigControlNode::getShapeFrame(const MMatrix& mShapeTransform)
+{
+	const MVector rowX(mShapeTransform[0][0], mShapeTransform[0][1], mShapeTransform[0][2]);
+	const MVector rowY(mShapeTransform[1][0], mShapeTransform[1][1], mShapeTransform[1][2]);
+	const MVector rowZ(mShapeTransform[2][0], mShapeTransform[2][1], mShapeTransform[2][2]);
+
+	ShapeFrame frame;
+	frame.center = MPoint(mShapeTransform[3][0], mShapeTransform[3][1], mShapeTransform[3][2]);
+	frame.sizeX = rowX.length();
+	frame.sizeY = rowY.length();
+	frame.sizeZ = rowZ.length();
+	frame.axisX = frame.sizeX > 1e-6 ? rowX / frame.sizeX : MVector::xAxis;
+	frame.axisY = frame.sizeY > 1e-6 ? rowY / frame.sizeY : MVector::yAxis;
+	frame.axisZ = frame.sizeZ > 1e-6 ? rowZ / frame.sizeZ : MVector::zAxis;
+	return frame;
+}
+
+MMatrix RigControlNode::getShapeTransform(const MObject& oControl)
+{
+	MPlug pShapeTransform(oControl, aShapeTransform);
+	MObject oShapeTransform;
+	if (pShapeTransform.getValue(oShapeTransform) != MStatus::kSuccess || oShapeTransform.isNull())
+	{
+		return MMatrix::identity;
+	}
+	return MFnMatrixData(oShapeTransform).matrix();
+}
+
+ShapeType RigControlNode::getShapeType(const MObject& oControl)
+{
+	const short value = MPlug(oControl, aShapeType).asShort();
+	return (value >= 0 && value < ShapeType::Count) ? static_cast<ShapeType>(value) : ShapeType::Box;
 }
 
 MStatus RigControlNode::initialize()
 {
-    MFnEnumAttribute eAttr;
-    MFnNumericAttribute nAttr;
-    MFnMessageAttribute msgAttr;
-    MFnMatrixAttribute mAttr;
+	MStatus status;
+	MFnEnumAttribute eAttr;
+	MFnNumericAttribute nAttr;
+	MFnMessageAttribute msgAttr;
+	MFnMatrixAttribute mAttr;
+	MFnTypedAttribute tAttr;
 
-    aShapeType = eAttr.create(RigControlNodeAttr::ShapeType, RigControlNodeAttr::ShapeType, 0);
-    for (short i = 0; i < RigControlNodeAttr::ShapeTypes::All.size(); ++i)
-    {
-        eAttr.addField(RigControlNodeAttr::ShapeTypes::All[i], i);
-    }
-    eAttr.setKeyable(false);
-    eAttr.setStorable(true);
-    addAttribute(aShapeType);
+	aShapeType = eAttr.create(RigControlNodeAttr::ShapeType, RigControlNodeAttr::ShapeType, 0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	for (std::size_t i = 0; i < RigControlNodeAttr::ShapeTypes::All.size(); ++i)
+	{
+		CHECK_MSTATUS_AND_RETURN_IT(eAttr.addField(RigControlNodeAttr::ShapeTypes::All[i], static_cast<short>(i)));
+	}
+	eAttr.setKeyable(false);
+	eAttr.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aShapeType));
 
-    aWireColor = nAttr.createColor(RigControlNodeAttr::WireframeColor, RigControlNodeAttr::WireframeColor);
-    nAttr.setDefault(1.0f, 0.0f, 0.0f);  // note that this was silently failing when trying to set alpha
-    nAttr.setKeyable(false);
-    nAttr.setStorable(true);
-    addAttribute(aWireColor);
+	aWireColor = nAttr.createColor(RigControlNodeAttr::WireframeColor, RigControlNodeAttr::WireframeColor, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	nAttr.setDefault(1.0f, 0.0f, 0.0f);   // RGB only. Alpha is wireframeAlpha.
+	nAttr.setKeyable(false);
+	nAttr.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aWireColor));
 
-    aWireAlpha = nAttr.create(RigControlNodeAttr::WireframeAlpha, RigControlNodeAttr::WireframeAlpha, MFnNumericData::kFloat, 1.0f);
-    nAttr.setMin(0.0f);
-    nAttr.setMax(1.0f);
-    nAttr.setKeyable(false);
-    nAttr.setStorable(true);
-    addAttribute(aWireAlpha);
+	aWireAlpha = nAttr.create(RigControlNodeAttr::WireframeAlpha, RigControlNodeAttr::WireframeAlpha, MFnNumericData::kFloat, 1.0f, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	nAttr.setMin(0.0f);
+	nAttr.setMax(1.0f);
+	nAttr.setKeyable(false);
+	nAttr.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aWireAlpha));
 
-    aShapeTransform = mAttr.create(RigControlNodeAttr::ShapeTransform, RigControlNodeAttr::ShapeTransform, MFnMatrixAttribute::kDouble);
-    mAttr.setWritable(true);
-    mAttr.setStorable(true);
-    addAttribute(aShapeTransform);
+	aShapeTransform = mAttr.create(RigControlNodeAttr::ShapeTransform, RigControlNodeAttr::ShapeTransform, MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	mAttr.setWritable(true);
+	mAttr.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aShapeTransform));
 
-    aFilled = nAttr.create(RigControlNodeAttr::Filled, RigControlNodeAttr::Filled, MFnNumericData::kBoolean, false);
-    nAttr.setWritable(true);
-    nAttr.setStorable(true);
-    addAttribute(aFilled);
+	aFilled = nAttr.create(RigControlNodeAttr::Filled, RigControlNodeAttr::Filled, MFnNumericData::kBoolean, false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	nAttr.setKeyable(false);
+	nAttr.setWritable(true);
+	nAttr.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aFilled));
 
-    // Rig Attributes
-    aRigModule = msgAttr.create(RigControlNodeAttr::RigModule, RigControlNodeAttr::RigModule);
-    addAttribute(aRigModule);
+	// Rig attributes. Neither affects an output: the module reads the control, never these.
+	aRigModule = msgAttr.create(RigControlNodeAttr::RigModule, RigControlNodeAttr::RigModule, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aRigModule));
 
-    return MS::kSuccess;
+	aControlMarkup = tAttr.create(RigControlNodeAttr::ControlMarkup, RigControlNodeAttr::ControlMarkup, MFnData::kString, MObject::kNullObj, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	tAttr.setKeyable(false);
+	tAttr.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aControlMarkup));
+
+	return MS::kSuccess;
 }
 
 MHWRender::MPxDrawOverride* RigControlDrawOverride::Creator(const MObject& obj)
 {
-    return new RigControlDrawOverride(obj);
+	return new RigControlDrawOverride(obj);
 }
 
-//The last bool is important for efficiency. Sets it to not be always dirty so viewport tumbles don't trigger MPlug reads
+// isAlwaysDirty is false so viewport tumbles don't trigger MPlug reads.
 RigControlDrawOverride::RigControlDrawOverride(const MObject& obj)
-    : MHWRender::MPxDrawOverride(obj, nullptr, false)
+	: MHWRender::MPxDrawOverride(obj, nullptr, false)
 {
 }
 
-// This method only gathers plug data if the plugs have been determined as dirty. Otherwise it is re-using cached MUserData
+MBoundingBox RigControlDrawOverride::boundingBox(const MDagPath& objPath, const MDagPath& cameraPath) const
+{
+	const RigControlNode* pControl = dynamic_cast<const RigControlNode*>(MFnDependencyNode(objPath.node()).userNode());
+	return pControl ? pControl->boundingBox() : MBoundingBox(MPoint(-1.0, -1.0, -1.0), MPoint(1.0, 1.0, 1.0));
+}
+
+// Reads plugs only when the shape changed, or when VP2 hands over no cached data.
 MUserData* RigControlDrawOverride::prepareForDraw(
-    const MDagPath& objPath,
-    const MDagPath& cameraPath,
-    const MHWRender::MFrameContext& frameContext,
-    MUserData* oldData)
+	const MDagPath& objPath,
+	const MDagPath& cameraPath,
+	const MHWRender::MFrameContext& frameContext,
+	MUserData* oldData)
 {
-    ControlDrawData* data = dynamic_cast<ControlDrawData*>(oldData);
-    if (!data) 
-    {
-        data = new ControlDrawData();
-    }
+	ControlDrawData* data = dynamic_cast<ControlDrawData*>(oldData);
+	const bool isNewData = data == nullptr;
+	if (isNewData)
+	{
+		data = new ControlDrawData();
+	}
 
-    MObject node = objPath.node();
-    MFnDependencyNode fnNode(node);
-    RigControlNode* rigControlNode = dynamic_cast<RigControlNode*>(fnNode.userNode());
+	MObject oControl = objPath.node();
+	RigControlNode* pControl = dynamic_cast<RigControlNode*>(MFnDependencyNode(oControl).userNode());
 
-    if (rigControlNode && rigControlNode->isDrawDirty())
-    {
-        // 1. Fetch Shape Parameters
-        MPlug(node, RigControlNode::aShapeType).getValue(data->shapeType);
+	// The dirty flag lives on the node, but the cache lives on this data. A new draw override (new panel, instance,
+	// display mode change) starts with no data while the node is already clean, so new data always reads the plugs.
+	if (pControl && (isNewData || pControl->isDrawDirty()))
+	{
+		data->shapeType = RigControlNode::getShapeType(oControl);
 
-        // Get the shape transformation
-        MPlug pShapeTransform(node, RigControlNode::aShapeTransform);
-        MObject oShapeTransformObj;
-        pShapeTransform.getValue(oShapeTransformObj);
-        MFnMatrixData fnShapeTransform(oShapeTransformObj);
-        MMatrix mShapeTransform = fnShapeTransform.matrix();
-        data->shapeTransform = mShapeTransform;
+		const MMatrix mShapeTransform = RigControlNode::getShapeTransform(oControl);
+		data->frame = RigControlNode::getShapeFrame(mShapeTransform);
 
-        MTransformationMatrix tMatrix(mShapeTransform);
+		data->curvePoints.clear();
+		if (const std::vector<ShapePoint>* pCurvePoints = getCurveShapePoints(data->shapeType))
+		{
+			data->curvePoints.setLength(static_cast<unsigned int>(pCurvePoints->size()));
+			for (unsigned int i = 0; i < data->curvePoints.length(); ++i)
+			{
+				const ShapePoint& point = (*pCurvePoints)[i];
+				data->curvePoints[i] = MPoint(point.x, point.y, point.z) * mShapeTransform;
+			}
+		}
 
-        // Scale
-        double scale[3];
-        tMatrix.getScale(scale, MSpace::kObject);
-        data->width = scale[0];
-        data->height = scale[1];
-        data->depth = scale[2];
+		MPlug pColor(oControl, RigControlNode::aWireColor);
+		const float r = pColor.child(0).asFloat();
+		const float g = pColor.child(1).asFloat();
+		const float b = pColor.child(2).asFloat();
+		const float a = MPlug(oControl, RigControlNode::aWireAlpha).asFloat();
+		data->dormantColor = MColor(r, g, b, a);
 
-        // Center offset
-        MPoint centerOffset(tMatrix.getTranslation(MSpace::kObject));
-        data->centerOffset = centerOffset;
+		data->filled = MPlug(oControl, RigControlNode::aFilled).asBool();
 
-        MMatrix rMatrix = tMatrix.asRotateMatrix();
+		pControl->setDrawClean();
+	}
 
-        // Normal Vector is the matrix X axis
-        MVector normalVector;
-        normalVector = MVector(rMatrix[0][0], rMatrix[0][1], rMatrix[0][2]);
-        normalVector.normalize();
+	// Selection color runs on every call, from the cached dormant color.
+	const MHWRender::DisplayStatus displayStatus = MHWRender::MGeometryUtilities::displayStatus(objPath);
 
-        if (normalVector.length() < 0.001)
-        {
-            normalVector = MVector(1, 0, 0);
-        }
-        data->normalVector = normalVector;
+	// A control that is selected looks different from one that is only highlighted because a parent is selected.
+	MSelectionList selList;
+	MGlobal::getActiveSelectionList(selList);
+	const bool isObjectSelected = selList.hasItem(objPath);
+	const unsigned int selLen = selList.length();
 
-        // Up Vector is the Y axis
-        MVector upVector;
-        upVector = MVector(rMatrix[1][0], rMatrix[1][1], rMatrix[1][2]);
-        upVector.normalize();
+	data->lineWidth = 1.0f;
 
-        if (upVector.length() < 0.001)
-        {
-            upVector = MVector(0, 0, 1);
-        }
-        data->upVector = upVector;
+	if (displayStatus == MHWRender::kLead && isObjectSelected && selLen != 1)
+	{
+		data->color = MColor(Colors::ActiveLead.r, Colors::ActiveLead.g, Colors::ActiveLead.b, data->dormantColor.a);
+		data->lineWidth = 2.0f;
+	}
+	else if ((displayStatus == MHWRender::kActive || displayStatus == MHWRender::kLead) && isObjectSelected)
+	{
+		data->color = MColor(Colors::ActiveSelected.r, Colors::ActiveSelected.g, Colors::ActiveSelected.b, data->dormantColor.a);
+		data->lineWidth = 2.0f;
+	}
+	else if ((displayStatus == MHWRender::kActiveAffected) || (!isObjectSelected && displayStatus != MHWRender::kDormant))
+	{
+		data->color = MColor(Colors::ActiveSelected.r, Colors::ActiveSelected.g, Colors::ActiveSelected.b, data->dormantColor.a * 0.75f);
+	}
+	else
+	{
+		data->color = data->dormantColor;
+	}
 
-        // Base color from plugs. Other color is from selection highlighting.
-        // Fetch dormant color (red, blue, etc)
-        MPlug plugColor(node, RigControlNode::aWireColor);
-        MColor color;
-        float lineWidth = 1.0f;
-        float r = 0.0f, g = 0.0f, b = 0.0f, a = 1.0f;
-
-        if (!plugColor.isNull())
-        {
-            plugColor.child(0).getValue(r);
-            plugColor.child(1).getValue(g);
-            plugColor.child(2).getValue(b);
-        }
-
-        MPlug plugAlpha(node, RigControlNode::aWireAlpha);
-        if (!plugAlpha.isNull())
-        {
-            plugAlpha.getValue(a);
-        }
-
-        data->dormantColor = MColor(r, g, b, a);
-        data->lineWidth = lineWidth;
-
-        // Filled
-        MPlug plugFilled(node, RigControlNode::aFilled);
-        bool filled = false;
-        if (!plugFilled.isNull())
-        {
-            filled = plugFilled.asBool();
-        }
-        data->filled = filled;
-
-        // Important! Set draw clean for the node so we can keep these cached plug reads until they dirty again.
-        rigControlNode->setDrawClean();
-    }
-    
-    // This part runs every frame update. It is very fast though as it is not reading plug values.
-    // It wasn't dirty, but we still need to do selection color change updates.
-    MHWRender::DisplayStatus displayStatus = MHWRender::MGeometryUtilities::displayStatus(objPath);
-
-    // For selection, do some fancy stuff to make it so that child selected controls that are not explicitely selected look different.
-    MSelectionList selList;
-    MGlobal::getActiveSelectionList(selList);
-    bool isObjectSelected = selList.hasItem(objPath);
-    unsigned int selLen = selList.length();
-
-    MColor newColor = data->dormantColor;
-    data->lineWidth = 1.0f;
-
-    if (displayStatus == MHWRender::kLead && isObjectSelected && selLen != 1)
-    {
-        // Active selection (White)
-        data->color = MColor(Colors::ActiveLead.r, Colors::ActiveLead.g, Colors::ActiveLead.b, data->dormantColor.a);
-        data->lineWidth = 2.0f;
-    }
-    else if ((displayStatus == MHWRender::kActive || displayStatus == MHWRender::kLead) && isObjectSelected)
-    {
-        // Affected selection (Soft Green)
-        data->color = MColor(Colors::ActiveSelected.r, Colors::ActiveSelected.g, Colors::ActiveSelected.b, data->dormantColor.a);
-        data->lineWidth = 2.0f;
-    }
-    else if ((displayStatus == MHWRender::kActiveAffected) || (!isObjectSelected && displayStatus != MHWRender::kDormant))
-    {
-        // Affected selection (Soft Green but less alpha)
-        data->color = MColor(Colors::ActiveSelected.r, Colors::ActiveSelected.g, Colors::ActiveSelected.b, data->dormantColor.a * 0.75);
-    }
-    else
-    {
-        // Dormant (Unselected) -> Use cached base color extracted from plugs
-        data->color = newColor;
-    }
-    
-    return data;
+	return data;
 }
 
+// Draws in the control's object space. Maya applies the control's world matrix.
+// +X is the normal of flat shapes and the long axis of Capsule and Cylinder. Scale X sizes along that axis,
+// scale Y and Z size across it.
 void RigControlDrawOverride::addUIDrawables(
-    const MDagPath& objPath,
-    MHWRender::MUIDrawManager& drawManager,
-    const MHWRender::MFrameContext& frameContext,
-    const MUserData* data)
+	const MDagPath& objPath,
+	MHWRender::MUIDrawManager& drawManager,
+	const MHWRender::MFrameContext& frameContext,
+	const MUserData* data)
 {
-    const ControlDrawData* controlDrawData = dynamic_cast<const ControlDrawData*>(data);
-    if (!controlDrawData) return;
-    
-    drawManager.beginDrawable();
-    drawManager.setColor(controlDrawData->color);
-    drawManager.setLineWidth(controlDrawData->lineWidth);
-    drawManager.setDepthPriority(100);
+	const ControlDrawData* pData = dynamic_cast<const ControlDrawData*>(data);
+	if (!pData)
+	{
+		return;
+	}
 
-    // Draw strictly in LOCAL OBJECT SPACE (0,0,0) with unit vectors.
-    // Maya automatically transforms this local geometry by the DAG node's world matrix.
-    // TODO: restore this again, where we are pulling from the matrix to build these.
-    MPoint center(controlDrawData->centerOffset);
-    MVector up(controlDrawData->upVector);
-    MVector normal(controlDrawData->normalVector);
-    double width = controlDrawData->width;
-    double height = controlDrawData->height;
-    double depth = controlDrawData->depth;
-    MMatrix mShapeTransform(controlDrawData->shapeTransform);
-    bool filled = controlDrawData->filled;
+	drawManager.beginDrawable();
+	drawManager.setColor(pData->color);
+	drawManager.setLineWidth(pData->lineWidth);
+	drawManager.setDepthPriority(100);
 
-    switch (controlDrawData->shapeType) 
-    {
-        case ShapeType::Box: // Box / Cube (Center, Up, Normal, ScaleX, ScaleY, ScaleZ)
-            drawManager.box(center, up, normal, width, height, depth, filled);
-            break;
-        case ShapeType::Sphere: // Sphere (Center, Radius)
-            drawManager.sphere(center, width, filled);
-            break;
-        case ShapeType::Circle: // Circle (Center, Normal, Radius)
-            drawManager.circle(center, normal, width, filled);
-            break;
-        case ShapeType::Capsule: // Capsule (Center, Up, Radius, Height, Subdivisions Width, Subdivisions Height, filled)
-            drawManager.capsule(center, up, width, height, 6, 6, filled);
-            break;
-        case ShapeType::Triangle:
-            drawManager.lineStrip(CustomShapes::transformPointArray(CustomShapes::Triangle(), mShapeTransform), false);
-            break;
-        case ShapeType::Cylinder:
-            drawManager.cylinder(center, up, width, height, 8, filled);
-            break;
-        case ShapeType::Square:
-            drawManager.rect(center, up, normal, width, height, filled);
-            break;
-        default: // Default is Box
-            drawManager.box(center, up, normal, width, height, depth, filled);
-            break;
-    }
-    drawManager.endDrawable();
+	// Sizes: box and rect take half extents, sphere and circle a radius, capsule and cylinder a radius and a full
+	// length. primitiveHalfExtents mirrors this for the bounds.
+	const ShapeFrame& frame = pData->frame;
+	switch (pData->shapeType)
+	{
+		case ShapeType::Box:
+			drawManager.box(frame.center, frame.axisY, frame.axisX, frame.sizeX, frame.sizeY, frame.sizeZ, pData->filled);
+			break;
+		case ShapeType::Sphere:
+			drawManager.sphere(frame.center, frame.sizeX, pData->filled);
+			break;
+		case ShapeType::Circle:
+			drawManager.circle(frame.center, frame.axisX, frame.sizeY, pData->filled);
+			break;
+		case ShapeType::Capsule:
+			drawManager.capsule(frame.center, frame.axisX, frame.sizeY, frame.sizeX, 6, 6, pData->filled);
+			break;
+		case ShapeType::Cylinder:
+			drawManager.cylinder(frame.center, frame.axisX, frame.sizeY, frame.sizeX, 8, pData->filled);
+			break;
+		case ShapeType::Square:
+			// rect's scaleX runs along up x normal, which is the shape's Z axis.
+			drawManager.rect(frame.center, frame.axisY, frame.axisX, frame.sizeZ, frame.sizeY, pData->filled);
+			break;
+		default:
+			// Curve shapes. filled does not apply to a line strip.
+			drawManager.lineStrip(pData->curvePoints, false);
+			break;
+	}
+	drawManager.endDrawable();
 }
 
-// Creates a rig control and wires it to the module
-MObject RigControlNode::createRigControl(MObject& moduleNode, MDagModifier& dagMod, const MString& jointName, const ShapeType& shapeType, const Side& side)
+MObject RigControlNode::createRigControl(
+	MDagModifier& dagMod,
+	const MString& baseName,
+	ShapeType shapeType,
+	Side side,
+	const ControlMarkup& markup)
 {
-    MStatus status;
+	MObject oControl = dagMod.createNode(RigControlNode::id);
 
-    // Create and name the control transform
-    MObject oControl = dagMod.createNode(RigControlNode::id);
+	// All transforms on rig controls get ignored and calculated by modules instead
+	DagUtils::setInheritsTransform(oControl, false, dagMod);
 
-    // All transforms on rig controls get ignored and calculated by modules instead
-    DagUtils::setInheritsTransform(oControl, false, dagMod);
+	// Input joints can sit in another namespace when modules are built. The control belongs in the current (rig) namespace.
+	MString ctrlName = MNamespace::stripNamespaceFromName(baseName);
+	ctrlName.substitute(RigNaming::JointSuffix, "");
+	ctrlName += RigNaming::ControlSuffix;
+	ctrlName += getSideSuffix(side);
+	dagMod.renameNode(oControl, ctrlName);
 
-    // Input joints can sit in another namespace when modules are built. The control belongs in the current (rig) namespace.
-    MString ctrlName = MNamespace::stripNamespaceFromName(jointName);
-    ctrlName.substitute(RigNaming::JointSuffix, "");
-    ctrlName += RigNaming::ControlSuffix;
-    ctrlName += getSideSuffix(side);
-    dagMod.renameNode(oControl, ctrlName);
+	// Color follows the module's side.
+	MPlug pColor(oControl, RigControlNode::aWireColor);
+	const MColor sideColor = getColorFromSide(side);
+	dagMod.newPlugValueFloat(pColor.child(0), sideColor.r);
+	dagMod.newPlugValueFloat(pColor.child(1), sideColor.g);
+	dagMod.newPlugValueFloat(pColor.child(2), sideColor.b);
 
-    // TODO: set rig control side color based on module side attr.
-    MPlug controlColor(oControl, RigControlNode::aWireColor);
-    MColor sideColor = getColorFromSide(side);
+	MPlug pShapeType(oControl, aShapeType);
+	dagMod.newPlugValueShort(pShapeType, static_cast<short>(shapeType));
 
-    if (!controlColor.isNull())
-    {
-        dagMod.newPlugValueFloat(controlColor.child(0), sideColor.r);
-        dagMod.newPlugValueFloat(controlColor.child(1), sideColor.g);
-        dagMod.newPlugValueFloat(controlColor.child(2), sideColor.b);
-    }
+	MPlug pControlMarkup(oControl, aControlMarkup);
+	dagMod.newPlugValueString(pControlMarkup, serializeControlMarkup(markup).c_str());
 
-    MPlug pShapeType(oControl, aShapeType);
-    short shapeTypeShort = static_cast<short>(shapeType);
-    dagMod.newPlugValueShort(pShapeType, shapeTypeShort);
-
-    return oControl;
+	return oControl;
 }
-

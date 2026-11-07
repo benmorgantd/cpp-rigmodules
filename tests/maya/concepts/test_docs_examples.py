@@ -70,3 +70,40 @@ class ReadmeQuickStart(RigTestCase):
         self.assertWorldTranslation(ARM_JNT, ARM_REST)
         self.rotate_spine3_z(90)
         self.assertWorldTranslation(ARM_JNT, ARM_AFTER_SPINE3_ROTATE_Z_90)
+
+
+CONTROLS_DOC = os.path.join(config.REPO_DIR, "docs", "controls.md")
+
+
+def controls_doc_shape_file():
+    """The first ```json block under '## Shape file' in docs/controls.md."""
+    with open(CONTROLS_DOC, encoding="utf-8") as handle:
+        text = handle.read()
+    section = text.split("## Shape file", 1)[1]
+    match = re.search(r"```json\s*\n(.*?)```", section, re.S)
+    if not match:
+        raise AssertionError("docs/controls.md '## Shape file' has no ```json block")
+    return match.group(1)
+
+
+class ControlDocExamples(RigTestCase):
+    """docs/commands.md getRigControls examples and the docs/controls.md shape file, on the quick start rig."""
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard(readme_quick_start_template(), "readme_quick_start")
+        self.root = "rig:rigRootModule1"   # the name the docs examples use
+
+    def test_get_rig_controls_examples(self):
+        self.assertEqual(len(cmds.getRigControls(self.root)), 7)
+        self.assertEqual([c.split(":")[-1] for c in cmds.getRigControls(self.root, moduleType="FkChain", side="Left")],
+                         ["arm_ctrl_l"])
+        self.assertEqual([c.split(":")[-1] for c in cmds.getRigControls(self.root, usage=["spine1", "spine2"])],
+                         ["spine1_ctrl_c", "spine2_ctrl_c"])
+
+    def test_shape_file_example_loads(self):
+        path = os.path.join(config.WORK_DIR, "doc_shapes.json").replace("\\", "/")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(controls_doc_shape_file())
+        self.assertEqual([c.split(":")[-1] for c in cmds.loadRigControlShapes(self.root, file=path)], ["arm_ctrl_l"])
+        self.assertEqual(cmds.getAttr(ARM_CTRL + ".shapeType", asString=True), "Circle")

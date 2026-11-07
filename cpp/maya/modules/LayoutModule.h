@@ -26,4 +26,6 @@ public:
 	// createRig's layout plan and createModule both read this, so they cannot drift apart.
 	static std::vector<std::string> socketNamesAt(unsigned int index, unsigned int count);
 	static ModuleInterface makeInterface(unsigned int count);
+	// Layout controls have no joint, so their markup is (Center, layout_N). Also their base name.
+	static ControlMarkup controlMarkupAt(unsigned int index);
 };

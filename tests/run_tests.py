@@ -42,6 +42,7 @@ TIERS = [
     ]),
     ("read only", True, [                  # commands and checks that never build a rig
         "commands.test_joint_markup_cmd",
+        "concepts.test_control_shapes",     # rigControlNode shapes and bounds, no rig
         "concepts.test_template_loading",
         "concepts.test_template_validation",
     ]),
@@ -56,6 +57,7 @@ TIERS = [
         "concepts.test_sockets",
         "concepts.test_naming",
         "concepts.test_undo_redo",
+        "commands.test_rig_control_cmds",   # control markup, traversal and shape files on a built rig
     ]),
     ("constraints", True, [
         "commands.test_constraint_cmds",

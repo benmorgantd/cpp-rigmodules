@@ -278,13 +278,46 @@ The author's Python pipeline repo, mayadev (package `bmaya`), has its own rig bu
 
 ---
 
+## Controls
+
+### D25. Controls carry markup, and tools find them by traversal
+**Status:** Decided (2026-11-07). Built and tested in Maya 2026 (mayapy suite).
+
+Every `rigControlNode` has a static JSON string attribute, `controlMarkup`: `{"markupVersion":1, "side":"Left", "usage":"upperArm"}`. A control made for a joint copies that joint's `(side, usage)` (FkChain controls, Aim target and up). Layout control *n* is `(Center, layout_<n>)`. Each module's plan declares its controls' markup in `ModuleInterface::controls` and hands the same values to `createRigControl`, and `RigTemplateValidation::validateControlMarkup` fails the read phase if two controls in a rig share a pair. `getRigControls` walks rig root `rigModules` -> modules -> `controlMessage[i]` -> controls and filters by `moduleType`, `side` and `usage`.
+
+- **Why:** shape files, pose libraries and animation tools need a control key that survives renames and doesn't depend on parsing names (D24: tools reach rig internals through connections, never names). Joint markup is already that key for joints.
+- **JSON, not two plain attributes:** the author chose one JSON attribute so the schema can grow (D16), at the cost of a parse on read. Its keys reuse `JointMarkupKey::MarkupVersion`, `JointMarkupKey::Usage` and `RigAttr::Side`. The attribute name is `RigControlNodeAttr::ControlMarkup`.
+- **Color stays with the module:** a control's color and name suffix come from its module's `side`, not its markup. The two normally agree.
+- **Rejected:** keying on control names (they change with joint names). Leaving layout controls unmarked (every control needs a key).
+- **Naming:** the traversal command is a getter, `getRigControls`. New API functions and query commands prefer get/set names (author, 2026-11-07).
+- **Order:** modules sorted by node name, then controls by `controlMessage` index, so results are stable between sessions.
+- **Registry:** `ModuleDescriptor::isRigModule` marks the entries that connect to `rigModules`. Their `moduleType` names are the valid filter values.
+- **Consequence:** `controlMarkup`'s keys, the `layout_<n>` usages and the `moduleType` filter names are public API. Golden snapshots now record each control's markup. Rigs built before this have no markup and must be rebuilt (no migration, see D24).
+
+### D26. One shape axis convention, a curve shape library, and per-rig shape files
+**Status:** Decided (2026-11-07). Built and tested in Maya 2026 (mayapy suite). The drawn result was not checked in an interactive viewport.
+
+- **Axis:** +X is the normal of every flat shape and the long axis of Capsule and Cylinder. Scale X of `shapeTransform` sizes along that axis, Y and Z across it. Before this, Circle and Square faced X, Triangle faced Y, and Capsule and Cylinder ran along Y. +X matches joints with +X down the bone.
+- **Library:** ten curve shapes from mayadev's legacy `controlTypes.json` were added after the seven existing ones (the enum is stored by index): `HalfCircleArrow`, `ArchedDoubleArrow`, `PointedCircle`, `Diamond`, `CircleArrow`, `Dome`, `SingleArrow`, `FourArrow`, `CircleStick`, `Pivot`. Triangle moved into the library. The points are compiled into `core/ControlShapes.cpp`, rotated from +Y normal to +X and scaled to unit extent. Not copied: the legacy `cube`, `boundingBox`, `sphere`, `circle`, `square` and `cylinder`, which duplicate primitives. The enum moved from `RigControlNode.h` to `core/ControlShapes.h` and static_asserts its count against `RigControlNodeAttr::ShapeTypes::All`.
+- **Bounds:** the control's object-space bounds follow `shapeTransform` and are exact. Curve shapes push their points through the matrix. Primitives are built from the sizes the draw manager is given, because the round ones don't scale linearly (a capsule's caps follow its radius). The draw manager's size meanings were measured against a +-1 cube in VP2 playblasts: box and rect take half extents, sphere and circle a radius, capsule and cylinder a radius and a full length.
+- **Viewport check (2026-11-07):** every shape was playblasted in interactive Maya (VP2) from front, top and perspective, at unit scale, at scale (2, 1, 0.5), filled with a selection, and mirrored. Axes, sizes, fills, selection colors and mirroring matched the design. The first version of the bounds pushed a unit box through the matrix, which under-bounded a short, wide capsule. That was fixed before commit. Batch renders (`mayabatch` with `ogsRender`) draw meshes but not UI drawables or curves, so this check needs a GUI session started with `maya.exe -command`. `tests/ViewportGallery.cmd` repeats it.
+- **Shape file:** one JSON file per rig, `{"formatVersion":1, "controls": {side: {usage: {shapeType, shapeTransform, filled}}}}`, written by `saveRigControlShapes` and applied by the undoable `loadRigControlShapes`. Nested by side then usage, so no delimited key (D16). Load validates the whole file first and applies nothing on any error. Missing and extra entries are warnings. The serializer is hand-written so each matrix is one line and a shape edit is a one-line diff.
+- **Not in the file:** color and alpha. Color follows the module a control is built on (author, 2026-11-07).
+- **C++ commands, not Python:** answers the open question in `mayadev-integration.md`. The format lives in `core/` (Maya-free), and the load is one undo chunk.
+- **Draw fixes in the same change:** VP2 draw data is now read whenever VP2 hands over no cached data (a new panel or instance used to draw a default red box), the dead `aChildControlPlugs` / `aParentControlSockets` declarations and the unused `moduleNode` parameter of `createRigControl` were removed, `initialize()` checks every `MStatus`, and curve points are transformed once per shape change instead of every draw.
+- **Not built:** mirroring shapes between Left and Right (pair `usage` across sides). Filtering save and load by module or markup.
+- **Consequence:** shape names, the shape file keys and `formatVersion` are public API. Existing scenes with non-uniform Circle, Square, Capsule or Cylinder scale draw differently.
+
+---
+
 ## Open items
 
 - **Connect-time jump:** the child jumps when a child plug connects to a non-identity socket. Still to do.
 - **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
-- **D24:** the TODOs in `mayadev-integration.md` (shape IO, asset folders, the `python/` package, `.mod` files), plus control sets and mirroring.
+- **D24:** the TODOs in `mayadev-integration.md` (asset folders, the `python/` package, `.mod` files), plus control sets and mirroring.
+- **D26:** shape mirroring (Left to Right by `usage`). The selection highlight still reads the active selection list once per control per `prepareForDraw`, which scales with control count times selection size.
 
 ## Adding an entry
 

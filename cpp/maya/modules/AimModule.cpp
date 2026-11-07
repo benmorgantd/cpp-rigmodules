@@ -216,7 +216,7 @@ RigModuleBuildResult AimModuleNode::createModule(
 		}
 		else
 		{
-			oControl = RigControlNode::createRigControl(oAimModule, dagMod, fnJoint.name(), shapeType, side);
+			oControl = RigControlNode::createRigControl(dagMod, fnJoint.name(), shapeType, side, parts[i].controlMarkup);
 			status = wireControl(oAimModule, oControl, i, mRestWorld, dagMod);
 			if (!status)
 			{
@@ -280,6 +280,7 @@ bool AimModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 	for (unsigned int i = 0; i < AimPart::Count; ++i)
 	{
 		allClaimed = claimJoint(ctx, *selectors[i], parts[i].oJoint, parts[i].mRestWorld) && allClaimed;
+		parts[i].controlMarkup = makeControlMarkup(selectors[i]->side, selectors[i]->usage);
 	}
 	if (!allClaimed)
 	{
@@ -302,6 +303,7 @@ bool AimModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 	}
 
 	outPlan.moduleInterface = makeAimInterface();
+	outPlan.moduleInterface.controls = { parts[AimPart::Target].controlMarkup, parts[AimPart::Up].controlMarkup };
 
 	const MString moduleName = ctx.moduleData.name.c_str();
 	const Side side = getSideFromString(ctx.moduleData.side);

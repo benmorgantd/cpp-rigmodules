@@ -47,9 +47,9 @@ Maya tests can't each run in isolation. If the plugin doesn't load, every test f
 | Tier | Proves | Test files |
 |---|---|---|
 | 1 registration | the plugin loads, every node type, command and long flag exists, and the source layout holds (`core/` Maya-free, known folders, include paths, sorted include blocks, braces on their own lines) | `concepts/test_plugin`, `concepts/test_source_layout` (reads the source tree, not the scene) |
-| 2 read only | commands and checks that never build a rig | joint markup command, template loading, validation cases that expect errors |
+| 2 read only | commands and checks that never build a rig | joint markup command, control shapes and bounds (`concepts/test_control_shapes`), template loading, validation cases that expect errors |
 | 3 build smoke | every fixture template builds | `concepts/test_smoke` (each golden file's template and skeleton, plus valid validation cases), `commands/test_create_rig` |
-| 4 modules | each module poses correctly, and the rig around it is wired and named right | `modules/*`, sockets, naming, undo/redo |
+| 4 modules | each module poses correctly, and the rig around it is wired and named right | `modules/*`, sockets, naming, undo/redo, control markup and the control commands (`commands/test_rig_control_cmds`) |
 | 5 constraints | constraint commands and space switching | `commands/test_constraint_cmds`, `concepts/test_docs_examples` (the README quick start ends with a space switch) |
 | 6 known bugs | expected failures. Never blocks anything. | `known/*` |
 
@@ -66,6 +66,8 @@ Maya tests can't each run in isolation. If the plugin doesn't load, every test f
 ```
 tests/
   RigTests.cmd, run_tests.py     entry point and runner
+  ViewportGallery.cmd            manual VP2 check of every control shape (not part of the suite)
+  viewport/gallery.py            the script ViewportGallery.cmd runs in a GUI Maya
   maya/
     rigtest/                     shared helpers (no tests)
       case.py                    RigTestCase: new scene per test, build helpers, assertions
@@ -129,7 +131,7 @@ Expected results that are data (a pose and the transforms it gives, a template e
 
 ### Golden snapshot: `golden/<name>.json`
 
-Golden snapshots record the rig's public names: modules with their sockets and child plugs, controls with their keyable attributes and space labels, joints, and constraint labels.
+Golden snapshots record the rig's public names: modules with their sockets and child plugs, controls with their keyable attributes, markup and space labels, joints, and constraint labels.
 
 - **Adding one:** write `description`, `template` and `skeleton`, then run `RigTests.cmd --update-golden golden`.
 - **When one fails:** a public name changed, which breaks saved poses, animation and exports. If the change is intended, update the golden file and record it in `design/decisions.md` in the same change.
@@ -150,6 +152,19 @@ Every new test file goes into `TIERS` in `run_tests.py`, in the earliest tier wh
 ### Temp probes become tests
 
 While working out a change, a throwaway mayapy script is often the fastest way to look at what the rig does. That is fine, but a check that only lives in a scratch script protects nothing later. Before a change is finished, turn every check a probe made into a suite test, using the rules above. If you are not sure it belongs, list it as a proposed test instead (what it checks, which tier, data case or code).
+
+## Viewport gallery
+
+The suite runs in mayapy, which has no viewport, so it checks control bounds but never sees a control drawn. Batch renders (`mayabatch`, `ogsRender`) draw meshes but skip curves and draw override UI drawables, so they can't check it either. After changing `RigControlNode`'s draw code or the shape library, run:
+
+```powershell
+cmd /c tests\ViewportGallery.cmd
+```
+
+It starts Maya with a window (`maya.exe -command`), builds every shape beside a -1 to 1 reference cube with a red line along +X, playblasts nine views, closes Maya and opens the image folder (`%TEMP%\RigViewportGallery\out`). It takes about a minute. Pass a plugin path to check another build. The docstring at the top of `viewport/gallery.py` says what each image should show.
+
+- **Exit code:** 0 when every image was written. It does not judge the images. Look at them.
+- **Unattended:** like the suite, it skips `userSetup.py` and turns off the crash reporter, so nothing waits for input.
 
 ## Gotchas
 

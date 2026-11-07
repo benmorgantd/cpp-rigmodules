@@ -93,8 +93,8 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 	// 2. Controls, sockets and wiring
 	for (unsigned int i = 0; i < numControls; ++i)
 	{
-		MString controlName = MString("layout_") + std::to_string(i).c_str();
-		MObject oControl = RigControlNode::createRigControl(oLayoutModule, dagMod, controlName, ShapeType::Square, Side::Center);
+		const ControlMarkup markup = controlMarkupAt(i);
+		MObject oControl = RigControlNode::createRigControl(dagMod, markup.usage.c_str(), ShapeType::Square, Side::Center, markup);
 
 		// Layout is rooted at the origin, so every rest is identity.
 		MStatus status = wireControl(oLayoutModule, oControl, i, MMatrix::identity, dagMod);
@@ -165,6 +165,12 @@ ModuleInterface LayoutModuleNode::makeInterface(unsigned int count)
 	{
 		const std::vector<std::string> names = socketNamesAt(i, count);
 		moduleInterface.sockets.insert(moduleInterface.sockets.end(), names.begin(), names.end());
+		moduleInterface.controls.push_back(controlMarkupAt(i));
 	}
 	return moduleInterface;
+}
+
+ControlMarkup LayoutModuleNode::controlMarkupAt(unsigned int index)
+{
+	return makeControlMarkup(SideNames::Center, std::string(RigNaming::LayoutModule) + "_" + std::to_string(index));
 }

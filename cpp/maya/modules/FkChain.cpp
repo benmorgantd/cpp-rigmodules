@@ -76,6 +76,7 @@ RigModuleBuildResult FkChainNode::createModule(
 	const ShapeType& shapeType,
 	const MObjectArray& oJoints,
 	const MMatrixArray& mJointWorldRests,
+	const std::vector<ControlMarkup>& controlMarkups,
 	MObject& oRigRoot,
 	MDagModifier& dagMod)
 {
@@ -117,7 +118,7 @@ RigModuleBuildResult FkChainNode::createModule(
 
 		// Create control and flush modifier
 		MFnTransform fnJoint(oJoint);
-		MObject oControlTransform = RigControlNode::createRigControl(oFkChainModule, dagMod, fnJoint.name(), shapeType, side);
+		MObject oControlTransform = RigControlNode::createRigControl(dagMod, fnJoint.name(), shapeType, side, controlMarkups[i]);
 
 		RigModuleSocketInfo socketInfo;
 		socketInfo.oTransform = oControlTransform;
@@ -211,6 +212,7 @@ bool FkChainNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Mod
 	// Claim every joint even after a failure, so the report lists every bad selector at once.
 	MObjectArray oJoints;
 	MMatrixArray mWorldMatrices;
+	std::vector<ControlMarkup> controlMarkups;   // Each control takes its joint's (side, usage)
 	bool allClaimed = true;
 	for (const JointSelector& selector : fkArgs.joints)
 	{
@@ -223,6 +225,7 @@ bool FkChainNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Mod
 		}
 		oJoints.append(oJoint);
 		mWorldMatrices.append(mWorld);
+		controlMarkups.push_back(makeControlMarkup(selector.side, selector.usage));
 	}
 	if (!allClaimed)
 	{
@@ -230,13 +233,14 @@ bool FkChainNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Mod
 	}
 
 	outPlan.moduleInterface = makeInterface(oJoints.length());
+	outPlan.moduleInterface.controls = controlMarkups;
 
 	const MString moduleName = ctx.moduleData.name.c_str();
 	const Side side = getSideFromString(ctx.moduleData.side);
 	const ShapeType shapeType = getShapeTypeFromString(ctx.moduleData.shapeType);
-	outPlan.build = [moduleName, side, shapeType, oJoints, mWorldMatrices](MObject& oRigRoot, MDagModifier& dagMod)
+	outPlan.build = [moduleName, side, shapeType, oJoints, mWorldMatrices, controlMarkups](MObject& oRigRoot, MDagModifier& dagMod)
 	{
-		return FkChainNode::createModule(moduleName, side, shapeType, oJoints, mWorldMatrices, oRigRoot, dagMod);
+		return FkChainNode::createModule(moduleName, side, shapeType, oJoints, mWorldMatrices, controlMarkups, oRigRoot, dagMod);
 	};
 	return true;
 }

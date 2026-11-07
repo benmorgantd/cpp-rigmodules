@@ -6,6 +6,8 @@ Controls and joints have `inheritsTransform` off. The module node computes every
 
 Control names come from the joint and the module's `side`: the namespace and `_jnt` are dropped, then `_ctrl` and the side suffix (`_c`, `_l`, `_r`) are added. `skel:arm_jnt` in a `Left` module gives `arm_ctrl_l`.
 
+Each control also carries markup, `(side, usage)`, taken from its joint. Tools and shape files find controls by markup instead of by name (see [controls.md](controls.md)).
+
 Child plug, socket, control and attribute names are public: saved poses, animation and exports depend on them.
 
 ## Layout
@@ -15,7 +17,7 @@ Built into every rig. A template never lists it, but refers to it as `layout`.
 | | |
 |---|---|
 | Node | `layout` (type `layoutModule`) |
-| Controls | `layout_0_ctrl_c`, `layout_1_ctrl_c`, `layout_2_ctrl_c`: three stacked square controls at the origin, each one driving the next |
+| Controls | `layout_0_ctrl_c`, `layout_1_ctrl_c`, `layout_2_ctrl_c`: three stacked square controls at the origin, each one driving the next. Markup `Center`, `layout_0` to `layout_2`. |
 | Child plugs | none |
 | Sockets | `index_0`, `index_1`, `index_2`. The last is also `end`. |
 
@@ -40,7 +42,7 @@ A forward-kinematics chain: one control per joint, each control's rotation and t
 | | |
 |---|---|
 | Node type | `fkChainModule` |
-| Controls | One per joint, named from the joint |
+| Controls | One per joint, named from the joint, with the joint's markup |
 | Child plugs | `start`: the first control's parent |
 | Sockets | `index_<n>` for joint *n* (from 0). The first is also `start`, the last also `end`. |
 
@@ -69,7 +71,7 @@ Points a joint at a target control, with an up control setting its roll. The aim
 | | |
 |---|---|
 | Node type | `aimModule` |
-| Controls | Target and up, named from their joints. The aim joint has no control. |
+| Controls | Target and up, named from their joints and with their markup. The aim joint has no control. |
 | Child plugs | `aim` (the aim joint's parent), `target`, `up`. Each can attach to a different socket. |
 | Sockets | `aim` (the solved aim joint), `target`, `up` (the controls) |
 

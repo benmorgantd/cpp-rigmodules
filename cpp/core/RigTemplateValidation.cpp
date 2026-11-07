@@ -7,6 +7,7 @@
 #include <cctype>
 #include <map>
 #include <set>
+#include <utility>
 
 // ValidationReport ----------------------------------------------------------
 void ValidationReport::addError(const std::string& where, const std::string& message)
@@ -607,5 +608,35 @@ namespace RigTemplateValidation
 		validateConstraints(rigData.rigConstraints, declaredModules, interfaces, graph, report);
 
 		CycleFinder(graph, report).run();
+	}
+
+	void validateControlMarkup(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report)
+	{
+		// (side, usage) -> where the first control with it came from. The layout goes first, as it is built first.
+		std::map<std::pair<std::string, std::string>, std::string> owners;
+		auto checkModule = [&](const std::string& moduleName, const std::string& where)
+		{
+			auto it = interfaces.find(moduleName);
+			if (it == interfaces.end())
+			{
+				return;   // failed planning, already reported
+			}
+			for (const ControlMarkup& markup : it->second.controls)
+			{
+				auto [owner, isNew] = owners.emplace(std::make_pair(markup.side, markup.usage), where);
+				if (!isNew)
+				{
+					report.addError(where, "a control with side " + markup.side + ", usage " + markup.usage
+						+ " already exists in " + owner->second + ". Control (side, usage) pairs must be unique in a rig");
+				}
+			}
+		};
+
+		checkModule(RigNaming::LayoutModule, RigNaming::LayoutModule);
+		for (std::size_t i = 0; i < rigData.rigModules.size(); ++i)
+		{
+			const RigModuleData& module = rigData.rigModules[i];
+			checkModule(module.name, modulePath(i, module.name));
+		}
 	}
 }
