@@ -10,13 +10,15 @@ Environment (set by ViewportGallery.cmd; exec gives this script no __file__):
     RIG_GALLERY_OUT     the folder for the images and log.txt
 
 What to look for:
-    01-04  unit scale. Box, Sphere, Circle and Square fill the cube. Capsule is 3 long, Cylinder 1 long, both
-           along X. Flat shapes face +X: edge-on vertical lines in the front and top views.
-    05-07  shapeTransform scale (2, 1, 0.5). Box and curve shapes stretch on every axis. Round shapes keep a
-           round cross-section (radius from scale Y, Sphere from scale X).
-    08     filled primitives. Box at wireframeAlpha 0.5 is translucent. Sphere is selected (green) and Circle
-           is the lead selection (light).
-    09     shapeTransform scale X -1. Asymmetric curve shapes (ArchedDoubleArrow, Dome) flip to -X.
+    01-04  unit scale. Every shape fits the cube. Capsule is 2 long along X with radius 0.5. Ring shapes
+           (Circle, Square, Triangle, PointedCircle, the circle arrows) face +X: edge-on vertical lines in the
+           front and top views. Pointer shapes (SingleArrow, FourArrow, CircleStick, ArchedDoubleArrow) point
+           down +X along the red line and lie flat in XZ (edge-on in the front view).
+    05-07  shapeTransform scale (2, 1, 0.5). Every shape stretches on every axis, round ones included.
+    08     every shape filled: the fill at half the wire's alpha, the wire on top. Box at wireframeAlpha 0.5
+           is fainter. Sphere is selected (green) and Circle is the lead selection (light).
+    09     shapeTransform scale X -1. Pointers point down -X, and Dome bulges toward -X.
+    10     the filled scene from behind (-X, -Z). Flat fills must still show, so nothing is back-face culled.
 """
 import os
 import traceback
@@ -107,6 +109,10 @@ def run():
         cmds.viewFit("persp", all=True)
         cmds.select(controls[SHAPES.index("Sphere")], controls[SHAPES.index("Circle")])
         snap("persp", "08_persp_filled_selected", frame=False)
+        back = cmds.camera(name="backCam")[0]
+        cmds.xform(back, translation=(-20, 14, -24))
+        cmds.viewLookAt(back, position=(10, -4, 0))
+        snap(back, "10_back_filled")
 
         cmds.file(new=True, force=True)
         build_gallery("mirrored", shape_transform=[-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])

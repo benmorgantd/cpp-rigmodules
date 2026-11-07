@@ -145,6 +145,7 @@
   <ItemGroup>
     <ClCompile Include="core\ControlMarkup.cpp" />
     <ClCompile Include="core\ControlShapeFile.cpp" />
+    <ClCompile Include="core\ControlShapeLibrary.cpp" />
     <ClCompile Include="core\ControlShapes.cpp" />
     <ClCompile Include="core\JointMarkup.cpp" />
     <ClCompile Include="core\RigControlFilter.cpp" />
@@ -177,6 +178,7 @@
     <ClInclude Include="core\Constants.h" />
     <ClInclude Include="core\ControlMarkup.h" />
     <ClInclude Include="core\ControlShapeFile.h" />
+    <ClInclude Include="core\ControlShapeLibrary.h" />
     <ClInclude Include="core\ControlShapes.h" />
     <ClInclude Include="core\JointMarkup.h" />
     <ClInclude Include="core\JsonUtils.h" />

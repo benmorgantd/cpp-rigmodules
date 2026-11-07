@@ -1,7 +1,12 @@
 #include "ControlShapes.h"
+#include "ControlShapeLibrary.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <iterator>
+#include <set>
+#include <utility>
 
 bool findShapeType(std::string_view name, ShapeType& outShapeType)
 {
@@ -29,389 +34,215 @@ const char* getShapeTypeString(ShapeType shapeType)
 	return index < all.size() ? all[index] : all[ShapeType::Box];
 }
 
-// Every shape but Triangle comes from the legacy mayadev shape library (controlTypes.json).
-// Those were authored with +Y as the normal, so they were rotated -90 degrees about Z ((x, y, z) -> (y, -x, z))
-// to put the normal on +X, then scaled so the largest coordinate is 1.
-const std::vector<ShapePoint>* getCurveShapePoints(ShapeType shapeType)
+namespace
 {
-	switch (shapeType)
+	struct Point2
 	{
-		case ShapeType::Triangle:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 0.0, 0.0, 1.0 },
-				{ 0.0, 1.0, -1.0 },
-				{ 0.0, -1.0, -1.0 },
-				{ 0.0, 0.0, 1.0 }
-			};
-			return &points;
-		}
-		case ShapeType::HalfCircleArrow:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 0.0, -0.130841, 0.88785 },
-				{ 0.0, -0.485981, 0.803738 },
-				{ 0.0, -0.785047, 0.560748 },
-				{ 0.0, -0.953271, 0.214953 },
-				{ 0.0, -0.953271, -0.168224 },
-				{ 0.0, -0.785047, -0.523364 },
-				{ 0.0, -1.0, -0.691589 },
-				{ 0.0, -0.130841, -0.906542 },
-				{ 0.0, -0.130841, -0.018692 },
-				{ 0.0, -0.364486, -0.186916 },
-				{ 0.0, -0.429907, -0.056075 },
-				{ 0.0, -0.429907, 0.093458 },
-				{ 0.0, -0.364486, 0.224299 },
-				{ 0.0, -0.252336, 0.317757 },
-				{ 0.0, -0.130841, 0.35514 },
-				{ 0.0, -0.130841, 0.626168 },
-				{ 0.0, -0.130841, 0.88785 }
-			};
-			return &points;
-		}
-		case ShapeType::ArchedDoubleArrow:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 1.0, 0.22449, 0.0 },
-				{ 0.969388, 0.22449, 0.22449 },
-				{ 0.897959, 0.22449, 0.428571 },
-				{ 0.77551, 0.22449, 0.622449 },
-				{ 0.622449, 0.22449, 0.77551 },
-				{ 0.428571, 0.22449, 0.897959 },
-				{ 0.428571, 0.44898, 0.897959 },
-				{ 0.22449, 0.22449, 0.969388 },
-				{ 0.0, 0.0, 0.989796 },
-				{ 0.22449, -0.22449, 0.969388 },
-				{ 0.428571, -0.44898, 0.897959 },
-				{ 0.428571, -0.22449, 0.897959 },
-				{ 0.622449, -0.22449, 0.77551 },
-				{ 0.77551, -0.22449, 0.622449 },
-				{ 0.897959, -0.22449, 0.428571 },
-				{ 0.969388, -0.22449, 0.22449 },
-				{ 1.0, -0.22449, 0.0 },
-				{ 0.969388, -0.22449, -0.22449 },
-				{ 0.897959, -0.22449, -0.428571 },
-				{ 0.77551, -0.22449, -0.622449 },
-				{ 0.622449, -0.22449, -0.77551 },
-				{ 0.428571, -0.22449, -0.897959 },
-				{ 0.428571, -0.44898, -0.897959 },
-				{ 0.22449, -0.22449, -0.969388 },
-				{ 0.0, 0.0, -0.989796 },
-				{ 0.22449, 0.22449, -0.969388 },
-				{ 0.428571, 0.44898, -0.897959 },
-				{ 0.428571, 0.22449, -0.897959 },
-				{ 0.622449, 0.22449, -0.77551 },
-				{ 0.77551, 0.22449, -0.622449 },
-				{ 0.897959, 0.22449, -0.428571 },
-				{ 0.969388, 0.22449, -0.22449 },
-				{ 1.0, 0.22449, 0.0 }
-			};
-			return &points;
-		}
-		case ShapeType::PointedCircle:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 0.0, 0.0, -0.75 },
-				{ 0.0, 0.231763, -0.713293 },
-				{ 0.0, 0.440839, -0.606763 },
-				{ 0.0, 0.606763, -0.440839 },
-				{ 0.0, 0.713293, -0.231763 },
-				{ 0.0, 0.75, 0.0 },
-				{ 0.0, 0.713293, 0.231763 },
-				{ 0.0, 0.606763, 0.440839 },
-				{ 0.0, 0.440839, 0.606763 },
-				{ 0.0, 0.231763, 0.713293 },
-				{ 0.0, 0.0, 1.0 },
-				{ 0.0, -0.231763, 0.713293 },
-				{ 0.0, -0.440839, 0.606763 },
-				{ 0.0, -0.606763, 0.440839 },
-				{ 0.0, -0.713293, 0.231763 },
-				{ 0.0, -0.75, 0.0 },
-				{ 0.0, -0.713293, -0.231763 },
-				{ 0.0, -0.606763, -0.440839 },
-				{ 0.0, -0.440839, -0.606763 },
-				{ 0.0, -0.231763, -0.713293 },
-				{ 0.0, 0.0, -0.75 }
-			};
-			return &points;
-		}
-		case ShapeType::Diamond:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 0.0, 0.0, -1.0 },
-				{ 0.0, -1.0, 0.0 },
-				{ 0.0, 0.0, 1.0 },
-				{ 0.0, 1.0, 0.0 },
-				{ 0.0, 0.0, -1.0 },
-				{ 1.0, 0.0, 0.0 },
-				{ 0.0, 0.0, 1.0 },
-				{ 0.0, 1.0, 0.0 },
-				{ 1.0, 0.0, 0.0 },
-				{ 0.0, -1.0, 0.0 },
-				{ -1.0, 0.0, 0.0 },
-				{ 0.0, 1.0, 0.0 },
-				{ -1.0, 0.0, 0.0 },
-				{ 0.0, 0.0, 1.0 },
-				{ -1.0, 0.0, 0.0 },
-				{ 0.0, 0.0, -1.0 }
-			};
-			return &points;
-		}
-		case ShapeType::CircleArrow:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 0.0, 0.0, 0.98 },
-				{ 0.0, -0.4, 0.88 },
-				{ 0.0, -0.75, 0.62 },
-				{ 0.0, -0.94, 0.24 },
-				{ 0.0, -0.94, -0.19 },
-				{ 0.0, -0.75, -0.57 },
-				{ 0.0, -0.99, -0.76 },
-				{ 0.0, 0.0, -1.0 },
-				{ 0.0, 0.0, -0.02 },
-				{ 0.0, -0.27, -0.2 },
-				{ 0.0, -0.34, -0.06 },
-				{ 0.0, -0.34, 0.1 },
-				{ 0.0, -0.27, 0.25 },
-				{ 0.0, -0.14, 0.35 },
-				{ 0.0, 0.0, 0.39 },
-				{ 0.0, 0.0, 0.68 },
-				{ 0.0, 0.0, -0.01 },
-				{ 0.0, 0.0, -0.69 },
-				{ 0.0, 0.0, -0.4 },
-				{ 0.0, 0.13, -0.36 },
-				{ 0.0, 0.26, -0.26 },
-				{ 0.0, 0.34, -0.11 },
-				{ 0.0, 0.34, 0.05 },
-				{ 0.0, 0.26, 0.19 },
-				{ 0.0, 0.0, 0.01 },
-				{ 0.0, 0.0, 0.99 },
-				{ 0.0, 0.98, 0.75 },
-				{ 0.0, 0.74, 0.56 },
-				{ 0.0, 0.94, 0.18 },
-				{ 0.0, 0.94, -0.25 },
-				{ 0.0, 0.74, -0.63 },
-				{ 0.0, 0.4, -0.9 },
-				{ 0.0, 0.0, -0.99 }
-			};
-			return &points;
-		}
-		case ShapeType::Dome:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 0.0, 0.0, -1.0 },
-				{ 0.0, 0.5, -0.867347 },
-				{ 0.0, 0.867347, -0.5 },
-				{ 0.0, 1.0, 0.0 },
-				{ 0.0, 0.867347, 0.5 },
-				{ 0.0, 0.5, 0.867347 },
-				{ 0.0, 0.0, 1.0 },
-				{ 0.0, -0.5, 0.867347 },
-				{ 0.0, -0.867347, 0.5 },
-				{ 0.0, -1.0, 0.0 },
-				{ 0.0, -0.867347, -0.5 },
-				{ 0.0, -0.5, -0.867347 },
-				{ 0.0, 0.0, -1.0 },
-				{ 0.5, 0.0, -0.867347 },
-				{ 0.867347, 0.0, -0.5 },
-				{ 1.0, 0.0, 0.0 },
-				{ 0.867347, 0.0, 0.5 },
-				{ 0.5, 0.0, 0.867347 },
-				{ 0.0, 0.0, 1.0 },
-				{ 0.0, 0.0, -1.0 },
-				{ 0.0, 0.5, -0.867347 },
-				{ 0.0, 0.867347, -0.5 },
-				{ 0.0, 1.0, 0.0 },
-				{ 0.5, 0.867347, 0.0 },
-				{ 0.867347, 0.5, 0.0 },
-				{ 1.0, 0.0, 0.0 },
-				{ 0.867347, -0.5, 0.0 },
-				{ 0.5, -0.867347, 0.0 },
-				{ 0.0, -1.0, 0.0 },
-				{ 0.0, 1.0, 0.0 }
-			};
-			return &points;
-		}
-		case ShapeType::SingleArrow:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 0.0, 0.0, 0.0 },
-				{ 0.0, 0.141414, 0.0 },
-				{ 0.0, 0.141414, 0.141414 },
-				{ 0.0, 0.141414, 0.717172 },
-				{ 0.0, 0.282828, 0.717172 },
-				{ 0.0, 0.0, 1.0 },
-				{ 0.0, -0.282828, 0.717172 },
-				{ 0.0, -0.141414, 0.717172 },
-				{ 0.0, -0.141414, 0.0 },
-				{ 0.0, 0.0, 0.0 }
-			};
-			return &points;
-		}
-		case ShapeType::FourArrow:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 0.0, 0.20202, -0.40404 },
-				{ 0.0, 0.20202, -0.59596 },
-				{ 0.0, 0.40404, -0.59596 },
-				{ 0.0, 0.0, -1.0 },
-				{ 0.0, -0.40404, -0.59596 },
-				{ 0.0, -0.20202, -0.59596 },
-				{ 0.0, -0.20202, -0.40404 },
-				{ 0.0, -0.20202, -0.20202 },
-				{ 0.0, -0.59596, -0.20202 },
-				{ 0.0, -0.59596, -0.40404 },
-				{ 0.0, -1.0, 0.0 },
-				{ 0.0, -0.59596, 0.40404 },
-				{ 0.0, -0.59596, 0.20202 },
-				{ 0.0, -0.20202, 0.20202 },
-				{ 0.0, -0.20202, 0.59596 },
-				{ 0.0, -0.40404, 0.59596 },
-				{ 0.0, 0.0, 1.0 },
-				{ 0.0, 0.40404, 0.59596 },
-				{ 0.0, 0.20202, 0.59596 },
-				{ 0.0, 0.20202, 0.20202 },
-				{ 0.0, 0.59596, 0.20202 },
-				{ 0.0, 0.59596, 0.40404 },
-				{ 0.0, 1.0, 0.0 },
-				{ 0.0, 0.59596, -0.40404 },
-				{ 0.0, 0.59596, -0.20202 },
-				{ 0.0, 0.20202, -0.20202 },
-				{ 0.0, 0.20202, -0.40404 }
-			};
-			return &points;
-		}
-		case ShapeType::CircleStick:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 0.0, 0.0, 0.0 },
-				{ 0.0, 0.0, 0.60396 },
-				{ 0.0, -0.118812, 0.643564 },
-				{ 0.0, -0.188119, 0.742574 },
-				{ 0.0, -0.188119, 0.861386 },
-				{ 0.0, -0.118812, 0.960396 },
-				{ 0.0, 0.0, 1.0 },
-				{ 0.0, 0.118812, 0.960396 },
-				{ 0.0, 0.188119, 0.861386 },
-				{ 0.0, 0.188119, 0.742574 },
-				{ 0.0, 0.118812, 0.643564 },
-				{ 0.0, 0.0, 0.60396 },
-				{ 0.0, 0.0, 1.0 },
-				{ 0.0, -0.118812, 0.960396 },
-				{ 0.0, -0.188119, 0.861386 },
-				{ 0.0, -0.188119, 0.80198 },
-				{ 0.0, 0.188119, 0.80198 }
-			};
-			return &points;
-		}
-		case ShapeType::Pivot:
-		{
-			static const std::vector<ShapePoint> points =
-			{
-				{ 1.0, 0.102667, 0.102667 },
-				{ 1.0, -0.102667, 0.102667 },
-				{ 0.014667, -0.016, 0.014 },
-				{ 0.102667, -1.0, 0.106 },
-				{ -0.102667, -1.0, 0.106 },
-				{ -0.014667, -0.016, 0.014 },
-				{ -1.0, -0.102667, 0.102667 },
-				{ -1.0, 0.102667, 0.102667 },
-				{ -0.014667, 0.016, 0.014 },
-				{ -0.102667, 1.0, 0.106 },
-				{ 0.102667, 1.0, 0.106 },
-				{ 0.014667, 0.016, 0.014 },
-				{ 1.0, 0.102667, 0.102667 },
-				{ 1.0, 0.102667, -0.102667 },
-				{ 0.014667, 0.016, -0.014 },
-				{ 0.109333, 0.118, -1.0 },
-				{ -0.109333, 0.118, -1.0 },
-				{ -0.014667, 0.016, -0.014 },
-				{ -1.0, 0.102667, -0.102667 },
-				{ -1.0, 0.102667, 0.102667 },
-				{ -0.014667, 0.016, 0.014 },
-				{ -0.109333, 0.118, 1.0 },
-				{ 0.109333, 0.118, 1.0 },
-				{ 0.014667, 0.016, 0.014 },
-				{ 1.0, 0.102667, 0.102667 },
-				{ 1.0, -0.102667, 0.102667 },
-				{ 0.014667, -0.016, 0.014 },
-				{ 0.109333, -0.118, 1.0 },
-				{ -0.109333, -0.118, 1.0 },
-				{ -0.014667, -0.016, 0.014 },
-				{ -1.0, -0.102667, 0.102667 },
-				{ -1.0, -0.102667, -0.102667 },
-				{ -0.014667, -0.016, -0.014 },
-				{ -0.109333, -0.118, -1.0 },
-				{ 0.109333, -0.118, -1.0 },
-				{ 0.014667, -0.016, -0.014 },
-				{ 1.0, -0.102667, -0.102667 },
-				{ 1.0, -0.102667, 0.102667 },
-				{ 1.0, -0.102667, -0.102667 },
-				{ 0.014667, -0.016, -0.014 },
-				{ 0.102667, -1.0, -0.106 },
-				{ -0.102667, -1.0, -0.106 },
-				{ -0.014667, -0.016, -0.014 },
-				{ -1.0, -0.102667, -0.102667 },
-				{ -1.0, 0.102667, -0.102667 },
-				{ -0.014667, 0.016, -0.014 },
-				{ -0.102667, 1.0, -0.106 },
-				{ 0.102667, 1.0, -0.106 },
-				{ 0.014667, 0.016, -0.014 },
-				{ 1.0, 0.102667, -0.102667 },
-				{ 1.0, -0.102667, -0.102667 },
-				{ 0.014667, -0.016, -0.014 },
-				{ 0.014667, -0.016, 0.014 },
-				{ 0.102667, -1.0, 0.106 },
-				{ 0.102667, -1.0, -0.106 },
-				{ -0.102667, -1.0, -0.106 },
-				{ -0.102667, -1.0, 0.106 },
-				{ -0.014667, -0.016, 0.014 },
-				{ -0.014667, -0.016, -0.014 },
-				{ 0.014667, -0.016, -0.014 },
-				{ -0.014667, -0.016, -0.014 },
-				{ -0.014667, 0.016, -0.014 },
-				{ -0.109333, 0.118, -1.0 },
-				{ -0.109333, -0.118, -1.0 },
-				{ 0.109333, -0.118, -1.0 },
-				{ 0.109333, 0.118, -1.0 },
-				{ 0.014667, 0.016, -0.014 },
-				{ 0.014667, -0.016, -0.014 },
-				{ 0.014667, 0.016, -0.014 },
-				{ 0.014667, 0.016, 0.014 },
-				{ 0.102667, 1.0, 0.106 },
-				{ 0.102667, 1.0, -0.106 },
-				{ -0.102667, 1.0, -0.106 },
-				{ -0.102667, 1.0, 0.106 },
-				{ -0.014667, 0.016, 0.014 },
-				{ -0.014667, 0.016, -0.014 },
-				{ -0.014667, 0.016, 0.014 },
-				{ -0.014667, -0.016, 0.014 },
-				{ 0.014667, -0.016, 0.014 },
-				{ 0.014667, 0.016, 0.014 },
-				{ -0.014667, 0.016, 0.014 },
-				{ 0.014667, 0.016, 0.014 },
-				{ 0.014667, 0.016, -0.014 },
-				{ -0.014667, 0.016, -0.014 },
-				{ 0.014667, 0.016, -0.014 },
-				{ 0.014667, 0.016, 0.014 },
-				{ 0.109333, 0.118, 1.0 },
-				{ 0.109333, -0.118, 1.0 },
-				{ -0.109333, -0.118, 1.0 },
-				{ -0.109333, 0.118, 1.0 }
-			};
-			return &points;
-		}
-		default:
-			return nullptr;
+		double u = 0.0;
+		double v = 0.0;
+	};
+
+	double cross(const Point2& a, const Point2& b, const Point2& c)
+	{
+		return (b.u - a.u) * (c.v - a.v) - (b.v - a.v) * (c.u - a.u);
 	}
+
+	bool isInsideTriangle(const Point2& p, const Point2& a, const Point2& b, const Point2& c)
+	{
+		return cross(a, b, p) >= 0.0 && cross(b, c, p) >= 0.0 && cross(c, a, p) >= 0.0;
+	}
+
+	// Ear clipping. The face is projected onto the plane its normal (Newell's method) is most aligned with.
+	// False when the face does not clip into (n - 2) triangles: non-planar, self-intersecting, or with collinear points.
+	bool triangulateFace(const std::vector<ShapePoint>& points, const std::vector<unsigned int>& face, std::vector<unsigned int>& outTriangles)
+	{
+		double nx = 0.0;
+		double ny = 0.0;
+		double nz = 0.0;
+		for (std::size_t i = 0; i < face.size(); ++i)
+		{
+			const ShapePoint& a = points[face[i]];
+			const ShapePoint& b = points[face[(i + 1) % face.size()]];
+			nx += (a.y - b.y) * (a.z + b.z);
+			ny += (a.z - b.z) * (a.x + b.x);
+			nz += (a.x - b.x) * (a.y + b.y);
+		}
+
+		// Drop the axis the normal is closest to. Flipping v when that component is negative keeps the loop
+		// counter-clockwise in 2D, so a convex corner always has a positive cross product.
+		std::vector<Point2> projected;
+		const double ax = std::abs(nx);
+		const double ay = std::abs(ny);
+		const double az = std::abs(nz);
+		for (unsigned int index : face)
+		{
+			const ShapePoint& p = points[index];
+			if (ax >= ay && ax >= az)
+			{
+				projected.push_back({ p.y, nx >= 0.0 ? p.z : -p.z });
+			}
+			else if (ay >= az)
+			{
+				projected.push_back({ p.z, ny >= 0.0 ? p.x : -p.x });
+			}
+			else
+			{
+				projected.push_back({ p.x, nz >= 0.0 ? p.y : -p.y });
+			}
+		}
+
+		std::vector<std::size_t> remaining(face.size());
+		for (std::size_t i = 0; i < remaining.size(); ++i)
+		{
+			remaining[i] = i;
+		}
+
+		const std::size_t expected = outTriangles.size() + 3 * (face.size() - 2);
+		while (remaining.size() > 3)
+		{
+			bool clipped = false;
+			for (std::size_t i = 0; i < remaining.size(); ++i)
+			{
+				const std::size_t prev = remaining[(i + remaining.size() - 1) % remaining.size()];
+				const std::size_t curr = remaining[i];
+				const std::size_t next = remaining[(i + 1) % remaining.size()];
+				if (cross(projected[prev], projected[curr], projected[next]) <= 1e-12)
+				{
+					continue;   // reflex or collinear corner
+				}
+
+				bool isEar = true;
+				for (std::size_t other : remaining)
+				{
+					if (other != prev && other != curr && other != next
+						&& isInsideTriangle(projected[other], projected[prev], projected[curr], projected[next]))
+					{
+						isEar = false;
+						break;
+					}
+				}
+				if (!isEar)
+				{
+					continue;
+				}
+
+				outTriangles.insert(outTriangles.end(), { face[prev], face[curr], face[next] });
+				remaining.erase(remaining.begin() + static_cast<std::ptrdiff_t>(i));
+				clipped = true;
+				break;
+			}
+			if (!clipped)
+			{
+				return false;
+			}
+		}
+
+		if (cross(projected[remaining[0]], projected[remaining[1]], projected[remaining[2]]) <= 1e-12)
+		{
+			return false;
+		}
+		outTriangles.insert(outTriangles.end(), { face[remaining[0]], face[remaining[1]], face[remaining[2]] });
+		return outTriangles.size() == expected;
+	}
+
+	// Builds the draw mesh. outError is empty when the source is valid.
+	ShapeMesh buildShapeMesh(const ShapeMeshSource& source, std::string& outError)
+	{
+		ShapeMesh mesh;
+		mesh.points = source.points;
+		const unsigned int count = static_cast<unsigned int>(source.points.size());
+
+		std::set<std::pair<unsigned int, unsigned int>> edges;
+		auto addEdge = [&](unsigned int a, unsigned int b)
+		{
+			if (edges.insert({ std::min(a, b), std::max(a, b) }).second)
+			{
+				mesh.wireIndices.insert(mesh.wireIndices.end(), { a, b });
+			}
+		};
+
+		for (std::size_t f = 0; f < source.faces.size(); ++f)
+		{
+			const std::vector<unsigned int>& face = source.faces[f];
+			if (face.size() < 3)
+			{
+				outError = "face " + std::to_string(f) + " has fewer than 3 points";
+				return mesh;
+			}
+			for (unsigned int index : face)
+			{
+				if (index >= count)
+				{
+					outError = "face " + std::to_string(f) + " uses point " + std::to_string(index) + " of " + std::to_string(count);
+					return mesh;
+				}
+			}
+			for (std::size_t i = 0; i < face.size(); ++i)
+			{
+				addEdge(face[i], face[(i + 1) % face.size()]);
+			}
+			if (!triangulateFace(mesh.points, face, mesh.triangleIndices))
+			{
+				outError = "face " + std::to_string(f) + " does not triangulate (non-planar, self-intersecting or collinear points)";
+				return mesh;
+			}
+		}
+
+		for (const std::array<unsigned int, 2>& line : source.lines)
+		{
+			if (line[0] >= count || line[1] >= count)
+			{
+				outError = "a line uses a point outside the " + std::to_string(count) + " points";
+				return mesh;
+			}
+			addEdge(line[0], line[1]);
+		}
+
+		if (mesh.wireIndices.empty())
+		{
+			outError = "no faces or lines";
+		}
+		return mesh;
+	}
+
+	struct ShapeLibrary
+	{
+		std::vector<ShapeMesh> meshes;
+		std::string error;
+	};
+
+	// Built once. Function-local static initialization is thread-safe, and validateShapeLibrary runs it at plugin load.
+	const ShapeLibrary& getLibrary()
+	{
+		static const ShapeLibrary library = []()
+		{
+			ShapeLibrary built;
+			for (int i = 0; i < ShapeType::Count; ++i)
+			{
+				const ShapeType shapeType = static_cast<ShapeType>(i);
+				std::string error;
+				built.meshes.push_back(buildShapeMesh(getShapeMeshSource(shapeType), error));
+				if (!error.empty() && built.error.empty())
+				{
+					built.error = std::string(getShapeTypeString(shapeType)) + ": " + error;
+				}
+			}
+			return built;
+		}();
+		return library;
+	}
+}
+
+const ShapeMesh& getShapeMesh(ShapeType shapeType)
+{
+	static const ShapeMesh empty;
+	const ShapeLibrary& library = getLibrary();
+	const auto index = static_cast<std::size_t>(shapeType);
+	return index < library.meshes.size() ? library.meshes[index] : empty;
+}
+
+bool validateShapeLibrary(std::string& outError)
+{
+	outError = getLibrary().error;
+	return outError.empty();
 }

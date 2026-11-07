@@ -1,12 +1,14 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// The shapes a rigControlNode can draw. Every shape uses one convention: +X is the normal of a flat
-// shape and the long axis of Capsule and Cylinder, so a control on an +X-down-the-bone joint wraps the bone.
+// The shapes a rigControlNode can draw. Every shape is a mesh that fits the -1..1 cube, drawn as a wire and,
+// when filled, as triangles. Orientation (D26): +X is the normal of flat shapes that ring a bone and the long
+// axis of round 3D shapes. Pointer shapes point down +X and lie in the XZ plane.
 
 #include "Constants.h"
 
 #include <cstddef>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -49,6 +51,17 @@ struct ShapePoint
 	double z = 0.0;
 };
 
-// The polyline for a curve shape, in shape space with unit extent. Drawn as one line strip.
-// nullptr for the primitives (Box, Sphere, Circle, Capsule, Cylinder, Square), which the draw manager draws itself.
-const std::vector<ShapePoint>* getCurveShapePoints(ShapeType shapeType);
+// A shape ready to draw: index pairs for the wire (face edges, each once, plus lines) and index triples for the fill.
+struct ShapeMesh
+{
+	std::vector<ShapePoint> points;
+	std::vector<unsigned int> wireIndices;
+	std::vector<unsigned int> triangleIndices;
+};
+
+// Built from the library on first use and kept for the session. A value outside the enum gives an empty mesh.
+const ShapeMesh& getShapeMesh(ShapeType shapeType);
+
+// Builds every shape and checks it: indices in range, faces of at least 3 points, each face triangulated
+// into (points - 2) triangles. The plugin refuses to load on failure, so a bad library edit can't ship.
+bool validateShapeLibrary(std::string& outError);

@@ -30,6 +30,9 @@
     <ClCompile Include="core\ControlShapeFile.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\ControlShapeLibrary.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\ControlShapes.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -120,6 +123,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\ControlShapeFile.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\ControlShapeLibrary.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\ControlShapes.h">

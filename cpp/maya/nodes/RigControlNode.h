@@ -13,22 +13,8 @@
 #include <maya/MPxDrawOverride.h>
 #include <maya/MPxTransform.h>
 #include <maya/MUIDrawManager.h>
+#include <maya/MUintArray.h>
 #include <maya/MUserData.h>
-#include <maya/MVector.h>
-
-// shapeTransform split for the draw manager primitives: the origin, unit axes and axis lengths.
-// Lengths stay positive under a mirrored (negative) scale. axisX is the normal of flat shapes and the long axis
-// of Capsule and Cylinder.
-struct ShapeFrame
-{
-	MPoint center;
-	MVector axisX{ 1.0, 0.0, 0.0 };
-	MVector axisY{ 0.0, 1.0, 0.0 };
-	MVector axisZ{ 0.0, 0.0, 1.0 };
-	double sizeX{ 1.0 };
-	double sizeY{ 1.0 };
-	double sizeZ{ 1.0 };
-};
 
 // Data payload passed to the Viewport 2.0 draw thread.
 // prepareForDraw reads the plugs into it, addUIDrawables draws from it.
@@ -47,10 +33,10 @@ public:
 	float lineWidth{ 1.0f };
 	bool filled{ false };
 
-	ShapeFrame frame;
-
-	// Curve shapes only: the library points through the full shapeTransform. Rebuilt only when the shape changes.
-	MPointArray curvePoints;
+	// The shape's library mesh, points through shapeTransform. Rebuilt only when the shape changes.
+	MPointArray points;
+	MUintArray wireIndices;       // Pairs, drawn as kLines
+	MUintArray triangleIndices;   // Triples, drawn as kTriangles when filled
 };
 
 // Custom transform that draws its own control shape through a VP2 draw override.
@@ -106,7 +92,6 @@ public:
 
 	static MMatrix getShapeTransform(const MObject& oControl);
 	static ShapeType getShapeType(const MObject& oControl);
-	static ShapeFrame getShapeFrame(const MMatrix& mShapeTransform);
 
 private:
 	bool m_drawIsDirty{ true };

@@ -161,7 +161,7 @@ The suite runs in mayapy, which has no viewport, so it checks control bounds but
 cmd /c tests\ViewportGallery.cmd
 ```
 
-It starts Maya with a window (`maya.exe -command`), builds every shape beside a -1 to 1 reference cube with a red line along +X, playblasts nine views, closes Maya and opens the image folder (`%TEMP%\RigViewportGallery\out`). It takes about a minute. Pass a plugin path to check another build. The docstring at the top of `viewport/gallery.py` says what each image should show.
+It starts Maya with a window (`maya.exe -command`), builds every shape beside a -1 to 1 reference cube with a red line along +X, playblasts ten views, closes Maya and opens the image folder (`%TEMP%\RigViewportGallery\out`). It takes about a minute. Pass a plugin path to check another build. The docstring at the top of `viewport/gallery.py` says what each image should show.
 
 - **Exit code:** 0 when every image was written. It does not judge the images. Look at them.
 - **Unattended:** like the suite, it skips `userSetup.py` and turns off the crash reporter, so nothing waits for input.

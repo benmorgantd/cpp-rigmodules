@@ -19,61 +19,6 @@
 #include <maya/MPlug.h>
 #include <maya/MSelectionList.h>
 
-namespace
-{
-	// Half extents of a primitive along the frame's axes, matching what addUIDrawables asks the draw manager for.
-	// Measured against a +-1 cube in VP2 (2026-11-07): box, sphere, circle and rect sizes are half extents and radii,
-	// while capsule and cylinder heights are full lengths. The round shapes don't scale linearly with the matrix
-	// (a capsule's caps follow its radius, a sphere uses one radius), so the box is built from the sizes, not by
-	// pushing a unit box through shapeTransform.
-	MVector primitiveHalfExtents(ShapeType shapeType, const ShapeFrame& frame)
-	{
-		switch (shapeType)
-		{
-			case ShapeType::Sphere:
-				return MVector(frame.sizeX, frame.sizeX, frame.sizeX);
-			case ShapeType::Circle:
-				return MVector(0.0, frame.sizeY, frame.sizeY);
-			case ShapeType::Capsule:
-				return MVector(0.5 * frame.sizeX + frame.sizeY, frame.sizeY, frame.sizeY);
-			case ShapeType::Cylinder:
-				return MVector(0.5 * frame.sizeX, frame.sizeY, frame.sizeY);
-			case ShapeType::Square:
-				return MVector(0.0, frame.sizeY, frame.sizeZ);
-			default:
-				return MVector(frame.sizeX, frame.sizeY, frame.sizeZ);
-		}
-	}
-
-	MBoundingBox primitiveShapeBounds(ShapeType shapeType, const ShapeFrame& frame)
-	{
-		const MVector halfExtents = primitiveHalfExtents(shapeType, frame);
-		MBoundingBox bounds;
-		for (const double signX : { -1.0, 1.0 })
-		{
-			for (const double signY : { -1.0, 1.0 })
-			{
-				for (const double signZ : { -1.0, 1.0 })
-				{
-					bounds.expand(frame.center + frame.axisX * (signX * halfExtents.x) + frame.axisY * (signY * halfExtents.y)
-						+ frame.axisZ * (signZ * halfExtents.z));
-				}
-			}
-		}
-		return bounds;
-	}
-
-	MBoundingBox curveShapeBounds(const std::vector<ShapePoint>& points)
-	{
-		MBoundingBox bounds;
-		for (const ShapePoint& point : points)
-		{
-			bounds.expand(MPoint(point.x, point.y, point.z));
-		}
-		return bounds;
-	}
-}
-
 MTypeId RigControlNode::id(0x0013B5C0);
 MString RigControlNode::drawDbClassification("drawdb/geometry/rigControlNode");
 MString RigControlNode::drawRegistrantId("RigControlNodePlugin");
@@ -121,37 +66,19 @@ bool RigControlNode::isBounded() const
 	return true;
 }
 
+// Exact: every library point through shapeTransform.
 MBoundingBox RigControlNode::boundingBox() const
 {
 	const MObject oControl = thisMObject();
-	const ShapeType shapeType = getShapeType(oControl);
+	const ShapeMesh& mesh = getShapeMesh(getShapeType(oControl));
 	const MMatrix mShapeTransform = getShapeTransform(oControl);
-	const std::vector<ShapePoint>* pCurvePoints = getCurveShapePoints(shapeType);
-	if (pCurvePoints == nullptr)
+
+	MBoundingBox bounds;
+	for (const ShapePoint& point : mesh.points)
 	{
-		return primitiveShapeBounds(shapeType, getShapeFrame(mShapeTransform));
+		bounds.expand(MPoint(point.x, point.y, point.z) * mShapeTransform);
 	}
-
-	MBoundingBox bounds = curveShapeBounds(*pCurvePoints);
-	bounds.transformUsing(mShapeTransform);
 	return bounds;
-}
-
-ShapeFrame RigControlNode::getShapeFrame(const MMatrix& mShapeTransform)
-{
-	const MVector rowX(mShapeTransform[0][0], mShapeTransform[0][1], mShapeTransform[0][2]);
-	const MVector rowY(mShapeTransform[1][0], mShapeTransform[1][1], mShapeTransform[1][2]);
-	const MVector rowZ(mShapeTransform[2][0], mShapeTransform[2][1], mShapeTransform[2][2]);
-
-	ShapeFrame frame;
-	frame.center = MPoint(mShapeTransform[3][0], mShapeTransform[3][1], mShapeTransform[3][2]);
-	frame.sizeX = rowX.length();
-	frame.sizeY = rowY.length();
-	frame.sizeZ = rowZ.length();
-	frame.axisX = frame.sizeX > 1e-6 ? rowX / frame.sizeX : MVector::xAxis;
-	frame.axisY = frame.sizeY > 1e-6 ? rowY / frame.sizeY : MVector::yAxis;
-	frame.axisZ = frame.sizeZ > 1e-6 ? rowZ / frame.sizeZ : MVector::zAxis;
-	return frame;
 }
 
 MMatrix RigControlNode::getShapeTransform(const MObject& oControl)
@@ -273,17 +200,22 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 		data->shapeType = RigControlNode::getShapeType(oControl);
 
 		const MMatrix mShapeTransform = RigControlNode::getShapeTransform(oControl);
-		data->frame = RigControlNode::getShapeFrame(mShapeTransform);
-
-		data->curvePoints.clear();
-		if (const std::vector<ShapePoint>* pCurvePoints = getCurveShapePoints(data->shapeType))
+		const ShapeMesh& mesh = getShapeMesh(data->shapeType);
+		data->points.setLength(static_cast<unsigned int>(mesh.points.size()));
+		for (unsigned int i = 0; i < data->points.length(); ++i)
 		{
-			data->curvePoints.setLength(static_cast<unsigned int>(pCurvePoints->size()));
-			for (unsigned int i = 0; i < data->curvePoints.length(); ++i)
-			{
-				const ShapePoint& point = (*pCurvePoints)[i];
-				data->curvePoints[i] = MPoint(point.x, point.y, point.z) * mShapeTransform;
-			}
+			const ShapePoint& point = mesh.points[i];
+			data->points[i] = MPoint(point.x, point.y, point.z) * mShapeTransform;
+		}
+		data->wireIndices.clear();
+		for (unsigned int index : mesh.wireIndices)
+		{
+			data->wireIndices.append(index);
+		}
+		data->triangleIndices.clear();
+		for (unsigned int index : mesh.triangleIndices)
+		{
+			data->triangleIndices.append(index);
 		}
 
 		MPlug pColor(oControl, RigControlNode::aWireColor);
@@ -332,8 +264,7 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 }
 
 // Draws in the control's object space. Maya applies the control's world matrix.
-// +X is the normal of flat shapes and the long axis of Capsule and Cylinder. Scale X sizes along that axis,
-// scale Y and Z size across it.
+// The fill goes first at half the wire's alpha, so a filled control still shows its outline and what is behind it.
 void RigControlDrawOverride::addUIDrawables(
 	const MDagPath& objPath,
 	MHWRender::MUIDrawManager& drawManager,
@@ -341,45 +272,25 @@ void RigControlDrawOverride::addUIDrawables(
 	const MUserData* data)
 {
 	const ControlDrawData* pData = dynamic_cast<const ControlDrawData*>(data);
-	if (!pData)
+	if (!pData || pData->points.length() == 0)
 	{
 		return;
 	}
 
 	drawManager.beginDrawable();
-	drawManager.setColor(pData->color);
-	drawManager.setLineWidth(pData->lineWidth);
 	drawManager.setDepthPriority(100);
 
-	// Sizes: box and rect take half extents, sphere and circle a radius, capsule and cylinder a radius and a full
-	// length. primitiveHalfExtents mirrors this for the bounds.
-	const ShapeFrame& frame = pData->frame;
-	switch (pData->shapeType)
+	if (pData->filled && pData->triangleIndices.length() > 0)
 	{
-		case ShapeType::Box:
-			drawManager.box(frame.center, frame.axisY, frame.axisX, frame.sizeX, frame.sizeY, frame.sizeZ, pData->filled);
-			break;
-		case ShapeType::Sphere:
-			drawManager.sphere(frame.center, frame.sizeX, pData->filled);
-			break;
-		case ShapeType::Circle:
-			drawManager.circle(frame.center, frame.axisX, frame.sizeY, pData->filled);
-			break;
-		case ShapeType::Capsule:
-			drawManager.capsule(frame.center, frame.axisX, frame.sizeY, frame.sizeX, 6, 6, pData->filled);
-			break;
-		case ShapeType::Cylinder:
-			drawManager.cylinder(frame.center, frame.axisX, frame.sizeY, frame.sizeX, 8, pData->filled);
-			break;
-		case ShapeType::Square:
-			// rect's scaleX runs along up x normal, which is the shape's Z axis.
-			drawManager.rect(frame.center, frame.axisY, frame.axisX, frame.sizeZ, frame.sizeY, pData->filled);
-			break;
-		default:
-			// Curve shapes. filled does not apply to a line strip.
-			drawManager.lineStrip(pData->curvePoints, false);
-			break;
+		MColor fillColor = pData->color;
+		fillColor.a *= 0.5f;
+		drawManager.setColor(fillColor);
+		drawManager.mesh(MHWRender::MUIDrawManager::kTriangles, pData->points, nullptr, nullptr, &pData->triangleIndices);
 	}
+
+	drawManager.setColor(pData->color);
+	drawManager.setLineWidth(pData->lineWidth);
+	drawManager.mesh(MHWRender::MUIDrawManager::kLines, pData->points, nullptr, nullptr, &pData->wireIndices);
 	drawManager.endDrawable();
 }
 

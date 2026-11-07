@@ -1,11 +1,14 @@
 // A mll can only have one initialize/uninitialize entry point to avoid memory corruption and crashes on build. 
 #include <maya/MDrawRegistry.h>
 #include <maya/MFnPlugin.h>  // only include MFnPlugin in the file that has the plugin declaration to avoid build errors.
+#include <maya/MGlobal.h>
 #include <maya/MStatus.h>
 
+#include <string>
 #include <vector>
 
 // Include headers for all custom nodes
+#include "core/ControlShapes.h"
 #include "maya/CommandRegistry.h"
 #include "maya/ModuleRegistry.h"
 
@@ -13,6 +16,14 @@
 MStatus initializePlugin(MObject obj)
 {
 	MStatus status;
+
+	// A control shape that doesn't triangulate would draw wrong in every rig, so refuse to load instead.
+	std::string shapeError;
+	if (!validateShapeLibrary(shapeError))
+	{
+		MGlobal::displayError(MString("RigModules control shape library is invalid: ") + shapeError.c_str());
+		return MStatus::kFailure;
+	}
 
 	// Register our plugin
 	MFnPlugin plugin(obj, "Ben Morgan", "0.1", "Any");
