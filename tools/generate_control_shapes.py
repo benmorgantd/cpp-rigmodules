@@ -103,9 +103,13 @@ def cylinder():
 
 def capsule():
     # roundCap adds a hemisphere of the radius to each end: total length = height + 2 * radius = 2.
-    return maya_mesh(cmds.polyCylinder(radius=0.5, height=1, subdivisionsAxis=AXIS_SEGMENTS, subdivisionsHeight=1,
-                                       subdivisionsCaps=3, roundCap=True, axis=(1, 0, 0),
-                                       constructionHistory=False)[0])
+    # Then Y and Z are stretched x2 so it fills the cube like Box (author's choice over a uniform scale, which
+    # would leave the cube): the caps become half-ellipsoids.
+    shape = maya_mesh(cmds.polyCylinder(radius=0.5, height=1, subdivisionsAxis=AXIS_SEGMENTS, subdivisionsHeight=1,
+                                        subdivisionsCaps=3, roundCap=True, axis=(1, 0, 0),
+                                        constructionHistory=False)[0])
+    shape.points = [(x, 2.0 * y, 2.0 * z) for x, y, z in shape.points]
+    return shape
 
 
 def dome():

@@ -73,10 +73,8 @@ class Bounds(RigTestCase):
         self.assertShapeBounds("Cylinder", [-1, -1, -1, 1, 1, 1])
         self.assertShapeBounds("Diamond", [-1, -1, -1, 1, 1, 1])
         self.assertShapeBounds("Pivot", [-1, -1, -1, 1, 1, 1])
-
-    def test_capsule_is_two_long_along_x(self):
-        # Total length 2 along X, radius 0.5.
-        self.assertShapeBounds("Capsule", [-1, -0.5, -0.5, 1, 0.5, 0.5])
+        # Fills the cube like Box: 2 long along X, 2 across.
+        self.assertShapeBounds("Capsule", [-1, -1, -1, 1, 1, 1])
 
     def test_dome_bulges_toward_x(self):
         self.assertShapeBounds("Dome", [0, -1, -1, 1, 1, 1])
@@ -113,7 +111,7 @@ class Bounds(RigTestCase):
     def test_every_shape_scales_on_every_axis(self):
         # Meshes scale linearly, round shapes included.
         self.assertShapeBounds("Sphere", [-2, -1, -0.5, 2, 1, 0.5], scale(2, 1, 0.5))
-        self.assertShapeBounds("Capsule", [-0.1, -1, -0.25, 0.1, 1, 0.25], scale(0.1, 2, 0.5))
+        self.assertShapeBounds("Capsule", [-0.1, -2, -0.5, 0.1, 2, 0.5], scale(0.1, 2, 0.5))
         self.assertShapeBounds("Square", [0, -2, -0.5, 0, 2, 0.5], scale(3, 2, 0.5))
 
     def test_bounds_follow_shape_transform_offset(self):

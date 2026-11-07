@@ -10,7 +10,7 @@ Environment (set by ViewportGallery.cmd; exec gives this script no __file__):
     RIG_GALLERY_OUT     the folder for the images and log.txt
 
 What to look for:
-    01-04  unit scale. Every shape fits the cube. Capsule is 2 long along X with radius 0.5. Ring shapes
+    01-04  unit scale. Every shape fits the cube. Capsule fills the cube like Box. Ring shapes
            (Circle, Square, Triangle, PointedCircle, the circle arrows) face +X: edge-on vertical lines in the
            front and top views. Pointer shapes (SingleArrow, FourArrow, CircleStick, ArchedDoubleArrow) point
            down +X along the red line and lie flat in XZ (edge-on in the front view).
