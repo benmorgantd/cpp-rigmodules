@@ -151,6 +151,7 @@
     <ClCompile Include="core\RigControlFilter.cpp" />
     <ClCompile Include="core\RigJsonStructs.cpp" />
     <ClCompile Include="core\RigTemplateValidation.cpp" />
+    <ClCompile Include="core\TemplateMirror.cpp" />
     <ClCompile Include="maya\CommandRegistry.cpp" />
     <ClCompile Include="maya\ModuleRegistry.cpp" />
     <ClCompile Include="maya\PluginMain.cpp" />
@@ -186,6 +187,7 @@
     <ClInclude Include="core\RigJsonStructs.h" />
     <ClInclude Include="core\RigTemplateValidation.h" />
     <ClInclude Include="core\StringUtils.h" />
+    <ClInclude Include="core\TemplateMirror.h" />
     <ClInclude Include="maya\CommandRegistry.h" />
     <ClInclude Include="maya\ModuleRegistry.h" />
     <ClInclude Include="maya\commands\ConstraintCmds.h" />

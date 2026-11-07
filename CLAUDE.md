@@ -70,6 +70,7 @@ Do not add a new module casually. Before proposing one:
   1. Create every module separately.
   2. Parent them as defined by the JSON `parentStructure`, which maps child plug to parent socket.
 - Existing modules include Layout, FkChain and Aim. Use FkChain and Layout as the reference for new modules.
+- Mirroring is template data (D28): a `"mirror": true` entry is copied to the other side in the read phase, so modules never see it. A module whose arguments change on the other side (a negated default, say) handles it in `planFromJson` through `ctx.moduleData.isMirror()`, never with a mirror branch in `createModule`.
 - Every control carries `controlMarkup` (side, usage), unique per rig (D25). A module's plan declares it in `ModuleInterface::controls` and passes the same values to `createRigControl`. Tools find controls through `RigTraversal`, never by name.
 - Control shapes are meshes from a generated library, all fillable (D26). Rings face +X, pointers point down +X, round solids run along +X.
 
@@ -117,6 +118,7 @@ RigTemplates/        example template
 | `StringUtils.h` | Header-only `splitIdentifier` for `"module.name"`. Included by `maya/shared/Utilities.h`. |
 | `RigJsonStructs.h/.cpp` | Template structs (`RigRootData`, `RigModuleData`, constraint data) and `loadRigTemplate` (key checks, then parse). |
 | `RigTemplateValidation.h/.cpp` | `ValidationReport`, `ModuleInterface`, and the read-phase template checks (D17). |
+| `TemplateMirror.h/.cpp` | `expandMirrors` (adds the other side's copy of every `"mirror": true` module and constraint before validation), `swapSide`, `swapSideSuffix` (D28). |
 | `JointMarkup.h/.cpp` | Markup schema, `JointSelector`, `JointMarkupIndex`. |
 | `ControlMarkup.h/.cpp` | Control markup schema (`controlMarkup` attribute): `markupVersion`, `side`, `usage` (D25). |
 | `ControlShapes.h/.cpp` | `ShapeType` enum, shape name lookups, `getShapeMesh` (wire and triangle indices, built once by ear clipping) and `validateShapeLibrary` (D26). |
@@ -132,10 +134,10 @@ RigTemplates/        example template
 | `ModuleRegistry.cpp/.h` | The only file that includes every module header. Holds each node's type name, JSON `moduleType`, `MTypeId` and `planFromJson`. Add new nodes here. |
 | `CommandRegistry.cpp/.h` | The only file that includes every command header. Add new commands here. |
 | `modules/LayoutModule`, `modules/FkChain`, `modules/AimModule` | Module nodes. FkChain is the reference pattern. |
-| `commands/CreateRigCmd.h/.cpp` | `createRigFromTemplate`. Reads flags into `RigBuildInputs`, then calls `RigRootNode::createRig`. |
+| `commands/CreateRigCmd.h/.cpp` | `createRigFromTemplate`. Reads flags (including `checkMirrorPositions`) into `RigBuildInputs`, then calls `RigRootNode::createRig`. |
 | `commands/ConstraintCmds.h/.cpp` | `createRigParentConstraint` and `setRigConstraintSpace`. They call `ParentConstraintNode`'s static helpers. |
 | `commands/JointMarkupCmd.h/.cpp` | `rigJointMarkup`. The reference command shape (D14). |
-| `commands/RigControlCmds.h/.cpp` | `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`. They call `RigTraversal` and `ControlShapeScene`. |
+| `commands/RigControlCmds.h/.cpp` | `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`. They call `RigTraversal` and `ControlShapeScene`. |
 | `nodes/RigRoot.h/.cpp` | `RigRootNode`, `RigBuildInputs` and `createRig` (read phase: parse, scan markup, `planModules`, validate. Write phase: roots, `buildModules`, parenting pass, constraints). |
 | `nodes/AssetRoot.h/.cpp` | `AssetRootNode`. |
 | `nodes/Constraints.h/.cpp` | `ParentConstraintNode`: compute, `resolveSocket`, `createConstraint`, `buildFromTemplate`, `matchSwitchSpace`. |
@@ -143,8 +145,8 @@ RigTemplates/        example template
 | `shared/RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/child plug lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
 | `shared/Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `ScopedRigNamespace` (RAII current namespace for a rig build and its redo). |
 | `shared/JointMarkupScene.h/.cpp` | Plugin side of markup: namespace joint scan, attribute read, `claimJoint`. |
-| `shared/RigTraversal.h/.cpp` | Walks a built rig by connections: rig root, modules, controls, control markup, filtered `getRigControls`. |
-| `shared/ControlShapeScene.h/.cpp` | `getControlShape` / `setControlShape` and the rig-wide versions behind the shape file commands. |
+| `shared/RigTraversal.h/.cpp` | Walks a built rig by connections: rig root, modules, controls, control markup, filtered `getRigControls`, a control's rest world and its mirror control. |
+| `shared/ControlShapeScene.h/.cpp` | `getControlShape` / `setControlShape`, the rig-wide versions behind the shape file commands, and `mirrorRigControlShapes`. |
 | `shared/Colors.h` | `Colors`, the Maya `MColor` constants, split out of `core/Constants.h`. |
 | `shared/AssetType`, `shared/RigType`, `shared/Side` | Enum/string helpers. `AssetType.h` is Maya-free but `AssetType.cpp` reports errors through `MGlobal`, so the pair lives here. |
 
@@ -156,14 +158,14 @@ RigTemplates/        example template
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
-| `design/decisions.md` | Decision log (D1–D27). |
+| `design/decisions.md` | Decision log (D1–D28). |
 | `design/mayadev-integration.md` | Survey of the sibling mayadev repo, conflicts with RigModules, the proposed boundary and phases (D24). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. `ViewportGallery.cmd` is the manual VP2 shape check. |
 | `tools/generate_control_shapes.py` | mayapy script that writes `cpp/core/ControlShapeLibrary.cpp`. Rerun it after changing a shape, then rebuild. |
 | `cpp/RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files, with its folder relative to `cpp/` (`core\X.cpp`). The filters file has one filter per folder. |
 
-**Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, namespace=ns)`, `cmds.rigJointMarkup(...)`, `cmds.createRigParentConstraint(control, driver=["module.socket", ...])`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`, `cmds.getRigControls(rigRoot, moduleType=[...], side=[...], usage=[...])`, `cmds.saveRigControlShapes(rigRoot, file=path)`, `cmds.loadRigControlShapes(rigRoot, file=path)`. Name API functions and commands in verb pairs: get/set for scene data (`getRigControls`, `setControlShape`), save/load for files this system owns (`saveRigControlShapes`, `loadRigControlShapes`), import/export for data going to or from other tools or formats. Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
+**Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, namespace=ns, checkMirrorPositions=False)`, `cmds.rigJointMarkup(...)`, `cmds.createRigParentConstraint(control, driver=["module.socket", ...])`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`, `cmds.getRigControls(rigRoot, moduleType=[...], side=[...], usage=[...])`, `cmds.saveRigControlShapes(rigRoot, file=path)`, `cmds.loadRigControlShapes(rigRoot, file=path)`, `cmds.getRigMirrorControl(control)`, `cmds.mirrorRigControlShapes(rigRoot, leftToRight=True)`. Name API functions and commands in verb pairs: get/set for scene data (`getRigControls`, `setControlShape`), save/load for files this system owns (`saveRigControlShapes`, `loadRigControlShapes`), import/export for data going to or from other tools or formats, and `mirror` for copying one side onto the other (`mirrorRigControlShapes`). Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
 
 **Node types and MTypeIds:** `rigRootModule` 0x00218, `assetRootModule` 0x00219, `fkChainModule` 0x00218B, `layoutModule` 0x00218C, `aimModule` 0x00218D, `bmParentConstraint` 0x00218E, `rigControlNode` 0x0013B5C0. Check this list before picking an id for a new node.
 
@@ -292,7 +294,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 245 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 275 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.

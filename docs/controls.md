@@ -71,3 +71,14 @@ cmds.loadRigControlShapes("rig:rigRootModule1", file="C:/assets/hero/shapes.json
 - Color is not saved. It comes from the side of the module a control is built on.
 - Loading checks the whole file first. Any error loads nothing.
 - A control with no entry keeps its shape, and an entry with no control is skipped. Both print a warning.
+
+## Mirroring shapes
+
+`mirrorRigControlShapes` copies each Left control's shape onto the Right control with the same `usage`, reflected across world X = 0, or Right onto Left with `leftToRight=False` ([commands.md](commands.md#mirrorrigcontrolshapes)). Edit one side, mirror it, then save the shape file.
+
+```python
+cmds.mirrorRigControlShapes("rig:rigRootModule1")
+cmds.saveRigControlShapes("rig:rigRootModule1", file="C:/assets/hero/shapes.json")
+```
+
+`getRigMirrorControl` finds one control's mirror the same way, by markup.

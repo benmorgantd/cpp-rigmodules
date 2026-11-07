@@ -18,10 +18,10 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 | Page | Owns |
 |---|---|
 | [`../README.md`](../README.md) | What the project is, requirements, build, quick start, repo layout, links |
-| [`templates.md`](templates.md) | Template file format: every key, required or optional, defaults, allowed values, `parentStructure`, constraints, validation rules |
+| [`templates.md`](templates.md) | Template file format: every key, required or optional, defaults, allowed values, `parentStructure`, constraints, mirroring, validation rules |
 | [`commands.md`](commands.md) | Every Maya command: syntax, flags, objects, behaviour, undo, errors |
 | [`modules.md`](modules.md) | Every module: `moduleType`, `moduleArgs`, joints, controls, child plugs, sockets, behaviour |
-| [`controls.md`](controls.md) | What every control carries: markup, shapes and the axis convention, the shape file format |
+| [`controls.md`](controls.md) | What every control carries: markup, shapes and the axis convention, the shape file format, mirroring shapes |
 | [`../tests/README.md`](../tests/README.md) | Running tests, case-file formats, where new tests go |
 | [`../design/decisions.md`](../design/decisions.md) | Design decisions and their reasons |
 

@@ -24,6 +24,13 @@ struct RigConstraintData
 	std::string type = ConstraintTypes::Parent;
 	std::string target;           // "module.childPlug"
 	std::vector<RigConstraintDriverData> drivers;
+	bool mirror = false;          // template key: build a copy on the other side too (D28)
+	int mirrorOf = -1;            // set on a generated mirror: the template index of its source
+
+	bool isMirror() const
+	{
+		return mirrorOf >= 0;
+	}
 };
 
 struct RigModuleData
@@ -35,6 +42,14 @@ struct RigModuleData
     int moduleVersion = 1;
     std::unordered_map<std::string, std::string> parentStructure;
     nlohmann::json moduleArgs;
+    bool mirror = false;          // template key: build a copy on the other side too (D28)
+    int mirrorOf = -1;            // set on a generated mirror: the template index of its source
+
+    // Plan steps read this for args that change on the other side (D28). The joints need nothing: selectors are already swapped.
+    bool isMirror() const
+    {
+        return mirrorOf >= 0;
+    }
 };
 
 struct AssetRootData
@@ -84,6 +99,7 @@ inline void from_json(const nlohmann::json& jsonData, RigConstraintData& constra
 	jsonData.at(TemplateKey::ConstraintTarget).get_to(constraint.target);
 	jsonData.at(TemplateKey::ConstraintDrivers).get_to(constraint.drivers);
 	constraint.type = jsonData.value(TemplateKey::ConstraintType, ConstraintTypes::Parent);
+	constraint.mirror = jsonData.value(TemplateKey::Mirror, false);
 }
 
 inline void to_json(nlohmann::json& jsonData, const RigConstraintData& constraint)

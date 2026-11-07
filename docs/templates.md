@@ -66,6 +66,7 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 | `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Every module is at version 1. |
 | `moduleArgs` | no | Module-specific arguments, mostly joint selectors. See [modules.md](modules.md). |
 | `parentStructure` | no | Maps this module's child plugs to parent sockets (below) |
+| `mirror` | no | `true` also builds this module on the other side. Only `Left` and `Right` modules. See [Mirroring](#mirroring). |
 
 ### Joint selectors
 
@@ -97,6 +98,7 @@ A constraint gives a control a choice of parent spaces. With more than one drive
 | `target` | yes | `module.childPlug`. The child plug must have a control. Only one constraint can target a child plug. |
 | `drivers` | yes | At least one driver (below) |
 | `type` | no | `Parent`, the only type so far |
+| `mirror` | no | `true` also builds this constraint on the other side. The target must be a `Left` or `Right` module. See [Mirroring](#mirroring). |
 
 Drivers:
 
@@ -107,6 +109,44 @@ Drivers:
 | `weight` | no | 0 or more, default 0. The driver with the highest weight starts active. With a tie, the first of them starts active (and the build warns). With no weights, the first driver starts active. |
 
 A module cannot drive its own child plug, and no loop may run through `parentStructure` and constraint drivers together.
+
+## Mirroring
+
+`"mirror": true` on a `Left` or `Right` module builds a second module on the other side from the same entry. The joints already carry their own behaviour or orientation mirror, so the mirror module builds from them like any other module.
+
+```json
+{
+  "assetId": "hero|rig|body", "assetType": "Rig", "rigType": "Character", "rigVersion": 1,
+  "rigTemplateName": "Arms", "rigAuthor": "you",
+  "rigModules": [
+    { "moduleType": "FkChain", "name": "spine", "moduleArgs": { "joints": [["Center", "chest"]] } },
+    { "moduleType": "FkChain", "name": "clavicle_l", "side": "Left", "mirror": true,
+      "moduleArgs": { "joints": [["Left", "clavicle"]] }, "parentStructure": { "start": "spine.end" } },
+    { "moduleType": "FkChain", "name": "arm_l", "side": "Left", "shapeType": "Circle", "mirror": true,
+      "moduleArgs": { "joints": [["Left", "upperArm"], ["Left", "lowerArm"]] },
+      "parentStructure": { "start": "clavicle_l.end" } }
+  ],
+  "constraints": [
+    { "name": "arm_space_l", "target": "arm_l.start", "mirror": true,
+      "drivers": [ { "socket": "clavicle_l.end", "label": "Clavicle", "weight": 1.0 }, { "socket": "layout.end", "label": "World" } ] }
+  ]
+}
+```
+
+This builds `clavicle_r`, `arm_r` and `arm_space_r` as well. The mirror is the source entry with:
+
+- **`side`** swapped, `Left` and `Right`.
+- **`name`** with its side suffix swapped: `arm_l` becomes `arm_r`. A mirrored module's name must end in its side's suffix (`_l` or `_r`), and a mirrored constraint's name must end in `_l` or `_r`.
+- **Every selector side** in `moduleArgs` swapped: `["Left", "upperArm"]` becomes `["Right", "upperArm"]`. `Center` selectors stay `Center`.
+- **Socket ids** in `parentStructure`, `target` and `drivers` pointing at the other side's module when the named module is `Left` or `Right`: `clavicle_l.end` becomes `clavicle_r.end`. Ids on `Center` modules and `layout` stay as they are. The socket or child plug name never changes. Such a `Left` or `Right` module needs a side suffix on its name.
+- **Driver labels** unchanged, except a label left out, which defaults to the mirror's own socket id.
+- **`mirror`** removed. Everything else is copied.
+
+The mirror then goes through every check an entry written by hand does. A mirror's errors name the entry it came from: `rigModules[2] 'arm_l' (mirror 'arm_r').moduleArgs: ...`.
+
+- **A missing joint fails the build.** If no joint matches a mirrored selector, the pair is asymmetric.
+- **Positions are not checked by default**, because a skeleton can be asymmetric where the rig is not. Pass `checkMirrorPositions=True` to `createRigFromTemplate` to also fail a mirrored joint that is more than 0.001 from its source joint reflected across X = 0.
+- **Name clashes** fail like any duplicate: a mirror named `arm_r` and an entry named `arm_r` cannot both exist.
 
 ## Validation
 

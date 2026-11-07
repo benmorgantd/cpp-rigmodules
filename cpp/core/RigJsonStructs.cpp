@@ -18,6 +18,7 @@ void from_json(const nlohmann::json& jsonData, RigModuleData& module)
     module.moduleVersion = jsonData.value(TemplateKey::ModuleVersion, 1);
     module.parentStructure = jsonData.value(TemplateKey::ParentStructure, std::unordered_map<std::string, std::string>());
     module.moduleArgs = jsonData.value(TemplateKey::ModuleArgs, nlohmann::json::object());
+    module.mirror = jsonData.value(TemplateKey::Mirror, false);
 }
 
 // -----------------------------------------------------------------------------

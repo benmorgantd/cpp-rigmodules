@@ -1,0 +1,16 @@
+{
+  "assetId": "test|asset|id", "assetType": "Rig", "rigType": "Prop", "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "MirrorArms",
+  "rigModules": [
+    { "moduleType": "FkChain", "name": "spine", "shapeType": "Box", "side": "Center",
+      "moduleArgs": { "joints": [ ["Center", "chest"] ] } },
+    { "moduleType": "FkChain", "name": "clavicle_l", "shapeType": "Box", "side": "Left", "mirror": true,
+      "moduleArgs": { "joints": [ ["Left", "clavicle"] ] }, "parentStructure": { "start": "spine.end" } },
+    { "moduleType": "FkChain", "name": "arm_l", "shapeType": "Circle", "side": "Left", "mirror": true,
+      "moduleArgs": { "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"] ] }, "parentStructure": { "start": "clavicle_l.end" } }
+  ],
+  "constraints": [
+    { "name": "arm_space_l", "target": "arm_l.start", "mirror": true,
+      "drivers": [ { "socket": "clavicle_l.end", "weight": 1.0 }, { "socket": "layout.end", "label": "World" } ] }
+  ]
+}

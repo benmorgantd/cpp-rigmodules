@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection.
-- Is undoable, apart from `getRigControls` (a query) and `saveRigControlShapes` (writes a file, changes nothing in the scene).
+- Is undoable, apart from the queries `getRigControls` and `getRigMirrorControl`, and `saveRigControlShapes` (writes a file, changes nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -58,6 +58,7 @@ cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", namespace
 |---|---|---|
 | `template` | string | Path to the template. Required. |
 | `namespace` | string | The rig's namespace. Defaults to `rig`. `":"` is the root, nested paths such as `char:rig` work, and an existing namespace is reused. |
+| `checkMirrorPositions` | bool | Default `False`. With `True`, a mirrored module ([templates.md](templates.md#mirroring)) fails the build when one of its joints is more than 0.001 from its source joint reflected across X = 0. |
 
 Objects: one or more joint names, with their namespace (`skel:arm_jnt`).
 
@@ -171,3 +172,39 @@ Object: the rig root node. Returns the names of the controls changed.
 - The whole file is validated first. Any error is reported and nothing changes.
 - A control with no entry in the file keeps its shape, and an entry with no matching control is skipped. Both print a warning.
 - Sets `shapeType`, `shapeTransform` and `filled`. Color is left alone.
+
+## getRigMirrorControl
+
+Returns the control on the other side of the same rig: the control with the same `usage` and the swapped `side` in its markup ([controls.md](controls.md#control-markup)).
+
+```python
+cmds.getRigMirrorControl("rig:upperArm_l_ctrl_l")
+# Returns 'rig:upperArm_r_ctrl_r'
+```
+
+Object: one control.
+
+- A `Center` control returns itself.
+- A control with no mirror is an error that names the side and usage it looked for.
+- Not undoable: it changes nothing.
+
+## mirrorRigControlShapes
+
+Mirrors control shapes from one side of a rig to the other.
+
+```python
+cmds.mirrorRigControlShapes("rig:rigRootModule1")                    # Left onto Right
+cmds.mirrorRigControlShapes("rig:rigRootModule1", leftToRight=False) # Right onto Left
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `leftToRight` | bool | Default `True`: Left controls are the source. `False` mirrors Right onto Left. |
+
+Object: the rig root node. Returns the names of the controls changed.
+
+- **World space.** Each mirror control's shape becomes its source control's shape reflected across world X = 0. The reflection uses both controls' rest matrices, so posing the rig first doesn't change the result.
+- **Copies** `shapeType`, `shapeTransform` (as the reflection) and `filled`. Color is left alone, because it follows the module's side.
+- **Skips** `Center` controls, and warns about a source control with no mirror.
+- Undoable.
+

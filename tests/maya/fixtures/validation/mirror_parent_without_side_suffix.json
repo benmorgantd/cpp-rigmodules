@@ -1,0 +1,11 @@
+{
+  "description": "A mirror's Left or Right parent module needs a side suffix, or its mirror can't be found",
+  "base": "mirror_arms",
+  "skeleton": "mirror_arms",
+  "edits": [
+    { "set": "/rigModules/1/mirror", "value": false },
+    { "set": "/rigModules/1/name", "value": "clavicleLeft" },
+    { "set": "/rigModules/2/parentStructure/start", "value": "clavicleLeft.end" }
+  ],
+  "expectErrors": [ { "path": "rigModules[2] 'arm_l'.parentStructure.start", "contains": "clavicleLeft" } ]
+}

@@ -1,0 +1,88 @@
+{
+  "description": "Modules and a constraint built with mirror: true",
+  "template": "mirror_arms",
+  "skeleton": "mirror_arms",
+  "interface": {
+    "modules": {
+      "arm_l": {
+        "type": "fkChainModule",
+        "sockets": [["index_0", "start"], ["index_1", "end"]],
+        "childPlugs": ["start"]
+      },
+      "arm_r": {
+        "type": "fkChainModule",
+        "sockets": [["index_0", "start"], ["index_1", "end"]],
+        "childPlugs": ["start"]
+      },
+      "clavicle_l": {
+        "type": "fkChainModule",
+        "sockets": [["index_0", "start", "end"]],
+        "childPlugs": ["start"]
+      },
+      "clavicle_r": {
+        "type": "fkChainModule",
+        "sockets": [["index_0", "start", "end"]],
+        "childPlugs": ["start"]
+      },
+      "layout": {
+        "type": "layoutModule",
+        "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
+        "childPlugs": []
+      },
+      "spine": {
+        "type": "fkChainModule",
+        "sockets": [["index_0", "start", "end"]],
+        "childPlugs": ["start"]
+      }
+    },
+    "controls": {
+      "chest_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "chest"]
+      },
+      "clavicle_l_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "clavicle"]
+      },
+      "clavicle_r_ctrl_r": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Right", "clavicle"]
+      },
+      "layout_0_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_0"]
+      },
+      "layout_1_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_1"]
+      },
+      "layout_2_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_2"]
+      },
+      "lowerArm_l_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "lowerArm"]
+      },
+      "lowerArm_r_ctrl_r": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Right", "lowerArm"]
+      },
+      "upperArm_l_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ", "space"],
+        "markup": ["Left", "upperArm"],
+        "spaces": ["clavicle_l.end", "World"]
+      },
+      "upperArm_r_ctrl_r": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ", "space"],
+        "markup": ["Right", "upperArm"],
+        "spaces": ["clavicle_r.end", "World"]
+      }
+    },
+    "joints": ["chest_jnt", "clavicle_l_jnt", "clavicle_r_jnt", "hand_l_jnt", "lowerArm_l_jnt", "lowerArm_r_jnt", "upperArm_l_jnt", "upperArm_r_jnt"],
+    "constraints": {
+      "arm_space_l": ["clavicle_l.end", "World"],
+      "arm_space_r": ["clavicle_r.end", "World"]
+    }
+  }
+}

@@ -51,6 +51,13 @@ namespace RigTemplateValidation
 {
 	// "rigModules[1] 'fkchain_2'", the prefix for every message about one module.
 	std::string modulePath(std::size_t index, const std::string& name);
+	// The same for a module in the expanded list. A generated mirror names the template entry it came from,
+	// "rigModules[3] 'arm_l' (mirror 'arm_r')", because its own index is not in the file (D28).
+	std::string modulePath(std::size_t index, const RigModuleData& module);
+
+	// "constraints[0] 'arm_space_l'", and the mirror form like modulePath.
+	std::string constraintPath(std::size_t index, const std::string& name);
+	std::string constraintPath(std::size_t index, const RigConstraintData& constraint);
 
 	// Reports a non-object, a missing required key, or any key in neither list.
 	// Unknown keys are errors: a typo in an optional key would otherwise fall back to its default silently.

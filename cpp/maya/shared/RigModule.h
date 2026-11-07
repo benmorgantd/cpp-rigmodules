@@ -83,6 +83,9 @@ struct PlanContext
 	const std::string& where;         // RigTemplateValidation::modulePath, the prefix for report messages
 	MarkedJointSet& markedJoints;     // Plan steps resolve [side, usage] args through RigModuleNodeBase::claimJoint
 	ValidationReport& report;
+	// createRigFromTemplate checkMirrorPositions: claimJoint fails a mirror's joint that is not where its source
+	// joint reflects to (D28). Off by default, because a skeleton may be asymmetric where the rig is not.
+	bool checkMirrorPositions = false;
 };
 
 // One module's read-phase result. Only build touches the dagMod, and it runs after the whole template validated.
@@ -149,7 +152,11 @@ public:
 	// Shared creation & build methods
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot);
 	// Read phase: one plan per module that planned cleanly. Every problem goes into the report.
-	static std::vector<ModulePlan> planModules(const std::vector<RigModuleData>& modules, MarkedJointSet& markedJoints, ValidationReport& report);
+	static std::vector<ModulePlan> planModules(
+		const std::vector<RigModuleData>& modules,
+		MarkedJointSet& markedJoints,
+		bool checkMirrorPositions,
+		ValidationReport& report);
 	// Write phase, pass 1. Fails if a module fails, or builds child plugs or sockets that differ from its plan.
 	static MStatus buildModules(const std::vector<ModulePlan>& plans, MObject oRigRoot, MDagModifier& dagMod, RigModuleMap& outModuleMap);
 

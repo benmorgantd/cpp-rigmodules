@@ -110,10 +110,10 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 
 | Page | Covers |
 |---|---|
-| [docs/templates.md](docs/templates.md) | Template file format, every key, validation rules |
+| [docs/templates.md](docs/templates.md) | Template file format, every key, mirroring, validation rules |
 | [docs/commands.md](docs/commands.md) | Every Maya command and flag |
 | [docs/modules.md](docs/modules.md) | Each module's joints, controls, child plugs and sockets |
-| [docs/controls.md](docs/controls.md) | Control markup, shapes, and the shape file |
+| [docs/controls.md](docs/controls.md) | Control markup, shapes, the shape file, and mirroring shapes |
 | [tests/README.md](tests/README.md) | Running and writing tests |
 | [design/decisions.md](design/decisions.md) | Why the system is built the way it is (decision log) |
 | [design/mayadev-integration.md](design/mayadev-integration.md) | Plan for how RigModules and the mayadev Python pipeline fit together |

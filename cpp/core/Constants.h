@@ -152,6 +152,7 @@ namespace TemplateKey
 	inline constexpr const char* ModuleVersion{ "moduleVersion" };
 	inline constexpr const char* ParentStructure{ "parentStructure" };
 	inline constexpr const char* ModuleArgs{ "moduleArgs" };
+	inline constexpr const char* Mirror{ "mirror" };   // modules and constraints (D28)
 
 	inline constexpr const char* ConstraintType{ "type" };
 	inline constexpr const char* ConstraintTarget{ "target" };

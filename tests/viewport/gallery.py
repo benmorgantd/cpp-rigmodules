@@ -19,7 +19,12 @@ What to look for:
            is fainter. Sphere is selected (green) and Circle is the lead selection (light).
     09     shapeTransform scale X -1. Pointers point down -X, and Dome bulges toward -X.
     10     the filled scene from behind (-X, -Z). Flat fills must still show, so nothing is back-face culled.
+    11-13  mirrorRigControlShapes on an arm built with "mirror": true from behavior-mirrored joints (D28). The Right
+           arm's shapes (red, -X) are the Left arm's (green, +X) reflected across X = 0: the arrows on both
+           clavicles point away from the chest, both upper arm arrows sit above the bone, both forearm domes bulge
+           toward the hand, and both hand circles sit forward (+Z). Fills show on both sides.
 """
+import json
 import os
 import traceback
 
@@ -71,13 +76,65 @@ def build_gallery(prefix, shape_transform=None, filled=False):
     return controls
 
 
-def snap(camera, name, frame=True):
+def build_mirrored_arm():
+    """A chest and a left arm, X down the bone, behavior-mirrored to the right like mayadev's joint tool, built with
+    "mirror": true. The left controls get offset, filled shapes, then mirrorRigControlShapes copies them right."""
+    cmds.select(clear=True)
+    chest = cmds.joint(name="chest_jnt", position=(0, 5, 0))
+    cmds.select(clear=True)
+    clavicle = cmds.joint(name="clavicle_l_jnt", position=(0.5, 5.5, 0.5))
+    cmds.joint(name="upperArm_l_jnt", position=(2, 5.5, 0))
+    cmds.joint(name="lowerArm_l_jnt", position=(4.5, 4, 0.5))
+    cmds.joint(name="hand_l_jnt", position=(6.5, 3, 1.5))
+    cmds.joint(clavicle, edit=True, orientJoint="xyz", secondaryAxisOrient="yup", children=True, zeroScaleOrient=True)
+    cmds.mirrorJoint(clavicle, mirrorYZ=True, mirrorBehavior=True, searchReplace=("_l_", "_r_"))
+
+    cmds.rigJointMarkup(chest, usage="chest", side="Center", export=True, skin=True)
+    joints = [chest]
+    for suffix, side in (("l", "Left"), ("r", "Right")):
+        for usage in ("clavicle", "upperArm", "lowerArm", "hand"):
+            joint = "%s_%s_jnt" % (usage, suffix)
+            cmds.rigJointMarkup(joint, usage=usage, side=side, export=True, skin=True)
+            joints.append(joint)
+
+    template = {
+        "assetId": "gallery|rig|arm", "assetType": "Rig", "rigType": "Character", "rigVersion": 1,
+        "rigTemplateName": "MirrorGallery", "rigAuthor": "gallery",
+        "rigModules": [
+            {"moduleType": "FkChain", "name": "spine", "moduleArgs": {"joints": [["Center", "chest"]]}},
+            {"moduleType": "FkChain", "name": "arm_l", "side": "Left", "mirror": True,
+             "moduleArgs": {"joints": [["Left", "clavicle"], ["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"]]},
+             "parentStructure": {"start": "spine.end"}},
+        ],
+    }
+    path = os.path.join(OUT, "mirror_template.json").replace("\\", "/")
+    with open(path, "w") as handle:
+        json.dump(template, handle)
+    cmds.createRigFromTemplate(*joints, template=path)
+
+    # shapeType index, shapeTransform, filled. Offsets and pointers make a wrong reflection obvious.
+    left_shapes = {
+        "clavicle": (SHAPES.index("SingleArrow"), [0.6, 0, 0, 0, 0, 0.6, 0, 0, 0, 0, 0.6, 0, 0.8, 0, 0, 1], True),
+        "upperArm": (SHAPES.index("SingleArrow"), [0.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0.5, 0, 0, 0.8, 0, 1], True),
+        "lowerArm": (SHAPES.index("Dome"), [0.6, 0, 0, 0, 0, 0.6, 0, 0, 0, 0, 0.6, 0, 0.6, 0, 0, 1], True),
+        "hand": (SHAPES.index("Circle"), [0.8, 0, 0, 0, 0, 0.8, 0, 0, 0, 0, 0.8, 0, 0, 0, 0.4, 1], False),
+    }
+    for usage, (shape_type, shape_transform, filled) in left_shapes.items():
+        control = "rig:%s_l_ctrl_l" % usage
+        cmds.setAttr(control + ".shapeType", shape_type)
+        cmds.setAttr(control + ".shapeTransform", shape_transform, type="matrix")
+        cmds.setAttr(control + ".filled", filled)
+    changed = cmds.mirrorRigControlShapes(cmds.ls("rig:*", type="rigRootModule")[0])
+    log("mirrored: %s" % ", ".join(changed))
+
+
+def snap(camera, name, frame=True, fit_factor=1.0):
     # playblast captures its own active editor, which need not be the first model panel. Set the camera there.
     editor = cmds.playblast(activeEditor=True)
     cmds.modelEditor(editor, edit=True, camera=camera, displayAppearance="wireframe", grid=False,
                      headsUpDisplay=False, selectionHiliteDisplay=True, allObjects=True)
     if frame:
-        cmds.viewFit(camera, all=True)
+        cmds.viewFit(camera, all=True, fitFactor=fit_factor)
     cmds.refresh(force=True)
     cmds.playblast(completeFilename=os.path.join(OUT, name + ".png"), format="image", compression="png", frame=[1],
                    viewer=False, showOrnaments=False, widthHeight=(1800, 1000), percent=100, offScreen=True,
@@ -117,6 +174,13 @@ def run():
         cmds.file(new=True, force=True)
         build_gallery("mirrored", shape_transform=[-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
         snap("persp", "09_persp_mirrored")
+
+        cmds.file(new=True, force=True)
+        build_mirrored_arm()
+        # The playblast is wider than the viewport, so a full fit crops the top and bottom. Leave a margin.
+        snap("front", "11_front_mirrored_arm", fit_factor=0.5)
+        snap("top", "12_top_mirrored_arm", fit_factor=0.8)
+        snap("persp", "13_persp_mirrored_arm", fit_factor=0.8)
         log("done")
     except Exception:
         log(traceback.format_exc())

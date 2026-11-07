@@ -18,6 +18,7 @@ namespace
 	// (a long name there is rejected and the flag silently never registers), so short names appear only in newSyntax().
 	constexpr const char* kTemplateFlag{ "-template" };
 	constexpr const char* kNamespaceFlag{ "-namespace" };
+	constexpr const char* kCheckMirrorPositionsFlag{ "-checkMirrorPositions" };
 
 	constexpr const char* kDefaultRigNamespace{ "rig" };
 
@@ -60,6 +61,12 @@ namespace
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 		inputs.rigNamespace = normalizeNamespace(rigNamespace);
+
+		if (argData.isFlagSet(kCheckMirrorPositionsFlag))
+		{
+			status = argData.getFlagArgument(kCheckMirrorPositionsFlag, 0, inputs.checkMirrorPositions);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
 
 		MStringArray jointNames;
 		status = argData.getObjects(jointNames);
@@ -109,6 +116,7 @@ MSyntax CreateRigCmd::newSyntax()
 	MSyntax syntax;
 	CHECK_MSTATUS(syntax.addFlag("-tp", kTemplateFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-ns", kNamespaceFlag, MSyntax::kString));
+	CHECK_MSTATUS(syntax.addFlag("-cmp", kCheckMirrorPositionsFlag, MSyntax::kBoolean));
 	syntax.setObjectType(MSyntax::kStringObjects, 1);
 	syntax.useSelectionAsDefault(false);
 	return syntax;

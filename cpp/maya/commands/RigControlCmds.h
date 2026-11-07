@@ -51,3 +51,36 @@ public:
 private:
 	MDGModifier fDGMod;
 };
+
+// cmds.getRigMirrorControl("rig:arm_ctrl_l") -> "arm_ctrl_r"
+//   The control in the same rig with the same usage and the other side, found by control markup (D28).
+//   A Center control returns itself. Query only, so not undoable.
+class GetRigMirrorControlCmd : public MPxCommand
+{
+public:
+	MStatus doIt(const MArgList& args) override;
+	bool isUndoable() const override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const char* aCommandString;
+};
+
+// cmds.mirrorRigControlShapes("rig:rigRoot", leftToRight=True)
+//   -> the names of the controls changed. Reflects every Left control's shape across world X = 0 onto its Right
+//   mirror (or Right onto Left with leftToRight=False), using rest world matrices (D28). Undoable.
+class MirrorRigControlShapesCmd : public MPxCommand
+{
+public:
+	MStatus doIt(const MArgList& args) override;
+	MStatus redoIt() override;
+	MStatus undoIt() override;
+	bool isUndoable() const override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const char* aCommandString;
+
+private:
+	MDGModifier fDGMod;
+};

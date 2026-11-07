@@ -2,6 +2,7 @@
 #include "Constants.h"
 #include "JointMarkup.h"
 #include "StringUtils.h"
+#include "TemplateMirror.h"
 
 #include <algorithm>
 #include <cctype>
@@ -101,11 +102,6 @@ namespace
 			}
 		}
 		return true;
-	}
-
-	std::string constraintPath(std::size_t index, const std::string& name)
-	{
-		return std::string(TemplateKey::Constraints) + "[" + std::to_string(index) + "] '" + name + "'";
 	}
 
 	// Splits a "module.name" identifier and finds the module's planned interface.
@@ -283,7 +279,7 @@ namespace
 		for (std::size_t c = 0; c < constraints.size(); ++c)
 		{
 			const RigConstraintData& constraint = constraints[c];
-			const std::string where = constraintPath(c, constraint.name);
+			const std::string where = RigTemplateValidation::constraintPath(c, constraint);
 
 			if (!isValidNodeName(constraint.name))
 			{
@@ -291,7 +287,7 @@ namespace
 			}
 			else if (!constraintNames.emplace(constraint.name, c).second)
 			{
-				report.addError(where, "name is already used by " + constraintPath(constraintNames[constraint.name], constraint.name));
+				report.addError(where, "name is already used by " + RigTemplateValidation::constraintPath(constraintNames[constraint.name], constraints[constraintNames[constraint.name]]));
 			}
 
 			if (constraint.type != ConstraintTypes::Parent)
@@ -408,6 +404,31 @@ namespace RigTemplateValidation
 		return std::string(TemplateKey::RigModules) + "[" + std::to_string(index) + "] '" + name + "'";
 	}
 
+	std::string modulePath(std::size_t index, const RigModuleData& module)
+	{
+		if (!module.isMirror())
+		{
+			return modulePath(index, module.name);
+		}
+		return modulePath(static_cast<std::size_t>(module.mirrorOf), TemplateMirror::swapSideSuffix(module.name))
+			+ " (mirror '" + module.name + "')";
+	}
+
+	std::string constraintPath(std::size_t index, const std::string& name)
+	{
+		return std::string(TemplateKey::Constraints) + "[" + std::to_string(index) + "] '" + name + "'";
+	}
+
+	std::string constraintPath(std::size_t index, const RigConstraintData& constraint)
+	{
+		if (!constraint.isMirror())
+		{
+			return constraintPath(index, constraint.name);
+		}
+		return constraintPath(static_cast<std::size_t>(constraint.mirrorOf), TemplateMirror::swapSideSuffix(constraint.name))
+			+ " (mirror '" + constraint.name + "')";
+	}
+
 	void checkKeys(
 		const nlohmann::json& jsonObject,
 		std::initializer_list<const char*> requiredKeys,
@@ -468,7 +489,7 @@ namespace RigTemplateValidation
 					const std::string name = module.is_object() ? module.value(Name, std::string()) : std::string();
 					checkKeys(module,
 						{ ModuleType, Name },
-						{ ShapeType, Side, ModuleVersion, ParentStructure, ModuleArgs },
+						{ ShapeType, Side, ModuleVersion, ParentStructure, ModuleArgs, Mirror },
 						modulePath(i, name), report);
 				}
 			}
@@ -488,7 +509,7 @@ namespace RigTemplateValidation
 				const nlohmann::json& constraint = constraints[c];
 				const std::string name = constraint.is_object() ? constraint.value(Name, std::string()) : std::string();
 				const std::string where = constraintPath(c, name);
-				checkKeys(constraint, { Name, ConstraintTarget, ConstraintDrivers }, { ConstraintType }, where, report);
+				checkKeys(constraint, { Name, ConstraintTarget, ConstraintDrivers }, { ConstraintType, Mirror }, where, report);
 
 				if (!constraint.is_object() || !constraint.contains(ConstraintDrivers))
 				{
@@ -541,7 +562,7 @@ namespace RigTemplateValidation
 		for (std::size_t i = 0; i < modules.size(); ++i)
 		{
 			const std::string& name = modules[i].name;
-			const std::string where = modulePath(i, name);
+			const std::string where = modulePath(i, modules[i]);
 
 			if (!isValidNodeName(name))
 			{
@@ -558,7 +579,7 @@ namespace RigTemplateValidation
 			auto [it, inserted] = firstIndex.emplace(name, i);
 			if (!inserted)
 			{
-				report.addError(where, "name is already used by " + modulePath(it->second, name));
+				report.addError(where, "name is already used by " + modulePath(it->second, modules[it->second]));
 			}
 		}
 	}
@@ -602,7 +623,7 @@ namespace RigTemplateValidation
 			{
 				continue;   // failed planning, already reported
 			}
-			validateParentStructure(module, modulePath(i, module.name), it->second, declaredModules, interfaces, graph, report);
+			validateParentStructure(module, modulePath(i, module), it->second, declaredModules, interfaces, graph, report);
 		}
 
 		validateConstraints(rigData.rigConstraints, declaredModules, interfaces, graph, report);
@@ -636,7 +657,7 @@ namespace RigTemplateValidation
 		for (std::size_t i = 0; i < rigData.rigModules.size(); ++i)
 		{
 			const RigModuleData& module = rigData.rigModules[i];
-			checkModule(module.name, modulePath(i, module.name));
+			checkModule(module.name, modulePath(i, module));
 		}
 	}
 }

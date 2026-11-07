@@ -1,5 +1,6 @@
 #include "maya/shared/RigTraversal.h"
 #include "core/Constants.h"
+#include "core/TemplateMirror.h"
 #include "maya/ModuleRegistry.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/nodes/RigRoot.h"
@@ -11,6 +12,39 @@
 #include <maya/MGlobal.h>
 #include <maya/MPlug.h>
 #include <maya/MPlugArray.h>
+
+namespace
+{
+	// The module that owns a control, through control.rigModule <- module.controlMessage[index].
+	MStatus getControlModule(const MObject& oControl, MObject& oOutModule, unsigned int& outIndex)
+	{
+		const MPlug pSource = MPlug(oControl, RigControlNode::aRigModule).source();
+		if (pSource.isNull())
+		{
+			MGlobal::displayError(MFnDependencyNode(oControl).name() + " is not connected to a rig module.");
+			return MStatus::kFailure;
+		}
+		oOutModule = pSource.node();
+		outIndex = pSource.logicalIndex();
+		return MStatus::kSuccess;
+	}
+
+	// The rig root a module belongs to, through module.rigRoot <- rigRoot.rigModules.
+	MStatus getModuleRigRoot(const MObject& oModule, MObject& oOutRigRoot)
+	{
+		MStatus status;
+		MFnDependencyNode fnModule(oModule);
+		const MPlug pRigRoot = fnModule.findPlug(RigAttr::RigRoot, false, &status);
+		const MPlug pSource = status ? pRigRoot.source() : MPlug();
+		if (pSource.isNull())
+		{
+			MGlobal::displayError(fnModule.name() + " is not connected to a rig root.");
+			return MStatus::kFailure;
+		}
+		oOutRigRoot = pSource.node();
+		return MStatus::kSuccess;
+	}
+}
 
 MStatus RigTraversal::getRigRoot(const MString& name, MObject& oOutRigRoot)
 {
@@ -182,5 +216,76 @@ MStatus RigTraversal::getRigControls(const MObject& oRigRoot, const RigControlFi
 			}
 		}
 	}
+	return MStatus::kSuccess;
+}
+
+MStatus RigTraversal::getControlRestWorld(const MObject& oControl, MMatrix& mOutRestWorld)
+{
+	MObject oModule;
+	unsigned int index = 0;
+	MStatus status = getControlModule(oControl, oModule, index);
+	if (!status)
+	{
+		return status;
+	}
+
+	MFnDependencyNode fnModule(oModule);
+	MPlug pControlData = fnModule.findPlug(RigAttr::ControlInputData, false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MObject oRestWorldAttr = fnModule.attribute(RigAttr::ControlRestWorld, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MPlug pRestWorld = pControlData.elementByLogicalIndex(index, &status).child(oRestWorldAttr, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	mOutRestWorld = DagUtils::getMatrixFromPlug(pRestWorld);
+	return MStatus::kSuccess;
+}
+
+MStatus RigTraversal::getMirrorControl(const MObject& oControl, MObject& oOutMirror)
+{
+	ControlMarkup markup;
+	MStatus status = getControlMarkup(oControl, markup);
+	if (!status)
+	{
+		return status;
+	}
+
+	const std::string mirrorSide = TemplateMirror::swapSide(markup.side);
+	if (mirrorSide == markup.side)
+	{
+		oOutMirror = oControl;   // Center
+		return MStatus::kSuccess;
+	}
+
+	MObject oModule;
+	unsigned int index = 0;
+	MObject oRigRoot;
+	status = getControlModule(oControl, oModule, index);
+	if (status)
+	{
+		status = getModuleRigRoot(oModule, oRigRoot);
+	}
+	if (!status)
+	{
+		return status;
+	}
+
+	RigControlFilter filter;
+	filter.sides.push_back(mirrorSide);
+	filter.usages.push_back(markup.usage);
+	MObjectArray oMatches;
+	status = getRigControls(oRigRoot, filter, oMatches);
+	if (!status)
+	{
+		return status;
+	}
+	if (oMatches.length() != 1)
+	{
+		// Control markup is unique per rig (D25), so more than one match can't happen.
+		MGlobal::displayError(MFnDependencyNode(oControl).name() + " has no mirror: no control in its rig has side "
+			+ mirrorSide.c_str() + ", usage " + markup.usage.c_str() + ".");
+		return MStatus::kFailure;
+	}
+	oOutMirror = oMatches[0];
 	return MStatus::kSuccess;
 }

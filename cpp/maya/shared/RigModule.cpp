@@ -2,9 +2,11 @@
 #include "core/Constants.h"
 #include "core/JsonUtils.h"
 #include "core/RigJsonStructs.h"
+#include "core/TemplateMirror.h"
 #include "maya/ModuleRegistry.h"
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -20,6 +22,12 @@
 #include <maya/MPlugArray.h>
 
 // NOTE that RigModuleNodeBase can NOT define any static node attributes!
+
+namespace
+{
+	// World units a mirror joint may sit from its reflected source when createRigFromTemplate checks positions (D28).
+	constexpr double kMirrorPositionTolerance{ 0.001 };
+}
 
 RigModuleNodeBase::RigModuleNodeBase()
 {
@@ -168,6 +176,7 @@ namespace
 std::vector<ModulePlan> RigModuleNodeBase::planModules(
 	const std::vector<RigModuleData>& modules,
 	MarkedJointSet& markedJoints,
+	bool checkMirrorPositions,
 	ValidationReport& report)
 {
 	std::vector<ModulePlan> plans;
@@ -175,7 +184,7 @@ std::vector<ModulePlan> RigModuleNodeBase::planModules(
 	for (std::size_t i = 0; i < modules.size(); ++i)
 	{
 		const RigModuleData& moduleData = modules[i];
-		const std::string where = RigTemplateValidation::modulePath(i, moduleData.name);
+		const std::string where = RigTemplateValidation::modulePath(i, moduleData);
 
 		const ModuleDescriptor* pDescriptor = ModuleRegistry::find(moduleData.moduleType);
 		if (!pDescriptor || !pDescriptor->plan)
@@ -187,7 +196,7 @@ std::vector<ModulePlan> RigModuleNodeBase::planModules(
 
 		RigTemplateValidation::validateModuleFields(moduleData, where, pDescriptor->currentVersion, report);
 
-		PlanContext ctx{ moduleData, where, markedJoints, report };
+		PlanContext ctx{ moduleData, where, markedJoints, report, checkMirrorPositions };
 		ModulePlan plan;
 		plan.name = moduleData.name;
 		if (pDescriptor->plan(moduleData.moduleArgs, ctx, plan))
@@ -205,6 +214,33 @@ bool RigModuleNodeBase::claimJoint(PlanContext& ctx, const JointSelector& select
 	if (!JointMarkupScene::claimJoint(ctx.markedJoints, selector, ctx.moduleData.name, oOutJoint, mOutRestWorld, error))
 	{
 		ctx.report.addError(ctx.where + "." + TemplateKey::ModuleArgs, error);
+		return false;
+	}
+
+	if (!ctx.checkMirrorPositions || !ctx.moduleData.isMirror() || selector.side == SideNames::Center)
+	{
+		return true;
+	}
+
+	// The source module claims the source joint and reports it if it is missing, so a miss here needs no error.
+	const JointSelector sourceSelector{ TemplateMirror::swapSide(selector.side), selector.usage };
+	std::size_t sourceEntry = 0;
+	if (!ctx.markedJoints.index.find(sourceSelector, sourceEntry))
+	{
+		return true;
+	}
+
+	// Mirror plane: world X = 0, so the source's reflected position is (-x, y, z).
+	const MMatrix mSourceWorld = ctx.markedJoints.dagPaths[static_cast<unsigned int>(sourceEntry)].inclusiveMatrix();
+	const double dx = mOutRestWorld[3][0] + mSourceWorld[3][0];
+	const double dy = mOutRestWorld[3][1] - mSourceWorld[3][1];
+	const double dz = mOutRestWorld[3][2] - mSourceWorld[3][2];
+	const double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+	if (distance > kMirrorPositionTolerance)
+	{
+		ctx.report.addError(ctx.where + "." + TemplateKey::ModuleArgs, "joint " + selector.side + ", " + selector.usage
+			+ " is " + std::to_string(distance) + " from where joint " + sourceSelector.side + ", " + sourceSelector.usage
+			+ " reflects to across X = 0 (checkMirrorPositions allows " + std::to_string(kMirrorPositionTolerance) + ")");
 		return false;
 	}
 	return true;

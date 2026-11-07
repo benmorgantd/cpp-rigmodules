@@ -1,0 +1,7 @@
+{
+  "description": "A mirrored module's name must end in its side's suffix, so the mirror's name can swap it",
+  "base": "mirror_arms",
+  "skeleton": "mirror_arms",
+  "edits": [ { "set": "/rigModules/2/name", "value": "arm" } ],
+  "expectErrors": [ { "path": "rigModules[2] 'arm'.name", "contains": "_l" } ]
+}

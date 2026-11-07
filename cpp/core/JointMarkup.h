@@ -62,6 +62,9 @@ public:
 	// Also fails on a selector side outside SideNames, so a typo is not reported as a missing joint.
 	bool claim(const JointSelector& selector, const std::string& moduleName, std::size_t& outEntry, std::string& outError);
 
+	// The entry for a selector without claiming it. False if no joint matches.
+	bool find(const JointSelector& selector, std::size_t& outEntry) const;
+
 	// Joints marked for export that no module claimed. Nothing drives them, so they stay at rest in exported animation.
 	std::vector<std::string> unclaimedExportedJoints() const;
 

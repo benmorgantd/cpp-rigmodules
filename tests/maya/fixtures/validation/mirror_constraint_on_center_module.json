@@ -1,0 +1,7 @@
+{
+  "description": "Only constraints on a Left or Right module can be mirrored",
+  "base": "mirror_arms",
+  "skeleton": "mirror_arms",
+  "edits": [ { "set": "/constraints/0/target", "value": "spine.start" } ],
+  "expectErrors": [ { "path": "constraints[0] 'arm_space_l'.mirror", "contains": "spine" } ]
+}

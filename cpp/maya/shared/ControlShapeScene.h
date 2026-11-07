@@ -2,6 +2,8 @@
 
 #include "core/ControlShapeFile.h"
 
+#include <string>
+
 #include <maya/MDGModifier.h>
 #include <maya/MObject.h>
 #include <maya/MStatus.h>
@@ -22,4 +24,9 @@ public:
 	// Queues a write for every control that has an entry in shapes. outAppliedNames lists them.
 	// Warns about entries with no control and controls with no entry, and applies the rest.
 	static MStatus setRigControlShapes(const MObject& oRigRoot, const ControlShapeMap& shapes, MDGModifier& dgMod, MStringArray& outAppliedNames);
+
+	// Queues, for every sourceSide control, its shape reflected across world X = 0 onto the control with the same usage
+	// on the other side (D28). Uses both controls' rest world matrices, so the pose doesn't matter. Copies shapeType and
+	// filled, leaves color alone. Warns about a source control with no mirror. outChangedNames lists the mirrors.
+	static MStatus mirrorRigControlShapes(const MObject& oRigRoot, const std::string& sourceSide, MDGModifier& dgMod, MStringArray& outChangedNames);
 };

@@ -14,6 +14,7 @@ from rigtest import config
 from rigtest.case import RigTestCase, rig_name
 
 README = os.path.join(config.REPO_DIR, "README.md")
+TEMPLATES_DOC = os.path.join(config.REPO_DIR, "docs", "templates.md")
 
 SPINE3_CTRL = rig_name("spine3_ctrl_c")
 ARM_CTRL = rig_name("arm_ctrl_l")
@@ -107,3 +108,26 @@ class ControlDocExamples(RigTestCase):
             handle.write(controls_doc_shape_file())
         self.assertEqual([c.split(":")[-1] for c in cmds.loadRigControlShapes(self.root, file=path)], ["arm_ctrl_l"])
         self.assertEqual(cmds.getAttr(ARM_CTRL + ".shapeType", asString=True), "Circle")
+
+
+def templates_doc_mirroring_template():
+    """The first ```json block under '## Mirroring' in docs/templates.md."""
+    with open(TEMPLATES_DOC, encoding="utf-8") as handle:
+        text = handle.read()
+    section = text.split("## Mirroring", 1)[1]
+    match = re.search(r"```json\s*\n(.*?)```", section, re.S)
+    if not match:
+        raise AssertionError("docs/templates.md '## Mirroring' has no ```json block")
+    return json.loads(match.group(1))
+
+
+class TemplatesDocMirroring(RigTestCase):
+    """The mirroring example builds on the mirror_arms skeleton, which has the joints it names."""
+
+    def test_example_builds_both_sides(self):
+        self.build_standard(templates_doc_mirroring_template(), "mirror_arms")
+        for name in ("clavicle_r", "arm_r", "arm_space_r"):
+            self.assertExists(rig_name(name))
+        self.assertOpmDrivenBy(rig_name("upperArm_r_jnt"), "arm_r")
+        self.assertEqual(cmds.attributeQuery("space", node=rig_name("upperArm_r_ctrl_r"), listEnum=True), ["Clavicle:World"])
+

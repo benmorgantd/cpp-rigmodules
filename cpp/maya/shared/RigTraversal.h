@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include <maya/MMatrix.h>
 #include <maya/MObject.h>
 #include <maya/MObjectArray.h>
 #include <maya/MStatus.h>
@@ -38,4 +39,11 @@ public:
 	// Every control in the rig that the filter matches, grouped by module in getRigModules order.
 	// Fails on an invalid filter or a control without valid markup.
 	static MStatus getRigControls(const MObject& oRigRoot, const RigControlFilter& filter, MObjectArray& oOutControls);
+
+	// The control's rest world matrix, stored on its module at build time (controlData[i].controlRestWorld).
+	static MStatus getControlRestWorld(const MObject& oControl, MMatrix& mOutRestWorld);
+
+	// The control in the same rig with the same usage and the other side (D28). A Center control is its own mirror.
+	// Fails if there is none.
+	static MStatus getMirrorControl(const MObject& oControl, MObject& oOutMirror);
 };

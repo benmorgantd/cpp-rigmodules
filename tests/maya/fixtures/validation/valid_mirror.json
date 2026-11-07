@@ -1,0 +1,6 @@
+{
+  "description": "Modules and a constraint with mirror: true build",
+  "base": "mirror_arms",
+  "skeleton": "mirror_arms",
+  "expectErrors": []
+}

@@ -8,6 +8,8 @@ Control names come from the joint and the module's `side`: the namespace and `_j
 
 Each control also carries markup, `(side, usage)`, taken from its joint. Tools and shape files find controls by markup instead of by name (see [controls.md](controls.md)).
 
+Any `Left` or `Right` module can be built on both sides from one template entry with `"mirror": true` (see [templates.md](templates.md#mirroring)). The mirror builds from the other side's joints exactly as the module always does.
+
 Child plug, socket, control and attribute names are public: saved poses, animation and exports depend on them.
 
 ## Layout

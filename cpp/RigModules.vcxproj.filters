@@ -48,6 +48,9 @@
     <ClCompile Include="core\RigTemplateValidation.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\TemplateMirror.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="maya\CommandRegistry.cpp">
       <Filter>maya</Filter>
     </ClCompile>
@@ -147,6 +150,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\StringUtils.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\TemplateMirror.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="maya\CommandRegistry.h">

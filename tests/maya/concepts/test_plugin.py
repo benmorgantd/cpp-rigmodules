@@ -10,13 +10,15 @@ NODE_TYPES = ["assetRootModule", "rigRootModule", "layoutModule", "fkChainModule
               "bmParentConstraint", "rigControlNode"]
 
 COMMAND_FLAGS = {
-    "createRigFromTemplate": ["template", "namespace"],
+    "createRigFromTemplate": ["template", "namespace", "checkMirrorPositions"],
     "rigJointMarkup": ["usage", "side", "export", "skin", "remove", "query", "edit"],
     "createRigParentConstraint": ["name", "driver", "label", "initial"],
     "setRigConstraintSpace": ["space", "label"],
     "getRigControls": ["moduleType", "side", "usage"],
     "saveRigControlShapes": ["file"],
     "loadRigControlShapes": ["file"],
+    "getRigMirrorControl": [],
+    "mirrorRigControlShapes": ["leftToRight"],
 }
 
 

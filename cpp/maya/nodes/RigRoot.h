@@ -20,6 +20,8 @@ struct RigBuildInputs
 	MString rigNamespace;
 	// Every joint must carry markup. Names may be in any namespace.
 	MDagPathArray joints;
+	// Fail a mirrored module whose joint is more than 0.001 from its reflected source joint (D28).
+	bool checkMirrorPositions = false;
 };
 
 class RigRootNode : public MPxNode

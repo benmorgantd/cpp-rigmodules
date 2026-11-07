@@ -1,0 +1,7 @@
+{
+  "description": "A mirror whose swapped selector matches no joint fails the build (asymmetric pair)",
+  "base": "mirror_arms",
+  "skeleton": "mirror_arms",
+  "edits": [ { "set": "/rigModules/2/moduleArgs/joints/1", "value": ["Left", "hand"] } ],
+  "expectErrors": [ { "path": "rigModules[2] 'arm_l' (mirror 'arm_r').moduleArgs", "contains": "usage hand" } ]
+}

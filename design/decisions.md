@@ -326,6 +326,24 @@ Every `rigControlNode` has a static JSON string attribute, `controlMarkup`: `{"m
 - **Removed:** `driverOffset` on `bmParentConstraint` and `ConstraintAttr::DriverOffset`. No existing rigs need to survive, so there is no migration.
 - **Consequence:** setting the `space` enum directly (or through keys) does no matching, so the control moves unless the rig is at rest. That is the usual behaviour animators expect from a keyed space without a match tool. Switching on an animated control writes values without keying them, so they hold until the frame changes, like `setAttr`.
 
+## Mirroring
+
+### D28. Modules and constraints mirror through the template, by side swap
+**Status:** Decided (2026-11-07). Built and run in mayapy 2026: a mirrored template against the same rig written by hand, every validation error, the position check flag, both commands, undo.
+
+`"mirror": true` on a `Left` or `Right` module or constraint adds a copy on the other side in the read phase, before any check, so the copy is an ordinary template entry from then on. The copy is the source with `side` swapped, the name's `_l`/`_r` suffix swapped, every `[side, usage]` selector in `moduleArgs` swapped, and every `module.x` id in `parentStructure`, `target` and `drivers` that names a `Left` or `Right` module pointed at the other side's module. Everything else is copied. `core/TemplateMirror` does it, Maya-free.
+
+- **Why (author, 2026-11-07):** module mirroring should be simple. Modules always build from their joints, and the joints already carry the behaviour or orientation mirror, so a mirror needs nothing but the other side's joints. A mirror's JSON is exactly its source's, minus `mirror`.
+- **Author's choices (2026-11-07):**
+  - The existing `RigNaming` side suffixes name the mirror (rejected: a `mirrorName` key).
+  - A mirrored constraint resolves from template data in the read phase (rejected: finding the mirror plug and sockets by traversing the built rig). So a bad mirror fails before any scene change (D17).
+  - Asymmetric pairs fail the build: a mirrored selector that matches no joint is the existing selector error. Positions are not checked, because a skeleton can be asymmetric where the rig is not. `createRigFromTemplate(checkMirrorPositions=True)` adds the check: a mirrored joint more than 0.001 from its source joint reflected across X = 0 fails.
+  - Shapes mirror with `mirrorRigControlShapes(rigRoot, leftToRight=True)`, in world space, using both controls' rest world matrices: `S_mirror = S_source * W_source * R * W_mirror^-1`, where `R` reflects X.
+  - Mirror-specific module behaviour goes in the module's `planFromJson`, which reads `ctx.moduleData.isMirror()` (rejected: an `isMirror` parameter on `createModule`). The plan step parses the arguments, so `createModule` keeps one build path with no mirror branch. No module needs it yet: FkChain and Aim build entirely from joint positions and orientations, and Layout is `Center`.
+- **Rules:** only `Left` and `Right` modules mirror, and a mirrored module's name must end in its side's suffix. A mirrored constraint needs a `Left` or `Right` target module and a name ending in `_l` or `_r`. `Center` selectors stay `Center`, so a mirror that names one fails as a joint claimed twice. A referenced `Left` or `Right` module without a side suffix is an error. A driver label left out defaults to the mirror's own socket id. Mirrors are appended after every source entry, and a mirror's errors name its source entry: `rigModules[2] 'arm_l' (mirror 'arm_r')`.
+- **Scene side:** `getRigMirrorControl(control)` returns the control with the same `usage` and the other side, found by control markup through `RigTraversal` (a `Center` control returns itself). The pose and animation tools will pair controls through it.
+- **Consequence:** the template key `mirror`, the suffix rule, `checkMirrorPositions`, `getRigMirrorControl` and `mirrorRigControlShapes` with `leftToRight` are public API. A generated module's name is public as a socket id, like any module name. Nothing is stored on nodes, and a mirrored rig is identical to the same rig written out by hand (checked by `test_mirror_matches_template_written_by_hand`).
+
 ---
 
 ## Open items
@@ -333,18 +351,18 @@ Every `rigControlNode` has a static JSON string attribute, `controlMarkup`: `{"m
 - **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
-- **D24:** the TODOs in `mayadev-integration.md` (asset folders, the `python/` package, `.mod` files), plus control sets and mirroring.
-- **D26:** shape mirroring (Left to Right by `usage`). The selection highlight still reads the active selection list once per control per `prepareForDraw`, which scales with control count times selection size.
+- **D24:** the TODOs in `mayadev-integration.md` (asset folders, the `python/` package, `.mod` files), plus control sets.
+- **D28:** mirroring poses and animation, built on `getRigMirrorControl` with the animation tools. A `ModuleContract` test that builds every Left/Right-capable module mirrored (Aim has no mirror fixture yet).
+- **D26:** the selection highlight still reads the active selection list once per control per `prepareForDraw`, which scales with control count times selection size.
 
 ### Before adding more modules
 
-Work that every new module would inherit, so it is cheaper to settle before the module count grows. Checked against the repo on 2026-11-07. The control registry and naming (D15, D25), template validation (D17), space switching (D19, D27), undo, the mayapy suite (D20) and the folder split (D13) are already done. The connect-time jump no longer reproduces: a chain on a rotated socket keeps its rest and follows rigidly (2026-11-07, pose cases `child_chain_rest_on_rotated_socket` and `rotated_parent_carries_child_chain`).
+Work that every new module would inherit, so it is cheaper to settle before the module count grows. Checked against the repo on 2026-11-07. The control registry and naming (D15, D25), template validation (D17), space switching (D19, D27), module mirroring (D28), undo, the mayapy suite (D20) and the folder split (D13) are already done. The connect-time jump no longer reproduces: a chain on a rotated socket keeps its rest and follows rigidly (2026-11-07, pose cases `child_chain_rest_on_rotated_socket` and `rotated_parent_carries_child_chain`).
 
 In this order:
 
-1. **Mirroring design.** It changes the module contract, so it may change Layout and FkChain. To decide: a mirrored module instance or a flag on one module; behaviour or orientation mirroring; how joint orientations flip; how pose and animation data mirror. Shape mirroring (D26) should follow the same pairing rule. Mirror support then becomes part of `ModuleContract`.
-2. **Asset root, structure and component versioning** (the D24 TODOs: asset folders, the `python/` package, `.mod` files). These don't depend on module internals.
-3. **Animation tools:** key all, zero all (go to bind pose), save and load pose, save and load animation, and a keyed space switch (match on the switch frame, key the frame before). Built on `getRigControls` (D25). A pose is control values plus the `space` enum (D27). Their files carry a `formatVersion`, like the shape file (D26).
+1. **Asset root, structure and component versioning** (the D24 TODOs: asset folders, the `python/` package, `.mod` files). These don't depend on module internals.
+2. **Animation tools:** key all, zero all (go to bind pose), save and load pose, save and load animation, mirror pose and animation, and a keyed space switch (match on the switch frame, key the frame before). Built on `getRigControls` (D25) and `getRigMirrorControl` (D28). A pose is control values plus the `space` enum (D27). Their files carry a `formatVersion`, like the shape file (D26).
 
 Design for these now, build them later:
 

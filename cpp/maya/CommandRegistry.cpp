@@ -16,7 +16,9 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ JointMarkupCmd::aCommandString, JointMarkupCmd::creator, JointMarkupCmd::newSyntax },
 		{ GetRigControlsCmd::aCommandString, GetRigControlsCmd::creator, GetRigControlsCmd::newSyntax },
 		{ SaveRigControlShapesCmd::aCommandString, SaveRigControlShapesCmd::creator, SaveRigControlShapesCmd::newSyntax },
-		{ LoadRigControlShapesCmd::aCommandString, LoadRigControlShapesCmd::creator, LoadRigControlShapesCmd::newSyntax }
+		{ LoadRigControlShapesCmd::aCommandString, LoadRigControlShapesCmd::creator, LoadRigControlShapesCmd::newSyntax },
+		{ GetRigMirrorControlCmd::aCommandString, GetRigMirrorControlCmd::creator, GetRigMirrorControlCmd::newSyntax },
+		{ MirrorRigControlShapesCmd::aCommandString, MirrorRigControlShapesCmd::creator, MirrorRigControlShapesCmd::newSyntax }
 	};
 	return descriptors;
 }

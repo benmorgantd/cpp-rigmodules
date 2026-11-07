@@ -126,6 +126,17 @@ bool JointMarkupIndex::claim(const JointSelector& selector, const std::string& m
 	return true;
 }
 
+bool JointMarkupIndex::find(const JointSelector& selector, std::size_t& outEntry) const
+{
+	auto it = fLookup.find({ selector.side, selector.usage });
+	if (it == fLookup.end())
+	{
+		return false;
+	}
+	outEntry = it->second;
+	return true;
+}
+
 std::vector<std::string> JointMarkupIndex::unclaimedExportedJoints() const
 {
 	std::vector<std::string> jointNames;

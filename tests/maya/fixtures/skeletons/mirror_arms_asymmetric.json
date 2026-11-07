@@ -1,0 +1,11 @@
+{
+  "joints": [
+    { "name": "chest_jnt", "side": "Center", "usage": "chest", "translate": [0, 4, 0] },
+    { "name": "clavicle_l_jnt", "side": "Left", "usage": "clavicle", "translate": [1, 5, 0] },
+    { "name": "upperArm_l_jnt", "side": "Left", "usage": "upperArm", "translate": [2, 5, 0] },
+    { "name": "lowerArm_l_jnt", "side": "Left", "usage": "lowerArm", "translate": [4, 5, 0] },
+    { "name": "clavicle_r_jnt", "side": "Right", "usage": "clavicle", "translate": [-1, 5, 0] },
+    { "name": "upperArm_r_jnt", "side": "Right", "usage": "upperArm", "translate": [-2, 5, 0] },
+    { "name": "lowerArm_r_jnt", "side": "Right", "usage": "lowerArm", "translate": [-4.5, 5, 0] }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "description": "A mirrored chain hangs from the mirrored clavicle, so rotating clavicle_r 90 degrees about Z swings the right arm around (-1, 5, 0)",
+  "skeleton": "mirror_arms",
+  "template": "mirror_arms",
+  "set": { "clavicle_r_ctrl_r.rotateZ": 90 },
+  "expect": {
+    "upperArm_r_jnt": { "translate": [-1, 4, 0], "rotate": [0, 0, 90] },
+    "lowerArm_r_jnt": { "translate": [-1, 2, 0], "rotate": [0, 0, 90] },
+    "upperArm_l_jnt": { "translate": [2, 5, 0], "rotate": [0, 0, 0] }
+  }
+}

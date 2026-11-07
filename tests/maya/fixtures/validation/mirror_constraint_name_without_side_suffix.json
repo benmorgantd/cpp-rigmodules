@@ -1,0 +1,7 @@
+{
+  "description": "A mirrored constraint's name must end in _l or _r, so the mirror's name can swap it",
+  "base": "mirror_arms",
+  "skeleton": "mirror_arms",
+  "edits": [ { "set": "/constraints/0/name", "value": "arm_space" } ],
+  "expectErrors": [ { "path": "constraints[0] 'arm_space'.name", "contains": "_l" } ]
+}

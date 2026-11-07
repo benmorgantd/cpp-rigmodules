@@ -1,8 +1,10 @@
 #include "maya/shared/ControlShapeScene.h"
 #include "core/ControlShapes.h"
+#include "core/TemplateMirror.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigTraversal.h"
 
+#include <map>
 #include <set>
 #include <string>
 #include <utility>
@@ -155,6 +157,95 @@ MStatus ControlShapeScene::setRigControlShapes(const MObject& oRigRoot, const Co
 					+ "), but the rig has no control with that markup.");
 			}
 		}
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus ControlShapeScene::mirrorRigControlShapes(const MObject& oRigRoot, const std::string& sourceSide, MDGModifier& dgMod, MStringArray& outChangedNames)
+{
+	RigControlFilter sourceFilter;
+	sourceFilter.sides.push_back(sourceSide);
+	RigControlFilter mirrorFilter;
+	mirrorFilter.sides.push_back(TemplateMirror::swapSide(sourceSide));
+
+	MObjectArray oSources;
+	MObjectArray oMirrors;
+	MStatus status = RigTraversal::getRigControls(oRigRoot, sourceFilter, oSources);
+	if (status)
+	{
+		status = RigTraversal::getRigControls(oRigRoot, mirrorFilter, oMirrors);
+	}
+	if (!status)
+	{
+		return status;
+	}
+
+	// Usage -> mirror control. Markup is unique per rig (D25), so a usage appears once per side.
+	std::map<std::string, MObject> mirrorsByUsage;
+	for (unsigned int i = 0; i < oMirrors.length(); ++i)
+	{
+		ControlMarkup markup;
+		status = RigTraversal::getControlMarkup(oMirrors[i], markup);
+		if (!status)
+		{
+			return status;
+		}
+		mirrorsByUsage[markup.usage] = oMirrors[i];
+	}
+
+	// Reflection across world X = 0.
+	MMatrix mReflect;
+	mReflect[0][0] = -1.0;
+
+	for (unsigned int i = 0; i < oSources.length(); ++i)
+	{
+		ControlMarkup markup;
+		status = RigTraversal::getControlMarkup(oSources[i], markup);
+		if (!status)
+		{
+			return status;
+		}
+
+		auto it = mirrorsByUsage.find(markup.usage);
+		if (it == mirrorsByUsage.end())
+		{
+			MGlobal::displayWarning(controlName(oSources[i]) + " (" + markup.side.c_str() + ", " + markup.usage.c_str()
+				+ ") has no mirror control, so its shape is not mirrored.");
+			continue;
+		}
+		const MObject& oMirror = it->second;
+
+		MMatrix mSourceRest;
+		MMatrix mMirrorRest;
+		status = RigTraversal::getControlRestWorld(oSources[i], mSourceRest);
+		if (status)
+		{
+			status = RigTraversal::getControlRestWorld(oMirror, mMirrorRest);
+		}
+		if (!status)
+		{
+			return status;
+		}
+
+		// A shape point p sits at p * S * W in world. Solve S_mirror so the mirror's point lands on the source's, reflected:
+		//   p * S_mirror * W_mirror == p * S_source * W_source * R
+		const MMatrix mMirrorShape = RigControlNode::getShapeTransform(oSources[i]) * mSourceRest * mReflect * mMirrorRest.inverse();
+
+		ControlShape shape = getControlShape(oSources[i]);
+		for (unsigned int row = 0; row < 4; ++row)
+		{
+			for (unsigned int column = 0; column < 4; ++column)
+			{
+				shape.shapeTransform[row * 4 + column] = mMirrorShape[row][column];
+			}
+		}
+
+		status = setControlShape(oMirror, shape, dgMod);
+		if (!status)
+		{
+			return status;
+		}
+		outChangedNames.append(controlName(oMirror));
 	}
 	return MStatus::kSuccess;
 }

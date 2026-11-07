@@ -3,6 +3,7 @@
 #include "core/Constants.h"
 #include "core/RigJsonStructs.h"
 #include "core/RigTemplateValidation.h"
+#include "core/TemplateMirror.h"
 #include "maya/modules/LayoutModule.h"
 #include "maya/nodes/AssetRoot.h"
 #include "maya/nodes/Constraints.h"
@@ -234,7 +235,7 @@ namespace
 		for (std::size_t i = 0; i < modules.size(); ++i)
 		{
 			checkName(qualifiedName(rigNamespace, modules[i].name.c_str()), MObject::kNullObj,
-				RigTemplateValidation::modulePath(i, modules[i].name));
+				RigTemplateValidation::modulePath(i, modules[i]));
 		}
 		for (unsigned int i = 0; i < joints.length(); ++i)
 		{
@@ -289,6 +290,8 @@ namespace
 			return;
 		}
 
+		// Mirrors first, so every check below and the build see them as ordinary entries (D28).
+		TemplateMirror::expandMirrors(rigData, report);
 		RigTemplateValidation::validateHeader(rigData, assetData, report);
 		RigTemplateValidation::validateModuleNames(rigData.rigModules, report);
 		checkTargetNamesFree(inputs.rigNamespace, rigData.rigModules, inputs.joints, report);
@@ -303,7 +306,7 @@ namespace
 		}
 
 		plans.push_back(makeLayoutPlan());
-		for (ModulePlan& plan : RigModuleNodeBase::planModules(rigData.rigModules, markedJoints, report))
+		for (ModulePlan& plan : RigModuleNodeBase::planModules(rigData.rigModules, markedJoints, inputs.checkMirrorPositions, report))
 		{
 			plans.push_back(std::move(plan));
 		}
