@@ -1,0 +1,12 @@
+{
+  "description": "Rotating a rotated chain root 60 degrees about Z carries a chain on its rotated end socket rigidly about the origin",
+  "skeleton": "fk_two_chains_rotated",
+  "template": "fkchain_two_chains",
+  "set": { "a_ctrl_c.rotateZ": 60 },
+  "expect": {
+    "a_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, 90] },
+    "b_jnt": { "translate": [-1.7321, 1, 0], "rotate": [0, 45, 70] },
+    "c_jnt": { "translate": [-2.0981, 2.3660, 0], "rotate": [20, -30, 120] },
+    "c_ctrl_l": { "translate": [-2.0981, 2.3660, 0], "rotate": [20, -30, 120] }
+  }
+}

@@ -171,7 +171,6 @@ namespace ConstraintAttr
 	inline constexpr const char* Drivers{ "drivers" };
 	inline constexpr const char* DriverMatrix{ "driverMatrix" };
 	inline constexpr const char* DriverRest{ "driverRest" };
-	inline constexpr const char* DriverOffset{ "driverOffset" };
 	inline constexpr const char* DriverLabel{ "driverLabel" };
 	inline constexpr const char* ActiveDriver{ "activeDriver" };
 	inline constexpr const char* OutParentMatrix{ "outParentMatrix" };

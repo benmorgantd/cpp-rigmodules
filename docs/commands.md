@@ -90,6 +90,7 @@ Object: the control, which must be the control of a module's child plug.
 - **The constraint node** goes in the control's namespace unless `name` includes a namespace.
 - A module cannot drive its own child plug, and a control can have only one space constraint.
 - With more than one driver, the control gets a `space` enum attribute listing the labels.
+- The control does not move. On a posed rig its translate, rotate and scale are changed to keep it in place, the same match `setRigConstraintSpace` does. At rest nothing changes.
 
 ## setRigConstraintSpace
 
@@ -107,7 +108,14 @@ cmds.setRigConstraintSpace("rig:arm_ctrl_l_space", space=0)
 
 Give exactly one of `space` or `label`. Object: the constraint node.
 
-The command stores an offset for the new driver so the child keeps its current world position, then sets the control's enum (or the constraint's active driver when there is no enum). It does not set keys.
+The command changes the control's translate, rotate and scale so it keeps its world position and orientation in the new space, then sets the control's `space` enum. Nothing is stored on the constraint, so every space gives the rest pose when the controls are zeroed, and a pose is just the control values plus the enum.
+
+- **Rotation** keeps the control's rotate order and picks the euler values closest to the current ones, so animation curves don't flip.
+- **Locked channels**, and channels driven by anything other than keys, keep their values. The command warns and names them, and the control moves by what they couldn't absorb.
+- **No keys.** On an animated control, key the changed channels and the enum yourself, or the values revert when the frame changes.
+- **Setting the enum directly** (or through keys) does no matching, so the control moves unless the rig is at rest.
+
+Undo restores both the enum and the control's values.
 
 ## getRigControls
 

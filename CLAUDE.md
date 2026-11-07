@@ -156,7 +156,7 @@ RigTemplates/        example template
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
-| `design/decisions.md` | Decision log (D1–D26). |
+| `design/decisions.md` | Decision log (D1–D27). |
 | `design/mayadev-integration.md` | Survey of the sibling mayadev repo, conflicts with RigModules, the proposed boundary and phases (D24). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. `ViewportGallery.cmd` is the manual VP2 shape check. |
@@ -292,7 +292,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 232 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 245 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.
@@ -328,5 +328,4 @@ Before declaring work done, check:
 
 These go stale quickly. Verify against the repo before acting on them.
 
-- Connect-time jump on the child when a child plug connects to a non-identity socket.
 - Reviewing `compute()` plug grouping and the layout `end` socket to first FkChain `start` child plug connection.

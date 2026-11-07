@@ -312,16 +312,47 @@ Every `rigControlNode` has a static JSON string attribute, `controlMarkup`: `{"m
 - **Not built:** mirroring shapes between Left and Right (pair `usage` across sides). Filtering save and load by module or markup.
 - **Consequence:** shape names, the shape file keys and `formatVersion` are public API. The shapes look different from earlier builds: Capsule and Cylinder sizes changed, and SingleArrow, FourArrow and CircleStick now point down +X.
 
+## Constraints
+
+### D27. Space switches match through the control's values, with no stored offsets
+**Status:** Decided (2026-11-07). Built and run in mayapy 2026: create and switch on posed rigs (flat and rotated skeletons, non-default rotate order), zero after both, every space at rest, undo, locked channels, no keys.
+
+`bmParentConstraint` outputs the active driver's motion since rest, `rest^-1 * world`, with nothing stored per driver. Every driver's delta is identity at rest, so every space gives the rest pose. When `setRigConstraintSpace` switches on a posed rig, or `createRigParentConstraint` runs on one, the control keeps its world matrix because its own translate, rotate and scale are rewritten: `L' = L * OPM * D_new^-1 * D_old * OPM^-1`, using the control's live offsetParentMatrix (`rest * D_old`).
+
+- **Why:** the old driver offset was hidden state captured at the moment of a switch. Zeroing every control no longer gave the rest pose, a keyed `space` enum used the last captured offset on every frame, and a pose's control values didn't describe the rig. Now a pose is exactly control values plus the `space` enum, which pose and animation libraries, mirroring and retargeting need.
+- **Author's choices (2026-11-07):** creation on a posed rig compensates through control values like a switch (rejected: letting the control follow its new driver). The command sets no keys. Keying the switch frame belongs in the animation tools. Only the control on the constrained child plug is matched. The rest of an FkChain follows it.
+- **Rejected:** keeping per-driver offsets but capturing them only at rest. It still stores state outside the controls, and a switch would jump.
+- **Rules:** the rotation keeps the control's rotate order and is the euler closest to its current values, so curves don't flip. Locked channels, and channels driven by anything but an anim curve, keep their values, with a warning naming them. Shear that the channels can't hold gives a warning. A switch writes nothing when both deltas are equal, so creating at rest and template constraints change no values. The control is found through the space enum that drives `activeDriver`. A constraint with no enum has one driver, so it never needs a match.
+- **Removed:** `driverOffset` on `bmParentConstraint` and `ConstraintAttr::DriverOffset`. No existing rigs need to survive, so there is no migration.
+- **Consequence:** setting the `space` enum directly (or through keys) does no matching, so the control moves unless the rig is at rest. That is the usual behaviour animators expect from a keyed space without a match tool. Switching on an animated control writes values without keying them, so they hold until the frame changes, like `setAttr`.
+
 ---
 
 ## Open items
 
-- **Connect-time jump:** the child jumps when a child plug connects to a non-identity socket. Still to do.
 - **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
 - **D24:** the TODOs in `mayadev-integration.md` (asset folders, the `python/` package, `.mod` files), plus control sets and mirroring.
 - **D26:** shape mirroring (Left to Right by `usage`). The selection highlight still reads the active selection list once per control per `prepareForDraw`, which scales with control count times selection size.
+
+### Before adding more modules
+
+Work that every new module would inherit, so it is cheaper to settle before the module count grows. Checked against the repo on 2026-11-07. The control registry and naming (D15, D25), template validation (D17), space switching (D19, D27), undo, the mayapy suite (D20) and the folder split (D13) are already done. The connect-time jump no longer reproduces: a chain on a rotated socket keeps its rest and follows rigidly (2026-11-07, pose cases `child_chain_rest_on_rotated_socket` and `rotated_parent_carries_child_chain`).
+
+In this order:
+
+1. **Mirroring design.** It changes the module contract, so it may change Layout and FkChain. To decide: a mirrored module instance or a flag on one module; behaviour or orientation mirroring; how joint orientations flip; how pose and animation data mirror. Shape mirroring (D26) should follow the same pairing rule. Mirror support then becomes part of `ModuleContract`.
+2. **Asset root, structure and component versioning** (the D24 TODOs: asset folders, the `python/` package, `.mod` files). These don't depend on module internals.
+3. **Animation tools:** key all, zero all (go to bind pose), save and load pose, save and load animation, and a keyed space switch (match on the switch frame, key the frame before). Built on `getRigControls` (D25). A pose is control values plus the `space` enum (D27). Their files carry a `formatVersion`, like the shape file (D26).
+
+Design for these now, build them later:
+
+- **Template format version.** `rigVersion` versions the rig's content, not the template schema. Nothing versions the JSON format yet.
+- **Rebuild from template keeping animator tweaks.** Shape files cover control shapes (D26). Nothing covers other tweaked values.
+- **Export skeleton separation.** Joint markup has `export`, and validation flags an unclaimed export joint. What the export skeleton is, as opposed to rig-internal joints, is not decided.
+- **Plugin deployment** per Maya version (the `.mod` files in D24).
+- **Empty namespace after undo** (D18): undoing a build leaves the rig namespace behind.
 
 ## Adding an entry
 

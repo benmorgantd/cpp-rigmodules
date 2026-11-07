@@ -10,6 +10,17 @@ CONTROL = rig_name("up_ctrl_r")
 OTHER_CONTROL = rig_name("fkchain1_ctrl_c")
 
 
+def world_matrix(node):
+    return om.MMatrix(cmds.xform(node, q=True, ws=True, matrix=True))
+
+
+def zero_controls(*controls):
+    for control in controls:
+        cmds.setAttr(control + ".translate", 0, 0, 0)
+        cmds.setAttr(control + ".rotate", 0, 0, 0)
+        cmds.setAttr(control + ".scale", 1, 1, 1)
+
+
 class ConstraintTestCase(RigTestCase):
 
     def setUp(self):
@@ -19,6 +30,9 @@ class ConstraintTestCase(RigTestCase):
     def create(self, control=CONTROL, **kwargs):
         kwargs.setdefault("driver", ["layout.end", "fkchain_1.end"])
         return cmds.createRigParentConstraint(control, **kwargs)
+
+    def assertWorldMatrix(self, node, expected, message):
+        self.assertTrue(world_matrix(node).isEquivalent(expected, 1e-4), "%s: %s" % (node, message))
 
 
 class Create(ConstraintTestCase):
@@ -52,6 +66,27 @@ class Create(ConstraintTestCase):
         before = cmds.xform(CONTROL, q=True, ws=True, t=True)
         self.create(initial=1)
         self.assertWorldTranslation(CONTROL, before)
+
+    def test_create_on_posed_rig_does_not_move_control(self):
+        # The control's current parent (fkchain_1.start) is posed and the new driver is not,
+        # so a missing offset would show as a jump.
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        before = world_matrix(CONTROL)
+        self.create(driver=["layout.end"])
+        self.assertWorldMatrix(CONTROL, before, "moved when its constraint was created on a posed rig")
+
+    def test_zero_after_create_on_posed_rig_returns_to_rest(self):
+        # D27: the compensation lives in the control's values, so zeroing every control gives the rest pose.
+        rest = world_matrix(CONTROL)
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        self.create(driver=["layout.end"])
+        zero_controls(OTHER_CONTROL, CONTROL)
+        self.assertWorldMatrix(CONTROL, rest, "not at rest after zeroing every control")
+
+    def test_create_at_rest_leaves_control_values(self):
+        self.create(initial=1)
+        self.assertEqual(cmds.getAttr(CONTROL + ".translate")[0], (0.0, 0.0, 0.0))
+        self.assertEqual(cmds.getAttr(CONTROL + ".rotate")[0], (0.0, 0.0, 0.0))
 
 
 class CreateRejected(ConstraintTestCase):
@@ -105,11 +140,53 @@ class SpaceSwitch(ConstraintTestCase):
         self.assertEqual(cmds.getAttr(self.con + ".activeDriver"), 1)
 
     def test_switch_does_not_move_control(self):
-        # Pose the new driver away from rest first, so a missing offset would show as a jump.
-        cmds.setAttr(rig_name("fkchain1_ctrl_c") + ".rotateZ", 90)
-        before = cmds.xform(CONTROL, q=True, ws=True, t=True)
+        # Pose the new driver away from rest first, so a missing match would show as a jump.
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        before = world_matrix(CONTROL)
         cmds.setRigConstraintSpace(self.con, label="Arm")
-        self.assertWorldTranslation(CONTROL, before)
+        self.assertWorldMatrix(CONTROL, before, "moved when its space was switched on a posed rig")
+
+    def test_switch_on_posed_rig_writes_control_values(self):
+        # D27: the match is in the control's channels, and the constraint stores nothing per switch.
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        cmds.setRigConstraintSpace(self.con, label="Arm")
+        self.assertNotEqual(cmds.getAttr(CONTROL + ".translate")[0], (0.0, 0.0, 0.0))
+        self.assertFalse(cmds.attributeQuery("driverOffset", node=self.con, exists=True))
+
+    def test_zero_after_switch_on_posed_rig_returns_to_rest(self):
+        rest = world_matrix(CONTROL)
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        cmds.setRigConstraintSpace(self.con, label="Arm")
+        zero_controls(OTHER_CONTROL, CONTROL)
+        self.assertWorldMatrix(CONTROL, rest, "not at rest after zeroing every control")
+
+    def test_every_space_gives_rest_at_rest(self):
+        # Setting the enum directly (as a key would) does no matching. At rest every space must agree.
+        rest = world_matrix(CONTROL)
+        for space in (1, 0):
+            cmds.setAttr(CONTROL + ".space", space)
+            self.assertWorldMatrix(CONTROL, rest, "space %d does not give the rest pose" % space)
+
+    def test_undo_switch_restores_control_values(self):
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        before = world_matrix(CONTROL)
+        cmds.setRigConstraintSpace(self.con, label="Arm")
+        cmds.undo()
+        self.assertEqual(cmds.getAttr(CONTROL + ".space"), 0)
+        self.assertEqual(cmds.getAttr(CONTROL + ".translate")[0], (0.0, 0.0, 0.0))
+        self.assertWorldMatrix(CONTROL, before, "moved after undoing the switch")
+
+    def test_locked_channel_keeps_its_value(self):
+        cmds.setAttr(CONTROL + ".translateX", lock=True)
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        cmds.setRigConstraintSpace(self.con, label="Arm")
+        self.assertEqual(cmds.getAttr(CONTROL + ".translateX"), 0.0)
+        self.assertNotEqual(cmds.getAttr(CONTROL + ".translateY"), 0.0)
+
+    def test_switch_does_not_set_keys(self):
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        cmds.setRigConstraintSpace(self.con, label="Arm")
+        self.assertFalse(cmds.keyframe(CONTROL, query=True, keyframeCount=True))
 
     def test_control_follows_new_space_after_switch(self):
         cmds.setRigConstraintSpace(self.con, label="Arm")
@@ -125,6 +202,35 @@ class SpaceSwitch(ConstraintTestCase):
     def test_template_constraint_by_label(self):
         cmds.setRigConstraintSpace(rig_name("fkchain_2_space"), label="Aim")
         self.assertEqual(cmds.getAttr(rig_name("fkchain_2_space") + ".activeDriver"), 1)
+
+
+class RotatedSpaceSwitch(RigTestCase):
+    """The match math with rotated rests, rotated drivers and a non-default rotate order (D27)."""
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard("fkchain_two_chains", "fk_two_chains_rotated")
+        self.child = rig_name("c_ctrl_l")
+        self.parents = (rig_name("a_ctrl_c"), rig_name("b_ctrl_c"))
+        cmds.setAttr(self.child + ".rotateOrder", 2)   # zxy
+        # The child's current parent is fkchain_1.end, so the initial driver needs no match.
+        self.con = cmds.createRigParentConstraint(self.child, driver=["fkchain_1.end", "fkchain_1.start"])
+        cmds.setAttr(self.parents[0] + ".rotateY", 40)
+        cmds.setAttr(self.parents[1] + ".rotate", 30, 0, -25)
+        cmds.setAttr(self.child + ".rotateX", 15)
+
+    def test_switch_does_not_move_control(self):
+        before = world_matrix(self.child)
+        cmds.setRigConstraintSpace(self.con, space=1)
+        self.assertTrue(world_matrix(self.child).isEquivalent(before, 1e-4),
+                        "%s moved when its space was switched on a posed rig" % self.child)
+
+    def test_zero_after_switch_returns_to_rest(self):
+        cmds.setRigConstraintSpace(self.con, space=1)
+        zero_controls(self.child, *self.parents)
+        # Rest values come from the fk_two_chains_rotated skeleton.
+        self.assertWorldTranslation(rig_name("c_jnt"), [1, 3, 0])
+        self.assertWorldRotation(rig_name("c_jnt"), [20, -30, 60])
 
 
 class SpaceSwitchRejected(ConstraintTestCase):

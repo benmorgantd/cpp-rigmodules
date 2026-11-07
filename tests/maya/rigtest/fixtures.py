@@ -46,8 +46,8 @@ def load_skeleton(name):
     joints = []
     for index, joint in enumerate(data["joints"]):
         where = "%s joints[%d]" % (path, index)
-        check_keys(joint, where, ["name", "side", "usage", "translate"], ["parent", "export", "skin"])
-        filled = {"parent": None, "export": True, "skin": True}
+        check_keys(joint, where, ["name", "side", "usage", "translate"], ["rotate", "parent", "export", "skin"])
+        filled = {"rotate": [0, 0, 0], "parent": None, "export": True, "skin": True}
         filled.update(joint)
         joints.append(filled)
     return joints

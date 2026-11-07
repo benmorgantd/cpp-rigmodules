@@ -90,6 +90,22 @@ tests/
 
 Expected results that are data (a pose and the transforms it gives, a template edit and the errors it gives) live in JSON. Step-by-step behaviour (undo sequences, namespaces, command errors) lives in code.
 
+### Skeleton: `fixtures/skeletons/<name>.json`
+
+```json
+{
+  "joints": [
+    { "name": "a_jnt", "side": "Center", "usage": "a", "translate": [0, 0, 0], "rotate": [0, 0, 30] },
+    { "name": "b_jnt", "side": "Center", "usage": "b", "translate": [0, 2, 0], "parent": "a_jnt", "export": false }
+  ]
+}
+```
+
+- **Required keys:** `name`, `side`, `usage` and `translate`.
+- **Optional keys:** `rotate`, `parent`, `export` and `skin`. They default to `[0, 0, 0]`, no parent, `true` and `true`.
+- **Values** are world space, rotation in degrees (XYZ order), whether or not the joint has a parent. Joints are created in file order, so a parent comes before its children.
+- **Rotated sockets:** a skeleton without `rotate` gives every socket a translation-only rest. Use a rotated skeleton (`fk_two_chains_rotated`) when the math under test composes rotations.
+
 ### Pose case: `fixtures/poses/<module>/<name>.json`
 
 ```json

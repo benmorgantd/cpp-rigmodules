@@ -3,9 +3,12 @@
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/Utilities.h"
 
+#include <cmath>
 #include <unordered_map>
 
+#include <maya/MAngle.h>
 #include <maya/MArrayDataHandle.h>
+#include <maya/MEulerRotation.h>
 #include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnEnumAttribute.h>
@@ -14,13 +17,102 @@
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MGlobal.h>
+#include <maya/MPxTransform.h>
+#include <maya/MTransformationMatrix.h>
+#include <maya/MVector.h>
+
+namespace
+{
+	constexpr double kShearTolerance{ 1e-6 };
+
+	// A channel the match may write: not locked, and either unconnected or keyed (an anim curve source).
+	// Writing a keyed channel behaves like setAttr: the value holds until the animator keys it or the frame changes.
+	bool isChannelWritable(const MPlug& pChannel)
+	{
+		if (pChannel.isLocked())
+		{
+			return false;
+		}
+		const MPlug pSource = pChannel.source();
+		return pSource.isNull() || pSource.node().hasFn(MFn::kAnimCurve);
+	}
+
+	// The control hangs from its child plug delta (OPM = rest * delta, inheritsTransform off). When that delta changes
+	// from mOldDelta to mNewDelta, rewrite the control's translate, rotate and scale so its world matrix stays the same:
+	//   L' * rest * D_new == L * rest * D_old, with rest = OPM * D_old^-1
+	//   L' = L * OPM * D_new^-1 * D_old * OPM^-1
+	// Reads the live OPM, so the caller needs neither the module nor the control's index (D27).
+	MStatus matchControlToNewDelta(const MObject& oControl, const MMatrix& mOldDelta, const MMatrix& mNewDelta, MDagModifier& dagMod)
+	{
+		if (mOldDelta.isEquivalent(mNewDelta))
+		{
+			return MStatus::kSuccess;
+		}
+
+		const MMatrix mLocal = DagUtils::getMatrixFromPlug(MPlug(oControl, MPxTransform::matrix));
+		const MMatrix mOPM = DagUtils::getMatrixFromPlug(MPlug(oControl, MPxTransform::offsetParentMatrix));
+		const MMatrix mNewLocal = mLocal * mOPM * mNewDelta.inverse() * mOldDelta * mOPM.inverse();
+
+		const MTransformationMatrix tNewLocal(mNewLocal);
+		const MVector vTranslate = tNewLocal.getTranslation(MSpace::kTransform);
+		double scale[3];
+		double shear[3];
+		tNewLocal.getScale(scale, MSpace::kTransform);
+		tNewLocal.getShear(shear, MSpace::kTransform);
+
+		// Keep the control's rotate order, and the euler closest to its current values so curves don't flip.
+		MFnDependencyNode fnControl(oControl);
+		const short rotateOrder = MPlug(oControl, MPxTransform::rotateOrder).asShort();
+		MEulerRotation eCurrent(
+			MPlug(oControl, MPxTransform::rotateX).asMAngle().asRadians(),
+			MPlug(oControl, MPxTransform::rotateY).asMAngle().asRadians(),
+			MPlug(oControl, MPxTransform::rotateZ).asMAngle().asRadians(),
+			static_cast<MEulerRotation::RotationOrder>(rotateOrder));
+		MEulerRotation eNew = tNewLocal.eulerRotation();
+		eNew.reorderIt(static_cast<MEulerRotation::RotationOrder>(rotateOrder));
+		eNew.setToClosestSolution(eCurrent);
+
+		// Same order as kDefaultTransformValues: translate, rotate, scale.
+		const double values[9] =
+		{
+			vTranslate.x, vTranslate.y, vTranslate.z,
+			eNew.x, eNew.y, eNew.z,
+			scale[0], scale[1], scale[2]
+		};
+
+		MString skipped;
+		for (unsigned int i = 0; i < 9; ++i)
+		{
+			MPlug pChannel(oControl, kDefaultTransformValues[i].attr);
+			if (!isChannelWritable(pChannel))
+			{
+				skipped += MString(" ") + pChannel.partialName(false, false, false, false, false, true);
+				continue;
+			}
+			const bool isRotate = i >= 3 && i < 6;
+			MStatus status = isRotate
+				? dagMod.newPlugValueMAngle(pChannel, MAngle(values[i], MAngle::kRadians))
+				: dagMod.newPlugValueDouble(pChannel, values[i]);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+
+		if (skipped.length() > 0)
+		{
+			MGlobal::displayWarning(fnControl.name() + ": locked or driven channels kept their values, so the control moves:" + skipped);
+		}
+		if (std::abs(shear[0]) > kShearTolerance || std::abs(shear[1]) > kShearTolerance || std::abs(shear[2]) > kShearTolerance)
+		{
+			MGlobal::displayWarning(fnControl.name() + ": the new space needs shear, which the control's channels can't hold. Position and rotation match, the shape may not.");
+		}
+		return MStatus::kSuccess;
+	}
+}
 
 MTypeId ParentConstraintNode::id(0x00218E);
 
 MObject ParentConstraintNode::aDrivers;
 MObject ParentConstraintNode::aDriverMatrix;
 MObject ParentConstraintNode::aDriverRest;
-MObject ParentConstraintNode::aDriverOffset;
 MObject ParentConstraintNode::aDriverLabel;
 MObject ParentConstraintNode::aActiveDriver;
 MObject ParentConstraintNode::aOutParentMatrix;
@@ -54,10 +146,6 @@ MStatus ParentConstraintNode::initialize()
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	mAttr.setStorable(true);
 
-	aDriverOffset = mAttr.create(ConstraintAttr::DriverOffset, ConstraintAttr::DriverOffset, MFnMatrixAttribute::kDouble, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	mAttr.setStorable(true);
-
 	aDriverLabel = tAttr.create(ConstraintAttr::DriverLabel, ConstraintAttr::DriverLabel, MFnData::kString, MObject::kNullObj, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	tAttr.setStorable(true);
@@ -66,7 +154,6 @@ MStatus ParentConstraintNode::initialize()
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	cAttr.addChild(aDriverMatrix);
 	cAttr.addChild(aDriverRest);
-	cAttr.addChild(aDriverOffset);
 	cAttr.addChild(aDriverLabel);
 	cAttr.setArray(true);
 	cAttr.setUsesArrayDataBuilder(true);
@@ -92,13 +179,12 @@ MStatus ParentConstraintNode::initialize()
 	// AFFECTS RELATIONSHIPS
 	attributeAffects(aDriverMatrix, aOutParentMatrix);
 	attributeAffects(aDriverRest, aOutParentMatrix);
-	attributeAffects(aDriverOffset, aOutParentMatrix);
 	attributeAffects(aActiveDriver, aOutParentMatrix);
 
 	return MStatus::kSuccess;
 }
 
-// out = offset * (rest^-1 * world) for the active driver only. Inactive drivers are never read, so they are never evaluated.
+// out = rest^-1 * world for the active driver only. Inactive drivers are never read, so they are never evaluated.
 MStatus ParentConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	if (plug.attribute() != aOutParentMatrix)
@@ -121,8 +207,7 @@ MStatus ParentConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 
 		const MMatrix mWorld = hDriver.child(aDriverMatrix).asMatrix();
 		const MMatrix mRest = hDriver.child(aDriverRest).asMatrix();
-		const MMatrix mOffset = hDriver.child(aDriverOffset).asMatrix();
-		mOut = mOffset * MathUtils::computeDeltaFromRest(mRest, mWorld);
+		mOut = MathUtils::computeDeltaFromRest(mRest, mWorld);
 	}
 
 	data.outputValue(aOutParentMatrix).setMMatrix(mOut);
@@ -256,7 +341,6 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 
 		MPlug pDriverMatrix = pDriver.child(aDriverMatrix);
 		MPlug pDriverRest = pDriver.child(aDriverRest);
-		MPlug pDriverOffset = pDriver.child(aDriverOffset);
 		MPlug pDriverLabel = pDriver.child(aDriverLabel);
 
 		status = dagMod.connect(RigModuleNodeBase::getSocketMatrixPlug(driver.oModule, driver.socketIndex), pDriverMatrix);
@@ -264,11 +348,12 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 
 		DagUtils::setMatrixPlug(pDriverRest, driver.mRestWorld, dagMod);
 		dagMod.newPlugValueString(pDriverLabel, MString(driver.label.c_str()));
-
-		// Only the initial driver gets a compensation offset now. The others are matched when they are switched to.
-		const MMatrix mOffset = (i == args.initialDriver) ? mCurrentDelta * mInitialDriverDelta.inverse() : MMatrix::identity;
-		DagUtils::setMatrixPlug(pDriverOffset, mOffset, dagMod);
 	}
+
+	// On a posed rig the control would move to its new parent. Keep it in place through its own values (D27).
+	// At rest both deltas are identity and this writes nothing.
+	status = matchControlToNewDelta(args.oControl, mCurrentDelta, mInitialDriverDelta, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	MPlug pActiveDriver(oConstraint, aActiveDriver);
 	if (createEnumAttr)
@@ -432,17 +517,20 @@ MStatus ParentConstraintNode::matchSwitchSpace(const MObject& oConstraint, unsig
 		DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverRest)),
 		DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverMatrix)));
 
-	// offset * D_new == D_old at this instant, so nothing moves.
-	MPlug pOffset = pNewDriver.child(aDriverOffset);
-	status = DagUtils::setMatrixPlug(pOffset, mOld * mNewDelta.inverse(), dagMod);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// Set the control's enum when the constraint is driven by one, otherwise the int directly.
+	// The control hosts the space enum that drives activeDriver. A constraint without one has a single driver,
+	// so its delta never changes and there is nothing to match.
 	MPlug pActive(oConstraint, aActiveDriver);
 	MPlug pSource = pActive.source();
 	if (!pSource.isNull())
 	{
+		status = matchControlToNewDelta(pSource.node(), mOld, mNewDelta, dagMod);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
 		dagMod.newPlugValueShort(pSource, static_cast<short>(newDriver));
+	}
+	else if (!mOld.isEquivalent(mNewDelta))
+	{
+		MGlobal::displayError("Constraint has no space enum, so the control to match can't be found.");
+		return MStatus::kFailure;
 	}
 	else
 	{

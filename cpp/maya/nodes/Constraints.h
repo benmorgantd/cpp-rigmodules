@@ -39,8 +39,9 @@ struct ConstraintBuildArgs
 };
 
 // Space switch for one child plug. Outputs the parent motion the module reads as a child plug delta:
-//   out = offset[active] * (rest[active]^-1 * world[active])
-// The offset is captured when the space changes so the control never jumps (see matchSwitchSpace).
+//   out = rest[active]^-1 * world[active]
+// Every driver's delta is identity at rest, so every space gives the rest pose (D27). Nothing is stored per
+// switch: matching changes the control's own values instead (see matchSwitchSpace).
 // One node per child plug. Attribute naming follows the module nodes (aMyAttr).
 class ParentConstraintNode : public MPxNode
 {
@@ -59,7 +60,6 @@ public:
 	static MObject aDrivers;           // compound array
 	static MObject aDriverMatrix;      //   live world matrix of the driver socket
 	static MObject aDriverRest;        //   socket world matrix at rest
-	static MObject aDriverOffset;      //   switch compensation, written by matchSwitchSpace
 	static MObject aDriverLabel;       //   enum label
 	static MObject aActiveDriver;      // int, driven by the control's enum
 	static MObject aOutParentMatrix;   // delta for module.childPlugs[k].parentMatrix
@@ -79,6 +79,7 @@ public:
 		const MObject& oRigRoot,
 		MDagModifier& dagMod);
 
-	// Switch space without a jump: captures the offset for the new driver, then sets the enum.
+	// Switch space without a jump: sets the control's translate, rotate and scale so it keeps its world matrix
+	// under the new driver, then sets the enum. Sets no keys.
 	static MStatus matchSwitchSpace(const MObject& oConstraint, unsigned int newDriver, MDagModifier& dagMod);
 };

@@ -45,6 +45,9 @@ class RigTestCase(unittest.TestCase):
             # position is world space whether or not the joint has a parent
             node = cmds.joint(name=prefix + joint["name"], position=joint["translate"])
             full = prefix + node.split(":")[-1].split("|")[-1]
+            # World rotation, set before any child exists so children keep their world positions
+            if any(joint["rotate"]):
+                cmds.xform(full, worldSpace=True, rotation=joint["rotate"])
             if mark:
                 cmds.rigJointMarkup(full, usage=joint["usage"], side=joint["side"],
                                     export=joint["export"], skin=joint["skin"])
