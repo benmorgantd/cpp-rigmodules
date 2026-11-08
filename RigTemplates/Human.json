@@ -1,0 +1,48 @@
+{
+    "rigName": "Human",
+    "rigVersion": 1,
+    "rigTemplateName": "HumanRigTest",
+    "rigAuthor" : "Ben Morgan",
+    "rigModules": [
+      {
+        "moduleType": "FkChain",
+        "name": "spine",
+        "shapeType": "Cylinder",
+        "side": "Center",
+        "moduleArgs" : 
+        {
+          "joints": [ ["Center", "spine1"], ["Center", "spine2"], ["Center", "spine3"] ]
+        }
+      },
+      {
+        "moduleType": "FkChain",
+        "name": "arm_l",
+        "shapeType": "Capsule",
+        "side": "Left",
+        "mirror" : true,
+        "moduleArgs" : 
+        {
+          "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"] ]
+        },
+        "parentStructure" :
+        {
+          "start" : "spine.end"
+        }
+      },
+      {
+        "moduleType": "FkChain",
+        "name": "leg_l",
+        "shapeType": "Capsule",
+        "side": "Left",
+        "mirror" : true,
+        "moduleArgs" : 
+        {
+          "joints": [ ["Left", "upperLeg"], ["Left", "lowerLeg"] ]
+        },
+        "parentStructure" :
+        {
+          "start" : "spine.start"
+        }
+      }
+    ]
+}
