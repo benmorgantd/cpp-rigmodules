@@ -12,9 +12,9 @@ About 17k lines of Python, Python 3, Maya API 2.0 for the most part. Verdicts: *
 
 | Area | Path under `py/scripts/bmaya` | What it is | Verdict |
 |---|---|---|---|
-| Custom startup | `py/scripts/userSetup.py` | Deferred startup: log streaming to a file, logger, progress window, tool registry, tool menus. Has an empty "load required plugins" step | Keep. The author wants it. Add loading `RigModules.mll` to it |
+| Custom startup | `py/scripts/userSetup.py` | Deferred startup: log streaming to a file, logger, progress window, tool registry, tool menus. Loads `RigModules` from `RIGMODULES_PLUGIN` (a path, or the plugin name once `RigModules.mod` exists) before building the menus | Keep. The author wants it |
 | Core utilities | `core/log.py`, `progressmanager.py`, `decorators.py`, `util/fileUtils.py` | Logger with a Maya handler, singleton progress manager, timing decorator, file versioning | Keep |
-| Tool registry | `core/tool_registry.py`, `maya_ui/tool_views/tool_menu.py`, `maya_ui/tool_registry_editor.py`, `toolsets/*.json` | Tools stored as GUID + Python snippet in JSON, a menu layout JSON, editors for both | Keep |
+| Tool registry | `core/tool_registry.py`, `maya_ui/tool_views/tool_menu.py`, `maya_ui/tool_registry_editor.py`, `toolsets/*.json` | Tools stored as GUID + Python snippet in JSON, a menu layout JSON, editors for both. `rigmodules_menu.json` is a second menu, built only when RigModules loads, whose snippets call the RigModules commands on the selection | Keep. When the query API exists, its snippets switch to it (rig root from any selected node) |
 | Batch framework | `core/batch/`, `maya/batch/`, `tests/`, `batch/docgen/` | mayapy batch runner with a manifest, logs and a Markdown report. Used by one smoke test and the mkdocs generator | Keep |
 | Events | `maya/eventsregistry.py` | Singleton OpenMaya callback registry with pause and auto-cleanup | Keep |
 | Qt base | `maya_ui/qtbase.py` | Window, dockable widget, tree and list widgets, progress window | Keep |
@@ -178,7 +178,7 @@ Animator-facing features found there, which RigModules does not have yet:
 ## Phases
 
 0. **Done (docs only):** this page, D24, CLAUDE.md, memory.
-1. **mayadev cleanup:** tag `legacy-builder`, delete the legacy builder, add `mayadev.mod`, load the plugin at startup.
+1. **mayadev cleanup:** tag `legacy-builder`, delete the legacy builder, add `mayadev.mod`. Loading the plugin at startup is done (2026-11-08, with the RigModules menu).
 2. **RigModules `python/` package:** design first, then the build wrapper, the query API and the module interface query, with tests in the suite. Add `RigModules.mod`.
 3. **Shape IO:** built, mirroring included (see "Shape IO", D28).
 4. **mayadev asset build:** the asset file model is on mayadev branch `asset-model` (D29, `asset-model.md`). Still to do: a build that calls the RigModules wrapper and shape IO, and rigManager rewritten as a template editor.
