@@ -230,4 +230,8 @@ class VersionStamps(RigTestCase):
         rig_root = cmds.ls(type="rigRootModule")[0]
         self.assertEqual(cmds.getAttr(rig_root + ".pluginVersion"), self.plugin_version())
         self.assertEqual(cmds.getAttr(rig_root + ".rigVersion"), 1)
-        self.assertEqual(cmds.getAttr(rig_root + ".publishVersion"), 0, "only the publish step sets publishVersion")
+        self.assertFalse(cmds.getAttr(rig_root + ".publishVersion"), "only the publish step sets publishVersion")
+        self.assertEqual(cmds.getAttr(rig_root + ".publishVersion", type=True), "string")
+        # The publish step writes the publish id, which is a string.
+        cmds.setAttr(rig_root + ".publishVersion", "20261108T142012Z_bmorgan", type="string")
+        self.assertEqual(cmds.getAttr(rig_root + ".publishVersion"), "20261108T142012Z_bmorgan")

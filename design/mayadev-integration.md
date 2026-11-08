@@ -181,7 +181,7 @@ Animator-facing features found there, which RigModules does not have yet:
 1. **mayadev cleanup:** tag `legacy-builder`, delete the legacy builder, add `mayadev.mod`, load the plugin at startup.
 2. **RigModules `python/` package:** design first, then the build wrapper, the query API and the module interface query, with tests in the suite. Add `RigModules.mod`.
 3. **Shape IO:** built, mirroring included (see "Shape IO", D28).
-4. **mayadev asset build:** the asset folder TODOs, a build that calls the RigModules wrapper and shape IO, and rigManager rewritten as a template editor.
+4. **mayadev asset build:** the asset file model is on mayadev branch `asset-model` (D29, `asset-model.md`). Still to do: a build that calls the RigModules wrapper and shape IO, and rigManager rewritten as a template editor.
 5. **Skinning and animation tools** on the query API: pose data, reset, key all, IK/FK match once IK modules exist.
 
 ## Answers so far (2026-11-06)

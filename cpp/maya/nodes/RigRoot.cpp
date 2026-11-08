@@ -87,9 +87,10 @@ MStatus RigRootNode::initialize()
 	tAttr.setStorable(true);
 	addAttribute(aPluginVersion);
 
-	// Written by the publish step, never by the build.
-	aPublishVersion = nAttr.create(RigAttr::PublishVersion, RigAttr::PublishVersion, MFnNumericData::kLong, 0, &status);
-	nAttr.setStorable(true);
+	// The publish id ("20261108T142012Z_bmorgan"), written by the publish step, never by the build. A string,
+	// because publish ids are a time and a user, so two people publishing never collide (D29).
+	aPublishVersion = tAttr.create(RigAttr::PublishVersion, RigAttr::PublishVersion, MFnData::kString, MObject::kNullObj, &status);
+	tAttr.setStorable(true);
 	addAttribute(aPublishVersion);
 
 	aRigTemplateName = tAttr.create("rigTemplateName", "rigTemplateName", MFnData::kString, MObject::kNullObj, &status);

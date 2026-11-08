@@ -350,7 +350,7 @@ Every `rigControlNode` has a static JSON string attribute, `controlMarkup`: `{"m
 ## Assets
 
 ### D29. The asset owns its namespace, its rig variants and its files
-**Status:** Decided (2026-11-08). The scene side is built and run in mayapy 2026. The file model and registry are designed in `asset-model.md` and not built: they go on a mayadev branch.
+**Status:** Decided (2026-11-08). The scene side is built and run in mayapy 2026. The file model, versions, registry and handlers are built on mayadev branch `asset-model` (not merged), as described in `asset-model.md`.
 
 An asset is the top-level container for a character, prop, vehicle, vfx element or environment piece. In a scene, one `assetRootModule` per flat namespace owns every rig variant built into that namespace. On disk, the asset is a folder under `RIGGING_PROJECT_DIR` holding an `asset.json`, and its pipe-separated id is that folder's relative path. Full design: `asset-model.md`.
 
@@ -360,7 +360,9 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
   - Namespaces are flat, one per asset instance (rejected: nested `asset:variant`). The default is the id's last token, and `namespace` overrides it (`hero_damaged`). Variants share the namespace, and the variant is the rig root's `rigName`.
   - `rigType` is removed, and asset types come from the project's `project.json` and are stored in `asset.json`. The C++ keeps no asset type list (rejected: the `Mesh`/`Rig`/`Other` enum, which described file kinds and repeated what the project defines).
   - Variants share one skeleton. A variant may add joints, never remove them. Meshes, weights, textures and shaders are per variant.
-  - Each rig root stamps what built it (`rigVersion`, `pluginVersion`, `publishVersion`). Tools check the stamps against a master version registry to flag out-of-date imports.
+  - Each rig root stamps what built it (`rigVersion`, `pluginVersion`, `publishVersion`). Tools check the stamps against the latest publishes to flag out-of-date imports.
+  - Mainline only: one stream, no release-stream tooling, because one person maintains it.
+  - Under Perforce, nothing shared is written on a routine save. Depot files change only when someone deliberately changes that asset: `asset.json` holds only type and skeleton, variants are folders, publishes are new folders with `<UTC time>Z_<user>` ids, the registry is an in-memory scan, and local versions live outside the workspace. Saves go through a source-control adapter that does nothing by default. Rejected: a shared `registry.json` written on every save (constant checkouts, merge conflicts on every integrate), sequential publish numbers (collide), changelist numbers as publish ids (renumbered on submit), and a per-machine registry cache file (still needs the walk, adds staleness).
   - The file model is Python in mayadev, on a new branch, because it departs from mayadev's current asset package. D24 stands: RigModules C++ never resolves a path from an asset id.
   - Where a file lives is kept apart from how it is saved and loaded. Save and load are per-file-type handler stubs.
   - Local version copies are wanted alongside source control. Artists go days between submits, and personal work has no Perforce.
@@ -370,7 +372,7 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
   - `createRigFromTemplate` needs `asset`, checks it (pipe-separated tokens of letters, digits and `_`), and defaults `namespace` to its last token.
   - The build reuses the namespace's asset root or creates one. The read phase fails when the namespace holds more than one asset root, when the asset root's `assetId` differs from `asset` (case is ignored), or when a rig root under it already has the template's `rigName`.
   - Before this change, the asset root's id came from `rigTemplateName` by mistake, and every build made a new asset root.
-  - Rig roots get `pluginVersion` (set by the build from `PluginInfo::Version`, which `MFnPlugin` also registers) and `publishVersion` (0 until the publish step sets it).
+  - Rig roots get `pluginVersion` (set by the build from `PluginInfo::Version`, which `MFnPlugin` also registers) and `publishVersion` (a string holding the publish id, empty until the publish step sets it).
   - Removed: the template keys `assetId`, `assetType` and `rigType`; the `assetType`, `assetData` and `rigType` attributes; and `AssetType` and `RigType` in `maya/shared/`.
 - **Consequence:**
   - Every template with `assetId`, `assetType` or `rigType` now fails as having unknown keys. No legacy templates need to survive.
@@ -386,7 +388,8 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
 - **D24:** the TODOs in `mayadev-integration.md` (the `python/` package, `.mod` files), plus control sets. Asset folders moved to D29.
-- **D29:** the mayadev branch for the file model, local versions and the registry, and the out-of-date check against the registry's latest publish.
+- **D29:** review and merge mayadev branch `asset-model` (source-control revision built 2026-11-08). Then the `python/` query for asset roots and stamps, the publish step, the out-of-date check, and a Perforce adapter when a project uses Perforce.
+- **D29 (potential):** asset GUIDs for references between assets, if renames and moves become common. Not needed now: ids are relative to the projects root, so they survive branching. See "Potential TODO: asset GUIDs" in `asset-model.md`.
 - **D29:** a later pass moves asset ids from `|` to `/` separators (author, 2026-11-08). It has to be done together with the existing tools that read `|` ids, and with a migration for existing rigs whose `assetId` uses `|`.
 - **D28:** mirroring poses and animation, built on `getRigMirrorControl` with the animation tools. A `ModuleContract` test that builds every Left/Right-capable module mirrored (Aim has no mirror fixture yet).
 - **D26:** the selection highlight still reads the active selection list once per control per `prepareForDraw`, which scales with control count times selection size.

@@ -77,7 +77,7 @@ The rig root records what built it, so tools can find out-of-date rigs in a scen
 | `rigName` | The rig variant, from the template |
 | `rigVersion` | The template's `rigVersion` |
 | `pluginVersion` | The RigModules plugin version that ran the build |
-| `publishVersion` | The asset publish the rig came from. A build sets `0`, and the publish step sets the real number |
+| `publishVersion` | The id of the asset publish the rig came from, for example `20261108T142012Z_bmorgan` (UTC time and user). A build leaves it empty, and the publish step sets it |
 
 Undo removes the rig and moves the joints back, but leaves the (empty) rig namespace and an asset root that existed before the build.
 
