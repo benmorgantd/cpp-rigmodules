@@ -97,6 +97,8 @@ mayadev's `userSetup.py` is wanted in interactive Maya. The suite keeps skipping
 
 ## Asset folders (TODO, mayadev side)
 
+Superseded by `asset-model.md` (D29, 2026-11-08), which proposes the asset id, file model, versions and registry. The notes below record the legacy layout.
+
 mayadev's `Asset` already resolves an asset id to a folder. Keep that model. Find the asset root node by its `assetId`, then find its rig data next to it on disk.
 
 Legacy layout, under `RIGGING_PROJECT_DIR/<project>/<type>/<name>/`:
@@ -137,10 +139,10 @@ mayadev's `Rig.build_rig` steps, and who owns each one afterwards:
 | Legacy step | New owner |
 |---|---|
 | New scene, load plugins | mayadev (startup and the build both load `RigModules.mll`) |
-| Make the character network node | RigModules: `createRig` makes `assetRootModule` and `rigRootModule`. The `assetId` format is already the same, `project\|type\|name` |
+| Make the character network node | RigModules: `createRig` makes `assetRootModule` and `rigRootModule`. The `assetId` is the same `\|`-separated format, with variable depth (D29). One asset root per namespace, shared by the rig variants |
 | Read `build.json` | The asset's template file |
 | `Layout` imports the skeleton and mesh files | mayadev, importing the skeleton into the rig namespace |
-| Build each module, then mirror | `cmds.createRigFromTemplate(*joints, template=path, namespace=ns)` through the `python/` wrapper |
+| Build each module, then mirror | `cmds.createRigFromTemplate(*joints, template=path, asset=assetId)` through the `python/` wrapper (D29) |
 | `CTRL_set`, `BIND_set` | Open: built from the query API, or by RigModules. Animators and export both need a control set |
 | Skin and load weights | mayadev skinning, on the export joints |
 | Load control shapes | RigModules shape IO, reading the asset's `shapes.json` |

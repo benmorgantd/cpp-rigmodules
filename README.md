@@ -43,9 +43,6 @@ This builds a three-joint spine with a one-joint arm hanging off its last joint.
 
 ```json
 {
-  "assetId": "example",
-  "assetType": "Rig",
-  "rigType": "Character",
   "rigVersion": 1,
   "rigTemplateName": "SpineArm",
   "rigAuthor": "you",
@@ -82,16 +79,16 @@ cmds.rigJointMarkup("skel:arm_jnt", usage="arm", side="Left", export=True, skin=
 
 # Every joint passed in must carry markup.
 joints = ["skel:spine1_jnt", "skel:spine2_jnt", "skel:spine3_jnt", "skel:arm_jnt"]
-cmds.createRigFromTemplate(*joints, template=r"C:\path\to\spine_arm.json")
+cmds.createRigFromTemplate(*joints, template=r"C:\path\to\spine_arm.json", asset="shooter|characters|hero")
 ```
 
-The rig and its input joints end up in the `rig` namespace. The `namespace` flag changes that, and `:` means the root. Joint names are kept. Controls are named from their joint and their module's side, so `skel:arm_jnt` in a `Left` module gives `rig:arm_ctrl_l`.
+`asset` is the asset's folder path below the projects root. The template names no asset, so one template can build many assets. The rig and its input joints end up in a namespace named after the asset, `hero`. The `namespace` flag changes that, and `:` means the root. Joint names are kept. Controls are named from their joint and their module's side, so `skel:arm_jnt` in a `Left` module gives `hero:arm_ctrl_l`.
 
 Give the arm a space switch between the world and the chest. The first driver starts active, so the arm now stays in world space when the spine moves. Switch it back to following the chest:
 
 ```python
-cmds.createRigParentConstraint("rig:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"])
-cmds.setRigConstraintSpace("rig:arm_ctrl_l_space", label="Chest")
+cmds.createRigParentConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"])
+cmds.setRigConstraintSpace("hero:arm_ctrl_l_space", label="Chest")
 ```
 
 Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`](RigTemplates/LayoutRig.json) is a larger example that does that and uses all three modules.

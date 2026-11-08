@@ -47,9 +47,9 @@ The control's bounding box (`boundingBoxMin`, `boundingBoxMax`) follows `shapeTr
 Riggers edit control shapes per asset. The shape file saves them so a rig rebuilt from its template gets them back. There is one file per rig, keyed by control markup, so a renamed control keeps its shape as long as its joint keeps its markup.
 
 ```python
-cmds.saveRigControlShapes("rig:rigRootModule1", file="C:/assets/hero/shapes.json")
+cmds.saveRigControlShapes("hero:rigRootModule1", file="C:/assets/hero/shapes.json")
 # ... rebuild the rig from its template ...
-cmds.loadRigControlShapes("rig:rigRootModule1", file="C:/assets/hero/shapes.json")
+cmds.loadRigControlShapes("hero:rigRootModule1", file="C:/assets/hero/shapes.json")
 ```
 
 ```json
@@ -77,8 +77,8 @@ cmds.loadRigControlShapes("rig:rigRootModule1", file="C:/assets/hero/shapes.json
 `mirrorRigControlShapes` copies each Left control's shape onto the Right control with the same `usage`, reflected across world X = 0, or Right onto Left with `leftToRight=False` ([commands.md](commands.md#mirrorrigcontrolshapes)). Edit one side, mirror it, then save the shape file.
 
 ```python
-cmds.mirrorRigControlShapes("rig:rigRootModule1")
-cmds.saveRigControlShapes("rig:rigRootModule1", file="C:/assets/hero/shapes.json")
+cmds.mirrorRigControlShapes("hero:rigRootModule1")
+cmds.saveRigControlShapes("hero:rigRootModule1", file="C:/assets/hero/shapes.json")
 ```
 
 `getRigMirrorControl` finds one control's mirror the same way, by markup.

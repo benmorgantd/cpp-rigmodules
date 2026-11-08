@@ -2,15 +2,12 @@
 
 A rig template is a JSON file that lists a rig's modules, how they attach to each other, and optional space-switch constraints. `createRigFromTemplate` reads it (see [commands.md](commands.md)). [`RigTemplates/LayoutRig.json`](../RigTemplates/LayoutRig.json) is a full example.
 
-Templates never name joints. Modules pick joints by their markup (`[side, usage]`), so one template builds on any skeleton marked the same way.
+Templates never name joints. Modules pick joints by their markup (`[side, usage]`), so one template builds on any skeleton marked the same way. Templates don't name an asset either: `createRigFromTemplate` takes it as `asset`, so one template builds many assets.
 
 ## Example
 
 ```json
 {
-  "assetId": "example",
-  "assetType": "Rig",
-  "rigType": "Character",
   "rigVersion": 1,
   "rigTemplateName": "SpineArm",
   "rigAuthor": "you",
@@ -45,14 +42,11 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 
 | Key | Required | Value |
 |---|---|---|
-| `assetId` | yes | String identifying the asset |
-| `assetType` | yes | One of `Mesh`, `Rig`, `Other` |
-| `rigType` | yes | One of `Prop`, `Character`, `Vehicle`, `Head`, `Weapon`, `VFX`, `Light`, `Environment`, `Other` |
 | `rigVersion` | yes | Integer, 1 or more |
 | `rigTemplateName` | yes | Non-empty string |
 | `rigAuthor` | yes | String |
 | `rigModules` | yes | Array of modules (below) |
-| `rigName` | no | Names the rig root. Defaults to `rigTemplateName`. |
+| `rigName` | no | Names the rig root, and is the rig variant (`game`, `cine`). Defaults to `rigTemplateName`. Unique among the rigs built into one namespace |
 | `constraints` | no | Array of constraints (below) |
 
 ## Modules
@@ -116,7 +110,7 @@ A module cannot drive its own child plug, and no loop may run through `parentStr
 
 ```json
 {
-  "assetId": "hero|rig|body", "assetType": "Rig", "rigType": "Character", "rigVersion": 1,
+  "rigVersion": 1,
   "rigTemplateName": "Arms", "rigAuthor": "you",
   "rigModules": [
     { "moduleType": "FkChain", "name": "spine", "moduleArgs": { "joints": [["Center", "chest"]] } },
@@ -159,7 +153,7 @@ rigModules[1] 'arm'.parentStructure.start: ...
 Besides the rules in the tables above:
 
 - **Unknown keys are errors** at every level, including inside `moduleArgs` and drivers, so a typo fails instead of being ignored.
-- **Enum values are strict.** `rigType`, `assetType`, `side`, `shapeType` and selector sides must match exactly. There is no fallback.
+- **Enum values are strict.** `side`, `shapeType` and selector sides must match exactly. There is no fallback.
 - **Names must be free.** Every module's and joint's name must be unused in the rig namespace.
 - **Module-specific checks** are listed in [modules.md](modules.md).
 

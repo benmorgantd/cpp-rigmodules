@@ -24,7 +24,7 @@ void from_json(const nlohmann::json& jsonData, RigModuleData& module)
 // -----------------------------------------------------------------------------
 // High-Level File Loading Function
 // -----------------------------------------------------------------------------
-bool loadRigTemplate(const std::string& filePath, AssetRootData& assetData, RigRootData& rigData, ValidationReport& report)
+bool loadRigTemplate(const std::string& filePath, RigRootData& rigData, ValidationReport& report)
 {
     std::ifstream file(filePath);
     if (!file.is_open())
@@ -54,7 +54,6 @@ bool loadRigTemplate(const std::string& filePath, AssetRootData& assetData, RigR
     try
     {
         rigData = jsonData.get<RigRootData>();
-        assetData = jsonData.get<AssetRootData>();
         rigData.rigName = jsonData.value(TemplateKey::RigName, rigData.rigTemplateName);
 
         if (jsonData.contains(TemplateKey::Constraints))

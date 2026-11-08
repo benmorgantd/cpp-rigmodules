@@ -190,6 +190,7 @@ Any string attribute that holds structured data stores JSON text, read and writt
 - **Rejected:** skipping unmarked joints (it hides a missed markup pass), and leaving joints in their own namespace.
 - **Fixed with this change:** redo ran the modifier with the user's current namespace, so redone controls and modules landed in the root namespace. `doIt` and `redoIt` now both make the rig namespace current through `ScopedRigNamespace`. Control names strip the joint's namespace, so `skel:a_jnt` gives `a_ctrl_c` in the rig namespace, not `skel:a_ctrl_c`.
 - **Consequence:** the joint rename is part of the command's undo, but namespace creation is not, so undo leaves an empty rig namespace. Callers that passed a positional path or relied on the namespace scan must change. `JointMarkupScene::collectMarkedJoints` now takes a joint list and adds its errors to the `ValidationReport`.
+- **Changed by D29 (2026-11-08):** the command takes a required `asset` flag, and `namespace` defaults to the asset's last id token instead of `rig`.
 
 ---
 
@@ -346,12 +347,47 @@ Every `rigControlNode` has a static JSON string attribute, `controlMarkup`: `{"m
 
 ---
 
+## Assets
+
+### D29. The asset owns its namespace, its rig variants and its files
+**Status:** Decided (2026-11-08). The scene side is built and run in mayapy 2026. The file model and registry are designed in `asset-model.md` and not built: they go on a mayadev branch.
+
+An asset is the top-level container for a character, prop, vehicle, vfx element or environment piece. In a scene, one `assetRootModule` per flat namespace owns every rig variant built into that namespace. On disk, the asset is a folder under `RIGGING_PROJECT_DIR` holding an `asset.json`, and its pipe-separated id is that folder's relative path. Full design: `asset-model.md`.
+
+- **Author's answers (2026-11-08):**
+  - Keep `|` in asset ids, because existing tools depend on it (rejected: `/`). Depth varies (rejected: always `project|type|name`, which is idealistic once assets end up everywhere). Ids compare case-insensitively.
+  - The asset comes from `createRigFromTemplate(asset=...)`, so templates can be shared between assets (rejected: an `assetId` template key, which ties a template to one asset and goes stale when a template is copied).
+  - Namespaces are flat, one per asset instance (rejected: nested `asset:variant`). The default is the id's last token, and `namespace` overrides it (`hero_damaged`). Variants share the namespace, and the variant is the rig root's `rigName`.
+  - `rigType` is removed, and asset types come from the project's `project.json` and are stored in `asset.json`. The C++ keeps no asset type list (rejected: the `Mesh`/`Rig`/`Other` enum, which described file kinds and repeated what the project defines).
+  - Variants share one skeleton. A variant may add joints, never remove them. Meshes, weights, textures and shaders are per variant.
+  - Each rig root stamps what built it (`rigVersion`, `pluginVersion`, `publishVersion`). Tools check the stamps against a master version registry to flag out-of-date imports.
+  - The file model is Python in mayadev, on a new branch, because it departs from mayadev's current asset package. D24 stands: RigModules C++ never resolves a path from an asset id.
+  - Where a file lives is kept apart from how it is saved and loaded. Save and load are per-file-type handler stubs.
+  - Local version copies are wanted alongside source control. Artists go days between submits, and personal work has no Perforce.
+  - Asset data must be readable without opening Maya: per-asset `asset.json`, a `project.json` holding the asset types and file types, and a registry cache. The registry tracks shared skeletons, so assets that can share poses and animations, and the dependents of a changed skeleton, come from one query.
+  - The environment variable is `RIGGING_PROJECT_DIR`.
+- **Built (2026-11-08):**
+  - `createRigFromTemplate` needs `asset`, checks it (pipe-separated tokens of letters, digits and `_`), and defaults `namespace` to its last token.
+  - The build reuses the namespace's asset root or creates one. The read phase fails when the namespace holds more than one asset root, when the asset root's `assetId` differs from `asset` (case is ignored), or when a rig root under it already has the template's `rigName`.
+  - Before this change, the asset root's id came from `rigTemplateName` by mistake, and every build made a new asset root.
+  - Rig roots get `pluginVersion` (set by the build from `PluginInfo::Version`, which `MFnPlugin` also registers) and `publishVersion` (0 until the publish step sets it).
+  - Removed: the template keys `assetId`, `assetType` and `rigType`; the `assetType`, `assetData` and `rigType` attributes; and `AssetType` and `RigType` in `maya/shared/`.
+- **Consequence:**
+  - Every template with `assetId`, `assetType` or `rigType` now fails as having unknown keys. No legacy templates need to survive.
+  - Every `createRigFromTemplate` call needs `asset`, and the default namespace moves from `rig` to the asset's name.
+  - Two templates with the same `rigName` can't be built into one namespace.
+  - Pose and animation data aren't affected: no control, attribute or socket names changed.
+
+---
+
 ## Open items
 
 - **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
-- **D24:** the TODOs in `mayadev-integration.md` (asset folders, the `python/` package, `.mod` files), plus control sets.
+- **D24:** the TODOs in `mayadev-integration.md` (the `python/` package, `.mod` files), plus control sets. Asset folders moved to D29.
+- **D29:** the mayadev branch for the file model, local versions and the registry, and the out-of-date check against the registry's latest publish.
+- **D29:** a later pass moves asset ids from `|` to `/` separators (author, 2026-11-08). It has to be done together with the existing tools that read `|` ids, and with a migration for existing rigs whose `assetId` uses `|`.
 - **D28:** mirroring poses and animation, built on `getRigMirrorControl` with the animation tools. A `ModuleContract` test that builds every Left/Right-capable module mirrored (Aim has no mirror fixture yet).
 - **D26:** the selection highlight still reads the active selection list once per control per `prepareForDraw`, which scales with control count times selection size.
 

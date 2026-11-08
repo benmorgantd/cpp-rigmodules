@@ -26,7 +26,7 @@ MStatus initializePlugin(MObject obj)
 	}
 
 	// Register our plugin
-	MFnPlugin plugin(obj, "Ben Morgan", "0.1", "Any");
+	MFnPlugin plugin(obj, PluginInfo::Vendor, PluginInfo::Version, "Any");
 
 	// -- RIG MODULE NODES --
 	// This loop is possible because we have the ModuleRegistry. It makes it so that when we add a new module we don't have to touch so many files.

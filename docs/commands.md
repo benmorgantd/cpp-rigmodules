@@ -51,13 +51,14 @@ Builds a rig from a template and the joints passed in.
 
 ```python
 joints = ["skel:spine1_jnt", "skel:spine2_jnt", "skel:arm_jnt"]
-cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", namespace="char:rig")
+cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="shooter|characters|hero")
 ```
 
 | Flag | Type | Meaning |
 |---|---|---|
 | `template` | string | Path to the template. Required. |
-| `namespace` | string | The rig's namespace. Defaults to `rig`. `":"` is the root, nested paths such as `char:rig` work, and an existing namespace is reused. |
+| `asset` | string | The asset the rig belongs to: its folder path below the projects root, `\|` between folders (`shooter\|characters\|hero`), any depth. Each folder name is letters, digits and `_`. Compared without case. Required. Templates name no asset, so one template builds many assets. |
+| `namespace` | string | The rig's namespace. Defaults to the asset's last folder name (`hero`). `":"` is the root, nested paths such as `char:rig` work, and an existing namespace is reused. |
 | `checkMirrorPositions` | bool | Default `False`. With `True`, a mirrored module ([templates.md](templates.md#mirroring)) fails the build when one of its joints is more than 0.001 from its source joint reflected across X = 0. |
 
 Objects: one or more joint names, with their namespace (`skel:arm_jnt`).
@@ -67,15 +68,26 @@ Objects: one or more joint names, with their namespace (`skel:arm_jnt`).
 
 Every node created goes in the rig namespace. The input joints are moved there too, with their names unchanged. A joint already in that namespace stays where it is. Joint and module names must be free in the rig namespace, so `skel:a` and `other:a` cannot both be passed.
 
-Undo removes the rig and moves the joints back, but leaves the (empty) rig namespace.
+The asset owns the rig namespace. The namespace holds one `assetRootModule`, which stores `asset` in its `assetId` attribute. Every rig built into the namespace connects to it, one per rig variant (`rigName`). The build reuses the namespace's asset root if there is one, and creates it otherwise. The build fails, building nothing, when the namespace holds more than one asset root, when the asset root's `assetId` differs from `asset` (ignoring case), or when a rig with the template's `rigName` is already connected to it.
+
+The rig root records what built it, so tools can find out-of-date rigs in a scene:
+
+| Attribute | Meaning |
+|---|---|
+| `rigName` | The rig variant, from the template |
+| `rigVersion` | The template's `rigVersion` |
+| `pluginVersion` | The RigModules plugin version that ran the build |
+| `publishVersion` | The asset publish the rig came from. A build sets `0`, and the publish step sets the real number |
+
+Undo removes the rig and moves the joints back, but leaves the (empty) rig namespace and an asset root that existed before the build.
 
 ## createRigParentConstraint
 
 Adds a space switch to a rig control after the build. Templates can declare the same thing in `constraints` ([templates.md](templates.md#constraints)).
 
 ```python
-cmds.createRigParentConstraint("rig:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
-# Returns the constraint node: 'rig:arm_ctrl_l_space'
+cmds.createRigParentConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
+# Returns the constraint node: 'hero:arm_ctrl_l_space'
 ```
 
 | Flag | Type | Meaning |
@@ -98,8 +110,8 @@ Object: the control, which must be the control of a module's child plug.
 Switches a constraint to another driver without moving the control at that frame.
 
 ```python
-cmds.setRigConstraintSpace("rig:arm_ctrl_l_space", label="World")
-cmds.setRigConstraintSpace("rig:arm_ctrl_l_space", space=0)
+cmds.setRigConstraintSpace("hero:arm_ctrl_l_space", label="World")
+cmds.setRigConstraintSpace("hero:arm_ctrl_l_space", space=0)
 ```
 
 | Flag | Type | Meaning |
@@ -123,9 +135,9 @@ Undo restores both the enum and the control's values.
 Returns a rig's controls, found through the rig's connections. Filter by module type and control markup (see [controls.md](controls.md#control-markup)).
 
 ```python
-cmds.getRigControls("rig:rigRootModule1")                                # every control
-cmds.getRigControls("rig:rigRootModule1", moduleType="FkChain", side="Left")
-cmds.getRigControls("rig:rigRootModule1", usage=["spine1", "spine2"])
+cmds.getRigControls("hero:rigRootModule1")                                # every control
+cmds.getRigControls("hero:rigRootModule1", moduleType="FkChain", side="Left")
+cmds.getRigControls("hero:rigRootModule1", usage=["spine1", "spine2"])
 ```
 
 | Flag | Type | Meaning |
@@ -146,7 +158,7 @@ Object: the rig root node (type `rigRootModule`).
 Writes every control's shape to a shape file (format in [controls.md](controls.md#shape-file)).
 
 ```python
-cmds.saveRigControlShapes("rig:rigRootModule1", file="C:/assets/hero/shapes.json")
+cmds.saveRigControlShapes("hero:rigRootModule1", file="C:/assets/hero/shapes.json")
 ```
 
 | Flag | Type | Meaning |
@@ -160,7 +172,7 @@ Object: the rig root node. Returns the names of the controls saved. Not undoable
 Sets control shapes from a shape file, matching controls by markup.
 
 ```python
-cmds.loadRigControlShapes("rig:rigRootModule1", file="C:/assets/hero/shapes.json")
+cmds.loadRigControlShapes("hero:rigRootModule1", file="C:/assets/hero/shapes.json")
 ```
 
 | Flag | Type | Meaning |
@@ -178,8 +190,8 @@ Object: the rig root node. Returns the names of the controls changed.
 Returns the control on the other side of the same rig: the control with the same `usage` and the swapped `side` in its markup ([controls.md](controls.md#control-markup)).
 
 ```python
-cmds.getRigMirrorControl("rig:upperArm_l_ctrl_l")
-# Returns 'rig:upperArm_r_ctrl_r'
+cmds.getRigMirrorControl("hero:upperArm_l_ctrl_l")
+# Returns 'hero:upperArm_r_ctrl_r'
 ```
 
 Object: one control.
@@ -193,8 +205,8 @@ Object: one control.
 Mirrors control shapes from one side of a rig to the other.
 
 ```python
-cmds.mirrorRigControlShapes("rig:rigRootModule1")                    # Left onto Right
-cmds.mirrorRigControlShapes("rig:rigRootModule1", leftToRight=False) # Right onto Left
+cmds.mirrorRigControlShapes("hero:rigRootModule1")                    # Left onto Right
+cmds.mirrorRigControlShapes("hero:rigRootModule1", leftToRight=False) # Right onto Left
 ```
 
 | Flag | Type | Meaning |

@@ -16,9 +16,13 @@ from rigtest.case import RigTestCase, rig_name
 README = os.path.join(config.REPO_DIR, "README.md")
 TEMPLATES_DOC = os.path.join(config.REPO_DIR, "docs", "templates.md")
 
-SPINE3_CTRL = rig_name("spine3_ctrl_c")
-ARM_CTRL = rig_name("arm_ctrl_l")
-ARM_JNT = rig_name("arm_jnt")
+# The README builds with asset="shooter|characters|hero", so the rig lands in the asset's namespace, hero.
+DOC_ASSET = "shooter|characters|hero"
+DOC_NAMESPACE = "hero"
+
+SPINE3_CTRL = rig_name("spine3_ctrl_c", DOC_NAMESPACE)
+ARM_CTRL = rig_name("arm_ctrl_l", DOC_NAMESPACE)
+ARM_JNT = rig_name("arm_jnt", DOC_NAMESPACE)
 
 # arm_jnt rests at (2, 4, 0), 2 units along +X from spine3_jnt at (0, 4, 0).
 ARM_REST = (2, 4, 0)
@@ -41,16 +45,16 @@ class ReadmeQuickStart(RigTestCase):
 
     def setUp(self):
         super().setUp()
-        self.build_standard(readme_quick_start_template(), "readme_quick_start")
+        self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET)
 
     def rotate_spine3_z(self, degrees):
         cmds.setAttr(SPINE3_CTRL + ".rotateZ", degrees)
 
     def test_builds_the_names_the_readme_gives(self):
         for module in ("spine", "arm", "layout"):
-            self.assertExists(rig_name(module))
+            self.assertExists(rig_name(module, DOC_NAMESPACE))
         for control in ("spine1_ctrl_c", "spine2_ctrl_c", "spine3_ctrl_c", "arm_ctrl_l"):
-            self.assertExists(rig_name(control))
+            self.assertExists(rig_name(control, DOC_NAMESPACE))
 
     def test_arm_hangs_off_the_spine_end(self):
         self.rotate_spine3_z(90)
@@ -58,7 +62,7 @@ class ReadmeQuickStart(RigTestCase):
 
     def test_space_switch(self):
         con = cmds.createRigParentConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"])
-        self.assertEqual(con.lstrip(":"), "rig:arm_ctrl_l_space")
+        self.assertEqual(con.lstrip(":"), "hero:arm_ctrl_l_space")
         self.assertEqual(cmds.attributeQuery("space", node=ARM_CTRL, listEnum=True), ["World:Chest"])
 
         # World is the first driver, so it starts active and the spine no longer carries the arm.
@@ -92,8 +96,8 @@ class ControlDocExamples(RigTestCase):
 
     def setUp(self):
         super().setUp()
-        self.build_standard(readme_quick_start_template(), "readme_quick_start")
-        self.root = "rig:rigRootModule1"   # the name the docs examples use
+        self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET)
+        self.root = "hero:rigRootModule1"   # the name the docs examples use
 
     def test_get_rig_controls_examples(self):
         self.assertEqual(len(cmds.getRigControls(self.root)), 7)

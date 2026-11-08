@@ -2,13 +2,11 @@
 #include "maya/nodes/AssetRoot.h"
 #include "core/Constants.h"
 #include "maya/ModuleRegistry.h"
-#include "maya/shared/AssetType.h"
 
 // Maya dependencies
 #include <maya/MDGModifier.h>
 #include <maya/MFnAttribute.h>
 #include <maya/MFnData.h>
-#include <maya/MFnEnumAttribute.h>
 #include <maya/MFnMessageAttribute.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MPlug.h>
@@ -18,8 +16,6 @@ MTypeId AssetRootNode::id(0x00219);
 
 // Static member definitions
 MObject AssetRootNode::aAssetId;
-MObject AssetRootNode::aAssetType;
-MObject AssetRootNode::aAssetData;
 MObject AssetRootNode::aChildren;
 
 // Boilerplate constructor, destructor, and creator
@@ -38,28 +34,15 @@ void* AssetRootNode::creator()
 MStatus AssetRootNode::initialize()
 {
 	MFnTypedAttribute tAttr;
-	MFnEnumAttribute eAttr;
 	MFnMessageAttribute msgAttr;
 	MStatus status;
 
-	// Asset ID: Hierarchy path separated by pipes ("project_name|assets|my_rig")
+	// Asset ID: the asset folder path, '|' between folders (D29)
 	aAssetId = tAttr.create(RigAttr::AssetId, RigAttr::AssetId, MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	addAttribute(aAssetId);
 
-	// Asset Type: High-level classification string 
-	aAssetType = eAttr.create(RigAttr::AssetType, RigAttr::AssetType, 0);
-	for (short i = 0; i < RigAttr::AssetTypes::All.size(); ++i)
-	{
-		eAttr.addField(RigAttr::AssetTypes::All[i], i);
-	}
-	eAttr.setStorable(true);
-	addAttribute(aAssetType);
-
-	// Asset Data: Native string attribute storing JSON formatted payload for graph metadata
-	aAssetData = tAttr.create(RigAttr::AssetData, RigAttr::AssetData, MFnData::kString, MObject::kNullObj, &status);
-	tAttr.setStorable(true);
-	addAttribute(aAssetData);
+	// The asset's type lives in its asset.json on disk, found through the id, so the node doesn't repeat it (D29).
 
 	// Message attributes are non-storable DG connection pins
 	aChildren = msgAttr.create(RigAttr::Children, RigAttr::Children, &status);
@@ -78,7 +61,7 @@ MStatus AssetRootNode::compute(const MPlug& plug, MDataBlock& data)
 
 
 // Master rig builder static method ------------------------------------------
-MObject AssetRootNode::createAssetRoot(const MString& assetId, const AssetType& assetType, MDagModifier& dagMod)
+MObject AssetRootNode::createAssetRoot(const MString& assetId, MDagModifier& dagMod)
 {
 	MObject oAssetRoot = dagMod.MDGModifier::createNode(AssetRootNode::id);
 
@@ -88,11 +71,6 @@ MObject AssetRootNode::createAssetRoot(const MString& assetId, const AssetType& 
 	{
 		dagMod.newPlugValueString(pAssetId, assetId);
 	}
-
-	// Set asset type
-	short assetTypeShort = getShortFromAssetType(assetType);
-	MPlug pAssetType(oAssetRoot, AssetRootNode::aAssetType);
-	dagMod.newPlugValueShort(pAssetType, assetTypeShort);
 
 	return oAssetRoot;
 

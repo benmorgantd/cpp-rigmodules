@@ -71,8 +71,8 @@ namespace RigTemplateValidation
 	// Keys at the top level and on every module, constraint and driver. Each module's plan step checks its own moduleArgs.
 	void checkTemplateKeys(const nlohmann::json& templateJson, ValidationReport& report);
 
-	// rigTemplateName, rigVersion, rigType and assetType.
-	void validateHeader(const RigRootData& rigData, const AssetRootData& assetData, ValidationReport& report);
+	// rigTemplateName and rigVersion.
+	void validateHeader(const RigRootData& rigData, ValidationReport& report);
 
 	// Unique, not the reserved layout name, and usable both as a Maya node name and inside "module.socket".
 	void validateModuleNames(const std::vector<RigModuleData>& modules, ValidationReport& report);

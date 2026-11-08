@@ -24,6 +24,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="core\AssetId.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\ControlMarkup.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -93,9 +96,6 @@
     <ClCompile Include="maya\nodes\RigRoot.cpp">
       <Filter>maya\nodes</Filter>
     </ClCompile>
-    <ClCompile Include="maya\shared\AssetType.cpp">
-      <Filter>maya\shared</Filter>
-    </ClCompile>
     <ClCompile Include="maya\shared\ControlShapeScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
@@ -108,9 +108,6 @@
     <ClCompile Include="maya\shared\RigTraversal.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
-    <ClCompile Include="maya\shared\RigType.cpp">
-      <Filter>maya\shared</Filter>
-    </ClCompile>
     <ClCompile Include="maya\shared\Side.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
@@ -119,6 +116,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="core\AssetId.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\Constants.h">
       <Filter>core</Filter>
     </ClInclude>
@@ -194,9 +194,6 @@
     <ClInclude Include="maya\nodes\RigRoot.h">
       <Filter>maya\nodes</Filter>
     </ClInclude>
-    <ClInclude Include="maya\shared\AssetType.h">
-      <Filter>maya\shared</Filter>
-    </ClInclude>
     <ClInclude Include="maya\shared\Colors.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
@@ -210,9 +207,6 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigTraversal.h">
-      <Filter>maya\shared</Filter>
-    </ClInclude>
-    <ClInclude Include="maya\shared\RigType.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\Side.h">

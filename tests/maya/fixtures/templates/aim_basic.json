@@ -1,5 +1,5 @@
 {
-  "assetId": "test|asset|id", "assetType": "Rig", "rigType": "Prop", "rigVersion": 1, "rigAuthor": "tests",
+  "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "AimBasic",
   "rigModules": [
     { "moduleType": "Aim", "name": "aim_1", "shapeType": "Box", "side": "Right",

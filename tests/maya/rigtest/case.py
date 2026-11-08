@@ -55,13 +55,13 @@ class RigTestCase(unittest.TestCase):
         cmds.select(clear=True)
         return created
 
-    def build(self, template, joints, namespace=None, label="template"):
+    def build(self, template, joints, namespace=None, label="template", asset=config.ASSET_ID):
         """Runs createRigFromTemplate. template is a fixture name, a 'RigTemplates/..' path or a dict."""
         if isinstance(template, dict):
             path = fixtures.write_template(template, label)
         else:
             path = fixtures.template_path(template).replace("\\", "/")
-        kwargs = {"template": path}
+        kwargs = {"template": path, "asset": asset}
         if namespace is not None:
             kwargs["namespace"] = namespace
         return cmds.createRigFromTemplate(*joints, **kwargs)

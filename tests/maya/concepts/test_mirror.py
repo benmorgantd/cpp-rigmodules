@@ -3,7 +3,7 @@ getRigMirrorControl and mirrorRigControlShapes. Template errors are validation c
 from maya import cmds
 import maya.api.OpenMaya as om
 
-from rigtest import fixtures
+from rigtest import config, fixtures
 from rigtest.case import RigTestCase, rig_name
 from rigtest.cases import rig_interface
 
@@ -69,13 +69,13 @@ class CheckMirrorPositions(RigTestCase):
 
     def test_flag_fails_a_mirror_joint_off_its_reflected_source(self):
         joints = self.make_skeleton("mirror_arms_asymmetric")
-        build = lambda: cmds.createRigFromTemplate(*joints, template=mirror_template_path(), checkMirrorPositions=True)
+        build = lambda: cmds.createRigFromTemplate(*joints, template=mirror_template_path(), asset=config.ASSET_ID, checkMirrorPositions=True)
         self.assertMayaError(build, "lowerArm", "checkMirrorPositions")
         self.assertNothingBuilt()
 
     def test_flag_passes_a_symmetric_skeleton(self):
         joints = self.make_skeleton("mirror_arms")
-        cmds.createRigFromTemplate(*joints, template=mirror_template_path(), checkMirrorPositions=True)
+        cmds.createRigFromTemplate(*joints, template=mirror_template_path(), asset=config.ASSET_ID, checkMirrorPositions=True)
         self.assertExists(ARM_R)
 
 

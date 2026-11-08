@@ -219,7 +219,7 @@ class ControlMarkupValidation(RigTestCase):
         joints = self.make_skeleton("fk_three")
         cmds.rigJointMarkup(joints[1], edit=True, usage="layout_0")
         template = {
-            "assetId": "test|asset|id", "assetType": "Rig", "rigType": "Prop", "rigVersion": 1, "rigAuthor": "tests",
+            "rigVersion": 1, "rigAuthor": "tests",
             "rigTemplateName": "Clash",
             "rigModules": [{"moduleType": "FkChain", "name": "fkchain_1", "shapeType": "Box", "side": "Center",
                             "moduleArgs": {"joints": [["Center", "a"], ["Center", "layout_0"]]}}],

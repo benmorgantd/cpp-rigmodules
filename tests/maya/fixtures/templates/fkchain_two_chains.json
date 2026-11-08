@@ -1,5 +1,5 @@
 {
-  "assetId": "test|asset|id", "assetType": "Rig", "rigType": "Prop", "rigVersion": 1, "rigAuthor": "tests",
+  "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "FkChainTwoChains",
   "rigModules": [
     { "moduleType": "FkChain", "name": "fkchain_1", "shapeType": "Box", "side": "Center",

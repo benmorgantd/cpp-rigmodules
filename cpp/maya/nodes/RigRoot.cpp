@@ -3,14 +3,13 @@
 #include "core/Constants.h"
 #include "core/RigJsonStructs.h"
 #include "core/RigTemplateValidation.h"
+#include "core/StringUtils.h"
 #include "core/TemplateMirror.h"
 #include "maya/modules/LayoutModule.h"
 #include "maya/nodes/AssetRoot.h"
 #include "maya/nodes/Constraints.h"
-#include "maya/shared/AssetType.h"
 #include "maya/shared/JointMarkupScene.h"
 #include "maya/shared/RigModule.h"
-#include "maya/shared/RigType.h"
 #include "maya/shared/Utilities.h"
 
 // Standard dependencies
@@ -32,7 +31,9 @@
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MGlobal.h>
 #include <maya/MNamespace.h>
+#include <maya/MObjectArray.h>
 #include <maya/MPlug.h>
+#include <maya/MPlugArray.h>
 #include <maya/MSelectionList.h>
 #include <maya/MString.h>
 #include <maya/MTypeId.h>
@@ -42,8 +43,9 @@ MTypeId RigRootNode::id(0x00218);
 
 // Static member definitions
 MObject RigRootNode::aRigName;
-MObject RigRootNode::aRigType;
 MObject RigRootNode::aRigVersion;
+MObject RigRootNode::aPluginVersion;
+MObject RigRootNode::aPublishVersion;
 MObject RigRootNode::aRigModules;
 MObject RigRootNode::aRigTemplateName;
 MObject RigRootNode::aAssetRoot;
@@ -76,17 +78,19 @@ MStatus RigRootNode::initialize()
 	tAttr.setStorable(true);
 	addAttribute(aRigName);
 
-	aRigType = eAttr.create(RigAttr::RigType, RigAttr::RigType, 0);
-	for (short i = 0; i < RigAttr::RigTypes::All.size(); ++i)
-	{
-		eAttr.addField(RigAttr::RigTypes::All[i], i);
-	}
-	addAttribute(aRigType);
-
 	// TODO: replace with constants references.
-	aRigVersion = nAttr.create("rigVersion", "rigVersion", MFnNumericData::kLong, 0, &status);
+	aRigVersion = nAttr.create(RigAttr::RigVersion, RigAttr::RigVersion, MFnNumericData::kLong, 0, &status);
 	nAttr.setStorable(true);
 	addAttribute(aRigVersion);
+
+	aPluginVersion = tAttr.create(RigAttr::PluginVersion, RigAttr::PluginVersion, MFnData::kString, MObject::kNullObj, &status);
+	tAttr.setStorable(true);
+	addAttribute(aPluginVersion);
+
+	// Written by the publish step, never by the build.
+	aPublishVersion = nAttr.create(RigAttr::PublishVersion, RigAttr::PublishVersion, MFnNumericData::kLong, 0, &status);
+	nAttr.setStorable(true);
+	addAttribute(aPublishVersion);
 
 	aRigTemplateName = tAttr.create("rigTemplateName", "rigTemplateName", MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
@@ -121,7 +125,6 @@ MStatus RigRootNode::compute(const MPlug& plug, MDataBlock& data)
 // Public shared methods
 MObject RigRootNode::createRigRoot(
     const MString& name,
-    const MString& type,
     int version,
     const MString& templateName,
     MObject oAssetRoot,
@@ -137,16 +140,11 @@ MObject RigRootNode::createRigRoot(
         dagMod.newPlugValueString(pRigName, name);
     }
 
-    if (!type.isEmpty())
-    {
-		RigType rigType = getRigTypeFromString(type.asChar());
-		short rigTypeShort = getShortFromRigType(rigType);
-        MPlug pRigType(oRigRoot, RigRootNode::aRigType);
-		dagMod.newPlugValueShort(pRigType, rigTypeShort);
-    }
-
     MPlug pRigVersion(oRigRoot, RigRootNode::aRigVersion);
     dagMod.newPlugValueInt(pRigVersion, version);
+
+    MPlug pPluginVersion(oRigRoot, RigRootNode::aPluginVersion);
+    dagMod.newPlugValueString(pPluginVersion, PluginInfo::Version);
 
     if (!templateName.isEmpty())
     {
@@ -245,6 +243,70 @@ namespace
 		}
 	}
 
+	// The asset owns the namespace, so the rig namespace holds at most one asset root, shared by every rig variant
+	// built into it (D29). Returns the existing one, or a null MObject when the build should create it.
+	MObject findAssetRoot(const RigBuildInputs& inputs, const RigRootData& rigData, ValidationReport& report)
+	{
+		const MString absoluteNamespace = MString(":") + inputs.rigNamespace;
+		if (!MNamespace::namespaceExists(absoluteNamespace))
+		{
+			return MObject::kNullObj;
+		}
+
+		MStatus status;
+		const MObjectArray namespaceNodes = MNamespace::getNamespaceObjects(absoluteNamespace, false, &status);
+		if (!status)
+		{
+			report.addError(absoluteNamespace.asChar(), "could not list the namespace's nodes: " + std::string(status.errorString().asChar()));
+			return MObject::kNullObj;
+		}
+
+		std::vector<MObject> assetRoots;
+		for (unsigned int i = 0; i < namespaceNodes.length(); ++i)
+		{
+			if (MFnDependencyNode(namespaceNodes[i]).typeId() == AssetRootNode::id)
+			{
+				assetRoots.push_back(namespaceNodes[i]);
+			}
+		}
+		if (assetRoots.empty())
+		{
+			return MObject::kNullObj;
+		}
+		if (assetRoots.size() > 1)
+		{
+			report.addError(absoluteNamespace.asChar(), "holds " + std::to_string(assetRoots.size())
+				+ " asset roots. A namespace belongs to one asset");
+			return MObject::kNullObj;
+		}
+
+		MObject oAssetRoot = assetRoots[0];
+		const MFnDependencyNode fnAssetRoot(oAssetRoot);
+		const std::string existingId = MPlug(oAssetRoot, AssetRootNode::aAssetId).asString().asChar();
+		if (!StringUtils::equalsIgnoreCase(existingId, inputs.assetId))
+		{
+			report.addError(RigAttr::AssetId, "'" + inputs.assetId + "' does not match '" + existingId + "' on "
+				+ fnAssetRoot.name().asChar() + ", which owns the namespace");
+		}
+
+		MPlugArray pRigRoots;
+		MPlug(oAssetRoot, AssetRootNode::aChildren).connectedTo(pRigRoots, false, true);
+		for (unsigned int i = 0; i < pRigRoots.length(); ++i)
+		{
+			MObject oRigRoot = pRigRoots[i].node();
+			if (MFnDependencyNode(oRigRoot).typeId() != RigRootNode::id)
+			{
+				continue;
+			}
+			if (MPlug(oRigRoot, RigRootNode::aRigName).asString() == rigData.rigName.c_str())
+			{
+				report.addError(TemplateKey::RigName, "'" + rigData.rigName + "' is already built for this asset by "
+					+ MFnDependencyNode(oRigRoot).name().asChar());
+			}
+		}
+		return oAssetRoot;
+	}
+
 	// Write phase. Keeps each joint's name and changes only its namespace. Names were checked free in the read phase.
 	MStatus queueJointMoves(const MDagPathArray& joints, const MString& rigNamespace, MDagModifier& dagMod)
 	{
@@ -280,19 +342,20 @@ namespace
 	// Read phase. Reads the scene, never writes it. Fills plans (layout first) as far as validation gets.
 	void planRig(
 		const RigBuildInputs& inputs,
-		AssetRootData& assetData,
 		RigRootData& rigData,
+		MObject& oExistingAssetRoot,
 		std::vector<ModulePlan>& plans,
 		ValidationReport& report)
 	{
-		if (!loadRigTemplate(inputs.templatePath.asChar(), assetData, rigData, report))
+		if (!loadRigTemplate(inputs.templatePath.asChar(), rigData, report))
 		{
 			return;
 		}
 
 		// Mirrors first, so every check below and the build see them as ordinary entries (D28).
 		TemplateMirror::expandMirrors(rigData, report);
-		RigTemplateValidation::validateHeader(rigData, assetData, report);
+		RigTemplateValidation::validateHeader(rigData, report);
+		oExistingAssetRoot = findAssetRoot(inputs, rigData, report);
 		RigTemplateValidation::validateModuleNames(rigData.rigModules, report);
 		checkTargetNamesFree(inputs.rigNamespace, rigData.rigModules, inputs.joints, report);
 
@@ -385,19 +448,19 @@ namespace
 	MStatus buildRig(
 		const RigBuildInputs& inputs,
 		const RigRootData& rigData,
-		const AssetRootData& assetData,
+		MObject oAssetRoot,
 		const std::vector<ModulePlan>& plans,
 		MDagModifier& dagMod)
 	{
 		MStatus status;
 
-		// TODO: optionally create the asset root, and pass an MStatus so its creation can be checked.
-		std::string assetTypeName = assetData.assetType;
-		MObject oAssetRoot = AssetRootNode::createAssetRoot(rigData.rigTemplateName.c_str(), getAssetTypeFromString(assetTypeName), dagMod);
+		if (oAssetRoot.isNull())
+		{
+			oAssetRoot = AssetRootNode::createAssetRoot(inputs.assetId.c_str(), dagMod);
+		}
 
 		MObject oRigRoot = RigRootNode::createRigRoot(
 			rigData.rigName.c_str(),
-			rigData.rigType.c_str(),
 			rigData.rigVersion,
 			rigData.rigTemplateName.c_str(),
 			oAssetRoot,
@@ -448,15 +511,14 @@ namespace
 	}
 }
 
-// TODO: optionally pass in the asset root. If none, we create one.
 MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMod)
 {
 	// Read phase: nothing touches the scene until the whole template validates, so a bad template leaves nothing behind.
-	AssetRootData assetData;
 	RigRootData rigData;
+	MObject oAssetRoot;
 	std::vector<ModulePlan> plans;
 	ValidationReport report;
-	planRig(inputs, assetData, rigData, plans, report);
+	planRig(inputs, rigData, oAssetRoot, plans, report);
 
 	displayReport(report);
 	if (report.hasErrors())
@@ -476,7 +538,7 @@ MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMo
 
 	try
 	{
-		status = buildRig(inputs, rigData, assetData, plans, dagMod);
+		status = buildRig(inputs, rigData, oAssetRoot, plans, dagMod);
 	}
 	catch (const std::exception& e)
 	{

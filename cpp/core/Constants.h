@@ -4,6 +4,13 @@
 // Maya-typed constants live in Colors.h.
 #include <array>
 
+// The plugin version MFnPlugin registers, and the one stamped on every rig root a build creates (D29).
+namespace PluginInfo
+{
+	inline constexpr const char* Vendor{ "Ben Morgan" };
+	inline constexpr const char* Version{ "0.1" };
+}
+
 namespace RigControlNodeAttr
 {
 	inline constexpr const char* ShapeType{ "shapeType" };
@@ -57,39 +64,15 @@ namespace RigAttr
 	// AssetRoot layer
 	inline constexpr const char* AssetId{ "assetId" };
 	inline constexpr const char* AssetRoot{ "assetRoot" };
-	inline constexpr const char* AssetType{ "assetType" };
-	namespace AssetTypes
-	{
-		inline constexpr std::array All =
-		{
-			"Mesh",
-			"Rig",
-			"Other"
-		};
-	}
-	inline constexpr const char* AssetData{ "assetData" };
 	inline constexpr const char* Children{ "children" };
 
 	// RigRoot layer
 	inline constexpr const char* RigName{ "rigName" };
-	inline constexpr const char* RigType{ "rigType" };
-	namespace RigTypes
-	{
-		inline constexpr std::array All =
-		{
-			"Prop",
-			"Character",
-			"Vehicle",
-			"Head",
-			"Weapon",
-			"VFX",
-			"Light",
-			"Environment",
-			"Other"
-		};
-	}
-
 	inline constexpr const char* RigVersion{ "rigVersion" };
+	// Import stamps (D29): the plugin that built the rig, and the asset publish it came from (0 until published).
+	// Tools compare them with the current plugin and the asset registry's latest publish.
+	inline constexpr const char* PluginVersion{ "pluginVersion" };
+	inline constexpr const char* PublishVersion{ "publishVersion" };
 
 	// RigModuleNode layer
 	inline constexpr const char* ModuleData{ "moduleData" };
@@ -131,14 +114,11 @@ namespace PlugAndSocketNames
 }
 
 // JSON keys in a rig template. Public API: every saved template depends on them.
-// RigRootData and AssetRootData map their keys through NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE, which uses the field names,
+// RigRootData maps its keys through NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE, which uses the field names,
 // so those field names must match the keys listed here.
 namespace TemplateKey
 {
-	inline constexpr const char* AssetId{ "assetId" };
-	inline constexpr const char* AssetType{ "assetType" };
 	inline constexpr const char* RigName{ "rigName" };
-	inline constexpr const char* RigType{ "rigType" };
 	inline constexpr const char* RigVersion{ "rigVersion" };
 	inline constexpr const char* RigTemplateName{ "rigTemplateName" };
 	inline constexpr const char* RigAuthor{ "rigAuthor" };

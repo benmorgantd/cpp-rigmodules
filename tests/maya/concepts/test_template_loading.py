@@ -16,7 +16,7 @@ class FileProblems(RigTestCase):
     def build_path(self, path):
         from maya import cmds
         joints = self.make_skeleton("layout_rig")
-        return lambda: cmds.createRigFromTemplate(*joints, template=path)
+        return lambda: cmds.createRigFromTemplate(*joints, template=path, asset=config.ASSET_ID)
 
     def test_malformed_json_reports_the_file(self):
         path = self.write_raw("malformed.json", '{"assetId": "x", ')
@@ -34,6 +34,6 @@ class FileProblems(RigTestCase):
         self.assertNothingBuilt()
 
     def test_wrong_value_type_fails(self):
-        path = self.write_raw("wrongtype.json", '{"assetId": 5}')
+        path = self.write_raw("wrongtype.json", '{"rigVersion": "one"}')
         self.assertMayaError(self.build_path(path))
         self.assertNothingBuilt()

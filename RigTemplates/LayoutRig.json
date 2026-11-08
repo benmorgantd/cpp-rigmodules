@@ -1,8 +1,5 @@
 {
-    "assetId": "example|asset|id",
-    "assetType": "Rig",
     "rigName": "fktest",
-    "rigType": "Prop",
     "rigVersion": 1,
     "rigTemplateName": "TestRig",
     "rigAuthor" : "Ben Morgan",

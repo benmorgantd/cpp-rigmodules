@@ -52,17 +52,10 @@ struct RigModuleData
     }
 };
 
-struct AssetRootData
-{
-    std::string assetId;
-    std::string assetType;
-};
-
 struct RigRootData
 {
     std::string rigTemplateName;
     std::string rigName;          // Optional key, defaults to rigTemplateName. Not in the macro below, which requires every field.
-    std::string rigType;
     int rigVersion = -1;
     std::string rigAuthor;
     std::vector<RigModuleData> rigModules; // 1D Flat List of modules
@@ -70,14 +63,13 @@ struct RigRootData
 };
 
 // nlohmann JSON mapping macros
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AssetRootData, assetId, assetType)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigRootData, rigTemplateName, rigVersion, rigType, rigAuthor, rigModules)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigRootData, rigTemplateName, rigVersion, rigAuthor, rigModules)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigModuleData, moduleType, name, shapeType, side, moduleVersion, parentStructure, moduleArgs)
 
 void from_json(const nlohmann::json& j, RigModuleData& module);
 // Reads the file, checks required and unknown keys, then parses. Every problem goes into the report.
 // False if the template could not be parsed into the structs. Errors in the report still need checking on true.
-bool loadRigTemplate(const std::string& filePath, AssetRootData& assetData, RigRootData& rigData, ValidationReport& report);
+bool loadRigTemplate(const std::string& filePath, RigRootData& rigData, ValidationReport& report);
 
 // Constraints ==================================================================
 

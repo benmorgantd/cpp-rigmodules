@@ -123,7 +123,7 @@ Expected results that are data (a pose and the transforms it gives, a template e
 
 - **Required keys:** `description`, `skeleton`, `template` and `expect`.
 - **Optional keys:** `set`, which defaults to no changes, so a case with no `set` is a rest-pose test, and `tolerance`, which defaults to 1e-4.
-- **Node names** are written without a namespace and resolve in `rig:`.
+- **Node names** are written without a namespace and resolve in `rig:`. `RigTestCase.build` passes `asset=config.ASSET_ID` (`tests|rig`), whose last token gives that default namespace (D29).
 - **Values** are world space, rotation in degrees. Rotations are compared as matrices, so equivalent euler triples pass.
 - **Partial checks:** only the nodes and channels listed are checked.
 - **Hand-written only:** work expected values out by hand. Never copy them from what the rig currently does, because a recorded value turns a bug into the expected result.

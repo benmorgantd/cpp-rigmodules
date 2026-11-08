@@ -98,7 +98,7 @@ def build_mirrored_arm():
             joints.append(joint)
 
     template = {
-        "assetId": "gallery|rig|arm", "assetType": "Rig", "rigType": "Character", "rigVersion": 1,
+        "rigVersion": 1,
         "rigTemplateName": "MirrorGallery", "rigAuthor": "gallery",
         "rigModules": [
             {"moduleType": "FkChain", "name": "spine", "moduleArgs": {"joints": [["Center", "chest"]]}},
@@ -110,7 +110,7 @@ def build_mirrored_arm():
     path = os.path.join(OUT, "mirror_template.json").replace("\\", "/")
     with open(path, "w") as handle:
         json.dump(template, handle)
-    cmds.createRigFromTemplate(*joints, template=path)
+    cmds.createRigFromTemplate(*joints, template=path, asset="gallery|rig")
 
     # shapeType index, shapeTransform, filled. Offsets and pointers make a wrong reflection obvious.
     left_shapes = {

@@ -1,4 +1,5 @@
 #include "maya/commands/CreateRigCmd.h"
+#include "core/AssetId.h"
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/Utilities.h"
 
@@ -17,10 +18,9 @@ namespace
 	// Code reads flags by long name only. MSyntax::addFlag requires a short name of at most 3 letters
 	// (a long name there is rejected and the flag silently never registers), so short names appear only in newSyntax().
 	constexpr const char* kTemplateFlag{ "-template" };
+	constexpr const char* kAssetFlag{ "-asset" };
 	constexpr const char* kNamespaceFlag{ "-namespace" };
 	constexpr const char* kCheckMirrorPositionsFlag{ "-checkMirrorPositions" };
-
-	constexpr const char* kDefaultRigNamespace{ "rig" };
 
 	// Leading and trailing colons are dropped so ":rig", "rig:" and "rig" all mean the same namespace, and ":" is the root.
 	MString normalizeNamespace(const MString& namespaceName)
@@ -54,7 +54,24 @@ namespace
 			return MStatus::kFailure;
 		}
 
-		MString rigNamespace(kDefaultRigNamespace);
+		// Templates carry no asset, so one template can build many assets (D29).
+		if (!argData.isFlagSet(kAssetFlag))
+		{
+			MGlobal::displayError("createRigFromTemplate needs -asset.");
+			return MStatus::kFailure;
+		}
+		MString assetId;
+		status = argData.getFlagArgument(kAssetFlag, 0, assetId);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		inputs.assetId = assetId.asChar();
+		if (!AssetId::isValid(inputs.assetId))
+		{
+			MGlobal::displayError("Asset id '" + assetId + "' must be '|'-separated folder names of letters, digits and '_'.");
+			return MStatus::kFailure;
+		}
+
+		// The asset owns the namespace, so it defaults to the asset's name.
+		MString rigNamespace(AssetId::name(inputs.assetId).c_str());
 		if (argData.isFlagSet(kNamespaceFlag))
 		{
 			status = argData.getFlagArgument(kNamespaceFlag, 0, rigNamespace);
@@ -115,6 +132,7 @@ MSyntax CreateRigCmd::newSyntax()
 {
 	MSyntax syntax;
 	CHECK_MSTATUS(syntax.addFlag("-tp", kTemplateFlag, MSyntax::kString));
+	CHECK_MSTATUS(syntax.addFlag("-as", kAssetFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-ns", kNamespaceFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-cmp", kCheckMirrorPositionsFlag, MSyntax::kBoolean));
 	syntax.setObjectType(MSyntax::kStringObjects, 1);

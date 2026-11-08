@@ -143,6 +143,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="core\AssetId.cpp" />
     <ClCompile Include="core\ControlMarkup.cpp" />
     <ClCompile Include="core\ControlShapeFile.cpp" />
     <ClCompile Include="core\ControlShapeLibrary.cpp" />
@@ -166,16 +167,15 @@
     <ClCompile Include="maya\nodes\Constraints.cpp" />
     <ClCompile Include="maya\nodes\RigControlNode.cpp" />
     <ClCompile Include="maya\nodes\RigRoot.cpp" />
-    <ClCompile Include="maya\shared\AssetType.cpp" />
     <ClCompile Include="maya\shared\ControlShapeScene.cpp" />
     <ClCompile Include="maya\shared\JointMarkupScene.cpp" />
     <ClCompile Include="maya\shared\RigModule.cpp" />
     <ClCompile Include="maya\shared\RigTraversal.cpp" />
-    <ClCompile Include="maya\shared\RigType.cpp" />
     <ClCompile Include="maya\shared\Side.cpp" />
     <ClCompile Include="maya\shared\Utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="core\AssetId.h" />
     <ClInclude Include="core\Constants.h" />
     <ClInclude Include="core\ControlMarkup.h" />
     <ClInclude Include="core\ControlShapeFile.h" />
@@ -201,13 +201,11 @@
     <ClInclude Include="maya\nodes\Constraints.h" />
     <ClInclude Include="maya\nodes\RigControlNode.h" />
     <ClInclude Include="maya\nodes\RigRoot.h" />
-    <ClInclude Include="maya\shared\AssetType.h" />
     <ClInclude Include="maya\shared\Colors.h" />
     <ClInclude Include="maya\shared\ControlShapeScene.h" />
     <ClInclude Include="maya\shared\JointMarkupScene.h" />
     <ClInclude Include="maya\shared\RigModule.h" />
     <ClInclude Include="maya\shared\RigTraversal.h" />
-    <ClInclude Include="maya\shared\RigType.h" />
     <ClInclude Include="maya\shared\Side.h" />
     <ClInclude Include="maya\shared\Utilities.h" />
   </ItemGroup>

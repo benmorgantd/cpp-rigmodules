@@ -15,6 +15,8 @@
 struct RigBuildInputs
 {
 	MString templatePath;
+	// The asset the rig belongs to (D29). Checked by the command. Templates carry no asset, so one template serves many.
+	std::string assetId;
 	// The rig's final namespace, without leading or trailing ':'. Empty is the root namespace.
 	// Every node the build creates goes here, and every input joint is moved here.
 	MString rigNamespace;
@@ -43,8 +45,9 @@ public:
 
 	// Attribute handles. All node attributes have to be defined here.
 	static MObject aRigName;
-	static MObject aRigType;
 	static MObject aRigVersion;
+	static MObject aPluginVersion;
+	static MObject aPublishVersion;
 	static MObject aRigModules;
 	static MObject aRigTemplateName;
 	static MObject aAssetRoot;
@@ -53,7 +56,6 @@ public:
 public:
 	static MObject createRigRoot(
 		const MString& name,
-		const MString& type,
 		int version,
 		const MString& templateName,
 		MObject oAssetRoot,

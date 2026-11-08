@@ -466,7 +466,7 @@ namespace RigTemplateValidation
 		using namespace TemplateKey;
 
 		checkKeys(templateJson,
-			{ AssetId, AssetType, RigType, RigVersion, RigTemplateName, RigAuthor, RigModules },
+			{ RigVersion, RigTemplateName, RigAuthor, RigModules },
 			{ RigName, Constraints },
 			"template", report);
 		if (!templateJson.is_object())
@@ -532,7 +532,7 @@ namespace RigTemplateValidation
 		}
 	}
 
-	void validateHeader(const RigRootData& rigData, const AssetRootData& assetData, ValidationReport& report)
+	void validateHeader(const RigRootData& rigData, ValidationReport& report)
 	{
 		if (rigData.rigTemplateName.empty())
 		{
@@ -542,16 +542,6 @@ namespace RigTemplateValidation
 		if (rigData.rigVersion < 1)
 		{
 			report.addError(TemplateKey::RigVersion, "must be 1 or more, got " + std::to_string(rigData.rigVersion));
-		}
-
-		if (!isOneOf(rigData.rigType, RigAttr::RigTypes::All))
-		{
-			report.addError(TemplateKey::RigType, "'" + rigData.rigType + "' is not one of " + joinNames(RigAttr::RigTypes::All));
-		}
-
-		if (!isOneOf(assetData.assetType, RigAttr::AssetTypes::All))
-		{
-			report.addError(TemplateKey::AssetType, "'" + assetData.assetType + "' is not one of " + joinNames(RigAttr::AssetTypes::All));
 		}
 	}
 
