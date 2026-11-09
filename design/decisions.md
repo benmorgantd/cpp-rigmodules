@@ -337,6 +337,7 @@ A constraint's `type` is `Parent`, `Orient` or `Point`. The driver gives only it
 - **Renamed** (author, 2026-11-09): the node type `bmParentConstraint` becomes `rigConstraint` (`RigConstraintNode`, same MTypeId 0x00218E), and the command `createRigParentConstraint` becomes `createRigConstraint`, with a `type` flag defaulting to `Parent`. `setRigConstraintSpace` is unchanged.
 - **Rules:** an `Orient` or `Point` constraint on a child plug with no parent connected fails (author's choice, rejected: treating a missing parent as the world). A template can't produce one, because every child plug has a parent, `layout.end` when `parentStructure` doesn't list it, so this only guards the command on a hand-edited rig. The enum index is stored in scenes, so `Parent`, `Orient`, `Point` keep their order and new types are appended. Space matching (D27) uses the node's own output for each driver, so the control keeps its world matrix on a switch whatever the type.
 - **Consequence:** rigs built before this change have `bmParentConstraint` nodes, which no longer load. No rigs need to survive, so there is no migration: rebuild them. Template `"type": "Parent"` entries and `setRigConstraintSpace` calls are unchanged. Controls, sockets and child plugs keep their names, so poses and animation are unaffected.
+- **IK controls (author, 2026-11-09):** a constraint can only target a child plug with a control. An IK hand is usually the effector's parent and a pole is a control, so the IK module will expose both as child plugs, and they get spaces through `rigConstraint` with no new mechanism. The space list is fixed when the constraint is created. Adding a space means editing the template and rebuilding. Adding a space inside a shot is out of scope: shots can't change rigs (D32), so it would be a separate tool that bakes or rebuilds.
 
 ## Mirroring
 
@@ -392,7 +393,7 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
   - Pose and animation data aren't affected: no control, attribute or socket names changed.
 
 ### D30. mayadev stays the pipeline repo, and rigs build anywhere before an asset exists
-**Status:** Decided (2026-11-08). Steps 1 to 5 are built, except the template authoring UI: RigModules side run in the mayapy suite, mayadev side in its mayapy tests on branch `asset-tools` (not merged).
+**Status:** Decided (2026-11-08). Steps 1 to 5 are built, except the template authoring UI: RigModules side run in the mayapy suite, mayadev side in its mayapy tests. Branch `asset-tools` is merged into mayadev master (checked 2026-11-09).
 
 The author considered starting a new pipeline repo, because most of mayadev changes with the new asset and rigging systems. Decided: keep mayadev, tag its legacy state, delete the legacy code, and build the new tools there. A rig can be built and iterated on anywhere, before its asset folder exists. Tools that know about assets use the asset's paths when the rig's asset folder exists, and fall back to a file dialog when it doesn't.
 
@@ -422,13 +423,63 @@ The author considered starting a new pipeline repo, because most of mayadev chan
 
 ---
 
+## Shots, versions and component data
+
+### D32. Shots reference published rigs, which are read only
+**Status:** Decided (2026-11-09). Nothing built yet.
+
+Animators reference a published rig file into their shots and never import it. A rig in a shot is read only and exists only to be animated. Rig changes go through the asset and a new publish, never through a shot. Updating a shot's rig means moving its reference to a newer publish. The rig is regenerable: the template and its component files (shapes, weights) are the source of truth, and a rig can be deleted and rebuilt from the published version at any time.
+
+- **Why (author, 2026-11-09):** importing rigs was a studio's way to keep shots working, however far out of date their rigs fell, because no update path was trusted to be non-destructive. Here the update path is a commitment: a strong name API plus tested updates (D33). Rig edits made in a shot would be reference edits on top of the publish, and for a game they can never reach the export.
+- **Rejected:** importing rigs into shots. Rig edits in a shot.
+- **Names are hard API.** A shot's anim curves reach the rig through reference edits, which store node and attribute names, not markup. Control names and channel names are as binding as markup: markup (D25) keys tools and files, and names key shots. A rename comes with an entry in an alias list (old name to new name), and a shot update tool uses that list to rewrite the reference edits in a set of shots.
+- **The namespace is stripped on save.** The build keeps the rig's inputs and context in its asset namespace (D18, D29), so the scene shows exactly what the rig is made of. The published rig file moves everything to the root namespace, and the reference namespace becomes the instance namespace (`hero:`, `hero1:`). Rejected: keeping the namespace in the file, which nests it under the reference namespace (`hero1:hero:arm_ctrl_l`).
+- **Rest is the build pose.** Rest matrices are stored on the rig at build time (D27), never read from a posed scene, so creating a constraint on a posed rig doesn't change any rest. A film pipeline might one day want "moveable pins" whose rest changes per shot. That is a rig change in a shot, so it isn't planned.
+- **Consequence:** Save Rig, `getRigInfo` and the rig namespace rules need checking against a root-namespace rig inside a referenced file. A rename of any control or channel needs an alias entry and a shot update before it ships, so renames should be rare.
+
+### D33. The release version and format versions are separate, and updates never need a bake
+**Status:** Decided (2026-11-09). Nothing built yet.
+
+- **Release version:** `PluginInfo::Version`, a label with integer parts (`0.1`, `0.2` … `0.11` … `1.0`), starting at `0.1`. `1.0` is the first release. No update code is tied to it, so it can change as often as development needs.
+- **Format versions:** one integer per saved format: a new template key `formatVersion`, the shape file's `formatVersion` (D26), the weight file (D35), each module's `moduleVersion` and `markupVersion`. A format version goes up only when saved data changes shape or meaning, so most releases bump none of them.
+- **Update steps:** each format keeps a table from version N to its update function, `updateVersionNToN+1` (naming to settle when built), run in order. Template steps run in `core/` in the read phase, before `expandMirrors`. A minimum supported version per format lets old steps be deleted, which keeps the table short before `1.0`.
+- **Non-destructive:** an update never needs a bake. Animation lives only on control channels (D27). A shot's referenced rig updates by moving to a newer publish (D32), and its anim curves follow by channel name. A rig open in a scene without a reference (rigging work) updates by rebuilding from the current template.
+- **Detection:** scene open, import and reference load callbacks compare the rig root's stamps (`rigVersion`, `pluginVersion`, `publishVersion`, each module's `moduleVersion`) with the current versions and the latest publish, and offer the update.
+- **Why (author, 2026-11-09):** rapid development means many releases. Tying updates to release numbers would mean an update path per release, while format versions give one per real change. A `moduleVersion` change must have an update path too, not a forced rebuild of shots.
+- **Rejected:** float versions (`0.1` equals `0.10`, and `0.2` sorts after `0.11`). One update step per release.
+
+### D34. The animation interface is the keyable channels, with rests set by the build
+**Status:** Leaning (2026-11-09). The query and the animation tools will be planned separately.
+
+A control's animation interface is its keyable channel-box attributes: transforms, plus the module's custom attributes (IK/FK blend, stretch, bend bow, sine values, `space`). Each channel's rest value is the attribute's default, which the module sets when it creates the attribute, so rests of 1 or 0.5 come from the build itself. Ranges are the attribute's min and max. A query reads all of this from the built rig, with no stored list. Pose saving, animation save and load, reset, mirroring, bake and reanimate all iterate it.
+
+- **Mirroring:** transforms copy their values, and the joint orientation decides whether that gives a behavior or an orientation mirror (D28). A custom attribute declares copy or negate when the module creates it, with copy as the default.
+- **Why:** one interface for every module, so the animation tools need no per-module code. Rests read from attribute defaults can't drift from the build.
+- **Rejected:** a transform-only interface, because modules have custom channels. A stored channel list (JSON on the control), a second copy that can drift from the attributes.
+- **Open:** where the copy or negate declaration lives on the attribute.
+- **Consequence:** every module sets each custom attribute's default to its rest. Channel names are hard API (D32).
+
+### D35. Weight files are keyed by joint markup, mesh id and topology hash
+**Status:** Leaning (2026-11-09). Not built.
+
+Weight save and load are undoable C++ commands, like the shape commands (D26), with the file format in `core/`. mayadev's `bmaya.maya.rigging.weights.weightio` is the OpenMaya reference. Influences are keyed by joint markup `(side, usage)` (D15). Weights load onto a mesh only when both its mesh id and its topology match the file:
+
+- **`meshId`:** a GUID string attribute on the mesh transform, stamped once when the mesh enters the asset. It is attribute data, so it survives import, reference, rename and reparent. Duplicating a mesh copies it, so a save fails when two meshes share one.
+- **Topology hash:** 64-bit FNV-1a over the vertex count and `MFnMesh::getVertices`' polygon counts and connects, which is vertex order plus connection order. Positions and UVs are left out, so a sculpt or proportion change keeps its weights. A fixed algorithm, not `std::hash`, so the value is the same in every build.
+- The file stores the mesh id, the vertex and face counts and the hash. A mismatched id or hash fails, and the error reports the counts.
+- **Why (author, 2026-11-09):** joint markup alone can't tell meshes with different topology apart. Weights are shared only when the joints' side and usage and the mesh id all match.
+- **Rejected:** Maya's node UUID as the mesh id. Storing the full counts and connects arrays, which costs hundreds of thousands of numbers per dense mesh for a better error message.
+- **Open:** what stamps `meshId` (leaning: a RigModules command that mayadev's model publish calls, so the weight commands never depend on mayadev), and its `RigAttr` name. A closest-point transfer for changed meshes would be a separate, later tool.
+
+---
+
 ## Open items
 
 - **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
 - **D24:** the TODOs in `mayadev-integration.md` (the `python/` package, `.mod` files), plus control sets. Asset folders moved to D29.
-- **D29, D30:** review and merge mayadev branch `asset-tools`. Then the template authoring UI (after a module interface query), building a second variant into a namespace, the publish step, the out-of-date check, and a Perforce adapter when a project uses Perforce.
+- **D29, D30:** the template authoring UI (after a module interface query), building a second variant into a namespace, the publish step, the out-of-date check, and a Perforce adapter when a project uses Perforce.
 - **D29 (potential):** asset GUIDs for references between assets, if renames and moves become common. Not needed now: ids are relative to the projects root, so they survive branching. See "Potential TODO: asset GUIDs" in `asset-model.md`.
 - **D29:** a later pass moves asset ids from `|` to `/` separators (author, 2026-11-08). It has to be done together with the existing tools that read `|` ids, and with a migration for existing rigs whose `assetId` uses `|`.
 - **D28:** mirroring poses and animation, built on `getRigMirrorControl` with the animation tools. A `ModuleContract` test that builds every Left/Right-capable module mirrored (Aim has no mirror fixture yet).
@@ -438,15 +489,18 @@ The author considered starting a new pipeline repo, because most of mayadev chan
 
 Work that every new module would inherit, so it is cheaper to settle before the module count grows. Checked against the repo on 2026-11-07. The control registry and naming (D15, D25), template validation (D17), space switching (D19, D27), module mirroring (D28), undo, the mayapy suite (D20) and the folder split (D13) are already done. The connect-time jump no longer reproduces: a chain on a rotated socket keeps its rest and follows rigidly (2026-11-07, pose cases `child_chain_rest_on_rotated_socket` and `rotated_parent_carries_child_chain`).
 
-In this order:
+The asset root, asset folders, the `python/` package and the `.mod` files are done (D29, D30). Updated 2026-11-09, in this order:
 
-1. **Asset root, structure and component versioning** (the D24 TODOs: asset folders, the `python/` package, `.mod` files). These don't depend on module internals.
-2. **Animation tools:** key all, zero all (go to bind pose), save and load pose, save and load animation, mirror pose and animation, and a keyed space switch (match on the switch frame, key the frame before). Built on `getRigControls` (D25) and `getRigMirrorControl` (D28). A pose is control values plus the `space` enum (D27). Their files carry a `formatVersion`, like the shape file (D26).
+1. **Weight save and load commands** (D35), in C++ with undo, using mayadev's `weightio` as the OpenMaya reference.
+2. **Build Rig from Asset… in the menu (mayadev):** a file browser on the project root, filtered to `asset.json`, that builds a variant (the active rig's by default) and then loads its shapes and weights. Shapes and weights save to the active rig's asset with no file browsing, as shapes already do.
+3. **Dev reload tool (mayadev):** tear down everything tied to the plugin (the active rig tracker's callbacks, the RigModules menu), start a new scene, unload the plugin, load a fresh copy of the built `.mll` so the build output stays unlocked, then rebuild the menu and tracker. Keeps Maya open across builds.
+4. **Animation interface query and animation tools** (D34), planned separately: key all, zero all (go to bind pose), save and load pose, save and load animation, mirror pose and animation, and a keyed space switch (match on the switch frame, key the frame before). Built on `getRigControls` (D25) and `getRigMirrorControl` (D28). A pose is control values plus the `space` enum (D27). Their files carry a `formatVersion`, like the shape file (D26). Done before the next module.
 
 Design for these now, build them later:
 
-- **Template format version.** `rigVersion` versions the rig's content, not the template schema. Nothing versions the JSON format yet.
-- **Rebuild from template keeping animator tweaks.** Shape files cover control shapes (D26). Nothing covers other tweaked values.
+- **Format versions and update steps** (D33): the template `formatVersion`, the update tables, and the open, import and reference load callbacks.
+- **Referenced rigs** (D32): the namespace strip in Save Rig, `getRigInfo` in a referenced file, the alias list and the shot update tool.
+- **Rebuild from template keeping rigger tweaks.** Shape files (D26) and weight files (D35) cover shapes and weights. Nothing covers other tweaked values.
 - **Export skeleton separation.** Joint markup has `export`, and validation flags an unclaimed export joint. What the export skeleton is, as opposed to rig-internal joints, is not decided.
 - **Plugin deployment** per Maya version (the `.mod` files in D24).
 - **Empty namespace after undo** (D18): undoing a build leaves the rig namespace behind.

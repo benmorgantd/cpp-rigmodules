@@ -164,7 +164,7 @@ The versions root is `%LOCALAPPDATA%\bmaya\versions`, private to the machine and
 - Rig roots carry `pluginVersion` and `publishVersion` (a string, empty from a build) next to `rigName` and `rigVersion`.
 - Removed: the template keys `assetId`, `assetType` and `rigType`, and the matching node attributes and enums.
 
-## Built in mayadev (2026-11-08: `asset-model` merged into master, asset tools on branch `asset-tools`)
+## Built in mayadev (2026-11-08: `asset-model` merged into master; asset tools on branch `asset-tools`, merged into master by 2026-11-09)
 
 Maya-free, under `bmaya/asset/`, so it runs in plain Python, mayapy and batch jobs. Errors are exceptions.
 
@@ -179,15 +179,15 @@ Maya-free, under `bmaya/asset/`, so it runs in plain Python, mayapy and batch jo
 
 `bmaya/maya/assethandlers.py` registers the Maya scene handler for `skeleton`, `model` and `rig` (load imports into the asset's namespace, merging on a clash) the `shapes` handler, which calls the RigModules shape commands, and the `template` handler, which copies a template into a variant and checks that its `rigName` is the variant. Other file types have no handler.
 
-`bmaya/maya/assettools.py` (branch `asset-tools`) holds the RigModules menu's asset tools: New Project, New Asset, New Variant, Save Skeleton, Build Rig from Asset, Save Rig, and Save and Load Control Shapes. They read a rig's asset id and variant through `rigmodules.query` (D30).
+`bmaya/maya/assettools.py` holds the RigModules menu's asset tools: New Project, New Asset, New Variant, Save Skeleton, Build Rig from Asset, Save Rig, and Save and Load Control Shapes. They read a rig's asset id and variant through `rigmodules.query` (D30).
 
 Tests: `tests/asset/run.bat` runs 44 plain Python tests, then 3 mayapy tests against the RigModules plugin (`RIGMODULES_PLUGIN`). The legacy `bmaya.maya.asset` package is untouched: it goes with the legacy rig builder. `bmaya.core.log` imports Maya, so the new package doesn't log.
 
 ## Next
 
-1. Review and merge mayadev branch `asset-tools` (D30: legacy code deleted, asset tools built).
-2. The template authoring UI, after a module interface query command.
-3. Building a second variant into a namespace that already holds the shared skeleton.
+1. The template authoring UI, after a module interface query command.
+2. Building a second variant into a namespace that already holds the shared skeleton.
+3. Build Rig from Asset… with a file browser on `asset.json`, loading shapes and weights after the build (`decisions.md`, "Before adding more modules").
 4. A publish step: build the rig, write it and its input copies into `publishes.create`'s folder, and set `publishVersion`.
 5. Handlers for weights (after weightio's API 1 calls are fixed), postops, poses and anims.
 6. A Perforce source-control adapter, when a project uses Perforce.

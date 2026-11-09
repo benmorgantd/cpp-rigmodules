@@ -178,10 +178,10 @@ Animator-facing features found there, which RigModules does not have yet:
 ## Phases
 
 0. **Done (docs only):** this page, D24, CLAUDE.md, memory.
-1. **mayadev cleanup:** done 2026-11-08 (D30). `legacy-rig-builder` tagged, `asset-model` merged, legacy code deleted on branch `asset-tools` (not merged), with a copy in mayadev's ignored `legacy_reference/`. `mayadev.mod` exists, and startup loads the plugin.
+1. **mayadev cleanup:** done 2026-11-08 (D30). `legacy-rig-builder` tagged, `asset-model` merged, legacy code deleted on branch `asset-tools` (merged into master by 2026-11-09), with a copy in mayadev's ignored `legacy_reference/`. `mayadev.mod` exists, and startup loads the plugin.
 2. **RigModules `python/` package:** started (D30). Built: `rigmodules.query` (node → rig root, asset id, variant, namespace, stamps) on the `getRigInfo` command, `rigmodules.template.get_rig_name`, and `RigModules.mod` (`PYTHONPATH` only). Still to do: the build wrapper, the rest of the query API, and the module interface query.
 3. **Shape IO:** built, mirroring included (see "Shape IO", D28).
-4. **mayadev asset tools** (D30): built in `bmaya.maya.assettools` on branch `asset-tools`: New Project, New Asset, New Variant (writes the variant's `template.json`), Save Skeleton, Build Rig from Asset, Save Rig, and asset-aware shape save and load. Still to do: the template authoring UI. Rigs still build anywhere before an asset exists, and each tool falls back to a file dialog when the rig's asset folder doesn't exist. The asset file model they use is on branch `asset-model` (D29, `asset-model.md`).
+4. **mayadev asset tools** (D30): built in `bmaya.maya.assettools` (merged into master): New Project, New Asset, New Variant (writes the variant's `template.json`), Save Skeleton, Build Rig from Asset, Save Rig, and asset-aware shape save and load. Still to do: the template authoring UI. Rigs still build anywhere before an asset exists, and each tool falls back to a file dialog when the rig's asset folder doesn't exist. The asset file model they use came from branch `asset-model`, also merged (D29, `asset-model.md`).
 5. **Skinning and animation tools** on the query API: pose data, reset, key all, IK/FK match once IK modules exist.
 
 ## Answers so far (2026-11-06)
