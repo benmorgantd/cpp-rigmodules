@@ -44,5 +44,27 @@
           "start" : "spine.start"
         }
       }
-    ]
+    ],
+    "constraints" : [
+    {
+      "name": "leg_space_l",
+      "type": "Orient",
+      "target": "leg_l.start",
+      "drivers": [
+        { "socket": "layout.end", "label": "Layout", "weight": 1.0 },
+        { "socket": "spine.start", "label": "Spine" }
+      ],
+      "mirror" : true
+    },
+    {
+      "name": "arm_space_l",
+      "type": "Orient",
+      "target": "arm_l.start",
+      "drivers": [
+        { "socket": "layout.end", "label": "Layout", "weight": 1.0 },
+        { "socket": "spine.end", "label": "Spine" }
+      ],
+      "mirror" : true
+    }
+  ]
 }
