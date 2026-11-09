@@ -32,10 +32,14 @@ def get_rigs(namespace: str | None = None) -> list[RigInfo]:
     return [get_rig_info(rig_root) for rig_root in sorted(rig_roots)]
 
 
-def get_rig_info(node: str) -> RigInfo:
-    """The rig that a rig root, rig module or rig control belongs to. Raises RuntimeError for any other node,
-    or for a rig root with no asset root."""
-    data = json.loads(cmds.getRigInfo(node))
+def find_rig_info(node: str) -> RigInfo | None:
+    """The rig that a rig root, rig module, rig control or rig-driven joint belongs to, or None for any other
+    node. Reports nothing for those, so it suits a selection callback. Raises RuntimeError for a missing node
+    or a broken rig, such as a rig root with no asset root."""
+    text = cmds.getRigInfo(node)
+    if not text:
+        return None
+    data = json.loads(text)
     return RigInfo(
         rig_root=data["rigRoot"],
         asset_root=data["assetRoot"],
@@ -46,3 +50,11 @@ def get_rig_info(node: str) -> RigInfo:
         plugin_version=data["pluginVersion"],
         publish_version=data["publishVersion"],
     )
+
+
+def get_rig_info(node: str) -> RigInfo:
+    """Like find_rig_info, but raises RuntimeError when the node isn't part of a rig."""
+    info = find_rig_info(node)
+    if info is None:
+        raise RuntimeError(f"{node} is not a rig root, rig module, rig control or joint driven by a rig.")
+    return info

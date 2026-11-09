@@ -45,12 +45,18 @@ class GetRigInfo(RigTestCase):
         cmds.setAttr(self.rig_root + ".publishVersion", "20261108T142012Z_bmorgan", type="string")
         self.assertEqual(self.info(rig_name("layout_0_ctrl_c"))["publishVersion"], "20261108T142012Z_bmorgan")
 
-    def test_joint_is_not_a_rig_node(self):
-        joint = cmds.ls(type="joint")[0]
-        self.assertMayaError(lambda: cmds.getRigInfo(joint), "is not a rig root, rig module or rig control")
+    def test_joint_driven_by_a_module_reports_its_rig(self):
+        expected = self.info(self.rig_root)
+        driven = [j for j in cmds.ls(type="joint") if cmds.listConnections(j + ".offsetParentMatrix", source=True, destination=False)]
+        self.assertTrue(driven, "the build drives its joints' offsetParentMatrix")
+        for joint in driven:
+            self.assertEqual(self.info(joint), expected, joint)
 
-    def test_asset_root_is_not_a_rig_node(self):
-        self.assertMayaError(lambda: cmds.getRigInfo(self.asset_root), "is not a rig root, rig module or rig control")
+    def test_other_nodes_give_an_empty_result_without_an_error(self):
+        cmds.select(clear=True)
+        loose_joint = cmds.joint(name="loose_jnt")
+        for node in (loose_joint, self.asset_root, cmds.polyCube()[0]):
+            self.assertEqual(cmds.getRigInfo(node), "", node)
 
     def test_missing_node(self):
         self.assertMayaError(lambda: cmds.getRigInfo("no_such_node"), "Node not found")
@@ -89,7 +95,14 @@ class PythonQuery(RigTestCase):
         self.assertEqual(rigmodules.query.get_rigs(":" + config.RIG_NAMESPACE), rigs[1:])
         self.assertEqual(rigmodules.query.get_rigs("nobody"), [])
 
-    def test_errors_surface_as_runtime_error(self):
+    def test_unrigged_joint_is_none_or_an_error(self):
         self.make_skeleton(SKELETON)
-        with self.assertRaises(RuntimeError):
-            rigmodules.query.get_rig_info(cmds.ls(type="joint")[0])
+        joint = cmds.ls(type="joint")[0]
+        self.assertIsNone(rigmodules.query.find_rig_info(joint))
+        with self.assertRaisesRegex(RuntimeError, "is not a rig root, rig module, rig control or joint driven by a rig"):
+            rigmodules.query.get_rig_info(joint)
+
+    def test_missing_node_raises_from_both(self):
+        for query in (rigmodules.query.find_rig_info, rigmodules.query.get_rig_info):
+            with self.assertRaises(RuntimeError):
+                query("no_such_node")

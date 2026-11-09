@@ -141,7 +141,7 @@ RigTemplates/        example template
 | `commands/ConstraintCmds.h/.cpp` | `createRigParentConstraint` and `setRigConstraintSpace`. They call `ParentConstraintNode`'s static helpers. |
 | `commands/JointMarkupCmd.h/.cpp` | `rigJointMarkup`. The reference command shape (D14). |
 | `commands/RigControlCmds.h/.cpp` | `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`. They call `RigTraversal` and `ControlShapeScene`. |
-| `commands/RigInfoCmd.h/.cpp` | `getRigInfo`: any rig root, module or control to its rig root, asset root, asset id, variant, namespace and stamps, as JSON (keys in `RigInfoKey` and `RigAttr`). |
+| `commands/RigInfoCmd.h/.cpp` | `getRigInfo`: any rig root, module, control or rig-driven joint (`""` for other nodes) to its rig root, asset root, asset id, variant, namespace and stamps, as JSON (keys in `RigInfoKey` and `RigAttr`). |
 | `nodes/RigRoot.h/.cpp` | `RigRootNode`, `RigBuildInputs` and `createRig` (read phase: parse, scan markup, `planModules`, validate. Write phase: roots, `buildModules`, parenting pass, constraints). |
 | `nodes/AssetRoot.h/.cpp` | `AssetRootNode`. |
 | `nodes/Constraints.h/.cpp` | `ParentConstraintNode`: compute, `resolveSocket`, `createConstraint`, `buildFromTemplate`, `matchSwitchSpace`. |
@@ -159,7 +159,7 @@ RigTemplates/        example template
 | Path | Contents |
 |---|---|
 | `RigTemplates/` | Example templates, `LayoutRig.json` and `Human.json`. Their joints use `[side, usage]` selectors. |
-| `python/rigmodules/` | `query.py` (`get_rig_info`, `get_rigs`, `RigInfo`) and `template.py` (`get_rig_name`). Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
+| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`) and `template.py` (`get_rig_name`). Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
 | `RigModules.mod` | Puts `python/` on `PYTHONPATH`, by a path relative to itself. It doesn't add the plugin path, because a loaded `.mll` locks the build. |
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |

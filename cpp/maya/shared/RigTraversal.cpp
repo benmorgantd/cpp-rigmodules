@@ -12,6 +12,7 @@
 #include <maya/MGlobal.h>
 #include <maya/MPlug.h>
 #include <maya/MPlugArray.h>
+#include <maya/MPxTransform.h>
 
 namespace
 {
@@ -40,6 +41,38 @@ namespace
 			}
 		}
 		return false;
+	}
+
+	// The rig module that drives a joint through joint.offsetParentMatrix, or a null object if none does.
+	MObject getJointModule(const MObject& oJoint)
+	{
+		const MPlug pSource = MPlug(oJoint, MPxTransform::offsetParentMatrix).source();
+		if (pSource.isNull() || !isRigModuleNode(MFnDependencyNode(pSource.node()).typeId()))
+		{
+			return MObject::kNullObj;
+		}
+		return pSource.node();
+	}
+
+	// The rig module a joint, control or module node leads to, or a null object for any other node. The rig root
+	// leads to none. Reports nothing: a control left unconnected is caught later, by the caller's walk.
+	MObject getNodeModule(const MObject& oNode)
+	{
+		const MTypeId typeId = MFnDependencyNode(oNode).typeId();
+		if (isRigModuleNode(typeId))
+		{
+			return oNode;
+		}
+		if (typeId == RigControlNode::id)
+		{
+			const MPlug pSource = MPlug(oNode, RigControlNode::aRigModule).source();
+			return pSource.isNull() ? MObject::kNullObj : pSource.node();
+		}
+		if (oNode.hasFn(MFn::kJoint))
+		{
+			return getJointModule(oNode);
+		}
+		return MObject::kNullObj;
 	}
 
 	// The rig root a module belongs to, through module.rigRoot <- rigRoot.rigModules.
@@ -97,12 +130,18 @@ MStatus RigTraversal::getOwningRigRoot(const MObject& oNode, MObject& oOutRigRoo
 		}
 		return getModuleRigRoot(oModule, oOutRigRoot);
 	}
-	if (isRigModuleNode(typeId))
+	const MObject oModule = getNodeModule(oNode);
+	if (!oModule.isNull())
 	{
-		return getModuleRigRoot(oNode, oOutRigRoot);
+		return getModuleRigRoot(oModule, oOutRigRoot);
 	}
-	MGlobal::displayError(fnNode.name() + " is not a rig root, rig module or rig control.");
+	MGlobal::displayError(fnNode.name() + " is not a rig root, rig module, rig control or joint driven by a rig.");
 	return MStatus::kFailure;
+}
+
+bool RigTraversal::isRigNode(const MObject& oNode)
+{
+	return MFnDependencyNode(oNode).typeId() == RigRootNode::id || !getNodeModule(oNode).isNull();
 }
 
 MStatus RigTraversal::getAssetRoot(const MObject& oRigRoot, MObject& oOutAssetRoot)

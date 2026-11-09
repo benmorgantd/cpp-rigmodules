@@ -18,7 +18,7 @@ The `.mod` doesn't add the plugin to `MAYA_PLUG_IN_PATH`. Load the `.mll` by pat
 ```python
 import rigmodules.query
 
-info = rigmodules.query.get_rig_info("hero:arm_ctrl_l")
+info = rigmodules.query.get_rig_info("hero:arm_ctrl_l")      # a control, module, rig root or driven joint
 info.asset_id      # "shooter|main|characters|hero"
 info.variant       # "game"
 info.rig_root      # "hero:rigRootModule1"
@@ -28,7 +28,8 @@ rigmodules.query.get_rigs("hero")    # every rig built into the hero namespace
 
 | Function | Returns |
 |---|---|
-| `get_rig_info(node)` | A `RigInfo` for the rig a rig root, rig module or rig control belongs to. Raises `RuntimeError` for any other node, or a rig root with no asset root. Wraps [`getRigInfo`](commands.md#getriginfo) |
+| `find_rig_info(node)` | A `RigInfo` for the rig a rig root, rig module, rig control or rig-driven joint belongs to, or `None` for any other node. Reports nothing for those, so it suits a selection callback. Raises `RuntimeError` for a missing node or a broken rig. Wraps [`getRigInfo`](commands.md#getriginfo) |
+| `get_rig_info(node)` | Like `find_rig_info`, but raises `RuntimeError` when the node isn't part of a rig |
 | `get_rigs(namespace=None)` | A `RigInfo` for every rig in the scene, or in one namespace, sorted by rig root name |
 
 `RigInfo` is a frozen dataclass:

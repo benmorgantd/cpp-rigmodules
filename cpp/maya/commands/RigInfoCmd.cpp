@@ -53,6 +53,13 @@ MStatus GetRigInfoCmd::doIt(const MArgList& args)
 		return status;
 	}
 
+	// A node outside every rig is an ordinary answer, not an error, so a selection callback can ask about anything.
+	if (!RigTraversal::isRigNode(oNode))
+	{
+		setResult(MString());
+		return MStatus::kSuccess;
+	}
+
 	MObject oRigRoot;
 	status = RigTraversal::getOwningRigRoot(oNode, oRigRoot);
 	if (!status)

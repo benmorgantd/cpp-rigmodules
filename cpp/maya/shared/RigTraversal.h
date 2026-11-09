@@ -21,8 +21,12 @@ public:
 	// The rig root node with this name. Fails if it is missing or not a rigRootModule.
 	static MStatus getRigRoot(const MString& name, MObject& oOutRigRoot);
 
-	// The rig root a rig root, rig module or rig control belongs to. A rig root is its own. Fails for any other node.
+	// The rig root a rig root, rig module, rig control or joint belongs to. A rig root is its own. A joint belongs to
+	// the rig whose module drives its offsetParentMatrix. Fails for any other node.
 	static MStatus getOwningRigRoot(const MObject& oNode, MObject& oOutRigRoot);
+
+	// True for a node getOwningRigRoot accepts. Reports nothing, so tools can test every selected node quietly.
+	static bool isRigNode(const MObject& oNode);
 
 	// The asset root a rig root belongs to, through rigRoot.assetRoot <- assetRoot.children (D29). Fails if there is none.
 	static MStatus getAssetRoot(const MObject& oRigRoot, MObject& oOutAssetRoot);

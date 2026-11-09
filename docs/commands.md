@@ -202,7 +202,7 @@ Object: one control.
 
 ## getRigInfo
 
-Returns what a rig node belongs to, as JSON text: its rig root and asset root, the asset id, the variant, the namespace and the rig root's version stamps. Python tools use it through `rigmodules.query.get_rig_info` ([python.md](python.md)).
+Returns what a rig node belongs to, as JSON text: its rig root and asset root, the asset id, the variant, the namespace and the rig root's version stamps. Python tools use it through `rigmodules.query` ([python.md](python.md)).
 
 ```python
 cmds.getRigInfo("hero:arm_ctrl_l")
@@ -210,7 +210,7 @@ cmds.getRigInfo("hero:arm_ctrl_l")
 #           "pluginVersion":"0.1","publishVersion":"","rigName":"game","rigRoot":"hero:rigRootModule1","rigVersion":1}'
 ```
 
-Object: one rig root, rig module or rig control.
+Object: one rig root, rig module, rig control, or joint driven by a rig. A joint belongs to the rig whose module drives its `offsetParentMatrix`.
 
 | Key | Value |
 |---|---|
@@ -223,7 +223,8 @@ Object: one rig root, rig module or rig control.
 | `pluginVersion` | The RigModules version that built the rig |
 | `publishVersion` | The publish the rig came from, `""` until published |
 
-- Any other node (a joint, an asset root) is an error. So is a rig root with no asset root.
+- Any other node (an unrigged joint, an asset root, a mesh) returns `""`, with no error, so a selection callback can ask about anything.
+- A missing node is an error. So is a broken rig, such as a rig root with no asset root.
 - Not undoable: it changes nothing.
 
 ## mirrorRigControlShapes
