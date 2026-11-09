@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection.
-- Is undoable, apart from the queries `getRigControls` and `getRigMirrorControl`, and `saveRigControlShapes` (writes a file, changes nothing in the scene).
+- Is undoable, apart from the queries `getRigControls`, `getRigMirrorControl` and `getRigInfo`, and `saveRigControlShapes` (writes a file, changes nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -198,6 +198,32 @@ Object: one control.
 
 - A `Center` control returns itself.
 - A control with no mirror is an error that names the side and usage it looked for.
+- Not undoable: it changes nothing.
+
+## getRigInfo
+
+Returns what a rig node belongs to, as JSON text: its rig root and asset root, the asset id, the variant, the namespace and the rig root's version stamps. Python tools use it through `rigmodules.query.get_rig_info` ([python.md](python.md)).
+
+```python
+cmds.getRigInfo("hero:arm_ctrl_l")
+# Returns '{"assetId":"shooter|main|characters|hero","assetRoot":"hero:assetRootModule1","namespace":"hero",
+#           "pluginVersion":"0.1","publishVersion":"","rigName":"game","rigRoot":"hero:rigRootModule1","rigVersion":1}'
+```
+
+Object: one rig root, rig module or rig control.
+
+| Key | Value |
+|---|---|
+| `rigRoot` | The rig root node |
+| `assetRoot` | The asset root node that owns the rig's namespace |
+| `assetId` | The asset root's `assetId` |
+| `rigName` | The rig root's `rigName`: the variant |
+| `namespace` | The namespace the rig root is in, without a leading `:` |
+| `rigVersion` | The template's `rigVersion` |
+| `pluginVersion` | The RigModules version that built the rig |
+| `publishVersion` | The publish the rig came from, `""` until published |
+
+- Any other node (a joint, an asset root) is an error. So is a rig root with no asset root.
 - Not undoable: it changes nothing.
 
 ## mirrorRigControlShapes

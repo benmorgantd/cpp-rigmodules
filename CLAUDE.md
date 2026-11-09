@@ -96,6 +96,8 @@ cpp/                 the C++ root and include root: RigModules.vcxproj + .filter
     shared/          code used across those folders: module base, utilities, scene helpers, enums
   include/           vendored third-party headers (nlohmann json)
   x64/Release/       build output (ignored)
+python/rigmodules/   the Python package that wraps the commands (D24)
+RigModules.mod       Maya module file: puts python/ on PYTHONPATH
 tests/               mayapy suite, plus the manual viewport gallery
 tools/               developer scripts (the control shape generator)
 docs/, design/       user docs, design docs
@@ -139,6 +141,7 @@ RigTemplates/        example template
 | `commands/ConstraintCmds.h/.cpp` | `createRigParentConstraint` and `setRigConstraintSpace`. They call `ParentConstraintNode`'s static helpers. |
 | `commands/JointMarkupCmd.h/.cpp` | `rigJointMarkup`. The reference command shape (D14). |
 | `commands/RigControlCmds.h/.cpp` | `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`. They call `RigTraversal` and `ControlShapeScene`. |
+| `commands/RigInfoCmd.h/.cpp` | `getRigInfo`: any rig root, module or control to its rig root, asset root, asset id, variant, namespace and stamps, as JSON (keys in `RigInfoKey` and `RigAttr`). |
 | `nodes/RigRoot.h/.cpp` | `RigRootNode`, `RigBuildInputs` and `createRig` (read phase: parse, scan markup, `planModules`, validate. Write phase: roots, `buildModules`, parenting pass, constraints). |
 | `nodes/AssetRoot.h/.cpp` | `AssetRootNode`. |
 | `nodes/Constraints.h/.cpp` | `ParentConstraintNode`: compute, `resolveSocket`, `createConstraint`, `buildFromTemplate`, `matchSwitchSpace`. |
@@ -146,7 +149,7 @@ RigTemplates/        example template
 | `shared/RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/child plug lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
 | `shared/Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `ScopedRigNamespace` (RAII current namespace for a rig build and its redo). |
 | `shared/JointMarkupScene.h/.cpp` | Plugin side of markup: namespace joint scan, attribute read, `claimJoint`. |
-| `shared/RigTraversal.h/.cpp` | Walks a built rig by connections: rig root, modules, controls, control markup, filtered `getRigControls`, a control's rest world and its mirror control. |
+| `shared/RigTraversal.h/.cpp` | Walks a built rig by connections: rig root, the rig root a node belongs to, its asset root, modules, controls, control markup, filtered `getRigControls`, a control's rest world and its mirror control. |
 | `shared/ControlShapeScene.h/.cpp` | `getControlShape` / `setControlShape`, the rig-wide versions behind the shape file commands, and `mirrorRigControlShapes`. |
 | `shared/Colors.h` | `Colors`, the Maya `MColor` constants, split out of `core/Constants.h`. |
 | `shared/Side` | Enum/string helpers for sides. |
@@ -155,7 +158,9 @@ RigTemplates/        example template
 
 | Path | Contents |
 |---|---|
-| `RigTemplates/LayoutRig.json` | The only example template. Its joints use `[side, usage]` selectors. |
+| `RigTemplates/` | Example templates, `LayoutRig.json` and `Human.json`. Their joints use `[side, usage]` selectors. |
+| `python/rigmodules/` | `query.py` (`get_rig_info`, `get_rigs`, `RigInfo`) and `template.py` (`get_rig_name`). Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
+| `RigModules.mod` | Puts `python/` on `PYTHONPATH`, by a path relative to itself. It doesn't add the plugin path, because a loaded `.mll` locks the build. |
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
@@ -167,13 +172,13 @@ RigTemplates/        example template
 | `tools/generate_control_shapes.py` | mayapy script that writes `cpp/core/ControlShapeLibrary.cpp`. Rerun it after changing a shape, then rebuild. |
 | `cpp/RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files, with its folder relative to `cpp/` (`core\X.cpp`). The filters file has one filter per folder. |
 
-**Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, asset=assetId, namespace=ns, checkMirrorPositions=False)`, `cmds.rigJointMarkup(...)`, `cmds.createRigParentConstraint(control, driver=["module.socket", ...])`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`, `cmds.getRigControls(rigRoot, moduleType=[...], side=[...], usage=[...])`, `cmds.saveRigControlShapes(rigRoot, file=path)`, `cmds.loadRigControlShapes(rigRoot, file=path)`, `cmds.getRigMirrorControl(control)`, `cmds.mirrorRigControlShapes(rigRoot, leftToRight=True)`. Name API functions and commands in verb pairs: get/set for scene data (`getRigControls`, `setControlShape`), save/load for files this system owns (`saveRigControlShapes`, `loadRigControlShapes`), import/export for data going to or from other tools or formats, and `mirror` for copying one side onto the other (`mirrorRigControlShapes`). Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
+**Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, asset=assetId, namespace=ns, checkMirrorPositions=False)`, `cmds.rigJointMarkup(...)`, `cmds.createRigParentConstraint(control, driver=["module.socket", ...])`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`, `cmds.getRigControls(rigRoot, moduleType=[...], side=[...], usage=[...])`, `cmds.saveRigControlShapes(rigRoot, file=path)`, `cmds.loadRigControlShapes(rigRoot, file=path)`, `cmds.getRigMirrorControl(control)`, `cmds.mirrorRigControlShapes(rigRoot, leftToRight=True)`, `cmds.getRigInfo(node)`. Name API functions and commands in verb pairs: get/set for scene data (`getRigControls`, `setControlShape`), save/load for files this system owns (`saveRigControlShapes`, `loadRigControlShapes`), import/export for data going to or from other tools or formats, and `mirror` for copying one side onto the other (`mirrorRigControlShapes`). Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
 
 **Node types and MTypeIds:** `rigRootModule` 0x00218, `assetRootModule` 0x00219, `fkChainModule` 0x00218B, `layoutModule` 0x00218C, `aimModule` 0x00218D, `bmParentConstraint` 0x00218E, `rigControlNode` 0x0013B5C0. Check this list before picking an id for a new node.
 
 Known discrepancies with the text above:
 - There is no `NodeCreateCommands` namespace in `core/Constants.h`. Node type names live only in `maya/ModuleRegistry.cpp`.
-- There is no Python in the repo yet. The build entry point is the `createRigFromTemplate` command.
+- The Python package has only the rig queries and `get_rig_name`. The build entry point is still the `createRigFromTemplate` command.
 
 ## Reuse and complexity control
 
@@ -252,14 +257,14 @@ Studio-style split, matching how the author structures their Python code. The fo
 
 - **Core (`core/`, no Maya headers):** JSON parsing and validation, joint markup, shared constants. Still to move here: child plug and socket resolution, `parentStructure` ordering, matrix math. Meant to be testable with GoogleTest and no Maya install (no harness yet).
 - **Plugin layer (`maya/`, Maya API):** nodes, attribute definitions, plug I/O, and the commands that bridge to the core.
-- **Python (not started):** a thin package in a top-level `python/` folder: a build wrapper, a rig query API (rig root, modules, controls, sockets, rest values), template validation passed through to the core, shape IO and pose data read and write, and user-facing error messages. Placement rule: Python goes here only if it would have to change when a RigModules node, attribute, flag or template key changes. It imports no Qt or `bmaya` and reads no environment variables or asset paths (D24).
+- **Python (started, D30):** a thin package in `python/rigmodules`. Built: the rig query (`get_rig_info`, `get_rigs`) and `template.get_rig_name`. Planned: a build wrapper, the rest of the rig query API (modules, controls, sockets, rest values), template validation passed through to the core, shape IO and pose data read and write, and user-facing error messages. Placement rule: Python goes here only if it would have to change when a RigModules node, attribute, flag or template key changes. It imports no Qt or `bmaya` and reads no environment variables or asset paths (D24).
 
 ## Sibling repo: mayadev
 
 The author's Python pipeline lives in a separate repo: https://github.com/benmorgantd/mayadev, local checkout `C:\Users\bmorgan\Documents\dev\maya\mayadev`, package `bmaya` under `py/scripts/bmaya`. The author will use it for skinning, animation and GUI tools. Read `design/mayadev-integration.md` before touching either side of the boundary. The boundary is decided (D24).
 
 - **Dependency direction:** mayadev depends on RigModules, never the reverse. mayadev tools reach rig internals only through the RigModules Python query API, never by walking node connections or parsing names.
-- **Legacy rig builder:** mayadev has its own builder (`maya/rigging/base/` with `Rig`, `Module`, `Layout`, plus `maya/rigging/modules/`). It uses cmds constraints, DAG offset groups, name-based joints and `L/R/M` sides. It is being deleted, with a `legacy-rig-builder` tag kept for reference, along with `rigManager` and the legacy `bmaya.maya.asset`. mayadev stays the pipeline repo, and the new asset tools are built there (D30). No rigs built with it need a migration path. Do not extend it, port its code, or copy its conventions into RigModules. Read its modules only as a list of animator-facing requirements when a new module goes through the gate.
+- **Legacy rig builder:** mayadev has its own builder (`maya/rigging/base/` with `Rig`, `Module`, `Layout`, plus `maya/rigging/modules/`). It uses cmds constraints, DAG offset groups, name-based joints and `L/R/M` sides. It is deleted on mayadev branch `asset-tools`, along with `rigManager` and the legacy `bmaya.maya.asset`. The tag `legacy-rig-builder` keeps it, and an untracked copy sits in mayadev's ignored `legacy_reference/` folder for reading. mayadev stays the pipeline repo, and its asset tools (`bmaya.maya.assettools`) use `rigmodules.query` (D30). No rigs built with it need a migration path. Do not extend it, port its code, or copy its conventions into RigModules. Read its modules only as a list of animator-facing requirements when a new module goes through the gate.
 - **Reusable in mayadev:** `core/` (log, progress manager, tool registry, batch framework), `maya/asset/` (asset id `project|type|name`, the same format as `assetId` here, plus component files), `maya/rigging/weights/` (skinning), `maya/eventsregistry.py`, `maya_ui/qtbase.py`, and the tool menu.
 - **Same words, different meanings:** both repos have `Layout`, `FkChain` and `LayoutRig.json`. In this repo they always mean the RigModules ones. Call mayadev's versions "legacy".
 - mayadev is a different repo with its own conventions. This file's rules (Allman, docs pass, suite) apply only to this repo. Changes to mayadev need the author's go-ahead and a commit in that repo.
@@ -298,7 +303,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 275 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 300 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.

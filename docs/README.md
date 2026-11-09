@@ -22,6 +22,7 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 | [`commands.md`](commands.md) | Every Maya command: syntax, flags, objects, behaviour, undo, errors |
 | [`modules.md`](modules.md) | Every module: `moduleType`, `moduleArgs`, joints, controls, child plugs, sockets, behaviour |
 | [`controls.md`](controls.md) | What every control carries: markup, shapes and the axis convention, the shape file format, mirroring shapes |
+| [`python.md`](python.md) | The `rigmodules` Python package: installing it with `RigModules.mod`, and every function |
 | [`../tests/README.md`](../tests/README.md) | Running tests, case-file formats, where new tests go |
 | [`../design/decisions.md`](../design/decisions.md) | Design decisions and their reasons |
 
@@ -35,6 +36,7 @@ A change updates its owning page **in the same change** when it touches anything
 - A template key, default, allowed value, or validation rule → `templates.md`
 - A module, its `moduleArgs`, child plugs, sockets, controls or behaviour → `modules.md` and the README modules table
 - Control markup, a shape, or the shape file format → `controls.md`
+- A function in the `rigmodules` Python package, or `RigModules.mod` → `python.md`
 - Build steps, requirements, or the repo layout → `README.md`
 - Running or writing tests → `tests/README.md`
 

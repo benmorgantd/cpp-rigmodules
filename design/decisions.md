@@ -381,7 +381,7 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
   - Pose and animation data aren't affected: no control, attribute or socket names changed.
 
 ### D30. mayadev stays the pipeline repo, and rigs build anywhere before an asset exists
-**Status:** Decided (2026-11-08). Nothing built yet.
+**Status:** Decided (2026-11-08). Steps 1 to 5 are built, except the template authoring UI: RigModules side run in the mayapy suite, mayadev side in its mayapy tests on branch `asset-tools` (not merged).
 
 The author considered starting a new pipeline repo, because most of mayadev changes with the new asset and rigging systems. Decided: keep mayadev, tag its legacy state, delete the legacy code, and build the new tools there. A rig can be built and iterated on anywhere, before its asset folder exists. Tools that know about assets use the asset's paths when the rig's asset folder exists, and fall back to a file dialog when it doesn't.
 
@@ -395,7 +395,18 @@ The author considered starting a new pipeline repo, because most of mayadev chan
   4. Build the RigModules `python/` query from any rig node to its asset id, variant (`rigName`), namespace and stamps (D24, D29).
   5. Build the new mayadev tools on it: New Asset and New Variant (replacing the legacy AssetCreator), asset-aware shape save and load, Save Rig, Build Rig from Asset, then the template authoring UI that replaces `rigManager`.
 - **New Variant writes the variant's `template.json`.** A variant is a folder holding its template (D29), so creating one is a real write, not an empty folder, and the rule that folders appear only on write holds. `Asset.create` still writes only `asset.json`.
-- **Consequence:** the RigModules menu's shape tools keep their file dialogs until the query exists. The template authoring UI validates through RigModules `python/`, never with its own copy of the template rules (D24).
+- **Built (2026-11-08):**
+  - mayadev: main tagged `legacy-rig-builder`, `asset-model` merged. On branch `asset-tools`, the legacy code is deleted (builder, modules, shapes, templates, `rigTools`, `activerig`, `rigManager`, legacy `bmaya.maya.asset`, the `RIG_TEMPLATES_DIR` constants, their menu tools and docs). A copy of it sits in mayadev's untracked, ignored `legacy_reference/` for reading.
+  - RigModules: `getRigInfo` (any rig root, module or control to its rig root, asset root, asset id, variant, namespace and stamps, as JSON), on new `RigTraversal::getOwningRigRoot` and `getAssetRoot`. `getMirrorControl` now uses `getOwningRigRoot`.
+  - RigModules `python/rigmodules`: `query.get_rig_info`, `query.get_rigs(namespace)`, the `RigInfo` dataclass, and `template.get_rig_name`. `RigModules.mod` puts `python/` on `PYTHONPATH`. It adds no plugin path yet, because a loaded `.mll` locks the build output.
+  - mayadev `bmaya.maya.assettools`: New Project, New Asset, New Variant, Save Skeleton, Build Rig from Asset, Save Rig, and asset-aware Save and Load Control Shapes, in the RigModules menu. A `template` handler copies a template into the variant and checks its `rigName` is the variant.
+- **Author-facing choices made while building (2026-11-08), open to change:**
+  - Once a rig's asset folder exists, the shape and rig tools always use the asset's paths, and loading a shape file the asset doesn't have is an error, not a dialog. A file never lands in two places.
+  - Save Rig needs the variant's template in the asset first (New Variant). Without it the rig file would sit in a folder that isn't a variant.
+  - Build Rig from Asset refuses a namespace that already holds a rig. Variants share one skeleton, so a second variant should reuse the joints already there rather than import them again, and that isn't built.
+  - The rig tools take any node of the rig from the selection (a control is enough), not only the rig root.
+- **Not built:** the template authoring UI (it needs a module interface query command first, D24). Building a second variant into a namespace. Importing the variant's model in Build Rig.
+- **Consequence:** `getRigInfo`'s keys, `RigInfoKey::Namespace`, and the `rigmodules.query` and `rigmodules.template` names are public API for mayadev. The template authoring UI validates through RigModules `python/`, never with its own copy of the template rules (D24).
 
 ---
 
@@ -405,7 +416,7 @@ The author considered starting a new pipeline repo, because most of mayadev chan
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
 - **D24:** the TODOs in `mayadev-integration.md` (the `python/` package, `.mod` files), plus control sets. Asset folders moved to D29.
-- **D29, D30:** tag mayadev's legacy state, merge branch `asset-model`, delete the legacy code. Then the `python/` query for asset roots and stamps, the asset tools in D30's order, the publish step, the out-of-date check, and a Perforce adapter when a project uses Perforce.
+- **D29, D30:** review and merge mayadev branch `asset-tools`. Then the template authoring UI (after a module interface query), building a second variant into a namespace, the publish step, the out-of-date check, and a Perforce adapter when a project uses Perforce.
 - **D29 (potential):** asset GUIDs for references between assets, if renames and moves become common. Not needed now: ids are relative to the projects root, so they survive branching. See "Potential TODO: asset GUIDs" in `asset-model.md`.
 - **D29:** a later pass moves asset ids from `|` to `/` separators (author, 2026-11-08). It has to be done together with the existing tools that read `|` ids, and with a migration for existing rigs whose `assetId` uses `|`.
 - **D28:** mirroring poses and animation, built on `getRigMirrorControl` with the animation tools. A `ModuleContract` test that builds every Left/Right-capable module mirrored (Aim has no mirror fixture yet).

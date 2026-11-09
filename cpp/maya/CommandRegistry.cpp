@@ -4,6 +4,7 @@
 #include "maya/commands/CreateRigCmd.h"
 #include "maya/commands/JointMarkupCmd.h"
 #include "maya/commands/RigControlCmds.h"
+#include "maya/commands/RigInfoCmd.h"
 
 const std::vector<CommandDescriptor>& CommandRegistry::all()
 {
@@ -18,7 +19,8 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ SaveRigControlShapesCmd::aCommandString, SaveRigControlShapesCmd::creator, SaveRigControlShapesCmd::newSyntax },
 		{ LoadRigControlShapesCmd::aCommandString, LoadRigControlShapesCmd::creator, LoadRigControlShapesCmd::newSyntax },
 		{ GetRigMirrorControlCmd::aCommandString, GetRigMirrorControlCmd::creator, GetRigMirrorControlCmd::newSyntax },
-		{ MirrorRigControlShapesCmd::aCommandString, MirrorRigControlShapesCmd::creator, MirrorRigControlShapesCmd::newSyntax }
+		{ MirrorRigControlShapesCmd::aCommandString, MirrorRigControlShapesCmd::creator, MirrorRigControlShapesCmd::newSyntax },
+		{ GetRigInfoCmd::aCommandString, GetRigInfoCmd::creator, GetRigInfoCmd::newSyntax }
 	};
 	return descriptors;
 }

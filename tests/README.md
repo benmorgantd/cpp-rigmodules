@@ -162,6 +162,7 @@ Every new test file goes into `TIERS` in `run_tests.py`, in the earliest tier wh
 
 - **New module:** create `modules/test_<module>.py` with a `ModuleContract` subclass (template, skeleton, node type and joint owners), `add_pose_cases(<Class>, "<module>")`, and module-specific tests. Add the fixtures it needs, a `fixtures/poses/<module>/` folder and a golden snapshot.
 - **New command:** create `commands/test_<command>.py`. Cover flags, objects passed by name (the selection is never used), every error path, and undo/redo. Add its long flags to `concepts/test_plugin.py`.
+- **Python package:** a test of `python/rigmodules` goes in the tier its command needs (`commands/test_rig_info.py` builds a rig, `concepts/test_python_template.py` reads a file). The runner puts `python/` on `sys.path`, so tests import `rigmodules` directly.
 - **New template check:** add a validation case. Write a code test in `concepts/test_template_validation.py` only when the check needs a scene change, such as a driven OPM.
 - **Bug fix:** write the failing test first. If the bug can't be fixed yet, put the test in `known/` with `@unittest.expectedFailure` and name the open item in `design/decisions.md`.
 

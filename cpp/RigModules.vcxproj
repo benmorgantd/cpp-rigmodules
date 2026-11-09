@@ -160,6 +160,7 @@
     <ClCompile Include="maya\commands\CreateRigCmd.cpp" />
     <ClCompile Include="maya\commands\JointMarkupCmd.cpp" />
     <ClCompile Include="maya\commands\RigControlCmds.cpp" />
+    <ClCompile Include="maya\commands\RigInfoCmd.cpp" />
     <ClCompile Include="maya\modules\AimModule.cpp" />
     <ClCompile Include="maya\modules\FkChain.cpp" />
     <ClCompile Include="maya\modules\LayoutModule.cpp" />
@@ -194,6 +195,7 @@
     <ClInclude Include="maya\commands\CreateRigCmd.h" />
     <ClInclude Include="maya\commands\JointMarkupCmd.h" />
     <ClInclude Include="maya\commands\RigControlCmds.h" />
+    <ClInclude Include="maya\commands\RigInfoCmd.h" />
     <ClInclude Include="maya\modules\AimModule.h" />
     <ClInclude Include="maya\modules\FkChain.h" />
     <ClInclude Include="maya\modules\LayoutModule.h" />

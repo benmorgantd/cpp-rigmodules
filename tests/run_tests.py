@@ -31,6 +31,8 @@ MAYA_TESTS_DIR = os.path.join(TESTS_DIR, "maya")
 REPO_DIR = os.path.dirname(TESTS_DIR)
 CPP_DIR = os.path.join(REPO_DIR, "cpp")
 DEFAULT_PLUGIN = os.path.join(CPP_DIR, "x64", "Release", "RigModules.mll")
+# The rigmodules Python package, tested together with the plugin it wraps (D24).
+PYTHON_DIR = os.path.join(REPO_DIR, "python")
 
 # Every test file belongs to exactly one tier. Order is dependency order: a tier may assume every
 # earlier tier passed. A file missing from this table fails the run, so new suites must be placed.
@@ -45,6 +47,7 @@ TIERS = [
         "concepts.test_control_shapes",     # rigControlNode shapes and bounds, no rig
         "concepts.test_template_loading",
         "concepts.test_template_validation",
+        "concepts.test_python_template",    # rigmodules.template reads a file, builds nothing
     ]),
     ("build smoke", True, [                # every fixture template builds
         "concepts.test_smoke",
@@ -58,6 +61,7 @@ TIERS = [
         "concepts.test_naming",
         "concepts.test_undo_redo",
         "commands.test_rig_control_cmds",   # control markup, traversal and shape files on a built rig
+        "commands.test_rig_info",           # getRigInfo and the rigmodules Python query
     ]),
     ("constraints", True, [
         "commands.test_constraint_cmds",
@@ -247,8 +251,9 @@ def load_tier_tests(tier, filters):
 
 
 def configure_rigtest(work_dir, update_golden):
-    if MAYA_TESTS_DIR not in sys.path:
-        sys.path.insert(0, MAYA_TESTS_DIR)
+    for folder in (MAYA_TESTS_DIR, PYTHON_DIR):
+        if folder not in sys.path:
+            sys.path.insert(0, folder)
     from rigtest import config
     config.WORK_DIR = work_dir
     config.UPDATE_GOLDEN = update_golden

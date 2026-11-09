@@ -4,7 +4,7 @@ A C++ rigging plugin for Autodesk Maya 2026+. You mark up a skeleton, describe t
 
 The rig it builds is aimed at animation and game export: predictable controls, stable names, and a clean split between controls and export joints.
 
-> **Status:** early development. Three modules exist (Layout, FkChain, Aim). The build is Windows and Visual Studio only, and there is no Python front end yet.
+> **Status:** early development. Three modules exist (Layout, FkChain, Aim). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has only the rig queries so far.
 
 ## How it works
 
@@ -111,6 +111,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/commands.md](docs/commands.md) | Every Maya command and flag |
 | [docs/modules.md](docs/modules.md) | Each module's joints, controls, child plugs and sockets |
 | [docs/controls.md](docs/controls.md) | Control markup, shapes, the shape file, and mirroring shapes |
+| [docs/python.md](docs/python.md) | The `rigmodules` Python package and `RigModules.mod` |
 | [tests/README.md](tests/README.md) | Running and writing tests |
 | [design/decisions.md](design/decisions.md) | Why the system is built the way it is (decision log) |
 | [design/mayadev-integration.md](design/mayadev-integration.md) | Plan for how RigModules and the mayadev Python pipeline fit together |
@@ -137,11 +138,13 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | `cpp/core/` | Maya-free: template structs and loading (`RigJsonStructs`), template validation, joint and control markup schemas, the control shape library and shape file format, JSON string helpers, shared name constants |
 | `cpp/maya/` | Plugin entry (`PluginMain.cpp`) and the registries every node and command is added to |
 | `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim |
-| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigParentConstraint`, `setRigConstraintSpace`, `rigJointMarkup`, `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes` |
+| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigParentConstraint`, `setRigConstraintSpace`, `rigJointMarkup`, `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`, `getRigInfo` |
 | `cpp/maya/nodes/` | Other nodes: rig and asset roots (the root also runs the build), the parent constraint, the control node |
 | `cpp/maya/shared/` | Code used across those folders: the module base, utilities, joint markup in the scene, rig traversal, control shapes in the scene, enums |
 | `cpp/include/` | Vendored third-party headers (nlohmann json) |
-| `RigTemplates/` | Example template |
+| `python/rigmodules/` | The Python package that wraps the commands for pipeline tools |
+| `RigModules.mod` | Maya module file that puts `python/` on `PYTHONPATH` |
+| `RigTemplates/` | Example templates |
 | `docs/` | User documentation |
 | `design/` | Decision log and original planning document |
 | `tests/` | mayapy test suite |

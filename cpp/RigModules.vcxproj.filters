@@ -75,6 +75,9 @@
     <ClCompile Include="maya\commands\RigControlCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
+    <ClCompile Include="maya\commands\RigInfoCmd.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
     <ClCompile Include="maya\modules\AimModule.cpp">
       <Filter>maya\modules</Filter>
     </ClCompile>
@@ -171,6 +174,9 @@
       <Filter>maya\commands</Filter>
     </ClInclude>
     <ClInclude Include="maya\commands\RigControlCmds.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\commands\RigInfoCmd.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
     <ClInclude Include="maya\modules\AimModule.h">

@@ -29,6 +29,19 @@ namespace
 		return MStatus::kSuccess;
 	}
 
+	// A node type that connects to a rig root's rigModules. Asset roots, rig roots and constraints are registered too, but aren't modules.
+	bool isRigModuleNode(const MTypeId& typeId)
+	{
+		for (const ModuleDescriptor& descriptor : ModuleRegistry::all())
+		{
+			if (descriptor.typeId == typeId)
+			{
+				return descriptor.isRigModule;
+			}
+		}
+		return false;
+	}
+
 	// The rig root a module belongs to, through module.rigRoot <- rigRoot.rigModules.
 	MStatus getModuleRigRoot(const MObject& oModule, MObject& oOutRigRoot)
 	{
@@ -61,6 +74,46 @@ MStatus RigTraversal::getRigRoot(const MString& name, MObject& oOutRigRoot)
 		oOutRigRoot = MObject::kNullObj;
 		return MStatus::kFailure;
 	}
+	return MStatus::kSuccess;
+}
+
+MStatus RigTraversal::getOwningRigRoot(const MObject& oNode, MObject& oOutRigRoot)
+{
+	MFnDependencyNode fnNode(oNode);
+	const MTypeId typeId = fnNode.typeId();
+	if (typeId == RigRootNode::id)
+	{
+		oOutRigRoot = oNode;
+		return MStatus::kSuccess;
+	}
+	if (typeId == RigControlNode::id)
+	{
+		MObject oModule;
+		unsigned int index = 0;
+		MStatus status = getControlModule(oNode, oModule, index);
+		if (!status)
+		{
+			return status;
+		}
+		return getModuleRigRoot(oModule, oOutRigRoot);
+	}
+	if (isRigModuleNode(typeId))
+	{
+		return getModuleRigRoot(oNode, oOutRigRoot);
+	}
+	MGlobal::displayError(fnNode.name() + " is not a rig root, rig module or rig control.");
+	return MStatus::kFailure;
+}
+
+MStatus RigTraversal::getAssetRoot(const MObject& oRigRoot, MObject& oOutAssetRoot)
+{
+	const MPlug pSource = MPlug(oRigRoot, RigRootNode::aAssetRoot).source();
+	if (pSource.isNull())
+	{
+		MGlobal::displayError(MFnDependencyNode(oRigRoot).name() + " is not connected to an asset root.");
+		return MStatus::kFailure;
+	}
+	oOutAssetRoot = pSource.node();
 	return MStatus::kSuccess;
 }
 
@@ -257,14 +310,8 @@ MStatus RigTraversal::getMirrorControl(const MObject& oControl, MObject& oOutMir
 		return MStatus::kSuccess;
 	}
 
-	MObject oModule;
-	unsigned int index = 0;
 	MObject oRigRoot;
-	status = getControlModule(oControl, oModule, index);
-	if (status)
-	{
-		status = getModuleRigRoot(oModule, oRigRoot);
-	}
+	status = getOwningRigRoot(oControl, oRigRoot);
 	if (!status)
 	{
 		return status;

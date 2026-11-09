@@ -106,6 +106,14 @@ namespace RigAttr
 	inline constexpr const char* ControlSpace{ "space" };           // dynamic enum on a constrained control
 }
 
+// Keys of getRigInfo's JSON result. Public API: mayadev reads them through the rigmodules Python package.
+// The attribute values reuse their RigAttr names (rigName, assetId, ...). The node names reuse
+// RigAttr::RigRoot and RigAttr::AssetRoot. Only the namespace has no attribute of its own.
+namespace RigInfoKey
+{
+	inline constexpr const char* Namespace{ "namespace" };
+}
+
 namespace PlugAndSocketNames
 {
 	inline constexpr const char* Start{ "start" };
