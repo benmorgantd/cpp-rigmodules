@@ -183,11 +183,12 @@ Tests: `tests/asset/run.bat` runs 44 plain Python tests, then 3 mayapy tests aga
 
 ## Next
 
-1. Merge the mayadev branch once the author has reviewed it.
-2. The RigModules `python/` query from a node to its asset root, id, variant and stamps, which the out-of-date check needs.
-3. A publish step: build the rig, write it and its input copies into `publishes.create`'s folder, and set `publishVersion`.
-4. Handlers for weights (after weightio's API 1 calls are fixed), postops, poses and anims.
-5. A Perforce source-control adapter, when a project uses Perforce.
+1. Tag mayadev's legacy state, merge the branch once the author has reviewed it, and delete the legacy code (D30).
+2. The RigModules `python/` query from a node to its asset root, id, variant and stamps, which the asset tools and the out-of-date check need.
+3. The asset tools (D30): New Asset and New Variant (which writes the variant's `template.json`), asset-aware shape save and load, Save Rig, Build Rig from Asset, then a template authoring UI. A rig can still be built anywhere before its asset exists, and these tools fall back to a file dialog when the rig's asset folder doesn't exist.
+4. A publish step: build the rig, write it and its input copies into `publishes.create`'s folder, and set `publishVersion`.
+5. Handlers for weights (after weightio's API 1 calls are fixed), postops, poses and anims.
+6. A Perforce source-control adapter, when a project uses Perforce.
 
 ### Potential TODO: asset GUIDs
 

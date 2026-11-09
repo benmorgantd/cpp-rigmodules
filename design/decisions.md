@@ -380,6 +380,23 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
   - Two templates with the same `rigName` can't be built into one namespace.
   - Pose and animation data aren't affected: no control, attribute or socket names changed.
 
+### D30. mayadev stays the pipeline repo, and rigs build anywhere before an asset exists
+**Status:** Decided (2026-11-08). Nothing built yet.
+
+The author considered starting a new pipeline repo, because most of mayadev changes with the new asset and rigging systems. Decided: keep mayadev, tag its legacy state, delete the legacy code, and build the new tools there. A rig can be built and iterated on anywhere, before its asset folder exists. Tools that know about assets use the asset's paths when the rig's asset folder exists, and fall back to a file dialog when it doesn't.
+
+- **Why keep the repo:** the parts that survive (`core/`, the events registry, `qtbase`, the tool registry and menus, the startup, skinning) keep their history and blame, and `mayadev.mod`, `MAYADEV_ROOT`, `userSetup.py` and the RigModules menu keep working unchanged. Deleting the legacy code gives the same clean slate a new repo would, and the tag keeps it readable as reference.
+- **Rejected:** a new repo. It would lose that history and rewire the whole startup. It stays an option if a public portfolio repo without the legacy history is wanted, started from the cleaned-up tree. A rename of mayadev is also left for later.
+- **Why build anywhere (author, 2026-11-08):** riggers iterate on a template and skeleton long before an asset is worth creating. The build already needs only an asset id (D29), never a folder.
+- **Order:**
+  1. In mayadev, commit or stash the uncommitted legacy work, then tag main `legacy-rig-builder`.
+  2. Merge branch `asset-model`.
+  3. On a cleanup branch, delete the legacy builder, legacy modules, `rigManager`, the legacy `bmaya.maya.asset`, and the legacy constants that read `RIG_TEMPLATES_DIR`, and fix startup and menus so nothing imports them.
+  4. Build the RigModules `python/` query from any rig node to its asset id, variant (`rigName`), namespace and stamps (D24, D29).
+  5. Build the new mayadev tools on it: New Asset and New Variant (replacing the legacy AssetCreator), asset-aware shape save and load, Save Rig, Build Rig from Asset, then the template authoring UI that replaces `rigManager`.
+- **New Variant writes the variant's `template.json`.** A variant is a folder holding its template (D29), so creating one is a real write, not an empty folder, and the rule that folders appear only on write holds. `Asset.create` still writes only `asset.json`.
+- **Consequence:** the RigModules menu's shape tools keep their file dialogs until the query exists. The template authoring UI validates through RigModules `python/`, never with its own copy of the template rules (D24).
+
 ---
 
 ## Open items
@@ -388,7 +405,7 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
 - **D24:** the TODOs in `mayadev-integration.md` (the `python/` package, `.mod` files), plus control sets. Asset folders moved to D29.
-- **D29:** review and merge mayadev branch `asset-model` (source-control revision built 2026-11-08). Then the `python/` query for asset roots and stamps, the publish step, the out-of-date check, and a Perforce adapter when a project uses Perforce.
+- **D29, D30:** tag mayadev's legacy state, merge branch `asset-model`, delete the legacy code. Then the `python/` query for asset roots and stamps, the asset tools in D30's order, the publish step, the out-of-date check, and a Perforce adapter when a project uses Perforce.
 - **D29 (potential):** asset GUIDs for references between assets, if renames and moves become common. Not needed now: ids are relative to the projects root, so they survive branching. See "Potential TODO: asset GUIDs" in `asset-model.md`.
 - **D29:** a later pass moves asset ids from `|` to `/` separators (author, 2026-11-08). It has to be done together with the existing tools that read `|` ids, and with a migration for existing rigs whose `assetId` uses `|`.
 - **D28:** mirroring poses and animation, built on `getRigMirrorControl` with the animation tools. A `ModuleContract` test that builds every Left/Right-capable module mirrored (Aim has no mirror fixture yet).

@@ -159,7 +159,7 @@ RigTemplates/        example template
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
-| `design/decisions.md` | Decision log (D1–D29). |
+| `design/decisions.md` | Decision log (D1–D30). |
 | `design/asset-model.md` | Asset id, namespace ownership, rig variants, file model, local versions and the registry (D29). The file model is planned for a mayadev branch. |
 | `design/mayadev-integration.md` | Survey of the sibling mayadev repo, conflicts with RigModules, the proposed boundary and phases (D24). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
@@ -236,6 +236,8 @@ Use long flag names everywhere: in code that reads flags, in comments, in docs a
 
 **Command examples are Python `maya.cmds`, never MEL.** This applies to docs, `design/decisions.md`, comments, commit messages and replies to the author: `cmds.rigJointMarkup("skel:arm_jnt", usage="arm", side="Left", export=True, skin=True)`, not `rigJointMarkup -usage "arm" ...`. Keywords are the long flag names, and a multi-use flag takes a list. Flag tables name the keyword (`usage`), without the leading `-`.
 
+**No import aliases in Python.** Write `import bmaya.asset` and call `bmaya.asset.Asset.create(...)`, never `import bmaya.asset as ba`. The full path says where each name lives. The one exception is `import maya.cmds as cmds`, the established convention. This applies to code, tests, docs and replies.
+
 ### Maya API rules
 
 - **Pass lvalue MObjects to non-const `MObject&` parameters.** `MPlug::child(MObject& attr, MStatus*)` does not accept a temporary, so `pElement.child(fnModule.attribute("name"))` fails with E0304. Look the attribute up on its own line into a named `oAttrName` variable, then pass that variable. This applies to any Maya API function taking a non-const `MObject&`, including the result of `fnNode.attribute(...)` and `MFnAttribute::create(...)`. Check the header signature before nesting a call as an argument.
@@ -257,7 +259,7 @@ Studio-style split, matching how the author structures their Python code. The fo
 The author's Python pipeline lives in a separate repo: https://github.com/benmorgantd/mayadev, local checkout `C:\Users\bmorgan\Documents\dev\maya\mayadev`, package `bmaya` under `py/scripts/bmaya`. The author will use it for skinning, animation and GUI tools. Read `design/mayadev-integration.md` before touching either side of the boundary. The boundary is decided (D24).
 
 - **Dependency direction:** mayadev depends on RigModules, never the reverse. mayadev tools reach rig internals only through the RigModules Python query API, never by walking node connections or parsing names.
-- **Legacy rig builder:** mayadev has its own builder (`maya/rigging/base/` with `Rig`, `Module`, `Layout`, plus `maya/rigging/modules/`). It uses cmds constraints, DAG offset groups, name-based joints and `L/R/M` sides. It is being deleted, with a tag kept for reference. No rigs built with it need a migration path. Do not extend it, port its code, or copy its conventions into RigModules. Read its modules only as a list of animator-facing requirements when a new module goes through the gate.
+- **Legacy rig builder:** mayadev has its own builder (`maya/rigging/base/` with `Rig`, `Module`, `Layout`, plus `maya/rigging/modules/`). It uses cmds constraints, DAG offset groups, name-based joints and `L/R/M` sides. It is being deleted, with a `legacy-rig-builder` tag kept for reference, along with `rigManager` and the legacy `bmaya.maya.asset`. mayadev stays the pipeline repo, and the new asset tools are built there (D30). No rigs built with it need a migration path. Do not extend it, port its code, or copy its conventions into RigModules. Read its modules only as a list of animator-facing requirements when a new module goes through the gate.
 - **Reusable in mayadev:** `core/` (log, progress manager, tool registry, batch framework), `maya/asset/` (asset id `project|type|name`, the same format as `assetId` here, plus component files), `maya/rigging/weights/` (skinning), `maya/eventsregistry.py`, `maya_ui/qtbase.py`, and the tool menu.
 - **Same words, different meanings:** both repos have `Layout`, `FkChain` and `LayoutRig.json`. In this repo they always mean the RigModules ones. Call mayadev's versions "legacy".
 - mayadev is a different repo with its own conventions. This file's rules (Allman, docs pass, suite) apply only to this repo. Changes to mayadev need the author's go-ahead and a commit in that repo.

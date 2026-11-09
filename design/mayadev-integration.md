@@ -1,6 +1,6 @@
 # mayadev integration plan
 
-**Status:** decided 2026-11-06 (D24 in `decisions.md`). The author signed off on the boundary, the placement rule and the migration steps. Nothing here is built yet.
+**Status:** decided 2026-11-06 (D24 in `decisions.md`). The author signed off on the boundary, the placement rule and the migration steps. On 2026-11-08 the author decided to keep mayadev as the pipeline repo rather than start a new one, and to delete its legacy code there (D30). Built so far: the RigModules menu and plugin load at startup, and the asset file model on mayadev branch `asset-model` (D29).
 
 `mayadev` is the author's Python pipeline repo (https://github.com/benmorgantd/mayadev, local checkout `C:\Users\bmorgan\Documents\dev\maya\mayadev`). Its package is `bmaya`, under `py/scripts/bmaya`. It has its own rig builder, which works completely differently from RigModules. The author will use mayadev for skinning, animation and other GUI tools, so this plan sets the boundary before either side grows further.
 
@@ -18,14 +18,14 @@ About 17k lines of Python, Python 3, Maya API 2.0 for the most part. Verdicts: *
 | Batch framework | `core/batch/`, `maya/batch/`, `tests/`, `batch/docgen/` | mayapy batch runner with a manifest, logs and a Markdown report. Used by one smoke test and the mkdocs generator | Keep |
 | Events | `maya/eventsregistry.py` | Singleton OpenMaya callback registry with pause and auto-cleanup | Keep |
 | Qt base | `maya_ui/qtbase.py` | Window, dockable widget, tree and list widgets, progress window | Keep |
-| Asset layer | `maya/asset/asset.py`, `asset/components/*` | Asset id `project\|type\|name`, folders under `RIGGING_PROJECT_DIR`, component files, asset versioning | Adapt (see "Asset folders") |
+| Asset layer | `maya/asset/asset.py`, `asset/components/*` | Asset id `project\|type\|name`, folders under `RIGGING_PROJECT_DIR`, component files, asset versioning | Retire. Replaced by the Maya-free `bmaya.asset` package (D29, branch `asset-model`) |
 | Skinning | `maya/rigging/weights/` | `weightio` (deformerWeights JSON by vertex index), `weightutils`, skin tools and MPx commands (prune, extrude, average, smooth, copy, cvShapeInverter) | Adapt |
 | Joint authoring | `maya/rigging/joint.py` | Joint at selection center, orient to world or mesh, mirror face joints, `label_joints` from names | Keep the authoring tools. `label_joints` is replaced by `cmds.rigJointMarkup` |
 | Animator tools | `maya/rigging/rigTools.py`, `activerig.py` | Reset control, module or character to defaults, select module, key all, IK/FK match and bake, the active-rig tracker | Adapt onto the RigModules query API |
 | Rig builder | `maya/rigging/base/` (`Rig`, `Module`, `Layout`), `buildio.py`, `templates/*.json` | Rig build from a nested JSON tree, using cmds constraints, offset-group DAG hierarchies and network nodes | Retire |
 | Legacy modules | `maya/rigging/modules/` | Arm, Leg, `_Foot`, IkChain, IkFkChain, FkChain, FkTwist, Spline, NeckHead, SingleJoint, Face, `__Ribbon`, `_ThreeJointIkFkTwist` | Reference |
 | Control shapes | `maya/rigging/shapes/` | `ControlCurve` (nurbsCurve with offset and space groups), `shapeio` saves, loads and mirrors world-space CVs for every `*_ctrl` | Retire the code. Keep the workflow: rebuilt as shape IO in RigModules (see "Shape IO") |
-| Rig manager UI | `maya_ui/rigManager/` | Dockable editor for the legacy `build.json` tree. Its attribute fields come from Python `__init__` signatures | Adapt: rewrite it against the RigModules template schema |
+| Rig manager UI | `maya_ui/rigManager/` | Dockable editor for the legacy `build.json` tree, plus the AssetCreator. Its attribute fields come from Python `__init__` signatures | Retire. Replaced by New Asset and New Variant tools and a template authoring UI that validates through RigModules `python/` (D30) |
 | Generic utils | `maya/util/` | dg, dag, math, name, selection, bounding box, `BMETADATA` JSON tagging, a Python matrix parent constraint | Keep the generic ones. `matrixConstraint.py` is replaced by `bmParentConstraint` inside rigs |
 | Python plug-ins | `py/plug-ins/`, `py/scripts/plug-ins/` | Python API nodes: aim constraint, quatExtract, softIK, coneReader, rayIntersect, wheel, trig, simple collision, spring | Reference. quatExtract (twist), softIK and coneReader are candidates for C++ when a module needs one |
 
@@ -78,7 +78,7 @@ Pose and shape IO split the same way. RigModules owns the data format and the fu
 
 ### How the move happens
 
-1. **Tag, then delete the legacy builder in mayadev.** No rigs need to survive, so a freeze period isn't needed. Tag the last commit that has it (for example `legacy-builder`), then delete `rigging/base/`, `rigging/modules/`, `buildio.py`, `rigging/shapes/`, `rigging/templates/` and the parts of `rigManager` that edit `build.json`. The legacy modules stay readable at the tag as requirements reference.
+1. **Tag, then delete the legacy code in mayadev** (D30). No rigs need to survive, so a freeze period isn't needed. Commit or stash the uncommitted legacy work, tag main `legacy-rig-builder`, and merge branch `asset-model`. Then, on a cleanup branch, delete `rigging/base/`, `rigging/modules/`, `buildio.py`, `rigging/shapes/`, `rigging/templates/`, `maya_ui/rigManager/`, the legacy `bmaya.maya.asset` and the constants that read `RIG_TEMPLATES_DIR`, and fix startup and the menus so nothing imports them. The legacy code stays readable at the tag as requirements reference.
 2. **Start `python/rigmodules/` in this repo.** Design first: the package layout, the query API surface and its tests. Its tests join a tier in `tests/run_tests.py`, so the suite covers the C++ and its wrapper together.
 3. **Point mayadev at it.** mayadev imports `rigmodules` and nothing else from this repo. Its startup loads `RigModules.mll`.
 4. **Rebuild mayadev's rig pieces on top.** The asset build, the rigManager rewrite, shape and weight load, then the animator tools.
@@ -178,10 +178,10 @@ Animator-facing features found there, which RigModules does not have yet:
 ## Phases
 
 0. **Done (docs only):** this page, D24, CLAUDE.md, memory.
-1. **mayadev cleanup:** tag `legacy-builder`, delete the legacy builder, add `mayadev.mod`. Loading the plugin at startup is done (2026-11-08, with the RigModules menu).
-2. **RigModules `python/` package:** design first, then the build wrapper, the query API and the module interface query, with tests in the suite. Add `RigModules.mod`.
+1. **mayadev cleanup:** tag `legacy-rig-builder`, merge `asset-model`, delete the legacy code ("How the move happens", D30). `mayadev.mod` exists. Loading the plugin at startup is done (2026-11-08, with the RigModules menu).
+2. **RigModules `python/` package:** design first, then the build wrapper, the query API (starting with node → asset id, variant, namespace and stamps) and the module interface query, with tests in the suite. Add `RigModules.mod`.
 3. **Shape IO:** built, mirroring included (see "Shape IO", D28).
-4. **mayadev asset build:** the asset file model is on mayadev branch `asset-model` (D29, `asset-model.md`). Still to do: a build that calls the RigModules wrapper and shape IO, and rigManager rewritten as a template editor.
+4. **mayadev asset tools** (D30), in order: New Asset and New Variant (New Variant writes the variant's `template.json`), asset-aware shape save and load, Save Rig, Build Rig from Asset, then the template authoring UI. Rigs still build anywhere before an asset exists, and each tool falls back to a file dialog when the rig's asset folder doesn't exist. The asset file model they use is on branch `asset-model` (D29, `asset-model.md`).
 5. **Skinning and animation tools** on the query API: pose data, reset, key all, IK/FK match once IK modules exist.
 
 ## Answers so far (2026-11-06)
