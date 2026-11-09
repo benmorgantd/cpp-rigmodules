@@ -30,6 +30,7 @@ struct ConstraintDriverInfo
 struct ConstraintBuildArgs
 {
 	std::string name;
+	int type = 0;                    // index into ConstraintTypes::All
 	MObject oControl;                // rig control that hosts the space enum
 	MObject oModule;                 // module that owns the control
 	unsigned int plugIndex = 0;      // child plug (and control) index on that module
@@ -38,16 +39,17 @@ struct ConstraintBuildArgs
 	MObject oRigRoot;                // may be null
 };
 
-// Space switch for one child plug. Outputs the parent motion the module reads as a child plug delta:
-//   out = rest[active]^-1 * world[active]
+// Space switch for one child plug. Outputs the motion the module reads as a child plug delta. For Parent that is
+// the active driver's motion since rest, rest[active]^-1 * world[active]. Orient and Point take only the driver's
+// rotation or translation, and the rest from the plug's parentStructure parent (D31).
 // Every driver's delta is identity at rest, so every space gives the rest pose (D27). Nothing is stored per
 // switch: matching changes the control's own values instead (see matchSwitchSpace).
 // One node per child plug. Attribute naming follows the module nodes (aMyAttr).
-class ParentConstraintNode : public MPxNode
+class RigConstraintNode : public MPxNode
 {
 public:
-	ParentConstraintNode();
-	virtual ~ParentConstraintNode() override;
+	RigConstraintNode();
+	virtual ~RigConstraintNode() override;
 
 	MStatus compute(const MPlug& plug, MDataBlock& data) override;
 
@@ -62,6 +64,10 @@ public:
 	static MObject aDriverRest;        //   socket world matrix at rest
 	static MObject aDriverLabel;       //   enum label
 	static MObject aActiveDriver;      // int, driven by the control's enum
+	static MObject aConstraintType;    // enum, ConstraintTypes::All
+	static MObject aParentMatrix;      // live world matrix of the plug's parentStructure socket
+	static MObject aParentRest;        // that socket's world matrix at rest
+	static MObject aChildRest;         // rest world matrix of the constrained control
 	static MObject aOutParentMatrix;   // delta for module.childPlugs[k].parentMatrix
 	static MObject aRigRoot;           // message
 

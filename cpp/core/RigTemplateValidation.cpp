@@ -290,9 +290,9 @@ namespace
 				report.addError(where, "name is already used by " + RigTemplateValidation::constraintPath(constraintNames[constraint.name], constraints[constraintNames[constraint.name]]));
 			}
 
-			if (constraint.type != ConstraintTypes::Parent)
+			if (ConstraintTypes::indexOf(constraint.type) < 0)
 			{
-				report.addError(where + "." + TemplateKey::ConstraintType, "unknown constraint type '" + constraint.type + "' (has: " + ConstraintTypes::Parent + ")");
+				report.addError(where + "." + TemplateKey::ConstraintType, "unknown constraint type '" + constraint.type + "' (has: " + joinNames(ConstraintTypes::All) + ")");
 			}
 
 			// Target child plug

@@ -7,12 +7,12 @@ from maya import cmds, mel
 from rigtest.case import RigTestCase
 
 NODE_TYPES = ["assetRootModule", "rigRootModule", "layoutModule", "fkChainModule", "aimModule",
-              "bmParentConstraint", "rigControlNode"]
+              "rigConstraint", "rigControlNode"]
 
 COMMAND_FLAGS = {
     "createRigFromTemplate": ["template", "namespace", "checkMirrorPositions"],
     "rigJointMarkup": ["usage", "side", "export", "skin", "remove", "query", "edit"],
-    "createRigParentConstraint": ["name", "driver", "label", "initial"],
+    "createRigConstraint": ["name", "driver", "label", "initial", "type"],
     "setRigConstraintSpace": ["space", "label"],
     "getRigControls": ["moduleType", "side", "usage"],
     "saveRigControlShapes": ["file"],

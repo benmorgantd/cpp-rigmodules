@@ -70,4 +70,4 @@ class ParentStructure(RigTestCase):
 
     def test_template_constraints_are_built(self):
         self.build_standard("layout_rig", "layout_rig")
-        self.assertEqual(sorted(cmds.ls(type="bmParentConstraint")), ["rig:aim_target_space", "rig:fkchain_2_space"])
+        self.assertEqual(sorted(cmds.ls(type="rigConstraint")), ["rig:aim_target_space", "rig:fkchain_2_space"])

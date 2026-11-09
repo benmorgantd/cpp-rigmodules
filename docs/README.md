@@ -53,7 +53,7 @@ Internal changes (refactors, compute changes with the same results, test-only ch
 - **Describe the code, not the plan.** Document what is built. Planned features go in `design/`, or under a clearly marked "Not built yet" note if users need to know.
 - **The code wins.** When a page and the code disagree, fix the page, and say so in the change summary.
 - **Use the code's names exactly**: child plug, socket, `moduleArgs`, long flag names (`namespace`, never `ns`).
-- **Command examples are Python `maya.cmds`, never MEL.** Flags are keyword arguments named by the long flag name, and a multi-use flag takes a list: `cmds.createRigParentConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"])`. Flag tables name the keyword without a leading `-`.
+- **Command examples are Python `maya.cmds`, never MEL.** Flags are keyword arguments named by the long flag name, and a multi-use flag takes a list: `cmds.createRigConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"])`. Flag tables name the keyword without a leading `-`.
 - **Show, then list.** A short example first, then the full reference table.
 - **Plain Markdown in the repo.** No doc generator, so the docs are reviewed in the same diff as the code.
 

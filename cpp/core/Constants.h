@@ -3,6 +3,7 @@
 // No Maya headers here: the Maya-free core (JointMarkup) includes this file.
 // Maya-typed constants live in Colors.h.
 #include <array>
+#include <string_view>
 
 // The plugin version MFnPlugin registers, and the one stamped on every rig root a build creates (D29).
 namespace PluginInfo
@@ -150,9 +151,28 @@ namespace TemplateKey
 	inline constexpr const char* DriverWeight{ "weight" };
 }
 
+// The driver gives only its own component; the rest comes from the child plug's parentStructure parent (D31).
 namespace ConstraintTypes
 {
-	inline constexpr const char* Parent{ "Parent" };
+	inline constexpr const char* Parent{ "Parent" };   // translate, rotate and scale from the driver
+	inline constexpr const char* Orient{ "Orient" };   // rotate from the driver
+	inline constexpr const char* Point{ "Point" };     // translate from the driver
+
+	// The rigConstraint node's constraintType enum, in this order. Scenes store the index, so append new types.
+	inline constexpr std::array<const char*, 3> All{ Parent, Orient, Point };
+
+	// The enum index of a type name, or -1 for an unknown one.
+	constexpr int indexOf(std::string_view type)
+	{
+		for (std::size_t i = 0; i < All.size(); ++i)
+		{
+			if (type == All[i])
+			{
+				return static_cast<int>(i);
+			}
+		}
+		return -1;
+	}
 }
 
 namespace ConstraintAttr
@@ -162,6 +182,10 @@ namespace ConstraintAttr
 	inline constexpr const char* DriverRest{ "driverRest" };
 	inline constexpr const char* DriverLabel{ "driverLabel" };
 	inline constexpr const char* ActiveDriver{ "activeDriver" };
+	inline constexpr const char* ConstraintType{ "constraintType" };
+	inline constexpr const char* ParentMatrix{ "parentMatrix" };
+	inline constexpr const char* ParentRest{ "parentRest" };
+	inline constexpr const char* ChildRest{ "childRest" };
 	inline constexpr const char* OutParentMatrix{ "outParentMatrix" };
 	inline constexpr const char* RigRoot{ "rigRoot" };
 }

@@ -138,7 +138,7 @@ def rig_interface(namespace=config.RIG_NAMESPACE):
             entry["spaces"] = cmds.attributeQuery("space", node=node, listEnum=True)[0].split(":")
         controls[_short(node)] = entry
     constraints = {}
-    for node in cmds.ls(pattern, type="bmParentConstraint") or []:
+    for node in cmds.ls(pattern, type="rigConstraint") or []:
         constraints[_short(node)] = _multi_strings(node, "drivers", "driverLabel")
     return {
         "modules": modules,

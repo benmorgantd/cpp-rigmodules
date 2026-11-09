@@ -81,12 +81,12 @@ The rig root records what built it, so tools can find out-of-date rigs in a scen
 
 Undo removes the rig and moves the joints back, but leaves the (empty) rig namespace and an asset root that existed before the build.
 
-## createRigParentConstraint
+## createRigConstraint
 
 Adds a space switch to a rig control after the build. Templates can declare the same thing in `constraints` ([templates.md](templates.md#constraints)).
 
 ```python
-cmds.createRigParentConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
+cmds.createRigConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
 # Returns the constraint node: 'hero:arm_ctrl_l_space'
 ```
 
@@ -96,12 +96,20 @@ cmds.createRigParentConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.e
 | `label` | string, multi-use | The driver's enum label. Give none, or one per `driver` in the same order. Defaults to the socket id. |
 | `initial` | int | Index of the driver that starts active. Defaults to 0. |
 | `name` | string | The constraint node's name. Defaults to `<control>_space`. |
+| `type` | string | `Parent` (the default), `Orient` or `Point`. Orient takes only the driver's rotation and Point only its translation. The rest comes from the child plug's parent ([templates.md](templates.md#constraint-types)). |
 
 Object: the control, which must be the control of a module's child plug.
+
+```python
+# The arm keeps the world's rotation, and its shoulder pivot follows the chest.
+cmds.createRigConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], type="Orient")
+```
 
 - **Driver modules** without a namespace are looked up in the control's namespace, whatever the current namespace is. A driver that names a namespace (`other:layout.end`) is used as given.
 - **The constraint node** goes in the control's namespace unless `name` includes a namespace.
 - A module cannot drive its own child plug, and a control can have only one space constraint.
+- An Orient or Point constraint fails on a child plug with no parent connected. A built rig always has one, `layout.end` by default.
+- The node is a `rigConstraint`, and its `constraintType` attribute holds the type.
 - With more than one driver, the control gets a `space` enum attribute listing the labels.
 - The control does not move. On a posed rig its translate, rotate and scale are changed to keep it in place, the same match `setRigConstraintSpace` does. At rest nothing changes.
 

@@ -17,7 +17,7 @@ Inside the rig:
 - **Module nodes do all the transform math.** Controls and joints have `inheritsTransform` off, so the DAG hierarchy is only for organization and never drives a result.
 - **Modules connect through named matrices.** A module publishes **sockets** (world-space matrix outputs such as `start` and `end`) and takes **child plugs** (inputs that attach to a parent's socket). A template's `parentStructure` maps each child plug to a socket by id, for example `"start": "fkchain_1.end"`.
 - **Every rig has a `layout` module** with three stacked root controls. Child plugs that a template doesn't parent attach to `layout.end`.
-- **Space switching** uses parent constraints whose drivers are sockets. A control with more than one driver gets a `space` enum attribute to pick the active one.
+- **Space switching** uses constraints whose drivers are sockets: Parent follows the driver, Orient takes only its rotation and Point only its translation. A control with more than one driver gets a `space` enum attribute to pick the active one.
 
 ## Requirements
 
@@ -87,7 +87,7 @@ cmds.createRigFromTemplate(*joints, template=r"C:\path\to\spine_arm.json", asset
 Give the arm a space switch between the world and the chest. The first driver starts active, so the arm now stays in world space when the spine moves. Switch it back to following the chest:
 
 ```python
-cmds.createRigParentConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"])
+cmds.createRigConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"])
 cmds.setRigConstraintSpace("hero:arm_ctrl_l_space", label="Chest")
 ```
 
@@ -138,8 +138,8 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | `cpp/core/` | Maya-free: template structs and loading (`RigJsonStructs`), template validation, joint and control markup schemas, the control shape library and shape file format, JSON string helpers, shared name constants |
 | `cpp/maya/` | Plugin entry (`PluginMain.cpp`) and the registries every node and command is added to |
 | `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim |
-| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigParentConstraint`, `setRigConstraintSpace`, `rigJointMarkup`, `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`, `getRigInfo` |
-| `cpp/maya/nodes/` | Other nodes: rig and asset roots (the root also runs the build), the parent constraint, the control node |
+| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigConstraint`, `setRigConstraintSpace`, `rigJointMarkup`, `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`, `getRigInfo` |
+| `cpp/maya/nodes/` | Other nodes: rig and asset roots (the root also runs the build), the constraint node, the control node |
 | `cpp/maya/shared/` | Code used across those folders: the module base, utilities, joint markup in the scene, rig traversal, control shapes in the scene, enums |
 | `cpp/include/` | Vendored third-party headers (nlohmann json) |
 | `python/rigmodules/` | The Python package that wraps the commands for pipeline tools |

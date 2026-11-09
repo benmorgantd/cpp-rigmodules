@@ -115,7 +115,7 @@ RigTemplates/        example template
 
 | File | Contents |
 |---|---|
-| `Constants.h` | `PluginInfo` (vendor and version), `RigAttr`, `JointMarkupKey`, `PlugAndSocketNames`, `ConstraintAttr`, `SideNames`, `RigNaming`, `RigControlNodeAttr`. |
+| `Constants.h` | `PluginInfo` (vendor and version), `RigAttr`, `JointMarkupKey`, `PlugAndSocketNames`, `ConstraintTypes` (names and enum order), `ConstraintAttr`, `SideNames`, `RigNaming`, `RigControlNodeAttr`. |
 | `AssetId.h/.cpp` | `AssetId::isValid` and `AssetId::name` (the last token, the default rig namespace) for `\|`-separated asset ids (D29). |
 | `JsonUtils.h` | Header-only `readJsonString` / `writeJsonString`. Every string attribute that holds structured data (socket names, joint markup) goes through these (D16). |
 | `StringUtils.h` | Header-only `splitIdentifier` for `"module.name"`. Included by `maya/shared/Utilities.h`. |
@@ -138,13 +138,13 @@ RigTemplates/        example template
 | `CommandRegistry.cpp/.h` | The only file that includes every command header. Add new commands here. |
 | `modules/LayoutModule`, `modules/FkChain`, `modules/AimModule` | Module nodes. FkChain is the reference pattern. |
 | `commands/CreateRigCmd.h/.cpp` | `createRigFromTemplate`. Reads flags (`asset`, `namespace` defaulting to the asset's name, `checkMirrorPositions`) into `RigBuildInputs`, then calls `RigRootNode::createRig`. |
-| `commands/ConstraintCmds.h/.cpp` | `createRigParentConstraint` and `setRigConstraintSpace`. They call `ParentConstraintNode`'s static helpers. |
+| `commands/ConstraintCmds.h/.cpp` | `createRigConstraint` (`type` Parent, Orient or Point) and `setRigConstraintSpace`. They call `RigConstraintNode`'s static helpers. |
 | `commands/JointMarkupCmd.h/.cpp` | `rigJointMarkup`. The reference command shape (D14). |
 | `commands/RigControlCmds.h/.cpp` | `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`. They call `RigTraversal` and `ControlShapeScene`. |
 | `commands/RigInfoCmd.h/.cpp` | `getRigInfo`: any rig root, module, control or rig-driven joint (`""` for other nodes) to its rig root, asset root, asset id, variant, namespace and stamps, as JSON (keys in `RigInfoKey` and `RigAttr`). |
 | `nodes/RigRoot.h/.cpp` | `RigRootNode`, `RigBuildInputs` and `createRig` (read phase: parse, scan markup, `planModules`, validate. Write phase: roots, `buildModules`, parenting pass, constraints). |
 | `nodes/AssetRoot.h/.cpp` | `AssetRootNode`. |
-| `nodes/Constraints.h/.cpp` | `ParentConstraintNode`: compute, `resolveSocket`, `createConstraint`, `buildFromTemplate`, `matchSwitchSpace`. |
+| `nodes/Constraints.h/.cpp` | `RigConstraintNode` (`rigConstraint`, one node for every `constraintType`, D31): compute, `resolveSocket`, `createConstraint`, `buildFromTemplate`, `matchSwitchSpace`. |
 | `nodes/RigControlNode.h/.cpp` | Custom control transform (shape attributes, `controlMarkup`, bounds from `shapeTransform`) and its draw override. |
 | `shared/RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/child plug lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>`, `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
 | `shared/Utilities.h/.cpp` | `MathUtils`, `DagUtils`, `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `ScopedRigNamespace` (RAII current namespace for a rig build and its redo). |
@@ -164,7 +164,7 @@ RigTemplates/        example template
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
-| `design/decisions.md` | Decision log (D1–D30). |
+| `design/decisions.md` | Decision log (D1–D31). |
 | `design/asset-model.md` | Asset id, namespace ownership, rig variants, file model, local versions and the registry (D29). The file model is planned for a mayadev branch. |
 | `design/mayadev-integration.md` | Survey of the sibling mayadev repo, conflicts with RigModules, the proposed boundary and phases (D24). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
@@ -172,9 +172,9 @@ RigTemplates/        example template
 | `tools/generate_control_shapes.py` | mayapy script that writes `cpp/core/ControlShapeLibrary.cpp`. Rerun it after changing a shape, then rebuild. |
 | `cpp/RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files, with its folder relative to `cpp/` (`core\X.cpp`). The filters file has one filter per folder. |
 
-**Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, asset=assetId, namespace=ns, checkMirrorPositions=False)`, `cmds.rigJointMarkup(...)`, `cmds.createRigParentConstraint(control, driver=["module.socket", ...])`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`, `cmds.getRigControls(rigRoot, moduleType=[...], side=[...], usage=[...])`, `cmds.saveRigControlShapes(rigRoot, file=path)`, `cmds.loadRigControlShapes(rigRoot, file=path)`, `cmds.getRigMirrorControl(control)`, `cmds.mirrorRigControlShapes(rigRoot, leftToRight=True)`, `cmds.getRigInfo(node)`. Name API functions and commands in verb pairs: get/set for scene data (`getRigControls`, `setControlShape`), save/load for files this system owns (`saveRigControlShapes`, `loadRigControlShapes`), import/export for data going to or from other tools or formats, and `mirror` for copying one side onto the other (`mirrorRigControlShapes`). Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
+**Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, asset=assetId, namespace=ns, checkMirrorPositions=False)`, `cmds.rigJointMarkup(...)`, `cmds.createRigConstraint(control, driver=["module.socket", ...], type="Parent" | "Orient" | "Point")`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`, `cmds.getRigControls(rigRoot, moduleType=[...], side=[...], usage=[...])`, `cmds.saveRigControlShapes(rigRoot, file=path)`, `cmds.loadRigControlShapes(rigRoot, file=path)`, `cmds.getRigMirrorControl(control)`, `cmds.mirrorRigControlShapes(rigRoot, leftToRight=True)`, `cmds.getRigInfo(node)`. Name API functions and commands in verb pairs: get/set for scene data (`getRigControls`, `setControlShape`), save/load for files this system owns (`saveRigControlShapes`, `loadRigControlShapes`), import/export for data going to or from other tools or formats, and `mirror` for copying one side onto the other (`mirrorRigControlShapes`). Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
 
-**Node types and MTypeIds:** `rigRootModule` 0x00218, `assetRootModule` 0x00219, `fkChainModule` 0x00218B, `layoutModule` 0x00218C, `aimModule` 0x00218D, `bmParentConstraint` 0x00218E, `rigControlNode` 0x0013B5C0. Check this list before picking an id for a new node.
+**Node types and MTypeIds:** `rigRootModule` 0x00218, `assetRootModule` 0x00219, `fkChainModule` 0x00218B, `layoutModule` 0x00218C, `aimModule` 0x00218D, `rigConstraint` 0x00218E, `rigControlNode` 0x0013B5C0. Check this list before picking an id for a new node.
 
 Known discrepancies with the text above:
 - There is no `NodeCreateCommands` namespace in `core/Constants.h`. Node type names live only in `maya/ModuleRegistry.cpp`.

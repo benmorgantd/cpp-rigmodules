@@ -44,9 +44,9 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
             1, AimModuleNode::planFromJson, true
         },
         {
-            "bmParentConstraint", "ParentConstraint", ParentConstraintNode::id,
-            ParentConstraintNode::creator, ParentConstraintNode::initialize,
-            1, nullptr, false   // built by ParentConstraintNode::buildFromTemplate, not as a module
+            "rigConstraint", "RigConstraint", RigConstraintNode::id,
+            RigConstraintNode::creator, RigConstraintNode::initialize,
+            1, nullptr, false   // built by RigConstraintNode::buildFromTemplate, not as a module
         }
     };
     return descriptors;

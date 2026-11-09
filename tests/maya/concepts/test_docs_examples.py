@@ -61,7 +61,7 @@ class ReadmeQuickStart(RigTestCase):
         self.assertWorldTranslation(ARM_JNT, ARM_AFTER_SPINE3_ROTATE_Z_90)
 
     def test_space_switch(self):
-        con = cmds.createRigParentConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"])
+        con = cmds.createRigConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"])
         self.assertEqual(con.lstrip(":"), "hero:arm_ctrl_l_space")
         self.assertEqual(cmds.attributeQuery("space", node=ARM_CTRL, listEnum=True), ["World:Chest"])
 
@@ -75,6 +75,40 @@ class ReadmeQuickStart(RigTestCase):
         self.assertWorldTranslation(ARM_JNT, ARM_REST)
         self.rotate_spine3_z(90)
         self.assertWorldTranslation(ARM_JNT, ARM_AFTER_SPINE3_ROTATE_Z_90)
+
+
+def templates_doc_orient_constraint():
+    """The first ```json block under '### Constraint types' in docs/templates.md."""
+    with open(TEMPLATES_DOC, encoding="utf-8") as handle:
+        text = handle.read()
+    section = text.split("### Constraint types", 1)[1]
+    match = re.search(r"```json\s*\n(.*?)```", section, re.S)
+    if not match:
+        raise AssertionError("docs/templates.md '### Constraint types' has no ```json block")
+    return json.loads(match.group(1))
+
+
+class OrientConstraintExamples(RigTestCase):
+    """docs/templates.md '### Constraint types' and the docs/commands.md Orient example, on the quick start rig (D31).
+    Either way the arm's pivot follows spine3 and its rotation stays at rest."""
+
+    def assertPivotFollowsChestRotationDoesNot(self):
+        rest_rotation = cmds.xform(ARM_JNT, q=True, ws=True, rotation=True)
+        cmds.setAttr(SPINE3_CTRL + ".rotateZ", 90)
+        self.assertWorldTranslation(ARM_JNT, ARM_AFTER_SPINE3_ROTATE_Z_90)
+        self.assertWorldRotation(ARM_JNT, rest_rotation)
+
+    def test_template_example(self):
+        template = readme_quick_start_template()
+        template["constraints"] = [templates_doc_orient_constraint()]
+        self.build(template, self.make_skeleton("readme_quick_start"), asset=DOC_ASSET)
+        self.assertEqual(cmds.getAttr("hero:arm_space.constraintType", asString=True), "Orient")
+        self.assertPivotFollowsChestRotationDoesNot()
+
+    def test_command_example(self):
+        self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET)
+        cmds.createRigConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], type="Orient")
+        self.assertPivotFollowsChestRotationDoesNot()
 
 
 CONTROLS_DOC = os.path.join(config.REPO_DIR, "docs", "controls.md")

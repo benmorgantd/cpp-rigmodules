@@ -6,14 +6,15 @@
 #include <maya/MSyntax.h>
 
 // Nodes are always passed by name. The selection is never used.
-// cmds.createRigParentConstraint("rigControl", driver=["module.socket", ...], label=["Space", ...], initial=n, name="n")
+// cmds.createRigConstraint("rigControl", driver=["module.socket", ...], label=["Space", ...], initial=n, name="n", type="Orient")
 //   -> the constraint node name. label is given once per driver or not at all. Default name: <control>_space.
+//   type is Parent (the default), Orient or Point (D31).
 //   Driver modules and an unqualified name resolve in the control's namespace (D19).
-class CreateParentConstraintCmd : public MPxCommand
+class CreateRigConstraintCmd : public MPxCommand
 {
 public:
-	CreateParentConstraintCmd();
-	virtual ~CreateParentConstraintCmd() override;
+	CreateRigConstraintCmd();
+	virtual ~CreateRigConstraintCmd() override;
 
 	MStatus doIt(const MArgList& args) override;
 	MStatus redoIt() override;

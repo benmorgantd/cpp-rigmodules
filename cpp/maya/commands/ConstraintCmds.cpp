@@ -16,12 +16,13 @@ namespace
 {
 	// Code reads flags by long name only. MSyntax::addFlag requires a short name of at most 3 letters
 	// (a long name there is rejected and the flag silently never registers), so short names appear only in newSyntax().
-	// -label means one driver's label in createRigParentConstraint and the space to switch to in setRigConstraintSpace.
+	// -label means one driver's label in createRigConstraint and the space to switch to in setRigConstraintSpace.
 	constexpr const char* kNameFlag{ "-name" };
 	constexpr const char* kDriverFlag{ "-driver" };
 	constexpr const char* kLabelFlag{ "-label" };
 	constexpr const char* kInitialFlag{ "-initial" };
 	constexpr const char* kSpaceFlag{ "-space" };
+	constexpr const char* kTypeFlag{ "-type" };
 
 	constexpr const char* kDefaultConstraintSuffix{ "_space" };
 
@@ -60,6 +61,24 @@ namespace
 		// so "<ns>:<module>" stays absolute and does not depend on the current namespace.
 		const MString rigNamespace = MNamespace::getNamespaceFromName(MFnDependencyNode(outArgs.oControl).absoluteName());
 
+		MString type(ConstraintTypes::Parent);
+		if (argData.isFlagSet(kTypeFlag))
+		{
+			status = argData.getFlagArgument(kTypeFlag, 0, type);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		outArgs.type = ConstraintTypes::indexOf(type.asChar());
+		if (outArgs.type < 0)
+		{
+			MString known;
+			for (const char* name : ConstraintTypes::All)
+			{
+				known += MString(known.length() > 0 ? ", " : "") + name;
+			}
+			MGlobal::displayError(MString("Unknown constraint -type '") + type + "' (has: " + known + ").");
+			return MStatus::kFailure;
+		}
+
 		const unsigned int numDrivers = argData.numberOfFlagUses(kDriverFlag);
 		const unsigned int numLabels = argData.numberOfFlagUses(kLabelFlag);
 		if (numDrivers == 0 || (numLabels != 0 && numLabels != numDrivers))
@@ -83,7 +102,7 @@ namespace
 				driver.label = labelArgs.asString(0).asChar();
 			}
 
-			status = ParentConstraintNode::resolveSocket(driverArgs.asString(0).asChar(), rigNamespace, driver);
+			status = RigConstraintNode::resolveSocket(driverArgs.asString(0).asChar(), rigNamespace, driver);
 			if (!status)
 			{
 				return status;   // helper already reported which driver failed
@@ -161,11 +180,11 @@ namespace
 		status = argData.getFlagArgument(kLabelFlag, 0, label);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		MPlug pDrivers(oConstraint, ParentConstraintNode::aDrivers);
+		MPlug pDrivers(oConstraint, RigConstraintNode::aDrivers);
 		for (unsigned int e = 0; e < pDrivers.numElements(); ++e)
 		{
 			MPlug pElement = pDrivers.elementByPhysicalIndex(e);
-			if (pElement.child(ParentConstraintNode::aDriverLabel).asString() == label)
+			if (pElement.child(RigConstraintNode::aDriverLabel).asString() == label)
 			{
 				outDriver = pElement.logicalIndex();
 				return MStatus::kSuccess;
@@ -178,29 +197,29 @@ namespace
 }
 
 // ------------------------------------------------------------------
-// createRigParentConstraint
+// createRigConstraint
 // ------------------------------------------------------------------
-const char* CreateParentConstraintCmd::aCommandString = "createRigParentConstraint";
+const char* CreateRigConstraintCmd::aCommandString = "createRigConstraint";
 
-CreateParentConstraintCmd::CreateParentConstraintCmd()
+CreateRigConstraintCmd::CreateRigConstraintCmd()
 {
 }
 
-CreateParentConstraintCmd::~CreateParentConstraintCmd()
+CreateRigConstraintCmd::~CreateRigConstraintCmd()
 {
 }
 
-void* CreateParentConstraintCmd::creator()
+void* CreateRigConstraintCmd::creator()
 {
-	return new CreateParentConstraintCmd();
+	return new CreateRigConstraintCmd();
 }
 
-bool CreateParentConstraintCmd::isUndoable() const
+bool CreateRigConstraintCmd::isUndoable() const
 {
 	return true;
 }
 
-MSyntax CreateParentConstraintCmd::newSyntax()
+MSyntax CreateRigConstraintCmd::newSyntax()
 {
 	MSyntax syntax;
 	CHECK_MSTATUS(syntax.addFlag("-n", kNameFlag, MSyntax::kString));
@@ -209,18 +228,19 @@ MSyntax CreateParentConstraintCmd::newSyntax()
 	CHECK_MSTATUS(syntax.addFlag("-l", kLabelFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.makeFlagMultiUse(kLabelFlag));
 	CHECK_MSTATUS(syntax.addFlag("-i", kInitialFlag, MSyntax::kLong));
+	CHECK_MSTATUS(syntax.addFlag("-t", kTypeFlag, MSyntax::kString));
 	syntax.setObjectType(MSyntax::kStringObjects, 1, 1);
 	syntax.useSelectionAsDefault(false);
 	return syntax;
 }
 
-MStatus CreateParentConstraintCmd::doIt(const MArgList& args)
+MStatus CreateRigConstraintCmd::doIt(const MArgList& args)
 {
 	MStatus status;
 	MArgDatabase argData(syntax(), args, &status);
 	if (!status)
 	{
-		MGlobal::displayError("Error parsing createRigParentConstraint arguments.");
+		MGlobal::displayError("Error parsing createRigConstraint arguments.");
 		return status;
 	}
 
@@ -239,7 +259,7 @@ MStatus CreateParentConstraintCmd::doIt(const MArgList& args)
 	}
 
 	MObject oConstraint;
-	status = ParentConstraintNode::createConstraint(buildArgs, fDagMod, oConstraint);
+	status = RigConstraintNode::createConstraint(buildArgs, fDagMod, oConstraint);
 	if (!status)
 	{
 		return status;   // createConstraint reports its own errors
@@ -250,12 +270,12 @@ MStatus CreateParentConstraintCmd::doIt(const MArgList& args)
 }
 
 // createConstraint already ran both doIt stages. After an undo, doIt on the same modifier performs the operations again.
-MStatus CreateParentConstraintCmd::redoIt()
+MStatus CreateRigConstraintCmd::redoIt()
 {
 	return fDagMod.doIt();
 }
 
-MStatus CreateParentConstraintCmd::undoIt()
+MStatus CreateRigConstraintCmd::undoIt()
 {
 	return fDagMod.undoIt();
 }
@@ -312,9 +332,9 @@ MStatus SetConstraintSpaceCmd::doIt(const MArgList& args)
 
 	MObject oConstraint;
 	if (!DagUtils::getMObjectFromName(constraintName, oConstraint)
-		|| MFnDependencyNode(oConstraint).typeId() != ParentConstraintNode::id)
+		|| MFnDependencyNode(oConstraint).typeId() != RigConstraintNode::id)
 	{
-		MGlobal::displayError(constraintName + " is not a rig parent constraint node.");
+		MGlobal::displayError(constraintName + " is not a rigConstraint node.");
 		return MStatus::kFailure;
 	}
 
@@ -325,7 +345,7 @@ MStatus SetConstraintSpaceCmd::doIt(const MArgList& args)
 		return status;
 	}
 
-	return ParentConstraintNode::matchSwitchSpace(oConstraint, newDriver, fDagMod);
+	return RigConstraintNode::matchSwitchSpace(oConstraint, newDriver, fDagMod);
 }
 
 MStatus SetConstraintSpaceCmd::redoIt()

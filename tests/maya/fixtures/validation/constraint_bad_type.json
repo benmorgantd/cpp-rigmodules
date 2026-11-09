@@ -1,16 +1,16 @@
 {
-  "description": "Only Parent constraints exist",
+  "description": "Constraint types are Parent, Orient and Point (D31)",
   "base": "layout_rig",
   "skeleton": "layout_rig",
   "edits": [
     {
       "set": "/constraints/0/type",
-      "value": "Point"
+      "value": "Scale"
     }
   ],
   "expectErrors": [
     {
-      "contains": "Point"
+      "contains": "Scale"
     }
   ]
 }

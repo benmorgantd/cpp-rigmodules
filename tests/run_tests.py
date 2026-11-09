@@ -65,7 +65,8 @@ TIERS = [
     ]),
     ("constraints", True, [
         "commands.test_constraint_cmds",
-        "concepts.test_docs_examples",     # the README quick start ends with a space switch
+        "commands.test_constraint_types",  # Orient and Point (D31)
+        "concepts.test_docs_examples",    # the README quick start ends with a space switch
         "concepts.test_mirror",            # mirrored templates include mirrored constraints (D28)
     ]),
     # Animation, then import/export tiers go here, after constraints.

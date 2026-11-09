@@ -26,7 +26,7 @@ About 17k lines of Python, Python 3, Maya API 2.0 for the most part. Verdicts: *
 | Legacy modules | `maya/rigging/modules/` | Arm, Leg, `_Foot`, IkChain, IkFkChain, FkChain, FkTwist, Spline, NeckHead, SingleJoint, Face, `__Ribbon`, `_ThreeJointIkFkTwist` | Reference |
 | Control shapes | `maya/rigging/shapes/` | `ControlCurve` (nurbsCurve with offset and space groups), `shapeio` saves, loads and mirrors world-space CVs for every `*_ctrl` | Retire the code. Keep the workflow: rebuilt as shape IO in RigModules (see "Shape IO") |
 | Rig manager UI | `maya_ui/rigManager/` | Dockable editor for the legacy `build.json` tree, plus the AssetCreator. Its attribute fields come from Python `__init__` signatures | Retire. Replaced by New Asset and New Variant tools and a template authoring UI that validates through RigModules `python/` (D30) |
-| Generic utils | `maya/util/` | dg, dag, math, name, selection, bounding box, `BMETADATA` JSON tagging, a Python matrix parent constraint | Keep the generic ones. `matrixConstraint.py` is replaced by `bmParentConstraint` inside rigs |
+| Generic utils | `maya/util/` | dg, dag, math, name, selection, bounding box, `BMETADATA` JSON tagging, a Python matrix parent constraint | Keep the generic ones. `matrixConstraint.py` is replaced by `rigConstraint` inside rigs |
 | Python plug-ins | `py/plug-ins/`, `py/scripts/plug-ins/` | Python API nodes: aim constraint, quatExtract, softIK, coneReader, rayIntersect, wheel, trig, simple collision, spring | Reference. quatExtract (twist), softIK and coneReader are candidates for C++ when a module needs one |
 
 ## Where the two systems conflict

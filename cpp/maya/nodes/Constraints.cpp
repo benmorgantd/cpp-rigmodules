@@ -1,6 +1,7 @@
 #include "maya/nodes/Constraints.h"
 #include "core/Constants.h"
 #include "maya/nodes/RigControlNode.h"
+#include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
 
 #include <cmath>
@@ -106,31 +107,61 @@ namespace
 		}
 		return MStatus::kSuccess;
 	}
+
+	constexpr int kParentType{ ConstraintTypes::indexOf(ConstraintTypes::Parent) };
+	constexpr int kOrientType{ ConstraintTypes::indexOf(ConstraintTypes::Orient) };
+
+	// The delta the module receives (D31). Parent passes the driver's motion through. Orient and Point apply both
+	// motions to the control's rest, keep the driver's rotation or translation, take the rest from the parent,
+	// and turn the result back into a delta on that rest.
+	MMatrix constraintDelta(int type, const MMatrix& mChildRest, const MMatrix& mParentDelta, const MMatrix& mDriverDelta)
+	{
+		if (type == kParentType)
+		{
+			return mDriverDelta;
+		}
+
+		MTransformationMatrix tOut(mChildRest * mParentDelta);
+		const MTransformationMatrix tDriver(mChildRest * mDriverDelta);
+		if (type == kOrientType)
+		{
+			tOut.rotateTo(tDriver.rotation());
+		}
+		else
+		{
+			tOut.setTranslation(tDriver.getTranslation(MSpace::kTransform), MSpace::kTransform);
+		}
+		return mChildRest.inverse() * tOut.asMatrix();
+	}
 }
 
-MTypeId ParentConstraintNode::id(0x00218E);
+MTypeId RigConstraintNode::id(0x00218E);
 
-MObject ParentConstraintNode::aDrivers;
-MObject ParentConstraintNode::aDriverMatrix;
-MObject ParentConstraintNode::aDriverRest;
-MObject ParentConstraintNode::aDriverLabel;
-MObject ParentConstraintNode::aActiveDriver;
-MObject ParentConstraintNode::aOutParentMatrix;
-MObject ParentConstraintNode::aRigRoot;
+MObject RigConstraintNode::aDrivers;
+MObject RigConstraintNode::aDriverMatrix;
+MObject RigConstraintNode::aDriverRest;
+MObject RigConstraintNode::aDriverLabel;
+MObject RigConstraintNode::aActiveDriver;
+MObject RigConstraintNode::aConstraintType;
+MObject RigConstraintNode::aParentMatrix;
+MObject RigConstraintNode::aParentRest;
+MObject RigConstraintNode::aChildRest;
+MObject RigConstraintNode::aOutParentMatrix;
+MObject RigConstraintNode::aRigRoot;
 
-ParentConstraintNode::ParentConstraintNode()
+RigConstraintNode::RigConstraintNode()
 {
 }
-ParentConstraintNode::~ParentConstraintNode()
+RigConstraintNode::~RigConstraintNode()
 {
 }
 
-void* ParentConstraintNode::creator()
+void* RigConstraintNode::creator()
 {
-	return new ParentConstraintNode();
+	return new RigConstraintNode();
 }
 
-MStatus ParentConstraintNode::initialize()
+MStatus RigConstraintNode::initialize()
 {
 	MStatus status;
 	MFnMatrixAttribute mAttr;
@@ -138,6 +169,7 @@ MStatus ParentConstraintNode::initialize()
 	MFnNumericAttribute nAttr;
 	MFnCompoundAttribute cAttr;
 	MFnMessageAttribute msgAttr;
+	MFnEnumAttribute eAttr;
 
 	aDriverMatrix = mAttr.create(ConstraintAttr::DriverMatrix, ConstraintAttr::DriverMatrix, MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -166,6 +198,31 @@ MStatus ParentConstraintNode::initialize()
 	nAttr.setKeyable(false);
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aActiveDriver));
 
+	// Set once at creation. The enum index is stored in scenes, so ConstraintTypes::All only grows at the end.
+	aConstraintType = eAttr.create(ConstraintAttr::ConstraintType, ConstraintAttr::ConstraintType, 0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	for (std::size_t i = 0; i < ConstraintTypes::All.size(); ++i)
+	{
+		CHECK_MSTATUS_AND_RETURN_IT(eAttr.addField(ConstraintTypes::All[i], static_cast<short>(i)));
+	}
+	eAttr.setStorable(true);
+	eAttr.setKeyable(false);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aConstraintType));
+
+	aParentMatrix = mAttr.create(ConstraintAttr::ParentMatrix, ConstraintAttr::ParentMatrix, MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aParentMatrix));
+
+	aParentRest = mAttr.create(ConstraintAttr::ParentRest, ConstraintAttr::ParentRest, MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	mAttr.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aParentRest));
+
+	aChildRest = mAttr.create(ConstraintAttr::ChildRest, ConstraintAttr::ChildRest, MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	mAttr.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aChildRest));
+
 	aOutParentMatrix = mAttr.create(ConstraintAttr::OutParentMatrix, ConstraintAttr::OutParentMatrix, MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	mAttr.setWritable(false);
@@ -180,12 +237,17 @@ MStatus ParentConstraintNode::initialize()
 	attributeAffects(aDriverMatrix, aOutParentMatrix);
 	attributeAffects(aDriverRest, aOutParentMatrix);
 	attributeAffects(aActiveDriver, aOutParentMatrix);
+	attributeAffects(aConstraintType, aOutParentMatrix);
+	attributeAffects(aParentMatrix, aOutParentMatrix);
+	attributeAffects(aParentRest, aOutParentMatrix);
+	attributeAffects(aChildRest, aOutParentMatrix);
 
 	return MStatus::kSuccess;
 }
 
-// out = rest^-1 * world for the active driver only. Inactive drivers are never read, so they are never evaluated.
-MStatus ParentConstraintNode::compute(const MPlug& plug, MDataBlock& data)
+// Reads the active driver only. Inactive drivers are never read, so they are never evaluated, and a Parent
+// constraint never reads its parent inputs.
+MStatus RigConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	if (plug.attribute() != aOutParentMatrix)
 	{
@@ -195,11 +257,13 @@ MStatus ParentConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 	MStatus status;
 	const int activeDriver = data.inputValue(aActiveDriver, &status).asInt();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const int type = data.inputValue(aConstraintType, &status).asShort();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	MArrayDataHandle hDrivers = data.inputArrayValue(aDrivers, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MMatrix mOut = MMatrix::identity;
+	MMatrix mDriverDelta = MMatrix::identity;
 	if (activeDriver >= 0 && hDrivers.jumpToElement(static_cast<unsigned int>(activeDriver)) == MStatus::kSuccess)
 	{
 		MDataHandle hDriver = hDrivers.inputValue(&status);
@@ -207,7 +271,15 @@ MStatus ParentConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 
 		const MMatrix mWorld = hDriver.child(aDriverMatrix).asMatrix();
 		const MMatrix mRest = hDriver.child(aDriverRest).asMatrix();
-		mOut = MathUtils::computeDeltaFromRest(mRest, mWorld);
+		mDriverDelta = MathUtils::computeDeltaFromRest(mRest, mWorld);
+	}
+
+	MMatrix mOut = mDriverDelta;
+	if (type != kParentType)
+	{
+		const MMatrix mParentDelta = MathUtils::computeDeltaFromRest(
+			data.inputValue(aParentRest).asMatrix(), data.inputValue(aParentMatrix).asMatrix());
+		mOut = constraintDelta(type, data.inputValue(aChildRest).asMatrix(), mParentDelta, mDriverDelta);
 	}
 
 	data.outputValue(aOutParentMatrix).setMMatrix(mOut);
@@ -221,7 +293,7 @@ MStatus ParentConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 
 // "module.socket" -> module node, socket index, rest matrix. Socket names live in socketNames as JSON string lists.
 // A module name that already carries a namespace ("other:layout") is used as given.
-MStatus ParentConstraintNode::resolveSocket(const std::string& socketId, const MString& rigNamespace, ConstraintDriverInfo& outDriver)
+MStatus RigConstraintNode::resolveSocket(const std::string& socketId, const MString& rigNamespace, ConstraintDriverInfo& outDriver)
 {
 	std::string moduleName, socketName;
 	if (!StringUtils::splitIdentifier(socketId, moduleName, socketName))
@@ -261,7 +333,7 @@ MStatus ParentConstraintNode::resolveSocket(const std::string& socketId, const M
 // ------------------------------------------------------------------
 // Creation
 // ------------------------------------------------------------------
-MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDagModifier& dagMod, MObject& oOutConstraint)
+MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDagModifier& dagMod, MObject& oOutConstraint)
 {
 	MStatus status;
 
@@ -293,23 +365,44 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 		}
 	}
 
+	if (args.type < 0 || args.type >= static_cast<int>(ConstraintTypes::All.size()))
+	{
+		MGlobal::displayError("Unknown constraint type index.");
+		return MStatus::kFailure;
+	}
+
 	bool createEnumAttr = args.drivers.size() > 1;
 
-	MPlug pParentMatrix;
-	MPlug pParentRest;
-	status = RigModuleNodeBase::getChildPlugMatrixPlugs(args.oModule, args.plugIndex, pParentMatrix, pParentRest);
+	MPlug pPlugParentMatrix;
+	MPlug pPlugParentRest;
+	status = RigModuleNodeBase::getChildPlugMatrixPlugs(args.oModule, args.plugIndex, pPlugParentMatrix, pPlugParentRest);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	const MMatrix mCurrentDelta = MathUtils::computeDeltaFromRest(
-		DagUtils::getMatrixFromPlug(pParentRest), DagUtils::getMatrixFromPlug(pParentMatrix));
+	// The plug's parentStructure parent. The constraint takes it over, so Orient and Point can still read it (D31).
+	const MPlug pParentSource = pPlugParentMatrix.source();
+	const MMatrix mParentRest = DagUtils::getMatrixFromPlug(pPlugParentRest);
+	if (args.type != kParentType && pParentSource.isNull())
+	{
+		// Unreachable from a template, where every child plug has a parent (layout.end by default).
+		MGlobal::displayError(MString("A ") + ConstraintTypes::All[args.type] + " constraint takes the rest of its transform from the child plug's parent, and "
+			+ fnControl.name() + "'s child plug has no parent connected.");
+		return MStatus::kFailure;
+	}
+
+	MMatrix mChildRest;
+	status = RigTraversal::getControlRestWorld(args.oControl, mChildRest);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Before the constraint exists, the plug's delta is its parent's motion.
+	const MMatrix mCurrentDelta = MathUtils::computeDeltaFromRest(mParentRest, DagUtils::getMatrixFromPlug(pPlugParentMatrix));
 
 	const ConstraintDriverInfo& initialDriver = args.drivers[args.initialDriver];
-	const MMatrix mInitialDriverDelta = MathUtils::computeDeltaFromRest(
+	const MMatrix mInitialDriverDelta = constraintDelta(args.type, mChildRest, mCurrentDelta, MathUtils::computeDeltaFromRest(
 		initialDriver.mRestWorld,
-		DagUtils::getMatrixFromPlug(RigModuleNodeBase::getSocketMatrixPlug(initialDriver.oModule, initialDriver.socketIndex)));
+		DagUtils::getMatrixFromPlug(RigModuleNodeBase::getSocketMatrixPlug(initialDriver.oModule, initialDriver.socketIndex))));
 
 	// STAGE 1: the constraint node and the control's enum. The enum must exist in the scene before it can be wired.
-	MObject oConstraint = dagMod.MDGModifier::createNode(ParentConstraintNode::id);
+	MObject oConstraint = dagMod.MDGModifier::createNode(RigConstraintNode::id);
 	dagMod.renameNode(oConstraint, args.name.c_str());
 
 	if (createEnumAttr)
@@ -368,18 +461,27 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 		dagMod.newPlugValueInt(pActiveDriver, static_cast<int>(args.initialDriver));
 	}
 
-	// Replace whatever the parenting pass connected to the child plug.
-	MPlug pOldSource = pParentMatrix.source();
-	if (!pOldSource.isNull())
+	dagMod.newPlugValueShort(MPlug(oConstraint, aConstraintType), static_cast<short>(args.type));
+	MPlug pChildRest(oConstraint, aChildRest);
+	DagUtils::setMatrixPlug(pChildRest, mChildRest, dagMod);
+
+	// Move whatever the parenting pass connected to the child plug onto the constraint. Every type gets the same
+	// wiring, and Parent ignores it.
+	MPlug pConstraintParentMatrix(oConstraint, aParentMatrix);
+	MPlug pConstraintParentRest(oConstraint, aParentRest);
+	DagUtils::setMatrixPlug(pConstraintParentRest, mParentRest, dagMod);
+	if (!pParentSource.isNull())
 	{
-		dagMod.disconnect(pOldSource, pParentMatrix);
+		dagMod.disconnect(pParentSource, pPlugParentMatrix);
+		status = dagMod.connect(pParentSource, pConstraintParentMatrix);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
 	MPlug pOut(oConstraint, aOutParentMatrix);
-	status = dagMod.connect(pOut, pParentMatrix);
+	status = dagMod.connect(pOut, pPlugParentMatrix);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// The constraint output is already a delta, so the plug's rest is identity.
-	DagUtils::setMatrixPlug(pParentRest, MMatrix::identity, dagMod);
+	DagUtils::setMatrixPlug(pPlugParentRest, MMatrix::identity, dagMod);
 
 	// Network: rig root keeps a list of its constraints for traversal and baking.
 	if (!args.oRigRoot.isNull())
@@ -401,7 +503,7 @@ MStatus ParentConstraintNode::createConstraint(const ConstraintBuildArgs& args, 
 	return MStatus::kSuccess;
 }
 
-MStatus ParentConstraintNode::buildFromTemplate(
+MStatus RigConstraintNode::buildFromTemplate(
 	const std::vector<RigConstraintData>& constraints,
 	const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,
 	const MObject& oRigRoot,
@@ -411,7 +513,8 @@ MStatus ParentConstraintNode::buildFromTemplate(
 
 	for (const RigConstraintData& constraintData : constraints)
 	{
-		if (constraintData.type != ConstraintTypes::Parent)
+		const int type = ConstraintTypes::indexOf(constraintData.type);
+		if (type < 0)
 		{
 			MGlobal::displayError(MString("Unknown constraint type '") + constraintData.type.c_str() + "' on " + constraintData.name.c_str());
 			anyFailed = true;
@@ -438,6 +541,7 @@ MStatus ParentConstraintNode::buildFromTemplate(
 
 		ConstraintBuildArgs args;
 		args.name = constraintData.name;
+		args.type = type;
 		args.oControl = pChildPlug->oTransform;
 		args.oModule = pTargetModule->moduleNode;
 		args.plugIndex = pChildPlug->plugIndex;
@@ -487,7 +591,7 @@ MStatus ParentConstraintNode::buildFromTemplate(
 // ------------------------------------------------------------------
 // Switching
 // ------------------------------------------------------------------
-MStatus ParentConstraintNode::matchSwitchSpace(const MObject& oConstraint, unsigned int newDriver, MDagModifier& dagMod)
+MStatus RigConstraintNode::matchSwitchSpace(const MObject& oConstraint, unsigned int newDriver, MDagModifier& dagMod)
 {
 	MStatus status;
 	MPlug pDrivers(oConstraint, aDrivers);
@@ -512,10 +616,17 @@ MStatus ParentConstraintNode::matchSwitchSpace(const MObject& oConstraint, unsig
 	MPlug pOut(oConstraint, aOutParentMatrix);
 	const MMatrix mOld = DagUtils::getMatrixFromPlug(pOut);
 
-	// D_new: motion of the new driver since its rest.
-	const MMatrix mNewDelta = MathUtils::computeDeltaFromRest(
-		DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverRest)),
-		DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverMatrix)));
+	// D_new: what the module will receive from the new driver, built the way compute builds it.
+	const MMatrix mParentDelta = MathUtils::computeDeltaFromRest(
+		DagUtils::getMatrixFromPlug(MPlug(oConstraint, aParentRest)),
+		DagUtils::getMatrixFromPlug(MPlug(oConstraint, aParentMatrix)));
+	const MMatrix mNewDelta = constraintDelta(
+		MPlug(oConstraint, aConstraintType).asShort(),
+		DagUtils::getMatrixFromPlug(MPlug(oConstraint, aChildRest)),
+		mParentDelta,
+		MathUtils::computeDeltaFromRest(
+			DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverRest)),
+			DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverMatrix))));
 
 	// The control hosts the space enum that drives activeDriver. A constraint without one has a single driver,
 	// so its delta never changes and there is nothing to match.

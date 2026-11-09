@@ -1,5 +1,6 @@
-"""createRigParentConstraint and setRigConstraintSpace: arguments, space switching, undo, and how
-driver ids and constraint names resolve across namespaces (D14, D19)."""
+"""createRigConstraint and setRigConstraintSpace: arguments, space switching, undo, and how
+driver ids and constraint names resolve across namespaces (D14, D19). Parent constraints only:
+Orient and Point are in test_constraint_types."""
 from maya import cmds
 import maya.api.OpenMaya as om
 
@@ -29,7 +30,7 @@ class ConstraintTestCase(RigTestCase):
 
     def create(self, control=CONTROL, **kwargs):
         kwargs.setdefault("driver", ["layout.end", "fkchain_1.end"])
-        return cmds.createRigParentConstraint(control, **kwargs)
+        return cmds.createRigConstraint(control, **kwargs)
 
     def assertWorldMatrix(self, node, expected, message):
         self.assertTrue(world_matrix(node).isEquivalent(expected, 1e-4), "%s: %s" % (node, message))
@@ -92,13 +93,13 @@ class Create(ConstraintTestCase):
 class CreateRejected(ConstraintTestCase):
 
     def test_no_control(self):
-        self.assertMayaError(lambda: cmds.createRigParentConstraint(driver=["layout.end"]))
+        self.assertMayaError(lambda: cmds.createRigConstraint(driver=["layout.end"]))
 
     def test_two_controls(self):
-        self.assertMayaError(lambda: cmds.createRigParentConstraint(CONTROL, OTHER_CONTROL, driver=["layout.end"]))
+        self.assertMayaError(lambda: cmds.createRigConstraint(CONTROL, OTHER_CONTROL, driver=["layout.end"]))
 
     def test_no_driver(self):
-        self.assertMayaError(lambda: cmds.createRigParentConstraint(OTHER_CONTROL))
+        self.assertMayaError(lambda: cmds.createRigConstraint(OTHER_CONTROL))
 
     def test_label_count_mismatch(self):
         self.assertMayaError(lambda: self.create(OTHER_CONTROL, label=["A"]))
@@ -214,7 +215,7 @@ class RotatedSpaceSwitch(RigTestCase):
         self.parents = (rig_name("a_ctrl_c"), rig_name("b_ctrl_c"))
         cmds.setAttr(self.child + ".rotateOrder", 2)   # zxy
         # The child's current parent is fkchain_1.end, so the initial driver needs no match.
-        self.con = cmds.createRigParentConstraint(self.child, driver=["fkchain_1.end", "fkchain_1.start"])
+        self.con = cmds.createRigConstraint(self.child, driver=["fkchain_1.end", "fkchain_1.start"])
         cmds.setAttr(self.parents[0] + ".rotateY", 40)
         cmds.setAttr(self.parents[1] + ".rotate", 30, 0, -25)
         cmds.setAttr(self.child + ".rotateX", 15)
@@ -278,7 +279,7 @@ class CommandIdResolution(RigTestCase):
                 self.setUp()
                 control = self.build_in(namespace)
                 cmds.namespace(setNamespace=":elsewhere")
-                con = cmds.createRigParentConstraint(control, driver=["layout.end", "fkchain_1.start"])
+                con = cmds.createRigConstraint(control, driver=["layout.end", "fkchain_1.start"])
                 cmds.namespace(setNamespace=":")
                 self.assertSource(con + ".drivers[0].driverMatrix", rig_name("layout", namespace) + ".outputSocketMatrix[2]")
 
@@ -288,11 +289,11 @@ class CommandIdResolution(RigTestCase):
                 self.setUp()
                 control = self.build_in(namespace)
                 cmds.namespace(setNamespace=":elsewhere")
-                default = cmds.createRigParentConstraint(control, driver=["layout.end"])
+                default = cmds.createRigConstraint(control, driver=["layout.end"])
                 cmds.undo()
-                custom = cmds.createRigParentConstraint(control, driver=["layout.end"], name="custom")
+                custom = cmds.createRigConstraint(control, driver=["layout.end"], name="custom")
                 cmds.undo()
-                qualified = cmds.createRigParentConstraint(control, driver=["layout.end"], name=":elsewhere:qualified")
+                qualified = cmds.createRigConstraint(control, driver=["layout.end"], name=":elsewhere:qualified")
                 cmds.namespace(setNamespace=":")
                 self.assertEqual(default.lstrip(":"), rig_name("c_ctrl_l_space", namespace).lstrip(":"))
                 self.assertEqual(custom.lstrip(":"), rig_name("custom", namespace).lstrip(":"))
@@ -300,7 +301,7 @@ class CommandIdResolution(RigTestCase):
 
     def test_redo_keeps_constraint_name_under_another_current_namespace(self):
         control = self.build_in("rig")
-        con = cmds.createRigParentConstraint(control, driver=["layout.end"])
+        con = cmds.createRigConstraint(control, driver=["layout.end"])
         cmds.undo()
         # MNamespace, not cmds.namespace: the cmds version is undoable and would clear the redo queue.
         om.MNamespace.setCurrentNamespace(":elsewhere")
@@ -311,9 +312,9 @@ class CommandIdResolution(RigTestCase):
 
     def test_qualified_driver_used_as_given(self):
         control = self.build_in("rig")
-        con = cmds.createRigParentConstraint(control, driver=["rig:layout.end"])
+        con = cmds.createRigConstraint(control, driver=["rig:layout.end"])
         self.assertSource(con + ".drivers[0].driverMatrix", "rig:layout.outputSocketMatrix[2]")
 
     def test_old_layout_module_name_rejected(self):
         control = self.build_in("rig")
-        self.assertMayaError(lambda: cmds.createRigParentConstraint(control, driver=["layoutModule.end"]), "layoutModule")
+        self.assertMayaError(lambda: cmds.createRigConstraint(control, driver=["layoutModule.end"]), "layoutModule")

@@ -499,7 +499,7 @@ namespace
 
 		if (!rigData.rigConstraints.empty())
 		{
-			status = ParentConstraintNode::buildFromTemplate(rigData.rigConstraints, rigModuleMap, oRigRoot, dagMod);
+			status = RigConstraintNode::buildFromTemplate(rigData.rigConstraints, rigModuleMap, oRigRoot, dagMod);
 			if (!status)
 			{
 				MGlobal::displayError("Failed building rig constraints.");

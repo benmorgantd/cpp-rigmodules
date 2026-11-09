@@ -91,7 +91,7 @@ A constraint gives a control a choice of parent spaces. With more than one drive
 | `name` | yes | The constraint node's name. Unique in the template. |
 | `target` | yes | `module.childPlug`. The child plug must have a control. Only one constraint can target a child plug. |
 | `drivers` | yes | At least one driver (below) |
-| `type` | no | `Parent`, the only type so far |
+| `type` | no | `Parent` (the default), `Orient` or `Point`. See [Constraint types](#constraint-types). |
 | `mirror` | no | `true` also builds this constraint on the other side. The target must be a `Left` or `Right` module. See [Mirroring](#mirroring). |
 
 Drivers:
@@ -103,6 +103,32 @@ Drivers:
 | `weight` | no | 0 or more, default 0. The driver with the highest weight starts active. With a tie, the first of them starts active (and the build warns). With no weights, the first driver starts active. |
 
 A module cannot drive its own child plug, and no loop may run through `parentStructure` and constraint drivers together.
+
+### Constraint types
+
+The active driver gives only its own part of the motion. Everything else comes from the child plug's parent, the socket it attaches to in `parentStructure` (or `layout.end`), as if there were no constraint.
+
+| Type | Translate (pivot) | Rotate | Scale |
+|---|---|---|---|
+| `Parent` | driver | driver | driver |
+| `Orient` | parent | driver | parent |
+| `Point` | driver | parent | parent |
+
+In the README's quick start rig, the arm's `start` attaches to `spine.end`. With this `Orient` constraint, the arm keeps the world's rotation while its shoulder pivot swings with the chest. A leg on `spine.start` works the same way, with the hip as its pivot.
+
+```json
+{
+  "name": "arm_space",
+  "type": "Orient",
+  "target": "arm.start",
+  "drivers": [
+    { "socket": "layout.end", "label": "World", "weight": 1.0 },
+    { "socket": "spine.end", "label": "Chest" }
+  ]
+}
+```
+
+A space switch keeps the control in place whatever the type. On an `Orient` constraint it changes only the control's rotate channels while its translate is zero, and on a `Point` constraint only its translate while its rotate is zero.
 
 ## Mirroring
 

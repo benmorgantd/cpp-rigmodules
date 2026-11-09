@@ -12,7 +12,7 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 	static const std::vector<CommandDescriptor> descriptors =
 	{
 		{ CreateRigCmd::aCommandString, CreateRigCmd::creator, CreateRigCmd::newSyntax },
-		{ CreateParentConstraintCmd::aCommandString, CreateParentConstraintCmd::creator, CreateParentConstraintCmd::newSyntax },
+		{ CreateRigConstraintCmd::aCommandString, CreateRigConstraintCmd::creator, CreateRigConstraintCmd::newSyntax },
 		{ SetConstraintSpaceCmd::aCommandString, SetConstraintSpaceCmd::creator, SetConstraintSpaceCmd::newSyntax },
 		{ JointMarkupCmd::aCommandString, JointMarkupCmd::creator, JointMarkupCmd::newSyntax },
 		{ GetRigControlsCmd::aCommandString, GetRigControlsCmd::creator, GetRigControlsCmd::newSyntax },
