@@ -7,6 +7,8 @@ import json
 
 import maya.cmds as cmds
 
+import rigmodules._namespace
+
 
 @dataclasses.dataclass(frozen=True)
 class RigInfo:
@@ -27,7 +29,7 @@ RIG_ROOT_TYPE = "rigRootModule"
 
 def get_rigs(namespace: str | None = None) -> list[RigInfo]:
     """Every rig in the scene, or only those built into namespace, sorted by rig root name."""
-    pattern = f":{namespace.strip(':')}:*" if namespace else "*"
+    pattern = rigmodules._namespace.get_node_pattern(namespace) if namespace else "*"
     rig_roots = cmds.ls(pattern, type=RIG_ROOT_TYPE, recursive=not namespace) or []
     return [get_rig_info(rig_root) for rig_root in sorted(rig_roots)]
 

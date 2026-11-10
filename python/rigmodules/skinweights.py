@@ -11,6 +11,8 @@ import json
 
 import maya.cmds as cmds
 
+import rigmodules._namespace
+
 MESH_ID_ATTR = "meshId"
 
 # saveRigSkinWeights writes "meshId" near the top of the file, so its value can be read without parsing the
@@ -27,7 +29,7 @@ def get_mesh_id(mesh: str) -> str | None:
 
 def _namespace_meshes(namespace: str) -> list[str]:
     """The transforms of every visible mesh shape directly in namespace ("" or ":" for the root), sorted."""
-    pattern = f":{namespace.strip(':')}:*" if namespace.strip(":") else ":*"
+    pattern = rigmodules._namespace.get_node_pattern(namespace)
     shapes = cmds.ls(pattern, type="mesh", noIntermediate=True, long=True) or []
     return sorted({cmds.listRelatives(shape, parent=True, fullPath=True)[0] for shape in shapes})
 

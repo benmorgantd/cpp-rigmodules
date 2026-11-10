@@ -73,6 +73,13 @@ public:
 	// The node's namespace as an absolute path for MNamespace calls: ":rig", or ":" for the root namespace.
 	static MString getAbsoluteNamespace(const MObject& oNode);
 
+	// The absolute name of shortName in a namespace given without colons at its ends: ":rig:name", or ":name"
+	// when the namespace is "", the root.
+	static MString getAbsoluteName(const MString& namespaceName, const MString& shortName);
+
+	// The shortest name that is unique in the scene for a DAG node, which is what commands return and messages show.
+	static MString getPartialPathName(const MObject& oDagNode);
+
 	// The nearest node upstream of the node whose type matches filter (MFn::kSkinClusterFilter, say), breadth first,
 	// or a null object if there is none.
 	static MObject findUpstreamNode(const MObject& oNode, MFn::Type filter);
@@ -105,6 +112,12 @@ public:
 class CommandUtils
 {
 public:
+	// The command's one string object. Reports "<command> takes exactly one <what>." for none or several.
+	static MStatus readSingleObject(const MArgDatabase& argData, const char* commandName, const char* what, MString& outName);
+
+	// Appends the string argument of every use of a multi-use flag, in the order given. None when the flag isn't set.
+	static MStatus readStringList(const MArgDatabase& argData, const char* flag, std::vector<std::string>& outValues);
+
 	// The string argument of a required file flag. Reports "<command> needs <flag>." when it is missing or empty.
 	static MStatus readFilePath(const MArgDatabase& argData, const char* flag, const char* commandName, MString& outPath);
 

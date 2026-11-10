@@ -8,11 +8,8 @@
 #include "maya/shared/Utilities.h"
 
 #include <string>
-#include <vector>
 
 #include <maya/MArgDatabase.h>
-#include <maya/MDagPath.h>
-#include <maya/MFnDagNode.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
 #include <maya/MObjectArray.h>
@@ -36,34 +33,13 @@ namespace
 			return parseStatus;
 		}
 
-		MStringArray objects;
-		MStatus status = argData.getObjects(objects);
-		if (!status || objects.length() != 1)
+		MString rigRootName;
+		MStatus status = CommandUtils::readSingleObject(argData, commandName, "rig root", rigRootName);
+		if (!status)
 		{
-			MGlobal::displayError(MString(commandName) + " takes exactly one rig root.");
-			return MStatus::kFailure;
+			return status;
 		}
-		return RigTraversal::getRigRoot(objects[0], oOutRigRoot);
-	}
-
-	MStatus readMultiUseStrings(const MArgDatabase& argData, const char* flag, std::vector<std::string>& outValues)
-	{
-		const unsigned int uses = argData.numberOfFlagUses(flag);
-		for (unsigned int i = 0; i < uses; ++i)
-		{
-			MArgList flagArgs;
-			MStatus status = argData.getFlagArgumentList(flag, i, flagArgs);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-			outValues.push_back(flagArgs.asString(0).asChar());
-		}
-		return MStatus::kSuccess;
-	}
-
-	MString controlName(const MObject& oControl)
-	{
-		MDagPath dagPath;
-		MFnDagNode(oControl).getPath(dagPath);
-		return dagPath.partialPathName();
+		return RigTraversal::getRigRoot(rigRootName, oOutRigRoot);
 	}
 }
 
@@ -106,9 +82,9 @@ MStatus GetRigControlsCmd::doIt(const MArgList& args)
 	}
 
 	RigControlFilter filter;
-	CHECK_MSTATUS_AND_RETURN_IT(readMultiUseStrings(argData, kModuleTypeFlag, filter.moduleTypes));
-	CHECK_MSTATUS_AND_RETURN_IT(readMultiUseStrings(argData, kSideFlag, filter.sides));
-	CHECK_MSTATUS_AND_RETURN_IT(readMultiUseStrings(argData, kUsageFlag, filter.usages));
+	CHECK_MSTATUS_AND_RETURN_IT(CommandUtils::readStringList(argData, kModuleTypeFlag, filter.moduleTypes));
+	CHECK_MSTATUS_AND_RETURN_IT(CommandUtils::readStringList(argData, kSideFlag, filter.sides));
+	CHECK_MSTATUS_AND_RETURN_IT(CommandUtils::readStringList(argData, kUsageFlag, filter.usages));
 
 	MObjectArray oControls;
 	status = RigTraversal::getRigControls(oRigRoot, filter, oControls);
@@ -120,7 +96,7 @@ MStatus GetRigControlsCmd::doIt(const MArgList& args)
 	MStringArray names;
 	for (unsigned int i = 0; i < oControls.length(); ++i)
 	{
-		names.append(controlName(oControls[i]));
+		names.append(DagUtils::getPartialPathName(oControls[i]));
 	}
 	setResult(names);
 	return MStatus::kSuccess;
@@ -293,18 +269,24 @@ MStatus GetRigMirrorControlCmd::doIt(const MArgList& args)
 {
 	MStatus status;
 	MArgDatabase argData(syntax(), args, &status);
-	MStringArray objects;
-	if (!status || argData.getObjects(objects) != MStatus::kSuccess || objects.length() != 1)
+	if (!status)
 	{
-		MGlobal::displayError(MString(aCommandString) + " takes exactly one control.");
-		return MStatus::kFailure;
+		MGlobal::displayError(MString("Error parsing ") + aCommandString + " arguments.");
+		return status;
+	}
+
+	MString controlName;
+	status = CommandUtils::readSingleObject(argData, aCommandString, "control", controlName);
+	if (!status)
+	{
+		return status;
 	}
 
 	MObject oControl;
-	if (DagUtils::getMObjectFromName(objects[0], oControl) != MStatus::kSuccess
+	if (DagUtils::getMObjectFromName(controlName, oControl) != MStatus::kSuccess
 		|| MFnDependencyNode(oControl).typeId() != RigControlNode::id)
 	{
-		MGlobal::displayError(MString("Not a rig control: ") + objects[0]);
+		MGlobal::displayError(MString("Not a rig control: ") + controlName);
 		return MStatus::kFailure;
 	}
 
@@ -314,7 +296,7 @@ MStatus GetRigMirrorControlCmd::doIt(const MArgList& args)
 	{
 		return status;
 	}
-	setResult(controlName(oMirror));
+	setResult(DagUtils::getPartialPathName(oMirror));
 	return MStatus::kSuccess;
 }
 

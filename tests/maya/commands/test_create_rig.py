@@ -104,6 +104,11 @@ class Namespaces(RigTestCase):
         self.assertExists(rig_name("fkchain1_jnt", "char:rig"))
         self.assertExists(rig_name("fkchain1_ctrl_c", "char:rig"))
 
+    def test_colons_around_the_namespace_are_dropped(self):
+        self.build_standard(TEMPLATE, SKELETON, namespace=":char:rig:")
+        self.assertExists(rig_name("layout", "char:rig"))
+        self.assertExists(rig_name("fkchain1_jnt", "char:rig"))
+
     def test_root_namespace(self):
         self.build_standard(TEMPLATE, SKELETON, namespace=":")
         self.assertExists(":layout")

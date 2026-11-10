@@ -9,11 +9,6 @@
 
 namespace
 {
-	bool endsWith(const std::string& text, const std::string& suffix)
-	{
-		return text.size() >= suffix.size() && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
-	}
-
 	bool isMirrorableSide(const std::string& side)
 	{
 		return side == SideNames::Left || side == SideNames::Right;
@@ -98,11 +93,11 @@ namespace TemplateMirror
 	{
 		const std::string left = RigNaming::LeftSuffix;
 		const std::string right = RigNaming::RightSuffix;
-		if (endsWith(name, left))
+		if (StringUtils::endsWith(name, left))
 		{
 			return name.substr(0, name.size() - left.size()) + right;
 		}
-		if (endsWith(name, right))
+		if (StringUtils::endsWith(name, right))
 		{
 			return name.substr(0, name.size() - right.size()) + left;
 		}
@@ -133,7 +128,7 @@ namespace TemplateMirror
 				continue;
 			}
 			const char* suffix = suffixForSide(source.side);
-			if (!endsWith(source.name, suffix))
+			if (!StringUtils::endsWith(source.name, suffix))
 			{
 				report.addError(where + "." + TemplateKey::Name, "a mirrored " + source.side + " module's name must end in '"
 					+ suffix + "', so its mirror's name can swap the suffix");

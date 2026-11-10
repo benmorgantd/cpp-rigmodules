@@ -1,5 +1,6 @@
 #include "maya/commands/CreateRigCmd.h"
 #include "core/AssetId.h"
+#include "core/StringUtils.h"
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/Utilities.h"
 
@@ -21,21 +22,6 @@ namespace
 	constexpr const char* kAssetFlag{ "-asset" };
 	constexpr const char* kNamespaceFlag{ "-namespace" };
 	constexpr const char* kCheckMirrorPositionsFlag{ "-checkMirrorPositions" };
-
-	// Leading and trailing colons are dropped so ":rig", "rig:" and "rig" all mean the same namespace, and ":" is the root.
-	MString normalizeNamespace(const MString& namespaceName)
-	{
-		std::string text = namespaceName.asChar();
-		while (!text.empty() && text.front() == ':')
-		{
-			text.erase(0, 1);
-		}
-		while (!text.empty() && text.back() == ':')
-		{
-			text.pop_back();
-		}
-		return MString(text.c_str());
-	}
 
 	// Resolves every joint name before createRig runs, so a bad name fails before the read phase.
 	MStatus readBuildInputs(const MArgDatabase& argData, RigBuildInputs& inputs)
@@ -77,7 +63,8 @@ namespace
 			status = argData.getFlagArgument(kNamespaceFlag, 0, rigNamespace);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
-		inputs.rigNamespace = normalizeNamespace(rigNamespace);
+		// Leading and trailing colons are dropped so ":rig", "rig:" and "rig" all mean the same namespace, and ":" is the root.
+		inputs.rigNamespace = StringUtils::trim(rigNamespace.asChar(), ':').c_str();
 
 		if (argData.isFlagSet(kCheckMirrorPositionsFlag))
 		{

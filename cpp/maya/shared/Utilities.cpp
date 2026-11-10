@@ -6,10 +6,13 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
+#include <maya/MArgList.h>
 #include <maya/MDagModifier.h>
 #include <maya/MDagPath.h>
 #include <maya/MFnAttribute.h>
+#include <maya/MFnDagNode.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MFnSingleIndexedComponent.h>
@@ -341,6 +344,22 @@ MString DagUtils::getAbsoluteNamespace(const MObject& oNode)
 	return nodeNamespace.substring(0, 0) == ":" ? nodeNamespace : MString(":") + nodeNamespace;
 }
 
+MString DagUtils::getAbsoluteName(const MString& namespaceName, const MString& shortName)
+{
+	if (namespaceName.length() == 0)
+	{
+		return MString(":") + shortName;
+	}
+	return MString(":") + namespaceName + ":" + shortName;
+}
+
+MString DagUtils::getPartialPathName(const MObject& oDagNode)
+{
+	MDagPath dagPath;
+	MFnDagNode(oDagNode).getPath(dagPath);
+	return dagPath.partialPathName();
+}
+
 MObject DagUtils::findUpstreamNode(const MObject& oNode, MFn::Type filter)
 {
 	MStatus status;
@@ -409,6 +428,32 @@ MObject MeshUtils::createAllVerticesComponent(unsigned int vertexCount)
 MString MelUtils::quoted(const MString& text)
 {
 	return MString("\"") + text + "\"";
+}
+
+MStatus CommandUtils::readSingleObject(const MArgDatabase& argData, const char* commandName, const char* what, MString& outName)
+{
+	MStringArray objects;
+	MStatus status = argData.getObjects(objects);
+	if (!status || objects.length() != 1)
+	{
+		MGlobal::displayError(MString(commandName) + " takes exactly one " + what + ".");
+		return MStatus::kFailure;
+	}
+	outName = objects[0];
+	return MStatus::kSuccess;
+}
+
+MStatus CommandUtils::readStringList(const MArgDatabase& argData, const char* flag, std::vector<std::string>& outValues)
+{
+	const unsigned int uses = argData.numberOfFlagUses(flag);
+	for (unsigned int i = 0; i < uses; ++i)
+	{
+		MArgList flagArgs;
+		MStatus status = argData.getFlagArgumentList(flag, i, flagArgs);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		outValues.push_back(flagArgs.asString(0).asChar());
+	}
+	return MStatus::kSuccess;
 }
 
 MStatus CommandUtils::readFilePath(const MArgDatabase& argData, const char* flag, const char* commandName, MString& outPath)

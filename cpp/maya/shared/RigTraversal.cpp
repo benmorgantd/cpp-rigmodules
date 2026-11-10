@@ -75,21 +75,25 @@ namespace
 		return MObject::kNullObj;
 	}
 
-	// The rig root a module belongs to, through module.rigRoot <- rigRoot.rigModules.
+	// The rig root a module belongs to. Reports a module that has none.
 	MStatus getModuleRigRoot(const MObject& oModule, MObject& oOutRigRoot)
 	{
-		MStatus status;
-		MFnDependencyNode fnModule(oModule);
-		const MPlug pRigRoot = fnModule.findPlug(RigAttr::RigRoot, false, &status);
-		const MPlug pSource = status ? pRigRoot.source() : MPlug();
-		if (pSource.isNull())
+		oOutRigRoot = RigTraversal::findModuleRigRoot(oModule);
+		if (oOutRigRoot.isNull())
 		{
-			MGlobal::displayError(fnModule.name() + " is not connected to a rig root.");
+			MGlobal::displayError(MFnDependencyNode(oModule).name() + " is not connected to a rig root.");
 			return MStatus::kFailure;
 		}
-		oOutRigRoot = pSource.node();
 		return MStatus::kSuccess;
 	}
+}
+
+MObject RigTraversal::findModuleRigRoot(const MObject& oModule)
+{
+	MStatus status;
+	const MPlug pRigRoot = MFnDependencyNode(oModule).findPlug(RigAttr::RigRoot, false, &status);
+	const MPlug pSource = status ? pRigRoot.source() : MPlug();
+	return pSource.isNull() ? MObject::kNullObj : pSource.node();
 }
 
 MStatus RigTraversal::getRigRoot(const MString& name, MObject& oOutRigRoot)

@@ -12,7 +12,6 @@
 #include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
 #include <maya/MPlug.h>
-#include <maya/MStringArray.h>
 
 const char* GetRigInfoCmd::aCommandString = "getRigInfo";
 
@@ -38,18 +37,24 @@ MStatus GetRigInfoCmd::doIt(const MArgList& args)
 {
 	MStatus status;
 	MArgDatabase argData(syntax(), args, &status);
-	MStringArray objects;
-	if (!status || argData.getObjects(objects) != MStatus::kSuccess || objects.length() != 1)
+	if (!status)
 	{
-		MGlobal::displayError(MString(aCommandString) + " takes exactly one rig node.");
-		return MStatus::kFailure;
+		MGlobal::displayError(MString("Error parsing ") + aCommandString + " arguments.");
+		return status;
+	}
+
+	MString nodeName;
+	status = CommandUtils::readSingleObject(argData, aCommandString, "rig node", nodeName);
+	if (!status)
+	{
+		return status;
 	}
 
 	MObject oNode;
-	status = DagUtils::getMObjectFromName(objects[0], oNode);
+	status = DagUtils::getMObjectFromName(nodeName, oNode);
 	if (!status)
 	{
-		MGlobal::displayError(MString("Node not found: ") + objects[0]);
+		MGlobal::displayError(MString("Node not found: ") + nodeName);
 		return status;
 	}
 

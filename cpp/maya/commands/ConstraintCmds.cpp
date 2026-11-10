@@ -1,8 +1,14 @@
 #include "maya/commands/ConstraintCmds.h"
 #include "core/Constants.h"
+#include "core/StringUtils.h"
 #include "maya/nodes/Constraints.h"
 #include "maya/shared/RigModule.h"
+#include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
+
+#include <cstddef>
+#include <string>
+#include <vector>
 
 #include <maya/MArgDatabase.h>
 #include <maya/MArgList.h>
@@ -10,7 +16,6 @@
 #include <maya/MGlobal.h>
 #include <maya/MNamespace.h>
 #include <maya/MPlug.h>
-#include <maya/MStringArray.h>
 
 namespace
 {
@@ -25,20 +30,6 @@ namespace
 	constexpr const char* kTypeFlag{ "-type" };
 
 	constexpr const char* kDefaultConstraintSuffix{ "_space" };
-
-	// The one node a command acts on, passed by name. Commands never read the selection.
-	MStatus getSingleObjectName(const MArgDatabase& argData, const char* commandName, MString& outName)
-	{
-		MStringArray names;
-		MStatus status = argData.getObjects(names);
-		if (!status || names.length() != 1)
-		{
-			MGlobal::displayError(MString(commandName) + " takes exactly one node name.");
-			return MStatus::kFailure;
-		}
-		outName = names[0];
-		return MStatus::kSuccess;
-	}
 
 	// Fills everything createConstraint needs from the control and the flags. Resolves every driver socket
 	// before anything is queued, so a bad name leaves the scene untouched.
@@ -70,39 +61,30 @@ namespace
 		outArgs.type = ConstraintTypes::indexOf(type.asChar());
 		if (outArgs.type < 0)
 		{
-			MString known;
-			for (const char* name : ConstraintTypes::All)
-			{
-				known += MString(known.length() > 0 ? ", " : "") + name;
-			}
-			MGlobal::displayError(MString("Unknown constraint -type '") + type + "' (has: " + known + ").");
+			MGlobal::displayError(MString("Unknown constraint -type '") + type + "' (has: "
+				+ StringUtils::joinNames(ConstraintTypes::All).c_str() + ").");
 			return MStatus::kFailure;
 		}
 
-		const unsigned int numDrivers = argData.numberOfFlagUses(kDriverFlag);
-		const unsigned int numLabels = argData.numberOfFlagUses(kLabelFlag);
-		if (numDrivers == 0 || (numLabels != 0 && numLabels != numDrivers))
+		std::vector<std::string> driverIds;
+		std::vector<std::string> labels;
+		CHECK_MSTATUS_AND_RETURN_IT(CommandUtils::readStringList(argData, kDriverFlag, driverIds));
+		CHECK_MSTATUS_AND_RETURN_IT(CommandUtils::readStringList(argData, kLabelFlag, labels));
+		if (driverIds.empty() || (!labels.empty() && labels.size() != driverIds.size()))
 		{
 			MGlobal::displayError("Give at least one -driver, and either no -label or one -label per -driver.");
 			return MStatus::kFailure;
 		}
 
-		for (unsigned int i = 0; i < numDrivers; ++i)
+		for (std::size_t i = 0; i < driverIds.size(); ++i)
 		{
-			MArgList driverArgs;
-			status = argData.getFlagArgumentList(kDriverFlag, i, driverArgs);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-
 			ConstraintDriverInfo driver;
-			if (numLabels > 0)
+			if (!labels.empty())
 			{
-				MArgList labelArgs;
-				status = argData.getFlagArgumentList(kLabelFlag, i, labelArgs);
-				CHECK_MSTATUS_AND_RETURN_IT(status);
-				driver.label = labelArgs.asString(0).asChar();
+				driver.label = labels[i];
 			}
 
-			status = RigConstraintNode::resolveSocket(driverArgs.asString(0).asChar(), rigNamespace, driver);
+			status = RigConstraintNode::resolveSocket(driverIds[i], rigNamespace, driver);
 			if (!status)
 			{
 				return status;   // helper already reported which driver failed
@@ -137,15 +119,8 @@ namespace
 		}
 		outArgs.name = name.asChar();
 
-		// Rig root, if the module is connected to one.
-		MFnDependencyNode fnModule(outArgs.oModule);
-		MPlug pRigRoot = fnModule.findPlug(RigAttr::RigRoot, false, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		MPlug pRigRootSource = pRigRoot.source();
-		if (!pRigRootSource.isNull())
-		{
-			outArgs.oRigRoot = pRigRootSource.node();
-		}
+		// Null when the module is connected to no rig root.
+		outArgs.oRigRoot = RigTraversal::findModuleRigRoot(outArgs.oModule);
 
 		return MStatus::kSuccess;
 	}
@@ -245,7 +220,7 @@ MStatus CreateRigConstraintCmd::doIt(const MArgList& args)
 	}
 
 	MString controlName;
-	status = getSingleObjectName(argData, aCommandString, controlName);
+	status = CommandUtils::readSingleObject(argData, aCommandString, "node name", controlName);
 	if (!status)
 	{
 		return status;
@@ -324,7 +299,7 @@ MStatus SetConstraintSpaceCmd::doIt(const MArgList& args)
 	}
 
 	MString constraintName;
-	status = getSingleObjectName(argData, aCommandString, constraintName);
+	status = CommandUtils::readSingleObject(argData, aCommandString, "node name", constraintName);
 	if (!status)
 	{
 		return status;

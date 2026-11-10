@@ -29,6 +29,10 @@ public:
 	// True for a node getOwningRigRoot accepts. Reports nothing, so tools can test every selected node quietly.
 	static bool isRigNode(const MObject& oNode);
 
+	// The rig root a module is connected to, through module.rigRoot <- rigRoot.rigModules, or a null object for a
+	// module that has none. Reports nothing.
+	static MObject findModuleRigRoot(const MObject& oModule);
+
 	// The asset root a rig root belongs to, through rigRoot.assetRoot <- assetRoot.children (D29). Fails if there is none.
 	static MStatus getAssetRoot(const MObject& oRigRoot, MObject& oOutAssetRoot);
 

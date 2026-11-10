@@ -196,7 +196,7 @@ class MatchesMayaConstraints(ConstraintTypeCase):
 class Rejected(ConstraintTypeCase):
 
     def test_unknown_type(self):
-        self.assertMayaError(lambda: self.constrain("Scale"), "Scale", "Orient")
+        self.assertMayaError(lambda: self.constrain("Scale"), "Scale", "(has: Parent, Orient, Point)")
 
     def test_orient_without_parent(self):
         cmds.disconnectAttr(rig_name("fkchain_1") + ".outputSocketMatrix[1]",

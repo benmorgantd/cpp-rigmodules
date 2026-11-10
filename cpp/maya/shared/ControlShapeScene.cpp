@@ -3,14 +3,13 @@
 #include "core/TemplateMirror.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigTraversal.h"
+#include "maya/shared/Utilities.h"
 
 #include <map>
 #include <set>
 #include <string>
 #include <utility>
 
-#include <maya/MDagPath.h>
-#include <maya/MFnDagNode.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MGlobal.h>
 #include <maya/MMatrix.h>
@@ -19,13 +18,6 @@
 
 namespace
 {
-	MString controlName(const MObject& oControl)
-	{
-		MDagPath dagPath;
-		MFnDagNode(oControl).getPath(dagPath);
-		return dagPath.partialPathName();
-	}
-
 	const ControlShape* findShape(const ControlShapeMap& shapes, const ControlMarkup& markup)
 	{
 		auto sideIt = shapes.find(markup.side);
@@ -62,7 +54,7 @@ MStatus ControlShapeScene::setControlShape(const MObject& oControl, const Contro
 	ShapeType shapeType = ShapeType::Box;
 	if (!findShapeType(shape.shapeType, shapeType))
 	{
-		MGlobal::displayError(MString("Unknown shape type '") + shape.shapeType.c_str() + "' for " + controlName(oControl));
+		MGlobal::displayError(MString("Unknown shape type '") + shape.shapeType.c_str() + "' for " + DagUtils::getPartialPathName(oControl));
 		return MStatus::kFailure;
 	}
 
@@ -106,7 +98,7 @@ MStatus ControlShapeScene::getRigControlShapes(const MObject& oRigRoot, ControlS
 			return status;
 		}
 		outShapes[markup.side][markup.usage] = getControlShape(oControls[i]);
-		outControlNames.append(controlName(oControls[i]));
+		outControlNames.append(DagUtils::getPartialPathName(oControls[i]));
 	}
 	return MStatus::kSuccess;
 }
@@ -133,7 +125,7 @@ MStatus ControlShapeScene::setRigControlShapes(const MObject& oRigRoot, const Co
 		const ControlShape* pShape = findShape(shapes, markup);
 		if (pShape == nullptr)
 		{
-			MGlobal::displayWarning(controlName(oControls[i]) + " (" + markup.side.c_str() + ", " + markup.usage.c_str()
+			MGlobal::displayWarning(DagUtils::getPartialPathName(oControls[i]) + " (" + markup.side.c_str() + ", " + markup.usage.c_str()
 				+ ") has no entry in the shape file, so it keeps its shape.");
 			continue;
 		}
@@ -144,7 +136,7 @@ MStatus ControlShapeScene::setRigControlShapes(const MObject& oRigRoot, const Co
 			return status;
 		}
 		usedEntries.insert({ markup.side, markup.usage });
-		outAppliedNames.append(controlName(oControls[i]));
+		outAppliedNames.append(DagUtils::getPartialPathName(oControls[i]));
 	}
 
 	for (const auto& [side, usages] : shapes)
@@ -209,7 +201,7 @@ MStatus ControlShapeScene::mirrorRigControlShapes(const MObject& oRigRoot, const
 		auto it = mirrorsByUsage.find(markup.usage);
 		if (it == mirrorsByUsage.end())
 		{
-			MGlobal::displayWarning(controlName(oSources[i]) + " (" + markup.side.c_str() + ", " + markup.usage.c_str()
+			MGlobal::displayWarning(DagUtils::getPartialPathName(oSources[i]) + " (" + markup.side.c_str() + ", " + markup.usage.c_str()
 				+ ") has no mirror control, so its shape is not mirrored.");
 			continue;
 		}
@@ -245,7 +237,7 @@ MStatus ControlShapeScene::mirrorRigControlShapes(const MObject& oRigRoot, const
 		{
 			return status;
 		}
-		outChangedNames.append(controlName(oMirror));
+		outChangedNames.append(DagUtils::getPartialPathName(oMirror));
 	}
 	return MStatus::kSuccess;
 }

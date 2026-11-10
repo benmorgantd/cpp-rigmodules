@@ -49,18 +49,11 @@ namespace
 	// Directed edges parent module -> child module. std::map/std::set keep cycle messages in a stable order.
 	using ModuleGraph = std::map<std::string, std::set<std::string>>;
 
+	// For a "(has: ...)" list in a message, where an empty list still needs a word.
 	template <typename TNames>
-	std::string joinNames(const TNames& names)
+	std::string namesOrNone(const TNames& names)
 	{
-		std::string text;
-		for (const auto& name : names)
-		{
-			if (!text.empty())
-			{
-				text += ", ";
-			}
-			text += name;
-		}
+		const std::string text = StringUtils::joinNames(names);
 		return text.empty() ? "none" : text;
 	}
 
@@ -84,7 +77,7 @@ namespace
 		{
 			names.push_back(plug.name);
 		}
-		return joinNames(names);
+		return namesOrNone(names);
 	}
 
 	// Maya node names: a letter or '_', then letters, digits or '_'. This also keeps '.' out of "module.socket" identifiers.
@@ -258,7 +251,7 @@ namespace
 
 			if (!pParentInterface->hasSocket(socketName))
 			{
-				report.addError(entryPath, "no socket '" + socketName + "' on '" + parentModule + "' (has: " + joinNames(pParentInterface->sockets) + ")");
+				report.addError(entryPath, "no socket '" + socketName + "' on '" + parentModule + "' (has: " + namesOrNone(pParentInterface->sockets) + ")");
 				continue;
 			}
 
@@ -292,7 +285,7 @@ namespace
 
 			if (ConstraintTypes::indexOf(constraint.type) < 0)
 			{
-				report.addError(where + "." + TemplateKey::ConstraintType, "unknown constraint type '" + constraint.type + "' (has: " + joinNames(ConstraintTypes::All) + ")");
+				report.addError(where + "." + TemplateKey::ConstraintType, "unknown constraint type '" + constraint.type + "' (has: " + namesOrNone(ConstraintTypes::All) + ")");
 			}
 
 			// Target child plug
@@ -374,7 +367,7 @@ namespace
 
 				if (!pDriverInterface->hasSocket(socketName))
 				{
-					report.addError(socketPath, "no socket '" + socketName + "' on '" + driverModule + "' (has: " + joinNames(pDriverInterface->sockets) + ")");
+					report.addError(socketPath, "no socket '" + socketName + "' on '" + driverModule + "' (has: " + namesOrNone(pDriverInterface->sockets) + ")");
 					continue;
 				}
 
@@ -456,7 +449,7 @@ namespace RigTemplateValidation
 			{
 				std::vector<const char*> known(requiredKeys);
 				known.insert(known.end(), optionalKeys.begin(), optionalKeys.end());
-				report.addError(where, "unknown key '" + key + "' (known: " + joinNames(known) + ")");
+				report.addError(where, "unknown key '" + key + "' (known: " + namesOrNone(known) + ")");
 			}
 		}
 	}
@@ -585,7 +578,7 @@ namespace RigTemplateValidation
 
 		if (!isOneOf(module.shapeType, RigControlNodeAttr::ShapeTypes::All))
 		{
-			report.addError(where + "." + TemplateKey::ShapeType, "'" + module.shapeType + "' is not one of " + joinNames(RigControlNodeAttr::ShapeTypes::All));
+			report.addError(where + "." + TemplateKey::ShapeType, "'" + module.shapeType + "' is not one of " + namesOrNone(RigControlNodeAttr::ShapeTypes::All));
 		}
 
 		if (module.moduleVersion < 1 || module.moduleVersion > currentVersion)

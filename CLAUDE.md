@@ -118,7 +118,7 @@ RigTemplates/        example template
 | `Constants.h` | `PluginInfo` (vendor and version), `RigAttr`, `JointMarkupKey`, `PlugAndSocketNames`, `ConstraintTypes` (names and enum order), `ConstraintAttr`, `SideNames`, `RigNaming`, `RigControlNodeAttr`, `SkinWeightFileKey`, `SkinMethods` (names and enum order). |
 | `AssetId.h/.cpp` | `AssetId::isValid` and `AssetId::name` (the last token, the default rig namespace) for `\|`-separated asset ids (D29). |
 | `JsonUtils.h` | Header-only `readJsonString` / `writeJsonString`. Every string attribute that holds structured data (socket names, joint markup) goes through these (D16). |
-| `StringUtils.h` | Header-only `splitIdentifier` for `"module.name"`. Included by `maya/shared/Utilities.h`. |
+| `StringUtils.h` | Header-only string helpers: `splitIdentifier` for `"module.name"`, `joinNames` (`"a, b, c"` for messages), `endsWith`, `trim` (a namespace's colons), `equalsIgnoreCase`. Included by `maya/shared/Utilities.h`. |
 | `RigJsonStructs.h/.cpp` | Template structs (`RigRootData`, `RigModuleData`, constraint data) and `loadRigTemplate` (key checks, then parse). |
 | `RigTemplateValidation.h/.cpp` | `ValidationReport`, `ModuleInterface`, and the read-phase template checks (D17). |
 | `TemplateMirror.h/.cpp` | `expandMirrors` (adds the other side's copy of every `"mirror": true` module and constraint before validation), `swapSide`, `swapSideSuffix` (D28). |
@@ -150,9 +150,9 @@ RigTemplates/        example template
 | `nodes/Constraints.h/.cpp` | `RigConstraintNode` (`rigConstraint`, one node for every `constraintType`, D31): compute, `resolveSocket`, `createConstraint`, `buildFromTemplate`, `matchSwitchSpace`. |
 | `nodes/RigControlNode.h/.cpp` | Custom control transform (shape attributes, `controlMarkup`, bounds from `shapeTransform`) and its draw override. |
 | `shared/RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/child plug lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>` (`wireJoint` hands a joint to its module and stores its rest in `jointRestWorld`), `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
-| `shared/Utilities.h/.cpp` | Helpers any folder may use, grouped by class: `MathUtils`, `DagUtils` (name lookups, joint baking, a node's absolute namespace, the nearest upstream node of a type), `MeshUtils` (mesh transform and shape lookups, an all-vertices component), `MelUtils`, `CommandUtils` (meshes named or selected, required file flag, text file read and write), `ReportUtils` (`displayReport`), `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `ScopedRigNamespace` (RAII current namespace for a rig build and its redo). |
+| `shared/Utilities.h/.cpp` | Helpers any folder may use, grouped by class: `MathUtils`, `DagUtils` (name lookups, joint baking, a node's absolute namespace, an absolute name in a namespace, a DAG node's partial path name, the nearest upstream node of a type), `MeshUtils` (mesh transform and shape lookups, an all-vertices component), `MelUtils`, `CommandUtils` (the one string object, a multi-use string flag, meshes named or selected, required file flag, text file read and write), `ReportUtils` (`displayReport`), `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `ScopedRigNamespace` (RAII current namespace for a rig build and its redo). |
 | `shared/JointMarkupScene.h/.cpp` | Plugin side of markup: namespace joint scan, attribute read, `claimJoint`. |
-| `shared/RigTraversal.h/.cpp` | Walks a built rig by connections: rig root, the rig root a node belongs to, its asset root, modules, controls, control markup, filtered `getRigControls`, a control's rest world, a joint's rest world and a control's mirror control. |
+| `shared/RigTraversal.h/.cpp` | Walks a built rig by connections: rig root, the rig root a node belongs to, a module's rig root, its asset root, modules, controls, control markup, filtered `getRigControls`, a control's rest world, a joint's rest world and a control's mirror control. |
 | `shared/ControlShapeScene.h/.cpp` | `getControlShape` / `setControlShape`, the rig-wide versions behind the shape file commands, and `mirrorRigControlShapes`. |
 | `shared/SkinWeightScene.h/.cpp` | `SkinWeightScene` (mesh lookup, `meshId`, reading a skinCluster into `SkinWeights`) and `SkinWeightLoad` (undoable load: checks, influence edits, bind at rest, weights) and `SkinWeightPrune` (undoable prune). |
 | `shared/Colors.h` | `Colors`, the Maya `MColor` constants, split out of `core/Constants.h`. |
@@ -163,7 +163,7 @@ RigTemplates/        example template
 | Path | Contents |
 |---|---|
 | `RigTemplates/` | Example templates, `LayoutRig.json` and `Human.json`. Their joints use `[side, usage]` selectors. |
-| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`). Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
+| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`). `_namespace.py` is private: the `cmds.ls` pattern for a namespace's nodes, shared by `query` and `skinweights`. Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
 | `RigModules.mod` | Puts `python/` on `PYTHONPATH`, by a path relative to itself. It doesn't add the plugin path, because a loaded `.mll` locks the build. |
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |

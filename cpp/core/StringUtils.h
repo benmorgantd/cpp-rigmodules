@@ -21,6 +21,38 @@ public:
 		return true;
 	}
 
+	// The names separated by ", ", for a message: "a, b, c". Takes any range of strings or string literals.
+	template <typename TNames>
+	static std::string joinNames(const TNames& names)
+	{
+		std::string text;
+		for (const auto& name : names)
+		{
+			if (!text.empty())
+			{
+				text += ", ";
+			}
+			text += name;
+		}
+		return text;
+	}
+
+	static bool endsWith(const std::string& text, const std::string& suffix)
+	{
+		return text.size() >= suffix.size() && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
+	}
+
+	// text without any leading or trailing ch: trim(":rig:", ':') is "rig".
+	static std::string trim(const std::string& text, char ch)
+	{
+		const size_t first = text.find_first_not_of(ch);
+		if (first == std::string::npos)
+		{
+			return std::string();
+		}
+		return text.substr(first, text.find_last_not_of(ch) - first + 1);
+	}
+
 	// ASCII only, which is all an asset id may contain.
 	static bool equalsIgnoreCase(const std::string& a, const std::string& b)
 	{

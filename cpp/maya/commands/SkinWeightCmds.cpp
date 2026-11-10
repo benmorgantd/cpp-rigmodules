@@ -28,14 +28,13 @@ namespace
 			return status;
 		}
 
-		MStringArray objects;
-		status = argData.getObjects(objects);
-		if (!status || objects.length() != 1)
+		MString meshName;
+		status = CommandUtils::readSingleObject(argData, commandName, "mesh", meshName);
+		if (!status)
 		{
-			MGlobal::displayError(MString(commandName) + " takes exactly one mesh.");
-			return MStatus::kFailure;
+			return status;
 		}
-		status = MeshUtils::getMeshTransformFromName(objects[0], outMesh);
+		status = MeshUtils::getMeshTransformFromName(meshName, outMesh);
 		if (!status)
 		{
 			return status;

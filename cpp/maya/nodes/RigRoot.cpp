@@ -34,7 +34,6 @@
 #include <maya/MObjectArray.h>
 #include <maya/MPlug.h>
 #include <maya/MPlugArray.h>
-#include <maya/MSelectionList.h>
 #include <maya/MString.h>
 #include <maya/MTypeId.h>
 
@@ -177,16 +176,6 @@ namespace
 	// Fixed until templates can configure the layout.
 	constexpr unsigned short kLayoutControlCount = 3;
 
-	// ":rig:name", or ":name" when rigNamespace is the root.
-	MString qualifiedName(const MString& rigNamespace, const MString& shortName)
-	{
-		if (rigNamespace.length() == 0)
-		{
-			return MString(":") + shortName;
-		}
-		return MString(":") + rigNamespace + ":" + shortName;
-	}
-
 	// renameNode silently makes a clashing name unique, so a module would no longer match its template name
 	// and a joint would no longer match its skeleton name. Checks each target name against the scene and the others.
 	void checkTargetNamesFree(
@@ -208,26 +197,23 @@ namespace
 				return;
 			}
 
-			MSelectionList existing;
 			MObject oExisting;
-			if (existing.add(targetName) == MStatus::kSuccess
-				&& existing.getDependNode(0, oExisting) == MStatus::kSuccess
-				&& oExisting != oSelf)
+			if (DagUtils::getMObjectFromName(targetName, oExisting) == MStatus::kSuccess && oExisting != oSelf)
 			{
 				report.addError(where, "a node named '" + target + "' already exists in the scene");
 			}
 		};
 
-		checkName(qualifiedName(rigNamespace, RigNaming::LayoutModule), MObject::kNullObj, RigNaming::LayoutModule);
+		checkName(DagUtils::getAbsoluteName(rigNamespace, RigNaming::LayoutModule), MObject::kNullObj, RigNaming::LayoutModule);
 		for (std::size_t i = 0; i < modules.size(); ++i)
 		{
-			checkName(qualifiedName(rigNamespace, modules[i].name.c_str()), MObject::kNullObj,
+			checkName(DagUtils::getAbsoluteName(rigNamespace, modules[i].name.c_str()), MObject::kNullObj,
 				RigTemplateValidation::modulePath(i, modules[i]));
 		}
 		for (unsigned int i = 0; i < joints.length(); ++i)
 		{
 			const MFnDependencyNode fnJoint(joints[i].node());
-			checkName(qualifiedName(rigNamespace, MNamespace::stripNamespaceFromName(fnJoint.name())), joints[i].node(),
+			checkName(DagUtils::getAbsoluteName(rigNamespace, MNamespace::stripNamespaceFromName(fnJoint.name())), joints[i].node(),
 				joints[i].fullPathName().asChar());
 		}
 	}
@@ -303,7 +289,7 @@ namespace
 		{
 			MObject oJoint = joints[i].node();
 			const MFnDependencyNode fnJoint(oJoint);
-			const MString targetName = qualifiedName(rigNamespace, MNamespace::stripNamespaceFromName(fnJoint.name()));
+			const MString targetName = DagUtils::getAbsoluteName(rigNamespace, MNamespace::stripNamespaceFromName(fnJoint.name()));
 			if (fnJoint.absoluteName() == targetName)
 			{
 				continue;
