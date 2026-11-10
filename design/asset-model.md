@@ -179,7 +179,7 @@ Maya-free, under `bmaya/asset/`, so it runs in plain Python, mayapy and batch jo
 
 `bmaya/maya/assethandlers.py` registers the Maya scene handler for `skeleton`, `model` and `rig` (load imports into the asset's namespace, merging on a clash) the `shapes` handler, which calls the RigModules shape commands, and the `template` handler, which copies a template into a variant and checks that its `rigName` is the variant. Other file types have no handler.
 
-`bmaya/maya/assettools.py` holds the RigModules menu's asset tools: New Project, New Asset, New Variant, Save Skeleton, Build Rig from Asset, Save Rig, and Save and Load Control Shapes. They read a rig's asset id and variant through `rigmodules.query` (D30).
+`bmaya/maya/assettools.py` holds the RigModules menu's asset tools: New Project, New Asset, New Variant, Save Skeleton, Save Model, Build Rig from Asset (skeleton, template, shapes, model, weights), Save Rig, Save and Load Control Shapes, Mark Meshes for Skinning, and Save and Load Skin Weights. They read a rig's asset id and variant through `rigmodules.query` (D30).
 
 Tests: `tests/asset/run.bat` runs 44 plain Python tests, then 3 mayapy tests against the RigModules plugin (`RIGMODULES_PLUGIN`). The legacy `bmaya.maya.asset` package is untouched: it goes with the legacy rig builder. `bmaya.core.log` imports Maya, so the new package doesn't log.
 
@@ -189,7 +189,7 @@ Tests: `tests/asset/run.bat` runs 44 plain Python tests, then 3 mayapy tests aga
 2. Building a second variant into a namespace that already holds the shared skeleton.
 3. Build Rig from Asset… with a file browser on `asset.json`, loading shapes and weights after the build (`decisions.md`, "Before adding more modules").
 4. A publish step: build the rig, write it and its input copies into `publishes.create`'s folder, and set `publishVersion`.
-5. Handlers for weights (on the RigModules `saveRigSkinWeights` and `loadRigSkinWeights` commands, D35, which replace `weightio`), postops, poses and anims.
+5. Handlers for postops, poses and anims. The weights handler is built (2026-11-09, D35).
 6. A Perforce source-control adapter, when a project uses Perforce.
 
 ### Potential TODO: asset GUIDs

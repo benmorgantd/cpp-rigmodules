@@ -456,6 +456,45 @@ class PruneToMaxInfluences(SkinWeightTestCase):
         self.assertMayaError(lambda: cmds.pruneToMaxInfluences(self.box, maxInfluences=0), "at least 1")
 
 
+class PythonSkinWeights(SkinWeightTestCase):
+    """rigmodules.skinweights, the helpers pipeline tools loop over meshes with."""
+
+    def setUp(self):
+        super().setUp()
+        import rigmodules.skinweights
+        self.module = rigmodules.skinweights
+
+    def test_get_mesh_id(self):
+        self.assertIsNone(self.module.get_mesh_id(self.box))
+        mesh_id = cmds.setRigMeshId(self.box)[0]
+        self.assertEqual(self.module.get_mesh_id(self.box), mesh_id)
+
+    def test_get_meshes_by_id_in_one_namespace(self):
+        mesh_id = cmds.setRigMeshId(self.box)[0]
+        cmds.polyCube(name=":skel:no_id_geo", constructionHistory=False)
+        other = cmds.polyCube(name=":other_geo", constructionHistory=False)[0]
+        cmds.setRigMeshId(other)
+        self.assertEqual({k: v.split("|")[-1] for k, v in self.module.get_meshes("skel").items()}, {mesh_id: "skel:box_geo"})
+
+    def test_get_meshes_fails_on_a_shared_id(self):
+        cmds.setRigMeshId(self.box)
+        cmds.duplicate(self.box, name=":skel:box_copy")
+        with self.assertRaisesRegex(RuntimeError, "newId=True"):
+            self.module.get_meshes("skel")
+
+    def test_get_skinned_meshes(self):
+        cmds.polyCube(name=":skel:unskinned_geo", constructionHistory=False)
+        self.bind()
+        self.assertEqual([m.split("|")[-1] for m in self.module.get_skinned_meshes("skel")], ["skel:box_geo"])
+
+    def test_read_file_mesh_id_from_a_saved_file_and_a_reordered_one(self):
+        mesh_id = self.save_bound_box() and cmds.getAttr(self.box + ".meshId")
+        self.assertEqual(self.module.read_file_mesh_id(self.path), mesh_id)
+        data = self.read_file()
+        self.write_file(dict(sorted(data.items(), key=lambda item: item[0] != "weights")))   # weights first
+        self.assertEqual(self.module.read_file_mesh_id(self.path), mesh_id)
+
+
 class BindAtRest(RigTestCase):
     """Built into rig:, so a and b are driven by fkchain_1 and their rest comes from the module."""
 

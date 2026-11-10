@@ -163,7 +163,7 @@ RigTemplates/        example template
 | Path | Contents |
 |---|---|
 | `RigTemplates/` | Example templates, `LayoutRig.json` and `Human.json`. Their joints use `[side, usage]` selectors. |
-| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`) and `template.py` (`get_rig_name`). Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
+| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`). Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
 | `RigModules.mod` | Puts `python/` on `PYTHONPATH`, by a path relative to itself. It doesn't add the plugin path, because a loaded `.mll` locks the build. |
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
@@ -182,7 +182,7 @@ RigTemplates/        example template
 
 Known discrepancies with the text above:
 - There is no `NodeCreateCommands` namespace in `core/Constants.h`. Node type names live only in `maya/ModuleRegistry.cpp`.
-- The Python package has only the rig queries and `get_rig_name`. The build entry point is still the `createRigFromTemplate` command.
+- The Python package has only the rig queries, `get_rig_name` and the skin weight helpers. The build entry point is still the `createRigFromTemplate` command.
 
 ## Reuse and complexity control
 
@@ -262,7 +262,7 @@ Studio-style split, matching how the author structures their Python code. The fo
 
 - **Core (`core/`, no Maya headers):** JSON parsing and validation, joint markup, shared constants. Still to move here: child plug and socket resolution, `parentStructure` ordering, matrix math. Meant to be testable with GoogleTest and no Maya install (no harness yet).
 - **Plugin layer (`maya/`, Maya API):** nodes, attribute definitions, plug I/O, and the commands that bridge to the core.
-- **Python (started, D30):** a thin package in `python/rigmodules`. Built: the rig query (`get_rig_info`, `get_rigs`) and `template.get_rig_name`. Planned: a build wrapper, the rest of the rig query API (modules, controls, sockets, rest values), template validation passed through to the core, shape IO and pose data read and write, and user-facing error messages. Placement rule: Python goes here only if it would have to change when a RigModules node, attribute, flag or template key changes. It imports no Qt or `bmaya` and reads no environment variables or asset paths (D24).
+- **Python (started, D30):** a thin package in `python/rigmodules`. Built: the rig query (`get_rig_info`, `get_rigs`), `template.get_rig_name` and `skinweights`. Planned: a build wrapper, the rest of the rig query API (modules, controls, sockets, rest values), template validation passed through to the core, shape IO and pose data read and write, and user-facing error messages. Placement rule: Python goes here only if it would have to change when a RigModules node, attribute, flag or template key changes. It imports no Qt or `bmaya` and reads no environment variables or asset paths (D24).
 
 ## Sibling repo: mayadev
 

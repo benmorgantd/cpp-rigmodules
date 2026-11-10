@@ -58,3 +58,25 @@ rigmodules.template.get_rig_name(r"C:\rigs\Human.json")    # "Human"
 | `get_rig_name(path)` | The template's `rigName`, which names the variant of every rig built from it. Raises `ValueError` when the file isn't JSON or has no `rigName` |
 
 It reads the file without checking the rest of it. Template validation runs when the rig is built ([templates.md](templates.md)).
+
+## rigmodules.skinweights
+
+Helpers for tools that save or load the weights of many meshes at once. The commands do the work ([skinning.md](skinning.md)). This module knows the `meshId` attribute and where a weight file keeps its `meshId`, so tools don't hard-code either. Folders and file names are the tool's choice.
+
+```python
+import rigmodules.skinweights
+
+for mesh in rigmodules.skinweights.get_skinned_meshes("hero"):
+    cmds.saveRigSkinWeights(mesh, file=f"C:/weights/{mesh.split(':')[-1]}.json")
+meshes = rigmodules.skinweights.get_meshes("hero")          # {meshId: mesh}
+mesh = meshes[rigmodules.skinweights.read_file_mesh_id("C:/weights/body_geo.json")]
+```
+
+| Function | Returns |
+|---|---|
+| `get_mesh_id(mesh)` | The mesh transform's `meshId`, or `None` |
+| `get_meshes(namespace)` | `{meshId: mesh transform}` for the meshes directly in the namespace (`""` for the root) that have a `meshId`. Raises `RuntimeError` when two share one |
+| `get_skinned_meshes(namespace)` | The mesh transforms in the namespace with a skinCluster in their history, sorted |
+| `read_file_mesh_id(path)` | The `meshId` a weight file is for, read from the top of the file. Raises `ValueError` when it has none |
+
+`MESH_ID_ATTR` is the attribute name, `"meshId"`.
