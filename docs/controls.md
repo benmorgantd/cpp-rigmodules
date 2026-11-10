@@ -36,7 +36,7 @@ A control's shape is set by these attributes:
 | `shapeTransform` | Matrix from shape space to the control's object space: scale, rotate and offset the shape without moving the control |
 | `filled` | On by default. Fills the shape at 0.75 of the wire's alpha, with the wire drawn on top. Every shape can be filled. |
 | `xray` | On by default. Draws the control in front of meshes and other geometry. Not saved in the shape file. |
-| `wireframeColor`, `wireframeAlpha` | Color. The build sets the color from the module's side. |
+| `wireframeColor`, `wireframeAlpha` | Color. The build sets the color from the module's side. `wireframeAlpha` (0 to 1) is saved in the shape file, the color is not. |
 
 Every shape is a small mesh: its edges draw the wire and its faces draw the fill. At scale 1 every shape fits a cube from -1 to 1, and `shapeTransform` scales every shape freely on every axis, round ones included.
 
@@ -64,21 +64,23 @@ cmds.loadRigControlShapes("hero:rigRootModule1", file="C:/assets/hero/shapes.jso
 
 ```json
 {
-    "formatVersion": 1,
+    "formatVersion": 2,
     "controls": {
         "Left": {
             "arm": {
                 "shapeType": "Circle",
                 "shapeTransform": [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-                "filled": false
+                "filled": false,
+                "wireframeAlpha": 0.5
             }
         }
     }
 }
 ```
 
-- `controls` maps side, then usage, to one control's `shapeType`, `shapeTransform` (16 numbers, row-major) and `filled`. Every key is required, and unknown keys are errors.
-- Color is not saved. It comes from the side of the module a control is built on.
+- `controls` maps side, then usage, to one control's `shapeType`, `shapeTransform` (16 numbers, row-major), `filled` and `wireframeAlpha` (0 to 1). Every key is required, and unknown keys are errors.
+- Color is not saved. It comes from the side of the module a control is built on. Alpha is saved, because the build doesn't set it.
+- Version 1 files had no `wireframeAlpha`. They still load, with alpha 1, the attribute's default. The next save writes version 2.
 - Loading checks the whole file first. Any error loads nothing.
 - A control with no entry keeps its shape, and an entry with no control is skipped. Both print a warning.
 

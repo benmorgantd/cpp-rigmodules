@@ -146,6 +146,7 @@ class ControlDocExamples(RigTestCase):
             handle.write(controls_doc_shape_file())
         self.assertEqual([c.split(":")[-1] for c in cmds.loadRigControlShapes(self.root, file=path)], ["arm_ctrl_l"])
         self.assertEqual(cmds.getAttr(ARM_CTRL + ".shapeType", asString=True), "Circle")
+        self.assertAlmostEqual(cmds.getAttr(ARM_CTRL + ".wireframeAlpha"), 0.5, places=5)
 
 
 SKINNING_DOC = os.path.join(config.REPO_DIR, "docs", "skinning.md")

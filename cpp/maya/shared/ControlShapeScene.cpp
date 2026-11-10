@@ -43,6 +43,7 @@ ControlShape ControlShapeScene::getControlShape(const MObject& oControl)
 	}
 
 	shape.filled = MPlug(oControl, RigControlNode::aFilled).asBool();
+	shape.wireframeAlpha = MPlug(oControl, RigControlNode::aWireAlpha).asFloat();
 	return shape;
 }
 
@@ -74,7 +75,9 @@ MStatus ControlShapeScene::setControlShape(const MObject& oControl, const Contro
 	MPlug pFilled(oControl, RigControlNode::aFilled);
 	CHECK_MSTATUS_AND_RETURN_IT(dgMod.newPlugValueShort(pShapeType, static_cast<short>(shapeType)));
 	CHECK_MSTATUS_AND_RETURN_IT(dgMod.newPlugValue(pShapeTransform, oShapeTransform));
+	MPlug pWireAlpha(oControl, RigControlNode::aWireAlpha);
 	CHECK_MSTATUS_AND_RETURN_IT(dgMod.newPlugValueBool(pFilled, shape.filled));
+	CHECK_MSTATUS_AND_RETURN_IT(dgMod.newPlugValueFloat(pWireAlpha, static_cast<float>(shape.wireframeAlpha)));
 	return MStatus::kSuccess;
 }
 

@@ -1,16 +1,42 @@
 #include "ControlShapeFile.h"
 #include "Constants.h"
 #include "ControlShapes.h"
+#include "FormatUpdate.h"
 #include "JointMarkup.h"
+
+#include <cmath>
 
 namespace
 {
+	// Version 1 had no alpha. 1.0 is the wireframeAlpha default, so an old file loads as it always looked.
+	void addWireframeAlpha(nlohmann::json& data)
+	{
+		if (!data.is_object() || !data.contains(ControlShapeFileKey::Controls) || !data.at(ControlShapeFileKey::Controls).is_object())
+		{
+			return;
+		}
+		for (auto& side : data.at(ControlShapeFileKey::Controls))
+		{
+			if (!side.is_object())
+			{
+				continue;
+			}
+			for (auto& entry : side)
+			{
+				if (entry.is_object() && !entry.contains(RigControlNodeAttr::WireframeAlpha))
+				{
+					entry[RigControlNodeAttr::WireframeAlpha] = 1.0;
+				}
+			}
+		}
+	}
+
 	// One control's entry. Reports problems under where and returns false if any.
 	bool parseControlShape(const nlohmann::json& entry, const std::string& where, ControlShape& outShape, ValidationReport& report)
 	{
 		const std::size_t errorCount = report.errors.size();
 		RigTemplateValidation::checkKeys(entry,
-			{ RigControlNodeAttr::ShapeType, RigControlNodeAttr::ShapeTransform, RigControlNodeAttr::Filled },
+			{ RigControlNodeAttr::ShapeType, RigControlNodeAttr::ShapeTransform, RigControlNodeAttr::Filled, RigControlNodeAttr::WireframeAlpha },
 			{}, where, report);
 		if (report.errors.size() != errorCount)
 		{
@@ -41,6 +67,12 @@ namespace
 			report.addError(where + "." + RigControlNodeAttr::Filled, "must be true or false");
 		}
 
+		const nlohmann::json& alpha = entry.at(RigControlNodeAttr::WireframeAlpha);
+		if (!alpha.is_number() || alpha.get<double>() < 0.0 || alpha.get<double>() > 1.0)
+		{
+			report.addError(where + "." + RigControlNodeAttr::WireframeAlpha, "must be a number from 0 to 1");
+		}
+
 		if (report.errors.size() != errorCount)
 		{
 			return false;
@@ -49,8 +81,16 @@ namespace
 		outShape.shapeType = shapeType.get<std::string>();
 		shapeTransform.get_to(outShape.shapeTransform);
 		outShape.filled = filled.get<bool>();
+		outShape.wireframeAlpha = alpha.get<double>();
 		return true;
 	}
+}
+
+const UpdateTable& controlShapeUpdateTable()
+{
+	// Add a step here, and nowhere else, when the shape file changes shape or meaning. Step 0 takes version 1 to 2.
+	static const UpdateTable table{ 1, { &addWireframeAlpha } };
+	return table;
 }
 
 // Written by hand instead of json::dump(4), which puts each of the 16 matrix values on its own line and sorts
@@ -73,7 +113,7 @@ std::string serializeControlShapes(const ControlShapeMap& shapes)
 	};
 
 	std::string out = "{\n";
-	out += "    " + quoted(ControlShapeFileKey::FormatVersion) + ": " + std::to_string(ControlShapeFileFormat::CurrentVersion) + ",\n";
+	out += "    " + quoted(ControlShapeFileKey::FormatVersion) + ": " + std::to_string(controlShapeUpdateTable().currentVersion()) + ",\n";
 	out += "    " + quoted(ControlShapeFileKey::Controls) + ": {";
 
 	bool isFirstSide = true;
@@ -90,7 +130,9 @@ std::string serializeControlShapes(const ControlShapeMap& shapes)
 
 			out += "                " + quoted(RigControlNodeAttr::ShapeType) + ": " + quoted(shape.shapeType) + ",\n";
 			out += "                " + quoted(RigControlNodeAttr::ShapeTransform) + ": " + matrixLine(shape.shapeTransform) + ",\n";
-			out += "                " + quoted(RigControlNodeAttr::Filled) + ": " + (shape.filled ? "true" : "false") + "\n";
+			out += "                " + quoted(RigControlNodeAttr::Filled) + ": " + (shape.filled ? "true" : "false") + ",\n";
+			// The plug is a float, so its value read as a double is 0.800000011920929. Four places keep the file readable.
+			out += "                " + quoted(RigControlNodeAttr::WireframeAlpha) + ": " + nlohmann::json(std::round(shape.wireframeAlpha * 1e4) / 1e4).dump() + "\n";
 			out += "            }";
 		}
 		out += "\n        }";
@@ -121,9 +163,15 @@ void deserializeControlShapes(const std::string& text, ControlShapeMap& outShape
 	}
 
 	const nlohmann::json& version = file.at(ControlShapeFileKey::FormatVersion);
-	if (!version.is_number_integer() || version.get<int>() != ControlShapeFileFormat::CurrentVersion)
+	const std::string versionPath = where + "." + ControlShapeFileKey::FormatVersion;
+	if (!version.is_number_integer())
 	{
-		report.addError(where + "." + ControlShapeFileKey::FormatVersion, "unsupported version " + version.dump());
+		report.addError(versionPath, "must be an integer, not " + version.dump());
+		return;
+	}
+	// Bring an older file forward first (D33), so the checks below read only the current shape.
+	if (!FormatUpdate::runUpdates(controlShapeUpdateTable(), version.get<int>(), file, versionPath, report))
+	{
 		return;
 	}
 

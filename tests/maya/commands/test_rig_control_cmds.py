@@ -200,15 +200,17 @@ class SaveShapes(RigControlTestCase):
         cmds.setAttr(rig_name("c_ctrl_l") + ".shapeTransform", SCALE_TWO, type="matrix")
         cmds.setAttr(rig_name("c_ctrl_l") + ".shapeType", 13)   # SingleArrow
         cmds.setAttr(rig_name("c_ctrl_l") + ".filled", True)
+        cmds.setAttr(rig_name("c_ctrl_l") + ".wireframeAlpha", 0.8)
         cmds.saveRigControlShapes(self.root, file=self.path)
 
         data = self.read_file()
         self.assertEqual(sorted(data), ["controls", "formatVersion"])
-        self.assertEqual(data["formatVersion"], 1)
+        self.assertEqual(data["formatVersion"], 2)
         self.assertEqual(sorted(data["controls"]), ["Center", "Left"])
         self.assertEqual(sorted(data["controls"]["Center"]), ["a", "b", "layout_0", "layout_1", "layout_2"])
+        self.assertEqual(data["controls"]["Center"]["a"]["wireframeAlpha"], 1.0)
         self.assertEqual(data["controls"]["Left"],
-                         {"c": {"shapeType": "SingleArrow", "shapeTransform": SCALE_TWO, "filled": True}})
+                         {"c": {"shapeType": "SingleArrow", "shapeTransform": SCALE_TWO, "filled": True, "wireframeAlpha": 0.8}})
 
     def test_matrix_is_one_line(self):
         cmds.saveRigControlShapes(self.root, file=self.path)
@@ -237,6 +239,30 @@ class LoadShapes(RigControlTestCase):
         self.assertEqual(short(cmds.loadRigControlShapes(self.root, file=self.path)), ALL_CONTROLS)
         self.assertEqual(shape_transform("c_ctrl_l"), SCALE_TWO)
         self.assertEqual(cmds.getAttr(rig_name("c_ctrl_l") + ".shapeType"), 13)
+
+    def test_round_trip_restores_alpha(self):
+        control = rig_name("c_ctrl_l")
+        cmds.setAttr(control + ".wireframeAlpha", 0.4)
+        cmds.saveRigControlShapes(self.root, file=self.path)
+        cmds.setAttr(control + ".wireframeAlpha", 1.0)
+        cmds.loadRigControlShapes(self.root, file=self.path)
+        self.assertAlmostEqual(cmds.getAttr(control + ".wireframeAlpha"), 0.4, places=5)
+        cmds.undo()
+        self.assertAlmostEqual(cmds.getAttr(control + ".wireframeAlpha"), 1.0, places=5)
+
+    def test_version_1_file_loads_with_alpha_1(self):
+        # A version 1 file has no wireframeAlpha. The update step gives every entry the default, 1.
+        control = rig_name("c_ctrl_l")
+        cmds.saveRigControlShapes(self.root, file=self.path)
+        data = self.read_file()
+        data["formatVersion"] = 1
+        for usages in data["controls"].values():
+            for entry in usages.values():
+                del entry["wireframeAlpha"]
+        self.write_file(data)
+        cmds.setAttr(control + ".wireframeAlpha", 0.3)
+        cmds.loadRigControlShapes(self.root, file=self.path)
+        self.assertAlmostEqual(cmds.getAttr(control + ".wireframeAlpha"), 1.0, places=5)
 
     def test_load_does_not_change_color(self):
         # Color follows the module's side, so the file neither stores nor restores it.
@@ -275,20 +301,33 @@ class LoadShapes(RigControlTestCase):
         self.assertEqual(shape_transform("c_ctrl_l"), IDENTITY)
 
     def test_validation_errors(self):
+        def entry(**changes):
+            fields = {"shapeType": "Box", "shapeTransform": IDENTITY, "filled": False, "wireframeAlpha": 1.0}
+            fields.update(changes)
+            return {"formatVersion": 2, "controls": {"Left": {"c": fields}}}
+
+        missing_filled = entry()
+        del missing_filled["controls"]["Left"]["c"]["filled"]
+        missing_alpha = entry()
+        del missing_alpha["controls"]["Left"]["c"]["wireframeAlpha"]
         cases = [
-            ({"formatVersion": 2, "controls": {}}, "formatVersion"),
+            ({"formatVersion": 3, "controls": {}}, "formatVersion"),
+            ({"formatVersion": 0, "controls": {}}, "formatVersion"),
+            ({"formatVersion": "2", "controls": {}}, "must be an integer"),
             ({"controls": {}}, "missing required key 'formatVersion'"),
-            ({"formatVersion": 1, "controls": {}, "colors": {}}, "unknown key 'colors'"),
-            ({"formatVersion": 1, "controls": {"Middle": {}}}, "Middle"),
-            ({"formatVersion": 1, "controls": {"Left": {"c": {"shapeType": "Box", "shapeTransform": [1, 0], "filled": False}}}},
-             "16 numbers"),
-            ({"formatVersion": 1, "controls": {"Left": {"c": {"shapeType": "Box", "shapeTransform": IDENTITY}}}},
-             "missing required key 'filled'"),
+            ({"formatVersion": 2, "controls": {}, "colors": {}}, "unknown key 'colors'"),
+            ({"formatVersion": 2, "controls": {"Middle": {}}}, "Middle"),
+            (entry(shapeTransform=[1, 0]), "16 numbers"),
+            (missing_filled, "missing required key 'filled'"),
+            (missing_alpha, "missing required key 'wireframeAlpha'"),
+            (entry(wireframeAlpha=1.5), "wireframeAlpha", "0 to 1"),
+            (entry(wireframeAlpha=-0.1), "wireframeAlpha", "0 to 1"),
+            (entry(wireframeAlpha="1"), "wireframeAlpha", "0 to 1"),
         ]
-        for data, expected in cases:
+        for data, *expected in cases:
             with self.subTest(expected=expected):
                 self.write_file(data)
-                self.assertMayaError(lambda: cmds.loadRigControlShapes(self.root, file=self.path), expected)
+                self.assertMayaError(lambda: cmds.loadRigControlShapes(self.root, file=self.path), *expected)
 
     def test_bad_json(self):
         with open(self.path, "w", encoding="utf-8") as handle:
