@@ -31,6 +31,9 @@ rigmodules.query.get_rigs("hero")    # every rig built into the hero namespace
 | `find_rig_info(node)` | A `RigInfo` for the rig a rig root, rig module, rig control or rig-driven joint belongs to, or `None` for any other node. Reports nothing for those, so it suits a selection callback. Raises `RuntimeError` for a missing node or a broken rig. Wraps [`getRigInfo`](commands.md#getriginfo) |
 | `get_rig_info(node)` | Like `find_rig_info`, but raises `RuntimeError` when the node isn't part of a rig |
 | `get_rigs(namespace=None)` | A `RigInfo` for every rig in the scene, or in one namespace, sorted by rig root name |
+| `get_control_channels(control)` | A list of `ControlChannel`, the control's animation interface in channel box order. Raises `RuntimeError` for a node that isn't a rig control, or a custom channel with no mirror mode. Wraps [`getRigControlChannels`](commands.md#getrigcontrolchannels) |
+
+`ControlChannel` is a frozen dataclass: `name`, `type` (Maya's attribute type, such as `doubleAngle` or `enum`), `rest` (the attribute default), `min` and `max` (`None` for no limit) and `mirror` (`"copy"` or `"negate"`). Values are in the scene's UI units.
 
 `RigInfo` is a frozen dataclass:
 

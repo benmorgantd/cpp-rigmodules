@@ -1,5 +1,6 @@
 #include "maya/shared/RigModule.h"
 #include "core/Constants.h"
+#include "core/FormatUpdate.h"
 #include "core/JsonUtils.h"
 #include "core/RigJsonStructs.h"
 #include "core/TemplateMirror.h"
@@ -194,12 +195,19 @@ std::vector<ModulePlan> RigModuleNodeBase::planModules(
 			continue;
 		}
 
-		RigTemplateValidation::validateModuleFields(moduleData, where, pDescriptor->currentVersion, report);
+		RigTemplateValidation::validateModuleFields(moduleData, where, report);
+
+		// Older moduleArgs are brought forward first, so the plan step reads only the current shape (D33).
+		nlohmann::json moduleArgs = moduleData.moduleArgs;
+		if (!FormatUpdate::runUpdates(pDescriptor->argUpdates, moduleData.moduleVersion, moduleArgs, where + "." + TemplateKey::ModuleVersion, report))
+		{
+			continue;
+		}
 
 		PlanContext ctx{ moduleData, where, markedJoints, report, checkMirrorPositions };
 		ModulePlan plan;
 		plan.name = moduleData.name;
-		if (pDescriptor->plan(moduleData.moduleArgs, ctx, plan))
+		if (pDescriptor->plan(moduleArgs, ctx, plan))
 		{
 			plans.push_back(std::move(plan));
 		}

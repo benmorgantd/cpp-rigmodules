@@ -133,6 +133,9 @@ class MeshId(SkinWeightTestCase):
     def test_a_named_node_that_is_not_a_mesh_fails(self):
         self.assertMayaError(lambda: cmds.setRigMeshId(self.a), "is not a mesh")
 
+    def test_a_missing_mesh_name_fails(self):
+        self.assertMayaError(lambda: cmds.setRigMeshId("no_such_geo"), "No DAG node named no_such_geo")
+
     def test_undo_removes_the_attribute_and_redo_restores_it(self):
         ids = cmds.setRigMeshId(self.box)
         cmds.undo()

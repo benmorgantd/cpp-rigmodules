@@ -1,0 +1,17 @@
+{
+  "description": "formatVersion is an integer, not a string or a float",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/formatVersion",
+      "value": "1"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "must be an integer",
+      "path": "formatVersion"
+    }
+  ]
+}

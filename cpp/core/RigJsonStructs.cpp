@@ -1,4 +1,5 @@
 #include "RigJsonStructs.h"
+#include "FormatUpdate.h"
 #include "RigTemplateValidation.h"
 
 #include <fstream>
@@ -19,6 +20,13 @@ void from_json(const nlohmann::json& jsonData, RigModuleData& module)
     module.parentStructure = jsonData.value(TemplateKey::ParentStructure, std::unordered_map<std::string, std::string>());
     module.moduleArgs = jsonData.value(TemplateKey::ModuleArgs, nlohmann::json::object());
     module.mirror = jsonData.value(TemplateKey::Mirror, false);
+}
+
+const UpdateTable& templateUpdateTable()
+{
+    // Add a step here, and nowhere else, when a template key changes shape or meaning.
+    static const UpdateTable table;
+    return table;
 }
 
 // -----------------------------------------------------------------------------
@@ -44,7 +52,25 @@ bool loadRigTemplate(const std::string& filePath, RigRootData& rigData, Validati
         return false;
     }
 
-    // Key checks first: they name the module or constraint, where nlohmann's own errors do not.
+    // Bring an older template forward first (D33), so everything below reads only the current shape.
+    // A template without the key is version 1.
+    int formatVersion = 1;
+    if (jsonData.is_object() && jsonData.contains(TemplateKey::FormatVersion))
+    {
+        const nlohmann::json& versionValue = jsonData.at(TemplateKey::FormatVersion);
+        if (!versionValue.is_number_integer())
+        {
+            report.addError(TemplateKey::FormatVersion, "must be an integer");
+            return false;
+        }
+        formatVersion = versionValue.get<int>();
+    }
+    if (!FormatUpdate::runUpdates(templateUpdateTable(), formatVersion, jsonData, TemplateKey::FormatVersion, report))
+    {
+        return false;
+    }
+
+    // Key checks next: they name the module or constraint, where nlohmann's own errors do not.
     RigTemplateValidation::checkTemplateKeys(jsonData, report);
     if (report.hasErrors())
     {

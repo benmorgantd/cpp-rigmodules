@@ -1,0 +1,17 @@
+{
+  "description": "formatVersion starts at 1",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/formatVersion",
+      "value": 0
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "0 is not supported",
+      "path": "formatVersion"
+    }
+  ]
+}

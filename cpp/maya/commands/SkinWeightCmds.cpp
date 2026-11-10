@@ -34,7 +34,7 @@ namespace
 		{
 			return status;
 		}
-		status = MeshUtils::getMeshTransformFromName(meshName, outMesh);
+		status = DagUtils::getDagPathFromName(meshName, outMesh, DagUtils::NodeKind::kMesh);
 		if (!status)
 		{
 			return status;

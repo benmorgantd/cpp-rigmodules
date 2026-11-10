@@ -460,7 +460,7 @@ namespace RigTemplateValidation
 
 		checkKeys(templateJson,
 			{ RigVersion, RigTemplateName, RigAuthor, RigModules },
-			{ RigName, Constraints },
+			{ FormatVersion, RigName, Constraints },
 			"template", report);
 		if (!templateJson.is_object())
 		{
@@ -567,7 +567,7 @@ namespace RigTemplateValidation
 		}
 	}
 
-	void validateModuleFields(const RigModuleData& module, const std::string& where, int currentVersion, ValidationReport& report)
+	void validateModuleFields(const RigModuleData& module, const std::string& where, ValidationReport& report)
 	{
 		// Strict on purpose: getSideFromString and getShapeTypeFromString fall back silently, which hides typos.
 		if (!isValidSideName(module.side))
@@ -579,12 +579,6 @@ namespace RigTemplateValidation
 		if (!isOneOf(module.shapeType, RigControlNodeAttr::ShapeTypes::All))
 		{
 			report.addError(where + "." + TemplateKey::ShapeType, "'" + module.shapeType + "' is not one of " + namesOrNone(RigControlNodeAttr::ShapeTypes::All));
-		}
-
-		if (module.moduleVersion < 1 || module.moduleVersion > currentVersion)
-		{
-			report.addError(where + "." + TemplateKey::ModuleVersion, std::to_string(module.moduleVersion)
-				+ " is not supported, this build reads versions 1 to " + std::to_string(currentVersion));
 		}
 	}
 

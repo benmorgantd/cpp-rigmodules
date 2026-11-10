@@ -138,10 +138,10 @@ class Rejected(RigTestCase):
 
     def test_non_joint_rejected(self):
         node = cmds.createNode("transform", name="notAJoint")
-        self.assertMayaError(lambda: cmds.rigJointMarkup(node, query=True), "notAJoint")
+        self.assertMayaError(lambda: cmds.rigJointMarkup(node, query=True), "notAJoint is not a joint")
 
     def test_missing_joint_rejected(self):
-        self.assertMayaError(lambda: cmds.rigJointMarkup("nope", query=True), "nope")
+        self.assertMayaError(lambda: cmds.rigJointMarkup("nope", query=True), "No DAG node named nope")
 
     def test_invalid_json_reported(self):
         (j,) = joints("a")

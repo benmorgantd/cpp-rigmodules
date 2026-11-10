@@ -46,7 +46,13 @@ class Arguments(RigTestCase):
         self.assertNothingBuilt()
 
     def test_missing_joint_name(self):
-        self.assertMayaError(lambda: self.build(TEMPLATE, ["skel:nope"]), "skel:nope")
+        self.assertMayaError(lambda: self.build(TEMPLATE, ["skel:nope"]), "No DAG node named skel:nope")
+        self.assertNothingBuilt()
+
+    def test_a_named_node_that_is_not_a_joint_fails(self):
+        joints = self.make_skeleton(SKELETON)
+        node = cmds.createNode("transform", name="skel:notAJoint")
+        self.assertMayaError(lambda: self.build(TEMPLATE, joints + [node]), "skel:notAJoint is not a joint")
         self.assertNothingBuilt()
 
     def test_unmarked_joint_fails_and_builds_nothing(self):

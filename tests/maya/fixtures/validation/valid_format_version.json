@@ -1,0 +1,12 @@
+{
+  "description": "formatVersion 1 is the current template format. A template without the key is version 1 too",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/formatVersion",
+      "value": 1
+    }
+  ],
+  "expectErrors": []
+}

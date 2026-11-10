@@ -7,6 +7,7 @@
 #include "maya/shared/Utilities.h"
 
 #include <algorithm>
+#include <map>
 
 #include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
@@ -400,5 +401,62 @@ MStatus RigTraversal::getMirrorControl(const MObject& oControl, MObject& oOutMir
 		return MStatus::kFailure;
 	}
 	oOutMirror = oMatches[0];
+	return MStatus::kSuccess;
+}
+
+MStatus RigTraversal::getMirrorControlPairs(const MObject& oRigRoot, const std::string& sourceSide, MObjectArray& oOutSources, MObjectArray& oOutMirrors)
+{
+	oOutSources.clear();
+	oOutMirrors.clear();
+
+	RigControlFilter sourceFilter;
+	sourceFilter.sides.push_back(sourceSide);
+	RigControlFilter mirrorFilter;
+	mirrorFilter.sides.push_back(TemplateMirror::swapSide(sourceSide));
+
+	MObjectArray oSources;
+	MObjectArray oMirrors;
+	MStatus status = getRigControls(oRigRoot, sourceFilter, oSources);
+	if (status)
+	{
+		status = getRigControls(oRigRoot, mirrorFilter, oMirrors);
+	}
+	if (!status)
+	{
+		return status;
+	}
+
+	// Usage -> mirror control. Markup is unique per rig (D25), so a usage appears once per side.
+	std::map<std::string, MObject> mirrorsByUsage;
+	for (unsigned int i = 0; i < oMirrors.length(); ++i)
+	{
+		ControlMarkup markup;
+		status = getControlMarkup(oMirrors[i], markup);
+		if (!status)
+		{
+			return status;
+		}
+		mirrorsByUsage[markup.usage] = oMirrors[i];
+	}
+
+	for (unsigned int i = 0; i < oSources.length(); ++i)
+	{
+		ControlMarkup markup;
+		status = getControlMarkup(oSources[i], markup);
+		if (!status)
+		{
+			return status;
+		}
+
+		auto it = mirrorsByUsage.find(markup.usage);
+		if (it == mirrorsByUsage.end())
+		{
+			MGlobal::displayWarning(DagUtils::getPartialPathName(oSources[i]) + " (" + markup.side.c_str() + ", " + markup.usage.c_str()
+				+ ") has no mirror control, so it is not mirrored.");
+			continue;
+		}
+		oOutSources.append(oSources[i]);
+		oOutMirrors.append(it->second);
+	}
 	return MStatus::kSuccess;
 }

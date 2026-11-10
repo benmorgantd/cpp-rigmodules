@@ -77,8 +77,9 @@ namespace RigTemplateValidation
 	// Unique, not the reserved layout name, and usable both as a Maya node name and inside "module.socket".
 	void validateModuleNames(const std::vector<RigModuleData>& modules, ValidationReport& report);
 
-	// side, shapeType and moduleVersion. Missing keys already took their defaults, so only present values can fail.
-	void validateModuleFields(const RigModuleData& module, const std::string& where, int currentVersion, ValidationReport& report);
+	// side and shapeType. Missing keys already took their defaults, so only present values can fail.
+	// moduleVersion is checked by the module's update table (FormatUpdate::runUpdates, D33).
+	void validateModuleFields(const RigModuleData& module, const std::string& where, ValidationReport& report);
 
 	// parentStructure and constraints against the planned interfaces, then cycle detection over both.
 	// A module missing from interfaces failed its own plan step. References to it are skipped, since that error is already reported.

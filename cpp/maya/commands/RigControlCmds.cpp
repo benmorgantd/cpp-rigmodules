@@ -1,13 +1,16 @@
 #include "maya/commands/RigControlCmds.h"
 #include "core/Constants.h"
+#include "core/ControlChannels.h"
 #include "core/ControlShapeFile.h"
 #include "core/RigControlFilter.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/ControlShapeScene.h"
+#include "maya/shared/RigPoseScene.h"
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
 
 #include <string>
+#include <vector>
 
 #include <maya/MArgDatabase.h>
 #include <maya/MFnDependencyNode.h>
@@ -24,22 +27,16 @@ namespace
 	constexpr const char* kFileFlag{ "-file" };
 	constexpr const char* kLeftToRightFlag{ "-leftToRight" };
 
-	// The one rig root object every command here takes.
-	MStatus readRigRoot(const MArgDatabase& argData, MStatus parseStatus, const char* commandName, MObject& oOutRigRoot)
+	// A rig control by name. Reports a missing node or a node of another type.
+	MStatus getRigControl(const MString& controlName, MObject& oOutControl)
 	{
-		if (!parseStatus)
+		if (DagUtils::getMObjectFromName(controlName, oOutControl) != MStatus::kSuccess
+			|| MFnDependencyNode(oOutControl).typeId() != RigControlNode::id)
 		{
-			MGlobal::displayError(MString("Error parsing ") + commandName + " arguments.");
-			return parseStatus;
+			MGlobal::displayError(MString("Not a rig control: ") + controlName);
+			return MStatus::kFailure;
 		}
-
-		MString rigRootName;
-		MStatus status = CommandUtils::readSingleObject(argData, commandName, "rig root", rigRootName);
-		if (!status)
-		{
-			return status;
-		}
-		return RigTraversal::getRigRoot(rigRootName, oOutRigRoot);
+		return MStatus::kSuccess;
 	}
 }
 
@@ -75,7 +72,7 @@ MStatus GetRigControlsCmd::doIt(const MArgList& args)
 	MStatus status;
 	MArgDatabase argData(syntax(), args, &status);
 	MObject oRigRoot;
-	status = readRigRoot(argData, status, aCommandString, oRigRoot);
+	status = CommandUtils::readRigRoot(argData, status, aCommandString, oRigRoot);
 	if (!status)
 	{
 		return status;
@@ -129,7 +126,7 @@ MStatus SaveRigControlShapesCmd::doIt(const MArgList& args)
 	MStatus status;
 	MArgDatabase argData(syntax(), args, &status);
 	MObject oRigRoot;
-	status = readRigRoot(argData, status, aCommandString, oRigRoot);
+	status = CommandUtils::readRigRoot(argData, status, aCommandString, oRigRoot);
 	if (!status)
 	{
 		return status;
@@ -187,7 +184,7 @@ MStatus LoadRigControlShapesCmd::doIt(const MArgList& args)
 	MStatus status;
 	MArgDatabase argData(syntax(), args, &status);
 	MObject oRigRoot;
-	status = readRigRoot(argData, status, aCommandString, oRigRoot);
+	status = CommandUtils::readRigRoot(argData, status, aCommandString, oRigRoot);
 	if (!status)
 	{
 		return status;
@@ -283,11 +280,10 @@ MStatus GetRigMirrorControlCmd::doIt(const MArgList& args)
 	}
 
 	MObject oControl;
-	if (DagUtils::getMObjectFromName(controlName, oControl) != MStatus::kSuccess
-		|| MFnDependencyNode(oControl).typeId() != RigControlNode::id)
+	status = getRigControl(controlName, oControl);
+	if (!status)
 	{
-		MGlobal::displayError(MString("Not a rig control: ") + controlName);
-		return MStatus::kFailure;
+		return status;
 	}
 
 	MObject oMirror;
@@ -297,6 +293,70 @@ MStatus GetRigMirrorControlCmd::doIt(const MArgList& args)
 		return status;
 	}
 	setResult(DagUtils::getPartialPathName(oMirror));
+	return MStatus::kSuccess;
+}
+
+// getRigControlChannels --------------------------------------------------------------------------
+const char* GetRigControlChannelsCmd::aCommandString = "getRigControlChannels";
+
+void* GetRigControlChannelsCmd::creator()
+{
+	return new GetRigControlChannelsCmd();
+}
+
+bool GetRigControlChannelsCmd::isUndoable() const
+{
+	return false;
+}
+
+MSyntax GetRigControlChannelsCmd::newSyntax()
+{
+	MSyntax syntax;
+	syntax.setObjectType(MSyntax::kStringObjects, 1);
+	syntax.useSelectionAsDefault(false);
+	return syntax;
+}
+
+MStatus GetRigControlChannelsCmd::doIt(const MArgList& args)
+{
+	MStatus status;
+	MArgDatabase argData(syntax(), args, &status);
+	if (!status)
+	{
+		MGlobal::displayError(MString("Error parsing ") + aCommandString + " arguments.");
+		return status;
+	}
+
+	MStringArray controlNames;
+	status = argData.getObjects(controlNames);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	ControlChannelList result;
+	for (unsigned int i = 0; i < controlNames.length(); ++i)
+	{
+		MObject oControl;
+		status = getRigControl(controlNames[i], oControl);
+		if (!status)
+		{
+			return status;
+		}
+
+		std::vector<RigPoseScene::Channel> channels;
+		status = RigPoseScene::getControlChannels(oControl, channels);
+		if (!status)
+		{
+			return status;
+		}
+
+		std::vector<ControlChannel> infos;
+		for (const RigPoseScene::Channel& channel : channels)
+		{
+			infos.push_back(channel.info);
+		}
+		result.push_back({ DagUtils::getPartialPathName(oControl).asChar(), infos });
+	}
+
+	setResult(MString(serializeControlChannels(result).c_str()));
 	return MStatus::kSuccess;
 }
 
@@ -327,7 +387,7 @@ MStatus MirrorRigControlShapesCmd::doIt(const MArgList& args)
 	MStatus status;
 	MArgDatabase argData(syntax(), args, &status);
 	MObject oRigRoot;
-	status = readRigRoot(argData, status, aCommandString, oRigRoot);
+	status = CommandUtils::readRigRoot(argData, status, aCommandString, oRigRoot);
 	if (!status)
 	{
 		return status;

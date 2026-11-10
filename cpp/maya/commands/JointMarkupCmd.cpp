@@ -160,13 +160,13 @@ MStatus JointMarkupCmd::doIt(const MArgList& args)
 	MObjectArray oJoints;
 	for (unsigned int i = 0; i < jointNames.length(); ++i)
 	{
-		MObject oJoint;
-		status = DagUtils::getJointObjectFromName(jointNames[i], oJoint);
+		MDagPath jointPath;
+		status = DagUtils::getDagPathFromName(jointNames[i], jointPath, DagUtils::NodeKind::kJoint);
 		if (!status)
 		{
 			return status;   // helper already reported which joint failed
 		}
-		oJoints.append(oJoint);
+		oJoints.append(jointPath.node());
 	}
 
 	if (argData.isQuery())

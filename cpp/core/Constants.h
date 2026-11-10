@@ -157,6 +157,28 @@ namespace RigInfoKey
 	inline constexpr const char* Namespace{ "namespace" };
 }
 
+// How a control channel's value goes to the other side in a mirror (D34). Public API: the categories are stored
+// on every custom channel attribute in built and published rigs, and the names are in getRigControlChannels' result.
+namespace ChannelMirror
+{
+	inline constexpr const char* Copy{ "copy" };
+	inline constexpr const char* Negate{ "negate" };
+	// Attribute categories (MFnAttribute::addToCategory). Every custom channel has exactly one of them.
+	inline constexpr const char* CopyCategory{ "mirrorCopy" };
+	inline constexpr const char* NegateCategory{ "mirrorNegate" };
+}
+
+// Keys of one channel in getRigControlChannels' JSON result. Public API, read through the rigmodules Python package.
+namespace ControlChannelKey
+{
+	inline constexpr const char* Name{ "name" };
+	inline constexpr const char* Type{ "type" };
+	inline constexpr const char* Rest{ "rest" };
+	inline constexpr const char* Min{ "min" };
+	inline constexpr const char* Max{ "max" };
+	inline constexpr const char* Mirror{ "mirror" };
+}
+
 namespace PlugAndSocketNames
 {
 	inline constexpr const char* Start{ "start" };
@@ -169,6 +191,7 @@ namespace PlugAndSocketNames
 // so those field names must match the keys listed here.
 namespace TemplateKey
 {
+	inline constexpr const char* FormatVersion{ "formatVersion" };   // optional, 1 when missing (D33)
 	inline constexpr const char* RigName{ "rigName" };
 	inline constexpr const char* RigVersion{ "rigVersion" };
 	inline constexpr const char* RigTemplateName{ "rigTemplateName" };

@@ -9,6 +9,7 @@
 from maya import cmds
 import maya.api.OpenMaya as om
 
+import rigmodules.query
 from rigtest import config
 from rigtest.case import rig_name
 
@@ -51,6 +52,30 @@ class ModuleContract:
         nodes = (cmds.ls(rig_name("*"), type="rigControlNode") or []) + (cmds.ls(rig_name("*"), type="joint") or [])
         inheriting = [n for n in nodes if cmds.getAttr(n + ".inheritsTransform")]
         self.assertEqual(inheriting, [], "inheritsTransform must be off on every control and joint: %s" % inheriting)
+
+    def test_contract_zero_returns_to_the_build_pose(self):
+        """The animation interface (D34): every control's channels can be queried, which fails for a custom
+        channel with no mirror mode, and their rests together are the pose the rig was built in."""
+        self._build()
+        joints = cmds.ls(rig_name("*"), type="joint")
+        rest = {j: _world_matrix(j) for j in joints}
+        for control in cmds.ls(rig_name("*"), type="rigControlNode"):
+            for channel in rigmodules.query.get_control_channels(control):
+                if channel.type in ("enum", "bool"):
+                    continue
+                value = channel.rest + 0.25
+                if channel.max is not None:
+                    value = min(value, channel.max)
+                cmds.setAttr("%s.%s" % (control, channel.name), value)
+        self.assertTrue(any(not _world_matrix(j).isEquivalent(rest[j], 1e-4) for j in joints),
+                        "posing every channel moved no joint, so the test proves nothing")
+
+        cmds.zeroRigControls(cmds.ls(rig_name("*"), type="rigRootModule")[0])
+        for joint in joints:
+            after = _world_matrix(joint)
+            if not after.isEquivalent(rest[joint], 1e-4):
+                self.fail("%s is off its build pose after zeroRigControls\n  built %s\n  after %s"
+                          % (joint, list(rest[joint]), list(after)))
 
     def test_contract_undo_redo_round_trip(self):
         self._build()

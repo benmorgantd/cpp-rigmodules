@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId` and `pruneToMaxInfluences` when no mesh is named.
-- Is undoable, apart from the queries `getRigControls`, `getRigMirrorControl` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
+- Is undoable, apart from the queries `getRigControls`, `getRigControlChannels`, `getRigMirrorControl` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -254,6 +254,69 @@ Object: the rig root node. Returns the names of the controls changed.
 - **Copies** `shapeType`, `shapeTransform` (as the reflection) and `filled`. Color is left alone, because it follows the module's side.
 - **Skips** `Center` controls, and warns about a source control with no mirror.
 - Undoable.
+
+## getRigControlChannels
+
+Reports a control's animation interface: the channels an animator keys and a pose tool writes.
+
+```python
+import json
+data = json.loads(cmds.getRigControlChannels("hero:upperArm_l_ctrl_l", "hero:chest_ctrl_c"))
+data["hero:chest_ctrl_c"][0]
+# {"name": "translateX", "type": "doubleLinear", "rest": 0.0, "min": None, "max": None, "mirror": "copy"}
+```
+
+Objects: one or more rig controls. Returns a JSON object keyed by control name, each with its channels in channel box order. From Python, [`rigmodules.query.get_control_channels`](python.md#rigmodulesquery) wraps it.
+
+- **A channel** is a keyable attribute that isn't locked and isn't driven by anything but an animation curve.
+- **`rest`** is the attribute's default, which the module set when it built the control. `min` and `max` are the attribute's range, or `null`. Angles and distances are in the scene's UI units, like `cmds.getAttr`.
+- **`mirror`** is `copy` or `negate`: how the value goes to the other side in [`mirrorRigPose`](#mirrorrigpose). Transforms copy. A custom channel declares its mode as an attribute category, `mirrorCopy` or `mirrorNegate`. One with neither (or an enum or bool that negates) is an error, and so it is for every pose command.
+- Channel names are public API: saved poses and animation use them.
+- Not undoable: it changes nothing.
+
+## zeroRigControls
+
+Puts every control in a rig back to its build pose.
+
+```python
+cmds.zeroRigControls("hero:rigRootModule1")
+# Returns the controls that moved
+```
+
+Object: the rig root node. Every channel of every control (see [`getRigControlChannels`](#getrigcontrolchannels)) goes to its `rest`. Channels that are locked or driven keep their values. Sets values and keys nothing. Undoable.
+
+## mirrorRigPose
+
+Copies the pose from one side of a rig to the other.
+
+```python
+cmds.mirrorRigPose("hero:rigRootModule1")                    # Left onto Right
+cmds.mirrorRigPose("hero:rigRootModule1", leftToRight=False) # Right onto Left
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `leftToRight` | bool | Default `True`: Left controls are the source. `False` mirrors Right onto Left. |
+
+Object: the rig root node. Returns the controls changed.
+
+- **Each source channel's value** goes onto the same channel of the control with the same usage on the other side, negated where the channel's `mirror` is `negate`. Transform channels copy, so a rig whose joints are mirrored by behavior gets a behavior mirror.
+- **Center controls and the source side** keep their values. A channel the mirror control doesn't have, or can't write, is skipped with a warning.
+- Sets values and keys nothing. Undoable.
+
+## flipRigPose
+
+Swaps the pose between the two sides, and reflects the Center controls.
+
+```python
+cmds.flipRigPose("hero:rigRootModule1")
+```
+
+Object: the rig root node. Returns the controls changed.
+
+- **Left and Right** controls exchange values, by the same rules as `mirrorRigPose`.
+- **Center controls** are reflected across the world YZ plane through their own channels. This needs one of the control's rest axes to lie along world X: that axis' translate is negated, and so are the rotates of the other two axes. A control with no such axis keeps its values, with a warning. A custom channel negates only if it says `negate`.
+- Flipping twice restores the pose. Sets values and keys nothing. Undoable.
 
 ## setRigMeshId
 

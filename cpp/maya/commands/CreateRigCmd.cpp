@@ -83,7 +83,7 @@ namespace
 		for (unsigned int i = 0; i < jointNames.length(); ++i)
 		{
 			MDagPath jointPath;
-			status = DagUtils::getJointDagPathFromName(jointNames[i], jointPath);
+			status = DagUtils::getDagPathFromName(jointNames[i], jointPath, DagUtils::NodeKind::kJoint);
 			if (!status)
 			{
 				return status;   // helper already reported which joint failed

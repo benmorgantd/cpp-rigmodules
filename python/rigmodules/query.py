@@ -24,6 +24,19 @@ class RigInfo:
     publish_version: str   # the publish id the rig came from, "" until published
 
 
+@dataclasses.dataclass(frozen=True)
+class ControlChannel:
+    """One channel of a control's animation interface (D34). Built from getRigControlChannels' JSON result.
+    Values are in the scene's UI units, like cmds.getAttr and cmds.setAttr."""
+
+    name: str              # the attribute's long name
+    type: str              # Maya's attribute type: "double", "doubleAngle", "doubleLinear", "enum", "bool", ...
+    rest: float            # the attribute default, which is the channel's value in the build pose
+    min: float | None      # None when the attribute has no minimum
+    max: float | None      # None when the attribute has no maximum
+    mirror: str            # "copy" or "negate": how the value goes to the other side
+
+
 RIG_ROOT_TYPE = "rigRootModule"
 
 
@@ -60,3 +73,10 @@ def get_rig_info(node: str) -> RigInfo:
     if info is None:
         raise RuntimeError(f"{node} is not a rig root, rig module, rig control or joint driven by a rig.")
     return info
+
+
+def get_control_channels(control: str) -> list[ControlChannel]:
+    """A rig control's channels in channel box order: its keyable attributes that a tool may write. Raises
+    RuntimeError for a node that isn't a rig control, or a custom channel that declares no mirror mode."""
+    (entries,) = json.loads(cmds.getRigControlChannels(control)).values()
+    return [ControlChannel(**entry) for entry in entries]

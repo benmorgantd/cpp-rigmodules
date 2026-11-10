@@ -61,14 +61,26 @@ public:
 	static MStatus zeroLocalTransforms(const MObject& oTransform, MDagModifier& dagMod);
 	static MStatus setInheritsTransform(const MObject& transform, bool value, MDagModifier& dagMod);
 	static MStatus setSegmentScaleCompensate(MObject& oTransform, bool value, MDagModifier& dagMod);
-	static MDagPath getDagPathFromName(const MString& name);
-	// Resolves any DG or DAG node by name. Reports nothing, the caller decides what a miss means.
+	// What getDagPathFromName requires of the node it finds.
+	enum class NodeKind
+	{
+		kAnyDagNode,
+		kJoint,
+		kMesh
+	};
+
+	// The two lookups by name (every other one was folded into these).
+	// Resolves any DG or DAG node. Reports nothing, the caller decides what a miss means.
 	static MStatus getMObjectFromName(const MString& name, MObject& oNode);
+	// Resolves a DAG node. Reports "No DAG node named <name>" or "<name> is not a joint." / "... mesh.".
+	// kMesh takes a mesh shape or a transform with one, and gives the transform. Modules get joints through
+	// JointMarkupScene::claimJoint instead.
+	static MStatus getDagPathFromName(const MString& name, MDagPath& outPath, NodeKind kind = NodeKind::kAnyDagNode);
+	// A channel a tool may write: not locked, and either unconnected or keyed (an anim curve source). Writing a
+	// keyed channel behaves like setAttr: the value holds until the animator keys it or the frame changes.
+	static bool isChannelWritable(const MPlug& pChannel);
 	static MMatrix getMatrixFromPlug(const MPlug& pMatrixPlug);
 	static MStatus setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier& dagMod);
-	// Both report a missing node or a non-joint. Modules get joints through JointMarkupScene::claimJoint instead.
-	static MStatus getJointDagPathFromName(const MString& jointName, MDagPath& jointPath);
-	static MStatus getJointObjectFromName(const MString& jointName, MObject& oJoint);
 
 	// The node's namespace as an absolute path for MNamespace calls: ":rig", or ":" for the root namespace.
 	static MString getAbsoluteNamespace(const MObject& oNode);
@@ -90,10 +102,8 @@ class MeshUtils
 public:
 	// The transform of a mesh, given a transform with a mesh shape or a mesh shape. Reports nothing and returns false
 	// for anything else, so a command can filter the selection quietly.
+	// By name: DagUtils::getDagPathFromName with NodeKind::kMesh.
 	static bool findMeshTransform(const MDagPath& path, MDagPath& outTransform);
-
-	// The same by name. Reports a missing node or a node that isn't a mesh.
-	static MStatus getMeshTransformFromName(const MString& name, MDagPath& outTransform);
 
 	// The mesh transform's visible (non-intermediate) mesh shape. Reports a transform without one.
 	static MStatus getMeshShape(const MDagPath& mesh, MDagPath& outShape);
@@ -112,6 +122,10 @@ public:
 class CommandUtils
 {
 public:
+	// The rig root that is the command's one string object. Reports a parse failure (parseStatus is the
+	// MArgDatabase constructor's), a wrong object count, and a node that isn't a rig root.
+	static MStatus readRigRoot(const MArgDatabase& argData, MStatus parseStatus, const char* commandName, MObject& oOutRigRoot);
+
 	// The command's one string object. Reports "<command> takes exactly one <what>." for none or several.
 	static MStatus readSingleObject(const MArgDatabase& argData, const char* commandName, const char* what, MString& outName);
 

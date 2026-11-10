@@ -5,6 +5,7 @@
 #include "maya/commands/JointMarkupCmd.h"
 #include "maya/commands/RigControlCmds.h"
 #include "maya/commands/RigInfoCmd.h"
+#include "maya/commands/RigPoseCmds.h"
 #include "maya/commands/SkinWeightCmds.h"
 
 const std::vector<CommandDescriptor>& CommandRegistry::all()
@@ -20,7 +21,11 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ SaveRigControlShapesCmd::aCommandString, SaveRigControlShapesCmd::creator, SaveRigControlShapesCmd::newSyntax },
 		{ LoadRigControlShapesCmd::aCommandString, LoadRigControlShapesCmd::creator, LoadRigControlShapesCmd::newSyntax },
 		{ GetRigMirrorControlCmd::aCommandString, GetRigMirrorControlCmd::creator, GetRigMirrorControlCmd::newSyntax },
+		{ GetRigControlChannelsCmd::aCommandString, GetRigControlChannelsCmd::creator, GetRigControlChannelsCmd::newSyntax },
 		{ MirrorRigControlShapesCmd::aCommandString, MirrorRigControlShapesCmd::creator, MirrorRigControlShapesCmd::newSyntax },
+		{ ZeroRigControlsCmd::aCommandString, ZeroRigControlsCmd::creator, ZeroRigControlsCmd::newSyntax },
+		{ MirrorRigPoseCmd::aCommandString, MirrorRigPoseCmd::creator, MirrorRigPoseCmd::newSyntax },
+		{ FlipRigPoseCmd::aCommandString, FlipRigPoseCmd::creator, FlipRigPoseCmd::newSyntax },
 		{ GetRigInfoCmd::aCommandString, GetRigInfoCmd::creator, GetRigInfoCmd::newSyntax },
 		{ SetRigMeshIdCmd::aCommandString, SetRigMeshIdCmd::creator, SetRigMeshIdCmd::newSyntax },
 		{ SaveRigSkinWeightsCmd::aCommandString, SaveRigSkinWeightsCmd::creator, SaveRigSkinWeightsCmd::newSyntax },

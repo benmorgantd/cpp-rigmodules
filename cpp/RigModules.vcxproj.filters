@@ -27,6 +27,9 @@
     <ClCompile Include="core\AssetId.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\ControlChannels.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\ControlMarkup.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -37,6 +40,9 @@
       <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="core\ControlShapes.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\FormatUpdate.cpp">
       <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="core\JointMarkup.cpp">
@@ -84,6 +90,9 @@
     <ClCompile Include="maya\commands\RigInfoCmd.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
+    <ClCompile Include="maya\commands\RigPoseCmds.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
     <ClCompile Include="maya\commands\SkinWeightCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
@@ -117,6 +126,9 @@
     <ClCompile Include="maya\shared\RigModule.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
+    <ClCompile Include="maya\shared\RigPoseScene.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
     <ClCompile Include="maya\shared\RigTraversal.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
@@ -137,6 +149,9 @@
     <ClInclude Include="core\Constants.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="core\ControlChannels.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\ControlMarkup.h">
       <Filter>core</Filter>
     </ClInclude>
@@ -147,6 +162,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\ControlShapes.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\FormatUpdate.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\JointMarkup.h">
@@ -197,6 +215,9 @@
     <ClInclude Include="maya\commands\RigInfoCmd.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
+    <ClInclude Include="maya\commands\RigPoseCmds.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
     <ClInclude Include="maya\commands\SkinWeightCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
@@ -231,6 +252,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigModule.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\RigPoseScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigTraversal.h">

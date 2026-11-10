@@ -66,4 +66,8 @@ public:
 	// The control in the same rig with the same usage and the other side (D28). A Center control is its own mirror.
 	// Fails if there is none.
 	static MStatus getMirrorControl(const MObject& oControl, MObject& oOutMirror);
+
+	// Every sourceSide control with the control of the same usage on the other side (D28), index for index, in
+	// getRigControls order. Warns about a source control with no mirror and leaves it out of both arrays.
+	static MStatus getMirrorControlPairs(const MObject& oRigRoot, const std::string& sourceSide, MObjectArray& oOutSources, MObjectArray& oOutMirrors);
 };

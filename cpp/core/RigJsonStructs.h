@@ -67,7 +67,12 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigRootData, rigTemplateName, rigVersion, rig
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigModuleData, moduleType, name, shapeType, side, moduleVersion, parentStructure, moduleArgs)
 
 void from_json(const nlohmann::json& j, RigModuleData& module);
-// Reads the file, checks required and unknown keys, then parses. Every problem goes into the report.
+
+struct UpdateTable;
+// The template format's update steps (D33). Its current version is what the formatVersion key may hold at most.
+const UpdateTable& templateUpdateTable();
+
+// Reads the file, runs the template's update steps, checks required and unknown keys, then parses. Every problem goes into the report.
 // False if the template could not be parsed into the structs. Errors in the report still need checking on true.
 bool loadRigTemplate(const std::string& filePath, RigRootData& rigData, ValidationReport& report);
 

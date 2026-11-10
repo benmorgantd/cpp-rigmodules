@@ -1,6 +1,6 @@
 # Controls
 
-Every control is a `rigControlNode`: a transform that draws its own shape in Viewport 2.0. Its module creates it and computes its world matrix. This page covers what a control carries besides its transform: its markup, its shape, and the shape file that saves shapes between builds.
+Every control is a `rigControlNode`: a transform that draws its own shape in Viewport 2.0. Its module creates it and computes its world matrix. This page covers what a control carries besides its transform: its markup, its channels, its shape, and the shape file that saves shapes between builds.
 
 ## Control markup
 
@@ -16,6 +16,15 @@ The attribute is `controlMarkup`, a JSON string: `{"markupVersion": 1, "side": "
 - `(side, usage)` is unique across a rig's controls. The build fails if a joint's markup would give a control the same pair as a layout control (a `Center` joint with usage `layout_0`, for example).
 - The control's color and name suffix come from its module's `side`, not from its markup.
 - Find controls with [`getRigControls`](commands.md#getrigcontrols).
+
+## Channels
+
+A control's channels are its keyable attributes that aren't locked or driven: the transforms, plus anything a module or a [space switch](commands.md#createrigconstraint) adds (the `space` enum). They are what an animator keys, and what the pose commands read and write.
+
+- A channel's **rest** is its attribute default, so a build pose is every channel at rest. [`zeroRigControls`](commands.md#zerorigcontrols) goes there.
+- Its **mirror mode** is `copy` or `negate`. Transforms copy. A custom channel states its own as an attribute category (`mirrorCopy` or `mirrorNegate`), and the pose commands refuse a control that has a custom channel with neither.
+- Channel names are public API, like markup: saved poses and animation depend on them. A rename needs an entry in the alias list (see D32).
+- Query them with [`getRigControlChannels`](commands.md#getrigcontrolchannels).
 
 ## Shapes
 

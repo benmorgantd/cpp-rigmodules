@@ -2,6 +2,7 @@
 #include "core/Constants.h"
 #include "core/JsonUtils.h"
 #include "core/RigTemplateValidation.h"
+#include "maya/shared/RigTraversal.h"
 
 #include <fstream>
 #include <sstream>
@@ -270,57 +271,43 @@ MStatus DagUtils::setMatrixPlug(MPlug& matrixPlug, MMatrix matrix, MDagModifier&
 	}
 }
 
-MDagPath DagUtils::getDagPathFromName(const MString& name)
+MStatus DagUtils::getDagPathFromName(const MString& name, MDagPath& outPath, NodeKind kind)
 {
-	MDagPath jointDag;
-	MStatus status;
-	MSelectionList selList;
-	status = selList.add(name);
-
-	if (status && selList.length() > 0)
-	{
-		status = selList.getDagPath(0, jointDag);
-	}
-	else
-	{
-		MGlobal::displayError(MString("Failed to find a dag path from given string ") + name);
-	}
-
-	return jointDag;
-}
-
-MStatus DagUtils::getJointDagPathFromName(const MString& jointName, MDagPath& jointPath)
-{
-	MStatus status;
 	MSelectionList sel;
-	status = sel.add(jointName);
-	if (!status)
+	MDagPath path;
+	if (!sel.add(name) || !sel.getDagPath(0, path))
 	{
-		MGlobal::displayError(MString("Joint does not exist in scene: ") + jointName);
-		return status;
-	}
-
-	status = sel.getDagPath(0, jointPath);
-	if (!status || !jointPath.hasFn(MFn::kJoint))
-	{
-		MGlobal::displayError(MString("Object is not a joint: ") + jointName);
+		MGlobal::displayError(MString("No DAG node named ") + name);
 		return MStatus::kFailure;
 	}
 
+	if (kind == NodeKind::kJoint && !path.hasFn(MFn::kJoint))
+	{
+		MGlobal::displayError(name + " is not a joint.");
+		return MStatus::kFailure;
+	}
+	if (kind == NodeKind::kMesh)
+	{
+		if (!MeshUtils::findMeshTransform(path, outPath))
+		{
+			MGlobal::displayError(name + " is not a mesh.");
+			return MStatus::kFailure;
+		}
+		return MStatus::kSuccess;
+	}
+
+	outPath = path;
 	return MStatus::kSuccess;
 }
 
-MStatus DagUtils::getJointObjectFromName(const MString& jointName, MObject& oJoint)
+bool DagUtils::isChannelWritable(const MPlug& pChannel)
 {
-	MDagPath jointPath;
-	MStatus status = getJointDagPathFromName(jointName, jointPath);
-	if (!status)
+	if (pChannel.isLocked())
 	{
-		return status;
+		return false;
 	}
-
-	oJoint = jointPath.node();
-	return MStatus::kSuccess;
+	const MPlug pSource = pChannel.source();
+	return pSource.isNull() || pSource.node().hasFn(MFn::kAnimCurve);
 }
 
 MStatus DagUtils::getMObjectFromName(const MString& name, MObject& oNode)
@@ -388,23 +375,6 @@ bool MeshUtils::findMeshTransform(const MDagPath& path, MDagPath& outTransform)
 	return true;
 }
 
-MStatus MeshUtils::getMeshTransformFromName(const MString& name, MDagPath& outTransform)
-{
-	MSelectionList list;
-	MDagPath path;
-	if (!list.add(name) || !list.getDagPath(0, path))
-	{
-		MGlobal::displayError(MString("No DAG node named ") + name);
-		return MStatus::kFailure;
-	}
-	if (!findMeshTransform(path, outTransform))
-	{
-		MGlobal::displayError(name + " is not a mesh.");
-		return MStatus::kFailure;
-	}
-	return MStatus::kSuccess;
-}
-
 MStatus MeshUtils::getMeshShape(const MDagPath& mesh, MDagPath& outShape)
 {
 	outShape = mesh;
@@ -428,6 +398,23 @@ MObject MeshUtils::createAllVerticesComponent(unsigned int vertexCount)
 MString MelUtils::quoted(const MString& text)
 {
 	return MString("\"") + text + "\"";
+}
+
+MStatus CommandUtils::readRigRoot(const MArgDatabase& argData, MStatus parseStatus, const char* commandName, MObject& oOutRigRoot)
+{
+	if (!parseStatus)
+	{
+		MGlobal::displayError(MString("Error parsing ") + commandName + " arguments.");
+		return parseStatus;
+	}
+
+	MString rigRootName;
+	MStatus status = readSingleObject(argData, commandName, "rig root", rigRootName);
+	if (!status)
+	{
+		return status;
+	}
+	return RigTraversal::getRigRoot(rigRootName, oOutRigRoot);
 }
 
 MStatus CommandUtils::readSingleObject(const MArgDatabase& argData, const char* commandName, const char* what, MString& outName)
@@ -473,7 +460,7 @@ MStatus CommandUtils::readMeshesOrSelection(const MArgDatabase& argData, const c
 	for (unsigned int i = 0; i < objects.length(); ++i)
 	{
 		MDagPath mesh;
-		MStatus status = MeshUtils::getMeshTransformFromName(objects[i], mesh);
+		MStatus status = DagUtils::getDagPathFromName(objects[i], mesh, DagUtils::NodeKind::kMesh);
 		if (!status)
 		{
 			return status;

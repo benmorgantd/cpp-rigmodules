@@ -1,11 +1,9 @@
 #include "maya/shared/ControlShapeScene.h"
 #include "core/ControlShapes.h"
-#include "core/TemplateMirror.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
 
-#include <map>
 #include <set>
 #include <string>
 #include <utility>
@@ -155,34 +153,12 @@ MStatus ControlShapeScene::setRigControlShapes(const MObject& oRigRoot, const Co
 
 MStatus ControlShapeScene::mirrorRigControlShapes(const MObject& oRigRoot, const std::string& sourceSide, MDGModifier& dgMod, MStringArray& outChangedNames)
 {
-	RigControlFilter sourceFilter;
-	sourceFilter.sides.push_back(sourceSide);
-	RigControlFilter mirrorFilter;
-	mirrorFilter.sides.push_back(TemplateMirror::swapSide(sourceSide));
-
 	MObjectArray oSources;
 	MObjectArray oMirrors;
-	MStatus status = RigTraversal::getRigControls(oRigRoot, sourceFilter, oSources);
-	if (status)
-	{
-		status = RigTraversal::getRigControls(oRigRoot, mirrorFilter, oMirrors);
-	}
+	MStatus status = RigTraversal::getMirrorControlPairs(oRigRoot, sourceSide, oSources, oMirrors);
 	if (!status)
 	{
 		return status;
-	}
-
-	// Usage -> mirror control. Markup is unique per rig (D25), so a usage appears once per side.
-	std::map<std::string, MObject> mirrorsByUsage;
-	for (unsigned int i = 0; i < oMirrors.length(); ++i)
-	{
-		ControlMarkup markup;
-		status = RigTraversal::getControlMarkup(oMirrors[i], markup);
-		if (!status)
-		{
-			return status;
-		}
-		mirrorsByUsage[markup.usage] = oMirrors[i];
 	}
 
 	// Reflection across world X = 0.
@@ -191,21 +167,7 @@ MStatus ControlShapeScene::mirrorRigControlShapes(const MObject& oRigRoot, const
 
 	for (unsigned int i = 0; i < oSources.length(); ++i)
 	{
-		ControlMarkup markup;
-		status = RigTraversal::getControlMarkup(oSources[i], markup);
-		if (!status)
-		{
-			return status;
-		}
-
-		auto it = mirrorsByUsage.find(markup.usage);
-		if (it == mirrorsByUsage.end())
-		{
-			MGlobal::displayWarning(DagUtils::getPartialPathName(oSources[i]) + " (" + markup.side.c_str() + ", " + markup.usage.c_str()
-				+ ") has no mirror control, so its shape is not mirrored.");
-			continue;
-		}
-		const MObject& oMirror = it->second;
+		const MObject& oMirror = oMirrors[i];
 
 		MMatrix mSourceRest;
 		MMatrix mMirrorRest;

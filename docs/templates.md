@@ -42,6 +42,7 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 
 | Key | Required | Value |
 |---|---|---|
+| `formatVersion` | no | Integer: the version of the template format. Defaults to 1, which is the current one. A template with a newer version than this build reads is an error. Older versions are updated when the template loads, so old templates keep building |
 | `rigVersion` | yes | Integer, 1 or more |
 | `rigTemplateName` | yes | Non-empty string |
 | `rigAuthor` | yes | String |
@@ -57,7 +58,7 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 | `name` | yes | The module's id. Unique in the template, a valid Maya node name (no `.`), and not `layout`. The module node gets this name in the rig namespace. |
 | `side` | no | `Center` (default), `Left` or `Right`. Sets the control name suffix (`_c`, `_l`, `_r`). |
 | `shapeType` | no | Control shape for the module's controls: `Box` (default) or any shape in [controls.md](controls.md#shapes) |
-| `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Every module is at version 1. |
+| `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Every module is at version 1. A `moduleArgs` written for an older version is updated before the module reads it. |
 | `moduleArgs` | no | Module-specific arguments, mostly joint selectors. See [modules.md](modules.md). |
 | `parentStructure` | no | Maps this module's child plugs to parent sockets (below) |
 | `mirror` | no | `true` also builds this module on the other side. Only `Left` and `Right` modules. See [Mirroring](#mirroring). |

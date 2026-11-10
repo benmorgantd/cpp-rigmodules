@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Constants.h"
+#include "core/FormatUpdate.h"
 #include "core/RigJsonStructs.h"
 #include "core/RigTemplateValidation.h"
 #include "maya/nodes/RigControlNode.h"
@@ -112,7 +113,9 @@ struct ModuleDescriptor
 	MTypeId typeId;
 	NodeCreatorFn creator;
 	NodeInitializeFn initialize;
-	int currentVersion;
+	// Steps that bring an older moduleVersion's moduleArgs forward, run before plan (D33). Empty: the module is at
+	// version 1. A change to the shape or meaning of moduleArgs adds a step here, which raises the current version.
+	UpdateTable argUpdates;
 	ModulePlanFn plan;          // nullptr = registered with Maya but not buildable from JSON
 	bool isRigModule;           // Connects to a rig root's rigModules. Its moduleType is a getRigControls filter value.
 };
@@ -209,7 +212,6 @@ bool RigModuleNodeBase::readModuleArgs(const nlohmann::json& args, std::initiali
 
 	try
 	{
-		// Version migration goes here: branch on ctx.moduleData.moduleVersion and rewrite old arg layouts.
 		outArgs = args.get<TArgs>();
 	}
 	catch (const nlohmann::json::exception& e)

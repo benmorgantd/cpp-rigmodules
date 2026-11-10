@@ -1,0 +1,17 @@
+{
+  "description": "formatVersion cannot be newer than the template format this build reads (D33)",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/formatVersion",
+      "value": 2
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "2 is not supported, this build reads versions 1 to 1",
+      "path": "formatVersion"
+    }
+  ]
+}

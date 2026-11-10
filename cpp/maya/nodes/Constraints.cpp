@@ -1,6 +1,7 @@
 #include "maya/nodes/Constraints.h"
 #include "core/Constants.h"
 #include "maya/nodes/RigControlNode.h"
+#include "maya/shared/RigPoseScene.h"
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
 
@@ -25,18 +26,6 @@
 namespace
 {
 	constexpr double kShearTolerance{ 1e-6 };
-
-	// A channel the match may write: not locked, and either unconnected or keyed (an anim curve source).
-	// Writing a keyed channel behaves like setAttr: the value holds until the animator keys it or the frame changes.
-	bool isChannelWritable(const MPlug& pChannel)
-	{
-		if (pChannel.isLocked())
-		{
-			return false;
-		}
-		const MPlug pSource = pChannel.source();
-		return pSource.isNull() || pSource.node().hasFn(MFn::kAnimCurve);
-	}
 
 	// The control hangs from its child plug delta (OPM = rest * delta, inheritsTransform off). When that delta changes
 	// from mOldDelta to mNewDelta, rewrite the control's translate, rotate and scale so its world matrix stays the same:
@@ -85,7 +74,7 @@ namespace
 		for (unsigned int i = 0; i < 9; ++i)
 		{
 			MPlug pChannel(oControl, kDefaultTransformValues[i].attr);
-			if (!isChannelWritable(pChannel))
+			if (!DagUtils::isChannelWritable(pChannel))
 			{
 				skipped += MString(" ") + pChannel.partialName(false, false, false, false, false, true);
 				continue;
@@ -416,6 +405,8 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 		}
 		eAttr.setKeyable(true);
 		eAttr.setStorable(true);
+		// The mirrored constraint lists its drivers in the same order (D28), so the index copies across.
+		CHECK_MSTATUS_AND_RETURN_IT(RigPoseScene::setMirrorMode(eAttr, false));
 
 		status = dagMod.addAttribute(args.oControl, oSpaceAttr);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
