@@ -31,7 +31,8 @@ public:
 	MColor color{ 1.0f, 0.0f, 0.0f, 1.0f };
 	MColor dormantColor{ 1.0f, 0.0f, 0.0f, 1.0f };
 	float lineWidth{ 1.0f };
-	bool filled{ false };
+	bool filled{ true };
+	bool xray{ true };
 
 	// The shape's library mesh, points through shapeTransform. Rebuilt only when the shape changes.
 	MPointArray points;
@@ -70,6 +71,7 @@ public:
 	static MObject aWireAlpha;
 	static MObject aShapeTransform;
 	static MObject aFilled;
+	static MObject aXray;
 
 	bool isDrawDirty() const
 	{

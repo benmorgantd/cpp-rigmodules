@@ -28,6 +28,7 @@ MObject RigControlNode::aWireColor;
 MObject RigControlNode::aWireAlpha;
 MObject RigControlNode::aShapeTransform;
 MObject RigControlNode::aFilled;
+MObject RigControlNode::aXray;
 
 MObject RigControlNode::aRigModule;
 MObject RigControlNode::aControlMarkup;
@@ -51,7 +52,7 @@ MStatus RigControlNode::setDependentsDirty(const MPlug& plugBeingDirtied, MPlugA
 	// wireframeColor is a compound, so a change to one channel arrives on a child plug.
 	const bool isColorChannel = plugBeingDirtied.isChild() && plugBeingDirtied.parent().attribute() == aWireColor;
 
-	if (attr == aShapeType || attr == aShapeTransform || attr == aWireAlpha || attr == aWireColor || attr == aFilled || isColorChannel)
+	if (attr == aShapeType || attr == aShapeTransform || attr == aWireAlpha || attr == aWireColor || attr == aFilled || attr == aXray || isColorChannel)
 	{
 		m_drawIsDirty = true;
 		// Redraw while the attribute is being changed, not only on the next unrelated refresh.
@@ -138,12 +139,19 @@ MStatus RigControlNode::initialize()
 	mAttr.setStorable(true);
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aShapeTransform));
 
-	aFilled = nAttr.create(RigControlNodeAttr::Filled, RigControlNodeAttr::Filled, MFnNumericData::kBoolean, false, &status);
+	aFilled = nAttr.create(RigControlNodeAttr::Filled, RigControlNodeAttr::Filled, MFnNumericData::kBoolean, true, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	nAttr.setKeyable(false);
 	nAttr.setWritable(true);
 	nAttr.setStorable(true);
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aFilled));
+
+	aXray = nAttr.create(RigControlNodeAttr::Xray, RigControlNodeAttr::Xray, MFnNumericData::kBoolean, true, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	nAttr.setKeyable(false);
+	nAttr.setWritable(true);
+	nAttr.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aXray));
 
 	// Rig attributes. Neither affects an output: the module reads the control, never these.
 	aRigModule = msgAttr.create(RigControlNodeAttr::RigModule, RigControlNodeAttr::RigModule, &status);
@@ -226,6 +234,7 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 		data->dormantColor = MColor(r, g, b, a);
 
 		data->filled = MPlug(oControl, RigControlNode::aFilled).asBool();
+		data->xray = MPlug(oControl, RigControlNode::aXray).asBool();
 
 		pControl->setDrawClean();
 	}
@@ -264,7 +273,8 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 }
 
 // Draws in the control's object space. Maya applies the control's world matrix.
-// The fill goes first at half the wire's alpha, so a filled control still shows its outline and what is behind it.
+// The fill goes first at 0.75 of the wire's alpha, with the wire on top. With xray the whole drawable draws in
+// front of meshes and other geometry.
 void RigControlDrawOverride::addUIDrawables(
 	const MDagPath& objPath,
 	MHWRender::MUIDrawManager& drawManager,
@@ -278,12 +288,16 @@ void RigControlDrawOverride::addUIDrawables(
 	}
 
 	drawManager.beginDrawable();
+	if (pData->xray)
+	{
+		drawManager.beginDrawInXray();
+	}
 	drawManager.setDepthPriority(100);
 
 	if (pData->filled && pData->triangleIndices.length() > 0)
 	{
 		MColor fillColor = pData->color;
-		fillColor.a *= 0.5f;
+		fillColor.a *= 0.75f;
 		drawManager.setColor(fillColor);
 		drawManager.mesh(MHWRender::MUIDrawManager::kTriangles, pData->points, nullptr, nullptr, &pData->triangleIndices);
 	}
@@ -291,6 +305,10 @@ void RigControlDrawOverride::addUIDrawables(
 	drawManager.setColor(pData->color);
 	drawManager.setLineWidth(pData->lineWidth);
 	drawManager.mesh(MHWRender::MUIDrawManager::kLines, pData->points, nullptr, nullptr, &pData->wireIndices);
+	if (pData->xray)
+	{
+		drawManager.endDrawInXray();
+	}
 	drawManager.endDrawable();
 }
 

@@ -44,6 +44,7 @@ namespace RigControlNodeAttr
 	inline constexpr const char* WireframeColor{ "wireframeColor" };
 	inline constexpr const char* WireframeAlpha{ "wireframeAlpha" };
 	inline constexpr const char* Filled{ "filled" };
+	inline constexpr const char* Xray{ "xray" };
 	inline constexpr const char* RigModule{ "rigModule" };
 	// One JSON string per control, see ControlMarkup.h. Its keys reuse JointMarkupKey and RigAttr::Side.
 	inline constexpr const char* ControlMarkup{ "controlMarkup" };

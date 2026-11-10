@@ -15,7 +15,7 @@ What to look for:
            front and top views. Pointer shapes (SingleArrow, FourArrow, CircleStick, ArchedDoubleArrow) point
            down +X along the red line and lie flat in XZ (edge-on in the front view).
     05-07  shapeTransform scale (2, 1, 0.5). Every shape stretches on every axis, round ones included.
-    08     every shape filled: the fill at half the wire's alpha, the wire on top. Box at wireframeAlpha 0.5
+    08     every shape filled: the fill at 0.75 of the wire's alpha, the wire on top. Box at wireframeAlpha 0.5
            is fainter. Sphere is selected (green) and Circle is the lead selection (light).
     09     shapeTransform scale X -1. Pointers point down -X, and Dome bulges toward -X.
     10     the filled scene from behind (-X, -Z). Flat fills must still show, so nothing is back-face culled.
