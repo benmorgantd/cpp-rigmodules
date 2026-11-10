@@ -164,7 +164,7 @@ The versions root is `%LOCALAPPDATA%\bmaya\versions`, private to the machine and
 - Rig roots carry `pluginVersion` and `publishVersion` (a string, empty from a build) next to `rigName` and `rigVersion`.
 - Removed: the template keys `assetId`, `assetType` and `rigType`, and the matching node attributes and enums.
 
-## Built in mayadev (2026-11-08: `asset-model` merged into master; asset tools on branch `asset-tools`, merged into master by 2026-11-09)
+## Built in mayadev (2026-11-08: `asset-model` merged into main; asset tools on branch `asset-tools`, merged into main by 2026-11-09)
 
 Maya-free, under `bmaya/asset/`, so it runs in plain Python, mayapy and batch jobs. Errors are exceptions.
 

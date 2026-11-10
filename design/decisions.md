@@ -396,7 +396,7 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
   - Pose and animation data aren't affected: no control, attribute or socket names changed.
 
 ### D30. mayadev stays the pipeline repo, and rigs build anywhere before an asset exists
-**Status:** Decided (2026-11-08). Steps 1 to 5 are built, except the template authoring UI: RigModules side run in the mayapy suite, mayadev side in its mayapy tests. Branch `asset-tools` is merged into mayadev master (checked 2026-11-09).
+**Status:** Decided (2026-11-08). Steps 1 to 5 are built, except the template authoring UI: RigModules side run in the mayapy suite, mayadev side in its mayapy tests. Branch `asset-tools` is merged into mayadev main (checked 2026-11-09).
 
 The author considered starting a new pipeline repo, because most of mayadev changes with the new asset and rigging systems. Decided: keep mayadev, tag its legacy state, delete the legacy code, and build the new tools there. A rig can be built and iterated on anywhere, before its asset folder exists. Tools that know about assets use the asset's paths when the rig's asset folder exists, and fall back to a file dialog when it doesn't.
 
