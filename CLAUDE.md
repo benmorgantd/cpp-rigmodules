@@ -291,6 +291,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
   - **Then always run the tests**, even for a change that looks unrelated. Run `cmd /c tests\RigTests.cmd`, or the suite at the end of your own mayapy script (see Tests below).
   - Warnings that already existed and can be ignored: nlohmann C5260, `maya/shared/Utilities.cpp` C4018.
 - **Run Maya headless:** `C:\Program Files\Autodesk\Maya2026\bin\mayapy.exe script.py`. Start the script with `maya.standalone.initialize(name="python")`, then `cmds.loadPlugin(path)`.
+- **No crash handler windows from your own scripts.** Set `MAYA_DISABLE_CER=1` before running mayapy or maya.exe yourself, and end a standalone script with `maya.standalone.uninitialize()` then `os._exit(0)`, as `tests/run_tests.py` does (Maya 2026 crashes at process exit without it). After a run that crashed, close any `senddmp.exe` or `cer_dialog.exe` it left open.
 - **Viewport (VP2) checks need a GUI session.** mayapy, `mayabatch` and `ogsRender` don't draw UI drawables or curves, so a draw override can't be checked there. After changing control drawing or shapes, run `cmd /c tests\ViewportGallery.cmd` and look at the images (see `tests/README.md`). It starts `maya.exe -command "python(\"exec(open('<script>').read())\")"`. The script runs its work through `maya.utils.executeDeferred` (so the UI exists), sets the camera on `cmds.playblast(activeEditor=True)` (not the first model panel, which playblast may not capture), playblasts with `offScreen=True`, then calls `cmds.quit(force=True)`. `exec` gives it no `__file__`, so paths come through env vars.
 - **Copy the .mll before loading it.** A loaded plugin locks the file, so a Maya session that has it loaded makes the next build fail. Copy the .mll to the scratchpad and load the copy.
 - **Reading results in standalone:**
@@ -308,7 +309,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 300 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 378 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.
