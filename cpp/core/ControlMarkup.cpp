@@ -64,3 +64,19 @@ std::string serializeControlMarkup(const ControlMarkup& markup)
 {
 	return JsonUtils::writeJsonString(markup);
 }
+
+std::string serializeControlInfo(const ControlInfoList& controls)
+{
+	nlohmann::json result = nlohmann::json::object();
+	for (const auto& [controlName, info] : controls)
+	{
+		nlohmann::json entry;
+		entry[ControlInfoKey::ModuleType] = info.moduleType;
+		entry[ControlInfoKey::Module] = info.module;
+		entry[ControlInfoKey::Side] = info.markup.side;
+		entry[ControlInfoKey::Usage] = info.markup.usage;
+		entry[ControlInfoKey::Mirror] = info.hasMirror ? nlohmann::json(info.mirror) : nlohmann::json(nullptr);
+		result[controlName] = entry;
+	}
+	return result.dump();
+}

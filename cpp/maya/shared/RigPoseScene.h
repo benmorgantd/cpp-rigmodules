@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/ControlChannels.h"
+#include "maya/shared/RigTraversal.h"
 
 #include <string>
 #include <vector>
@@ -48,14 +49,17 @@ public:
 	// The control's channels in channel box order.
 	static MStatus getControlChannels(const MObject& oControl, std::vector<Channel>& outChannels);
 
-	// Every channel of every control in the rig goes to its rest. outChangedNames lists the controls that moved.
-	static MStatus zeroRigControls(const MObject& oRigRoot, MDGModifier& dgMod, MStringArray& outChangedNames);
+	// Every channel of every control in the scope goes to its rest. outChangedNames lists the controls that moved.
+	static MStatus zeroRigControls(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames);
 
-	// Every sourceSide control's values go onto its mirror control: copied, or negated for a channel that says so.
-	// Center controls and the source side keep their values. outChangedNames lists the mirrors that changed.
-	static MStatus mirrorRigPose(const MObject& oRigRoot, const std::string& sourceSide, MDGModifier& dgMod, MStringArray& outChangedNames);
+	// Every sourceSide control in the scope has its values go onto its mirror control: copied, or negated for a channel
+	// that says so. Center controls and the source side keep their values. An empty sourceSide means: the whole rig
+	// mirrors from Left, and a set of controls mirrors from their side when they all share one, and from Left otherwise.
+	// outChangedNames lists the mirrors that changed.
+	static MStatus mirrorRigPose(const RigControlScope& scope, const std::string& sourceSide, MDGModifier& dgMod, MStringArray& outChangedNames);
 
-	// Left and Right controls swap values, and every Center control is reflected across the world YZ plane through
-	// its channels (findMirrorAxis). outChangedNames lists the controls that changed.
-	static MStatus flipRigPose(const MObject& oRigRoot, MDGModifier& dgMod, MStringArray& outChangedNames);
+	// Each Left or Right control in the scope swaps values with its mirror (a pair named from both ends swaps once),
+	// and each Center control is reflected across the world YZ plane through its channels (findMirrorAxis).
+	// outChangedNames lists the controls that changed.
+	static MStatus flipRigPose(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames);
 };

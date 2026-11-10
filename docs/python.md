@@ -31,7 +31,13 @@ rigmodules.query.get_rigs("hero")    # every rig built into the hero namespace
 | `find_rig_info(node)` | A `RigInfo` for the rig a rig root, rig module, rig control or rig-driven joint belongs to, or `None` for any other node. Reports nothing for those, so it suits a selection callback. Raises `RuntimeError` for a missing node or a broken rig. Wraps [`getRigInfo`](commands.md#getriginfo) |
 | `get_rig_info(node)` | Like `find_rig_info`, but raises `RuntimeError` when the node isn't part of a rig |
 | `get_rigs(namespace=None)` | A `RigInfo` for every rig in the scene, or in one namespace, sorted by rig root name |
+| `get_rig_controls(rig_root, module_type=None, side=None, usage=None)` | A list of `RigControl` in module order, then each module's control order. Each filter is optional, takes one value or a list, and every one given must match. Wraps [`getRigControls`](commands.md#getrigcontrols) and [`getRigControlInfo`](commands.md#getrigcontrolinfo) |
+| `get_control(node)` | The `RigControl` for a rig control. Raises `RuntimeError` for any other node |
+| `find_control(node)` | Like `get_control`, but returns `None` for a node that isn't a rig control |
+| `get_channels(controls)` | A dict from each control's name to its list of `ControlChannel`, in one command call. Use it instead of `get_control_channels` in a loop |
 | `get_control_channels(control)` | A list of `ControlChannel`, the control's animation interface in channel box order. Raises `RuntimeError` for a node that isn't a rig control, or a custom channel with no mirror mode. Wraps [`getRigControlChannels`](commands.md#getrigcontrolchannels) |
+
+`RigControl` is a frozen dataclass: `node`, `module` (the module node that owns it), `module_type` (`"Layout"`, `"FkChain"` or `"Aim"`), `side`, `usage` and `mirror` (the control on the other side, itself for a Center control, `None` when a side control has none).
 
 `ControlChannel` is a frozen dataclass: `name`, `type` (Maya's attribute type, such as `doubleAngle` or `enum`), `rest` (the attribute default), `min` and `max` (`None` for no limit) and `mirror` (`"copy"` or `"negate"`). Values are in the scene's UI units.
 

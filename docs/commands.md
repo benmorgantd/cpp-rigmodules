@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId` and `pruneToMaxInfluences` when no mesh is named.
-- Is undoable, apart from the queries `getRigControls`, `getRigControlChannels`, `getRigMirrorControl` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
+- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigMirrorControl` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -255,6 +255,22 @@ Object: the rig root node. Returns the names of the controls changed.
 - **Skips** `Center` controls, and warns about a source control with no mirror.
 - Undoable.
 
+## getRigControlInfo
+
+Reports what each control is: its module, its markup and its mirror.
+
+```python
+import json
+data = json.loads(cmds.getRigControlInfo("hero:upperArm_l_ctrl_l", "hero:chest_ctrl_c"))
+data["hero:upperArm_l_ctrl_l"]
+# {"moduleType": "FkChain", "module": "hero:arm_l", "side": "Left", "usage": "upperArm", "mirror": "hero:upperArm_r_ctrl_r"}
+```
+
+Objects: one or more rig controls. Returns a JSON object keyed by control name. From Python, [`rigmodules.query.get_control`](python.md#rigmodulesquery) and `get_rig_controls` wrap it.
+
+- **`mirror`** is the control with the same usage on the other side ([`getRigMirrorControl`](#getrigmirrorcontrol)). A `Center` control is its own mirror, and a side control with no mirror gives `null` where `getRigMirrorControl` raises an error.
+- Not undoable: it changes nothing.
+
 ## getRigControlChannels
 
 Reports a control's animation interface: the channels an animator keys and a pose tool writes.
@@ -276,14 +292,15 @@ Objects: one or more rig controls. Returns a JSON object keyed by control name, 
 
 ## zeroRigControls
 
-Puts every control in a rig back to its build pose.
+Puts a rig's controls back to their build pose.
 
 ```python
-cmds.zeroRigControls("hero:rigRootModule1")
+cmds.zeroRigControls("hero:rigRootModule1")                           # every control
+cmds.zeroRigControls("hero:upperArm_l_ctrl_l", "hero:chest_ctrl_c")   # these two
 # Returns the controls that moved
 ```
 
-Object: the rig root node. Every channel of every control (see [`getRigControlChannels`](#getrigcontrolchannels)) goes to its `rest`. Channels that are locked or driven keep their values. Sets values and keys nothing. Undoable.
+Objects: the rig root node (every control in the rig), or one or more controls of one rig (those only). A rig root can't be combined with controls, and controls of two rigs are an error. Every channel of each control (see [`getRigControlChannels`](#getrigcontrolchannels)) goes to its `rest`. Channels that are locked or driven keep their values. Sets values and keys nothing. Undoable.
 
 ## mirrorRigPose
 
@@ -292,13 +309,16 @@ Copies the pose from one side of a rig to the other.
 ```python
 cmds.mirrorRigPose("hero:rigRootModule1")                    # Left onto Right
 cmds.mirrorRigPose("hero:rigRootModule1", leftToRight=False) # Right onto Left
+cmds.mirrorRigPose("hero:upperArm_l_ctrl_l", "hero:lowerArm_l_ctrl_l")   # these controls onto their mirrors
 ```
 
 | Flag | Type | Meaning |
 |---|---|---|
-| `leftToRight` | bool | Default `True`: Left controls are the source. `False` mirrors Right onto Left. |
+| `leftToRight` | bool | `True`: Left controls are the source. `False`: Right controls are. Without it, see below. |
 
-Object: the rig root node. Returns the controls changed.
+Objects: the rig root node, or one or more controls of one rig. Returns the controls changed.
+
+- **The source side.** With the rig root and no flag, Left. With controls and no flag, the side of the controls when they all share one, and Left otherwise. Center controls don't count. An explicit `leftToRight` always wins. Controls on the other side are not sources: one named only as a mirror is overwritten, and one with no source named keeps its values.
 
 - **Each source channel's value** goes onto the same channel of the control with the same usage on the other side, negated where the channel's `mirror` is `negate`. Transform channels copy, so a rig whose joints are mirrored by behavior gets a behavior mirror.
 - **Center controls and the source side** keep their values. A channel the mirror control doesn't have, or can't write, is skipped with a warning.
@@ -310,11 +330,12 @@ Swaps the pose between the two sides, and reflects the Center controls.
 
 ```python
 cmds.flipRigPose("hero:rigRootModule1")
+cmds.flipRigPose("hero:upperArm_l_ctrl_l", "hero:chest_ctrl_c")   # this pair, and this Center control
 ```
 
-Object: the rig root node. Returns the controls changed.
+Objects: the rig root node, or one or more controls of one rig. Returns the controls changed.
 
-- **Left and Right** controls exchange values, by the same rules as `mirrorRigPose`.
+- **Left and Right** controls exchange values, by the same rules as `mirrorRigPose`. With controls, each one named swaps with its mirror, and a pair named from both ends swaps once.
 - **Center controls** are reflected across the world YZ plane through their own channels. This needs one of the control's rest axes to lie along world X: that axis' translate is negated, and so are the rotates of the other two axes. A control with no such axis keeps its values, with a warning. A custom channel negates only if it says `negate`.
 - Flipping twice restores the pose. Sets values and keys nothing. Undoable.
 

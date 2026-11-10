@@ -11,6 +11,7 @@
 
 #include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
+#include <maya/MObjectHandle.h>
 #include <maya/MPlug.h>
 #include <maya/MPlugArray.h>
 #include <maya/MPxTransform.h>
@@ -112,6 +113,97 @@ MStatus RigTraversal::getRigRoot(const MString& name, MObject& oOutRigRoot)
 		oOutRigRoot = MObject::kNullObj;
 		return MStatus::kFailure;
 	}
+	return MStatus::kSuccess;
+}
+
+MStatus RigTraversal::getRigControl(const MString& name, MObject& oOutControl)
+{
+	if (DagUtils::getMObjectFromName(name, oOutControl) != MStatus::kSuccess
+		|| MFnDependencyNode(oOutControl).typeId() != RigControlNode::id)
+	{
+		MGlobal::displayError(MString("Not a rig control: ") + name);
+		oOutControl = MObject::kNullObj;
+		return MStatus::kFailure;
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus RigTraversal::getControlScope(const MStringArray& names, RigControlScope& outScope)
+{
+	outScope = RigControlScope();
+	if (names.length() == 0)
+	{
+		MGlobal::displayError("Needs a rig root, or one or more rig controls.");
+		return MStatus::kFailure;
+	}
+
+	for (unsigned int i = 0; i < names.length(); ++i)
+	{
+		MObject oNode;
+		if (DagUtils::getMObjectFromName(names[i], oNode) != MStatus::kSuccess)
+		{
+			MGlobal::displayError(MString("Not a rig root or rig control: ") + names[i]);
+			return MStatus::kFailure;
+		}
+
+		const MTypeId typeId = MFnDependencyNode(oNode).typeId();
+		if (typeId == RigRootNode::id)
+		{
+			if (names.length() != 1)
+			{
+				MGlobal::displayError(MString("A rig root can't be combined with other objects: ") + names[i]);
+				return MStatus::kFailure;
+			}
+			outScope.oRigRoot = oNode;
+			outScope.isWholeRig = true;
+			return MStatus::kSuccess;
+		}
+		if (typeId != RigControlNode::id)
+		{
+			MGlobal::displayError(MString("Not a rig root or rig control: ") + names[i]);
+			return MStatus::kFailure;
+		}
+
+		bool isDuplicate = false;
+		for (unsigned int c = 0; c < outScope.oControls.length(); ++c)
+		{
+			isDuplicate = isDuplicate || MObjectHandle(outScope.oControls[c]) == MObjectHandle(oNode);
+		}
+		if (!isDuplicate)
+		{
+			outScope.oControls.append(oNode);
+		}
+	}
+
+	for (unsigned int i = 0; i < outScope.oControls.length(); ++i)
+	{
+		MObject oRigRoot;
+		MStatus status = getOwningRigRoot(outScope.oControls[i], oRigRoot);
+		if (!status)
+		{
+			return status;
+		}
+		if (i == 0)
+		{
+			outScope.oRigRoot = oRigRoot;
+		}
+		else if (!(MObjectHandle(oRigRoot) == MObjectHandle(outScope.oRigRoot)))
+		{
+			MGlobal::displayError(DagUtils::getPartialPathName(outScope.oControls[0]) + " and "
+				+ DagUtils::getPartialPathName(outScope.oControls[i]) + " belong to different rigs.");
+			return MStatus::kFailure;
+		}
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus RigTraversal::getScopeControls(const RigControlScope& scope, MObjectArray& oOutControls)
+{
+	if (scope.isWholeRig)
+	{
+		return getRigControls(scope.oRigRoot, RigControlFilter{}, oOutControls);
+	}
+	oOutControls = scope.oControls;
 	return MStatus::kSuccess;
 }
 
@@ -361,8 +453,10 @@ MStatus RigTraversal::getJointRestWorld(const MDagPath& jointPath, MMatrix& mOut
 	return MStatus::kSuccess;
 }
 
-MStatus RigTraversal::getMirrorControl(const MObject& oControl, MObject& oOutMirror)
+MStatus RigTraversal::findMirrorControl(const MObject& oControl, MObject& oOutMirror)
 {
+	oOutMirror = MObject::kNullObj;
+
 	ControlMarkup markup;
 	MStatus status = getControlMarkup(oControl, markup);
 	if (!status)
@@ -393,34 +487,89 @@ MStatus RigTraversal::getMirrorControl(const MObject& oControl, MObject& oOutMir
 	{
 		return status;
 	}
-	if (oMatches.length() != 1)
+
+	// Control markup is unique per rig (D25), so more than one match can't happen.
+	if (oMatches.length() == 1)
 	{
-		// Control markup is unique per rig (D25), so more than one match can't happen.
+		oOutMirror = oMatches[0];
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus RigTraversal::getMirrorControl(const MObject& oControl, MObject& oOutMirror)
+{
+	MStatus status = findMirrorControl(oControl, oOutMirror);
+	if (!status)
+	{
+		return status;
+	}
+	if (oOutMirror.isNull())
+	{
+		ControlMarkup markup;
+		getControlMarkup(oControl, markup);
 		MGlobal::displayError(MFnDependencyNode(oControl).name() + " has no mirror: no control in its rig has side "
-			+ mirrorSide.c_str() + ", usage " + markup.usage.c_str() + ".");
+			+ TemplateMirror::swapSide(markup.side).c_str() + ", usage " + markup.usage.c_str() + ".");
 		return MStatus::kFailure;
 	}
-	oOutMirror = oMatches[0];
+	return MStatus::kSuccess;
+}
+
+MStatus RigTraversal::getControlInfo(const MObject& oControl, ControlInfo& outInfo)
+{
+	outInfo = ControlInfo();
+
+	MObject oModule;
+	unsigned int index = 0;
+	MStatus status = getControlModule(oControl, oModule, index);
+	if (status)
+	{
+		status = getControlMarkup(oControl, outInfo.markup);
+	}
+	MObject oMirror;
+	if (status)
+	{
+		status = findMirrorControl(oControl, oMirror);
+	}
+	if (!status)
+	{
+		return status;
+	}
+
+	outInfo.moduleType = getModuleType(oModule);
+	outInfo.module = MFnDependencyNode(oModule).name().asChar();   // modules are DG nodes, so there is no path
+	outInfo.hasMirror = !oMirror.isNull();
+	if (outInfo.hasMirror)
+	{
+		outInfo.mirror = DagUtils::getPartialPathName(oMirror).asChar();
+	}
 	return MStatus::kSuccess;
 }
 
 MStatus RigTraversal::getMirrorControlPairs(const MObject& oRigRoot, const std::string& sourceSide, MObjectArray& oOutSources, MObjectArray& oOutMirrors)
 {
+	RigControlFilter sourceFilter;
+	sourceFilter.sides.push_back(sourceSide);
+	MObjectArray oSources;
+	MStatus status = getRigControls(oRigRoot, sourceFilter, oSources);
+	if (!status)
+	{
+		oOutSources.clear();
+		oOutMirrors.clear();
+		return status;
+	}
+	return getMirrorControlPairs(oRigRoot, sourceSide, oSources, oOutSources, oOutMirrors);
+}
+
+MStatus RigTraversal::getMirrorControlPairs(const MObject& oRigRoot, const std::string& sourceSide, const MObjectArray& oSources,
+	MObjectArray& oOutSources, MObjectArray& oOutMirrors)
+{
 	oOutSources.clear();
 	oOutMirrors.clear();
 
-	RigControlFilter sourceFilter;
-	sourceFilter.sides.push_back(sourceSide);
 	RigControlFilter mirrorFilter;
 	mirrorFilter.sides.push_back(TemplateMirror::swapSide(sourceSide));
-
-	MObjectArray oSources;
 	MObjectArray oMirrors;
-	MStatus status = getRigControls(oRigRoot, sourceFilter, oSources);
-	if (status)
-	{
-		status = getRigControls(oRigRoot, mirrorFilter, oMirrors);
-	}
+	MStatus status = getRigControls(oRigRoot, mirrorFilter, oMirrors);
 	if (!status)
 	{
 		return status;
@@ -446,6 +595,10 @@ MStatus RigTraversal::getMirrorControlPairs(const MObject& oRigRoot, const std::
 		if (!status)
 		{
 			return status;
+		}
+		if (markup.side != sourceSide)
+		{
+			continue;
 		}
 
 		auto it = mirrorsByUsage.find(markup.usage);

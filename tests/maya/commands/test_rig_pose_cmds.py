@@ -1,4 +1,5 @@
-"""The animation interface (D34): getRigControlChannels, zeroRigControls, mirrorRigPose and flipRigPose.
+"""The animation interface (D34): getRigControlChannels, zeroRigControls, mirrorRigPose and flipRigPose, each on a
+whole rig or on a set of controls.
 
 Every test builds mirror_arms: spine (Center chest), clavicle_l/r, arm_l/r (upperArm, lowerArm) and the layout.
 Every joint is world aligned, so a Center control's mirror axis is its local X. The upper arm controls carry the
@@ -176,8 +177,38 @@ class ZeroRigControls(PoseTestCase):
         cmds.redo()
         self.assertEqual(values(ARM_L, ["rotateY"]), [0])
 
-    def test_object_must_be_a_rig_root(self):
-        self.assertMayaError(lambda: cmds.zeroRigControls(ARM_L), "Not a rig root")
+    def test_object_must_be_a_rig_root_or_control(self):
+        self.assertMayaError(lambda: cmds.zeroRigControls(rig_name("upperArm_l_jnt")), "Not a rig root or rig control")
+        self.assertMayaError(lambda: cmds.zeroRigControls("missing"), "Not a rig root or rig control")
+
+    def test_controls_reset_only_those_controls(self):
+        set_values(ARM_L, rotateY=30)
+        set_values(ARM_R, rotateY=40)
+        set_values(CHEST, translateX=2)
+        changed = cmds.zeroRigControls(ARM_L, CHEST)
+        self.assertEqual(sorted(changed), ["rig:chest_ctrl_c", "rig:upperArm_l_ctrl_l"])
+        self.assertEqual(values(ARM_L, ["rotateY"]), [0])
+        self.assertEqual(values(CHEST, ["translateX"]), [0])
+        self.assertEqual(values(ARM_R, ["rotateY"]), [40])
+
+    def test_controls_undo_and_redo(self):
+        set_values(ARM_L, rotateY=30)
+        cmds.zeroRigControls(ARM_L)
+        cmds.undo()
+        self.assertEqual(values(ARM_L, ["rotateY"]), [30])
+        cmds.redo()
+        self.assertEqual(values(ARM_L, ["rotateY"]), [0])
+
+    def test_a_rig_root_cannot_be_mixed_with_controls(self):
+        self.assertMayaError(lambda: cmds.zeroRigControls(rig_root(), ARM_L), "can't be combined")
+
+    def test_nothing_given_is_an_error_and_the_selection_is_ignored(self):
+        cmds.select(ARM_L)
+        self.assertMayaError(lambda: cmds.zeroRigControls())
+
+    def test_a_control_given_twice_is_reset_once(self):
+        set_values(ARM_L, rotateY=30)
+        self.assertEqual(cmds.zeroRigControls(ARM_L, ARM_L), ["rig:upperArm_l_ctrl_l"])
 
 
 class MirrorRigPose(PoseTestCase):
@@ -232,8 +263,60 @@ class MirrorRigPose(PoseTestCase):
         cmds.redo()
         self.assertEqual(values(ARM_R, ["rotateY"]), [20])
 
-    def test_object_must_be_a_rig_root(self):
-        self.assertMayaError(lambda: cmds.mirrorRigPose(ARM_L), "Not a rig root")
+    def test_object_must_be_a_rig_root_or_control(self):
+        self.assertMayaError(lambda: cmds.mirrorRigPose(rig_name("upperArm_l_jnt")), "Not a rig root or rig control")
+
+    def test_left_controls_mirror_from_their_side_and_leave_other_controls_alone(self):
+        set_values(ARM_L, rotateY=20)
+        set_values(FOREARM_L, rotateZ=45)
+        set_values(ARM_R, rotateZ=9)
+        changed = cmds.mirrorRigPose(ARM_L)
+        self.assertEqual(changed, ["rig:upperArm_r_ctrl_r"])
+        self.assertEqual(values(ARM_R, ["rotateY", "rotateZ"]), [20, 0])
+        self.assertEqual(values(FOREARM_R, ["rotateZ"]), [0])
+
+    def test_right_controls_mirror_from_their_side_by_default(self):
+        set_values(ARM_R, rotateZ=-40)
+        set_values(ARM_L, rotateZ=5)
+        self.assertEqual(cmds.mirrorRigPose(ARM_R), ["rig:upperArm_l_ctrl_l"])
+        self.assertEqual(values(ARM_L, ["rotateZ"]), [-40])
+
+    def test_controls_from_both_sides_mirror_left_to_right(self):
+        set_values(ARM_L, rotateY=20)
+        set_values(FOREARM_R, rotateZ=45)
+        cmds.mirrorRigPose(ARM_L, FOREARM_R)
+        self.assertEqual(values(ARM_R, ["rotateY"]), [20])
+        self.assertEqual(values(FOREARM_L, ["rotateZ"]), [0])
+        self.assertEqual(values(FOREARM_R, ["rotateZ"]), [45])
+
+    def test_a_pair_given_from_both_ends_mirrors_left_onto_right(self):
+        set_values(ARM_L, rotateY=20)
+        set_values(ARM_R, rotateY=-7)
+        cmds.mirrorRigPose(ARM_L, ARM_R)
+        self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+        self.assertEqual(values(ARM_R, ["rotateY"]), [20])
+
+    def test_left_to_right_flag_wins_over_the_controls_side(self):
+        set_values(ARM_R, rotateY=-7)
+        set_values(ARM_L, rotateY=20)
+        cmds.mirrorRigPose(ARM_R, ARM_L, leftToRight=False)
+        self.assertEqual(values(ARM_L, ["rotateY"]), [-7])
+        cmds.undo()
+        cmds.mirrorRigPose(ARM_R, leftToRight=True)   # no Left control given, so nothing is a source
+        self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+
+    def test_center_controls_alone_mirror_nothing(self):
+        set_values(CHEST, translateX=2)
+        self.assertEqual(cmds.mirrorRigPose(CHEST) or [], [])
+        self.assertEqual(values(CHEST, ["translateX"]), [2])
+
+    def test_controls_undo_and_redo(self):
+        set_values(ARM_L, rotateY=20)
+        cmds.mirrorRigPose(ARM_L)
+        cmds.undo()
+        self.assertEqual(values(ARM_R, ["rotateY"]), [0])
+        cmds.redo()
+        self.assertEqual(values(ARM_R, ["rotateY"]), [20])
 
 
 class FlipRigPose(PoseTestCase):
@@ -293,8 +376,45 @@ class FlipRigPose(PoseTestCase):
         self.assertEqual(values(ARM_R, ["rotateY"]), [20])
         self.assertEqual(values(CHEST, ["translateX"]), [-1])
 
-    def test_object_must_be_a_rig_root(self):
-        self.assertMayaError(lambda: cmds.flipRigPose(CHEST), "Not a rig root")
+    def test_object_must_be_a_rig_root_or_control(self):
+        self.assertMayaError(lambda: cmds.flipRigPose(rig_name("upperArm_l_jnt")), "Not a rig root or rig control")
+
+    def test_one_control_swaps_with_its_mirror_and_nothing_else_moves(self):
+        set_values(ARM_L, rotateY=20)
+        set_values(ARM_R, rotateY=-3)
+        set_values(FOREARM_L, rotateZ=45)
+        set_values(CHEST, translateX=1)
+        changed = cmds.flipRigPose(ARM_R)
+        self.assertEqual(sorted(changed), ["rig:upperArm_l_ctrl_l", "rig:upperArm_r_ctrl_r"])
+        self.assertEqual(values(ARM_L, ["rotateY"]), [-3])
+        self.assertEqual(values(ARM_R, ["rotateY"]), [20])
+        self.assertEqual(values(FOREARM_L, ["rotateZ"]), [45])
+        self.assertEqual(values(CHEST, ["translateX"]), [1])
+
+    def test_a_pair_given_from_both_ends_swaps_once(self):
+        set_values(ARM_L, rotateY=20)
+        set_values(ARM_R, rotateY=-3)
+        cmds.flipRigPose(ARM_L, ARM_R)
+        self.assertEqual(values(ARM_L, ["rotateY"]), [-3])
+        self.assertEqual(values(ARM_R, ["rotateY"]), [20])
+
+    def test_a_center_control_alone_flips_through_its_channels(self):
+        set_values(CHEST, translateX=1, rotateY=20)
+        set_values(ARM_L, rotateY=5)
+        self.assertEqual(cmds.flipRigPose(CHEST), ["rig:chest_ctrl_c"])
+        self.assertEqual(values(CHEST, ["translateX", "rotateY"]), [-1, -20])
+        self.assertEqual(values(ARM_L, ["rotateY"]), [5])
+
+    def test_controls_undo_and_redo(self):
+        set_values(ARM_L, rotateY=20)
+        set_values(CHEST, translateX=1)
+        cmds.flipRigPose(ARM_L, CHEST)
+        cmds.undo()
+        self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+        self.assertEqual(values(CHEST, ["translateX"]), [1])
+        cmds.redo()
+        self.assertEqual(values(ARM_R, ["rotateY"]), [20])
+        self.assertEqual(values(CHEST, ["translateX"]), [-1])
 
 
 class FlipCenterOffAxis(RigTestCase):

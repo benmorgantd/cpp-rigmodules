@@ -24,7 +24,7 @@ A control's channels are its keyable attributes that aren't locked or driven: th
 - A channel's **rest** is its attribute default, so a build pose is every channel at rest. [`zeroRigControls`](commands.md#zerorigcontrols) goes there.
 - Its **mirror mode** is `copy` or `negate`. Transforms copy. A custom channel states its own as an attribute category (`mirrorCopy` or `mirrorNegate`), and the pose commands refuse a control that has a custom channel with neither.
 - Channel names are public API, like markup: saved poses and animation depend on them. A rename needs an entry in the alias list (see D32).
-- Query them with [`getRigControlChannels`](commands.md#getrigcontrolchannels).
+- Query them with [`getRigControlChannels`](commands.md#getrigcontrolchannels). [`getRigControlInfo`](commands.md#getrigcontrolinfo) gives a control's module, side, usage and mirror.
 
 ## Shapes
 
@@ -34,7 +34,8 @@ A control's shape is set by these attributes:
 |---|---|
 | `shapeType` | The shape (list below). Templates set it per module with `shapeType`. |
 | `shapeTransform` | Matrix from shape space to the control's object space: scale, rotate and offset the shape without moving the control |
-| `filled` | Fills the shape at half the wire's alpha, with the wire drawn on top. Every shape can be filled. |
+| `filled` | On by default. Fills the shape at 0.75 of the wire's alpha, with the wire drawn on top. Every shape can be filled. |
+| `xray` | On by default. Draws the control in front of meshes and other geometry. Not saved in the shape file. |
 | `wireframeColor`, `wireframeAlpha` | Color. The build sets the color from the module's side. |
 
 Every shape is a small mesh: its edges draw the wire and its faces draw the fill. At scale 1 every shape fits a cube from -1 to 1, and `shapeTransform` scales every shape freely on every axis, round ones included.

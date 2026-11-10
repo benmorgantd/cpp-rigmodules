@@ -12,6 +12,16 @@
 #include <maya/MObjectArray.h>
 #include <maya/MStatus.h>
 #include <maya/MString.h>
+#include <maya/MStringArray.h>
+
+// What a command that works on a rig or on some of its controls was given (D34). Either the rig root, which means every
+// control, or the named controls, which all belong to oRigRoot.
+struct RigControlScope
+{
+	MObject oRigRoot;
+	bool isWholeRig = false;
+	MObjectArray oControls;   // the named controls. Empty when isWholeRig.
+};
 
 // Walks a built rig through its connections, never through names (D24):
 // rig root .rigModules -> each module's .rigRoot, then each module's .controlMessage[i] -> control .rigModule.
@@ -21,6 +31,16 @@ class RigTraversal
 public:
 	// The rig root node with this name. Fails if it is missing or not a rigRootModule.
 	static MStatus getRigRoot(const MString& name, MObject& oOutRigRoot);
+
+	// The rig control node with this name. Fails if it is missing or not a rigControlNode.
+	static MStatus getRigControl(const MString& name, MObject& oOutControl);
+
+	// Reads a command's objects as a scope: exactly one rig root, or one or more controls of one rig. Fails for
+	// anything else, for a rig root mixed with controls, and for controls of two rigs.
+	static MStatus getControlScope(const MStringArray& names, RigControlScope& outScope);
+
+	// Every control the scope names, or every control of the rig for a whole-rig scope, in getRigControls order.
+	static MStatus getScopeControls(const RigControlScope& scope, MObjectArray& oOutControls);
 
 	// The rig root a rig root, rig module, rig control or joint belongs to. A rig root is its own. A joint belongs to
 	// the rig whose module drives its offsetParentMatrix. Fails for any other node.
@@ -67,7 +87,17 @@ public:
 	// Fails if there is none.
 	static MStatus getMirrorControl(const MObject& oControl, MObject& oOutMirror);
 
+	// Like getMirrorControl, but a control with no mirror succeeds with a null object and reports nothing.
+	static MStatus findMirrorControl(const MObject& oControl, MObject& oOutMirror);
+
+	// Everything getRigControlInfo reports about a control. Fails for a control with no module or invalid markup.
+	static MStatus getControlInfo(const MObject& oControl, ControlInfo& outInfo);
+
 	// Every sourceSide control with the control of the same usage on the other side (D28), index for index, in
 	// getRigControls order. Warns about a source control with no mirror and leaves it out of both arrays.
 	static MStatus getMirrorControlPairs(const MObject& oRigRoot, const std::string& sourceSide, MObjectArray& oOutSources, MObjectArray& oOutMirrors);
+
+	// The same for the controls in oCandidates only: those whose side is sourceSide are paired, the rest are ignored.
+	static MStatus getMirrorControlPairs(const MObject& oRigRoot, const std::string& sourceSide, const MObjectArray& oCandidates,
+		MObjectArray& oOutSources, MObjectArray& oOutMirrors);
 };

@@ -179,6 +179,16 @@ namespace ControlChannelKey
 	inline constexpr const char* Mirror{ "mirror" };
 }
 
+// Keys of one control in getRigControlInfo's JSON result (D34). Public API, read through the rigmodules Python package.
+namespace ControlInfoKey
+{
+	inline constexpr const char* ModuleType{ "moduleType" };
+	inline constexpr const char* Module{ "module" };
+	inline constexpr const char* Side{ "side" };
+	inline constexpr const char* Usage{ "usage" };
+	inline constexpr const char* Mirror{ "mirror" };
+}
+
 namespace PlugAndSocketNames
 {
 	inline constexpr const char* Start{ "start" };

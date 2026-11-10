@@ -3,6 +3,8 @@
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/Utilities.h"
 
+#include <string>
+
 #include <maya/MArgDatabase.h>
 #include <maya/MGlobal.h>
 #include <maya/MStringArray.h>
@@ -12,11 +14,11 @@ namespace
 	// Code reads flags by long name only. Short names appear only in newSyntax() (D14).
 	constexpr const char* kLeftToRightFlag{ "-leftToRight" };
 
-	// The syntax of a command that takes only the rig root.
-	MSyntax rigRootSyntax()
+	// The syntax of a command that takes a rig root or one or more controls.
+	MSyntax controlScopeSyntax()
 	{
 		MSyntax syntax;
-		syntax.setObjectType(MSyntax::kStringObjects, 1, 1);
+		syntax.setObjectType(MSyntax::kStringObjects, 1);
 		syntax.useSelectionAsDefault(false);
 		return syntax;
 	}
@@ -48,22 +50,22 @@ bool ZeroRigControlsCmd::isUndoable() const
 
 MSyntax ZeroRigControlsCmd::newSyntax()
 {
-	return rigRootSyntax();
+	return controlScopeSyntax();
 }
 
 MStatus ZeroRigControlsCmd::doIt(const MArgList& args)
 {
 	MStatus status;
 	MArgDatabase argData(syntax(), args, &status);
-	MObject oRigRoot;
-	status = CommandUtils::readRigRoot(argData, status, aCommandString, oRigRoot);
+	RigControlScope scope;
+	status = CommandUtils::readControlScope(argData, status, aCommandString, scope);
 	if (!status)
 	{
 		return status;
 	}
 
 	MStringArray changedNames;
-	status = RigPoseScene::zeroRigControls(oRigRoot, fDGMod, changedNames);
+	status = RigPoseScene::zeroRigControls(scope, fDGMod, changedNames);
 	if (!status)
 	{
 		return status;
@@ -98,7 +100,7 @@ bool MirrorRigPoseCmd::isUndoable() const
 
 MSyntax MirrorRigPoseCmd::newSyntax()
 {
-	MSyntax syntax = rigRootSyntax();
+	MSyntax syntax = controlScopeSyntax();
 	CHECK_MSTATUS(syntax.addFlag("-ltr", kLeftToRightFlag, MSyntax::kBoolean));
 	return syntax;
 }
@@ -107,21 +109,24 @@ MStatus MirrorRigPoseCmd::doIt(const MArgList& args)
 {
 	MStatus status;
 	MArgDatabase argData(syntax(), args, &status);
-	MObject oRigRoot;
-	status = CommandUtils::readRigRoot(argData, status, aCommandString, oRigRoot);
+	RigControlScope scope;
+	status = CommandUtils::readControlScope(argData, status, aCommandString, scope);
 	if (!status)
 	{
 		return status;
 	}
 
-	bool leftToRight = true;
+	// Without the flag, the scene function picks the source side (see RigPoseScene::mirrorRigPose).
+	std::string sourceSide;
 	if (argData.isFlagSet(kLeftToRightFlag))
 	{
+		bool leftToRight = true;
 		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kLeftToRightFlag, 0, leftToRight));
+		sourceSide = leftToRight ? SideNames::Left : SideNames::Right;
 	}
 
 	MStringArray changedNames;
-	status = RigPoseScene::mirrorRigPose(oRigRoot, leftToRight ? SideNames::Left : SideNames::Right, fDGMod, changedNames);
+	status = RigPoseScene::mirrorRigPose(scope, sourceSide, fDGMod, changedNames);
 	if (!status)
 	{
 		return status;
@@ -156,22 +161,22 @@ bool FlipRigPoseCmd::isUndoable() const
 
 MSyntax FlipRigPoseCmd::newSyntax()
 {
-	return rigRootSyntax();
+	return controlScopeSyntax();
 }
 
 MStatus FlipRigPoseCmd::doIt(const MArgList& args)
 {
 	MStatus status;
 	MArgDatabase argData(syntax(), args, &status);
-	MObject oRigRoot;
-	status = CommandUtils::readRigRoot(argData, status, aCommandString, oRigRoot);
+	RigControlScope scope;
+	status = CommandUtils::readControlScope(argData, status, aCommandString, scope);
 	if (!status)
 	{
 		return status;
 	}
 
 	MStringArray changedNames;
-	status = RigPoseScene::flipRigPose(oRigRoot, fDGMod, changedNames);
+	status = RigPoseScene::flipRigPose(scope, fDGMod, changedNames);
 	if (!status)
 	{
 		return status;

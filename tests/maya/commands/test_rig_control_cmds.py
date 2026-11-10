@@ -1,4 +1,4 @@
-"""getRigControls, saveRigControlShapes and loadRigControlShapes, plus the control markup the build writes.
+"""getRigControls, getRigControlInfo, saveRigControlShapes and loadRigControlShapes, plus the control markup the build writes.
 
 Every test builds fkchain_two_chains: fkchain_1 (Center a, b), fkchain_2 (Left c) and the layout (Center layout_0..2).
 """
@@ -7,6 +7,7 @@ import os
 
 from maya import cmds
 
+import rigmodules.query
 from rigtest import config
 from rigtest.case import RigTestCase, rig_name
 
@@ -53,6 +54,14 @@ class ControlMarkup(RigControlTestCase):
     def test_layout_controls_are_center_layout_n(self):
         for i in range(3):
             self.assertEqual(markup("layout_%d_ctrl_c" % i), {"markupVersion": 1, "side": "Center", "usage": "layout_%d" % i})
+
+
+class ControlDisplayDefaults(RigControlTestCase):
+
+    def test_new_controls_are_filled_and_xray(self):
+        for control in ("a_ctrl_c", "c_ctrl_l"):
+            self.assertTrue(cmds.getAttr(rig_name(control) + ".filled"))
+            self.assertTrue(cmds.getAttr(rig_name(control) + ".xray"))
 
 
 class AimControlMarkup(RigTestCase):
@@ -103,6 +112,83 @@ class GetRigControls(RigControlTestCase):
     def test_selection_is_not_used(self):
         cmds.select(self.root)
         self.assertMayaError(lambda: cmds.getRigControls())
+
+
+def info(*controls):
+    return json.loads(cmds.getRigControlInfo(*controls))
+
+
+class GetRigControlInfo(RigControlTestCase):
+
+    def test_reports_module_markup_and_mirror(self):
+        found = info(rig_name("c_ctrl_l"), rig_name("a_ctrl_c"))
+        self.assertEqual(sorted(found), ["rig:a_ctrl_c", "rig:c_ctrl_l"])
+        self.assertEqual(found["rig:a_ctrl_c"]["moduleType"], "FkChain")
+        self.assertEqual(found["rig:a_ctrl_c"]["side"], "Center")
+        self.assertEqual(found["rig:a_ctrl_c"]["usage"], "a")
+        self.assertEqual(found["rig:a_ctrl_c"]["mirror"], "rig:a_ctrl_c")   # a Center control is its own mirror
+        self.assertEqual(cmds.nodeType(found["rig:a_ctrl_c"]["module"]), "fkChainModule")
+
+    def test_a_side_control_with_no_mirror_reports_null(self):
+        self.assertIsNone(info(rig_name("c_ctrl_l"))["rig:c_ctrl_l"]["mirror"])
+
+    def test_layout_controls_report_the_layout_module(self):
+        found = info(rig_name("layout_1_ctrl_c"))["rig:layout_1_ctrl_c"]
+        self.assertEqual((found["moduleType"], found["side"], found["usage"]), ("Layout", "Center", "layout_1"))
+
+    def test_object_must_be_a_rig_control(self):
+        self.assertMayaError(lambda: cmds.getRigControlInfo(rig_name("fkchain_1")), "Not a rig control")
+        self.assertMayaError(lambda: cmds.getRigControlInfo("missing"), "Not a rig control")
+
+    def test_control_without_markup_is_an_error(self):
+        cmds.setAttr(rig_name("b_ctrl_c") + ".controlMarkup", "", type="string")
+        self.assertMayaError(lambda: cmds.getRigControlInfo(rig_name("b_ctrl_c")), "b_ctrl_c", "no control markup")
+
+    def test_selection_is_not_used(self):
+        cmds.select(rig_name("a_ctrl_c"))
+        self.assertMayaError(lambda: cmds.getRigControlInfo())
+
+
+class MirrorControlInfo(RigTestCase):
+
+    def test_a_pair_reports_each_other_as_mirror(self):
+        self.build_standard("mirror_arms", "mirror_arms")
+        left, right = rig_name("upperArm_l_ctrl_l"), rig_name("upperArm_r_ctrl_r")
+        found = info(left, right)
+        self.assertEqual(found["rig:upperArm_l_ctrl_l"]["mirror"], "rig:upperArm_r_ctrl_r")
+        self.assertEqual(found["rig:upperArm_r_ctrl_r"]["mirror"], "rig:upperArm_l_ctrl_l")
+        self.assertEqual(cmds.getRigMirrorControl(left), found["rig:upperArm_l_ctrl_l"]["mirror"])
+
+
+class PythonControlQuery(RigControlTestCase):
+
+    def test_get_rig_controls_returns_every_control_in_module_order(self):
+        controls = rigmodules.query.get_rig_controls(self.root)
+        self.assertEqual(short(c.node for c in controls), ALL_CONTROLS)
+        self.assertEqual(controls[2], rigmodules.query.RigControl(
+            node="rig:c_ctrl_l", module=controls[2].module, module_type="FkChain", side="Left", usage="c", mirror=None))
+
+    def test_get_rig_controls_filters_like_the_command(self):
+        self.assertEqual(short(c.node for c in rigmodules.query.get_rig_controls(self.root, module_type="Layout")), ALL_CONTROLS[3:])
+        self.assertEqual(short(c.node for c in rigmodules.query.get_rig_controls(self.root, side="Center", usage=["a", "c"])), ["a_ctrl_c"])
+        self.assertEqual(rigmodules.query.get_rig_controls(self.root, usage="nothing"), [])
+
+    def test_get_control_and_find_control(self):
+        control = rigmodules.query.get_control(rig_name("b_ctrl_c"))
+        self.assertEqual((control.module_type, control.side, control.usage, control.mirror), ("FkChain", "Center", "b", "rig:b_ctrl_c"))
+        self.assertEqual(rigmodules.query.find_control(rig_name("b_ctrl_c")), control)
+        self.assertIsNone(rigmodules.query.find_control(rig_name("fkchain_1")))
+        self.assertIsNone(rigmodules.query.find_control(self.root))
+
+    def test_get_control_raises_for_another_node(self):
+        with self.assertRaises(RuntimeError):
+            rigmodules.query.get_control(self.root)
+
+    def test_get_channels_is_one_call_for_many_controls(self):
+        channels = rigmodules.query.get_channels([rig_name("a_ctrl_c"), rig_name("c_ctrl_l")])
+        self.assertEqual(sorted(channels), ["rig:a_ctrl_c", "rig:c_ctrl_l"])
+        self.assertEqual(channels["rig:a_ctrl_c"], rigmodules.query.get_control_channels(rig_name("a_ctrl_c")))
+        self.assertEqual(rigmodules.query.get_channels([]), {})
 
 
 class SaveShapes(RigControlTestCase):

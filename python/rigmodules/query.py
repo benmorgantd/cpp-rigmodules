@@ -37,7 +37,20 @@ class ControlChannel:
     mirror: str            # "copy" or "negate": how the value goes to the other side
 
 
+@dataclasses.dataclass(frozen=True)
+class RigControl:
+    """What a rig control is (D25, D34). Built from getRigControlInfo's JSON result."""
+
+    node: str              # the control's name
+    module: str            # the module node that owns it
+    module_type: str       # the template moduleType: "Layout", "FkChain", "Aim"
+    side: str              # "Center", "Left" or "Right"
+    usage: str             # the control markup usage. (side, usage) is unique in a rig.
+    mirror: str | None     # the control on the other side. A Center control is its own mirror. None when it has none.
+
+
 RIG_ROOT_TYPE = "rigRootModule"
+RIG_CONTROL_TYPE = "rigControlNode"
 
 
 def get_rigs(namespace: str | None = None) -> list[RigInfo]:
@@ -80,3 +93,56 @@ def get_control_channels(control: str) -> list[ControlChannel]:
     RuntimeError for a node that isn't a rig control, or a custom channel that declares no mirror mode."""
     (entries,) = json.loads(cmds.getRigControlChannels(control)).values()
     return [ControlChannel(**entry) for entry in entries]
+
+
+def get_rig_controls(
+    rig_root: str,
+    module_type: str | None = None,
+    side: str | None = None,
+    usage: str | None = None,
+) -> list[RigControl]:
+    """The rig's controls in module order, then each module's control order. Each filter is optional and every
+    one given must match. A filter takes one value or a list of alternatives."""
+    filters = {"moduleType": module_type, "side": side, "usage": usage}
+    controls = cmds.getRigControls(rig_root, **{key: value for key, value in filters.items() if value is not None})
+    return list(_get_controls_info(controls).values())
+
+
+def find_control(node: str) -> RigControl | None:
+    """The RigControl for a rig control, or None for any other node. Raises RuntimeError for a missing node or a
+    broken control."""
+    if cmds.nodeType(node) != RIG_CONTROL_TYPE:
+        return None
+    return get_control(node)
+
+
+def get_control(node: str) -> RigControl:
+    """The RigControl for a rig control. Raises RuntimeError when the node isn't one."""
+    (control,) = _get_controls_info([node]).values()
+    return control
+
+
+def get_channels(controls: list[str]) -> dict[str, list[ControlChannel]]:
+    """Each control's channels, keyed by the control name as the command returns it. One command call for all of
+    them, so use it instead of get_control_channels in a loop. Raises like get_control_channels."""
+    if not controls:
+        return {}
+    data = json.loads(cmds.getRigControlChannels(*controls))
+    return {name: [ControlChannel(**entry) for entry in entries] for name, entries in data.items()}
+
+
+def _get_controls_info(controls: list[str]) -> dict[str, RigControl]:
+    if not controls:
+        return {}
+    data = json.loads(cmds.getRigControlInfo(*controls))
+    return {
+        name: RigControl(
+            node=name,
+            module=entry["module"],
+            module_type=entry["moduleType"],
+            side=entry["side"],
+            usage=entry["usage"],
+            mirror=entry["mirror"],
+        )
+        for name, entry in data.items()
+    }

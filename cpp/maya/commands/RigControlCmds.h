@@ -80,6 +80,20 @@ public:
 	static const char* aCommandString;
 };
 
+// cmds.getRigControlInfo("rig:arm_ctrl_l", "rig:arm_ctrl_r")
+//   -> a JSON object: control name -> moduleType, module, side, usage and mirror (the mirror control's name, null when
+//   it has none), keys in ControlInfoKey (D34). Controls are passed by name, one or more. Query only, so not undoable.
+class GetRigControlInfoCmd : public MPxCommand
+{
+public:
+	MStatus doIt(const MArgList& args) override;
+	bool isUndoable() const override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const char* aCommandString;
+};
+
 // cmds.mirrorRigControlShapes("rig:rigRoot", leftToRight=True)
 //   -> the names of the controls changed. Reflects every Left control's shape across world X = 0 onto its Right
 //   mirror (or Right onto Left with leftToRight=False), using rest world matrices (D28). Undoable.

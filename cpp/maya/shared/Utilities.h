@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+struct RigControlScope;
 struct ValidationReport;
 
 struct TransformAttrEntry
@@ -125,6 +126,10 @@ public:
 	// The rig root that is the command's one string object. Reports a parse failure (parseStatus is the
 	// MArgDatabase constructor's), a wrong object count, and a node that isn't a rig root.
 	static MStatus readRigRoot(const MArgDatabase& argData, MStatus parseStatus, const char* commandName, MObject& oOutRigRoot);
+
+	// The command's objects as a rig control scope (RigTraversal::getControlScope): one rig root, or one or more
+	// controls of one rig. Reports a parse failure and anything else.
+	static MStatus readControlScope(const MArgDatabase& argData, MStatus parseStatus, const char* commandName, RigControlScope& outScope);
 
 	// The command's one string object. Reports "<command> takes exactly one <what>." for none or several.
 	static MStatus readSingleObject(const MArgDatabase& argData, const char* commandName, const char* what, MString& outName);

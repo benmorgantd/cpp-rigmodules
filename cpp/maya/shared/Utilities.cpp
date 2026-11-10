@@ -417,6 +417,20 @@ MStatus CommandUtils::readRigRoot(const MArgDatabase& argData, MStatus parseStat
 	return RigTraversal::getRigRoot(rigRootName, oOutRigRoot);
 }
 
+MStatus CommandUtils::readControlScope(const MArgDatabase& argData, MStatus parseStatus, const char* commandName, RigControlScope& outScope)
+{
+	if (!parseStatus)
+	{
+		MGlobal::displayError(MString("Error parsing ") + commandName + " arguments.");
+		return parseStatus;
+	}
+
+	MStringArray names;
+	MStatus status = argData.getObjects(names);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	return RigTraversal::getControlScope(names, outScope);
+}
+
 MStatus CommandUtils::readSingleObject(const MArgDatabase& argData, const char* commandName, const char* what, MString& outName)
 {
 	MStringArray objects;

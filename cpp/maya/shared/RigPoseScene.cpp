@@ -15,6 +15,7 @@
 #include <maya/MGlobal.h>
 #include <maya/MMatrix.h>
 #include <maya/MObjectArray.h>
+#include <maya/MObjectHandle.h>
 #include <maya/MPxTransform.h>
 
 namespace
@@ -295,6 +296,111 @@ namespace
 		}
 		return MStatus::kSuccess;
 	}
+
+	// The side a set of controls mirrors from: their side when every Left or Right control among them has the same
+	// one, Left otherwise (D34). Center controls don't vote, because they have no other side.
+	MStatus inferSourceSide(const MObjectArray& oControls, std::string& outSide)
+	{
+		outSide.clear();
+		for (unsigned int i = 0; i < oControls.length(); ++i)
+		{
+			ControlMarkup markup;
+			MStatus status = RigTraversal::getControlMarkup(oControls[i], markup);
+			if (!status)
+			{
+				return status;
+			}
+			if (markup.side == SideNames::Center)
+			{
+				continue;
+			}
+			if (outSide.empty())
+			{
+				outSide = markup.side;
+			}
+			else if (outSide != markup.side)
+			{
+				outSide = SideNames::Left;
+				return MStatus::kSuccess;
+			}
+		}
+		if (outSide.empty())
+		{
+			outSide = SideNames::Left;
+		}
+		return MStatus::kSuccess;
+	}
+
+	bool containsControl(const MObjectArray& oControls, const MObject& oControl)
+	{
+		for (unsigned int i = 0; i < oControls.length(); ++i)
+		{
+			if (MObjectHandle(oControls[i]) == MObjectHandle(oControl))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// The controls a flip touches: Left and Right controls as pairs (index for index), and Center controls.
+	// A whole rig flips every control. A set of controls flips each control named and its mirror, once per pair.
+	MStatus collectFlipControls(const RigControlScope& scope, MObjectArray& oOutLefts, MObjectArray& oOutRights, MObjectArray& oOutCenters)
+	{
+		oOutLefts.clear();
+		oOutRights.clear();
+		oOutCenters.clear();
+
+		if (scope.isWholeRig)
+		{
+			RigControlFilter centerFilter;
+			centerFilter.sides.push_back(SideNames::Center);
+			MStatus status = RigTraversal::getMirrorControlPairs(scope.oRigRoot, SideNames::Left, oOutLefts, oOutRights);
+			if (status)
+			{
+				status = RigTraversal::getRigControls(scope.oRigRoot, centerFilter, oOutCenters);
+			}
+			return status;
+		}
+
+		for (const char* side : { SideNames::Left, SideNames::Right })
+		{
+			MObjectArray oSources;
+			MObjectArray oMirrors;
+			MStatus status = RigTraversal::getMirrorControlPairs(scope.oRigRoot, side, scope.oControls, oSources, oMirrors);
+			if (!status)
+			{
+				return status;
+			}
+
+			const bool sourceIsLeft = std::string(side) == SideNames::Left;
+			for (unsigned int i = 0; i < oSources.length(); ++i)
+			{
+				const MObject& oLeft = sourceIsLeft ? oSources[i] : oMirrors[i];
+				const MObject& oRight = sourceIsLeft ? oMirrors[i] : oSources[i];
+				if (!containsControl(oOutLefts, oLeft))
+				{
+					oOutLefts.append(oLeft);
+					oOutRights.append(oRight);
+				}
+			}
+		}
+
+		for (unsigned int i = 0; i < scope.oControls.length(); ++i)
+		{
+			ControlMarkup markup;
+			MStatus status = RigTraversal::getControlMarkup(scope.oControls[i], markup);
+			if (!status)
+			{
+				return status;
+			}
+			if (markup.side == SideNames::Center)
+			{
+				oOutCenters.append(scope.oControls[i]);
+			}
+		}
+		return MStatus::kSuccess;
+	}
 }
 
 MStatus RigPoseScene::setMirrorMode(MFnAttribute& fnAttr, bool negate)
@@ -386,10 +492,10 @@ MStatus RigPoseScene::getControlChannels(const MObject& oControl, std::vector<Ch
 	return MStatus::kSuccess;
 }
 
-MStatus RigPoseScene::zeroRigControls(const MObject& oRigRoot, MDGModifier& dgMod, MStringArray& outChangedNames)
+MStatus RigPoseScene::zeroRigControls(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames)
 {
 	MObjectArray oControls;
-	MStatus status = RigTraversal::getRigControls(oRigRoot, RigControlFilter{}, oControls);
+	MStatus status = RigTraversal::getScopeControls(scope, oControls);
 	if (!status)
 	{
 		return status;
@@ -418,11 +524,27 @@ MStatus RigPoseScene::zeroRigControls(const MObject& oRigRoot, MDGModifier& dgMo
 	return MStatus::kSuccess;
 }
 
-MStatus RigPoseScene::mirrorRigPose(const MObject& oRigRoot, const std::string& sourceSide, MDGModifier& dgMod, MStringArray& outChangedNames)
+MStatus RigPoseScene::mirrorRigPose(const RigControlScope& scope, const std::string& sourceSide, MDGModifier& dgMod, MStringArray& outChangedNames)
 {
 	MObjectArray oSources;
 	MObjectArray oMirrors;
-	MStatus status = RigTraversal::getMirrorControlPairs(oRigRoot, sourceSide, oSources, oMirrors);
+	MStatus status;
+	if (scope.isWholeRig)
+	{
+		status = RigTraversal::getMirrorControlPairs(scope.oRigRoot, sourceSide.empty() ? SideNames::Left : sourceSide, oSources, oMirrors);
+	}
+	else
+	{
+		std::string side = sourceSide;
+		if (side.empty())
+		{
+			status = inferSourceSide(scope.oControls, side);
+		}
+		if (status)
+		{
+			status = RigTraversal::getMirrorControlPairs(scope.oRigRoot, side, scope.oControls, oSources, oMirrors);
+		}
+	}
 	if (!status)
 	{
 		return status;
@@ -439,11 +561,12 @@ MStatus RigPoseScene::mirrorRigPose(const MObject& oRigRoot, const std::string& 
 	return MStatus::kSuccess;
 }
 
-MStatus RigPoseScene::flipRigPose(const MObject& oRigRoot, MDGModifier& dgMod, MStringArray& outChangedNames)
+MStatus RigPoseScene::flipRigPose(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames)
 {
 	MObjectArray oLefts;
 	MObjectArray oRights;
-	MStatus status = RigTraversal::getMirrorControlPairs(oRigRoot, SideNames::Left, oLefts, oRights);
+	MObjectArray oCenters;
+	MStatus status = collectFlipControls(scope, oLefts, oRights, oCenters);
 	if (!status)
 	{
 		return status;
@@ -463,14 +586,6 @@ MStatus RigPoseScene::flipRigPose(const MObject& oRigRoot, MDGModifier& dgMod, M
 		}
 	}
 
-	RigControlFilter centerFilter;
-	centerFilter.sides.push_back(SideNames::Center);
-	MObjectArray oCenters;
-	status = RigTraversal::getRigControls(oRigRoot, centerFilter, oCenters);
-	if (!status)
-	{
-		return status;
-	}
 	for (unsigned int i = 0; i < oCenters.length(); ++i)
 	{
 		status = flipCenterControl(oCenters[i], dgMod, outChangedNames);

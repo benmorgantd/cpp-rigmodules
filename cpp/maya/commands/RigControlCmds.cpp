@@ -1,9 +1,9 @@
 #include "maya/commands/RigControlCmds.h"
 #include "core/Constants.h"
 #include "core/ControlChannels.h"
+#include "core/ControlMarkup.h"
 #include "core/ControlShapeFile.h"
 #include "core/RigControlFilter.h"
-#include "maya/nodes/RigControlNode.h"
 #include "maya/shared/ControlShapeScene.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/RigTraversal.h"
@@ -13,7 +13,6 @@
 #include <vector>
 
 #include <maya/MArgDatabase.h>
-#include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
 #include <maya/MObjectArray.h>
 #include <maya/MStringArray.h>
@@ -26,18 +25,6 @@ namespace
 	constexpr const char* kUsageFlag{ "-usage" };
 	constexpr const char* kFileFlag{ "-file" };
 	constexpr const char* kLeftToRightFlag{ "-leftToRight" };
-
-	// A rig control by name. Reports a missing node or a node of another type.
-	MStatus getRigControl(const MString& controlName, MObject& oOutControl)
-	{
-		if (DagUtils::getMObjectFromName(controlName, oOutControl) != MStatus::kSuccess
-			|| MFnDependencyNode(oOutControl).typeId() != RigControlNode::id)
-		{
-			MGlobal::displayError(MString("Not a rig control: ") + controlName);
-			return MStatus::kFailure;
-		}
-		return MStatus::kSuccess;
-	}
 }
 
 // getRigControls ---------------------------------------------------------------------------------
@@ -280,7 +267,7 @@ MStatus GetRigMirrorControlCmd::doIt(const MArgList& args)
 	}
 
 	MObject oControl;
-	status = getRigControl(controlName, oControl);
+	status = RigTraversal::getRigControl(controlName, oControl);
 	if (!status)
 	{
 		return status;
@@ -335,7 +322,7 @@ MStatus GetRigControlChannelsCmd::doIt(const MArgList& args)
 	for (unsigned int i = 0; i < controlNames.length(); ++i)
 	{
 		MObject oControl;
-		status = getRigControl(controlNames[i], oControl);
+		status = RigTraversal::getRigControl(controlNames[i], oControl);
 		if (!status)
 		{
 			return status;
@@ -357,6 +344,62 @@ MStatus GetRigControlChannelsCmd::doIt(const MArgList& args)
 	}
 
 	setResult(MString(serializeControlChannels(result).c_str()));
+	return MStatus::kSuccess;
+}
+
+// getRigControlInfo -----------------------------------------------------------------------------
+const char* GetRigControlInfoCmd::aCommandString = "getRigControlInfo";
+
+void* GetRigControlInfoCmd::creator()
+{
+	return new GetRigControlInfoCmd();
+}
+
+bool GetRigControlInfoCmd::isUndoable() const
+{
+	return false;
+}
+
+MSyntax GetRigControlInfoCmd::newSyntax()
+{
+	MSyntax syntax;
+	syntax.setObjectType(MSyntax::kStringObjects, 1);
+	syntax.useSelectionAsDefault(false);
+	return syntax;
+}
+
+MStatus GetRigControlInfoCmd::doIt(const MArgList& args)
+{
+	MStatus status;
+	MArgDatabase argData(syntax(), args, &status);
+	if (!status)
+	{
+		MGlobal::displayError(MString("Error parsing ") + aCommandString + " arguments.");
+		return status;
+	}
+
+	MStringArray controlNames;
+	status = argData.getObjects(controlNames);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	ControlInfoList result;
+	for (unsigned int i = 0; i < controlNames.length(); ++i)
+	{
+		MObject oControl;
+		status = RigTraversal::getRigControl(controlNames[i], oControl);
+		ControlInfo info;
+		if (status)
+		{
+			status = RigTraversal::getControlInfo(oControl, info);
+		}
+		if (!status)
+		{
+			return status;
+		}
+		result.push_back({ DagUtils::getPartialPathName(oControl).asChar(), info });
+	}
+
+	setResult(MString(serializeControlInfo(result).c_str()));
 	return MStatus::kSuccess;
 }
 
