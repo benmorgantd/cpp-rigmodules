@@ -28,6 +28,11 @@ public:
 	// Adds every problem to report instead of stopping at the first.
 	static void collectMarkedJoints(const MDagPathArray& joints, MarkedJointSet& outSet, ValidationReport& report);
 
+	// Indexes every joint in the namespace (":rig", or ":" for the root) that has a rigMarkup attribute, through
+	// collectMarkedJoints, so invalid markup and two joints sharing a (side, usage) go into report. Unmarked joints
+	// are skipped. Walks MItDag filtered to joints, which hands over each path.
+	static void collectNamespaceJoints(const MString& absoluteNamespace, MarkedJointSet& outSet, ValidationReport& report);
+
 	// outHasMarkup is false, with success, when the joint has no markup attribute.
 	static MStatus readMarkup(const MObject& oJoint, bool& outHasMarkup, JointMarkup& outMarkup);
 

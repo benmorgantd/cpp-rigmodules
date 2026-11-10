@@ -111,6 +111,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/commands.md](docs/commands.md) | Every Maya command and flag |
 | [docs/modules.md](docs/modules.md) | Each module's joints, controls, child plugs and sockets |
 | [docs/controls.md](docs/controls.md) | Control markup, shapes, the shape file, and mirroring shapes |
+| [docs/skinning.md](docs/skinning.md) | Skin weight files, the mesh id, and loading weights onto a rebuilt rig |
 | [docs/python.md](docs/python.md) | The `rigmodules` Python package and `RigModules.mod` |
 | [tests/README.md](tests/README.md) | Running and writing tests |
 | [design/decisions.md](design/decisions.md) | Why the system is built the way it is (decision log) |
@@ -135,12 +136,12 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | Path | Contents |
 |---|---|
 | `cpp/` | `RigModules.vcxproj`, and the build output in `cpp/x64/` |
-| `cpp/core/` | Maya-free: template structs and loading (`RigJsonStructs`), template validation, joint and control markup schemas, the control shape library and shape file format, JSON string helpers, shared name constants |
+| `cpp/core/` | Maya-free: template structs and loading (`RigJsonStructs`), template validation, joint and control markup schemas, the control shape library and shape file format, the skin weight file format, JSON string helpers, shared name constants |
 | `cpp/maya/` | Plugin entry (`PluginMain.cpp`) and the registries every node and command is added to |
 | `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim |
-| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigConstraint`, `setRigConstraintSpace`, `rigJointMarkup`, `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`, `getRigInfo` |
+| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigConstraint`, `setRigConstraintSpace`, `rigJointMarkup`, `getRigControls`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`, `getRigInfo`, `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `pruneToMaxInfluences` |
 | `cpp/maya/nodes/` | Other nodes: rig and asset roots (the root also runs the build), the constraint node, the control node |
-| `cpp/maya/shared/` | Code used across those folders: the module base, utilities, joint markup in the scene, rig traversal, control shapes in the scene, enums |
+| `cpp/maya/shared/` | Code used across those folders: the module base, utilities, joint markup in the scene, rig traversal, control shapes and skin weights in the scene, enums |
 | `cpp/include/` | Vendored third-party headers (nlohmann json) |
 | `python/rigmodules/` | The Python package that wraps the commands for pipeline tools |
 | `RigModules.mod` | Maya module file that puts `python/` on `PYTHONPATH` |

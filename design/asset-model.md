@@ -189,7 +189,7 @@ Tests: `tests/asset/run.bat` runs 44 plain Python tests, then 3 mayapy tests aga
 2. Building a second variant into a namespace that already holds the shared skeleton.
 3. Build Rig from Asset… with a file browser on `asset.json`, loading shapes and weights after the build (`decisions.md`, "Before adding more modules").
 4. A publish step: build the rig, write it and its input copies into `publishes.create`'s folder, and set `publishVersion`.
-5. Handlers for weights (after weightio's API 1 calls are fixed), postops, poses and anims.
+5. Handlers for weights (on the RigModules `saveRigSkinWeights` and `loadRigSkinWeights` commands, D35, which replace `weightio`), postops, poses and anims.
 6. A Perforce source-control adapter, when a project uses Perforce.
 
 ### Potential TODO: asset GUIDs

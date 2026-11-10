@@ -735,9 +735,16 @@ public:
 	using Base = RigModuleWithControlsNode<Derived>;
 
 	inline static MObject aJointOPM;
+	// Each driven joint's world matrix at build time, by the same index as jointOPM. Stored data only: compute
+	// never reads it, so it affects nothing. Skin weight loading binds new influences at this rest (D35).
+	inline static MObject aJointRestWorld;
 
 	static MStatus initializeSharedAttributes();
 	static void declareStandardAffects();
+
+	// Hands the joint to the module: turns off inheritsTransform and segment scale compensate, bakes mRestWorld
+	// into its OPM, stores the rest and connects jointOPM[index] to the joint's offsetParentMatrix.
+	static MStatus wireJoint(const MObject& oModule, MObject oJoint, unsigned int index, const MMatrix& mRestWorld, MDagModifier& dagMod);
 };
 
 template <typename Derived>
@@ -753,7 +760,45 @@ MStatus RigModuleWithJointsNode<Derived>::initializeSharedAttributes()
 	mAttr.setWritable(false);
 	mAttr.setStorable(false);
 	mAttr.setUsesArrayDataBuilder(true);
-	return Base::addAttribute(aJointOPM);
+	status = Base::addAttribute(aJointOPM);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	aJointRestWorld = mAttr.create(RigAttr::JointRestWorld, RigAttr::JointRestWorld, MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	mAttr.setArray(true);
+	mAttr.setStorable(true);
+	mAttr.setUsesArrayDataBuilder(true);
+	return Base::addAttribute(aJointRestWorld);
+}
+
+template <typename Derived>
+MStatus RigModuleWithJointsNode<Derived>::wireJoint(
+	const MObject& oModule,
+	MObject oJoint,
+	unsigned int index,
+	const MMatrix& mRestWorld,
+	MDagModifier& dagMod)
+{
+	MStatus status;
+	MFnDependencyNode fnJoint(oJoint);
+	MPlug pJointRestWorld = MPlug(oModule, aJointRestWorld).elementByLogicalIndex(index);
+
+	// The module drives the joint's world transform through its OPM, so nothing may be inherited.
+	DagUtils::setInheritsTransform(oJoint, false, dagMod);
+	DagUtils::setSegmentScaleCompensate(oJoint, false, dagMod);
+	status = DagUtils::bakeJointTransformsToOPM(oJoint, mRestWorld, dagMod);
+	if (!status)
+	{
+		MGlobal::displayError(MString("Failed to bake the joint into its offsetParentMatrix: ") + fnJoint.name());
+		return status;
+	}
+
+	status = DagUtils::setMatrixPlug(pJointRestWorld, mRestWorld, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MPlug pJointOpm = fnJoint.findPlug("offsetParentMatrix", false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	return dagMod.connect(MPlug(oModule, aJointOPM).elementByLogicalIndex(index), pJointOpm);
 }
 
 // Every control/child-plug input affects every control OPM, joint OPM and socket output.

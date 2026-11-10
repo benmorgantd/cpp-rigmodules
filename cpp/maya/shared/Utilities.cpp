@@ -1,7 +1,10 @@
 #include "maya/shared/Utilities.h"
 #include "core/Constants.h"
 #include "core/JsonUtils.h"
+#include "core/RigTemplateValidation.h"
 
+#include <fstream>
+#include <sstream>
 #include <string>
 
 #include <maya/MDagModifier.h>
@@ -9,8 +12,10 @@
 #include <maya/MFnAttribute.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnMatrixData.h>
+#include <maya/MFnSingleIndexedComponent.h>
 #include <maya/MFnTransform.h>
 #include <maya/MGlobal.h>
+#include <maya/MItDependencyGraph.h>
 #include <maya/MMatrix.h>
 #include <maya/MNamespace.h>
 #include <maya/MObject.h>
@@ -18,6 +23,7 @@
 #include <maya/MSelectionList.h>
 #include <maya/MStatus.h>
 #include <maya/MString.h>
+#include <maya/MStringArray.h>
 #include <maya/MVector.h>
 
 // ---------------------------------
@@ -323,6 +329,173 @@ MStatus DagUtils::getMObjectFromName(const MString& name, MObject& oNode)
 		return status;
 	}
 	return sel.getDependNode(0, oNode);
+}
+
+MString DagUtils::getAbsoluteNamespace(const MObject& oNode)
+{
+	const MString nodeNamespace = MNamespace::getNamespaceFromName(MFnDependencyNode(oNode).absoluteName());
+	if (nodeNamespace.length() == 0 || nodeNamespace == ":")
+	{
+		return ":";
+	}
+	return nodeNamespace.substring(0, 0) == ":" ? nodeNamespace : MString(":") + nodeNamespace;
+}
+
+MObject DagUtils::findUpstreamNode(const MObject& oNode, MFn::Type filter)
+{
+	MStatus status;
+	MObject oRoot = oNode;
+	MItDependencyGraph itGraph(oRoot, filter, MItDependencyGraph::kUpstream, MItDependencyGraph::kBreadthFirst,
+		MItDependencyGraph::kNodeLevel, &status);
+	if (!status || itGraph.isDone())
+	{
+		return MObject::kNullObj;
+	}
+	return itGraph.currentItem();
+}
+
+// ---------------------------------
+// Mesh, MEL and command utilities
+// ---------------------------------
+bool MeshUtils::findMeshTransform(const MDagPath& path, MDagPath& outTransform)
+{
+	MDagPath shape = path;
+	if (!shape.extendToShape() || !shape.hasFn(MFn::kMesh))
+	{
+		return false;
+	}
+	outTransform = shape;
+	outTransform.pop();
+	return true;
+}
+
+MStatus MeshUtils::getMeshTransformFromName(const MString& name, MDagPath& outTransform)
+{
+	MSelectionList list;
+	MDagPath path;
+	if (!list.add(name) || !list.getDagPath(0, path))
+	{
+		MGlobal::displayError(MString("No DAG node named ") + name);
+		return MStatus::kFailure;
+	}
+	if (!findMeshTransform(path, outTransform))
+	{
+		MGlobal::displayError(name + " is not a mesh.");
+		return MStatus::kFailure;
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus MeshUtils::getMeshShape(const MDagPath& mesh, MDagPath& outShape)
+{
+	outShape = mesh;
+	MStatus status = outShape.extendToShape();
+	if (!status || !outShape.hasFn(MFn::kMesh))
+	{
+		MGlobal::displayError(mesh.partialPathName() + " has no mesh shape.");
+		return MStatus::kFailure;
+	}
+	return MStatus::kSuccess;
+}
+
+MObject MeshUtils::createAllVerticesComponent(unsigned int vertexCount)
+{
+	MFnSingleIndexedComponent fnComponent;
+	MObject oComponent = fnComponent.create(MFn::kMeshVertComponent);
+	fnComponent.setCompleteData(static_cast<int>(vertexCount));
+	return oComponent;
+}
+
+MString MelUtils::quoted(const MString& text)
+{
+	return MString("\"") + text + "\"";
+}
+
+MStatus CommandUtils::readFilePath(const MArgDatabase& argData, const char* flag, const char* commandName, MString& outPath)
+{
+	if (!argData.isFlagSet(flag) || argData.getFlagArgument(flag, 0, outPath) != MStatus::kSuccess || outPath.length() == 0)
+	{
+		MGlobal::displayError(MString(commandName) + " needs " + flag + ".");
+		return MStatus::kFailure;
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus CommandUtils::readMeshesOrSelection(const MArgDatabase& argData, const char* commandName, MDagPathArray& outMeshes)
+{
+	MStringArray objects;
+	argData.getObjects(objects);
+	for (unsigned int i = 0; i < objects.length(); ++i)
+	{
+		MDagPath mesh;
+		MStatus status = MeshUtils::getMeshTransformFromName(objects[i], mesh);
+		if (!status)
+		{
+			return status;
+		}
+		outMeshes.append(mesh);
+	}
+	if (objects.length() > 0)
+	{
+		return MStatus::kSuccess;
+	}
+
+	MSelectionList selection;
+	MGlobal::getActiveSelectionList(selection);
+	for (unsigned int i = 0; i < selection.length(); ++i)
+	{
+		MDagPath path;
+		MDagPath mesh;
+		if (selection.getDagPath(i, path) && MeshUtils::findMeshTransform(path, mesh))
+		{
+			outMeshes.append(mesh);
+		}
+	}
+	if (outMeshes.length() == 0)
+	{
+		MGlobal::displayError(MString(commandName) + " needs meshes: name them or select them.");
+		return MStatus::kFailure;
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus CommandUtils::readTextFile(const MString& path, const char* kind, std::string& outText)
+{
+	std::ifstream file(path.asChar(), std::ios::in | std::ios::binary);
+	if (!file)
+	{
+		MGlobal::displayError(MString("Could not read the ") + kind + " file: " + path);
+		return MStatus::kFailure;
+	}
+	std::stringstream text;
+	text << file.rdbuf();
+	outText = text.str();
+	return MStatus::kSuccess;
+}
+
+MStatus CommandUtils::writeTextFile(const MString& path, const char* kind, const std::string& text)
+{
+	std::ofstream file(path.asChar(), std::ios::out | std::ios::trunc);
+	file << text;
+	file.close();
+	if (!file)
+	{
+		MGlobal::displayError(MString("Could not write the ") + kind + " file: " + path);
+		return MStatus::kFailure;
+	}
+	return MStatus::kSuccess;
+}
+
+void ReportUtils::displayReport(const ValidationReport& report)
+{
+	for (const std::string& warning : report.warnings)
+	{
+		MGlobal::displayWarning(warning.c_str());
+	}
+	for (const std::string& error : report.errors)
+	{
+		MGlobal::displayError(error.c_str());
+	}
 }
 
 // DAG plug and socket utils -----------------------------------------------

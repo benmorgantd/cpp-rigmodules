@@ -92,7 +92,6 @@ RigModuleBuildResult FkChainNode::createModule(
 
 	MFnDependencyNode moduleFn(oFkChainModule);
 	MPlug pControlInputData(oFkChainModule, FkChainNode::aControlInputData);
-	MPlug pOutputJointOPM(oFkChainModule, FkChainNode::aJointOPM);
 	MPlug pControlMessage(oFkChainModule, FkChainNode::aControlMessage);
 
 	MObject oPreviousControl;
@@ -100,19 +99,13 @@ RigModuleBuildResult FkChainNode::createModule(
 
 	for (unsigned int i = 0; i < numJoints; ++i)
 	{
-		// Turn off inherits transform for all joints so their OPM can be in world space
 		MObject oJoint = oJoints[i];
 		MMatrix mJointRestWorld = mJointWorldRests[i];
 
-		// Make sure the joint retains its original transform and bake them again
-		// The module drives the joint's world transform through its OPM, so nothing may be inherited.
-		DagUtils::setInheritsTransform(oJoint, false, dagMod);
-		DagUtils::setSegmentScaleCompensate(oJoint, false, dagMod);
-		MStatus bakeStatus = DagUtils::bakeJointTransformsToOPM(oJoint, mJointRestWorld, dagMod);
-
-		if (!bakeStatus)
+		MStatus jointStatus = FkChainNode::wireJoint(oFkChainModule, oJoint, i, mJointRestWorld, dagMod);
+		if (!jointStatus)
 		{
-			result.status = bakeStatus;
+			result.status = jointStatus;
 			return result;
 		}
 
@@ -151,9 +144,7 @@ RigModuleBuildResult FkChainNode::createModule(
 			return result;
 		}
 
-		MPlug pJointOpm = fnJoint.findPlug("offsetParentMatrix", false);
-		dagMod.connect(pOutputJointOPM.elementByLogicalIndex(i), pJointOpm);
-		
+
 		// Update persistent path for next iteration
 		oPreviousControl = oControlTransform;
 	}

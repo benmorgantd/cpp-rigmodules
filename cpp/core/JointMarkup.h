@@ -44,6 +44,9 @@ struct JointSelector
 	std::string usage;
 };
 
+// "[Left, upperArm]", for messages.
+std::string formatJointSelector(const JointSelector& selector);
+
 void from_json(const nlohmann::json& jsonData, JointSelector& selector);
 // Required by NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE on module args structs, which always generates both directions.
 void to_json(nlohmann::json& jsonData, const JointSelector& selector);

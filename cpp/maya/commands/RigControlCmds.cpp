@@ -7,8 +7,6 @@
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
 
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -57,16 +55,6 @@ namespace
 			MStatus status = argData.getFlagArgumentList(flag, i, flagArgs);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 			outValues.push_back(flagArgs.asString(0).asChar());
-		}
-		return MStatus::kSuccess;
-	}
-
-	MStatus readFilePath(const MArgDatabase& argData, const char* commandName, MString& outPath)
-	{
-		if (!argData.isFlagSet(kFileFlag) || argData.getFlagArgument(kFileFlag, 0, outPath) != MStatus::kSuccess || outPath.length() == 0)
-		{
-			MGlobal::displayError(MString(commandName) + " needs -file.");
-			return MStatus::kFailure;
 		}
 		return MStatus::kSuccess;
 	}
@@ -172,7 +160,7 @@ MStatus SaveRigControlShapesCmd::doIt(const MArgList& args)
 	}
 
 	MString path;
-	status = readFilePath(argData, aCommandString, path);
+	status = CommandUtils::readFilePath(argData, kFileFlag, aCommandString, path);
 	if (!status)
 	{
 		return status;
@@ -186,12 +174,10 @@ MStatus SaveRigControlShapesCmd::doIt(const MArgList& args)
 		return status;
 	}
 
-	std::ofstream file(path.asChar(), std::ios::out | std::ios::trunc);
-	file << serializeControlShapes(shapes);
-	if (!file)
+	status = CommandUtils::writeTextFile(path, "shape", serializeControlShapes(shapes));
+	if (!status)
 	{
-		MGlobal::displayError(MString("Could not write the shape file: ") + path);
-		return MStatus::kFailure;
+		return status;
 	}
 
 	setResult(controlNames);
@@ -232,31 +218,26 @@ MStatus LoadRigControlShapesCmd::doIt(const MArgList& args)
 	}
 
 	MString path;
-	status = readFilePath(argData, aCommandString, path);
+	status = CommandUtils::readFilePath(argData, kFileFlag, aCommandString, path);
 	if (!status)
 	{
 		return status;
 	}
 
-	std::ifstream file(path.asChar());
-	if (!file)
+	std::string text;
+	status = CommandUtils::readTextFile(path, "shape", text);
+	if (!status)
 	{
-		MGlobal::displayError(MString("Could not read the shape file: ") + path);
-		return MStatus::kFailure;
+		return status;
 	}
-	std::stringstream text;
-	text << file.rdbuf();
 
 	// Validate the whole file before queueing anything, so a bad file changes nothing.
 	ControlShapeMap shapes;
 	ValidationReport report;
-	deserializeControlShapes(text.str(), shapes, report);
+	deserializeControlShapes(text, shapes, report);
 	if (report.hasErrors())
 	{
-		for (const std::string& error : report.errors)
-		{
-			MGlobal::displayError(error.c_str());
-		}
+		ReportUtils::displayReport(report);
 		MGlobal::displayError(MString("The shape file failed validation, so nothing was loaded: ") + path);
 		return MStatus::kFailure;
 	}

@@ -1,0 +1,23 @@
+{
+    "formatVersion": 1,
+    "meshId": "fixture-box",
+    "meshName": "box_geo",
+    "vertexCount": 8,
+    "faceCount": 6,
+    "topologyHash": "97334e59ca3cfcab",
+    "skinMethod": "Linear",
+    "influences": [
+        ["Center", "a"],
+        ["Center", "b"]
+    ],
+    "weights": [
+        [0, 1],
+        [0, 1],
+        [0, 0.25, 1, 0.75],
+        [0, 0.25, 1, 0.75],
+        [0, 0.25, 1, 0.75],
+        [0, 0.25, 1, 0.75],
+        [0, 1],
+        [0, 1]
+    ]
+}

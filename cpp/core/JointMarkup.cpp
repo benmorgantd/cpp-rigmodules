@@ -66,6 +66,11 @@ std::string serializeJointMarkup(const JointMarkup& markup)
 	return JsonUtils::writeJsonString(markup);
 }
 
+std::string formatJointSelector(const JointSelector& selector)
+{
+	return "[" + selector.side + ", " + selector.usage + "]";
+}
+
 void from_json(const nlohmann::json& jsonData, JointSelector& selector)
 {
 	if (!jsonData.is_array() || jsonData.size() != 2)

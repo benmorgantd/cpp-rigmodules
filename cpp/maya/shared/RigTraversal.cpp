@@ -333,6 +333,29 @@ MStatus RigTraversal::getControlRestWorld(const MObject& oControl, MMatrix& mOut
 	return MStatus::kSuccess;
 }
 
+MStatus RigTraversal::getJointRestWorld(const MDagPath& jointPath, MMatrix& mOutRestWorld)
+{
+	MStatus status;
+	const MObject oJoint = jointPath.node();
+	const MObject oModule = getJointModule(oJoint);
+	if (oModule.isNull())
+	{
+		mOutRestWorld = jointPath.inclusiveMatrix(&status);
+		return status;
+	}
+
+	MFnDependencyNode fnModule(oModule);
+	MPlug pRestWorld = fnModule.findPlug(RigAttr::JointRestWorld, false, &status);
+	if (!status)
+	{
+		MGlobal::displayError(fnModule.name() + " drives " + jointPath.partialPathName() + " but stores no joint rest. Rebuild the rig.");
+		return status;
+	}
+	const unsigned int index = MPlug(oJoint, MPxTransform::offsetParentMatrix).source().logicalIndex();
+	mOutRestWorld = DagUtils::getMatrixFromPlug(pRestWorld.elementByLogicalIndex(index));
+	return MStatus::kSuccess;
+}
+
 MStatus RigTraversal::getMirrorControl(const MObject& oControl, MObject& oOutMirror)
 {
 	ControlMarkup markup;

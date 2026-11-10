@@ -51,6 +51,12 @@
     <ClCompile Include="core\RigTemplateValidation.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\SkinWeightFile.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\SkinWeightTable.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\TemplateMirror.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -76,6 +82,9 @@
       <Filter>maya\commands</Filter>
     </ClCompile>
     <ClCompile Include="maya\commands\RigInfoCmd.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\commands\SkinWeightCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
     <ClCompile Include="maya\modules\AimModule.cpp">
@@ -112,6 +121,9 @@
       <Filter>maya\shared</Filter>
     </ClCompile>
     <ClCompile Include="maya\shared\Side.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\SkinWeightScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
     <ClCompile Include="maya\shared\Utilities.cpp">
@@ -152,6 +164,12 @@
     <ClInclude Include="core\RigTemplateValidation.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="core\SkinWeightFile.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\SkinWeightTable.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\StringUtils.h">
       <Filter>core</Filter>
     </ClInclude>
@@ -177,6 +195,9 @@
       <Filter>maya\commands</Filter>
     </ClInclude>
     <ClInclude Include="maya\commands\RigInfoCmd.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\commands\SkinWeightCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
     <ClInclude Include="maya\modules\AimModule.h">
@@ -216,6 +237,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\Side.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\SkinWeightScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\Utilities.h">

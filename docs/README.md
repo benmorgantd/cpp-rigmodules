@@ -22,6 +22,7 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 | [`commands.md`](commands.md) | Every Maya command: syntax, flags, objects, behaviour, undo, errors |
 | [`modules.md`](modules.md) | Every module: `moduleType`, `moduleArgs`, joints, controls, child plugs, sockets, behaviour |
 | [`controls.md`](controls.md) | What every control carries: markup, shapes and the axis convention, the shape file format, mirroring shapes |
+| [`skinning.md`](skinning.md) | Skin weight files: what they match on (joint markup, `meshId`, topology), how loading works, the file format |
 | [`python.md`](python.md) | The `rigmodules` Python package: installing it with `RigModules.mod`, and every function |
 | [`../tests/README.md`](../tests/README.md) | Running tests, case-file formats, where new tests go |
 | [`../design/decisions.md`](../design/decisions.md) | Design decisions and their reasons |
@@ -36,6 +37,7 @@ A change updates its owning page **in the same change** when it touches anything
 - A template key, default, allowed value, or validation rule → `templates.md`
 - A module, its `moduleArgs`, child plugs, sockets, controls or behaviour → `modules.md` and the README modules table
 - Control markup, a shape, or the shape file format → `controls.md`
+- The weight file format, `meshId`, or how weights load → `skinning.md`
 - A function in the `rigmodules` Python package, or `RigModules.mod` → `python.md`
 - Build steps, requirements, or the repo layout → `README.md`
 - Running or writing tests → `tests/README.md`
@@ -59,4 +61,4 @@ Internal changes (refactors, compute changes with the same results, test-only ch
 
 ## Tested examples
 
-The README quick start is a test: `tests/maya/concepts/test_docs_examples.py` reads its template straight from `README.md`, builds it on the `readme_quick_start` skeleton fixture and runs the space switch. The shape file example in `controls.md` is loaded by the same file. If you change either, keep the test in step. A worked example added elsewhere in the docs gets a test in the same file.
+The README quick start is a test: `tests/maya/concepts/test_docs_examples.py` reads its template straight from `README.md`, builds it on the `readme_quick_start` skeleton fixture and runs the space switch. The shape file example in `controls.md` and the weight file example in `skinning.md` are loaded by the same file. If you change any of them, keep the test in step. A worked example added elsewhere in the docs gets a test in the same file.

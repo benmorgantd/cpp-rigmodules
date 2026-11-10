@@ -62,6 +62,7 @@ TIERS = [
         "concepts.test_undo_redo",
         "commands.test_rig_control_cmds",   # control markup, traversal and shape files on a built rig
         "commands.test_rig_info",           # getRigInfo and the rigmodules Python query
+        "commands.test_skin_weight_cmds",   # weight files; binding at rest needs a built rig (D35)
     ]),
     ("constraints", True, [
         "commands.test_constraint_cmds",

@@ -2,8 +2,8 @@
 
 Every command:
 
-- Takes the nodes it acts on **by name**. None of them reads the selection.
-- Is undoable, apart from the queries `getRigControls`, `getRigMirrorControl` and `getRigInfo`, and `saveRigControlShapes` (writes a file, changes nothing in the scene).
+- Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId` and `pruneToMaxInfluences` when no mesh is named.
+- Is undoable, apart from the queries `getRigControls`, `getRigMirrorControl` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -254,4 +254,85 @@ Object: the rig root node. Returns the names of the controls changed.
 - **Copies** `shapeType`, `shapeTransform` (as the reflection) and `filled`. Color is left alone, because it follows the module's side.
 - **Skips** `Center` controls, and warns about a source control with no mirror.
 - Undoable.
+
+## setRigMeshId
+
+Gives meshes a `meshId`, the GUID a skin weight file is matched to ([skinning.md](skinning.md)).
+
+```python
+cmds.setRigMeshId("hero:body_geo")
+# Returns ['C214154A-43E0-A9E2-3CAA-22B52F9603E1']
+cmds.setRigMeshId()                                   # every selected mesh
+cmds.setRigMeshId("hero:body_geo_copy", newId=True)   # replace a duplicate's copied id
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `newId` | bool | Default `False`: a mesh that already has a `meshId` keeps it. `True` gives every mesh a new one. |
+
+Objects: meshes, by transform or shape name. With none named, every selected mesh, in selection order. Selected nodes that aren't meshes are skipped.
+
+- Returns each mesh's `meshId`, in mesh order.
+- A named node that isn't a mesh is an error. So is an empty selection, or one with no meshes.
+- Undoable. Undo removes the attribute from a mesh that didn't have one.
+
+## saveRigSkinWeights
+
+Writes a mesh's skin weights to a weight file (format in [skinning.md](skinning.md#file-format)).
+
+```python
+cmds.saveRigSkinWeights("hero:body_geo", file="C:/assets/hero/weights/body_geo.json")
+# Returns 42, the number of influences saved
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The file to write. Required. Overwritten if it exists. |
+
+Object: one mesh, by transform or shape name.
+
+- Errors, writing nothing: the mesh has no `meshId`, or shares it with another mesh in its namespace; it has no skinCluster; an influence has no joint markup, is marked `skin: false`, or shares its markup with another influence; a vertex's weights don't sum to 1 (the error lists the vertices).
+- Saves the weights exactly, with no rounding, pruning or normalizing ([skinning.md](skinning.md#weights-are-never-changed)).
+- Not undoable: it writes a file and changes nothing in the scene.
+
+## loadRigSkinWeights
+
+Sets a mesh's skin weights from a weight file, matching influences by joint markup ([skinning.md](skinning.md#loading)).
+
+```python
+cmds.loadRigSkinWeights("hero:body_geo", file="C:/assets/hero/weights/body_geo.json")
+# Returns 'hero:skinCluster1'
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The file to read. Required. |
+
+Object: one mesh, by transform or shape name. Returns the skinCluster's name.
+
+- The whole file is validated first, including that every vertex's weights sum to 1, then checked against the mesh: its `meshId`, vertex and face counts and topology hash, and one marked joint in the mesh's namespace per influence. Any error is reported and nothing changes.
+- Updates the mesh's skinCluster in place, or creates one. Sets exactly the file's weights. New influences bind at their joint's rest.
+- Undoable, as one step.
+
+## pruneToMaxInfluences
+
+Limits every vertex to at most `maxInfluences` influences.
+
+```python
+cmds.pruneToMaxInfluences("hero:body_geo", maxInfluences=4)
+# Returns 1204, the number of vertices changed
+cmds.pruneToMaxInfluences(maxInfluences=4)   # every selected mesh
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `maxInfluences` | int | Required, at least 1. The most non-zero weights a vertex keeps. |
+
+Objects: meshes with a skinCluster, by transform or shape name. With none named, every selected mesh. Selected nodes that aren't meshes are skipped.
+
+- On each vertex with more than `maxInfluences` non-zero weights, keeps the largest, sets the rest to 0 and divides the kept weights by their sum. Equal weights keep the influence with the lower index in the skinCluster, so the result is the same every time.
+- Vertices already within the limit aren't written, so they keep their exact weights.
+- Locked influences are pruned like any other. The skinCluster's `maxInfluences` and `maintainMaxInfluences` settings aren't changed.
+- A named node that isn't a mesh, a mesh without a skinCluster, or a missing `maxInfluences` is an error, and nothing changes.
+- Undoable, as one step. Undo restores every weight exactly.
 

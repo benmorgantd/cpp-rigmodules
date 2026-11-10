@@ -148,6 +148,40 @@ class ControlDocExamples(RigTestCase):
         self.assertEqual(cmds.getAttr(ARM_CTRL + ".shapeType", asString=True), "Circle")
 
 
+SKINNING_DOC = os.path.join(config.REPO_DIR, "docs", "skinning.md")
+
+
+def skinning_doc_weight_file():
+    """The first ```json block under '## File format' in docs/skinning.md."""
+    with open(SKINNING_DOC, encoding="utf-8") as handle:
+        text = handle.read()
+    section = text.split("## File format", 1)[1]
+    match = re.search(r"```json\s*\n(.*?)```", section, re.S)
+    if not match:
+        raise AssertionError("docs/skinning.md '## File format' has no ```json block")
+    return match.group(1)
+
+
+class SkinningDocExample(RigTestCase):
+    """The weight file in docs/skinning.md loads onto the cube it describes, on the fk_three joints a and b."""
+
+    def test_weight_file_example_loads(self):
+        joints = self.make_skeleton("fk_three")
+        box = cmds.polyCube(name=":skel:box_geo", height=2, constructionHistory=False)[0]
+        cmds.move(0, 1, 0, box)
+        cmds.makeIdentity(box, apply=True, translate=True)
+        text = skinning_doc_weight_file()
+        cmds.addAttr(box, longName="meshId", dataType="string")
+        cmds.setAttr(box + ".meshId", json.loads(text)["meshId"], type="string")
+        path = os.path.join(config.WORK_DIR, "doc_weights.json").replace("\\", "/")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        cluster = cmds.loadRigSkinWeights(box, file=path)
+        top = cmds.skinPercent(cluster, box + ".vtx[3]", transform=joints[1], query=True)
+        bottom = cmds.skinPercent(cluster, box + ".vtx[0]", transform=joints[0], query=True)
+        self.assertEqual((round(bottom, 6), round(top, 6)), (1.0, 0.75))
+
+
 def templates_doc_mirroring_template():
     """The first ```json block under '## Mirroring' in docs/templates.md."""
     with open(TEMPLATES_DOC, encoding="utf-8") as handle:

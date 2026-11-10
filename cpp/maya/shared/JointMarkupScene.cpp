@@ -1,10 +1,12 @@
 #include "maya/shared/JointMarkupScene.h"
 #include "core/Constants.h"
 #include "core/RigTemplateValidation.h"
+#include "maya/shared/Utilities.h"
 
 #include <maya/MDagPath.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
+#include <maya/MItDag.h>
 #include <maya/MPlug.h>
 
 namespace
@@ -36,6 +38,27 @@ namespace
 
 		return MStatus::kSuccess;
 	}
+}
+
+void JointMarkupScene::collectNamespaceJoints(const MString& absoluteNamespace, MarkedJointSet& outSet, ValidationReport& report)
+{
+	MStatus status;
+	MDagPathArray joints;
+	for (MItDag itDag(MItDag::kDepthFirst, MFn::kJoint, &status); status && !itDag.isDone(); itDag.next())
+	{
+		MDagPath jointPath;
+		itDag.getPath(jointPath);
+		// An instanced joint is visited once per path, but it is one joint.
+		if (jointPath.instanceNumber() != 0 || DagUtils::getAbsoluteNamespace(jointPath.node()) != absoluteNamespace)
+		{
+			continue;
+		}
+		if (MFnDependencyNode(jointPath.node()).hasAttribute(RigAttr::JointMarkup))
+		{
+			joints.append(jointPath);
+		}
+	}
+	collectMarkedJoints(joints, outSet, report);
 }
 
 void JointMarkupScene::collectMarkedJoints(const MDagPathArray& joints, MarkedJointSet& outSet, ValidationReport& report)

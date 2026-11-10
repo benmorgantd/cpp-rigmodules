@@ -2,7 +2,11 @@
 
 #include "core/StringUtils.h"   // Maya-free, so the template validator can share it
 
+#include <maya/MArgDatabase.h>
 #include <maya/MDagModifier.h>
+#include <maya/MDagPath.h>
+#include <maya/MDagPathArray.h>
+#include <maya/MFn.h>
 #include <maya/MMatrix.h>
 #include <maya/MObject.h>
 #include <maya/MPoint.h>
@@ -12,6 +16,8 @@
 
 #include <string>
 #include <vector>
+
+struct ValidationReport;
 
 struct TransformAttrEntry
 {
@@ -64,6 +70,61 @@ public:
 	static MStatus getJointDagPathFromName(const MString& jointName, MDagPath& jointPath);
 	static MStatus getJointObjectFromName(const MString& jointName, MObject& oJoint);
 
+	// The node's namespace as an absolute path for MNamespace calls: ":rig", or ":" for the root namespace.
+	static MString getAbsoluteNamespace(const MObject& oNode);
+
+	// The nearest node upstream of the node whose type matches filter (MFn::kSkinClusterFilter, say), breadth first,
+	// or a null object if there is none.
+	static MObject findUpstreamNode(const MObject& oNode, MFn::Type filter);
+};
+
+class MeshUtils
+{
+public:
+	// The transform of a mesh, given a transform with a mesh shape or a mesh shape. Reports nothing and returns false
+	// for anything else, so a command can filter the selection quietly.
+	static bool findMeshTransform(const MDagPath& path, MDagPath& outTransform);
+
+	// The same by name. Reports a missing node or a node that isn't a mesh.
+	static MStatus getMeshTransformFromName(const MString& name, MDagPath& outTransform);
+
+	// The mesh transform's visible (non-intermediate) mesh shape. Reports a transform without one.
+	static MStatus getMeshShape(const MDagPath& mesh, MDagPath& outShape);
+
+	// One component holding every vertex of a mesh with vertexCount vertices, for whole-table weight calls.
+	static MObject createAllVerticesComponent(unsigned int vertexCount);
+};
+
+class MelUtils
+{
+public:
+	// text in double quotes, for a name or value spliced into a MEL command. Names never contain quotes.
+	static MString quoted(const MString& text);
+};
+
+class CommandUtils
+{
+public:
+	// The string argument of a required file flag. Reports "<command> needs <flag>." when it is missing or empty.
+	static MStatus readFilePath(const MArgDatabase& argData, const char* flag, const char* commandName, MString& outPath);
+
+	// The mesh transforms of the command's string objects, or with none named, of every selected mesh (D35: only
+	// commands that document it read the selection). Selected nodes that aren't meshes are skipped; a named one that
+	// isn't a mesh is an error, and so is an empty result.
+	static MStatus readMeshesOrSelection(const MArgDatabase& argData, const char* commandName, MDagPathArray& outMeshes);
+
+	// The whole file as text. Reports "Could not read the <kind> file: <path>".
+	static MStatus readTextFile(const MString& path, const char* kind, std::string& outText);
+
+	// Replaces the file with text. Reports "Could not write the <kind> file: <path>".
+	static MStatus writeTextFile(const MString& path, const char* kind, const std::string& text);
+};
+
+class ReportUtils
+{
+public:
+	// Displays every warning, then every error, each as its own Maya message.
+	static void displayReport(const ValidationReport& report);
 };
 
 class DagPlugAndSocketUtils

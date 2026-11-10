@@ -117,7 +117,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>OpenMaya.lib;Foundation.lib;OpenMayaUI.lib;OpenMayaRender.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>OpenMaya.lib;OpenMayaAnim.lib;Foundation.lib;OpenMayaUI.lib;OpenMayaRender.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(MAYA_LOCATION)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ProjectReference>
@@ -139,7 +139,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(MAYA_LOCATION)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenMaya.lib;Foundation.lib;OpenMayaUI.lib;OpenMayaRender.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>OpenMaya.lib;OpenMayaAnim.lib;Foundation.lib;OpenMayaUI.lib;OpenMayaRender.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -152,6 +152,8 @@
     <ClCompile Include="core\RigControlFilter.cpp" />
     <ClCompile Include="core\RigJsonStructs.cpp" />
     <ClCompile Include="core\RigTemplateValidation.cpp" />
+    <ClCompile Include="core\SkinWeightFile.cpp" />
+    <ClCompile Include="core\SkinWeightTable.cpp" />
     <ClCompile Include="core\TemplateMirror.cpp" />
     <ClCompile Include="maya\CommandRegistry.cpp" />
     <ClCompile Include="maya\ModuleRegistry.cpp" />
@@ -161,6 +163,7 @@
     <ClCompile Include="maya\commands\JointMarkupCmd.cpp" />
     <ClCompile Include="maya\commands\RigControlCmds.cpp" />
     <ClCompile Include="maya\commands\RigInfoCmd.cpp" />
+    <ClCompile Include="maya\commands\SkinWeightCmds.cpp" />
     <ClCompile Include="maya\modules\AimModule.cpp" />
     <ClCompile Include="maya\modules\FkChain.cpp" />
     <ClCompile Include="maya\modules\LayoutModule.cpp" />
@@ -173,6 +176,7 @@
     <ClCompile Include="maya\shared\RigModule.cpp" />
     <ClCompile Include="maya\shared\RigTraversal.cpp" />
     <ClCompile Include="maya\shared\Side.cpp" />
+    <ClCompile Include="maya\shared\SkinWeightScene.cpp" />
     <ClCompile Include="maya\shared\Utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -187,6 +191,8 @@
     <ClInclude Include="core\RigControlFilter.h" />
     <ClInclude Include="core\RigJsonStructs.h" />
     <ClInclude Include="core\RigTemplateValidation.h" />
+    <ClInclude Include="core\SkinWeightFile.h" />
+    <ClInclude Include="core\SkinWeightTable.h" />
     <ClInclude Include="core\StringUtils.h" />
     <ClInclude Include="core\TemplateMirror.h" />
     <ClInclude Include="maya\CommandRegistry.h" />
@@ -196,6 +202,7 @@
     <ClInclude Include="maya\commands\JointMarkupCmd.h" />
     <ClInclude Include="maya\commands\RigControlCmds.h" />
     <ClInclude Include="maya\commands\RigInfoCmd.h" />
+    <ClInclude Include="maya\commands\SkinWeightCmds.h" />
     <ClInclude Include="maya\modules\AimModule.h" />
     <ClInclude Include="maya\modules\FkChain.h" />
     <ClInclude Include="maya\modules\LayoutModule.h" />
@@ -209,6 +216,7 @@
     <ClInclude Include="maya\shared\RigModule.h" />
     <ClInclude Include="maya\shared\RigTraversal.h" />
     <ClInclude Include="maya\shared\Side.h" />
+    <ClInclude Include="maya\shared\SkinWeightScene.h" />
     <ClInclude Include="maya\shared\Utilities.h" />
   </ItemGroup>
   <ItemGroup>

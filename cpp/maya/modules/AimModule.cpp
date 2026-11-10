@@ -179,8 +179,6 @@ RigModuleBuildResult AimModuleNode::createModule(
 	dagMod.newPlugValueShort(pSide, getShortFromSide(side));
 	result.moduleNode = oAimModule;
 
-	MPlug pOutputJointOPM(oAimModule, AimModuleNode::aJointOPM);
-
 	// 2. Per-part: bake joint, store rest, wire joint OPM, and create a control for target/up.
 	for (unsigned int i = 0; i < AimPart::Count; ++i)
 	{
@@ -189,24 +187,12 @@ RigModuleBuildResult AimModuleNode::createModule(
 		MFnDependencyNode fnJoint(oJoint);
 		const char* partName = kAimPartNames[i];
 
-		// The module drives the joint's world transform through its OPM, so nothing may be inherited.
-		DagUtils::setInheritsTransform(oJoint, false, dagMod);
-		DagUtils::setSegmentScaleCompensate(oJoint, false, dagMod);
-		status = DagUtils::bakeJointTransformsToOPM(oJoint, mRestWorld, dagMod);
-		if (!status)
-		{
-			MGlobal::displayError(MString("Failed to bake aim module joint: ") + fnJoint.name());
-			result.status = status;
-			return result;
-		}
-
-		MPlug pJointOpm = fnJoint.findPlug("offsetParentMatrix", false, &status);
+		status = AimModuleNode::wireJoint(oAimModule, oJoint, i, mRestWorld, dagMod);
 		if (!status)
 		{
 			result.status = status;
 			return result;
 		}
-		dagMod.connect(pOutputJointOPM.elementByLogicalIndex(i), pJointOpm);
 
 		// Only target and up have controls. The aim joint is purely solved.
 		MObject oControl = MObject::kNullObj;

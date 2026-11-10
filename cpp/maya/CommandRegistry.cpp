@@ -5,6 +5,7 @@
 #include "maya/commands/JointMarkupCmd.h"
 #include "maya/commands/RigControlCmds.h"
 #include "maya/commands/RigInfoCmd.h"
+#include "maya/commands/SkinWeightCmds.h"
 
 const std::vector<CommandDescriptor>& CommandRegistry::all()
 {
@@ -20,7 +21,11 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ LoadRigControlShapesCmd::aCommandString, LoadRigControlShapesCmd::creator, LoadRigControlShapesCmd::newSyntax },
 		{ GetRigMirrorControlCmd::aCommandString, GetRigMirrorControlCmd::creator, GetRigMirrorControlCmd::newSyntax },
 		{ MirrorRigControlShapesCmd::aCommandString, MirrorRigControlShapesCmd::creator, MirrorRigControlShapesCmd::newSyntax },
-		{ GetRigInfoCmd::aCommandString, GetRigInfoCmd::creator, GetRigInfoCmd::newSyntax }
+		{ GetRigInfoCmd::aCommandString, GetRigInfoCmd::creator, GetRigInfoCmd::newSyntax },
+		{ SetRigMeshIdCmd::aCommandString, SetRigMeshIdCmd::creator, SetRigMeshIdCmd::newSyntax },
+		{ SaveRigSkinWeightsCmd::aCommandString, SaveRigSkinWeightsCmd::creator, SaveRigSkinWeightsCmd::newSyntax },
+		{ LoadRigSkinWeightsCmd::aCommandString, LoadRigSkinWeightsCmd::creator, LoadRigSkinWeightsCmd::newSyntax },
+		{ PruneToMaxInfluencesCmd::aCommandString, PruneToMaxInfluencesCmd::creator, PruneToMaxInfluencesCmd::newSyntax }
 	};
 	return descriptors;
 }

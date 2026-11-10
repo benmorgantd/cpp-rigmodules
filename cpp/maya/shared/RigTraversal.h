@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include <maya/MDagPath.h>
 #include <maya/MMatrix.h>
 #include <maya/MObject.h>
 #include <maya/MObjectArray.h>
@@ -52,6 +53,11 @@ public:
 
 	// The control's rest world matrix, stored on its module at build time (controlData[i].controlRestWorld).
 	static MStatus getControlRestWorld(const MObject& oControl, MMatrix& mOutRestWorld);
+
+	// A joint's rest world matrix. For a joint a rig module drives, the build pose stored on the module
+	// (jointRestWorld, by the jointOPM index that drives it), whatever the rig's current pose. For any other joint,
+	// its current world matrix: with no rig, the skeleton's pose is its rest.
+	static MStatus getJointRestWorld(const MDagPath& jointPath, MMatrix& mOutRestWorld);
 
 	// The control in the same rig with the same usage and the other side (D28). A Center control is its own mirror.
 	// Fails if there is none.

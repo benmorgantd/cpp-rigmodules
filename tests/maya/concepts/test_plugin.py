@@ -20,6 +20,10 @@ COMMAND_FLAGS = {
     "getRigMirrorControl": [],
     "mirrorRigControlShapes": ["leftToRight"],
     "getRigInfo": [],
+    "setRigMeshId": ["newId"],
+    "saveRigSkinWeights": ["file"],
+    "loadRigSkinWeights": ["file"],
+    "pruneToMaxInfluences": ["maxInfluences"],
 }
 
 

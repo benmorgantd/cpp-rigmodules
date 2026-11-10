@@ -57,6 +57,44 @@ namespace ControlShapeFileKey
 	inline constexpr const char* Controls{ "controls" };
 }
 
+// Keys in a skin weight file, see SkinWeightFile.h. Public API: saved weight files depend on them.
+namespace SkinWeightFileKey
+{
+	inline constexpr const char* FormatVersion{ "formatVersion" };
+	inline constexpr const char* MeshId{ "meshId" };
+	inline constexpr const char* MeshName{ "meshName" };
+	inline constexpr const char* VertexCount{ "vertexCount" };
+	inline constexpr const char* FaceCount{ "faceCount" };
+	inline constexpr const char* TopologyHash{ "topologyHash" };
+	inline constexpr const char* SkinMethod{ "skinMethod" };
+	inline constexpr const char* Influences{ "influences" };
+	inline constexpr const char* Weights{ "weights" };
+	inline constexpr const char* BlendWeights{ "blendWeights" };   // only for WeightBlended
+}
+
+// skinCluster.skinningMethod, in Maya's enum order. Weight files store the names.
+namespace SkinMethods
+{
+	inline constexpr const char* Linear{ "Linear" };
+	inline constexpr const char* DualQuaternion{ "DualQuaternion" };
+	inline constexpr const char* WeightBlended{ "WeightBlended" };
+
+	inline constexpr std::array<const char*, 3> All{ Linear, DualQuaternion, WeightBlended };
+
+	// The enum index of a method name, or -1 for an unknown one.
+	constexpr int indexOf(std::string_view method)
+	{
+		for (std::size_t i = 0; i < All.size(); ++i)
+		{
+			if (method == All[i])
+			{
+				return static_cast<int>(i);
+			}
+		}
+		return -1;
+	}
+}
+
 // Compute stays on the statics. Only construction and tool code uses the name lookups.
 // This is used in situations where we are sharing construction code. Within the modules themselves 
 // we should continue to reference their static attributes.
@@ -95,6 +133,10 @@ namespace RigAttr
 
 	// RigModuleWithJointsNode layer
 	inline constexpr const char* JointOPM{ "jointOPM" };
+	inline constexpr const char* JointRestWorld{ "jointRestWorld" };
+
+	// Skin weights (D35): a GUID string on a mesh transform, stamped once by setRigMeshId
+	inline constexpr const char* MeshId{ "meshId" };
 
 	// Joint markup: one JSON string per joint, see JointMarkup.h
 	inline constexpr const char* JointMarkup{ "rigMarkup" };

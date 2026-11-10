@@ -187,18 +187,6 @@ namespace
 		return MString(":") + rigNamespace + ":" + shortName;
 	}
 
-	void displayReport(const ValidationReport& report)
-	{
-		for (const std::string& warning : report.warnings)
-		{
-			MGlobal::displayWarning(warning.c_str());
-		}
-		for (const std::string& error : report.errors)
-		{
-			MGlobal::displayError(error.c_str());
-		}
-	}
-
 	// renameNode silently makes a clashing name unique, so a module would no longer match its template name
 	// and a joint would no longer match its skeleton name. Checks each target name against the scene and the others.
 	void checkTargetNamesFree(
@@ -521,7 +509,7 @@ MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMo
 	ValidationReport report;
 	planRig(inputs, rigData, oAssetRoot, plans, report);
 
-	displayReport(report);
+	ReportUtils::displayReport(report);
 	if (report.hasErrors())
 	{
 		MGlobal::displayError(MString("Rig template failed validation with ") + static_cast<int>(report.errors.size())
