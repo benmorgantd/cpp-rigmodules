@@ -136,21 +136,10 @@ public:
 	virtual ~RigModuleNodeBase() override;
 	virtual MStatus compute(const MPlug& plug, MDataBlock& data) override;
 public:
-	// Data access helpers
-	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx);
-	static MMatrix getInputMatrix(MDataBlock& data, const MObject& attr);
 	// Control rest carried by parent motion, then the control's local on top.
 	static ControlSolveStep solveControlStep(const MMatrix& mLocal, const MMatrix& mRestWorld, const MMatrix& mParentDelta);
 	// In-place write to an existing output array element. Never builds new elements (see the MArrayDataBuilder rule).
 	static void writeOutputMatrix(MArrayDataHandle& hOutputData, unsigned int logicalIndex, const MMatrix& mMatrix);
-	static MMatrix getInputCompoundMatrix(
-		MDataBlock& data,
-		const MObject& aParentCompound,
-		const MObject& aChildAttr,
-		unsigned int logicalIndex
-	);
-	static void setOutputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx, const MMatrix& mat);
-	static void setOutputMatrix(MDataBlock& data, const MObject& attr, const MMatrix& mat);
 public:
 	// Shared creation & build methods
 	static MStatus connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot);

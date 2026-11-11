@@ -592,7 +592,7 @@ After the display layers, `createRig` replaces the rig namespace's selection set
 
 ## Open items
 
-- **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.
+- **`compute()` review:** done 2026-11-11, no open item. Plug grouping: every module and constraint `compute()` reads its plugs once, by `MObject` attributes resolved at `initialize()`, with no string lookup, allocation or `MGlobal` call, and writes in place into existing output elements. The layout `end` socket to FkChain `start` connection: `connectSocketMatrixToChildPlug` stores the socket's rest on the child plug and connects its live matrix, so the delta is identity at build time. Layout rests are identity, so the delta is the socket's world, and an FkChain on a rotated layout follows rigidly (pose cases `child_chain_rest_on_rotated_socket`, `rotated_parent_carries_child_chain`). Removed five uncalled `RigModuleNodeBase` helpers (`getInputMatrix` x2, `getInputCompoundMatrix`, `setOutputMatrix` x2): two called `MGlobal::displayError` and one built array elements from compute, both against D36. Not changed: `commitOutput` builds a `MPlug` per output per compute (three per module), which is cheap but unmeasured against D36's node overhead; `solveFkChain` assumes dense control indices 0 to n-1, which every module guarantees.
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
 - **D24:** the TODOs in `mayadev-integration.md` (the `python/` package, `.mod` files), plus control sets. Asset folders moved to D29.

@@ -43,67 +43,6 @@ MStatus RigModuleNodeBase::compute(const MPlug& plug, MDataBlock& data)
 }
 
 
-// DataBlock Handles Access --------------------------------------------
-MMatrix RigModuleNodeBase::getInputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx)
-{
-	MStatus status;
-	MArrayDataHandle hArray = data.inputArrayValue(attr, &status);
-	if (status == MStatus::kSuccess && hArray.jumpToElement(idx) == MS::kSuccess)
-	{
-		return hArray.inputValue().asMatrix();
-	}
-	MGlobal::displayError("Error retrieving array matrix element at index.");
-	return MMatrix::identity;
-}
-
-MMatrix RigModuleNodeBase::getInputMatrix(MDataBlock& data, const MObject& attr)
-{
-	MDataHandle hData = data.inputValue(attr);
-	return hData.asMatrix();
-}
-
-MMatrix RigModuleNodeBase::getInputCompoundMatrix(
-	MDataBlock& data,
-	const MObject& aParentCompound,
-	const MObject& aChildAttr,
-	unsigned int logicalIndex)
-{
-	MStatus status;
-	MArrayDataHandle hCompoundArray = data.inputArrayValue(aParentCompound, &status);
-
-	if (status == MStatus::kSuccess && hCompoundArray.jumpToElement(logicalIndex) == MStatus::kSuccess)
-	{
-		MDataHandle hElement = hCompoundArray.inputValue();
-		MDataHandle hChild = hElement.child(aChildAttr);
-		return hChild.asMatrix();
-	}
-
-	// Return identity if the element is not found or uninitialized
-	return MMatrix::identity;
-}
-
-void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, unsigned int idx, const MMatrix& mat)
-{
-	MArrayDataHandle hArray = data.outputArrayValue(attr);
-	if (hArray.jumpToElement(idx) == MS::kSuccess)
-	{
-		hArray.outputValue().setMMatrix(mat);
-	}
-	else
-	{
-		MArrayDataBuilder builder(&data, attr, 1);
-		MDataHandle hElement = builder.addElement(idx);
-		hElement.setMMatrix(mat);
-		hArray.set(builder);
-	}
-}
-
-void RigModuleNodeBase::setOutputMatrix(MDataBlock& data, const MObject& attr, const MMatrix& mat)
-{
-	MDataHandle hOutput = data.outputValue(attr);
-	hOutput.setMMatrix(mat);
-}
-
 // Networking functionality --------------------------------------------
 MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot)
 {

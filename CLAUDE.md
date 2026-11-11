@@ -358,4 +358,4 @@ Before declaring work done, check:
 
 These go stale quickly. Verify against the repo before acting on them.
 
-- Reviewing `compute()` plug grouping and the layout `end` socket to first FkChain `start` child plug connection.
+- None recorded. The `compute()` review closed on 2026-11-11 (see "Open items" in `design/decisions.md`).
