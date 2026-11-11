@@ -1,0 +1,8 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "AimMirror",
+  "rigModules": [
+    { "moduleType": "Aim", "name": "eye_r", "shapeType": "Box", "side": "Right", "mirror": true,
+      "moduleArgs": { "aim": ["Right", "eye"], "target": ["Right", "eyeTarget"], "up": ["Right", "eyeUp"] } }
+  ]
+}

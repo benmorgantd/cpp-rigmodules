@@ -11,6 +11,8 @@ class AimContract(ModuleContract, RigTestCase):
     SKELETON = "aim_basic"
     MODULE_TYPE = "aimModule"
     JOINT_OWNERS = {"eye_jnt": "aim_1", "eyeTarget_jnt": "aim_1", "eyeUp_jnt": "aim_1"}
+    MIRROR_TEMPLATE = "aim_mirror"
+    MIRROR_SKELETON = "aim_mirror"
 
 
 class AimPoses(RigTestCase):

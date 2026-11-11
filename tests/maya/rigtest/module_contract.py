@@ -5,6 +5,10 @@
         SKELETON = "fk_three"
         MODULE_TYPE = "fkChainModule"
         JOINT_OWNERS = {"a_jnt": "fkchain_1", ...}
+        MIRROR_TEMPLATE = "mirror_arms"   # a template with this module marked "mirror": true (D28)
+        MIRROR_SKELETON = "mirror_arms"   # its skeleton, with joints for both sides
+
+A module that can only be Center sets MIRROR_TEMPLATE = False. Leaving it unset fails the mirror tests.
 """
 import os
 import re
@@ -59,6 +63,8 @@ class ModuleContract:
     SKELETON = None       # fixture skeleton the template needs
     MODULE_TYPE = None    # Maya node type of the module
     JOINT_OWNERS = {}     # joint short name -> module name that must drive its offsetParentMatrix
+    MIRROR_TEMPLATE = None  # fixture template with a "mirror": true entry of this module, or False for a Center-only module
+    MIRROR_SKELETON = None  # fixture skeleton for MIRROR_TEMPLATE, with joints for both sides
 
     def _build(self):
         return self.build_standard(self.TEMPLATE, self.SKELETON)
@@ -142,3 +148,106 @@ class ModuleContract:
         self._build()
         for module in cmds.ls(rig_name("*"), type=self.MODULE_TYPE):
             assert_one_solve_fills_every_output(self, module)
+
+    # ---- mirrored build (D28, D34) ---------------------------------------------------------------
+
+    def _build_mirrored(self):
+        """Builds MIRROR_TEMPLATE and returns the rig root and this module type's controls (RigControl)."""
+        if self.MIRROR_TEMPLATE is False:
+            self.skipTest("%s has no Left or Right side, so it can't be mirrored" % self.MODULE_TYPE)
+        self.assertIsNotNone(self.MIRROR_TEMPLATE, "set MIRROR_TEMPLATE and MIRROR_SKELETON, or MIRROR_TEMPLATE = False if %s can't mirror" % self.MODULE_TYPE)
+        joints = self.make_skeleton(self.MIRROR_SKELETON)
+        self._mirror_joint_rest = {j.split(":")[-1]: _world_matrix(j) for j in joints}
+        self.build(self.MIRROR_TEMPLATE, joints)
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        controls = [c for c in rigmodules.query.get_rig_controls(root) if cmds.nodeType(c.module) == self.MODULE_TYPE]
+        self.assertTrue(controls, "%s built no %s controls" % (self.MIRROR_TEMPLATE, self.MODULE_TYPE))
+        return root, controls
+
+    def _pose_channels(self, control):
+        """Moves every plain channel of a control off its rest, within its range, and returns {name: value}."""
+        posed = {}
+        for channel in rigmodules.query.get_control_channels(control):
+            if channel.type in ("enum", "bool"):
+                continue
+            value = channel.rest + 0.25
+            if channel.max is not None:
+                value = min(value, channel.max)
+            cmds.setAttr("%s.%s" % (control, channel.name), value)
+            posed[channel.name] = cmds.getAttr("%s.%s" % (control, channel.name))
+        return posed
+
+    def test_contract_mirrored_build_pairs_every_control(self):
+        """A mirrored module gets a Left and a Right copy, and every Left or Right control pairs with its mirror:
+        the other side, the same usage, a different module, and the same channels with the same rests and mirror
+        modes. A Center control is its own mirror."""
+        root, controls = self._build_mirrored()
+        by_node = {c.node: c for c in controls}
+        sides = set(c.side for c in controls)
+        self.assertTrue({"Left", "Right"} <= sides, "%s built these sides: %s" % (self.MIRROR_TEMPLATE, sorted(sides)))
+        for control in controls:
+            self.assertIsNotNone(control.mirror, "%s has no mirror control" % control.node)
+            if control.side == "Center":
+                self.assertEqual(control.mirror, control.node, "a Center control is its own mirror")
+                continue
+            mirror = by_node.get(control.mirror)
+            self.assertIsNotNone(mirror, "%s's mirror %s is not a %s control" % (control.node, control.mirror, self.MODULE_TYPE))
+            self.assertEqual(mirror.mirror, control.node, "%s and %s are not each other's mirror" % (control.node, mirror.node))
+            self.assertEqual(mirror.side, {"Left": "Right", "Right": "Left"}[control.side], control.node)
+            self.assertEqual(mirror.usage, control.usage, control.node)
+            self.assertNotEqual(mirror.module, control.module, "%s and its mirror share a module" % control.node)
+            self.assertEqual(rigmodules.query.get_control_channels(mirror.node),
+                             rigmodules.query.get_control_channels(control.node),
+                             "%s and %s have different channels" % (control.node, mirror.node))
+
+    def test_contract_mirrored_joints_keep_rest_pose(self):
+        self._build_mirrored()
+        for short, matrix in self._mirror_joint_rest.items():
+            after = _world_matrix(rig_name(short))
+            if not after.isEquivalent(matrix, 1e-4):
+                self.fail("%s moved when the mirrored rig was built\n  before %s\n  after  %s" % (short, list(matrix), list(after)))
+
+    def test_contract_mirror_pose_follows_each_channels_declared_mode(self):
+        """mirrorRigPose copies a channel's value or negates it, as the channel's mirrorCopy or mirrorNegate
+        says, and flipRigPose does the same for a pair. Zero then brings the mirrored rig back to its build pose."""
+        root, controls = self._build_mirrored()
+        left = [c for c in controls if c.side == "Left"]
+        joints = cmds.ls(rig_name("*"), type="joint")
+        rest = {j: _world_matrix(j) for j in joints}
+        channels = {c.node: rigmodules.query.get_control_channels(c.node) for c in left}
+        modes = {node: {ch.name: ch.mirror for ch in found} for node, found in channels.items()}
+
+        def assert_mirrored(label, source_values):
+            for control in left:
+                for name, value in source_values[control.node].items():
+                    expected = -value if modes[control.node][name] == "negate" else value
+                    actual = cmds.getAttr("%s.%s" % (control.mirror, name))
+                    self.assertAlmostEqual(
+                        actual, expected, places=3,
+                        msg="%s: %s.%s expected %s from %s (mirror%s), got %s"
+                            % (label, control.mirror, name, expected, control.node, modes[control.node][name].title(), actual))
+
+        posed = {c.node: self._pose_channels(c.node) for c in left}
+        self.assertTrue(any(posed.values()), "no Left channel could be posed, so the test proves nothing")
+        cmds.mirrorRigPose(root)
+        assert_mirrored("mirrorRigPose", posed)
+
+        # Only the Left side is posed, so the Right side takes its mirror and the Left side takes the mirror of
+        # the Right side's rest, which is the Left side's own rest.
+        cmds.zeroRigControls(root)
+        posed = {c.node: self._pose_channels(c.node) for c in left}
+        cmds.flipRigPose(root)
+        assert_mirrored("flipRigPose", posed)
+        for control in left:
+            for channel in channels[control.node]:
+                if channel.type not in ("enum", "bool"):
+                    self.assertAlmostEqual(
+                        cmds.getAttr("%s.%s" % (control.node, channel.name)), channel.rest, places=3,
+                        msg="flipRigPose: %s.%s should be at its rest, since its mirror was" % (control.node, channel.name))
+
+        cmds.zeroRigControls(root)
+        for joint in joints:
+            after = _world_matrix(joint)
+            if not after.isEquivalent(rest[joint], 1e-4):
+                self.fail("%s is off its build pose after zeroRigControls on the mirrored rig\n  built %s\n  after %s"
+                          % (joint, list(rest[joint]), list(after)))

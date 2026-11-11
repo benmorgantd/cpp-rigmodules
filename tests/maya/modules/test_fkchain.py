@@ -13,6 +13,8 @@ class FkChainContract(ModuleContract, RigTestCase):
     SKELETON = "fk_three"
     MODULE_TYPE = "fkChainModule"
     JOINT_OWNERS = {"a_jnt": "fkchain_1", "b_jnt": "fkchain_1", "c_jnt": "fkchain_1"}
+    MIRROR_TEMPLATE = "mirror_arms"
+    MIRROR_SKELETON = "mirror_arms"
 
 
 class FkChainPoses(RigTestCase):

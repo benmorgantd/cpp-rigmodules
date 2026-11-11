@@ -1,0 +1,10 @@
+{
+  "joints": [
+    { "name": "eye_r_jnt", "side": "Right", "usage": "eye", "translate": [-1, 0, 0] },
+    { "name": "eyeTarget_r_jnt", "side": "Right", "usage": "eyeTarget", "translate": [-1, 0, 5], "export": false, "skin": false },
+    { "name": "eyeUp_r_jnt", "side": "Right", "usage": "eyeUp", "translate": [-1, 3, 0], "export": false, "skin": false },
+    { "name": "eye_l_jnt", "side": "Left", "usage": "eye", "translate": [1, 0, 0] },
+    { "name": "eyeTarget_l_jnt", "side": "Left", "usage": "eyeTarget", "translate": [1, 0, 5], "export": false, "skin": false },
+    { "name": "eyeUp_l_jnt", "side": "Left", "usage": "eyeUp", "translate": [1, 3, 0], "export": false, "skin": false }
+  ]
+}
