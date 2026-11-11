@@ -115,7 +115,7 @@ joints = rigmodules.selection.get_missing_influences("hero:rigRootModule1", "her
 
 | Function | Returns |
 |---|---|
-| `find_set(rig_root, kind, side=None, module=None)` | The set of `kind` (`"controls"`, `"joints"` or `"skinJoints"`) for a side (`"Left"`, `"Right"` or `"Center"`) or a module (its node name without the namespace). With neither, the "all" set. `None` when there is none. Raises `RuntimeError` for a node that is not a rig root, or a rig without sets |
+| `find_set(rig_root, kind, side=None, module=None)` | The set of `kind` (`"controls"` or `"joints"`, the skin joints) for a side (`"Left"`, `"Right"` or `"Center"`) or a module (its node name without the namespace). With neither, the top set (`controls_set` or `joints_set`). The set that holds the module sets is not returned. `None` when there is none. Raises `RuntimeError` for a node that is not a rig root, or a rig without sets |
 | `get_set(...)` | `find_set`, raising `RuntimeError` instead of returning `None` |
 | `get_members(set_node)` | Every node in a set, nested sets included, as unique long names |
 | `get_skin_joints(rig_root, side=None, module=None, usage=None)` | The skin joints, narrowed by every argument given. A module with no skin joints gives `[]` |

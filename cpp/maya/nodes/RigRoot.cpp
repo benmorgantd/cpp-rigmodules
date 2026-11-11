@@ -476,8 +476,8 @@ namespace
 		return dagMod.doIt();
 	}
 
-	// Write phase, after the display layers. Replaces the rig's selection sets (D39): every control, every input joint
-	// and every skin joint, each with a subset per module and a Left, Right and Center set. Each set goes on
+	// Write phase, after the display layers. Replaces the rig's selection sets (D39): one hierarchy for the controls
+	// and one for the skin joints, each with a Left, Right and Center set and a set per module. Each set goes on
 	// RigRoot.selectionSets. SelectionSets::planSets lays them out, and this turns its indices into scene nodes.
 	MStatus queueSelectionSets(
 		const RigBuildInputs& inputs,
@@ -504,8 +504,6 @@ namespace
 			}
 		}
 
-		MObjectArray oJoints;
-		std::vector<SelectionSets::Item> jointItems;
 		MObjectArray oSkinJoints;
 		std::vector<SelectionSets::Item> skinItems;
 		for (unsigned int j = 0; j < inputs.joints.length(); ++j)
@@ -518,8 +516,6 @@ namespace
 
 			const MObject oModule = RigTraversal::getJointModule(oJoint);
 			const SelectionSets::Item item{ oModule.isNull() ? std::string() : MNamespace::stripNamespaceFromName(MFnDependencyNode(oModule).name()).asChar(), markup.side };
-			oJoints.append(oJoint);
-			jointItems.push_back(item);
 			if (markup.isSkinned)
 			{
 				oSkinJoints.append(oJoint);
@@ -536,8 +532,7 @@ namespace
 		const Group groups[] =
 		{
 			{ SelectionSetKind::Controls, oControls, controlItems },
-			{ SelectionSetKind::Joints, oJoints, jointItems },
-			{ SelectionSetKind::SkinJoints, oSkinJoints, skinItems }
+			{ SelectionSetKind::Joints, oSkinJoints, skinItems }
 		};
 
 		std::vector<SelectionSetSpec> specs;

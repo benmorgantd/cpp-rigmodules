@@ -1,8 +1,8 @@
 """A rig's selection sets and the skinning selections built on them (D39).
 
-The build makes a set of every control, every joint and every skin joint, each with a subset per module and a
-Left, Right and Center set. Each set says what it is in its setMarkup attribute, so tools find sets and joints
-through data, never names (D24).
+The build makes one hierarchy of sets for the controls and one for the skin joints: a top set that holds a Left,
+Right and Center set and a set that holds one set per module. Each set says what it is in its setMarkup
+attribute, so tools find sets and joints through data, never names (D24).
 """
 
 from __future__ import annotations
@@ -16,8 +16,7 @@ SET_MARKUP_ATTR = "setMarkup"
 JOINT_MARKUP_ATTR = "rigMarkup"
 
 CONTROLS = "controls"
-JOINTS = "joints"
-SKIN_JOINTS = "skinJoints"
+JOINTS = "joints"   # the skin joints
 
 
 def _get_set_markup(set_node: str) -> dict:
@@ -25,9 +24,9 @@ def _get_set_markup(set_node: str) -> dict:
 
 
 def find_set(rig_root: str, kind: str, side: str | None = None, module: str | None = None) -> str | None:
-    """The rig's set of this kind ("controls", "joints" or "skinJoints") for a side ("Left", "Right" or "Center")
-    or a module (its node name without the namespace), or the "all" set with neither. None when there is no such
-    set: a module with no skin joints has no skin joint subset. Raises RuntimeError for a node that is not a rig root or has no sets."""
+    """The rig's set of this kind ("controls" or "joints", the skin joints) for a side ("Left", "Right" or "Center")
+    or a module (its node name without the namespace), or the top set with neither. None when there is no such
+    set: a module with no skin joints has no joints set. The set that holds the module sets is not returned. Raises RuntimeError for a node that is not a rig root or has no sets."""
     if not cmds.attributeQuery(SELECTION_SETS_ATTR, node=rig_root, exists=True):
         raise RuntimeError(f"{rig_root} is not a rig root.")
     sets = cmds.listConnections(f"{rig_root}.{SELECTION_SETS_ATTR}", source=True, destination=False) or []
@@ -35,7 +34,7 @@ def find_set(rig_root: str, kind: str, side: str | None = None, module: str | No
         raise RuntimeError(f"{rig_root} has no selection sets.")
     for set_node in sets:
         markup = _get_set_markup(set_node)
-        if markup["kind"] == kind and markup["side"] == side and markup["module"] == module:
+        if markup["role"] != "modules" and markup["kind"] == kind and markup["side"] == side and markup["module"] == module:
             return set_node
     return None
 
@@ -76,7 +75,7 @@ def _get_nodes(rig_root: str, kind: str, side: str | None, module: str | None) -
 def get_skin_joints(rig_root: str, side: str | None = None, module: str | None = None, usage: str | None = None) -> list[str]:
     """The rig's skin joints, as long names, narrowed by side, module and usage. Narrowing by a module with no
     skin joints returns an empty list."""
-    joints = _get_nodes(rig_root, SKIN_JOINTS, side, module)
+    joints = _get_nodes(rig_root, JOINTS, side, module)
     if usage is not None:
         joints = [joint for joint in joints if json.loads(cmds.getAttr(f"{joint}.{JOINT_MARKUP_ATTR}"))["usage"] == usage]
     return joints

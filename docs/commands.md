@@ -80,18 +80,18 @@ The build makes three display layers in the rig namespace: `jointsLayer` (the jo
 
 Meshes are not inputs of the build: the model is imported after it, so `meshesLayer` starts empty and the tool that imports the model fills it with the imported meshes ([`rigmodules.displaylayers.add_meshes`](python.md#rigmodulesdisplaylayers)). A second rig variant built into the same namespace replaces the first variant's layers.
 
-The build also makes selection sets in the rig namespace, for selecting and for skinning:
+The build also makes selection sets in the rig namespace, for selecting and for skinning. There are two hierarchies, one for the controls and one for the skin joints (the joints marked `skin`):
 
-| Set | Holds |
-|---|---|
-| `controlsSet` | every control, as one nested `<module>_controlsSet` per module |
-| `jointsSet` | every joint passed in, as one nested `<module>_jointsSet` per module that drives joints. A joint no module drives is a direct member |
-| `skinJointsSet` | the joints marked `skin`, nested the same way as `<module>_skinJointsSet`. A module with no skin joints has no subset |
-| `controlsLeftSet`, `controlsRightSet`, `controlsCenterSet` | the controls by their markup side |
-| `jointsLeftSet`, `jointsRightSet`, `jointsCenterSet` | the joints by their markup side |
-| `skinJointsLeftSet`, `skinJointsRightSet`, `skinJointsCenterSet` | the skin joints by their markup side |
+```
+controls_set                    joints_set
+  controls_left_set               joints_left_set
+  controls_right_set              joints_right_set
+  controls_center_set             joints_center_set
+  controls_modules_set            joints_modules_set
+    <module>_controls_set           <module>_joints_set
+```
 
-`<module>` is the module node's name without the namespace. The side sets are siblings of the "all" sets, not members of them, and they exist even when empty. Selecting a nested set in the Outliner selects everything in it. Every set connects to the rig root's `selectionSets` message array and carries a JSON `setMarkup` attribute (`{"markupVersion": 1, "kind": "skinJoints", "side": null, "module": "arm_l"}`: `kind` is `controls`, `joints` or `skinJoints`, and `side` and `module` are null when the set is not about one), so tools find a set without reading names: [`rigmodules.selection`](python.md#rigmodulesselection). A set of the same name already in the namespace is replaced.
+Only the side sets and the module sets hold items. A control or joint is in the set for its side and the set for its module, and selecting `controls_set` or `joints_set` selects it once. `<module>` is the module node's name without the namespace. A module with no skin joints has no joints set, and a skin joint no module drives is in its side set only. The side sets exist even when empty. Every set connects to the rig root's `selectionSets` message array and carries a JSON `setMarkup` attribute (`{"markupVersion": 1, "kind": "joints", "role": "module", "side": null, "module": "arm_l"}`): `kind` is `controls` or `joints`, `role` is `all`, `side`, `modules` or `module`, and `side` and `module` are null unless the role names one. Tools find a set through it, not through names: [`rigmodules.selection`](python.md#rigmodulesselection). A set of the same name already in the namespace is replaced.
 
 The rig root records what built it, so tools can find out-of-date rigs in a scene:
 

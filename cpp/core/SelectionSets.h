@@ -28,9 +28,12 @@ namespace SelectionSets
 		std::vector<std::size_t> children;   // nested sets, by index into the plan
 	};
 
-	// The sets for one kind (SelectionSetKind), in this order: the "all" set at index 0, a subset for each module
-	// that owns an item (by module name), then Left, Right and Center. The "all" set nests the module subsets and
-	// holds directly the items no module owns, so selecting it selects everything. The side sets are siblings of it,
-	// and always exist, even empty, so a lookup never has to handle their absence.
+	// The sets for one kind (SelectionSetKind), as a hierarchy:
+	//   <kind>_set: <kind>_left_set, <kind>_right_set, <kind>_center_set, <kind>_modules_set
+	//   <kind>_modules_set: <module>_<kind>_set, one per module that owns an item, by module name
+	// Index 0 is the top set, then the three side sets, the modules set, and the module sets. Only the side and
+	// module sets hold items directly: an item is in the one set for its side and the one for its module, and
+	// selecting the top set selects it once. An item no module owns is in its side set only. The side sets always
+	// exist, even empty, so a lookup never has to handle their absence.
 	std::vector<Set> planSets(const std::string& kind, const std::vector<Item>& items);
 }

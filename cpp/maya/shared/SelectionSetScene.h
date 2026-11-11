@@ -8,7 +8,7 @@
 #include <maya/MStatus.h>
 #include <maya/MString.h>
 
-// A selection set to create: its absolute name (":rig:controlsSet"), its setMarkup text, the DAG nodes it holds
+// A selection set to create: its absolute name (":rig:controls_set"), its setMarkup text, the DAG nodes it holds
 // directly and the sets nested in it, as indices into the same spec list.
 struct SelectionSetSpec
 {

@@ -126,7 +126,7 @@ RigTemplates/        example template
 | `ControlChannels.h/.cpp` | `ControlChannel` (name, type, rest, range, mirror mode), `serializeControlChannels` for `getRigControlChannels`, and `findMirrorAxis` for flipping a Center control (D34). |
 | `RigTemplateValidation.h/.cpp` | `ValidationReport`, `ModuleInterface`, and the read-phase template checks (D17). |
 | `TemplateMirror.h/.cpp` | `expandMirrors` (adds the other side's copy of every `"mirror": true` module and constraint before validation), `swapSide`, `swapSideSuffix` (D28). |
-| `SelectionSets.h/.cpp` | `SelectionSets::planSets`: the selection sets a rig gets for one kind (controls, joints, skin joints) from `{module, side}` items, as names, `setMarkup` JSON and member indices (D39). |
+| `SelectionSets.h/.cpp` | `SelectionSets::planSets`: the selection set hierarchy a rig gets for one kind (controls or skin joints: top set, sides, modules) from `{module, side}` items, as names, `setMarkup` JSON and member indices (D39). |
 | `JointMarkup.h/.cpp` | Markup schema, `JointSelector` (and `formatJointSelector` for messages), `JointMarkupIndex`. |
 | `ControlMarkup.h/.cpp` | Control markup schema (`controlMarkup` attribute): `markupVersion`, `side`, `usage` (D25), and `ControlInfo` with `serializeControlInfo` for `getRigControlInfo` (D34). |
 | `ControlShapes.h/.cpp` | `ShapeType` enum, shape name lookups, `getShapeMesh` (wire and triangle indices, built once by ear clipping) and `validateShapeLibrary` (D26). |
@@ -320,7 +320,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 515 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 514 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.

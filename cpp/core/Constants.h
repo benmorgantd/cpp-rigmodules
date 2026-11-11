@@ -298,14 +298,23 @@ namespace JointMarkupKey
 namespace SelectionSetKey
 {
 	inline constexpr const char* Kind{ "kind" };
+	inline constexpr const char* Role{ "role" };
+	inline constexpr const char* Module{ "module" };
+}
+
+// What a set is within its kind: the top set, a side set, the set that holds the module sets, or one module's set.
+namespace SelectionSetRole
+{
+	inline constexpr const char* All{ "all" };
+	inline constexpr const char* Side{ "side" };
+	inline constexpr const char* Modules{ "modules" };
 	inline constexpr const char* Module{ "module" };
 }
 
 namespace SelectionSetKind
 {
 	inline constexpr const char* Controls{ "controls" };
-	inline constexpr const char* Joints{ "joints" };
-	inline constexpr const char* SkinJoints{ "skinJoints" };
+	inline constexpr const char* Joints{ "joints" };   // the skin joints
 }
 
 namespace SideNames

@@ -11,11 +11,13 @@ from rigtest.case import RigTestCase, rig_name
 TEMPLATE = "mirror_arms"
 SKELETON = "mirror_arms"
 
-# Hand-written from the template: its modules and the joints each one drives.
+# Hand-written from the template: its modules and the joints each one drives. The hand is driven by none.
 MODULES = ["arm_l", "arm_r", "clavicle_l", "clavicle_r", "spine"]
 DRIVEN_BY = {"arm_l": ["upperArm_l_jnt", "lowerArm_l_jnt"], "arm_r": ["upperArm_r_jnt", "lowerArm_r_jnt"],
              "clavicle_l": ["clavicle_l_jnt"], "clavicle_r": ["clavicle_r_jnt"], "spine": ["chest_jnt"]}
-UNCLAIMED_JOINT = "hand_l_jnt"          # no module drives it
+UNCLAIMED_JOINT = "hand_l_jnt"
+SKIN_JOINTS = ["chest_jnt", "clavicle_l_jnt", "upperArm_l_jnt", "lowerArm_l_jnt", UNCLAIMED_JOINT,
+               "clavicle_r_jnt", "upperArm_r_jnt", "lowerArm_r_jnt"]
 SKIN_JOINTS_AFTER_UNMARK = ["chest_jnt", "clavicle_l_jnt", "upperArm_l_jnt", "lowerArm_l_jnt",
                             "clavicle_r_jnt", "upperArm_r_jnt"]
 
@@ -44,14 +46,11 @@ class SelectionSetsCase(RigTestCase):
         self.root = cmds.ls(type="rigRootModule")[0]
         return joints
 
-    def rig_joints(self):
-        return cmds.ls(rig_name("*"), type="joint", long=True)
-
-    def direct_members(self, set_node):
-        return cmds.sets(set_node, query=True) or []
+    def direct_members(self, set_name):
+        return cmds.sets(rig_name(set_name), query=True) or []
 
     def direct_names(self, set_name):
-        return sorted(short(m) for m in self.direct_members(rig_name(set_name)))
+        return sorted(short(m) for m in self.direct_members(set_name))
 
     def long_names(self, nodes):
         return sorted(cmds.ls(nodes, long=True))
@@ -59,100 +58,95 @@ class SelectionSetsCase(RigTestCase):
 
 class SetLayout(SelectionSetsCase):
 
+    def test_each_kind_is_one_hierarchy(self):
+        self.build_rig()
+        self.assertEqual(self.direct_names("controls_set"),
+                         ["controls_center_set", "controls_left_set", "controls_modules_set", "controls_right_set"])
+        self.assertEqual(self.direct_names("joints_set"),
+                         ["joints_center_set", "joints_left_set", "joints_modules_set", "joints_right_set"])
+        self.assertEqual(self.direct_names("joints_modules_set"), sorted(m + "_joints_set" for m in MODULES))
+        # the layout module has controls and no joints
+        self.assertEqual(self.direct_names("controls_modules_set"), sorted(m + "_controls_set" for m in MODULES + ["layout"]))
+
+    def test_only_the_side_and_module_sets_hold_items(self):
+        self.build_rig()
+        for name in ["controls_set", "joints_set", "controls_modules_set", "joints_modules_set"]:
+            self.assertTrue(all(cmds.nodeType(m) == "objectSet" for m in self.direct_members(name)), name)
+
     def test_every_set_is_on_the_root_array_and_says_what_it_is(self):
         self.build_rig()
         sets = cmds.listConnections(self.root + ".selectionSets", source=True, destination=False)
-        # each kind: the all set, a set per module with members, and 3 side sets. The layout module has controls only.
-        expected = (1 + len(MODULES) + 1 + 3) + (1 + len(MODULES) + 3) * 2
-        self.assertEqual(len(sets), expected)
+        # per kind: the top set, 3 side sets, the modules set and a set per module
+        self.assertEqual(len(sets), (5 + len(MODULES) + 1) + (5 + len(MODULES)))
         for set_node in sets:
             markup = json.loads(cmds.getAttr(set_node + ".setMarkup"))
-            self.assertEqual(sorted(markup), ["kind", "markupVersion", "module", "side"])
+            self.assertEqual(sorted(markup), ["kind", "markupVersion", "module", "role", "side"])
             self.assertEqual(markup["markupVersion"], 1)
-            self.assertIn(markup["kind"], ["controls", "joints", "skinJoints"])
-            self.assertTrue(markup["side"] is None or markup["module"] is None)
-
-    def test_set_names(self):
-        self.build_rig()
-        for name in ["controlsSet", "jointsSet", "skinJointsSet", "arm_l_controlsSet", "arm_r_jointsSet",
-                     "spine_skinJointsSet", "controlsLeftSet", "controlsRightSet", "controlsCenterSet",
-                     "skinJointsLeftSet", "skinJointsRightSet", "skinJointsCenterSet", "jointsLeftSet"]:
-            self.assertEqual(cmds.ls(rig_name(name)), [rig_name(name)[1:]], name)
-
-    def test_the_layout_module_has_controls_but_no_joint_subsets(self):
-        self.build_rig()
-        self.assertEqual(cmds.ls(rig_name("layout*Set")), [rig_name("layout_controlsSet")[1:]])
+            self.assertIn(markup["kind"], ["controls", "joints"])
+            self.assertIn(markup["role"], ["all", "side", "modules", "module"])
+            self.assertEqual(markup["side"] is not None, markup["role"] == "side")
+            self.assertEqual(markup["module"] is not None, markup["role"] == "module")
 
 
 class ControlSets(SelectionSetsCase):
 
-    def test_the_all_set_nests_the_module_sets_and_selects_every_control(self):
+    def test_the_top_set_selects_every_control_once(self):
         self.build_rig()
-        all_set = rig_name("controlsSet")
-        self.assertTrue(all(cmds.nodeType(m) == "objectSet" for m in self.direct_members(all_set)))
-        self.assertEqual(self.long_names(rigmodules.selection.get_members(all_set)),
-                         self.long_names(cmds.getRigControls(self.root)))
+        members = rigmodules.selection.get_members(rig_name("controls_set"))
+        self.assertEqual(len(members), len(set(members)))
+        self.assertEqual(self.long_names(members), self.long_names(cmds.getRigControls(self.root)))
 
     def test_each_module_set_holds_that_modules_controls(self):
         self.build_rig()
-        for module in MODULES:
+        for module in MODULES + ["layout"]:
             expected = [c.node for c in rigmodules.query.get_rig_controls(self.root) if short(c.module) == module]
             self.assertTrue(expected, module)
-            self.assertEqual(self.long_names(self.direct_members(rig_name(module + "_controlsSet"))),
-                             self.long_names(expected))
+            self.assertEqual(self.long_names(self.direct_members(module + "_controls_set")), self.long_names(expected))
 
     def test_side_sets_hold_controls_by_markup(self):
         self.build_rig()
         for side in ["Left", "Right", "Center"]:
-            self.assertEqual(self.long_names(self.direct_members(rig_name("controls%sSet" % side))),
+            self.assertEqual(self.long_names(self.direct_members("controls_%s_set" % side.lower())),
                              self.long_names(cmds.getRigControls(self.root, side=[side])), side)
 
 
 class JointSets(SelectionSetsCase):
+    """The joints sets hold the skin joints only."""
 
-    def test_the_all_set_selects_every_joint_and_holds_an_unclaimed_one_directly(self):
+    def test_the_top_set_selects_every_skin_joint_once_including_an_unclaimed_one(self):
         self.build_rig()
-        all_set = rig_name("jointsSet")
-        self.assertEqual(self.long_names(rigmodules.selection.get_members(all_set)), self.long_names(self.rig_joints()))
-        direct = [m for m in self.direct_members(all_set) if cmds.nodeType(m) == "joint"]
-        self.assertEqual([short(m) for m in direct], [UNCLAIMED_JOINT])
+        members = rigmodules.selection.get_members(rig_name("joints_set"))
+        self.assertEqual(len(members), len(set(members)))
+        self.assertEqual(sorted(short(m) for m in members), sorted(SKIN_JOINTS))
 
     def test_module_sets_hold_the_joints_the_module_drives(self):
         self.build_rig()
         for module, names in DRIVEN_BY.items():
-            self.assertEqual(self.direct_names(module + "_jointsSet"), sorted(names))
+            self.assertEqual(self.direct_names(module + "_joints_set"), sorted(names))
 
     def test_side_sets(self):
         self.build_rig()
-        self.assertEqual(self.direct_names("jointsCenterSet"), ["chest_jnt"])
-        self.assertEqual(self.direct_names("jointsRightSet"), ["clavicle_r_jnt", "lowerArm_r_jnt", "upperArm_r_jnt"])
-
-
-class SkinJointSets(SelectionSetsCase):
-
-    def test_only_joints_marked_to_skin_are_in_the_skin_sets(self):
-        self.build_rig(unmark_skin)
-        members = rigmodules.selection.get_members(rig_name("skinJointsSet"))
-        self.assertEqual(sorted(short(m) for m in members), sorted(SKIN_JOINTS_AFTER_UNMARK))
-        self.assertEqual(self.direct_names("arm_r_skinJointsSet"), ["upperArm_r_jnt"])
-        # the joint sets still hold the joints that don't skin
-        self.assertIn("lowerArm_r_jnt", self.direct_names("arm_r_jointsSet"))
-
-    def test_a_skin_joint_no_module_drives_is_in_the_all_set_directly(self):
-        self.build_rig()
-        direct = [m for m in self.direct_members(rig_name("skinJointsSet")) if cmds.nodeType(m) == "joint"]
-        self.assertEqual([short(m) for m in direct], [UNCLAIMED_JOINT])
-
-    def test_a_module_with_no_skin_joints_has_no_subset(self):
-        self.build_rig(lambda joints: cmds.rigJointMarkup(joints[0], usage="chest", side="Center", export=True, skin=False, edit=True))
-        self.assertEqual(cmds.ls(rig_name("spine_skinJointsSet")), [])
-        self.assertEqual(cmds.ls(rig_name("spine_jointsSet")), [rig_name("spine_jointsSet")[1:]])
-
-    def test_side_sets(self):
-        self.build_rig()
-        self.assertEqual(self.direct_names("skinJointsLeftSet"),
+        self.assertEqual(self.direct_names("joints_center_set"), ["chest_jnt"])
+        self.assertEqual(self.direct_names("joints_right_set"), ["clavicle_r_jnt", "lowerArm_r_jnt", "upperArm_r_jnt"])
+        self.assertEqual(self.direct_names("joints_left_set"),
                          sorted(["clavicle_l_jnt", "upperArm_l_jnt", "lowerArm_l_jnt", UNCLAIMED_JOINT]))
-        self.assertEqual(self.direct_names("skinJointsCenterSet"), ["chest_jnt"])
+
+    def test_a_joint_no_module_drives_is_in_its_side_set_only(self):
+        self.build_rig()
+        holders = [s for s in cmds.ls(rig_name("*_set"), type="objectSet") if rig_name(UNCLAIMED_JOINT)[1:] in self.direct_members(short(s))]
+        self.assertEqual(holders, [rig_name("joints_left_set")[1:]])
+
+    def test_only_joints_marked_to_skin_are_in_the_sets(self):
+        self.build_rig(unmark_skin)
+        members = rigmodules.selection.get_members(rig_name("joints_set"))
+        self.assertEqual(sorted(short(m) for m in members), sorted(SKIN_JOINTS_AFTER_UNMARK))
+        self.assertEqual(self.direct_names("arm_r_joints_set"), ["upperArm_r_jnt"])
+
+    def test_a_module_with_no_skin_joints_has_no_set(self):
+        self.build_rig(lambda joints: cmds.rigJointMarkup(joints[0], usage="chest", side="Center", export=True, skin=False, edit=True))
+        self.assertEqual(cmds.ls(rig_name("spine_joints_set")), [])
+        self.assertEqual(self.direct_names("joints_center_set"), [])
+        self.assertEqual(cmds.ls(rig_name("spine_controls_set")), [rig_name("spine_controls_set")[1:]])
 
 
 class Lifecycle(SelectionSetsCase):
@@ -160,22 +154,22 @@ class Lifecycle(SelectionSetsCase):
     def test_existing_sets_of_those_names_are_replaced_and_other_sets_stay(self):
         cmds.namespace(add=":rig")
         decoy = cmds.createNode("transform", name=":rig:decoy")
-        cmds.sets(decoy, name=":rig:controlsSet")
+        cmds.sets(decoy, name=":rig:controls_set")
         keep = cmds.sets(decoy, name=":rig:animatorSet")
         self.build_rig()
-        self.assertEqual(cmds.ls("rig:controlsSet"), ["rig:controlsSet"])
-        self.assertNotIn(decoy, cmds.sets("rig:controlsSet", query=True))
+        self.assertEqual(cmds.ls("rig:controls_set"), ["rig:controls_set"])
+        self.assertNotIn(decoy, cmds.sets("rig:controls_set", query=True))
         self.assertTrue(cmds.objExists(":" + keep))
 
     def test_undo_and_redo(self):
         self.build_rig()
-        rig_sets = cmds.ls(rig_name("*Set"), type="objectSet")
+        rig_sets = cmds.ls(rig_name("*_set"), type="objectSet")
         before = {s: self.long_names(rigmodules.selection.get_members(s)) for s in rig_sets}
         self.assertTrue(before)
         cmds.undo()
         self.assertEqual(set(cmds.ls(type="objectSet")), self.existing_sets)
         cmds.redo()
-        rig_sets = cmds.ls(rig_name("*Set"), type="objectSet")
+        rig_sets = cmds.ls(rig_name("*_set"), type="objectSet")
         self.assertEqual({s: self.long_names(rigmodules.selection.get_members(s)) for s in rig_sets}, before)
         self.assertEqual(len(cmds.listConnections(self.root + ".selectionSets", source=True, destination=False)), len(before))
 
@@ -191,12 +185,12 @@ class SelectionHelpers(SelectionSetsCase):
 
     def test_find_set_uses_markup(self):
         find = rigmodules.selection.find_set
-        self.assertEqual(find(self.root, "controls"), "rig:controlsSet")
-        self.assertEqual(find(self.root, "skinJoints", side="Left"), "rig:skinJointsLeftSet")
-        self.assertEqual(find(self.root, "joints", module="arm_r"), "rig:arm_r_jointsSet")
-        self.assertIsNone(find(self.root, "skinJoints", module="layout"))
+        self.assertEqual(find(self.root, "controls"), "rig:controls_set")
+        self.assertEqual(find(self.root, "joints", side="Left"), "rig:joints_left_set")
+        self.assertEqual(find(self.root, "joints", module="arm_r"), "rig:arm_r_joints_set")
+        self.assertIsNone(find(self.root, "joints", module="layout"))
         with self.assertRaises(RuntimeError):
-            rigmodules.selection.get_set(self.root, "skinJoints", module="layout")
+            rigmodules.selection.get_set(self.root, "joints", module="layout")
 
     def test_get_skin_joints_narrows_by_side_module_and_usage(self):
         get = rigmodules.selection.get_skin_joints
