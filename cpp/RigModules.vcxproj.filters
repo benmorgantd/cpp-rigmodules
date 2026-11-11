@@ -27,6 +27,9 @@
     <ClCompile Include="core\AssetId.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\PoseFile.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\ControlChannels.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -147,6 +150,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\Constants.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\PoseFile.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\ControlChannels.h">

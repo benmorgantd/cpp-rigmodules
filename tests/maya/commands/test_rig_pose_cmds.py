@@ -7,9 +7,13 @@ Every joint is world aligned, so a Center control's mirror axis is its local X. 
 """
 import json
 import math
+import os
+import shutil
+import tempfile
 
 from maya import cmds
 
+import rigmodules.pose
 import rigmodules.query
 from rigtest.case import RigTestCase, rig_name
 
@@ -435,3 +439,181 @@ class FlipCenterOffAxis(RigTestCase):
         set_values(CHEST, translateX=1, rotateY=20, rotateX=5)
         cmds.flipRigPose(rig_root())
         self.assertEqual(values(CHEST, ["translateX", "rotateY", "rotateX"]), [-1, -20, 5])
+
+
+class PoseFiles(PoseTestCase):
+    """saveRigPose and loadRigPose: a pose file holds channel values keyed by control markup (D34)."""
+
+    def pose_path(self, name="pose.json"):
+        folder = tempfile.mkdtemp(prefix="rigpose_")
+        self.addCleanup(shutil.rmtree, folder, True)
+        return os.path.join(folder, name).replace("\\", "/")
+
+    def write(self, path, data):
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(data, handle)
+
+    def test_save_writes_values_keyed_by_markup_and_returns_the_controls(self):
+        set_values(ARM_L, rotateY=20, translateZ=1.5)
+        set_values(CHEST, translateX=2)
+        path = self.pose_path()
+        saved = cmds.saveRigPose(rig_root(), file=path)
+        self.assertIn("rig:upperArm_l_ctrl_l", saved)
+        self.assertIn("rig:chest_ctrl_c", saved)
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+        self.assertEqual(data["formatVersion"], 1)
+        self.assertEqual(data["controls"]["Left"]["upperArm"]["rotateY"], 20)
+        self.assertEqual(data["controls"]["Left"]["upperArm"]["translateZ"], 1.5)
+        self.assertEqual(data["controls"]["Center"]["chest"]["translateX"], 2)
+        self.assertEqual(data["controls"]["Right"]["upperArm"]["rotateY"], 0)
+        self.assertEqual(data["controls"]["Left"]["upperArm"]["space"], 0)
+
+    def test_load_restores_a_saved_pose(self):
+        set_values(ARM_L, rotateY=20)
+        set_values(ARM_R, translateX=-3)
+        set_values(CHEST, translateX=2, rotateZ=30)
+        path = self.pose_path()
+        cmds.saveRigPose(rig_root(), file=path)
+        cmds.zeroRigControls(rig_root())
+        changed = cmds.loadRigPose(rig_root(), file=path)
+        self.assertEqual(sorted(changed), ["rig:chest_ctrl_c", "rig:upperArm_l_ctrl_l", "rig:upperArm_r_ctrl_r"])
+        self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+        self.assertEqual(values(ARM_R, ["translateX"]), [-3])
+        self.assertEqual(values(CHEST, ["translateX", "rotateZ"]), [2, 30])
+
+    def test_an_enum_channel_is_saved_as_its_index(self):
+        set_values(ARM_L, space=1)
+        path = self.pose_path()
+        cmds.saveRigPose(ARM_L, file=path)
+        cmds.setAttr(ARM_L + ".space", 0)
+        cmds.loadRigPose(ARM_L, file=path)
+        self.assertEqual(cmds.getAttr(ARM_L + ".space"), 1)
+
+    def test_controls_scope_saves_and_loads_only_those_controls(self):
+        set_values(ARM_L, rotateY=20)
+        set_values(ARM_R, rotateY=7)
+        path = self.pose_path()
+        self.assertEqual(cmds.saveRigPose(ARM_L, file=path), ["rig:upperArm_l_ctrl_l"])
+        with open(path, encoding="utf-8") as handle:
+            self.assertEqual(list(json.load(handle)["controls"]), ["Left"])
+        cmds.zeroRigControls(rig_root())
+        cmds.loadRigPose(ARM_L, ARM_R, file=path)   # the file has no Right control, so ARM_R keeps its value
+        self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+        self.assertEqual(values(ARM_R, ["rotateY"]), [0])
+
+    def test_load_onto_a_selection_skips_the_rest_of_the_file(self):
+        set_values(ARM_L, rotateY=20)
+        set_values(CHEST, translateX=2)
+        path = self.pose_path()
+        cmds.saveRigPose(rig_root(), file=path)
+        cmds.zeroRigControls(rig_root())
+        self.assertEqual(cmds.loadRigPose(CHEST, file=path), ["rig:chest_ctrl_c"])
+        self.assertEqual(values(CHEST, ["translateX"]), [2])
+        self.assertEqual(values(ARM_L, ["rotateY"]), [0])
+
+    def test_a_pose_matches_by_markup_after_a_rename(self):
+        set_values(ARM_L, rotateY=20)
+        path = self.pose_path()
+        cmds.saveRigPose(rig_root(), file=path)
+        renamed = cmds.rename(ARM_L, "renamed_ctrl")
+        cmds.zeroRigControls(rig_root())
+        cmds.loadRigPose(rig_root(), file=path)
+        self.assertEqual(values(renamed, ["rotateY"]), [20])
+
+    def test_load_is_undoable(self):
+        set_values(ARM_L, rotateY=20)
+        path = self.pose_path()
+        cmds.saveRigPose(rig_root(), file=path)
+        cmds.zeroRigControls(rig_root())
+        cmds.loadRigPose(rig_root(), file=path)
+        cmds.undo()
+        self.assertEqual(values(ARM_L, ["rotateY"]), [0])
+        cmds.redo()
+        self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+
+    def test_a_channel_or_control_the_rig_lacks_is_skipped_and_the_rest_loads(self):
+        path = self.pose_path()
+        self.write(path, {"formatVersion": 1, "controls": {
+            "Left": {"upperArm": {"rotateY": 20, "noSuchChannel": 1}, "noSuchControl": {"rotateY": 5}}}})
+        changed = cmds.loadRigPose(rig_root(), file=path)
+        self.assertEqual(changed, ["rig:upperArm_l_ctrl_l"])
+        self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+
+    def test_a_bad_file_changes_nothing(self):
+        set_values(ARM_L, rotateY=20)
+        path = self.pose_path()
+        self.write(path, {"formatVersion": 1, "controls": {
+            "Left": {"upperArm": {"rotateY": 5}}, "Up": {"upperArm": {"rotateY": 5}}}})
+        self.assertMayaError(lambda: cmds.loadRigPose(rig_root(), file=path), "failed validation")
+        self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+
+    def test_a_newer_format_version_is_refused(self):
+        path = self.pose_path()
+        self.write(path, {"formatVersion": 99, "controls": {}})
+        self.assertMayaError(lambda: cmds.loadRigPose(rig_root(), file=path), "failed validation")
+
+    def test_a_value_that_is_not_a_number_is_refused(self):
+        path = self.pose_path()
+        self.write(path, {"formatVersion": 1, "controls": {"Left": {"upperArm": {"rotateY": "ten"}}}})
+        self.assertMayaError(lambda: cmds.loadRigPose(rig_root(), file=path), "failed validation")
+
+    def test_file_flag_is_required(self):
+        self.assertMayaError(lambda: cmds.saveRigPose(rig_root()), "needs -file")
+        self.assertMayaError(lambda: cmds.loadRigPose(rig_root()), "needs -file")
+
+    def test_a_missing_file_is_an_error(self):
+        self.assertMayaError(lambda: cmds.loadRigPose(rig_root(), file=self.pose_path("nope.json")), "Could not read the pose file")
+
+
+class KeyControls(PoseTestCase):
+    """rigmodules.pose: key every channel of controls, a module's controls or the whole rig."""
+
+    def keyed(self, control):
+        return sorted(cmds.keyframe(control, query=True, name=True) or [])
+
+    def channel_count(self, control):
+        return len(rigmodules.query.get_control_channels(control))
+
+    def test_key_controls_keys_every_channel_of_those_controls_only(self):
+        count = rigmodules.pose.key_controls([ARM_L])
+        self.assertEqual(count, self.channel_count(ARM_L))
+        self.assertEqual(len(self.keyed(ARM_L)), count)
+        self.assertEqual(self.keyed(ARM_R), [])
+
+    def test_keys_land_on_the_given_time_with_the_current_value(self):
+        set_values(ARM_L, rotateY=20)
+        rigmodules.pose.key_controls([ARM_L], time=12)
+        self.assertEqual(cmds.keyframe(ARM_L, attribute="rotateY", query=True, timeChange=True), [12])
+        self.assertEqual(cmds.keyframe(ARM_L, attribute="rotateY", query=True, valueChange=True), [20])
+
+    def test_key_controls_with_no_controls_keys_nothing(self):
+        self.assertEqual(rigmodules.pose.key_controls([]), 0)
+
+    def test_key_rig_keys_every_control(self):
+        count = rigmodules.pose.key_rig(rig_root())
+        controls = cmds.getRigControls(rig_root())
+        self.assertEqual(count, sum(self.channel_count(control) for control in controls))
+        for control in controls:
+            self.assertEqual(len(self.keyed(control)), self.channel_count(control))
+
+    def test_key_modules_keys_only_that_modules_controls(self):
+        module = rigmodules.query.get_control(ARM_L).module
+        module_controls = [c.node for c in rigmodules.query.get_rig_controls(rig_root()) if c.module == module]
+        count = rigmodules.pose.key_modules(rig_root(), [module])
+        self.assertEqual(count, sum(self.channel_count(control) for control in module_controls))
+        self.assertEqual(self.keyed(ARM_R), [])
+        self.assertEqual(self.keyed(CHEST), [])
+        for control in module_controls:
+            self.assertTrue(self.keyed(control))
+
+    def test_key_modules_rejects_a_node_that_is_not_one_of_the_rigs_modules(self):
+        with self.assertRaises(RuntimeError):
+            rigmodules.pose.key_modules(rig_root(), [rig_root()])
+
+    def test_the_pose_commands_key_nothing(self):
+        set_values(ARM_L, rotateY=20)
+        cmds.mirrorRigPose(rig_root())
+        cmds.flipRigPose(rig_root())
+        cmds.zeroRigControls(rig_root())
+        self.assertEqual(cmds.ls(type="animCurve"), [])

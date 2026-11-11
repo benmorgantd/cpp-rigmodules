@@ -27,6 +27,8 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ ZeroRigControlsCmd::aCommandString, ZeroRigControlsCmd::creator, ZeroRigControlsCmd::newSyntax },
 		{ MirrorRigPoseCmd::aCommandString, MirrorRigPoseCmd::creator, MirrorRigPoseCmd::newSyntax },
 		{ FlipRigPoseCmd::aCommandString, FlipRigPoseCmd::creator, FlipRigPoseCmd::newSyntax },
+		{ SaveRigPoseCmd::aCommandString, SaveRigPoseCmd::creator, SaveRigPoseCmd::newSyntax },
+		{ LoadRigPoseCmd::aCommandString, LoadRigPoseCmd::creator, LoadRigPoseCmd::newSyntax },
 		{ GetRigInfoCmd::aCommandString, GetRigInfoCmd::creator, GetRigInfoCmd::newSyntax },
 		{ SetRigMeshIdCmd::aCommandString, SetRigMeshIdCmd::creator, SetRigMeshIdCmd::newSyntax },
 		{ SaveRigSkinWeightsCmd::aCommandString, SaveRigSkinWeightsCmd::creator, SaveRigSkinWeightsCmd::newSyntax },

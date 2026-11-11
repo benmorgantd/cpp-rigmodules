@@ -1,5 +1,6 @@
 #include "maya/commands/RigPoseCmds.h"
 #include "core/Constants.h"
+#include "core/PoseFile.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/Utilities.h"
 
@@ -13,6 +14,7 @@ namespace
 {
 	// Code reads flags by long name only. Short names appear only in newSyntax() (D14).
 	constexpr const char* kLeftToRightFlag{ "-leftToRight" };
+	constexpr const char* kFileFlag{ "-file" };
 
 	// The syntax of a command that takes a rig root or one or more controls.
 	MSyntax controlScopeSyntax()
@@ -20,6 +22,14 @@ namespace
 		MSyntax syntax;
 		syntax.setObjectType(MSyntax::kStringObjects, 1);
 		syntax.useSelectionAsDefault(false);
+		return syntax;
+	}
+
+	// The same, with the pose file flag.
+	MSyntax fileScopeSyntax()
+	{
+		MSyntax syntax = controlScopeSyntax();
+		CHECK_MSTATUS(syntax.addFlag("-f", kFileFlag, MSyntax::kString));
 		return syntax;
 	}
 
@@ -192,6 +202,131 @@ MStatus FlipRigPoseCmd::redoIt()
 }
 
 MStatus FlipRigPoseCmd::undoIt()
+{
+	return fDGMod.undoIt();
+}
+
+// saveRigPose ------------------------------------------------------------------------------------
+const char* SaveRigPoseCmd::aCommandString = "saveRigPose";
+
+void* SaveRigPoseCmd::creator()
+{
+	return new SaveRigPoseCmd();
+}
+
+bool SaveRigPoseCmd::isUndoable() const
+{
+	return false;
+}
+
+MSyntax SaveRigPoseCmd::newSyntax()
+{
+	return fileScopeSyntax();
+}
+
+MStatus SaveRigPoseCmd::doIt(const MArgList& args)
+{
+	MStatus status;
+	MArgDatabase argData(syntax(), args, &status);
+	RigControlScope scope;
+	MString path;
+	status = CommandUtils::readControlScope(argData, status, aCommandString, scope);
+	if (status)
+	{
+		status = CommandUtils::readFilePath(argData, kFileFlag, aCommandString, path);
+	}
+	if (!status)
+	{
+		return status;
+	}
+
+	PoseMap pose;
+	MStringArray controlNames;
+	status = RigPoseScene::getRigPose(scope, pose, controlNames);
+	if (!status)
+	{
+		return status;
+	}
+
+	status = CommandUtils::writeTextFile(path, "pose", serializePose(pose));
+	if (!status)
+	{
+		return status;
+	}
+
+	setResult(controlNames);
+	return MStatus::kSuccess;
+}
+
+// loadRigPose ------------------------------------------------------------------------------------
+const char* LoadRigPoseCmd::aCommandString = "loadRigPose";
+
+void* LoadRigPoseCmd::creator()
+{
+	return new LoadRigPoseCmd();
+}
+
+bool LoadRigPoseCmd::isUndoable() const
+{
+	return true;
+}
+
+MSyntax LoadRigPoseCmd::newSyntax()
+{
+	return fileScopeSyntax();
+}
+
+MStatus LoadRigPoseCmd::doIt(const MArgList& args)
+{
+	MStatus status;
+	MArgDatabase argData(syntax(), args, &status);
+	RigControlScope scope;
+	MString path;
+	status = CommandUtils::readControlScope(argData, status, aCommandString, scope);
+	if (status)
+	{
+		status = CommandUtils::readFilePath(argData, kFileFlag, aCommandString, path);
+	}
+	if (!status)
+	{
+		return status;
+	}
+
+	std::string text;
+	status = CommandUtils::readTextFile(path, "pose", text);
+	if (!status)
+	{
+		return status;
+	}
+
+	// Validate the whole file before queueing anything, so a bad file changes nothing.
+	PoseMap pose;
+	ValidationReport report;
+	deserializePose(text, pose, report);
+	if (report.hasErrors())
+	{
+		ReportUtils::displayReport(report);
+		MGlobal::displayError(MString("The pose file failed validation, so nothing was loaded: ") + path);
+		return MStatus::kFailure;
+	}
+
+	MStringArray changedNames;
+	status = RigPoseScene::setRigPose(scope, pose, fDGMod, changedNames);
+	if (!status)
+	{
+		return status;
+	}
+
+	setResult(changedNames);
+	return redoIt();
+}
+
+MStatus LoadRigPoseCmd::redoIt()
+{
+	return applyPose(fDGMod, aCommandString);
+}
+
+MStatus LoadRigPoseCmd::undoIt()
 {
 	return fDGMod.undoIt();
 }

@@ -54,6 +54,22 @@ rigmodules.query.get_rigs("hero")    # every rig built into the hero namespace
 | `plugin_version` | The RigModules version that built the rig |
 | `publish_version` | The publish the rig came from, `""` until published |
 
+## rigmodules.pose
+
+Keying a rig's controls. The pose commands set values and key nothing, so keying is a separate step. Each function keys every channel of its controls (the keyable, writable attributes [`getRigControlChannels`](commands.md#getrigcontrolchannels) lists) with one `setKeyframe` call, at the current time or at `time`, and returns the number of channels keyed.
+
+```python
+import rigmodules.pose
+
+rigmodules.pose.key_rig("hero:rigRootModule1")                                  # every control
+rigmodules.pose.key_modules("hero:rigRootModule1", ["hero:arm_l", "hero:arm_r"])   # these modules' controls
+rigmodules.pose.key_controls(["hero:upperArm_l_ctrl_l"], time=12)
+```
+
+- **`key_controls(controls, time=None)`**: the named controls.
+- **`key_rig(rig_root, time=None)`**: every control in the rig.
+- **`key_modules(rig_root, modules, time=None)`**: every control of the named module nodes. A node that isn't one of the rig's modules raises `RuntimeError`.
+
 ## rigmodules.template
 
 ```python

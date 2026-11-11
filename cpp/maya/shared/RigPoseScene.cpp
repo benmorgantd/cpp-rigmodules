@@ -3,7 +3,9 @@
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
 
+#include <algorithm>
 #include <cmath>
+#include <set>
 
 #include <maya/MAngle.h>
 #include <maya/MDistance.h>
@@ -162,6 +164,33 @@ namespace
 			return channel.plug.asMDistance().asCentimeters();
 		default:
 			return channel.plug.asDouble();
+		}
+	}
+
+	// A channel's value between internal units (radians, centimeters) and the UI units a pose file holds.
+	double toUiUnits(const RigPoseScene::Channel& channel, double internal)
+	{
+		switch (channel.kind)
+		{
+		case RigPoseScene::ValueKind::kAngle:
+			return MAngle(internal, MAngle::kRadians).as(MAngle::uiUnit());
+		case RigPoseScene::ValueKind::kDistance:
+			return MDistance(internal, MDistance::kCentimeters).as(MDistance::uiUnit());
+		default:
+			return internal;
+		}
+	}
+
+	double fromUiUnits(const RigPoseScene::Channel& channel, double ui)
+	{
+		switch (channel.kind)
+		{
+		case RigPoseScene::ValueKind::kAngle:
+			return MAngle(ui, MAngle::uiUnit()).asRadians();
+		case RigPoseScene::ValueKind::kDistance:
+			return MDistance(ui, MDistance::uiUnit()).asCentimeters();
+		default:
+			return ui;
 		}
 	}
 
@@ -592,6 +621,128 @@ MStatus RigPoseScene::flipRigPose(const RigControlScope& scope, MDGModifier& dgM
 		if (!status)
 		{
 			return status;
+		}
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus RigPoseScene::getRigPose(const RigControlScope& scope, PoseMap& outPose, MStringArray& outControlNames)
+{
+	outPose.clear();
+	MObjectArray oControls;
+	MStatus status = RigTraversal::getScopeControls(scope, oControls);
+	if (!status)
+	{
+		return status;
+	}
+
+	for (unsigned int i = 0; i < oControls.length(); ++i)
+	{
+		ControlMarkup markup;
+		std::vector<Channel> channels;
+		status = RigTraversal::getControlMarkup(oControls[i], markup);
+		if (status)
+		{
+			status = getControlChannels(oControls[i], channels);
+		}
+		if (!status)
+		{
+			return status;
+		}
+
+		PoseChannels values;
+		for (const Channel& channel : channels)
+		{
+			values.emplace_back(channel.info.name, toUiUnits(channel, getValue(channel)));
+		}
+		outPose[markup.side][markup.usage] = values;
+		outControlNames.append(DagUtils::getPartialPathName(oControls[i]));
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus RigPoseScene::setRigPose(const RigControlScope& scope, const PoseMap& pose, MDGModifier& dgMod, MStringArray& outChangedNames)
+{
+	MObjectArray oControls;
+	MStatus status = RigTraversal::getScopeControls(scope, oControls);
+	if (!status)
+	{
+		return status;
+	}
+
+	std::set<std::pair<std::string, std::string>> usedEntries;
+	for (unsigned int i = 0; i < oControls.length(); ++i)
+	{
+		ControlMarkup markup;
+		status = RigTraversal::getControlMarkup(oControls[i], markup);
+		if (!status)
+		{
+			return status;
+		}
+
+		const PoseChannels* pValues = nullptr;
+		const auto itSide = pose.find(markup.side);
+		if (itSide != pose.end())
+		{
+			const auto itUsage = itSide->second.find(markup.usage);
+			if (itUsage != itSide->second.end())
+			{
+				pValues = &itUsage->second;
+			}
+		}
+		if (pValues == nullptr)
+		{
+			if (scope.isWholeRig)
+			{
+				MGlobal::displayWarning(DagUtils::getPartialPathName(oControls[i]) + " (" + markup.side.c_str() + ", " + markup.usage.c_str()
+					+ ") is not in the pose file, so it keeps its values.");
+			}
+			continue;
+		}
+		usedEntries.emplace(markup.side, markup.usage);
+
+		std::vector<Channel> channels;
+		status = getControlChannels(oControls[i], channels);
+		if (!status)
+		{
+			return status;
+		}
+
+		bool changed = false;
+		for (const auto& [name, value] : *pValues)
+		{
+			const auto itChannel = std::find_if(channels.begin(), channels.end(), [&name](const Channel& channel)
+			{
+				return channel.info.name == name;
+			});
+			if (itChannel == channels.end())
+			{
+				MGlobal::displayWarning(DagUtils::getPartialPathName(oControls[i]) + " has no writable channel " + name.c_str()
+					+ ", so the pose file's value is skipped.");
+				continue;
+			}
+			status = setValue(*itChannel, fromUiUnits(*itChannel, value), dgMod, changed);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		if (changed)
+		{
+			outChangedNames.append(DagUtils::getPartialPathName(oControls[i]));
+		}
+	}
+
+	// A selection only covers some controls, so an entry it doesn't reach isn't a mismatch.
+	if (scope.isWholeRig)
+	{
+		for (const auto& [side, usages] : pose)
+		{
+			for (const auto& entry : usages)
+			{
+				if (usedEntries.count({ side, entry.first }) == 0)
+				{
+					MGlobal::displayWarning(MString("The pose file has a control (") + side.c_str() + ", " + entry.first.c_str()
+						+ ") that the rig lacks, so it is skipped.");
+				}
+			}
 		}
 	}
 	return MStatus::kSuccess;

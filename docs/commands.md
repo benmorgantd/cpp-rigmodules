@@ -339,6 +339,38 @@ Objects: the rig root node, or one or more controls of one rig. Returns the cont
 - **Center controls** are reflected across the world YZ plane through their own channels. This needs one of the control's rest axes to lie along world X: that axis' translate is negated, and so are the rotates of the other two axes. A control with no such axis keeps its values, with a warning. A custom channel negates only if it says `negate`.
 - Flipping twice restores the pose. Sets values and keys nothing. Undoable.
 
+## saveRigPose
+
+Writes the channel values of controls to a pose file.
+
+```python
+cmds.saveRigPose("hero:rigRootModule1", file="C:/poses/idle.json")
+cmds.saveRigPose("hero:upperArm_l_ctrl_l", "hero:lowerArm_l_ctrl_l", file="C:/poses/arm.json")
+# Returns the controls saved
+```
+
+Objects: the rig root node (every control), or one or more controls of one rig. Flag: `file` (required, the path).
+
+- The file is keyed by control markup (`side`, `usage`) and channel name, never by node name, so a pose survives renames and rebuilds. Values are in the scene's UI units. An enum stores its index and a bool stores 0 or 1.
+- The file carries a `formatVersion` (1). Its shape: `{"formatVersion": 1, "controls": {"Left": {"upperArm": {"translateX": 0.0, "rotateY": 12.5}}}}`.
+- Changes no scene data and isn't undoable.
+
+## loadRigPose
+
+Applies a pose file to controls.
+
+```python
+cmds.loadRigPose("hero:rigRootModule1", file="C:/poses/idle.json")
+cmds.loadRigPose("hero:upperArm_l_ctrl_l", file="C:/poses/idle.json")   # only this control
+# Returns the controls that changed
+```
+
+Objects: the rig root node, or one or more controls of one rig. Flag: `file` (required).
+
+- Controls match the file by markup. A control the file lacks keeps its values, and so does a channel it lacks. With the rig root, a control or channel the file has and the rig lacks is skipped with a warning. With controls, the rest of the file is ignored without one.
+- The whole file is checked before anything is applied (bad JSON, an unknown side, a value that isn't a number, a `formatVersion` this build doesn't read), so a bad file changes nothing. An older `formatVersion` is updated on load.
+- Sets values and keys nothing: use [`rigmodules.pose`](python.md#rigmodulespose) to key. Undoable.
+
 ## setRigMeshId
 
 Gives meshes a `meshId`, the GUID a skin weight file is matched to ([skinning.md](skinning.md)).

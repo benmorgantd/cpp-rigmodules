@@ -58,6 +58,13 @@ namespace ControlShapeFileKey
 	inline constexpr const char* Controls{ "controls" };
 }
 
+// Keys in a pose file, see PoseFile.h. Public API: saved poses depend on them.
+namespace PoseFileKey
+{
+	inline constexpr const char* FormatVersion{ "formatVersion" };
+	inline constexpr const char* Controls{ "controls" };
+}
+
 // Keys in a skin weight file, see SkinWeightFile.h. Public API: saved weight files depend on them.
 namespace SkinWeightFileKey
 {

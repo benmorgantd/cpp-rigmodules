@@ -152,6 +152,7 @@
     <ClCompile Include="core\FormatUpdate.cpp" />
     <ClCompile Include="core\JointMarkup.cpp" />
     <ClCompile Include="core\RigControlFilter.cpp" />
+    <ClCompile Include="core\PoseFile.cpp" />
     <ClCompile Include="core\RigJsonStructs.cpp" />
     <ClCompile Include="core\RigTemplateValidation.cpp" />
     <ClCompile Include="core\SkinWeightFile.cpp" />
@@ -195,6 +196,7 @@
     <ClInclude Include="core\JointMarkup.h" />
     <ClInclude Include="core\JsonUtils.h" />
     <ClInclude Include="core\RigControlFilter.h" />
+    <ClInclude Include="core\PoseFile.h" />
     <ClInclude Include="core\RigJsonStructs.h" />
     <ClInclude Include="core\RigTemplateValidation.h" />
     <ClInclude Include="core\SkinWeightFile.h" />

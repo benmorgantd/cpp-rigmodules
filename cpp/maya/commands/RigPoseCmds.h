@@ -65,3 +65,37 @@ public:
 private:
 	MDGModifier fDGMod;
 };
+
+// cmds.saveRigPose("rig:rigRoot", file=path) or cmds.saveRigPose(*controls, file=path)
+//   Writes the channel values of every control to a pose file, keyed by control markup (PoseFile.h). Returns the names
+//   of the controls saved. Not undoable: it changes no scene data.
+class SaveRigPoseCmd : public MPxCommand
+{
+public:
+	MStatus doIt(const MArgList& args) override;
+	bool isUndoable() const override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const char* aCommandString;
+};
+
+// cmds.loadRigPose("rig:rigRoot", file=path) or cmds.loadRigPose(*controls, file=path)
+//   Applies a pose file to the controls, matched by markup. The whole file is checked first, so a bad file changes
+//   nothing. A control or channel only one side has is skipped with a warning. Returns the names of the controls
+//   that changed. Sets values and keys nothing.
+class LoadRigPoseCmd : public MPxCommand
+{
+public:
+	MStatus doIt(const MArgList& args) override;
+	MStatus redoIt() override;
+	MStatus undoIt() override;
+	bool isUndoable() const override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const char* aCommandString;
+
+private:
+	MDGModifier fDGMod;
+};

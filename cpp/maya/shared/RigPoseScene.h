@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/ControlChannels.h"
+#include "core/PoseFile.h"
 #include "maya/shared/RigTraversal.h"
 
 #include <string>
@@ -62,4 +63,13 @@ public:
 	// and each Center control is reflected across the world YZ plane through its channels (findMirrorAxis).
 	// outChangedNames lists the controls that changed.
 	static MStatus flipRigPose(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames);
+
+	// The channel values of every control in the scope, keyed by markup (PoseFile.h). outControlNames lists the controls
+	// read, in scope order.
+	static MStatus getRigPose(const RigControlScope& scope, PoseMap& outPose, MStringArray& outControlNames);
+
+	// Writes a pose onto the controls in the scope, matched by markup. A control the pose lacks keeps its values, and
+	// so does a channel it lacks. A control or channel the pose has and the rig lacks is skipped with a warning (a
+	// control outside a selection scope is not one). outChangedNames lists the controls that changed.
+	static MStatus setRigPose(const RigControlScope& scope, const PoseMap& pose, MDGModifier& dgMod, MStringArray& outChangedNames);
 };

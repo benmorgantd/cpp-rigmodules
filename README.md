@@ -4,7 +4,7 @@ A C++ rigging plugin for Autodesk Maya 2026+. You mark up a skeleton, describe t
 
 The rig it builds is aimed at animation and game export: predictable controls, stable names, and a clean split between controls and export joints.
 
-> **Status:** early development. Three modules exist (Layout, FkChain, Aim). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has only the rig queries so far.
+> **Status:** early development. Three modules exist (Layout, FkChain, Aim). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has the rig queries, the skin weight helpers and `rigmodules.pose` (key controls) so far.
 
 ## How it works
 
@@ -139,7 +139,7 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | `cpp/core/` | Maya-free: template structs and loading (`RigJsonStructs`), template validation, joint and control markup schemas, the control shape library and shape file format, the skin weight file format, JSON string helpers, shared name constants |
 | `cpp/maya/` | Plugin entry (`PluginMain.cpp`) and the registries every node and command is added to |
 | `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim |
-| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigConstraint`, `setRigConstraintSpace`, `rigJointMarkup`, `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `zeroRigControls`, `mirrorRigPose`, `flipRigPose`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`, `getRigInfo`, `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `pruneToMaxInfluences` |
+| `cpp/maya/commands/` | Maya commands: `createRigFromTemplate`, `createRigConstraint`, `setRigConstraintSpace`, `rigJointMarkup`, `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `zeroRigControls`, `mirrorRigPose`, `flipRigPose`, `saveRigPose`, `loadRigPose`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`, `getRigInfo`, `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `pruneToMaxInfluences` |
 | `cpp/maya/nodes/` | Other nodes: rig and asset roots (the root also runs the build), the constraint node, the control node |
 | `cpp/maya/shared/` | Code used across those folders: the module base, utilities, joint markup in the scene, rig traversal, control shapes and skin weights in the scene, enums |
 | `cpp/include/` | Vendored third-party headers (nlohmann json) |
