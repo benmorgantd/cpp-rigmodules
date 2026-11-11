@@ -2,8 +2,8 @@
 
 Run it with mayapy (set nothing else up: it loads a copy of the plugin and the python package itself):
 
-    mayapy tools/perf/perf_scenes.py human   [--count 100] [--frames 96]
-    mayapy tools/perf/perf_scenes.py complex [--count 100]
+    mayapy tools/perf/perf_scenes.py human   [--count 50] [--frames 96]
+    mayapy tools/perf/perf_scenes.py complex [--count 50]
     mayapy tools/perf/perf_scenes.py bench   SCENE.mb [--passes 3]        (evaluation only, no viewport)
     mayapy tools/perf/perf_scenes.py gui     SCENE.mb [--seconds 6]       (real playback in a Maya window)
     mayapy tools/perf/perf_scenes.py check                                (the generated rig is valid; seconds)
@@ -543,7 +543,7 @@ def main():
         p = sub.add_parser(name)
         p.add_argument("--plugin", default=DEFAULT_PLUGIN)
         if name in ("human", "complex"):
-            p.add_argument("--count", type=int, default=100)
+            p.add_argument("--count", type=int, default=50)
             p.add_argument("--out", default=DEFAULT_OUT)
         if name == "human":
             p.add_argument("--frames", type=int, default=96)

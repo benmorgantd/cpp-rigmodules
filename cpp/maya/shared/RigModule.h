@@ -312,12 +312,15 @@ public:
 		const MMatrix& mSocketRest,
 		MDagModifier& dagMod
 	);
+	// Solves the chain once and writes every output array that has the solve's results: control OPMs to
+	// hControlOPM, control worlds to hSocket and, when the module has joints, to pJointOPM.
 	static MStatus solveFkChain(
 		MDataBlock& data,
 		MArrayDataHandle& hControlInputData,
-		MArrayDataHandle& hOutputData,
-		const unsigned int& childPlugIndex,
-		const bool& useLocalMatrix
+		MArrayDataHandle& hControlOPM,
+		MArrayDataHandle& hSocket,
+		MArrayDataHandle* pJointOPM,
+		const unsigned int& childPlugIndex
 	);
 	static MStatus connectControlToRigModule(
 		const MObject& oModule,
@@ -351,14 +354,18 @@ public:
 // Call after initializeSharedAttributes().
 	static void declareControlAffects();
 
-	// Full compute body for any output array produced by solveFkChain.
-	// useWorldMatrix false writes control OPMs, true writes control world matrices (joint OPM, socket matrix).
-	static MStatus computeChainOutput(
+	// Full compute body for every output array solveFkChain produces. One solve per evaluation: it writes and
+	// cleans controlOPM, outputSocketMatrix and (when oJointOPM isn't null) jointOPM, whichever of them was asked
+	// for, since the same inputs dirty all three. Compute is then not called again for the other two.
+	static MStatus computeChainOutputs(
 		const MPlug& plug,
 		MDataBlock& data,
-		bool useWorldMatrix,
+		const MObject& oJointOPM = MObject::kNullObj,
 		unsigned int childPlugIndex = 0
 	);
+
+	// Marks an output array and its elements clean after a compute wrote it.
+	static void commitOutput(MDataBlock& data, const MObject& oNode, const MObject& oAttr, MArrayDataHandle& hOutput);
 
 	// Module-side wiring for one control: local matrix in, rest world, message link, OPM out.
 	static MStatus wireControl(
@@ -477,9 +484,10 @@ template <typename Derived>
 MStatus RigModuleWithControlsNode<Derived>::solveFkChain(
 	MDataBlock& data,
 	MArrayDataHandle& hControlInputData,
-	MArrayDataHandle& hOutputData,
-	const unsigned int& childPlugIndex,
-	const bool& useLocalMatrix
+	MArrayDataHandle& hControlOPM,
+	MArrayDataHandle& hSocket,
+	MArrayDataHandle* pJointOPM,
+	const unsigned int& childPlugIndex
 )
 {
 	MStatus status;
@@ -501,10 +509,19 @@ MStatus RigModuleWithControlsNode<Derived>::solveFkChain(
 
 		const ControlSolveStep step = RigModuleNodeBase::solveControlStep(mControlLocal, mControlRestWorld, mParentDelta);
 
-		// The next control's parent is this control. Its delta is this control's world relative to its own rest.
-		mParentDelta = MathUtils::computeDeltaFromRest(mControlRestWorld, step.mWorld);
+		RigModuleNodeBase::writeOutputMatrix(hControlOPM, i, step.mOPM);
+		RigModuleNodeBase::writeOutputMatrix(hSocket, i, step.mWorld);
+		if (pJointOPM)
+		{
+			RigModuleNodeBase::writeOutputMatrix(*pJointOPM, i, step.mWorld);
+		}
 
-		RigModuleNodeBase::writeOutputMatrix(hOutputData, i, useLocalMatrix ? step.mWorld : step.mOPM);
+		// The next control's parent is this control. Its delta is this control's world relative to its own rest.
+		// The last control has no child, so its delta (a matrix inverse) is skipped.
+		if (i + 1 < elementCount)
+		{
+			mParentDelta = MathUtils::computeDeltaFromRest(mControlRestWorld, step.mWorld);
+		}
 	}
 	return MStatus::kSuccess;
 }
@@ -682,10 +699,10 @@ void RigModuleWithControlsNode<Derived>::declareControlAffects()
 }
 
 template <typename Derived>
-MStatus RigModuleWithControlsNode<Derived>::computeChainOutput(
+MStatus RigModuleWithControlsNode<Derived>::computeChainOutputs(
 	const MPlug& plug,
 	MDataBlock& data,
-	bool useWorldMatrix,
+	const MObject& oJointOPM,
 	unsigned int childPlugIndex)
 {
 	MStatus status;
@@ -693,15 +710,34 @@ MStatus RigModuleWithControlsNode<Derived>::computeChainOutput(
 	MArrayDataHandle hControlInputData = data.inputArrayValue(aControlInputData, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MArrayDataHandle hOutputData = data.outputArrayValue(plug.attribute(), &status);
+	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MArrayDataHandle hSocket = data.outputArrayValue(aOutputSocketMatrix, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	status = solveFkChain(data, hControlInputData, hOutputData, childPlugIndex, useWorldMatrix);
+	const bool hasJoints = !oJointOPM.isNull();
+	MArrayDataHandle hJointOPM = hasJoints ? data.outputArrayValue(oJointOPM, &status) : hControlOPM;
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	hOutputData.setAllClean();
+	status = solveFkChain(data, hControlInputData, hControlOPM, hSocket, hasJoints ? &hJointOPM : nullptr, childPlugIndex);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	const MObject oNode = plug.node();
+	commitOutput(data, oNode, aControlOPM, hControlOPM);
+	commitOutput(data, oNode, aOutputSocketMatrix, hSocket);
+	if (hasJoints)
+	{
+		commitOutput(data, oNode, oJointOPM, hJointOPM);
+	}
 	data.setClean(plug);
 	return MStatus::kSuccess;
+}
+
+template <typename Derived>
+void RigModuleWithControlsNode<Derived>::commitOutput(MDataBlock& data, const MObject& oNode, const MObject& oAttr, MArrayDataHandle& hOutput)
+{
+	hOutput.setAllClean();
+	data.setClean(MPlug(oNode, oAttr));
 }
 
 template <typename Derived>

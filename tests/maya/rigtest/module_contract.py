@@ -6,6 +6,10 @@
         MODULE_TYPE = "fkChainModule"
         JOINT_OWNERS = {"a_jnt": "fkchain_1", ...}
 """
+import os
+import re
+import tempfile
+
 from maya import cmds
 import maya.api.OpenMaya as om
 
@@ -16,6 +20,38 @@ from rigtest.case import rig_name
 
 def _world_matrix(node):
     return om.MSelectionList().add(node).getDagPath(0).inclusiveMatrix()
+
+
+OUTPUT_ARRAYS = ("controlOPM", "jointOPM", "outputSocketMatrix")
+
+
+def _compute_count(module):
+    """How many times the module computed since dgtimer was reset, from dgtimer's report."""
+    report = os.path.join(tempfile.mkdtemp(), "dgtimer.txt")
+    cmds.dgtimer(query=True, outputFile=report)
+    with open(report) as handle:
+        text = handle.read()
+    # The report lists a node in more than one section, some without its count, so take the largest.
+    counts = re.findall(r"(\d+)\s+\w+\s+%s\s" % re.escape(module.lstrip(":")), text)
+    return max((int(c) for c in counts), default=0)
+
+
+def assert_one_solve_fills_every_output(testcase, module):
+    """After an input changes, pulling every connected output array element computes the module once (D36): the
+    same inputs dirty all of them, so one solve writes and cleans them all."""
+    outputs = [plug for plug in (cmds.listConnections(module, source=False, destination=True, connections=True, plugs=True) or [])[::2]
+               if plug.split(".")[-1].split("[")[0] in OUTPUT_ARRAYS]
+    testcase.assertGreater(len(set(p.split("[")[0] for p in outputs)), 1, "%s has too few connected outputs to compare" % module)
+    cmds.evaluationManager(mode="off")
+    control = (cmds.listConnections(module, source=True, destination=False, type="rigControlNode") or [None])[0]
+    testcase.assertIsNotNone(control, "%s has no control to pose" % module)
+    cmds.setAttr(control + ".rotateX", 7.0)
+    cmds.dgtimer(on=True, reset=True)
+    for plug in outputs:
+        cmds.getAttr(plug)
+    cmds.dgtimer(off=True)
+    count = _compute_count(module)
+    testcase.assertEqual(count, 1, "%s computed %d times to fill %s, expected 1" % (module, count, outputs))
 
 
 class ModuleContract:
@@ -87,3 +123,8 @@ class ModuleContract:
         self.assertEqual(sorted(cmds.ls(rig_name("*"), long=True)), built, "redo did not rebuild the same nodes")
         for joint, position in positions.items():
             self.assertWorldTranslation(joint, position)
+
+    def test_contract_one_solve_fills_every_output(self):
+        self._build()
+        for module in cmds.ls(rig_name("*"), type=self.MODULE_TYPE):
+            assert_one_solve_fills_every_output(self, module)

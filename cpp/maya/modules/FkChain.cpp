@@ -54,16 +54,10 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	const MObject oOutputAttr = plug.attribute();
 
-	// Control OPM is the only output that excludes the control's local matrix.
-	// Joint OPM and socket matrix both want the control's world matrix.
-	if (oOutputAttr == aControlOPM)
+	// One solve writes control OPM, joint OPM and socket matrix together.
+	if (oOutputAttr == aControlOPM || oOutputAttr == aJointOPM || oOutputAttr == aOutputSocketMatrix)
 	{
-		return computeChainOutput(plug, data, false);
-	}
-
-	if (oOutputAttr == aJointOPM || oOutputAttr == aOutputSocketMatrix)
-	{
-		return computeChainOutput(plug, data, true);
+		return computeChainOutputs(plug, data, aJointOPM);
 	}
 
 	return MStatus::kUnknownParameter;

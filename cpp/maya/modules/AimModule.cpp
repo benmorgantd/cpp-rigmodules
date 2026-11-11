@@ -86,7 +86,7 @@ MStatus AimModuleNode::initialize()
 	return MStatus::kSuccess;
 }
 
-// Solves all three parts once. Cheap enough that every output array re-solves rather than caching between computes.
+// Solves all three parts once. compute() writes every output array from this one solve.
 MStatus AimModuleNode::solveAim(MDataBlock& data, AimSolveResult& outResult)
 {
 	MStatus status;
@@ -131,11 +131,7 @@ MStatus AimModuleNode::solveAim(MDataBlock& data, AimSolveResult& outResult)
 MStatus AimModuleNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	const MObject oOutputAttr = plug.attribute();
-	const bool plugIsControlOPM = oOutputAttr == aControlOPM;
-	const bool plugIsJointOPM = oOutputAttr == aJointOPM;
-	const bool plugIsOutputSocketMatrix = oOutputAttr == aOutputSocketMatrix;
-
-	if (!plugIsControlOPM && !plugIsJointOPM && !plugIsOutputSocketMatrix)
+	if (oOutputAttr != aControlOPM && oOutputAttr != aJointOPM && oOutputAttr != aOutputSocketMatrix)
 	{
 		return MStatus::kUnknownParameter;
 	}
@@ -145,17 +141,27 @@ MStatus AimModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	status = solveAim(data, solve);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MArrayDataHandle hOutputData = data.outputArrayValue(oOutputAttr, &status);
+	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MArrayDataHandle hJointOPM = data.outputArrayValue(aJointOPM, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MArrayDataHandle hSocket = data.outputArrayValue(aOutputSocketMatrix, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Control OPM excludes the control's local matrix. Joint OPM and socket both want the solved world matrix.
-	// Elements that were never created (e.g. controlOPM[0], there is no aim control) are skipped.
+	// One solve writes all three outputs. Control OPM excludes the control's local matrix. Joint OPM and socket
+	// both want the solved world matrix. Elements that were never created (e.g. controlOPM[0], there is no aim
+	// control) are skipped.
 	for (unsigned int i = 0; i < AimPart::Count; ++i)
 	{
-		writeOutputMatrix(hOutputData, i, plugIsControlOPM ? solve.mControlOPM[i] : solve.mPartWorld[i]);
+		writeOutputMatrix(hControlOPM, i, solve.mControlOPM[i]);
+		writeOutputMatrix(hJointOPM, i, solve.mPartWorld[i]);
+		writeOutputMatrix(hSocket, i, solve.mPartWorld[i]);
 	}
 
-	hOutputData.setAllClean();
+	const MObject oNode = plug.node();
+	commitOutput(data, oNode, aControlOPM, hControlOPM);
+	commitOutput(data, oNode, aJointOPM, hJointOPM);
+	commitOutput(data, oNode, aOutputSocketMatrix, hSocket);
 	data.setClean(plug);
 	return MStatus::kSuccess;
 }

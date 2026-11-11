@@ -5,6 +5,7 @@ from maya import cmds
 
 from rigtest.case import RigTestCase, rig_name
 from rigtest.cases import add_pose_cases
+from rigtest.module_contract import assert_one_solve_fills_every_output
 
 
 class LayoutPoses(RigTestCase):
@@ -37,3 +38,7 @@ class LayoutBehaviour(RigTestCase):
         self.build_standard("fkchain_three", "fk_three")
         self.assertSource(rig_name("fkchain_1") + ".childPlugs[0].childPlugParentMatrix",
                           "rig:layout.outputSocketMatrix[2]")
+
+    def test_one_solve_fills_every_output(self):
+        self.build_standard("fkchain_three", "fk_three")
+        assert_one_solve_fills_every_output(self, rig_name("layout"))

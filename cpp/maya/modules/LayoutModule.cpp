@@ -49,14 +49,9 @@ MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	const MObject oOutputAttr = plug.attribute();
 
-	if (oOutputAttr == aControlOPM)
+	if (oOutputAttr == aControlOPM || oOutputAttr == aOutputSocketMatrix)
 	{
-		return computeChainOutput(plug, data, false);
-	}
-
-	if (oOutputAttr == aOutputSocketMatrix)
-	{
-		return computeChainOutput(plug, data, true);
+		return computeChainOutputs(plug, data);
 	}
 
 	return MStatus::kUnknownParameter;
