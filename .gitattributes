@@ -1,0 +1,4 @@
+# Source files are stored LF in the repo and checked out CRLF on every machine,
+# regardless of core.autocrlf. Git detects binaries (the PDF) on its own.
+* text=auto eol=crlf
+*.pdf binary
