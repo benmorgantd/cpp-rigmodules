@@ -159,6 +159,31 @@ public:
 	static void displayReport(const ValidationReport& report);
 };
 
+// The plugin's category in Maya's Profiler ("RigModules"), so its events can be found and filtered there.
+// Scopes cost almost nothing while the profiler isn't recording. initializePlugin adds the category and
+// uninitializePlugin removes it.
+class ProfilerUtils
+{
+public:
+	static void addCategory();
+	static void removeCategory();
+	static int category();
+};
+
+// The active selection as a set of nodes, kept current by a selection-changed callback, so code that runs once
+// per drawn object (a draw override's prepareForDraw) looks a node up in O(1) instead of copying the whole list.
+// A DAG item counts as its node, so an instanced node counts as selected through any of its paths.
+// initializePlugin starts it and uninitializePlugin stops it. Main thread only, like the callback.
+class ActiveSelection
+{
+public:
+	static MStatus start();
+	static void stop();
+	static bool contains(const MObject& oNode);
+	// The length of the active selection list: items, not distinct nodes.
+	static unsigned int length();
+};
+
 class DagPlugAndSocketUtils
 {
 public:

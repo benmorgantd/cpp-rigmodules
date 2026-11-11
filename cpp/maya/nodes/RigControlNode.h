@@ -3,6 +3,9 @@
 #include "core/ControlShapes.h"
 #include "maya/shared/Side.h"
 
+#include <atomic>
+#include <mutex>
+
 #include <maya/MBoundingBox.h>
 #include <maya/MColor.h>
 #include <maya/MDagModifier.h>
@@ -27,6 +30,9 @@ public:
 	}
 	~ControlDrawData() override = default;
 
+	// The node's draw generation these values were read at. 0 never matches a node, so new data always reads.
+	unsigned int drawGeneration{ 0 };
+
 	ShapeType shapeType{ ShapeType::Box };
 	MColor color{ 1.0f, 0.0f, 0.0f, 1.0f };
 	MColor dormantColor{ 1.0f, 0.0f, 0.0f, 1.0f };
@@ -50,10 +56,11 @@ public:
 	static void* creator();
 	static MStatus initialize();
 
-	// Flags the draw data dirty only when a shape attribute changes, so a redraw doesn't trigger MPlug reads.
+	// Bumps the draw generation only when a shape attribute changes, so a redraw doesn't trigger MPlug reads.
 	MStatus setDependentsDirty(const MPlug& plugBeingDirtied, MPlugArray& affectedPlugs) override;
 
 	// The shape's extent in object space, so framing and culling see the shapeTransform scale and offset.
+	// Cached until shapeType or shapeTransform changes.
 	bool isBounded() const override;
 	MBoundingBox boundingBox() const override;
 
@@ -68,18 +75,19 @@ public:
 	// Shape attributes
 	static MObject aShapeType;
 	static MObject aWireColor;
+	static MObject aWireColorR;   // The color's channels, so setDependentsDirty can match a channel edit by attribute
+	static MObject aWireColorG;
+	static MObject aWireColorB;
 	static MObject aWireAlpha;
 	static MObject aShapeTransform;
 	static MObject aFilled;
 	static MObject aXray;
 
-	bool isDrawDirty() const
+	// Changes whenever a shape attribute changes. Each draw override keeps the generation it last read in its
+	// ControlDrawData, so every viewport refreshes, not only the first to draw after the change.
+	unsigned int drawGeneration() const
 	{
-		return m_drawIsDirty;
-	}
-	void setDrawClean()
-	{
-		m_drawIsDirty = false;
+		return m_drawGeneration;
 	}
 
 	// Creates the control, names it from baseName and side, colors it by side, and writes its markup.
@@ -96,7 +104,15 @@ public:
 	static ShapeType getShapeType(const MObject& oControl);
 
 private:
-	bool m_drawIsDirty{ true };
+	// Starts at 1, so it never equals a new ControlDrawData's 0. Skips 0 when it wraps.
+	unsigned int m_drawGeneration{ 1 };
+
+	// boundingBox() is const and may be called from evaluation threads, so the cache is guarded. Only
+	// setDependentsDirty invalidates it, on the main thread, during an edit. This assumes the shape attributes
+	// are set, not driven by an animated connection: parallel evaluation doesn't call setDependentsDirty.
+	mutable std::mutex m_boundsMutex;
+	mutable std::atomic<bool> m_boundsAreDirty{ true };
+	mutable MBoundingBox m_bounds;
 };
 
 // Viewport 2.0 Draw Override

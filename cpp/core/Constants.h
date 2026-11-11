@@ -10,6 +10,8 @@ namespace PluginInfo
 {
 	inline constexpr const char* Vendor{ "Ben Morgan" };
 	inline constexpr const char* Version{ "0.1" };
+	// Maya Profiler category for the plugin's events (ProfilerUtils).
+	inline constexpr const char* ProfilerCategory{ "RigModules" };
 }
 
 namespace RigControlNodeAttr

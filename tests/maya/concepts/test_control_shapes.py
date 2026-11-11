@@ -124,6 +124,32 @@ class Bounds(RigTestCase):
         cmds.setAttr(control + ".shapeTransform", scale(5, 5, 5), type="matrix")
         self.assertBounds(control, [-5, -5, -5, 5, 5, 5])
 
+    # The node caches its bounds and rebuilds them only after a shape change, so each of these reads the bounds
+    # once before the change: a cache that missed the change would return the first value.
+    def test_cached_bounds_follow_shape_transform_edit(self):
+        control = make_control("Box")
+        self.assertBounds(control, [-1, -1, -1, 1, 1, 1])
+        cmds.setAttr(control + ".shapeTransform", scale(5, 5, 5), type="matrix")
+        self.assertBounds(control, [-5, -5, -5, 5, 5, 5])
+
+    def test_cached_bounds_follow_shape_type_edit(self):
+        # Box is the -1 to 1 cube, Square is flat in YZ.
+        control = make_control("Box")
+        self.assertBounds(control, [-1, -1, -1, 1, 1, 1])
+        cmds.setAttr(control + ".shapeType", SHAPE_TYPES.index("Square"))
+        self.assertBounds(control, [0, -1, -1, 0, 1, 1])
+
+    def test_cached_bounds_follow_undo_and_redo(self):
+        control = make_control("Box")
+        self.assertBounds(control, [-1, -1, -1, 1, 1, 1])
+        cmds.undoInfo(state=True, infinity=True)
+        cmds.setAttr(control + ".shapeTransform", scale(2, 2, 2), type="matrix")
+        self.assertBounds(control, [-2, -2, -2, 2, 2, 2])
+        cmds.undo()
+        self.assertBounds(control, [-1, -1, -1, 1, 1, 1])
+        cmds.redo()
+        self.assertBounds(control, [-2, -2, -2, 2, 2, 2])
+
     def test_mirrored_shape_transform_flips_pointers(self):
         # Scale -1 in X: the single arrow now points down -X.
         self.assertShapeBounds("SingleArrow", [-1, 0, -0.282828, 0, 0, 0.282828], scale(-1, 1, 1))

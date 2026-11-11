@@ -6,6 +6,7 @@
 #include <string>
 
 #include <maya/MDagModifier.h>
+#include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
@@ -13,11 +14,10 @@
 #include <maya/MFnMessageAttribute.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnTypedAttribute.h>
-#include <maya/MGlobal.h>
 #include <maya/MHWGeometryUtilities.h>
 #include <maya/MNamespace.h>
 #include <maya/MPlug.h>
-#include <maya/MSelectionList.h>
+#include <maya/MProfiler.h>
 
 MTypeId RigControlNode::id(0x0013B5C0);
 MString RigControlNode::drawDbClassification("drawdb/geometry/rigControlNode");
@@ -25,6 +25,9 @@ MString RigControlNode::drawRegistrantId("RigControlNodePlugin");
 
 MObject RigControlNode::aShapeType;
 MObject RigControlNode::aWireColor;
+MObject RigControlNode::aWireColorR;
+MObject RigControlNode::aWireColorG;
+MObject RigControlNode::aWireColorB;
 MObject RigControlNode::aWireAlpha;
 MObject RigControlNode::aShapeTransform;
 MObject RigControlNode::aFilled;
@@ -46,15 +49,39 @@ void* RigControlNode::creator()
 	return new RigControlNode();
 }
 
+namespace
+{
+	// Profiler event names, in ProfilerUtils' category.
+	constexpr const char* ProfileSetDependentsDirty{ "rigControl setDependentsDirty" };
+	constexpr const char* ProfileBoundingBox{ "rigControl boundingBox" };
+	constexpr const char* ProfileBoundingBoxRebuild{ "rigControl boundingBox rebuild" };
+	constexpr const char* ProfileDrawOverrideBoundingBox{ "rigControl drawOverride boundingBox" };
+	constexpr const char* ProfilePrepareForDraw{ "rigControl prepareForDraw" };
+	constexpr const char* ProfilePrepareForDrawRead{ "rigControl prepareForDraw read" };
+	constexpr const char* ProfileAddUIDrawables{ "rigControl addUIDrawables" };
+}
+
 MStatus RigControlNode::setDependentsDirty(const MPlug& plugBeingDirtied, MPlugArray& affectedPlugs)
 {
-	const MObject attr = plugBeingDirtied.attribute();
-	// wireframeColor is a compound, so a change to one channel arrives on a child plug.
-	const bool isColorChannel = plugBeingDirtied.isChild() && plugBeingDirtied.parent().attribute() == aWireColor;
+	MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorG_L1, ProfileSetDependentsDirty);
 
-	if (attr == aShapeType || attr == aShapeTransform || attr == aWireAlpha || attr == aWireColor || attr == aFilled || attr == aXray || isColorChannel)
+	// Compared by attribute only: this runs for every dirtied plug, including the matrices on every edit.
+	// wireframeColor is a compound, so a change to one channel arrives on a child plug.
+	const MObject attr = plugBeingDirtied.attribute();
+	const bool isBoundsAttr = attr == aShapeType || attr == aShapeTransform;
+	const bool isColorAttr = attr == aWireColor || attr == aWireColorR || attr == aWireColorG || attr == aWireColorB;
+
+	if (isBoundsAttr || isColorAttr || attr == aWireAlpha || attr == aFilled || attr == aXray)
 	{
-		m_drawIsDirty = true;
+		if (isBoundsAttr)
+		{
+			m_boundsAreDirty.store(true);
+		}
+		++m_drawGeneration;
+		if (m_drawGeneration == 0)
+		{
+			m_drawGeneration = 1;
+		}
 		// Redraw while the attribute is being changed, not only on the next unrelated refresh.
 		MHWRender::MRenderer::setGeometryDrawDirty(thisMObject());
 	}
@@ -67,19 +94,33 @@ bool RigControlNode::isBounded() const
 	return true;
 }
 
-// Exact: every library point through shapeTransform.
+// Exact: every library point through shapeTransform. Rebuilt only after a shape change.
 MBoundingBox RigControlNode::boundingBox() const
 {
-	const MObject oControl = thisMObject();
-	const ShapeMesh& mesh = getShapeMesh(getShapeType(oControl));
-	const MMatrix mShapeTransform = getShapeTransform(oControl);
+	MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorG_L2, ProfileBoundingBox);
 
-	MBoundingBox bounds;
-	for (const ShapePoint& point : mesh.points)
+	if (m_boundsAreDirty.load())
 	{
-		bounds.expand(MPoint(point.x, point.y, point.z) * mShapeTransform);
+		std::lock_guard<std::mutex> lock(m_boundsMutex);
+		// Another thread may have rebuilt it while this one waited.
+		if (m_boundsAreDirty.load())
+		{
+			MProfilingScope rebuildProfile(ProfilerUtils::category(), MProfiler::kColorG_L3, ProfileBoundingBoxRebuild);
+			const MObject oControl = thisMObject();
+			const ShapeMesh& mesh = getShapeMesh(getShapeType(oControl));
+			const MMatrix mShapeTransform = getShapeTransform(oControl);
+
+			MBoundingBox bounds;
+			for (const ShapePoint& point : mesh.points)
+			{
+				bounds.expand(MPoint(point.x, point.y, point.z) * mShapeTransform);
+			}
+			m_bounds = bounds;
+			m_boundsAreDirty.store(false);
+		}
+		return m_bounds;
 	}
-	return bounds;
+	return m_bounds;
 }
 
 MMatrix RigControlNode::getShapeTransform(const MObject& oControl)
@@ -124,6 +165,14 @@ MStatus RigControlNode::initialize()
 	nAttr.setKeyable(false);
 	nAttr.setStorable(true);
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aWireColor));
+	MFnCompoundAttribute fnWireColor(aWireColor, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	aWireColorR = fnWireColor.child(0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	aWireColorG = fnWireColor.child(1, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	aWireColorB = fnWireColor.child(2, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	aWireAlpha = nAttr.create(RigControlNodeAttr::WireframeAlpha, RigControlNodeAttr::WireframeAlpha, MFnNumericData::kFloat, 1.0f, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -180,31 +229,33 @@ RigControlDrawOverride::RigControlDrawOverride(const MObject& obj)
 
 MBoundingBox RigControlDrawOverride::boundingBox(const MDagPath& objPath, const MDagPath& cameraPath) const
 {
+	MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorG_L1, ProfileDrawOverrideBoundingBox);
 	const RigControlNode* pControl = dynamic_cast<const RigControlNode*>(MFnDependencyNode(objPath.node()).userNode());
 	return pControl ? pControl->boundingBox() : MBoundingBox(MPoint(-1.0, -1.0, -1.0), MPoint(1.0, 1.0, 1.0));
 }
 
-// Reads plugs only when the shape changed, or when VP2 hands over no cached data.
+// Reads plugs only when this data is older than the node's draw generation. New data (a new panel, instance or
+// display mode) starts at generation 0, so it always reads.
 MUserData* RigControlDrawOverride::prepareForDraw(
 	const MDagPath& objPath,
 	const MDagPath& cameraPath,
 	const MHWRender::MFrameContext& frameContext,
 	MUserData* oldData)
 {
+	MObject oControl = objPath.node();
+	MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorC_L1, ProfilePrepareForDraw, nullptr, oControl);
+
 	ControlDrawData* data = dynamic_cast<ControlDrawData*>(oldData);
-	const bool isNewData = data == nullptr;
-	if (isNewData)
+	if (data == nullptr)
 	{
 		data = new ControlDrawData();
 	}
 
-	MObject oControl = objPath.node();
 	RigControlNode* pControl = dynamic_cast<RigControlNode*>(MFnDependencyNode(oControl).userNode());
 
-	// The dirty flag lives on the node, but the cache lives on this data. A new draw override (new panel, instance,
-	// display mode change) starts with no data while the node is already clean, so new data always reads the plugs.
-	if (pControl && (isNewData || pControl->isDrawDirty()))
+	if (pControl && data->drawGeneration != pControl->drawGeneration())
 	{
+		MProfilingScope readProfile(ProfilerUtils::category(), MProfiler::kColorC_L2, ProfilePrepareForDrawRead, nullptr, oControl);
 		data->shapeType = RigControlNode::getShapeType(oControl);
 
 		const MMatrix mShapeTransform = RigControlNode::getShapeTransform(oControl);
@@ -215,16 +266,8 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 			const ShapePoint& point = mesh.points[i];
 			data->points[i] = MPoint(point.x, point.y, point.z) * mShapeTransform;
 		}
-		data->wireIndices.clear();
-		for (unsigned int index : mesh.wireIndices)
-		{
-			data->wireIndices.append(index);
-		}
-		data->triangleIndices.clear();
-		for (unsigned int index : mesh.triangleIndices)
-		{
-			data->triangleIndices.append(index);
-		}
+		data->wireIndices = MUintArray(mesh.wireIndices.data(), static_cast<unsigned int>(mesh.wireIndices.size()));
+		data->triangleIndices = MUintArray(mesh.triangleIndices.data(), static_cast<unsigned int>(mesh.triangleIndices.size()));
 
 		MPlug pColor(oControl, RigControlNode::aWireColor);
 		const float r = pColor.child(0).asFloat();
@@ -236,17 +279,15 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 		data->filled = MPlug(oControl, RigControlNode::aFilled).asBool();
 		data->xray = MPlug(oControl, RigControlNode::aXray).asBool();
 
-		pControl->setDrawClean();
+		data->drawGeneration = pControl->drawGeneration();
 	}
 
 	// Selection color runs on every call, from the cached dormant color.
 	const MHWRender::DisplayStatus displayStatus = MHWRender::MGeometryUtilities::displayStatus(objPath);
 
 	// A control that is selected looks different from one that is only highlighted because a parent is selected.
-	MSelectionList selList;
-	MGlobal::getActiveSelectionList(selList);
-	const bool isObjectSelected = selList.hasItem(objPath);
-	const unsigned int selLen = selList.length();
+	const bool isObjectSelected = ActiveSelection::contains(oControl);
+	const unsigned int selLen = ActiveSelection::length();
 
 	data->lineWidth = 1.0f;
 
@@ -281,6 +322,8 @@ void RigControlDrawOverride::addUIDrawables(
 	const MHWRender::MFrameContext& frameContext,
 	const MUserData* data)
 {
+	MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorC_L3, ProfileAddUIDrawables);
+
 	const ControlDrawData* pData = dynamic_cast<const ControlDrawData*>(data);
 	if (!pData || pData->points.length() == 0)
 	{

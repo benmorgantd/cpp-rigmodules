@@ -6,6 +6,7 @@ Run it with mayapy (set nothing else up: it loads a copy of the plugin and the p
     mayapy tools/perf/perf_scenes.py complex [--count 50]
     mayapy tools/perf/perf_scenes.py bench   SCENE.mb [--passes 3]        (evaluation only, no viewport)
     mayapy tools/perf/perf_scenes.py gui     SCENE.mb [--seconds 6]       (real playback in a Maya window)
+    mayapy tools/perf/perf_scenes.py profile SCENE.mb [--frames 20]       (where playback time goes, in a Maya window)
     mayapy tools/perf/perf_scenes.py check                                (the generated rig is valid; seconds)
 
 human    imports the asset's skeleton `--count` times, builds the asset's template on each, and keys every
@@ -517,15 +518,17 @@ def run_check(args):
     os._exit(0 if result.wasSuccessful() else 1)
 
 
-def bench_gui(args):
-    """Plays the scene in a Maya window through playback_gui.py and prints its log."""
+def run_gui_script(args, script_name, **settings):
+    """Runs a script from this folder in a Maya window on a copy of the plugin and prints the log it writes.
+    `settings` become PERF_<NAME> environment variables."""
     work = tempfile.mkdtemp(prefix="perf_gui_")
     plugin_copy = os.path.join(work, "RigModules.mll")
     shutil.copyfile(args.plugin, plugin_copy)
     env = dict(os.environ, PERF_SCENE=os.path.abspath(args.scene).replace("\\", "/"),
                PERF_PLUGIN=plugin_copy.replace("\\", "/"), PERF_OUT=work.replace("\\", "/"),
-               PERF_SECONDS=str(args.seconds), MAYA_SKIP_USERSETUP_PY="1", MAYA_DISABLE_CER="1")
-    script = os.path.join(PERF_DIR, "playback_gui.py").replace("\\", "/")
+               MAYA_SKIP_USERSETUP_PY="1", MAYA_DISABLE_CER="1")
+    env.update({"PERF_" + name.upper(): str(value) for name, value in settings.items()})
+    script = os.path.join(PERF_DIR, script_name).replace("\\", "/")
     command = [args.maya, "-command", 'python("exec(open(\'%s\').read())")' % script]
     subprocess.run(command, env=env, timeout=args.timeout)
     log = os.path.join(work, "log.txt")
@@ -536,10 +539,20 @@ def bench_gui(args):
         print("No log was written: Maya did not finish. Work folder: %s" % work)
 
 
+def bench_gui(args):
+    """Plays the scene in a Maya window through playback_gui.py."""
+    run_gui_script(args, "playback_gui.py", seconds=args.seconds)
+
+
+def profile_gui(args):
+    """Records the profiler over playback in a Maya window through profile_gui.py."""
+    run_gui_script(args, "profile_gui.py", frames=args.frames)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("human", "complex", "bench", "gui", "check"):
+    for name in ("human", "complex", "bench", "gui", "profile", "check"):
         p = sub.add_parser(name)
         p.add_argument("--plugin", default=DEFAULT_PLUGIN)
         if name in ("human", "complex"):
@@ -548,7 +561,7 @@ def main():
         if name == "human":
             p.add_argument("--frames", type=int, default=96)
             p.add_argument("--asset-dir", default=DEFAULT_ASSET_DIR)
-        if name in ("bench", "gui"):
+        if name in ("bench", "gui", "profile"):
             p.add_argument("scene")
         if name == "bench":
             p.add_argument("--passes", type=int, default=3)
@@ -556,11 +569,14 @@ def main():
             p.add_argument("--all-modes", action="store_true", help="also time serial and DG evaluation (slow)")
         if name == "gui":
             p.add_argument("--seconds", type=float, default=6.0)
+        if name == "profile":
+            p.add_argument("--frames", type=int, default=20)
+        if name in ("gui", "profile"):
             p.add_argument("--maya", default=DEFAULT_MAYA)
             p.add_argument("--timeout", type=int, default=900)
     args = parser.parse_args()
     {"human": make_human, "complex": make_complex, "bench": bench_eval, "gui": bench_gui,
-     "check": run_check}[args.command](args)
+     "profile": profile_gui, "check": run_check}[args.command](args)
 
 
 if __name__ == "__main__":

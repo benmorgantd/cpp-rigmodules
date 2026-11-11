@@ -11,6 +11,7 @@
 #include "core/ControlShapes.h"
 #include "maya/CommandRegistry.h"
 #include "maya/ModuleRegistry.h"
+#include "maya/shared/Utilities.h"
 
 // Plugin Registration
 MStatus initializePlugin(MObject obj)
@@ -27,6 +28,8 @@ MStatus initializePlugin(MObject obj)
 
 	// Register our plugin
 	MFnPlugin plugin(obj, PluginInfo::Vendor, PluginInfo::Version, "Any");
+
+	ProfilerUtils::addCategory();
 
 	// -- RIG MODULE NODES --
 	// This loop is possible because we have the ModuleRegistry. It makes it so that when we add a new module we don't have to touch so many files.
@@ -70,6 +73,11 @@ MStatus initializePlugin(MObject obj)
 		}
 	}
 
+	// Last: Maya doesn't call uninitializePlugin after a failed load, so nothing may return early after the
+	// callback is registered. The control draw override reads it.
+	status = ActiveSelection::start();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
 	return status;
 }
 
@@ -77,6 +85,9 @@ MStatus uninitializePlugin(MObject obj)
 {
 	MStatus status;
 	MFnPlugin plugin(obj);
+
+	// First, before any early return: a callback left registered would call into the unloaded .mll.
+	ActiveSelection::stop();
 
 	// 1. Deregister VP2 Draw Override FIRST (before node type is removed) to avoid crashes.
 	status = MHWRender::MDrawRegistry::deregisterDrawOverrideCreator(
@@ -101,6 +112,8 @@ MStatus uninitializePlugin(MObject obj)
 	{
 		plugin.deregisterNode(it->typeId);
 	}
+
+	ProfilerUtils::removeCategory();
 
 	return status;
 }

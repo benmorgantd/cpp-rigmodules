@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <maya/MArgList.h>
@@ -21,9 +22,13 @@
 #include <maya/MGlobal.h>
 #include <maya/MItDependencyGraph.h>
 #include <maya/MMatrix.h>
+#include <maya/MMessage.h>
+#include <maya/MModelMessage.h>
 #include <maya/MNamespace.h>
 #include <maya/MObject.h>
+#include <maya/MObjectHandle.h>
 #include <maya/MPlug.h>
+#include <maya/MProfiler.h>
 #include <maya/MSelectionList.h>
 #include <maya/MStatus.h>
 #include <maya/MString.h>
@@ -542,6 +547,94 @@ void ReportUtils::displayReport(const ValidationReport& report)
 	{
 		MGlobal::displayError(error.c_str());
 	}
+}
+
+// Profiler utils -----------------------------------------------------------
+namespace
+{
+	int gProfilerCategory{ -1 };
+}
+
+void ProfilerUtils::addCategory()
+{
+	gProfilerCategory = MProfiler::addCategory(PluginInfo::ProfilerCategory, "RigModules plugin events");
+}
+
+void ProfilerUtils::removeCategory()
+{
+	MProfiler::removeCategory(PluginInfo::ProfilerCategory);
+	gProfilerCategory = -1;
+}
+
+int ProfilerUtils::category()
+{
+	return gProfilerCategory;
+}
+
+// Active selection ---------------------------------------------------------
+namespace
+{
+	struct ObjectHandleHash
+	{
+		std::size_t operator()(const MObjectHandle& handle) const
+		{
+			return handle.hashCode();
+		}
+	};
+
+	std::unordered_set<MObjectHandle, ObjectHandleHash> gSelectedNodes;
+	unsigned int gSelectionLength{ 0 };
+	MCallbackId gSelectionCallback{ 0 };
+	bool gSelectionCallbackActive{ false };
+
+	void readActiveSelection(void*)
+	{
+		MSelectionList selection;
+		MGlobal::getActiveSelectionList(selection);
+		gSelectionLength = selection.length();
+		gSelectedNodes.clear();
+		for (unsigned int i = 0; i < gSelectionLength; ++i)
+		{
+			MObject oNode;
+			if (selection.getDependNode(i, oNode) == MStatus::kSuccess && !oNode.isNull())
+			{
+				gSelectedNodes.insert(MObjectHandle(oNode));
+			}
+		}
+	}
+}
+
+MStatus ActiveSelection::start()
+{
+	MStatus status;
+	gSelectionCallback = MModelMessage::addCallback(MModelMessage::kActiveListModified, readActiveSelection, nullptr, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	gSelectionCallbackActive = true;
+	readActiveSelection(nullptr);
+	return MStatus::kSuccess;
+}
+
+void ActiveSelection::stop()
+{
+	if (gSelectionCallbackActive)
+	{
+		MMessage::removeCallback(gSelectionCallback);
+		gSelectionCallbackActive = false;
+	}
+	gSelectedNodes.clear();
+	gSelectionLength = 0;
+}
+
+bool ActiveSelection::contains(const MObject& oNode)
+{
+	// A deleted node's memory can be reused by a new node, so a stale entry must not match it.
+	const auto it = gSelectedNodes.find(MObjectHandle(oNode));
+	return it != gSelectedNodes.end() && it->isValid();
+}
+
+unsigned int ActiveSelection::length()
+{
+	return gSelectionLength;
 }
 
 // DAG plug and socket utils -----------------------------------------------
