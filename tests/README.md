@@ -184,6 +184,22 @@ It starts Maya with a window (`maya.exe -command`), builds every shape beside a 
 - **Exit code:** 0 when every image was written. It does not judge the images. Look at them.
 - **Unattended:** like the suite, it skips `userSetup.py` and turns off the crash reporter, so nothing waits for input.
 
+## Performance scenes
+
+`tools/perf/perf_scenes.py` builds scenes with 100 copies of a rig, animated, to measure playback speed at scale. It is a developer tool and a manual run: nothing here is in `RigTests.cmd` (D36). A full run is long (about 45 minutes with every mode), so run it when a module or constraint type changes, not on every build. `mayapy tools\perf\perf_scenes.py check` runs `check_perf_scene.py`, which takes seconds and confirms the generated rig is still valid, so a slow result is never a broken build. Run it after changing the generator or the plugin's modules.
+
+```powershell
+mayapy tools\perf\perf_scenes.py human                      # 100 instances of the Human asset, a pose cycle keyed every frame
+mayapy tools\perf\perf_scenes.py complex                    # 100 instances of a generated 200 joint, 51 constraint rig with FkChain and Aim modules, with a -90 to 90 range of motion
+mayapy tools\perf\perf_scenes.py bench tools\perf\out\complex_x100.mb   # evaluation only: no viewport, parallel (--all-modes adds serial and DG)
+mayapy tools\perf\perf_scenes.py gui tools\perf\out\complex_x100.mb     # real playback in a Maya window: eval mode, viewport on and off
+```
+
+- **Output:** scenes, the generated skeleton and the generated template go to `tools/perf/out` (ignored by git). `--count` and `--frames` change the size, and `--asset-dir` points `human` at the asset folder (`skeleton/biped_skeleton.ma` and `variants/Human/`).
+- **The goal** is 30 fps, 1:1 playback, for 100 of the complex rig. `bench` times parallel evaluation (the mode that counts, D36), prints PASS or FAIL against `--target-fps` (default 30) and exits 1 on FAIL. `--all-modes` adds serial and DG, which are much slower to run. When a module or constraint type is added, add many instances of it to the complex rig (`chain_specs` and `aim_specs` in `perf_scenes.py`) in the same change and run `bench`.
+- **`bench`** steps the time with `MAnimControl`, times it with `perf_counter` over `--passes` passes after a warm-up, and pulls every chain tip's world matrix, in each evaluation manager mode (`off` is plain DG, which only evaluates what is pulled). That is evaluation only, with no viewport and no UI, so its numbers are an upper bound on playback speed. A Maya window measured several times slower on the complex scene.
+- **`gui`** starts `maya.exe`, steps through the frame range as fast as it can (a redraw per frame), drops the first 1.5 seconds, and prints the frame rate per evaluation manager mode, with the viewport drawn and with it hidden. Close other heavy programs first, and don't run the suite at the same time.
+
 ## Gotchas
 
 - `cmds.namespace(add=..., setNamespace=...)` is undoable and clears the redo queue. Between an undo and a redo, use `om.MNamespace` instead.

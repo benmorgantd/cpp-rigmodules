@@ -8,3 +8,6 @@ x64/
 # Python bytecode (RigTests.cmd already turns it off for test runs)
 __pycache__/
 *.pyc
+
+# Generated performance scenes (tools/perf)
+tools/perf/out/

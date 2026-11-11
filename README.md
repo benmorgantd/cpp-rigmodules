@@ -149,4 +149,4 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | `docs/` | User documentation |
 | `design/` | Decision log and original planning document |
 | `tests/` | mayapy test suite |
-| `tools/` | Developer scripts: `generate_control_shapes.py` writes the control shape library |
+| `tools/` | Developer scripts: `generate_control_shapes.py` writes the control shape library, and `perf/perf_scenes.py` builds the 100-rig performance scenes ([tests/README.md](tests/README.md#performance-scenes)) |

@@ -59,6 +59,7 @@ Do not add a new module casually. Before proposing one:
 2. Check whether an existing module, or a small extension of one, already covers it.
 3. Write the design (inputs, outputs, child plugs, sockets, attributes, JSON schema impact, export impact, pose/animation library impact, tests) and get sign-off before implementing. The tests are a `ModuleContract` subclass, pose cases and a golden snapshot (see `tests/README.md`).
 4. Name what it adds to the long-term maintenance surface.
+5. Add many instances of it to the complex performance rig (`tools/perf/perf_scenes.py`, `chain_specs` and `aim_specs`) in the same change, and run `bench` on it (a manual run, never part of the suite: D36). The target is 30 fps (1:1 playback) for 100 heavy rigs, in parallel evaluation. The same goes for a new constraint type. Report the fps, and say so when it is below the target.
 
 ## Architecture
 
@@ -180,6 +181,7 @@ RigTemplates/        example template
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. `ViewportGallery.cmd` is the manual VP2 shape check. |
 | `tools/generate_control_shapes.py` | mayapy script that writes `cpp/core/ControlShapeLibrary.cpp`. Rerun it after changing a shape, then rebuild. |
+| `tools/perf/` | `perf_scenes.py` builds 100-rig scenes (the Human asset with a pose cycle, a generated 200 joint rig with 51 constraints and Aim modules and a range of motion) and measures evaluation and playback speed. `playback_gui.py` is its Maya-window half. Output goes to the ignored `tools/perf/out`. See `tests/README.md`. |
 | `cpp/RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files, with its folder relative to `cpp/` (`core\X.cpp`). The filters file has one filter per folder. |
 
 **Maya commands:** `cmds.createRigFromTemplate(*joints, template=path, asset=assetId, namespace=ns, checkMirrorPositions=False)`, `cmds.rigJointMarkup(...)`, `cmds.createRigConstraint(control, driver=["module.socket", ...], type="Parent" | "Orient" | "Point")`, `cmds.setRigConstraintSpace(constraint, space=n | label=l)`, `cmds.getRigControls(rigRoot, moduleType=[...], side=[...], usage=[...])`, `cmds.getRigControlInfo(*controls)`, `cmds.getRigControlChannels(*controls)`, `cmds.zeroRigControls(rigRoot | *controls)`, `cmds.mirrorRigPose(rigRoot | *controls, leftToRight=True)`, `cmds.flipRigPose(rigRoot | *controls)`, `cmds.saveRigPose(rigRoot | *controls, file=path)`, `cmds.loadRigPose(rigRoot | *controls, file=path)`, `cmds.saveRigControlShapes(rigRoot, file=path)`, `cmds.loadRigControlShapes(rigRoot, file=path)`, `cmds.getRigMirrorControl(control)`, `cmds.mirrorRigControlShapes(rigRoot, leftToRight=True)`, `cmds.getRigInfo(node)`, `cmds.setRigMeshId(*meshes, newId=False)`, `cmds.saveRigSkinWeights(mesh, file=path)`, `cmds.loadRigSkinWeights(mesh, file=path)`, `cmds.pruneToMaxInfluences(*meshes, maxInfluences=n)`. Name API functions and commands in verb pairs: get/set for scene data (`getRigControls`, `setControlShape`), save/load for files this system owns (`saveRigControlShapes`, `loadRigControlShapes`), import/export for data going to or from other tools or formats, and `mirror` for copying one side onto the other (`mirrorRigControlShapes`). Full reference in `docs/commands.md`. Every command follows the shape in D14, with `JointMarkupCmd` as the reference.
@@ -342,6 +344,7 @@ Before declaring work done, check:
 - [ ] No names (controls, attributes, child plugs, sockets) changed without flagging the pose, animation, and export impact
 - [ ] Animator-facing behavior is simple and predictable
 - [ ] Complexity added by this change is stated and justified
+- [ ] A new module or constraint type has many instances in the complex perf rig, and `bench` was run
 - [ ] Tests added or updated for the change, and the full suite passes on the build that contains it
 - [ ] Every check a temp mayapy probe made is now a suite test, or is listed in the summary as a proposed test
 - [ ] Docs pass done: every visible change is in its owning page, new topics have a page, no stale mentions remain, and the summary lists the docs touched

@@ -522,6 +522,15 @@ Weight save and load are undoable C++ commands, like the shape commands (D26), w
 
 ---
 
+### D36. Rigs are optimized for parallel evaluation, and 30 fps is the goal
+**Status:** Decided (author, 2026-11-10)
+Animators play rigs back in Maya's parallel evaluation manager, so that is the mode we design, write and measure for. The goal is 30 fps (1:1 playback) for a scene of 100 heavy rigs.
+- **Measured (2026-11-10, 16 cores, headless, no viewport):** 100 Human rigs (1,600 joints) run at 148 fps in parallel (6.8 ms/frame). 100 of the generated complex rig (200 joints, 52 modules and 51 constraints each, 20,000 joints in all) run at 8.3 fps in parallel (121 ms/frame), about 4 times short of the goal. Serial evaluation was 1.1 fps and plain DG 2.0 fps on the same scene. In a Maya window, with the viewport and UI, the earlier complex scene ran at 1.1 fps.
+- **Why:** parallel evaluation is the only mode that gets close, and it is the only one that scales with the core count. A rig that is only fast in DG or serial mode is not fast.
+- **Consequence for modules and constraints:** `compute()` must be safe to run on any thread and independent of every other node's `compute()`: no shared or static mutable state, no `MGlobal` or MEL calls, no scene queries, and no allocation or string lookup in the hot path (the existing rule). Declare every dependency with `attributeAffects` and connect every input as a plug, because the evaluation graph is built from connections. A node should not need a pull from another node that isn't an input. Keep chains of nodes short: the depth of the longest chain bounds the speed however many cores there are.
+- **Not yet done:** where the 121 ms goes (module, constraint or animation curve nodes) is not measured, and no node overrides `schedulingType`. Profile before changing the nodes.
+- **Process:** a new module or constraint type adds many instances to the complex perf rig in the same change, and `bench` is run on it (D12, "Gate for new modules"). The perf run is manual and never part of the suite, because it takes too long: `tools/perf/perf_scenes.py`, documented in `tests/README.md`. `check` is its quick validity check.
+
 ## Open items
 
 - **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.
