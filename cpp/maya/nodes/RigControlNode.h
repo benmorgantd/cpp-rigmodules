@@ -9,6 +9,7 @@
 #include <maya/MBoundingBox.h>
 #include <maya/MColor.h>
 #include <maya/MDagModifier.h>
+#include <maya/MEulerRotation.h>
 #include <maya/MFrameContext.h>
 #include <maya/MMatrix.h>
 #include <maya/MPoint.h>
@@ -90,14 +91,16 @@ public:
 		return m_drawGeneration;
 	}
 
-	// Creates the control, names it from baseName and side, colors it by side, and writes its markup.
+	// Creates the control, names it from baseName and side, colors it by side, and writes its markup and rotate
+	// order. The module owns the rotate order (D40), so it has no default. The build locks it afterwards.
 	// The caller wires it to its module.
 	static MObject createRigControl(
 		MDagModifier& dagMod,
 		const MString& baseName,
 		ShapeType shapeType,
 		Side side,
-		const ControlMarkup& markup
+		const ControlMarkup& markup,
+		MEulerRotation::RotationOrder rotateOrder
 	);
 
 	static MMatrix getShapeTransform(const MObject& oControl);

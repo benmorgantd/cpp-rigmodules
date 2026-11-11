@@ -27,6 +27,7 @@
 #include <maya/MDagModifier.h>
 #include <maya/MDagPath.h>
 #include <maya/MFnAttribute.h>
+#include <maya/MFnDagNode.h>
 #include <maya/MFnData.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnEnumAttribute.h>
@@ -570,6 +571,24 @@ namespace
 		return dagMod.doIt();
 	}
 
+	// Write phase, after the first doIt. Locks every control's rotate order, which its module set when it created
+	// the control (D40). Queued as MEL because MDagModifier has no lock call, and so that undo and redo replay it.
+	MStatus queueRotateOrderLocks(const MObject& oRigRoot, MDagModifier& dagMod)
+	{
+		MObjectArray oControls;
+		MStatus status = RigTraversal::getRigControls(oRigRoot, RigControlFilter{}, oControls);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		for (unsigned int i = 0; i < oControls.length(); ++i)
+		{
+			const MFnDagNode fnControl(oControls[i], &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			status = dagMod.commandToExecute(MString("setAttr -lock true ") + MelUtils::quoted(fnControl.fullPathName() + ".rotateOrder"));
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		return dagMod.doIt();
+	}
+
 	// Write phase. Runs only on a clean report. Constraints come after the first doIt because they add an enum
 	// attribute to controls that must exist by then.
 	MStatus buildRig(
@@ -635,6 +654,14 @@ namespace
 		if (!status)
 		{
 			MGlobal::displayError("Failed building the rig's selection sets.");
+			dagMod.undoIt();
+			return status;
+		}
+
+		status = queueRotateOrderLocks(oRigRoot, dagMod);
+		if (!status)
+		{
+			MGlobal::displayError("Failed locking the controls' rotate orders.");
 			dagMod.undoIt();
 			return status;
 		}

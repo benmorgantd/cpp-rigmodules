@@ -113,6 +113,20 @@ class ModuleContract:
                 self.fail("%s is off its build pose after zeroRigControls\n  built %s\n  after %s"
                           % (joint, list(rest[joint]), list(after)))
 
+    def test_contract_rotate_order_is_locked(self):
+        """A module owns its controls' rotate orders (D40): set at creation, locked after the build, and
+        still locked after undo and redo."""
+        self._build()
+        controls = cmds.ls(rig_name("*"), type="rigControlNode")
+        self.assertTrue(controls)
+        for phase in ("built", "redone"):
+            for control in controls:
+                self.assertTrue(cmds.getAttr(control + ".rotateOrder", lock=True), "%s rotateOrder is not locked (%s)" % (control, phase))
+            if phase == "built":
+                cmds.undo()
+                cmds.redo()
+                controls = cmds.ls(rig_name("*"), type="rigControlNode")
+
     def test_contract_undo_redo_round_trip(self):
         self._build()
         built = sorted(cmds.ls(rig_name("*"), long=True))

@@ -208,7 +208,7 @@ RigModuleBuildResult AimModuleNode::createModule(
 		}
 		else
 		{
-			oControl = RigControlNode::createRigControl(dagMod, fnJoint.name(), shapeType, side, parts[i].controlMarkup);
+			oControl = RigControlNode::createRigControl(dagMod, fnJoint.name(), shapeType, side, parts[i].controlMarkup, MEulerRotation::kXYZ);
 			status = wireControl(oAimModule, oControl, i, mRestWorld, dagMod);
 			if (!status)
 			{

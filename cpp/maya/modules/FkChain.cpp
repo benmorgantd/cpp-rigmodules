@@ -63,7 +63,9 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kUnknownParameter;
 }
 
-// TODO: set rotate order for +x down and +z bend
+// Joints run down +X and bend about Z, so the middle axis (the one that gimbal locks at 90 degrees) should be
+// Y, the side swing that rarely goes far. In XYZ, Z is also the parent-space axis, so the bend curve stays
+// clean, and X, the twist, turns about the bone itself. ZXY would put the twist in the middle (D40).
 RigModuleBuildResult FkChainNode::createModule(
 	const MString& moduleName,
 	const Side& side,
@@ -105,7 +107,7 @@ RigModuleBuildResult FkChainNode::createModule(
 
 		// Create control and flush modifier
 		MFnTransform fnJoint(oJoint);
-		MObject oControlTransform = RigControlNode::createRigControl(dagMod, fnJoint.name(), shapeType, side, controlMarkups[i]);
+		MObject oControlTransform = RigControlNode::createRigControl(dagMod, fnJoint.name(), shapeType, side, controlMarkups[i], MEulerRotation::kXYZ);
 
 		RigModuleSocketInfo socketInfo;
 		socketInfo.oTransform = oControlTransform;

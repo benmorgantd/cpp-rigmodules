@@ -23,6 +23,7 @@ A control's channels are its keyable attributes that aren't locked or driven: th
 
 - A channel's **rest** is its attribute default, so a build pose is every channel at rest. [`zeroRigControls`](commands.md#zerorigcontrols) goes there.
 - Its **mirror mode** is `copy` or `negate`. Transforms copy. A custom channel states its own as an attribute category (`mirrorCopy` or `mirrorNegate`), and the pose commands refuse a control that has a custom channel with neither.
+- A control's **rotate order** is set by its module and locked, so it isn't a channel and can't be changed in the channel box. FkChain controls use XYZ: Y, the side swing, is the middle axis that gimbal locks at 90 degrees, Z is the bend and X the twist.
 - Channel names are public API, like markup: saved poses and animation depend on them. A rename needs an entry in the alias list (see D32).
 - Query them with [`getRigControlChannels`](commands.md#getrigcontrolchannels). [`getRigControlInfo`](commands.md#getrigcontrolinfo) gives a control's module, side, usage and mirror.
 

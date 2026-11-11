@@ -213,6 +213,7 @@ class RotatedSpaceSwitch(RigTestCase):
         self.build_standard("fkchain_two_chains", "fk_two_chains_rotated")
         self.child = rig_name("c_ctrl_l")
         self.parents = (rig_name("a_ctrl_c"), rig_name("b_ctrl_c"))
+        cmds.setAttr(self.child + ".rotateOrder", lock=False)   # the module locks it (D40); this case needs another order
         cmds.setAttr(self.child + ".rotateOrder", 2)   # zxy
         # The child's current parent is fkchain_1.end, so the initial driver needs no match.
         self.con = cmds.createRigConstraint(self.child, driver=["fkchain_1.end", "fkchain_1.start"])

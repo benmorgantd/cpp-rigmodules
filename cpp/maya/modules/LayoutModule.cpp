@@ -89,7 +89,7 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 	for (unsigned int i = 0; i < numControls; ++i)
 	{
 		const ControlMarkup markup = controlMarkupAt(i);
-		MObject oControl = RigControlNode::createRigControl(dagMod, markup.usage.c_str(), ShapeType::Square, Side::Center, markup);
+		MObject oControl = RigControlNode::createRigControl(dagMod, markup.usage.c_str(), ShapeType::Square, Side::Center, markup, MEulerRotation::kXYZ);
 
 		// Layout is rooted at the origin, so every rest is identity.
 		MStatus status = wireControl(oLayoutModule, oControl, i, MMatrix::identity, dagMod);

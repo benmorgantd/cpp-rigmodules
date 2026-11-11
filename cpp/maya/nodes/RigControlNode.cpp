@@ -360,7 +360,8 @@ MObject RigControlNode::createRigControl(
 	const MString& baseName,
 	ShapeType shapeType,
 	Side side,
-	const ControlMarkup& markup)
+	const ControlMarkup& markup,
+	MEulerRotation::RotationOrder rotateOrder)
 {
 	MObject oControl = dagMod.createNode(RigControlNode::id);
 
@@ -386,6 +387,9 @@ MObject RigControlNode::createRigControl(
 
 	MPlug pControlMarkup(oControl, aControlMarkup);
 	dagMod.newPlugValueString(pControlMarkup, serializeControlMarkup(markup).c_str());
+
+	MPlug pRotateOrder(oControl, MPxTransform::rotateOrder);
+	dagMod.newPlugValueShort(pRotateOrder, static_cast<short>(rotateOrder));
 
 	return oControl;
 }

@@ -583,6 +583,13 @@ After the display layers, `createRig` replaces the rig namespace's selection set
 - **Build detail:** the `setMarkup` attribute is added by an internal `doIt`, because its value can only be queued once the plug exists. Sets are made in the same `MDagModifier` as the rig, so undo and redo cover them. Deletion is by name and covers only these sets, like D38, so a rebuild into a namespace whose modules changed leaves the old module sets behind.
 - **Consequence:** set names, the `selectionSets` and `setMarkup` attributes and the `kind` and `role` values are public API.
 
+### D40. A module owns its controls' rotate orders, and the build locks them
+**Status:** Decided (author, 2026-11-11). Built; see the build and suite result in the change summary.
+`createRigControl` takes the rotate order as a required argument, so every module states it. After the first `doIt`, `createRig` locks `rotateOrder` on every control (`queueRotateOrderLocks`, MEL queued on the modifier so undo and redo replay it). FkChain uses XYZ, and Aim and Layout pass XYZ explicitly, which is what they already had.
+- **Why XYZ for FkChain (+X down the bone, +Z bend):** the middle axis of the order is the one that gimbal locks at 90 degrees (checked in mayapy 2026 for all six orders). Y, the side swing, is the axis that rarely goes far, so it goes in the middle. In XYZ, Z is also the outer axis, so the bend curve stays in parent space, and X, the twist, turns about the bone. The author suggested ZXY, which puts the twist in the middle: a forearm or shoulder twist near 90 degrees would lock. A one-line change in `FkChain.cpp` if the author prefers another order.
+- **Lock in one place, not in each module:** a module can't lock its own plug while its node is still queued in the modifier. One pass after the build covers every module, and a new module only has to pick its order.
+- **Consequence:** a new module must choose a rotate order for its controls. Animators and tools can't change it by `setAttr`, so Maya's rotate order switching and `Constraints.cpp`'s read of it see a fixed value. A different order for an existing rig is a module change and a rebuild. Saved poses are in euler values, so changing an existing module's order later changes what they mean: treat it as a format break (D33).
+
 ## Open items
 
 - **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.
