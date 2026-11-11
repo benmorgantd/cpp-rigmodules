@@ -524,10 +524,10 @@ Weight save and load are undoable C++ commands, like the shape commands (D26), w
 ---
 
 ### D36. Rigs are optimized for parallel evaluation, and the goal is set against Maya's native floor
-**Status:** Decided (author, 2026-11-10). The goal was amended on 2026-11-11 and the amendment is **Proposed**, awaiting the author's sign-off. The original goal stays below as history.
+**Status:** Decided (author, 2026-11-10). The goal was amended on 2026-11-11 and the author signed the amendment off the same day. The original goal stays below as history.
 Animators play rigs back in Maya's parallel evaluation manager, so that is the mode we design, write and measure for.
-- **Original goal (superseded if the amendment is accepted):** 30 fps (1:1 playback) for a scene of 100 heavy rigs.
-- **Proposed goal:**
+- **Original goal (superseded 2026-11-11):** 30 fps (1:1 playback) for a scene of 100 heavy rigs.
+- **Goal (author, 2026-11-11):**
   1. **Shot scale:** 20 of the complex rig run at 30 fps or better in parallel evaluation (a 33 ms frame, 1.7 ms per rig). The measured edge on the author's machine is about 25 rigs, so 20 leaves margin for the run-to-run noise (up to about 30% between sessions).
   2. **Rig layer cost:** on the 50-rig scene (default since 2026-11-11, because 100 took too long and too much of the machine; the ratio does not depend on rig count, the measurement below was on 100), the full rig costs no more than 1.5 times the native floor (below). Measured 2026-11-11: 1.25 to 1.45. This is the regression guard for a new module or constraint type.
   3. **Stress benchmark:** the 50-rig scene (was 100), and its fps is reported with no pass or fail.

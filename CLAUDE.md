@@ -59,7 +59,7 @@ Do not add a new module casually. Before proposing one:
 2. Check whether an existing module, or a small extension of one, already covers it.
 3. Write the design (inputs, outputs, child plugs, sockets, attributes, JSON schema impact, export impact, pose/animation library impact, tests) and get sign-off before implementing. The tests are a `ModuleContract` subclass, pose cases and a golden snapshot (see `tests/README.md`).
 4. Name what it adds to the long-term maintenance surface.
-5. Add many instances of it to the complex performance rig (`tools/perf/perf_scenes.py`, `chain_specs` and `aim_specs`) in the same change, and run `bench` on it (a manual run, never part of the suite: D36). The target (D36, amendment proposed, awaiting sign-off) is 30 fps (1:1 playback) for 20 of the complex rig in parallel evaluation, and on the 50-rig scene a cost within 1.5 times the native floor. The same goes for a new constraint type. Report the fps, and say so when it is below the target.
+5. Add many instances of it to the complex performance rig (`tools/perf/perf_scenes.py`, `chain_specs` and `aim_specs`) in the same change, and run `bench` on it (a manual run, never part of the suite: D36). The target (D36, amended 2026-11-11) is 30 fps (1:1 playback) for 20 of the complex rig in parallel evaluation, and on the 50-rig scene a cost within 1.5 times the native floor. The same goes for a new constraint type. Report the fps, and say so when it is below the target.
 
 ## Architecture
 
