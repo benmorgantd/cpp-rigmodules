@@ -48,7 +48,7 @@ Maya tests can't each run in isolation. If the plugin doesn't load, every test f
 |---|---|---|
 | 1 registration | the plugin loads, every node type, command and long flag exists, and the source layout holds (`core/` Maya-free, known folders, include paths, sorted include blocks, braces on their own lines) | `concepts/test_plugin`, `concepts/test_source_layout` (reads the source tree, not the scene) |
 | 2 read only | commands and checks that never build a rig | joint markup command, control shapes and bounds (`concepts/test_control_shapes`), template loading, validation cases that expect errors |
-| 3 build smoke | every fixture template builds | `concepts/test_smoke` (each golden file's template and skeleton, plus valid validation cases), `commands/test_create_rig` |
+| 3 build smoke | every fixture template builds | `concepts/test_smoke` (each golden file's template and skeleton, plus valid validation cases), `commands/test_create_rig`, `commands/test_selection_sets` (selection sets and `rigmodules.selection`) |
 | 4 modules | each module poses correctly, and the rig around it is wired and named right | `modules/*`, sockets, naming, undo/redo, control markup and the control commands (`commands/test_rig_control_cmds`) |
 | 5 constraints | constraint commands and space switching | `commands/test_constraint_cmds`, `commands/test_constraint_types` (Orient and Point), `concepts/test_docs_examples` (the README quick start ends with a space switch), `concepts/test_mirror` (mirrored templates include mirrored constraints), `commands/test_rig_pose_cmds` (the animation interface: channels, zero, mirror and flip pose, pose files and `rigmodules.pose` keying, D34) |
 | 6 known bugs | expected failures. Never blocks anything. | `known/*` |

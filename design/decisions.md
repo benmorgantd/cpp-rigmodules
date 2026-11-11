@@ -572,6 +572,17 @@ After the modules are built, `createRig` replaces `jointsLayer`, `meshesLayer` a
 - **Members:** a node already in another layer is moved to the rig's layer. An empty layer is still made, so the lookup always works.
 - **Consequence:** the layers are public API (names and attributes). The layer manager is used the way `createDisplayLayer` does: `identification` and `displayOrder` are the first free id, and the layer connects to `layerManager.displayLayerId[id]`.
 
+### D39. The build makes selection sets for controls, joints and skin joints, found by markup
+**Status:** Decided (author, 2026-11-11). Built and tested in Maya 2026 (`commands/test_selection_sets.py`).
+After the display layers, `createRig` replaces the rig namespace's selection sets (`objectSet`, `SelectionSetScene::replaceSets`) with `controlsSet`, `jointsSet` and `skinJointsSet`, each nesting one `<module>_<kind>Set` per module that owns members, and `<kind>LeftSet`, `<kind>RightSet` and `<kind>CenterSet` for each kind. `SelectionSets::planSets` in `core/` lays out each kind from `{module, side}` items, so the layout is Maya-free. Sets carry a JSON `setMarkup` (`markupVersion`, `kind`, `side`, `module`) and connect to `rigRoot.selectionSets`.
+- **Why:** animators and skinners select a rig's parts as groups, and skinning tools need "the skin joints of this module or side" as data. Sets keep that in the scene, where an animator can also use them in the Outliner.
+- **Markup, not a message attribute per set:** nine sets plus a subset per module would mean a long list of root attributes (D38 has three). One array plus per-set markup follows D25, and `rigmodules.selection.find_set` filters it.
+- **Module and joint ownership:** a control's module is its `controlMessage` owner, and a joint's module is the one driving its `offsetParentMatrix` (`RigTraversal::getJointModule`, now public). A joint no module drives is a direct member of the "all" set, so selecting the "all" set still selects every joint.
+- **Side sets are siblings** of the "all" sets, since nesting them would repeat members. They always exist, even empty, so a lookup never has to handle a missing set. A module subset exists only when it has members, so Layout has controls but no joint sets. Joints get side sets too, though only controls and skin joints were asked for: the plan is one function for all three kinds, so it costs nothing.
+- **Skinning helpers are Python** (`rigmodules.selection`): `get_skin_joints`, `select_skin_joints`, `get_missing_influences` and `get_extra_influences`. No new command: they read sets and markup only.
+- **Build detail:** the `setMarkup` attribute is added by an internal `doIt`, because its value can only be queued once the plug exists. Sets are made in the same `MDagModifier` as the rig, so undo and redo cover them. Deletion is by name and covers only these sets, like D38, so a rebuild into a namespace whose modules changed leaves the old module subsets behind.
+- **Consequence:** set names, the `selectionSets` and `setMarkup` attributes and the `kind` values are public API.
+
 ## Open items
 
 - **`compute()` review:** plug grouping in `compute()`, and the layout `end` socket to first FkChain `start` child plug connection. In progress.

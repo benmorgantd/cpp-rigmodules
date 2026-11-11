@@ -159,6 +159,10 @@ namespace RigAttr
 	inline constexpr const char* JointDisplayLayer{ "jointDisplayLayer" };
 	inline constexpr const char* MeshDisplayLayer{ "meshDisplayLayer" };
 	inline constexpr const char* ControlDisplayLayer{ "controlDisplayLayer" };
+	// Selection sets the build creates (D39): every set, nested module subsets included, on one message array.
+	// Each set says what it is in its own SetMarkup attribute.
+	inline constexpr const char* SelectionSets{ "selectionSets" };
+	inline constexpr const char* SetMarkup{ "setMarkup" };
 
 	// Constraints
 	inline constexpr const char* Constraints{ "constraints" };      // RigRoot message array
@@ -289,6 +293,20 @@ namespace JointMarkupKey
 	inline constexpr const char* Usage{ "usage" };
 	inline constexpr const char* Export{ "export" };
 	inline constexpr const char* Skin{ "skin" };
+}
+
+// Keys and values of a selection set's setMarkup (D39). Public API: tools find sets through them.
+namespace SelectionSetKey
+{
+	inline constexpr const char* Kind{ "kind" };
+	inline constexpr const char* Module{ "module" };
+}
+
+namespace SelectionSetKind
+{
+	inline constexpr const char* Controls{ "controls" };
+	inline constexpr const char* Joints{ "joints" };
+	inline constexpr const char* SkinJoints{ "skinJoints" };
 }
 
 namespace SideNames

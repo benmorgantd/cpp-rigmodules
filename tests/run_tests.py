@@ -52,6 +52,7 @@ TIERS = [
     ("build smoke", True, [                # every fixture template builds
         "concepts.test_smoke",
         "commands.test_create_rig",
+        "commands.test_selection_sets",     # the selection sets and rigmodules.selection (D39)
     ]),
     ("modules", True, [                    # what each module does, and the rig structure around it
         "modules.test_layout",

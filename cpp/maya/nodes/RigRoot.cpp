@@ -4,6 +4,7 @@
 #include "core/RigControlFilter.h"
 #include "core/RigJsonStructs.h"
 #include "core/RigTemplateValidation.h"
+#include "core/SelectionSets.h"
 #include "core/StringUtils.h"
 #include "core/TemplateMirror.h"
 #include "maya/modules/LayoutModule.h"
@@ -13,6 +14,7 @@
 #include "maya/shared/JointMarkupScene.h"
 #include "maya/shared/RigModule.h"
 #include "maya/shared/RigTraversal.h"
+#include "maya/shared/SelectionSetScene.h"
 #include "maya/shared/Utilities.h"
 
 // Standard dependencies
@@ -57,6 +59,7 @@ MObject RigRootNode::aDisplayLayers;
 MObject RigRootNode::aJointDisplayLayer;
 MObject RigRootNode::aMeshDisplayLayer;
 MObject RigRootNode::aControlDisplayLayer;
+MObject RigRootNode::aSelectionSets;
 
 // Boilerplate constructor, destructor, and creator
 RigRootNode::RigRootNode()
@@ -129,6 +132,10 @@ MStatus RigRootNode::initialize()
 
 	aControlDisplayLayer = msgAttr.create(RigAttr::ControlDisplayLayer, RigAttr::ControlDisplayLayer, &status);
 	addAttribute(aControlDisplayLayer);
+
+	aSelectionSets = msgAttr.create(RigAttr::SelectionSets, RigAttr::SelectionSets, &status);
+	msgAttr.setArray(true);
+	addAttribute(aSelectionSets);
 
 	// In the case of this node, there are no attribute affect relationships.
 
@@ -477,6 +484,105 @@ namespace
 		return dagMod.doIt();
 	}
 
+	// Write phase, after the display layers. Replaces the rig's selection sets (D39): every control, every input joint
+	// and every skin joint, each with a subset per module and a Left, Right and Center set. Each set goes on
+	// RigRoot.selectionSets. SelectionSets::planSets lays them out, and this turns its indices into scene nodes.
+	MStatus queueSelectionSets(
+		const RigBuildInputs& inputs,
+		const MObject& oRigRoot,
+		MDagModifier& dagMod)
+	{
+		MObjectArray oControls;
+		std::vector<SelectionSets::Item> controlItems;
+		MObjectArray oModules;
+		MStatus status = RigTraversal::getRigModules(oRigRoot, oModules);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		for (unsigned int m = 0; m < oModules.length(); ++m)
+		{
+			MObjectArray oModuleControls;
+			status = RigTraversal::getModuleControls(oModules[m], oModuleControls);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			for (unsigned int c = 0; c < oModuleControls.length(); ++c)
+			{
+				ControlMarkup markup;
+				status = RigTraversal::getControlMarkup(oModuleControls[c], markup);
+				CHECK_MSTATUS_AND_RETURN_IT(status);
+				oControls.append(oModuleControls[c]);
+				controlItems.push_back({ MNamespace::stripNamespaceFromName(MFnDependencyNode(oModules[m]).name()).asChar(), markup.side });
+			}
+		}
+
+		MObjectArray oJoints;
+		std::vector<SelectionSets::Item> jointItems;
+		MObjectArray oSkinJoints;
+		std::vector<SelectionSets::Item> skinItems;
+		for (unsigned int j = 0; j < inputs.joints.length(); ++j)
+		{
+			const MObject oJoint = inputs.joints[j].node();
+			bool hasMarkup = false;
+			JointMarkup markup;
+			status = JointMarkupScene::readMarkup(oJoint, hasMarkup, markup);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			const MObject oModule = RigTraversal::getJointModule(oJoint);
+			const SelectionSets::Item item{ oModule.isNull() ? std::string() : MNamespace::stripNamespaceFromName(MFnDependencyNode(oModule).name()).asChar(), markup.side };
+			oJoints.append(oJoint);
+			jointItems.push_back(item);
+			if (markup.isSkinned)
+			{
+				oSkinJoints.append(oJoint);
+				skinItems.push_back(item);
+			}
+		}
+
+		struct Group
+		{
+			const char* kind;
+			const MObjectArray& nodes;
+			const std::vector<SelectionSets::Item>& items;
+		};
+		const Group groups[] =
+		{
+			{ SelectionSetKind::Controls, oControls, controlItems },
+			{ SelectionSetKind::Joints, oJoints, jointItems },
+			{ SelectionSetKind::SkinJoints, oSkinJoints, skinItems }
+		};
+
+		std::vector<SelectionSetSpec> specs;
+		for (const Group& group : groups)
+		{
+			const unsigned int first = static_cast<unsigned int>(specs.size());
+			for (const SelectionSets::Set& set : SelectionSets::planSets(group.kind, group.items))
+			{
+				SelectionSetSpec spec;
+				spec.name = DagUtils::getAbsoluteName(inputs.rigNamespace, set.name.c_str());
+				spec.markup = set.markup.c_str();
+				for (const std::size_t item : set.items)
+				{
+					spec.members.append(group.nodes[static_cast<unsigned int>(item)]);
+				}
+				for (const std::size_t child : set.children)
+				{
+					spec.children.push_back(first + static_cast<unsigned int>(child));
+				}
+				specs.push_back(spec);
+			}
+		}
+
+		MObjectArray oSets;
+		status = SelectionSetScene::replaceSets(specs, dagMod, oSets);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MPlug pSets(oRigRoot, RigRootNode::aSelectionSets);
+		for (unsigned int i = 0; i < oSets.length(); ++i)
+		{
+			MPlug pMessage = MFnDependencyNode(oSets[i]).findPlug("message", false);
+			status = dagMod.connect(pMessage, pSets.elementByLogicalIndex(i));
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		return dagMod.doIt();
+	}
+
 	// Write phase. Runs only on a clean report. Constraints come after the first doIt because they add an enum
 	// attribute to controls that must exist by then.
 	MStatus buildRig(
@@ -534,6 +640,14 @@ namespace
 		if (!status)
 		{
 			MGlobal::displayError("Failed building the rig's display layers.");
+			dagMod.undoIt();
+			return status;
+		}
+
+		status = queueSelectionSets(inputs, oRigRoot, dagMod);
+		if (!status)
+		{
+			MGlobal::displayError("Failed building the rig's selection sets.");
 			dagMod.undoIt();
 			return status;
 		}

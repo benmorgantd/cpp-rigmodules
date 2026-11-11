@@ -45,17 +45,6 @@ namespace
 		return false;
 	}
 
-	// The rig module that drives a joint through joint.offsetParentMatrix, or a null object if none does.
-	MObject getJointModule(const MObject& oJoint)
-	{
-		const MPlug pSource = MPlug(oJoint, MPxTransform::offsetParentMatrix).source();
-		if (pSource.isNull() || !isRigModuleNode(MFnDependencyNode(pSource.node()).typeId()))
-		{
-			return MObject::kNullObj;
-		}
-		return pSource.node();
-	}
-
 	// The rig module a joint, control or module node leads to, or a null object for any other node. The rig root
 	// leads to none. Reports nothing: a control left unconnected is caught later, by the caller's walk.
 	MObject getNodeModule(const MObject& oNode)
@@ -72,7 +61,7 @@ namespace
 		}
 		if (oNode.hasFn(MFn::kJoint))
 		{
-			return getJointModule(oNode);
+			return RigTraversal::getJointModule(oNode);
 		}
 		return MObject::kNullObj;
 	}
@@ -88,6 +77,16 @@ namespace
 		}
 		return MStatus::kSuccess;
 	}
+}
+
+MObject RigTraversal::getJointModule(const MObject& oJoint)
+{
+	const MPlug pSource = MPlug(oJoint, MPxTransform::offsetParentMatrix).source();
+	if (pSource.isNull() || !isRigModuleNode(MFnDependencyNode(pSource.node()).typeId()))
+	{
+		return MObject::kNullObj;
+	}
+	return pSource.node();
 }
 
 MObject RigTraversal::findModuleRigRoot(const MObject& oModule)

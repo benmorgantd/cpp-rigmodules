@@ -63,6 +63,9 @@
     <ClCompile Include="core\SkinWeightFile.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\SelectionSets.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\SkinWeightTable.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -141,6 +144,9 @@
     <ClCompile Include="maya\shared\Side.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
+    <ClCompile Include="maya\shared\SelectionSetScene.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
     <ClCompile Include="maya\shared\SkinWeightScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
@@ -192,6 +198,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\SkinWeightFile.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\SelectionSets.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\SkinWeightTable.h">
@@ -273,6 +282,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\Side.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\SelectionSetScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\SkinWeightScene.h">

@@ -126,6 +126,7 @@ RigTemplates/        example template
 | `ControlChannels.h/.cpp` | `ControlChannel` (name, type, rest, range, mirror mode), `serializeControlChannels` for `getRigControlChannels`, and `findMirrorAxis` for flipping a Center control (D34). |
 | `RigTemplateValidation.h/.cpp` | `ValidationReport`, `ModuleInterface`, and the read-phase template checks (D17). |
 | `TemplateMirror.h/.cpp` | `expandMirrors` (adds the other side's copy of every `"mirror": true` module and constraint before validation), `swapSide`, `swapSideSuffix` (D28). |
+| `SelectionSets.h/.cpp` | `SelectionSets::planSets`: the selection sets a rig gets for one kind (controls, joints, skin joints) from `{module, side}` items, as names, `setMarkup` JSON and member indices (D39). |
 | `JointMarkup.h/.cpp` | Markup schema, `JointSelector` (and `formatJointSelector` for messages), `JointMarkupIndex`. |
 | `ControlMarkup.h/.cpp` | Control markup schema (`controlMarkup` attribute): `markupVersion`, `side`, `usage` (D25), and `ControlInfo` with `serializeControlInfo` for `getRigControlInfo` (D34). |
 | `ControlShapes.h/.cpp` | `ShapeType` enum, shape name lookups, `getShapeMesh` (wire and triangle indices, built once by ear clipping) and `validateShapeLibrary` (D26). |
@@ -158,8 +159,9 @@ RigTemplates/        example template
 | `shared/RigModule.h/.cpp` | Shared module layer: `RigModuleNodeBase` (plug helpers, socket/child plug lookup, `planModules`, `buildModules` pass 1, `readModuleArgs`/`claimJoint` plan helpers), `RigModuleNode<T>`, `RigModuleWithJointsNode<T>` (`wireJoint` hands a joint to its module and stores its rest in `jointRestWorld`), `PlanContext`, `ModulePlan`, `RigModuleBuildResult`, `ModuleDescriptor`. |
 | `shared/Utilities.h/.cpp` | Helpers any folder may use, grouped by class: `MathUtils`, `DagUtils` (the two name lookups: `getMObjectFromName`, and `getDagPathFromName` with an optional joint or mesh `NodeKind`; `isChannelWritable`; joint baking, a node's absolute namespace, an absolute name in a namespace, a DAG node's partial path name, the nearest upstream node of a type), `MeshUtils` (a path's mesh transform and its shape, an all-vertices component), `MelUtils`, `CommandUtils` (the rig root object, the one string object, a multi-use string flag, meshes named or selected, required file flag, text file read and write), `ReportUtils` (`displayReport`), `ProfilerUtils` (the plugin's `RigModules` profiler category, for `MProfilingScope`), `ActiveSelection` (the active selection as a node set kept current by a callback, for per-object lookups in draw code), `DagPlugAndSocketUtils` (`setParentSocketNames` writes a socket's names as a JSON list), `ScopedRigNamespace` (RAII current namespace for a rig build and its redo). |
 | `shared/DisplayLayerScene.h/.cpp` | `DisplayLayerScene::replaceLayers`: deletes display layers by name, creates the new ones, registers them with the layer manager and moves members in (D38). |
+| `shared/SelectionSetScene.h/.cpp` | `SelectionSetScene::replaceSets`: deletes objectSets by name, creates the new ones with their `setMarkup`, members and nested sets (D39). |
 | `shared/JointMarkupScene.h/.cpp` | Plugin side of markup: namespace joint scan, attribute read, `claimJoint`. |
-| `shared/RigTraversal.h/.cpp` | Walks a built rig by connections (`RigControlScope`: a command's rig root or controls): rig root, the rig root a node belongs to, a module's rig root, its asset root, modules, controls, control markup, filtered `getRigControls`, a control's rest world, a joint's rest world, a control's mirror control and the source-side controls paired with their mirrors. |
+| `shared/RigTraversal.h/.cpp` | Walks a built rig by connections (`RigControlScope`: a command's rig root or controls): rig root, the rig root a node belongs to, a module's rig root, its asset root, modules, controls, control markup, filtered `getRigControls`, a control's rest world, a joint's rest world, the module that drives a joint, a control's mirror control and the source-side controls paired with their mirrors. |
 | `shared/RigPoseScene.h/.cpp` | A control's animation interface (D34): `getControlChannels` (keyable, writable attributes with rest, range and mirror mode, failing on a custom channel with no mirror category), `setMirrorMode` (every custom channel calls it before it is added), and the queued pose writes behind `zeroRigControls`, `mirrorRigPose` and `flipRigPose`, and `getRigPose` / `setRigPose` (a pose by markup, behind `saveRigPose` and `loadRigPose`). |
 | `shared/ControlShapeScene.h/.cpp` | `getControlShape` / `setControlShape`, the rig-wide versions behind the shape file commands, and `mirrorRigControlShapes`. |
 | `shared/SkinWeightScene.h/.cpp` | `SkinWeightScene` (mesh lookup, `meshId`, reading a skinCluster into `SkinWeights`) and `SkinWeightLoad` (undoable load: checks, influence edits, bind at rest, weights) and `SkinWeightPrune` (undoable prune). |
@@ -171,12 +173,12 @@ RigTemplates/        example template
 | Path | Contents |
 |---|---|
 | `RigTemplates/` | Example templates, `LayoutRig.json` and `Human.json`. Their joints use `[side, usage]` selectors. |
-| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`, `get_rig_controls`, `get_control`, `find_control`, `RigControl`, `get_channels`, `get_control_channels`, `ControlChannel`), `pose.py` (`key_controls`, `key_rig`, `key_modules`), `displaylayers.py` (`get_layer`, `add_meshes`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`). `_namespace.py` is private: the `cmds.ls` pattern for a namespace's nodes, shared by `query` and `skinweights`. Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
+| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`, `get_rig_controls`, `get_control`, `find_control`, `RigControl`, `get_channels`, `get_control_channels`, `ControlChannel`), `pose.py` (`key_controls`, `key_rig`, `key_modules`), `displaylayers.py` (`get_layer`, `add_meshes`), `selection.py` (`find_set`, `get_set`, `get_members`, `get_skin_joints`, `select_skin_joints`, `get_missing_influences`, `get_extra_influences`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`). `_namespace.py` is private: the `cmds.ls` pattern for a namespace's nodes, shared by `query` and `skinweights`. Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
 | `RigModules.mod` | Puts `python/` on `PYTHONPATH`, by a path relative to itself. It doesn't add the plugin path, because a loaded `.mll` locks the build. |
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
-| `design/decisions.md` | Decision log (D1–D38). |
+| `design/decisions.md` | Decision log (D1–D39). |
 | `design/asset-model.md` | Asset id, namespace ownership, rig variants, file model, local versions and the registry (D29). The file model is planned for a mayadev branch. |
 | `design/mayadev-integration.md` | Survey of the sibling mayadev repo, conflicts with RigModules, the proposed boundary and phases (D24). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
@@ -318,7 +320,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 495 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 515 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.

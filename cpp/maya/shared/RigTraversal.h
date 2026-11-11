@@ -78,6 +78,9 @@ public:
 	// The control's rest world matrix, stored on its module at build time (controlData[i].controlRestWorld).
 	static MStatus getControlRestWorld(const MObject& oControl, MMatrix& mOutRestWorld);
 
+	// The rig module that drives a joint through its offsetParentMatrix, or a null object if none does.
+	static MObject getJointModule(const MObject& oJoint);
+
 	// A joint's rest world matrix. For a joint a rig module drives, the build pose stored on the module
 	// (jointRestWorld, by the jointOPM index that drives it), whatever the rig's current pose. For any other joint,
 	// its current world matrix: with no rig, the skeleton's pose is its rest.

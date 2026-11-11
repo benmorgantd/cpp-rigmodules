@@ -101,6 +101,28 @@ layer = rigmodules.displaylayers.get_layer("hero:rigRootModule1", "control")   #
 | `get_layer(rig_root, kind)` | The rig's `"joint"`, `"mesh"` or `"control"` display layer. Raises `RuntimeError` when the rig has none |
 | `add_meshes(rig_root, nodes)` | Puts the mesh objects among `nodes` and under them in the mesh layer, moving them out of any other layer, and returns the mesh transforms added. Skips intermediate shapes. Undoable |
 
+## rigmodules.selection
+
+A rig's selection sets ([`createRigFromTemplate`](commands.md#createrigfromtemplate)) and the skinning selections built on them. Sets are found through their `setMarkup`, and joints through their markup, never through names.
+
+```python
+import rigmodules.selection
+
+rigmodules.selection.select_skin_joints("hero:rigRootModule1", module="arm_l")          # the left arm's skin joints
+rigmodules.selection.get_skin_joints("hero:rigRootModule1", side="Right", usage="hand")
+joints = rigmodules.selection.get_missing_influences("hero:rigRootModule1", "hero:body_geo")   # for a first bind
+```
+
+| Function | Returns |
+|---|---|
+| `find_set(rig_root, kind, side=None, module=None)` | The set of `kind` (`"controls"`, `"joints"` or `"skinJoints"`) for a side (`"Left"`, `"Right"` or `"Center"`) or a module (its node name without the namespace). With neither, the "all" set. `None` when there is none. Raises `RuntimeError` for a node that is not a rig root, or a rig without sets |
+| `get_set(...)` | `find_set`, raising `RuntimeError` instead of returning `None` |
+| `get_members(set_node)` | Every node in a set, nested sets included, as unique long names |
+| `get_skin_joints(rig_root, side=None, module=None, usage=None)` | The skin joints, narrowed by every argument given. A module with no skin joints gives `[]` |
+| `select_skin_joints(rig_root, side=None, module=None, usage=None, add=False)` | Selects `get_skin_joints(...)`, replacing the selection or, with `add`, extending it, and returns them |
+| `get_missing_influences(rig_root, mesh)` | The rig's skin joints that are not influences of the mesh's skinCluster. All of them when the mesh has none |
+| `get_extra_influences(rig_root, mesh)` | The influences of the mesh's skinCluster that are not skin joints of the rig |
+
 ## rigmodules.skinweights
 
 Helpers for tools that save or load the weights of many meshes at once. The commands do the work ([skinning.md](skinning.md)). This module knows the `meshId` attribute and where a weight file keeps its `meshId`, so tools don't hard-code either. Folders and file names are the tool's choice.
