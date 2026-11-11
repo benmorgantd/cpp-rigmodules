@@ -55,7 +55,6 @@ MObject RigRootNode::aRigTemplateName;
 MObject RigRootNode::aAssetRoot;
 MObject RigRootNode::aChildren;
 MObject RigRootNode::aConstraints;
-MObject RigRootNode::aDisplayLayers;
 MObject RigRootNode::aJointDisplayLayer;
 MObject RigRootNode::aMeshDisplayLayer;
 MObject RigRootNode::aControlDisplayLayer;
@@ -119,10 +118,6 @@ MStatus RigRootNode::initialize()
 	aConstraints = msgAttr.create(RigAttr::Constraints, RigAttr::Constraints, &status);
 	msgAttr.setArray(true);
 	addAttribute(aConstraints);
-
-	aDisplayLayers = msgAttr.create(RigAttr::DisplayLayers, RigAttr::DisplayLayers, &status);
-	msgAttr.setArray(true);
-	addAttribute(aDisplayLayers);
 
 	aJointDisplayLayer = msgAttr.create(RigAttr::JointDisplayLayer, RigAttr::JointDisplayLayer, &status);
 	addAttribute(aJointDisplayLayer);
@@ -447,7 +442,7 @@ namespace
 
 	// Write phase, after the first doIt because the controls are found through the built modules. Replaces the rig's
 	// three layers (D38): the input joints and every control, plus an empty mesh layer (the model is imported after the build, D38). Each layer
-	// goes on RigRoot.displayLayers and on its own attribute.
+	// goes on its own message attribute of the rig root.
 	MStatus queueDisplayLayers(
 		const RigBuildInputs& inputs,
 		const MObject& oRigRoot,
@@ -472,12 +467,9 @@ namespace
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		const MObject oSingleAttrs[] = { RigRootNode::aJointDisplayLayer, RigRootNode::aMeshDisplayLayer, RigRootNode::aControlDisplayLayer };
-		MPlug pLayers(oRigRoot, RigRootNode::aDisplayLayers);
 		for (unsigned int i = 0; i < oLayers.length(); ++i)
 		{
 			MPlug pMessage = MFnDependencyNode(oLayers[i]).findPlug("message", false);
-			status = dagMod.connect(pMessage, pLayers.elementByLogicalIndex(i));
-			CHECK_MSTATUS_AND_RETURN_IT(status);
 			status = dagMod.connect(pMessage, MPlug(oRigRoot, oSingleAttrs[i]));
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}

@@ -70,7 +70,7 @@ Every node created goes in the rig namespace. The input joints are moved there t
 
 The asset owns the rig namespace. The namespace holds one `assetRootModule`, which stores `asset` in its `assetId` attribute. Every rig built into the namespace connects to it, one per rig variant (`rigName`). The build reuses the namespace's asset root if there is one, and creates it otherwise. The build fails, building nothing, when the namespace holds more than one asset root, when the asset root's `assetId` differs from `asset` (ignoring case), or when a rig with the template's `rigName` is already connected to it.
 
-The build makes three display layers in the rig namespace: `jointsLayer` (the joints passed in), `meshesLayer` (empty) and `controlsLayer` (every control). A layer of the same name already in the namespace is deleted first, and a node that was in another layer moves into the rig's layer. The layers connect to the rig root's `displayLayers` message array, and each also to its own message attribute, so tools find them without reading names:
+The build makes three display layers in the rig namespace: `jointsLayer` (the joints passed in), `meshesLayer` (empty) and `controlsLayer` (every control). A layer of the same name already in the namespace is deleted first, and a node that was in another layer moves into the rig's layer. Each layer connects to its own message attribute on the rig root, so tools find them without reading names:
 
 | Attribute | Layer |
 |---|---|

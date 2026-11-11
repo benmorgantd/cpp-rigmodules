@@ -53,7 +53,6 @@ public:
 	static MObject aAssetRoot;
 	static MObject aChildren;
 	static MObject aConstraints;
-	static MObject aDisplayLayers;
 	static MObject aJointDisplayLayer;
 	static MObject aMeshDisplayLayer;
 	static MObject aControlDisplayLayer;

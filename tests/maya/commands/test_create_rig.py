@@ -264,13 +264,11 @@ class DisplayLayers(RigTestCase):
     def members(self, layer):
         return sorted(cmds.ls(cmds.listConnections(layer + ".drawInfo", source=False, destination=True) or [], long=True))
 
-    def test_each_layer_is_on_its_own_attribute_and_on_the_array(self):
+    def test_each_layer_is_on_its_own_attribute(self):
         self.build_standard(TEMPLATE, SKELETON)
         root = self.rig_root()
         for attr, name in self.LAYERS.items():
             self.assertEqual(cmds.listConnections(root + "." + attr, source=True, destination=False), [rig_name(name)[1:]])
-        self.assertEqual(sorted(cmds.listConnections(root + ".displayLayers", source=True, destination=False)),
-                         sorted(rig_name(n)[1:] for n in self.LAYERS.values()))
 
     def test_layers_hold_joints_and_controls_and_the_mesh_layer_starts_empty(self):
         # The model is imported after the build, so meshes already in the namespace are not the rig's (D38).
@@ -322,7 +320,8 @@ class DisplayLayers(RigTestCase):
         self.assertEqual(cmds.ls(type="displayLayer"), ["defaultLayer"])
         cmds.redo()
         self.assertEqual({name: self.members(rig_name(name)) for name in self.LAYERS.values()}, before)
-        self.assertEqual(len(cmds.listConnections(self.rig_root() + ".displayLayers", source=True, destination=False)), 3)
+        for attr, name in self.LAYERS.items():
+            self.assertEqual(cmds.listConnections(self.rig_root() + "." + attr, source=True, destination=False), [rig_name(name)[1:]])
 
 
 class AddMeshes(RigTestCase):
