@@ -395,6 +395,7 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
   - Every `createRigFromTemplate` call needs `asset`, and the default namespace moves from `rig` to the asset's name.
   - Two templates with the same `rigName` can't be built into one namespace.
   - Pose and animation data aren't affected: no control, attribute or socket names changed.
+- **Amendment (2026-11-11, author):** the `rig` file type ends with `_rig`, `variants/{variant}/{name}_{variant}_rig.ma`, like `_skeleton` and `_model`, so every Maya scene's role reads from its name. It is the default in mayadev's `Project.create`. An existing `project.json` keeps the layout it was written with until edited, and a rig saved under the old name needs renaming by hand.
 
 ### D30. mayadev stays the pipeline repo, and rigs build anywhere before an asset exists
 **Status:** Decided (2026-11-08). Steps 1 to 5 are built, except the template authoring UI: RigModules side run in the mayapy suite, mayadev side in its mayapy tests. Branch `asset-tools` is merged into mayadev main (checked 2026-11-09).

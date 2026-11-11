@@ -136,14 +136,14 @@ Where a file lives is kept apart from how it is saved and loaded.
   "shapes":   { "path": "variants/{variant}/shapes.json" },
   "weights":  { "path": "variants/{variant}/weights", "folder": true },
   "postops":  { "path": "variants/{variant}/postops.py" },
-  "rig":      { "path": "variants/{variant}/{name}_{variant}.ma" },
+  "rig":      { "path": "variants/{variant}/{name}_{variant}_rig.ma" },
   "publish":  { "path": "variants/{variant}/publish", "folder": true },
   "poses":    { "path": "poses", "folder": true },
   "anims":    { "path": "anims", "folder": true }
 }
 ```
 
-Paths are relative to the asset folder. The tokens are `{name}` (the id's last token) and `{variant}`. The skeleton, poses and animations belong to the asset, because variants share the skeleton. Everything that can differ between variants lives under `variants/{variant}/`. A variant is a folder there that holds the `template` file. Sharing poses and animations across assets goes through the registry's skeleton query.
+Paths are relative to the asset folder. The tokens are `{name}` (the id's last token) and `{variant}`. Every Maya scene ends with its file type (`_skeleton`, `_model`, `_rig`), so a scene's role reads from its name alone (author, 2026-11-11). The rig was `{name}_{variant}.ma` until then. The skeleton, poses and animations belong to the asset, because variants share the skeleton. Everything that can differ between variants lives under `variants/{variant}/`. A variant is a folder there that holds the `template` file. Sharing poses and animations across assets goes through the registry's skeleton query.
 
 ### Publishes
 
