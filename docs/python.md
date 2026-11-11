@@ -84,6 +84,23 @@ rigmodules.template.get_rig_name(r"C:\rigs\Human.json")    # "Human"
 
 It reads the file without checking the rest of it. Template validation runs when the rig is built ([templates.md](templates.md)).
 
+## rigmodules.displaylayers
+
+A rig's display layers ([`createRigFromTemplate`](commands.md#createrigfromtemplate)). The build makes the joint, mesh and control layers, and the model is imported after it, so a tool that imports the model puts the meshes in the mesh layer.
+
+```python
+import rigmodules.displaylayers
+
+nodes = cmds.file(path, i=True, namespace="hero", returnNewNodes=True)
+rigmodules.displaylayers.add_meshes("hero:rigRootModule1", nodes)
+layer = rigmodules.displaylayers.get_layer("hero:rigRootModule1", "control")   # "hero:controlsLayer"
+```
+
+| Function | Meaning |
+|---|---|
+| `get_layer(rig_root, kind)` | The rig's `"joint"`, `"mesh"` or `"control"` display layer. Raises `RuntimeError` when the rig has none |
+| `add_meshes(rig_root, nodes)` | Puts the mesh objects among `nodes` and under them in the mesh layer, moving them out of any other layer, and returns the mesh transforms added. Skips intermediate shapes. Undoable |
+
 ## rigmodules.skinweights
 
 Helpers for tools that save or load the weights of many meshes at once. The commands do the work ([skinning.md](skinning.md)). This module knows the `meshId` attribute and where a weight file keeps its `meshId`, so tools don't hard-code either. Folders and file names are the tool's choice.

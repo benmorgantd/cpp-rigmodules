@@ -176,6 +176,7 @@
     <ClCompile Include="maya\nodes\RigControlNode.cpp" />
     <ClCompile Include="maya\nodes\RigRoot.cpp" />
     <ClCompile Include="maya\shared\ControlShapeScene.cpp" />
+    <ClCompile Include="maya\shared\DisplayLayerScene.cpp" />
     <ClCompile Include="maya\shared\JointMarkupScene.cpp" />
     <ClCompile Include="maya\shared\RigModule.cpp" />
     <ClCompile Include="maya\shared\RigPoseScene.cpp" />
@@ -221,6 +222,7 @@
     <ClInclude Include="maya\nodes\RigRoot.h" />
     <ClInclude Include="maya\shared\Colors.h" />
     <ClInclude Include="maya\shared\ControlShapeScene.h" />
+    <ClInclude Include="maya\shared\DisplayLayerScene.h" />
     <ClInclude Include="maya\shared\JointMarkupScene.h" />
     <ClInclude Include="maya\shared\RigModule.h" />
     <ClInclude Include="maya\shared\RigPoseScene.h" />

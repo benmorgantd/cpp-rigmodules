@@ -2,6 +2,8 @@
 concepts/test_template_validation.py, undo in concepts/test_undo_redo.py."""
 from maya import cmds
 
+import rigmodules.displaylayers
+
 from rigtest import config, fixtures
 from rigtest.case import RigTestCase, rig_name
 
@@ -246,3 +248,130 @@ class VersionStamps(RigTestCase):
         # The publish step writes the publish id, which is a string.
         cmds.setAttr(rig_root + ".publishVersion", "20261108T142012Z_bmorgan", type="string")
         self.assertEqual(cmds.getAttr(rig_root + ".publishVersion"), "20261108T142012Z_bmorgan")
+
+
+class DisplayLayers(RigTestCase):
+    """The build replaces the rig's three display layers (D38)."""
+
+    LAYERS = {"jointDisplayLayer": "jointsLayer", "meshDisplayLayer": "meshesLayer", "controlDisplayLayer": "controlsLayer"}
+
+    def rig_root(self):
+        return cmds.ls(type="rigRootModule")[0]
+
+    def layer_of(self, node):
+        return cmds.listConnections(node + ".drawOverride", source=True, destination=False) or []
+
+    def members(self, layer):
+        return sorted(cmds.ls(cmds.listConnections(layer + ".drawInfo", source=False, destination=True) or [], long=True))
+
+    def test_each_layer_is_on_its_own_attribute_and_on_the_array(self):
+        self.build_standard(TEMPLATE, SKELETON)
+        root = self.rig_root()
+        for attr, name in self.LAYERS.items():
+            self.assertEqual(cmds.listConnections(root + "." + attr, source=True, destination=False), [rig_name(name)[1:]])
+        self.assertEqual(sorted(cmds.listConnections(root + ".displayLayers", source=True, destination=False)),
+                         sorted(rig_name(n)[1:] for n in self.LAYERS.values()))
+
+    def test_layers_hold_joints_and_controls_and_the_mesh_layer_starts_empty(self):
+        # The model is imported after the build, so meshes already in the namespace are not the rig's (D38).
+        cmds.namespace(add=":rig")
+        body = cmds.polyCube(name=":rig:body")[0]
+        self.build_standard(TEMPLATE, SKELETON)
+        joints = cmds.ls(rig_name("*"), type="joint", long=True)
+        controls = cmds.ls(cmds.getRigControls(self.rig_root()), long=True)
+        self.assertTrue(joints and controls)
+        self.assertEqual(self.members(rig_name("jointsLayer")), sorted(joints))
+        self.assertEqual(self.members(rig_name("meshesLayer")), [])
+        self.assertEqual(self.members(rig_name("controlsLayer")), sorted(controls))
+        self.assertEqual(self.layer_of(body), [])
+
+    def test_layers_are_in_the_layer_editor(self):
+        self.build_standard(TEMPLATE, SKELETON)
+        ids = [cmds.getAttr(rig_name(n) + ".identification") for n in self.LAYERS.values()]
+        self.assertEqual(len(set(ids)), 3)
+        self.assertNotIn(0, ids)
+        for name in self.LAYERS.values():
+            layer = rig_name(name)
+            self.assertEqual(cmds.getAttr(layer + ".displayOrder"), cmds.getAttr(layer + ".identification"))
+            self.assertIn("layerManager", cmds.listConnections(layer + ".identification", destination=True))
+
+    def test_existing_layers_in_the_namespace_are_replaced(self):
+        cmds.namespace(add=":rig")
+        decoy = cmds.createNode("transform", name=":rig:decoy")
+        old = cmds.createDisplayLayer(decoy, name=":rig:jointsLayer", noRecurse=True)
+        self.assertEqual(old, "rig:jointsLayer")
+        keep = cmds.createDisplayLayer(empty=True, name=":rig:animatorLayer")
+        self.build_standard(TEMPLATE, SKELETON)
+        self.assertEqual(self.layer_of(decoy), [])
+        self.assertEqual(cmds.ls("rig:jointsLayer"), ["rig:jointsLayer"])
+        self.assertEqual(len(self.members(rig_name("jointsLayer"))), len(cmds.ls(rig_name("*"), type="joint")))
+        self.assertExists(":" + keep)
+
+    def test_a_member_of_another_layer_moves_to_the_rig_layer(self):
+        joints = self.make_skeleton(SKELETON)
+        cmds.createDisplayLayer(joints[0], name="mine", noRecurse=True)
+        self.build(TEMPLATE, joints)
+        moved = rig_name(joints[0].split(":")[-1])
+        self.assertEqual(self.layer_of(moved), ["rig:jointsLayer"])
+        self.assertEqual(self.members("mine"), [])
+
+    def test_undo_and_redo(self):
+        self.build_standard(TEMPLATE, SKELETON)
+        before = {name: self.members(rig_name(name)) for name in self.LAYERS.values()}
+        cmds.undo()
+        self.assertEqual(cmds.ls(type="displayLayer"), ["defaultLayer"])
+        cmds.redo()
+        self.assertEqual({name: self.members(rig_name(name)) for name in self.LAYERS.values()}, before)
+        self.assertEqual(len(cmds.listConnections(self.rig_root() + ".displayLayers", source=True, destination=False)), 3)
+
+
+class AddMeshes(RigTestCase):
+    """rigmodules.displaylayers.add_meshes: what a tool does with the new nodes of a model import."""
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard(TEMPLATE, SKELETON)
+        self.rig_root = cmds.ls(type="rigRootModule")[0]
+
+    def test_get_layer_finds_each_role(self):
+        for kind, name in {"joint": "jointsLayer", "mesh": "meshesLayer", "control": "controlsLayer"}.items():
+            self.assertEqual(rigmodules.displaylayers.get_layer(self.rig_root, kind), rig_name(name)[1:])
+
+    def test_only_mesh_objects_of_the_import_are_added(self):
+        body = cmds.polyCube(name="rig:body")[0]
+        other = cmds.polyCube(name="outside")[0]
+        extra = cmds.createNode("transform", name="rig:extra_grp")
+        imported = [body, cmds.listRelatives(body, shapes=True)[0], extra]
+        added = rigmodules.displaylayers.add_meshes(self.rig_root, imported)
+        self.assertEqual(added, cmds.ls(body, long=True))
+        self.assertEqual(cmds.listConnections(body + ".drawOverride", source=True, destination=False), ["rig:meshesLayer"])
+        self.assertEqual(cmds.listConnections(extra + ".drawOverride", source=True, destination=False), None)
+        self.assertEqual(cmds.listConnections(other + ".drawOverride", source=True, destination=False), None)
+
+    def test_a_group_adds_the_meshes_under_it(self):
+        group = cmds.group(empty=True, name="rig:model_grp")
+        body = cmds.parent(cmds.polyCube(name="rig:body")[0], group)[0]
+        added = rigmodules.displaylayers.add_meshes(self.rig_root, [group])
+        self.assertEqual(added, cmds.ls(body, long=True))
+
+    def test_intermediate_shapes_are_skipped_and_a_mesh_in_another_layer_moves(self):
+        body = cmds.polyCube(name="rig:body")[0]
+        shape = cmds.listRelatives(body, shapes=True)[0]
+        orig = cmds.createNode("mesh", name="rig:bodyShapeOrig", parent=body)
+        cmds.setAttr(orig + ".intermediateObject", True)
+        cmds.createDisplayLayer(body, name="mine", noRecurse=True)
+        rigmodules.displaylayers.add_meshes(self.rig_root, [shape, orig])
+        self.assertEqual(cmds.listConnections(body + ".drawOverride", source=True, destination=False), ["rig:meshesLayer"])
+        self.assertEqual(cmds.editDisplayLayerMembers("mine", query=True) or [], [])
+
+    def test_no_meshes_adds_nothing_and_undo_removes_them(self):
+        self.assertEqual(rigmodules.displaylayers.add_meshes(self.rig_root, []), [])
+        body = cmds.polyCube(name="rig:body")[0]
+        rigmodules.displaylayers.add_meshes(self.rig_root, [body])
+        cmds.undo()
+        self.assertEqual(cmds.listConnections(body + ".drawOverride", source=True, destination=False), None)
+
+    def test_a_rig_without_the_layer_fails(self):
+        root = cmds.createNode("transform", name="notARig")
+        with self.assertRaises(RuntimeError):
+            rigmodules.displaylayers.add_meshes(root, [])

@@ -64,11 +64,21 @@ cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="sh
 Objects: one or more joint names, with their namespace (`skel:arm_jnt`).
 
 1. **Read and check.** Loads the template, reads markup from the given joints, and validates everything (see [templates.md](templates.md#validation)). Every joint passed in must have markup. On any error nothing is built, and every error is reported at once.
-2. **Build.** Creates the rig root, the `layout` module and every template module, connects child plugs to sockets, and builds the template's constraints.
+2. **Build.** Creates the rig root, the `layout` module and every template module, connects child plugs to sockets, makes the display layers (below) and builds the template's constraints.
 
 Every node created goes in the rig namespace. The input joints are moved there too, with their names unchanged. A joint already in that namespace stays where it is. Joint and module names must be free in the rig namespace, so `skel:a` and `other:a` cannot both be passed.
 
 The asset owns the rig namespace. The namespace holds one `assetRootModule`, which stores `asset` in its `assetId` attribute. Every rig built into the namespace connects to it, one per rig variant (`rigName`). The build reuses the namespace's asset root if there is one, and creates it otherwise. The build fails, building nothing, when the namespace holds more than one asset root, when the asset root's `assetId` differs from `asset` (ignoring case), or when a rig with the template's `rigName` is already connected to it.
+
+The build makes three display layers in the rig namespace: `jointsLayer` (the joints passed in), `meshesLayer` (empty) and `controlsLayer` (every control). A layer of the same name already in the namespace is deleted first, and a node that was in another layer moves into the rig's layer. The layers connect to the rig root's `displayLayers` message array, and each also to its own message attribute, so tools find them without reading names:
+
+| Attribute | Layer |
+|---|---|
+| `jointDisplayLayer` | `jointsLayer` |
+| `meshDisplayLayer` | `meshesLayer` |
+| `controlDisplayLayer` | `controlsLayer` |
+
+Meshes are not inputs of the build: the model is imported after it, so `meshesLayer` starts empty and the tool that imports the model fills it with the imported meshes ([`rigmodules.displaylayers.add_meshes`](python.md#rigmodulesdisplaylayers)). A second rig variant built into the same namespace replaces the first variant's layers.
 
 The rig root records what built it, so tools can find out-of-date rigs in a scene:
 

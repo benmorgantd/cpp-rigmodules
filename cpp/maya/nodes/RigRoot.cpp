@@ -1,6 +1,7 @@
 // Internal dependencies
 #include "maya/nodes/RigRoot.h"
 #include "core/Constants.h"
+#include "core/RigControlFilter.h"
 #include "core/RigJsonStructs.h"
 #include "core/RigTemplateValidation.h"
 #include "core/StringUtils.h"
@@ -8,8 +9,10 @@
 #include "maya/modules/LayoutModule.h"
 #include "maya/nodes/AssetRoot.h"
 #include "maya/nodes/Constraints.h"
+#include "maya/shared/DisplayLayerScene.h"
 #include "maya/shared/JointMarkupScene.h"
 #include "maya/shared/RigModule.h"
+#include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
 
 // Standard dependencies
@@ -50,6 +53,10 @@ MObject RigRootNode::aRigTemplateName;
 MObject RigRootNode::aAssetRoot;
 MObject RigRootNode::aChildren;
 MObject RigRootNode::aConstraints;
+MObject RigRootNode::aDisplayLayers;
+MObject RigRootNode::aJointDisplayLayer;
+MObject RigRootNode::aMeshDisplayLayer;
+MObject RigRootNode::aControlDisplayLayer;
 
 // Boilerplate constructor, destructor, and creator
 RigRootNode::RigRootNode()
@@ -109,6 +116,19 @@ MStatus RigRootNode::initialize()
 	aConstraints = msgAttr.create(RigAttr::Constraints, RigAttr::Constraints, &status);
 	msgAttr.setArray(true);
 	addAttribute(aConstraints);
+
+	aDisplayLayers = msgAttr.create(RigAttr::DisplayLayers, RigAttr::DisplayLayers, &status);
+	msgAttr.setArray(true);
+	addAttribute(aDisplayLayers);
+
+	aJointDisplayLayer = msgAttr.create(RigAttr::JointDisplayLayer, RigAttr::JointDisplayLayer, &status);
+	addAttribute(aJointDisplayLayer);
+
+	aMeshDisplayLayer = msgAttr.create(RigAttr::MeshDisplayLayer, RigAttr::MeshDisplayLayer, &status);
+	addAttribute(aMeshDisplayLayer);
+
+	aControlDisplayLayer = msgAttr.create(RigAttr::ControlDisplayLayer, RigAttr::ControlDisplayLayer, &status);
+	addAttribute(aControlDisplayLayer);
 
 	// In the case of this node, there are no attribute affect relationships.
 
@@ -418,6 +438,45 @@ namespace
 		return MStatus::kSuccess;
 	}
 
+	// Write phase, after the first doIt because the controls are found through the built modules. Replaces the rig's
+	// three layers (D38): the input joints and every control, plus an empty mesh layer (the model is imported after the build, D38). Each layer
+	// goes on RigRoot.displayLayers and on its own attribute.
+	MStatus queueDisplayLayers(
+		const RigBuildInputs& inputs,
+		const MObject& oRigRoot,
+		MDagModifier& dagMod)
+	{
+		MObjectArray oControls;
+		MStatus status = RigTraversal::getRigControls(oRigRoot, RigControlFilter{}, oControls);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		std::vector<DisplayLayerSpec> specs(3);
+		specs[0].name = DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::JointLayer);
+		for (unsigned int i = 0; i < inputs.joints.length(); ++i)
+		{
+			specs[0].members.append(inputs.joints[i].node());
+		}
+		specs[1].name = DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::MeshLayer);
+		specs[2].name = DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::ControlLayer);
+		specs[2].members = oControls;
+
+		MObjectArray oLayers;
+		status = DisplayLayerScene::replaceLayers(specs, dagMod, oLayers);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		const MObject oSingleAttrs[] = { RigRootNode::aJointDisplayLayer, RigRootNode::aMeshDisplayLayer, RigRootNode::aControlDisplayLayer };
+		MPlug pLayers(oRigRoot, RigRootNode::aDisplayLayers);
+		for (unsigned int i = 0; i < oLayers.length(); ++i)
+		{
+			MPlug pMessage = MFnDependencyNode(oLayers[i]).findPlug("message", false);
+			status = dagMod.connect(pMessage, pLayers.elementByLogicalIndex(i));
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			status = dagMod.connect(pMessage, MPlug(oRigRoot, oSingleAttrs[i]));
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		return dagMod.doIt();
+	}
+
 	// Write phase. Runs only on a clean report. Constraints come after the first doIt because they add an enum
 	// attribute to controls that must exist by then.
 	MStatus buildRig(
@@ -468,6 +527,14 @@ namespace
 		if (!status)
 		{
 			MGlobal::displayError("Failed executing DAG Modifiers during rig creation: " + status.errorString());
+			return status;
+		}
+
+		status = queueDisplayLayers(inputs, oRigRoot, dagMod);
+		if (!status)
+		{
+			MGlobal::displayError("Failed building the rig's display layers.");
+			dagMod.undoIt();
 			return status;
 		}
 

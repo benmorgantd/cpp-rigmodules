@@ -123,6 +123,9 @@
     <ClCompile Include="maya\shared\ControlShapeScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
+    <ClCompile Include="maya\shared\DisplayLayerScene.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
     <ClCompile Include="maya\shared\JointMarkupScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
@@ -252,6 +255,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\ControlShapeScene.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\DisplayLayerScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\JointMarkupScene.h">

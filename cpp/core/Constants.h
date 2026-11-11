@@ -153,6 +153,12 @@ namespace RigAttr
 
 	// RigRootNode
 	inline constexpr const char* RigModules{ "rigModules" };
+	// Display layers the build creates (D38): every layer on the array, and each one again on its own attribute,
+	// so a tool finds the joint, mesh or control layer without reading names.
+	inline constexpr const char* DisplayLayers{ "displayLayers" };  // message array
+	inline constexpr const char* JointDisplayLayer{ "jointDisplayLayer" };
+	inline constexpr const char* MeshDisplayLayer{ "meshDisplayLayer" };
+	inline constexpr const char* ControlDisplayLayer{ "controlDisplayLayer" };
 
 	// Constraints
 	inline constexpr const char* Constraints{ "constraints" };      // RigRoot message array
@@ -301,4 +307,8 @@ namespace RigNaming
 	inline constexpr const char* LeftSuffix{ "_l" };
 	inline constexpr const char* RightSuffix{ "_r" };
 	inline constexpr const char* CenterSuffix{ "_c" };
+	// The display layers of a rig (D38), created in the rig namespace.
+	inline constexpr const char* JointLayer{ "jointsLayer" };
+	inline constexpr const char* MeshLayer{ "meshesLayer" };
+	inline constexpr const char* ControlLayer{ "controlsLayer" };
 }
