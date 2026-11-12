@@ -185,7 +185,7 @@ RigTemplates/        example template
 | `RigModules.mod` | Puts `python/` on `PYTHONPATH`, by a path relative to itself. It doesn't add the plugin path, because a loaded `.mll` locks the build. |
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
-| `docs/` | User-facing reference: templates, commands, modules, the pose and animation library (`library.md`). `docs/README.md` holds the documentation process. |
+| `docs/` | User-facing reference: templates, commands, modules, the pose and animation library (`library.md`), and `architecture.md`, the code guide (layers, source map, build phases, module layers, recipes for a new module, command or format). `docs/README.md` holds the documentation process. Update `architecture.md` when a file, folder, base class or build phase changes. |
 | `design/decisions.md` | Decision log (D1–D42). |
 | `design/asset-model.md` | Asset id, namespace ownership, rig variants, file model, local versions and the registry (D29). The file model is planned for a mayadev branch. |
 | `design/inverse-solve.md` | Restoring controls from joints (D41): module-owned inverse, joint files (USD in the first design, FBX now, D42), the offset seam for different proportions. The solve and keys are built. The USD IO was removed, and the sidecar writer is dropped. |
@@ -203,7 +203,7 @@ RigTemplates/        example template
 
 Known discrepancies with the text above:
 - There is no `NodeCreateCommands` namespace in `core/Constants.h`. Node type names live only in `maya/ModuleRegistry.cpp`.
-- The Python package has only the rig queries, `get_rig_name` and the skin weight helpers. The build entry point is still the `createRigFromTemplate` command.
+- The Python package has no build wrapper: the build entry point is still the `createRigFromTemplate` command. (It does have queries, `pose`, `displaylayers`, `selection`, `template`, `skinweights`, `jointclip` and `bonemap`.)
 
 ## Reuse and complexity control
 
@@ -330,7 +330,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 721 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 729 tests in 6 tiers in one watched mayapy process in about 20 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.
