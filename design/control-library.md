@@ -164,7 +164,7 @@ No existing control, channel, socket or child plug changes. `poses/<name>.json` 
 ## 9. Build order
 
 1. **Design sign-off** (this file, D42).
-1b. **Spike** (section 12): Maya's FBX export and import in mayapy, and one baked animation FBX into the target Unreal version. It decides the FBX options and whether the adapters work headless.
+1b. **Spike** (section 12, Maya half done 2026-11-12, the Unreal half open): Maya's FBX export and import in mayapy, and one baked animation FBX into the target Unreal version. It decides the FBX options and whether the adapters work headless.
 2. **ControlAnim in `core/`**: the types, serialize and deserialize, the update table, validation. Tests by hand-written files, including every error path.
 3. **Tangents in `RigKeyScene`**: read and write, curve flags, stepped enum channels. Round trip test on a rig: key with mixed tangents, save, zero, load, compare keys and curve shape.
 4. **`saveRigAnimation` and `loadRigAnimation`**, with offset and mirror, docs and tests.
@@ -229,6 +229,17 @@ The author switched from USD to FBX because FBX is the mocap standard (Vicon, Op
 **USD IO is retired** (author, 2026-11-12), see section 13.
 
 **Spike first (build order 1b):** write one baked animation FBX from a scratch skeleton, check that Maya's exporter and importer run in mayapy, and import the file into the target Unreal version against a skeleton asset. Record the options that worked. Unreal's FBX importer is the standard path, but nothing here has been run.
+
+### Spike results (2026-11-12, Maya 2026 mayapy, `tools/fbx_spike.py`)
+
+Run: a keyed three-joint scratch skeleton (translate, rotate through 90 degrees and past, scale), exported baked, imported into a new scene, worldMatrix compared on 10 frames.
+
+- **The FBX plugin loads and runs in mayapy.** `cmds.loadPlugin("fbxmaya")`, then the `FBXExport` and `FBXImport` MEL commands (called with `mel.eval`). The adapters can run headless.
+- **The round trip is exact:** worst matrix error 4.5e-8 over 3 joints and 10 frames, including scale. Time unit (ntsc), frame range (1 to 10) and up axis (y) came back unchanged.
+- **Options that worked:** `FBXResetExport`, `FBXExportBakeComplexAnimation -v true`, `FBXExportBakeComplexStart/End/Step`, `FBXExportUpAxis y`, binary, `FBXExport -f path -s` on the selected joint hierarchy. Import: `FBXResetImport`, `FBXImportMode -v add`. Hierarchy names came back as written.
+- **A custom string attribute on a joint survived** (`rigMarkup`), but only one case was tried, on an unanimated joint. The bone map stays the dependable carrier.
+- **The exporter does not honour `offsetParentMatrix`:** a joint at world (5, 7, 9) through its OPM came back at the origin. This confirms the scratch skeleton of plain joints (section 12). The rig's own joints can't be exported directly.
+- **Not tested:** Unreal. The Unreal import (importer settings, bone binding by name, frame rate, up axis and scale against the skeleton asset) needs a manual run by the author, with the baked `walk.fbx` the script writes. Until then the Unreal paths in section 6b stay unverified. Also untried: a euler-flip case from a JointClip, and the FBX unit setting (centimeters).
 
 ## 13. Retiring USD (author, 2026-11-12). Done 2026-11-12
 
