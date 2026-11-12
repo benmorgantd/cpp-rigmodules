@@ -1,6 +1,6 @@
 # Inverse solve: restoring controls from joints
 
-**Status:** Decided, D41 (2026-11-11). Amended 2026-11-11 (author): every channel is baked every frame with no tangent data, and the calibration offset and its composition order are dropped for now. Built 2026-11-11 (section 13, steps 1 and 2): the types, the JointClip reader and capture, the animation sidecar reader, the solve driver with the inverses of FkChain, Aim and Layout, the shared constraint delta, `poseRigFromJointPose`, `animateRigFromJointClip` and the keyframe command (D34). The file has `startFrame`, and translations are in internal units (centimeters). Not built: USD IO, the sidecar writer, mayadev's `anims/` folder, IK and retargeting. Where the code differs from sections 4 and 5, the code wins and D41 lists why: a module's inverse takes and returns matrices only, and the driver converts them to channels.
+**Status:** Decided, D41 (2026-11-11). Amended 2026-11-11 (author): every channel is baked every frame with no tangent data, and the calibration offset and its composition order are dropped for now. Built 2026-11-11 (section 13, steps 1 and 2): the types, the JointClip reader and capture, the animation sidecar reader, the solve driver with the inverses of FkChain, Aim and Layout, the shared constraint delta, `poseRigFromJointPose`, `animateRigFromJointClip` and the keyframe command (D34). The file has `startFrame`, and translations are in internal units (centimeters). USD IO (`write_usd`, `read_usd`) and mayadev's `anims` file handler are built too. Not built: the sidecar writer, a menu for clips in the asset, IK and retargeting. Where the code differs from sections 4 and 5, the code wins and D41 lists why: a module's inverse takes and returns matrices only, and the driver converts them to channels.
 
 The forward rig turns control values into joint matrices. This design adds the other direction: given joint matrices, find the control values that reproduce them. Modules own that behaviour. It comes before the IK module, so IK is designed with an inverse from the start.
 
@@ -98,7 +98,7 @@ A joint pose or clip is one USD file (`.usd`, `.usda` or `.usdc`) holding a `Usd
 | `SkelAnimation` | `translations`, `rotations` (quaternions), `scales`, time sampled, local to the parent joint. This is UsdSkel's own convention, so other tools read it. A pose is one sample (or the default value). |
 | `rigmodules:jointMarkup` | A `string[]` parallel to `joints`: each entry is the joint's `rigMarkup` JSON verbatim (D15, D16). Parsed by the same `core/JointMarkup` code as the scene's markup. A joint with no markup is `""`. |
 | `rigmodules:formatVersion` | An integer, through the D33 runner. |
-| `rigmodules:assetId`, `rigmodules:skeletonId` | The asset the clip came from and its shared skeleton (D29), so tools can tell which rigs share it. Informational. |
+| `rigmodules:assetId`, `rigmodules:skeletonId` | The asset the clip came from and its shared skeleton (D29), so tools can tell which rigs share it. Informational. **Not written yet:** `write_usd` takes paths only, and nothing reads them. Adding them is a new optional argument and no format change. |
 | Stage metadata | `timeCodesPerSecond`, `startTimeCode`, `endTimeCode`, `metersPerUnit`, `upAxis`. |
 
 - **Unmarked joints stay in the file.** They are needed to compose world matrices through the source hierarchy (a twist helper between two marked joints), and are never mapped to the rig.
@@ -207,8 +207,8 @@ Per CLAUDE.md the checks live in the suite. Proposed, by tier:
 
 1. **Core and driver.** `JointClipFile`, the sidecar reader, `RigInverse` (rest read, order, sweep), the constraint delta factored out, FkChain and Aim and Layout inverses, `poseRigFromJointPose`. Contract round trip for all three modules. This is the first useful tool: a pose from joints.
 2. **Clip.** Keyframe command (D34), euler continuity, the clip sidecar, `animateRigFromJointClip`.
-3. **USD IO.** `rigmodules.jointclip` read and write, capture from a rig, the Python tests.
-4. **mayadev.** Menu items, the asset `poses/` and `anims/` folders, the pairing by basename.
+3. **USD IO.** `rigmodules.jointclip` read and write, capture from a rig, the Python tests. Built 2026-11-11 (D41).
+4. **mayadev.** Menu items, the asset `poses/` and `anims/` folders, the pairing by basename. The `anims` file handler is built (2026-11-11): `AnimClipHandler` in `bmaya.maya.assethandlers`.
 5. **IK** (its own design, using section 8's requirements).
 6. **Retargeting** (its own design, using section 9's seams).
 

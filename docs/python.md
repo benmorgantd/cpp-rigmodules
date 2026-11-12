@@ -159,9 +159,38 @@ joints = rigmodules.jointclip.capture_joint_clip("hero:rigRootModule1", 1, 48, "
 | Function | Does |
 |---|---|
 | `capture_joint_clip(rig_root, start_frame, end_frame, clip_path)` | Writes a JointClip file from the rig's export joints (the joints in its namespace whose markup has `export` set), one JointPose per frame, and returns the joints captured, parents first. It reads each frame without moving the time slider. Raises `ValueError` when `start_frame` is after `end_frame`, and `RuntimeError` when the rig has no export joints or two would share a path |
-| `read_usd(usd_path, clip_path)`, `write_usd(clip_path, usd_path)` | Not built yet. They raise `NotImplementedError` |
+| `write_usd(clip_path, usd_path)` | Writes a JointClip file as a UsdSkel file ([below](#usd-files)). An existing file is replaced, and a failed write leaves it as it was. Raises `ValueError` for a file that isn't a JointClip, a clip with no poses, or a joint name that isn't a valid USD identifier |
+| `read_usd(usd_path, clip_path)` | Reads a UsdSkel file and writes the JointClip file `clip_path`. Raises `FileNotFoundError`, and `ValueError` for a file without exactly one Skeleton with an animation bound to it, a newer `rigmodules:formatVersion` than this module knows, or an animation with no whole frame |
 
 A joint's transform is its world matrix relative to its nearest captured ancestor, so it doesn't depend on the rig's joints inheriting transforms. A joint's rest is its build pose. Shear is dropped, and a quaternion keeps the sign nearest the previous frame, so a long turn doesn't flip.
+
+### USD files
+
+A clip's joint file is a UsdSkel file (`.usd`, `.usda` or `.usdc`). `write_usd` makes this layout, and `read_usd` reads it and files from other tools.
+
+| USD | Content |
+|---|---|
+| `/Root/Skeleton` | `joints` (the JointClip paths), `restTransforms` (local, from each joint's rest), `bindTransforms` (the rests composed down the hierarchy) |
+| `/Root/Animation` | `translations`, `rotations` and `scales`, one time sample per JointPose on the clip's own frame numbers, bound to the Skeleton |
+| `rigmodules:jointMarkup` | On the Skeleton: a `string[]` parallel to `joints`, each joint's markup JSON, `""` for an unmarked joint |
+| `rigmodules:formatVersion` | On the Skeleton: the JointClip's `formatVersion` |
+| Stage | `timeCodesPerSecond` and `framesPerSecond` (the clip's `frameRate`), `startTimeCode` and `endTimeCode`, `metersPerUnit` 0.01, `upAxis` of the scene |
+
+- Writing is lossless apart from UsdSkel's own precision: translations and quaternions are single precision, scales are half precision (about 1e-3), as UsdSkel stores them.
+- Reading converts translations from the stage's `metersPerUnit` to centimeters and rotates the root joints from the stage's up axis to the scene's. The Skeleton prim's own transform is ignored.
+- Reading samples every whole frame from the animation's first sample to its last, interpolating between samples, so a file keyed on fewer frames still gives a pose for each. An animation with no samples gives one pose, at frame 1. A joint the animation doesn't list stays at its rest. A joint listed before its parent is reordered, because a JointClip lists parents first.
+- A file with no `rigmodules:jointMarkup` (from another tool) reads with every joint unmarked and a warning. A restore from it matches no joint.
+- The frame rate stays the file's. [`poseRigFromJointPose`](commands.md#poserigfromjointpose) and [`animateRigFromJointClip`](commands.md#animaterigfromjointclip) refuse a clip that doesn't match the scene's.
+- `pxr` imports in Maya without loading `mayaUsdPlugin`.
+
+```python
+import rigmodules.jointclip
+
+rigmodules.jointclip.capture_joint_clip("hero:rigRootModule1", 1, 48, "C:/tmp/walk.json")
+rigmodules.jointclip.write_usd("C:/tmp/walk.json", "C:/anims/walk.usd")
+rigmodules.jointclip.read_usd("C:/anims/walk.usd", "C:/tmp/walk.json")
+cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.json")
+```
 
 ### File format
 

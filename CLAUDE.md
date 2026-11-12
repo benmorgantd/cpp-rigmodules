@@ -181,14 +181,14 @@ RigTemplates/        example template
 | Path | Contents |
 |---|---|
 | `RigTemplates/` | Example templates, `LayoutRig.json` and `Human.json`. Their joints use `[side, usage]` selectors. |
-| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`, `get_rig_controls`, `get_control`, `find_control`, `RigControl`, `get_channels`, `get_control_channels`, `ControlChannel`), `pose.py` (`key_controls`, `key_rig`, `key_modules`), `displaylayers.py` (`get_layer`, `add_meshes`), `selection.py` (`find_set`, `get_set`, `get_members`, `get_skin_joints`, `select_skin_joints`, `get_missing_influences`, `get_extra_influences`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`), `jointclip.py` (`capture_joint_clip` writes a JointClip file from a rig, D41; the USD functions raise `NotImplementedError`, so USD files are not read or written yet). `_namespace.py` is private: the `cmds.ls` pattern for a namespace's nodes, shared by `query` and `skinweights`. Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
+| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`, `get_rig_controls`, `get_control`, `find_control`, `RigControl`, `get_channels`, `get_control_channels`, `ControlChannel`), `pose.py` (`key_controls`, `key_rig`, `key_modules`), `displaylayers.py` (`get_layer`, `add_meshes`), `selection.py` (`find_set`, `get_set`, `get_members`, `get_skin_joints`, `select_skin_joints`, `get_missing_influences`, `get_extra_influences`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`), `jointclip.py` (`capture_joint_clip` writes a JointClip file from a rig, D41; `write_usd` and `read_usd` convert a JointClip file to and from a UsdSkel file with pxr, D41). `_namespace.py` is private: the `cmds.ls` pattern for a namespace's nodes, shared by `query` and `skinweights`. Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
 | `RigModules.mod` | Puts `python/` on `PYTHONPATH`, by a path relative to itself. It doesn't add the plugin path, because a loaded `.mll` locks the build. |
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules. `docs/README.md` holds the documentation process. |
 | `design/decisions.md` | Decision log (D1–D41). |
 | `design/asset-model.md` | Asset id, namespace ownership, rig variants, file model, local versions and the registry (D29). The file model is planned for a mayadev branch. |
-| `design/inverse-solve.md` | Restoring controls from joints (D41): module-owned inverse, USD joint files, pose-format sidecar, the offset seam for different proportions. The solve and keys are built. USD IO is not. |
+| `design/inverse-solve.md` | Restoring controls from joints (D41): module-owned inverse, USD joint files, pose-format sidecar, the offset seam for different proportions. The solve, keys and USD IO are built. The sidecar writer is not. |
 | `design/mayadev-integration.md` | Survey of the sibling mayadev repo, conflicts with RigModules, the proposed boundary and phases (D24). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. `ViewportGallery.cmd` is the manual VP2 shape check. |
@@ -329,7 +329,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 625 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 662 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.
