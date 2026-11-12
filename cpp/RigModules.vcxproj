@@ -152,7 +152,6 @@
     <ClCompile Include="core\FormatUpdate.cpp" />
     <ClCompile Include="core\JointMarkup.cpp" />
     <ClCompile Include="core\RigControlFilter.cpp" />
-    <ClCompile Include="core\AnimationSidecar.cpp" />
     <ClCompile Include="core\JointClipFile.cpp" />
     <ClCompile Include="core\ControlAnimFile.cpp" />
     <ClCompile Include="core\RigKeys.cpp" />
@@ -208,7 +207,6 @@
     <ClInclude Include="core\JointMarkup.h" />
     <ClInclude Include="core\JsonUtils.h" />
     <ClInclude Include="core\RigControlFilter.h" />
-    <ClInclude Include="core\AnimationSidecar.h" />
     <ClInclude Include="core\JointClipFile.h" />
     <ClInclude Include="core\ControlAnimFile.h" />
     <ClInclude Include="core\RigKeys.h" />

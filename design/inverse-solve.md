@@ -128,7 +128,7 @@ A joint pose or clip is one USD file (`.usd`, `.usda` or `.usdc`) holding a `Usd
 }
 ```
 
-- Each frame's value is the pose file's `controls` map, parsed by the same code. A `core/AnimationSidecar` adds only the frame layer. A new file format has its own `formatVersion` and update table (D33).
+- Each frame's value is the pose file's `controls` map, parsed by the same code. **Withdrawn (D42, 2026-11-12):** the animation sidecar is a ControlAnim file now, and `core/AnimationSidecar` is deleted.
 - **Every channel is baked every frame (author, 2026-11-11).** Joints are samples, and the solve is nonlinear (matrix to euler), so the derived channels can't be anything else. The sidecar channels follow the same rule: one entry per frame of the clip, no sparse keys. This keeps one rule for every channel, one clip frame range, and no curve data in any file. The file is larger than sparse keys would be, and it is only the channels the joints can't derive.
 - **No tangent data (author, 2026-11-11).** The restored curves have a key on every frame with Maya's default tangents. Simplifying them (key reduction, tangent fitting) is a separate tool on the animation, not part of the restore, and any format that wants tangents later adds them as a format-version step (D33). Rejected: a `tangents` block beside `frames`, sparse sidecar keys, and baking only the derived channels.- **Pairing:** `<name>.usd` and `<name>.rigdata.json` share a basename, in the asset's `poses/` or `anims/` folder (D29). The USD file doesn't point at the sidecar, so the two can be moved or versioned independently and a USD tool that drops custom data costs nothing.
 - **Version control:** the writer is hand-written like the shape and pose writers, so a one-key change is a one-line diff.

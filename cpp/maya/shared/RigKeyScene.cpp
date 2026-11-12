@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <maya/MAngle.h>
+#include <maya/MAnimCurveChange.h>
 #include <maya/MDoubleArray.h>
 #include <maya/MFnAnimCurve.h>
 #include <maya/MFnDependencyNode.h>
@@ -160,35 +161,41 @@ namespace
 
 	// Gives every key the tangents it names, and the curve its flags. The keys are already on the curve (addKeys).
 	// A stepped channel is all step already. A key whose tangents are both auto is what addKeys made, so it is left.
-	MStatus applyCurveDetails(MFnAnimCurve& fnCurve, const KeyJob& job, MAnimCurveChange& change)
+	MStatus applyCurveDetails(
+		MFnAnimCurve& fnCurve,
+		const ChannelCurve& curve,
+		const MTimeArray& times,
+		bool isStepped,
+		const MString& label,
+		MAnimCurveChange& change)
 	{
-		MStatus status = fnCurve.setIsWeighted(job.curve.isWeighted, &change);
+		MStatus status = fnCurve.setIsWeighted(curve.isWeighted, &change);
 		if (status)
 		{
-			status = fnCurve.setPreInfinityType(toMayaInfinity(job.curve.preInfinity), &change);
+			status = fnCurve.setPreInfinityType(toMayaInfinity(curve.preInfinity), &change);
 		}
 		if (status)
 		{
-			status = fnCurve.setPostInfinityType(toMayaInfinity(job.curve.postInfinity), &change);
+			status = fnCurve.setPostInfinityType(toMayaInfinity(curve.postInfinity), &change);
 		}
 		CHECK_MSTATUS_AND_RETURN_IT(status);
-		if (job.isStepped)
+		if (isStepped)
 		{
 			return MStatus::kSuccess;
 		}
 
-		for (std::size_t k = 0; k < job.curve.keys.size(); ++k)
+		for (std::size_t k = 0; k < curve.keys.size(); ++k)
 		{
-			const Key& key = job.curve.keys[k];
+			const Key& key = curve.keys[k];
 			if (key.in.kind == TangentKind::Auto && key.out.kind == TangentKind::Auto)
 			{
 				continue;
 			}
 
 			unsigned int index = 0;
-			if (!fnCurve.find(job.times[static_cast<unsigned int>(k)], index))
+			if (!fnCurve.find(times[static_cast<unsigned int>(k)], index))
 			{
-				MGlobal::displayError(MString("Could not find the key at frame ") + job.curve.keys[k].frame + " on " + job.plug.name() + " to set its tangents.");
+				MGlobal::displayError(MString("Could not find the key at frame ") + key.frame + " on " + label + " to set its tangents.");
 				return MStatus::kFailure;
 			}
 			// Two different tangents on one key need them unlocked.
@@ -416,7 +423,7 @@ MStatus RigKeyScene::setRigKeys(const RigControlScope& scope, const RigKeys& key
 		}
 		if (status)
 		{
-			status = applyCurveDetails(fnCurve, job, edit.curveChange);
+			status = applyCurveDetails(fnCurve, job.curve, job.times, job.isStepped, job.plug.name(), edit.curveChange);
 		}
 		if (!status)
 		{
@@ -530,4 +537,130 @@ MStatus RigKeyScene::mirrorRigKeys(const RigControlScope& scope, const RigKeys& 
 		}
 	}
 	return MStatus::kSuccess;
+}
+
+MStatus RigKeyScene::sampleRigKeys(const MObject& oRigRoot, const RigKeys& keys, int firstFrame, int lastFrame, std::vector<PoseMap>& outSamples)
+{
+	outSamples.assign(static_cast<std::size_t>(lastFrame - firstFrame + 1), PoseMap());
+	MObjectArray oControls;
+	MStatus status = RigTraversal::getRigControls(oRigRoot, RigControlFilter(), oControls);
+	if (!status)
+	{
+		return status;
+	}
+
+	// One curve for each channel the keys have and the rig has. The channel's value type decides the curve's output
+	// type, so a fixed tangent's angle means the same here as on the rig.
+	struct Scratch
+	{
+		MObject oCurve;
+		const ControlMarkup* pMarkup = nullptr;
+		RigPoseScene::Channel channel;
+		const ChannelCurve* pCurve = nullptr;
+	};
+	std::vector<ControlMarkup> markups(oControls.length());
+	std::vector<Scratch> scratches;
+	MDGModifier dgMod;
+	for (unsigned int i = 0; i < oControls.length(); ++i)
+	{
+		status = RigTraversal::getControlMarkup(oControls[i], markups[i]);
+		if (!status)
+		{
+			return status;
+		}
+		const auto itSide = keys.find(markups[i].side);
+		if (itSide == keys.end() || itSide->second.find(markups[i].usage) == itSide->second.end())
+		{
+			continue;
+		}
+
+		std::vector<RigPoseScene::Channel> channels;
+		status = RigPoseScene::getControlChannels(oControls[i], channels);
+		if (!status)
+		{
+			return status;
+		}
+		for (const auto& [name, curve] : itSide->second.at(markups[i].usage))
+		{
+			const auto itChannel = std::find_if(channels.begin(), channels.end(), [&name](const RigPoseScene::Channel& channel)
+			{
+				return channel.info.name == name;
+			});
+			if (itChannel == channels.end() || curve.keys.empty())
+			{
+				continue;
+			}
+
+			const MFnAnimCurve::AnimCurveType type = itChannel->kind == RigPoseScene::ValueKind::kAngle ? MFnAnimCurve::kAnimCurveTA
+				: itChannel->kind == RigPoseScene::ValueKind::kDistance ? MFnAnimCurve::kAnimCurveTL
+				: MFnAnimCurve::kAnimCurveTU;
+			MFnAnimCurve fnNew;
+			Scratch scratch;
+			scratch.oCurve = fnNew.create(type, &dgMod, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			scratch.pMarkup = &markups[i];
+			scratch.channel = *itChannel;
+			scratch.pCurve = &curve;
+			scratches.push_back(scratch);
+		}
+	}
+	status = dgMod.doIt();
+	if (!status)
+	{
+		MGlobal::displayError(MString("Could not sample the animation: ") + status.errorString());
+		return status;
+	}
+
+	// The scratch nodes go away whatever happens below.
+	status = MStatus::kSuccess;
+	for (const Scratch& scratch : scratches)
+	{
+		MFnAnimCurve fnCurve(scratch.oCurve, &status);
+		if (!status)
+		{
+			break;
+		}
+
+		MTimeArray times;
+		MDoubleArray values;
+		for (const Key& key : scratch.pCurve->keys)
+		{
+			times.append(MTime(key.frame, MTime::uiUnit()));
+			values.append(RigPoseScene::fromUiUnits(scratch.channel, key.value));
+		}
+		MAnimCurveChange change;
+		const bool isStepped = isStepChannel(scratch.channel.kind);
+		const MFnAnimCurve::TangentType tangent = isStepped ? MFnAnimCurve::kTangentStep : MFnAnimCurve::kTangentAuto;
+		status = fnCurve.setIsWeighted(scratch.pCurve->isWeighted, &change);
+		if (status)
+		{
+			status = fnCurve.addKeys(&times, &values, tangent, tangent, false, &change);
+		}
+		if (status)
+		{
+			status = applyCurveDetails(fnCurve, *scratch.pCurve, times, isStepped, scratch.channel.info.name.c_str(), change);
+		}
+		for (int frame = firstFrame; status && frame <= lastFrame; ++frame)
+		{
+			double value = 0.0;
+			status = fnCurve.evaluate(MTime(frame, MTime::uiUnit()), value);
+			if (status)
+			{
+				outSamples[static_cast<std::size_t>(frame - firstFrame)][scratch.pMarkup->side][scratch.pMarkup->usage].emplace_back(
+					scratch.channel.info.name, RigPoseScene::toUiUnits(scratch.channel, value));
+			}
+		}
+		if (!status)
+		{
+			break;
+		}
+	}
+
+	const MStatus sampleStatus = status;
+	dgMod.undoIt();
+	if (!sampleStatus)
+	{
+		MGlobal::displayError(MString("Could not sample the animation: ") + sampleStatus.errorString());
+	}
+	return sampleStatus;
 }

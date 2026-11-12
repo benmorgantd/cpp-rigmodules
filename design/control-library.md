@@ -1,6 +1,6 @@
 # Control library: poses and animation on the rig's own controls
 
-**Status:** Decided (author, 2026-11-12), D42. The ControlAnim key layout and tangent encoding (section 4) are signed off (author, 2026-11-12). The FBX adapters, the bone map, the skeleton export, the ControlAnim file, tangents in the keys payload and `saveRigAnimation` / `loadRigAnimation` are built; the restore from joints with a ControlAnim supplement and mayadev's library are not. The folder names, the export's control copy, the sampling and FBX as the joint file are settled (sections 10 and 12). Not built apart from the USD removal (section 13, done: tag `usd-joint-io`, suite 626 passed). Sections 2 and 6b hold the data vocabulary and the Unreal pairing. The command names in section 4 are proposals.
+**Status:** Decided (author, 2026-11-12), D42. The ControlAnim key layout and tangent encoding (section 4) are signed off (author, 2026-11-12). The FBX adapters, the bone map, the skeleton export, the ControlAnim file, tangents in the keys payload and `saveRigAnimation` / `loadRigAnimation` are built; the restore from joints with a ControlAnim sidecar is built too; mayadev's library UI and `animprops` are not. The folder names, the export's control copy, the sampling and FBX as the joint file are settled (sections 10 and 12). Not built apart from the USD removal (section 13, done: tag `usd-joint-io`, suite 626 passed). Sections 2 and 6b hold the data vocabulary and the Unreal pairing. The command names in section 4 are proposals.
 
 D41 built the inverse solve and picked USD as its carrier. It never asked what an animator's pose and animation library should be, so the file roles blurred: `poses/` was going to hold control poses and USD joint files side by side, the sidecar was a "pose file" that was not one, and nothing said how animation reaches an engine. This design starts from the library and the engine, and fits the inverse into it.
 
@@ -151,11 +151,12 @@ The ControlAnim copy (`<name>.anim.json`) sits in the export folder but isn't en
 
 ## 7. What changes in D41
 
-- **The animation sidecar stops being a stored file.** It was the per-frame, baked control supplement. With ControlAnims, a restore from joints gets custom channels (`space`, `ikFkBlend`) and non-derivable transforms (Layout) from the ControlAnim. To keep the C++ solve unchanged, Python loads the ControlAnim onto the rig, samples the non-derived channels per frame, and hands the solve the existing in-memory sidecar. So `AnimationSidecar` becomes a transient like the JointClip file, never saved in an asset. Doing it in Python avoids a curve evaluator in `core/` (decision 3).
+- **The animation sidecar is a ControlAnim, and the old sidecar format is gone** (built 2026-11-12, author: the flag keeps the name `sidecar`). With ControlAnims, a restore from joints gets custom channels (`space`, `ikFkBlend`) and non-derivable transforms (Layout) from the ControlAnim given as `sidecar`. `animateRigFromJointClip` samples its curves on the clip's frames in C++, on scratch animCurves that are deleted afterwards (`RigKeyScene::sampleRigKeys`), and hands the solve the per-frame values. The scene, the animator's keys and the undo queue are untouched until the one keying step. This replaces the plan to do it in Python (decision 3): a curve evaluator in `core/` was never needed, because Maya evaluates the curves. `core/AnimationSidecar` and its format are deleted, and nothing stored changes, because no sidecar file was ever written. `poseRigFromJointPose` keeps a ControlPose as its `sidecar`.
+- **A channel only the sidecar gave keeps the sidecar's own keys** (author, 2026-11-12): the original exported keys, tangents and curve flags inside the restore range, not a key on every frame, because they are not joint data. A channel the joints gave is still baked on every frame, and the joints win when both have a channel.
 - **The "derived channels" problem goes away.** The sidecar writer is no longer needed, and so neither is the list it would have consulted. Transform channels of a joint-driven control come from joints, and everything else from the ControlAnim.
-- **The Layout keying wart goes away** if the solve stops writing a control it could not solve (D41 currently writes rest on every frame). A control with no joints and no supplement keeps its own keys.
+- **The Layout keying wart is gone** (built 2026-11-12): the solve reports where each channel came from (`RigInverse::ChannelOrigins`), and `animateRigFromJointClip` keys only channels the joints or the sidecar gave. A control with no joints and no sidecar entry keeps its own keys. A clip that matches no joint and has no sidecar keys nothing.
 - **`poses/` in `asset-model.md` and `mayadev-integration.md`** becomes `controlposes/` and holds only ControlPoses, and the sentence about USD pairing by basename in the same folder is replaced by section 3.
-- **Not changed:** the inverse, `poseRigFromJointPose`, `animateRigFromJointClip` (their `sidecar` argument stays, fed by Python), the JointClip file and the keyframe command. USD IO is removed (section 13).
+- **Not changed:** the inverse, `poseRigFromJointPose`, `animateRigFromJointClip` (their `sidecar` argument stays, now a ControlAnim for the animation command and a ControlPose for the pose command), the JointClip file and the keyframe command. USD IO is removed (section 13).
 
 ## 8. Names and compatibility
 
@@ -169,7 +170,7 @@ No existing control, channel, socket or child plug changes. `poses/<name>.json` 
 3. **Tangents in `RigKeyScene`** (built 2026-11-12): read and write, curve flags, stepped enum channels. Round trip test on a rig: key with mixed tangents, save, zero, load, compare keys and curve shape.
 4. **`saveRigAnimation` and `loadRigAnimation`** (built 2026-11-12), with offset and mirror, docs and tests.
 5. **FBX adapters and the skeleton export** (section 12). Built 2026-11-12: `rigmodules.jointclip.write_fbx`, `read_fbx` and `write_skeleton_fbx`, and `rigmodules.bonemap`.
-6. **The restore from joints with a ControlAnim supplement** in Python (section 7).
+6. **The restore from joints with a ControlAnim sidecar** (section 7). Built 2026-11-12, in C++ instead of Python.
 7. **mayadev:** the folders, handlers and library UI, and `animprops`.
 8. IK, then retargeting, as in D41.
 

@@ -134,9 +134,8 @@ RigTemplates/        example template
 | `ControlShapeFile.h/.cpp` | Shape file format (version 2, with `wireframeAlpha`): `ControlShape`, `ControlShapeMap`, `controlShapeUpdateTable` (D33), `serializeControlShapes` / `deserializeControlShapes` (D26). |
 | `SkinWeightFile.h/.cpp` | Weight file format: `SkinWeights`, `topologyHash` (FNV-1a), `sortSkinInfluences`, `findUnnormalizedVertices`, `serializeSkinWeights` / `deserializeSkinWeights` (D35). |
 | `SkinWeightTable.h/.cpp` | Operations on a whole weight table, the home for the paintable skin tools to come (normalize, mirror, smooth). Now: `pruneToMaxInfluences`, on a table (rows are vertices, columns influences), the layout `getWeights` and `setWeights` use (D35). |
-| `PoseFile.h/.cpp` | Pose file format (version 1): `PoseMap` (side, usage, channel values in UI units), `poseUpdateTable` (D33), `serializePose` / `deserializePose`, and `deserializePoseControls` for the `controls` map the animation sidecar reuses (D34). |
+| `PoseFile.h/.cpp` | Pose file format (version 1): `PoseMap` (side, usage, channel values in UI units), `poseUpdateTable` (D33), `serializePose` / `deserializePose` (D34). |
 | `JointClipFile.h/.cpp` | JointClip file types (`JointClip`, `JointPose`, `JointTransform`): the JSON file Python hands the plugin (D41): `deserializeJointClip` reads and validates it, and Python writes it. |
-| `AnimationSidecar.h/.cpp` | A clip's sidecar: the pose file's control values, one entry per frame (D41). `deserializeAnimationSidecar` reads and validates it, and Python writes it. |
 | `RigKeys.h/.cpp` | A rig's keys as plain data, by control markup and channel: `RigKeys` (a `ChannelCurve` per channel: `Key`s with `Tangent`s, `isWeighted`, the infinities), `serializeRigKeys` and `deserializeRigKeys`, the payload of `getRigKeys` and `setRigKeys` (D34, D42), `rigKeysToJson` and `parseRigKeys` for files, `negateCurve` and `offsetKeys`. |
 | `ControlAnimFile.h/.cpp` | ControlAnim file format (version 1): `ControlAnim` (frame rate, range, `RigKeys`), `controlAnimUpdateTable` (D33), `serializeControlAnim` / `deserializeControlAnim` (D42). |
 | `RigControlFilter.h/.cpp` | `RigControlFilter` for `getRigControls`: moduleType, side and usage lists. |
@@ -331,7 +330,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 716 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 721 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.

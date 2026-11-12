@@ -322,7 +322,7 @@ class OrientConstraintRoundTrip(SolveTestCase):
 
 
 class AnimateFromClip(SolveTestCase):
-    """animateRigFromJointClip keys every channel it writes on every frame, from the joints' animation."""
+    """animateRigFromJointClip keys every channel the joints gave on every frame, from the joints' animation."""
 
     A = rig_name("a_ctrl_c")
     B = rig_name("b_ctrl_c")
@@ -371,8 +371,10 @@ class AnimateFromClip(SolveTestCase):
 
         changed = cmds.animateRigFromJointClip(rig_root(), jointClip=clip)
 
-        # Every control, the layout's too: with no sidecar entry they are keyed at rest.
-        self.assertEqual(sorted(c.lstrip(":") for c in changed), sorted(c.lstrip(":") for c in cmds.ls(rig_name("*"), type="rigControlNode")))
+        # The controls the joints gave. The layout's have no joints and no sidecar entry, so they keep their keys (none).
+        self.assertEqual(sorted(c.lstrip(":") for c in changed), sorted(c.lstrip(":") for c in (self.A, self.B, rig_name("c_ctrl_c"))))
+        for layout in cmds.ls(rig_name("layout_*"), type="rigControlNode"):
+            self.assertFalse(cmds.keyframe(layout, query=True, keyframeCount=True), layout)
         for node in (self.A, self.B):
             for channel in CHANNELS:
                 self.assertEqual(self.times(node, channel), [1, 2, 3, 4, 5], "%s.%s" % (node, channel))
@@ -434,33 +436,6 @@ class AnimateFromClip(SolveTestCase):
         cmds.animateRigFromJointClip(rig_root(), jointClip=clip)
         self.assertCurve(self.A, "rotateZ", [0, 170, 340, 510, 680])
 
-    def test_the_animation_sidecar_gives_what_the_joints_cannot(self):
-        cmds.file(new=True, force=True)
-        cmds.namespace(setNamespace=":")
-        self.build_standard("mirror_arms", "mirror_arms")
-        rest = self.snapshot()
-        for frame, value in zip((1, 2, 3), (1.0, 2.0, 3.0)):
-            cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=frame, value=value)
-        snapshots = []
-        for frame in (1, 2, 3):
-            cmds.currentTime(frame)
-            snapshots.append(self.snapshot())
-        clip = self.write_clip(rest, snapshots)
-        cmds.delete(cmds.ls(type="animCurve"))
-        cmds.currentTime(1)
-        cmds.zeroRigControls(rig_root())
-        sidecar = self.write("sidecar.json", {
-            "formatVersion": 1, "frameRate": 24.0,
-            "frames": {str(f): {"Center": {"layout_0": {"translateX": float(f)}}} for f in (1, 2, 3)}})
-
-        cmds.animateRigFromJointClip(rig_root(), jointClip=clip, sidecar=sidecar)
-
-        self.assertCurve(rig_name("layout_0_ctrl_c"), "translateX", [1, 2, 3])
-        self.assertCurve(rig_name("chest_ctrl_c"), "translateX", [0, 0, 0])
-        for frame, snapshot in zip((1, 2, 3), snapshots):
-            cmds.currentTime(frame)
-            self.assertJointsAt(snapshot)
-
     def test_keys_an_animator_set_on_other_frames_survive(self):
         self.key("a_ctrl_c.rotateZ", (0, 10, 20, 30, 40))
         clip = self.write_clip(self.rest, self.capture(), start_frame=1)
@@ -468,3 +443,124 @@ class AnimateFromClip(SolveTestCase):
         cmds.animateRigFromJointClip(rig_root(), jointClip=clip)
         self.assertEqual(self.times(self.A, "rotateZ"), [1, 2, 3, 4, 5, 50])
         self.assertCurve(self.A, "rotateZ", [0, 10, 20, 30, 40, 5])
+
+
+class AnimateWithSidecar(SolveTestCase):
+    """The animation command's sidecar is a ControlAnim (D42). Its curves are sampled on the clip's frames for the solve,
+    and what only the sidecar gave is keyed with the sidecar's own keys and tangents, not baked."""
+
+    ARM = rig_name("upperArm_l_ctrl_l")
+    FRAMES = (1, 2, 3)
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard("mirror_arms", "mirror_arms")
+        self.rest = self.snapshot()
+
+    def capture(self):
+        snapshots = []
+        for frame in self.FRAMES:
+            cmds.currentTime(frame)
+            snapshots.append(self.snapshot())
+        return snapshots
+
+    def write_control_anim(self, controls, rate=24.0):
+        self.counter += 1
+        return self.write("anim%d.json" % self.counter, {
+            "formatVersion": 1, "frameRate": rate, "startFrame": 1, "endFrame": 3, "controls": controls})
+
+    def restore(self, snapshots, controls):
+        clip = self.write_clip(self.rest, snapshots)
+        cmds.delete(cmds.ls(type="animCurve"))
+        cmds.currentTime(1)
+        cmds.zeroRigControls(rig_root())
+        return cmds.animateRigFromJointClip(rig_root(), jointClip=clip, sidecar=self.write_control_anim(controls))
+
+    def times(self, plug):
+        return cmds.keyframe(plug, query=True, timeChange=True) or []
+
+    def values(self, plug):
+        return cmds.keyframe(plug, query=True, valueChange=True) or []
+
+    def assertJointsFollow(self, snapshots):
+        for frame, snapshot in zip(self.FRAMES, snapshots):
+            cmds.currentTime(frame)
+            self.assertJointsAt(snapshot)
+
+    def test_the_layout_comes_from_the_sidecar_with_the_sidecars_own_keys(self):
+        for frame, value in zip(self.FRAMES, (1.0, 2.0, 3.0)):
+            cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=frame, value=value)
+        snapshots = self.capture()
+        layout = {"Center": {"layout_0": {"translateX": {"keys": [[1, 1.0, "linear", "linear"], [3, 3.0, "linear", "linear"]]}}}}
+
+        self.restore(snapshots, layout)
+
+        plug = rig_name("layout_0_ctrl_c.translateX")
+        self.assertEqual(self.times(plug), [1, 3], "the sidecar's keys, not one on every frame")
+        self.assertEqual(self.values(plug), [1.0, 3.0])
+        self.assertEqual(cmds.keyTangent(plug, query=True, outTangentType=True), ["linear", "linear"])
+        self.assertJointsFollow(snapshots)
+
+    def test_a_space_switch_keeps_its_stepped_keys_and_the_joints_follow(self):
+        arm = self.ARM
+        for frame, value in ((1, 0), (3, 1)):
+            cmds.setKeyframe(arm + ".space", time=frame, value=value, inTangentType="auto", outTangentType="step")
+        for frame, value in zip(self.FRAMES, (0, 20, 40)):
+            cmds.setKeyframe(rig_name("clavicle_l_ctrl_l.rotateZ"), time=frame, value=value)
+        snapshots = self.capture()
+        space = {"Left": {"upperArm": {"space": {"keys": [[1, 0, "auto", "step"], [3, 1, "auto", "step"]]}}}}
+
+        self.restore(snapshots, space)
+
+        self.assertEqual(self.times(arm + ".space"), [1, 3])
+        self.assertEqual(self.values(arm + ".space"), [0, 1])
+        self.assertEqual(cmds.keyTangent(arm + ".space", query=True, outTangentType=True), ["step", "step"])
+        self.assertEqual(self.times(arm + ".rotateZ"), [1, 2, 3], "what the joints gave is baked")
+        self.assertJointsFollow(snapshots)
+
+    def test_a_channel_the_joints_give_is_baked_from_the_joints_not_the_sidecar(self):
+        cmds.setKeyframe(self.ARM + ".rotateZ", time=1, value=0)
+        cmds.setKeyframe(self.ARM + ".rotateZ", time=3, value=40)
+        snapshots = self.capture()
+        wrong = {"Left": {"upperArm": {"rotateZ": {"keys": [[1, 99.0], [3, 99.0]]}}}}
+
+        self.restore(snapshots, wrong)
+
+        self.assertEqual(self.times(self.ARM + ".rotateZ"), [1, 2, 3])
+        for actual, expected in zip(self.values(self.ARM + ".rotateZ"), (0, 20, 40)):
+            self.assertAlmostEqual(actual, expected, places=2)
+        self.assertJointsFollow(snapshots)
+
+    def test_the_sampling_leaves_no_scratch_curve_and_the_restore_is_one_undo_step(self):
+        cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=1, value=1)
+        cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=3, value=3)
+        snapshots = self.capture()
+        layout = {"Center": {"layout_0": {"translateX": {"keys": [[1, 1.0], [3, 3.0]]}}}}
+        self.restore(snapshots, layout)
+        curves = cmds.ls(type="animCurve")
+        self.assertEqual([c for c in curves if not cmds.listConnections(c + ".output")], [], "every curve drives a control")
+        cmds.undo()
+        self.assertEqual(cmds.ls(type="animCurve") or [], [])
+        cmds.redo()
+        self.assertEqual(sorted(cmds.ls(type="animCurve")), sorted(curves))
+
+    def test_keys_outside_the_restore_range_are_left_out(self):
+        for frame, value in zip(self.FRAMES, (1.0, 2.0, 3.0)):
+            cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=frame, value=value)
+        snapshots = self.capture()
+        clip = self.write_clip(self.rest, snapshots)
+        sidecar = self.write_control_anim({"Center": {"layout_0": {"translateX": {"keys": [[1, 1.0], [2, 2.0], [3, 3.0]]}}}})
+        cmds.delete(cmds.ls(type="animCurve"))
+        cmds.animateRigFromJointClip(rig_root(), jointClip=clip, sidecar=sidecar, startFrame=2, endFrame=3)
+        self.assertEqual(self.times(rig_name("layout_0_ctrl_c.translateX")), [2, 3])
+
+    def test_a_sidecar_that_covers_less_than_the_clip_holds_its_last_value(self):
+        for frame in self.FRAMES:
+            cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=frame, value=1.0)
+        snapshots = self.capture()
+        clip = self.write_clip(self.rest, snapshots)
+        sidecar = self.write("short.json", {"formatVersion": 1, "frameRate": 24.0, "startFrame": 1, "endFrame": 2,
+                                            "controls": {"Center": {"layout_0": {"translateX": {"keys": [[1, 1.0]]}}}}})
+        cmds.delete(cmds.ls(type="animCurve"))
+        cmds.animateRigFromJointClip(rig_root(), jointClip=clip, sidecar=sidecar)
+        self.assertJointsFollow(snapshots)

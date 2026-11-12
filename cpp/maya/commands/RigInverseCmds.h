@@ -13,7 +13,7 @@
 
 // cmds.poseRigFromJointPose("rig:rigRoot", jointPose=path, sidecar=path, mode="match")
 //   jointPose: a JointClip file (JointClipFile.h) with exactly one JointPose. Required.
-//   sidecar: a pose file (PoseFile.h) with the control values the joints can't give. Optional.
+//   sidecar: a pose file (PoseFile.h), a ControlPose, with the control values the joints can't give. Optional.
 //   mode: "match", the only mode. Optional.
 //   Sets values like loadRigPose and keys nothing. Returns the names of the controls it changed. Undoable.
 class PoseRigFromJointPoseCmd : public MPxCommand
@@ -34,11 +34,13 @@ private:
 
 // cmds.animateRigFromJointClip("rig:rigRoot", jointClip=path, sidecar=path, mode="match", startFrame=1, endFrame=100)
 //   jointClip: a JointClip file. Required.
-//   sidecar: an animation sidecar file (AnimationSidecar.h). Optional.
+//   sidecar: a ControlAnim file (ControlAnimFile.h) with the control data the joints can't give (D42). Its curves are
+//     sampled on the clip's frames for the solve (space first). Optional.
 //   mode: "match", the only mode. Optional.
 //   startFrame, endFrame: the range of the clip to write, the whole clip by default. Optional.
-//   Keys every channel it writes on every frame of the range, all of a channel's keys in one call (RigKeyScene), on the
-//   clip's own frame numbers. The clip must run at the scene's frame rate. Returns the names of the controls it keyed.
+//   Keys every channel the joints gave on every frame of the range, all of a channel's keys in one call (RigKeyScene), on
+//   the clip's own frame numbers. A channel only the sidecar gave gets the sidecar's own keys and tangents inside the
+//   range, and a channel nothing gave is not keyed. The clip must run at the scene's frame rate. Returns the names of the controls it keyed.
 //   Undoable as one step.
 class AnimateRigFromJointClipCmd : public MPxCommand
 {

@@ -62,7 +62,7 @@ Sparse keys with tangents, on the channels of a rig's controls, written by [`sav
 | Use | Path |
 |---|---|
 | The same rig, or a rig from the same template | `loadRigPose` / `loadRigAnimation` |
-| A different rig or skeleton, mocap, an engine export | FBX to a JointClip ([`read_fbx`](python.md#fbx-files)), then [`animateRigFromJointClip`](commands.md#animaterigfromjointclip) |
+| A different rig or skeleton, mocap, an engine export | FBX to a JointClip ([`read_fbx`](python.md#fbx-files)), then [`animateRigFromJointClip`](commands.md#animaterigfromjointclip), with the export's `<name>.anim.json` as its `sidecar` for what joints can't give |
 | Animation to the engine | [`capture_joint_clip`](python.md#rigmodulesjointclip), then [`write_fbx`](python.md#fbx-files), with a skeleton export from [`write_skeleton_fbx`](python.md#fbx-files) |
 
 The skeleton is the pairing key: an animation FBX goes with the skeleton export whose joint names and hierarchy it matches, and the bone map's `skeletonId` names that skeleton. The animation properties (loop, root motion, events) are engine data kept by mayadev's asset tools, not by RigModules. The Unreal import itself has not been tested ([`design/control-library.md`](../design/control-library.md), sections 6b and 12).

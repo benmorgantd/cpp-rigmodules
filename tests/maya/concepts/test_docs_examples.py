@@ -340,7 +340,7 @@ class KeysDocExample(RigTestCase):
 
 
 class AnimationSidecarDocExample(RigTestCase):
-    """The animation sidecar in docs/commands.md passes the plugin's reader, and animateRigFromJointClip uses it."""
+    """The sidecar in docs/commands.md is a valid ControlAnim file, and animateRigFromJointClip keys what it gives."""
 
     def test_sidecar_example_is_accepted(self):
         import rigtest.jointclips as jointclips
@@ -349,8 +349,9 @@ class AnimationSidecarDocExample(RigTestCase):
         rest = jointclips.snapshot()
         folder = config.WORK_DIR
         clip = jointclips.write_json(os.path.join(folder, "doc_anim_clip.json"), jointclips.clip_data(rest, [rest, rest, rest]))
-        sidecar = jointclips.write_json(os.path.join(folder, "doc_anim_sidecar.json"), commands_doc_json("### Animation sidecar format"))
+        sidecar = jointclips.write_json(os.path.join(folder, "doc_anim_sidecar.json"), commands_doc_json("### The sidecar"))
         cmds.animateRigFromJointClip(root, jointClip=clip.replace("\\", "/"), sidecar=sidecar.replace("\\", "/"))
         layout = rig_name("layout_0_ctrl_c")
-        self.assertEqual(cmds.keyframe(layout + ".translateX", query=True, valueChange=True), [0, 0.5, 1.0])
-        self.assertEqual(cmds.keyframe(rig_name("upperArm_l_ctrl_l") + ".space", query=True, valueChange=True), [0, 0, 0])
+        self.assertEqual(cmds.keyframe(layout + ".translateX", query=True, timeChange=True), [1, 3])
+        self.assertEqual(cmds.keyframe(layout + ".translateX", query=True, valueChange=True), [0, 1.0])
+        self.assertEqual(cmds.keyframe(rig_name("upperArm_l_ctrl_l") + ".space", query=True, valueChange=True), [0])

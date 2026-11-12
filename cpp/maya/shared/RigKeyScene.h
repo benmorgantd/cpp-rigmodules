@@ -1,7 +1,10 @@
 #pragma once
 
+#include "core/PoseFile.h"
 #include "core/RigKeys.h"
 #include "maya/shared/RigTraversal.h"
+
+#include <vector>
 
 #include <maya/MAnimCurveChange.h>
 #include <maya/MDGModifier.h>
@@ -45,4 +48,9 @@ public:
 	// angles negated. It is a flip: both sides' entries move, so a rig keyed on one side only gets keys on the other.
 	// An entry whose control has no mirror, or that the rig lacks, is skipped with a warning.
 	static MStatus mirrorRigKeys(const RigControlScope& scope, const RigKeys& keys, RigKeys& outMirrored);
+
+	// The keys' curves evaluated on every whole frame from firstFrame to lastFrame, as one pose per frame (UI units), for
+	// the channels the rig has. It builds scratch animCurves with the same keys, tangents and flags and deletes them, so
+	// the scene is unchanged and nothing goes on the undo queue. A channel the rig lacks is left out.
+	static MStatus sampleRigKeys(const MObject& oRigRoot, const RigKeys& keys, int firstFrame, int lastFrame, std::vector<PoseMap>& outSamples);
 };

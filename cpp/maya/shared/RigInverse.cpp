@@ -184,7 +184,13 @@ namespace
 
 	// Writes a derived local matrix into the control's transform channels, with the euler nearest the previous frame's
 	// so a curve doesn't flip. Warns about what the channels can't hold.
-	void applyLocal(ControlState& control, const MMatrix& mLocal, std::vector<double>& values, std::vector<char>& written, std::set<std::string>& warnings)
+	void applyLocal(
+		ControlState& control,
+		const MMatrix& mLocal,
+		std::vector<double>& values,
+		std::vector<char>& written,
+		std::vector<char>& isDerived,
+		std::set<std::string>& warnings)
 	{
 		const MTransformationMatrix matrix(mLocal);
 		const MVector translation = matrix.getTranslation(MSpace::kTransform);
@@ -223,6 +229,7 @@ namespace
 			const std::size_t i = static_cast<std::size_t>(it - control.channels.begin());
 			values[i] = derived[t];
 			written[i] = 1;
+			isDerived[i] = 1;
 		}
 		if (missingChannels > 0)
 		{
@@ -249,6 +256,9 @@ namespace
 		MStatus solveFrame(const JointPose& pose, const PoseMap& sidecar, PoseMap& outPose);
 		void showWarnings() const;
 
+		// The channels every frame solved so far gave, by where they came from.
+		RigInverse::ChannelOrigins getOrigins() const;
+
 	private:
 		MStatus readControls(ModuleState& module, std::map<std::string, int>& controlByKey);
 		MStatus readJoints(ModuleState& module, std::size_t slotCount, const std::map<std::pair<std::string, std::string>, int>& clipJointByMarkup);
@@ -264,6 +274,8 @@ namespace
 		std::vector<int> fClipParents;
 		std::vector<MMatrix> fClipRestWorld;
 		mutable std::set<std::string> fWarnings;
+		RigInverse::ChannelNames fDerived;
+		RigInverse::ChannelNames fSupplied;
 	};
 
 	SocketRef Solver::readSocketSource(const MPlug& pDestination, const std::map<std::string, int>& moduleByKey) const
@@ -661,11 +673,15 @@ namespace
 		// Every control starts at rest for its transform and keeps nothing else, then the sidecar overlays it.
 		std::vector<std::vector<double>> values(fControls.size());
 		std::vector<std::vector<char>> written(fControls.size());
+		std::vector<std::vector<char>> isDerived(fControls.size());
+		std::vector<std::vector<char>> isSupplied(fControls.size());
 		for (std::size_t c = 0; c < fControls.size(); ++c)
 		{
 			const ControlState& control = fControls[c];
 			values[c].resize(control.channels.size());
 			written[c].assign(control.channels.size(), 0);
+			isDerived[c].assign(control.channels.size(), 0);
+			isSupplied[c].assign(control.channels.size(), 0);
 			for (std::size_t i = 0; i < control.channels.size(); ++i)
 			{
 				values[c][i] = control.channels[i].rest;
@@ -691,6 +707,7 @@ namespace
 				const std::size_t i = static_cast<std::size_t>(it - control.channels.begin());
 				values[c][i] = RigPoseScene::fromUiUnits(*it, value);
 				written[c][i] = 1;
+				isSupplied[c][i] = 1;
 			}
 		}
 
@@ -733,7 +750,7 @@ namespace
 				const int control = module.controlOfSlot[slot];
 				if (control >= 0 && result.controlLocal[slot].has_value())
 				{
-					applyLocal(fControls[control], *result.controlLocal[slot], values[control], written[control], fWarnings);
+					applyLocal(fControls[control], *result.controlLocal[slot], values[control], written[control], isDerived[control], fWarnings);
 				}
 			}
 		}
@@ -744,6 +761,14 @@ namespace
 			PoseChannels channels;
 			for (std::size_t i = 0; i < control.channels.size(); ++i)
 			{
+				if (isDerived[c][i])
+				{
+					fDerived[control.markup.side][control.markup.usage].insert(control.channels[i].info.name);
+				}
+				else if (isSupplied[c][i])
+				{
+					fSupplied[control.markup.side][control.markup.usage].insert(control.channels[i].info.name);
+				}
 				if (written[c][i])
 				{
 					channels.emplace_back(control.channels[i].info.name, RigPoseScene::toUiUnits(control.channels[i], values[c][i]));
@@ -752,6 +777,34 @@ namespace
 			outPose[control.markup.side][control.markup.usage] = channels;
 		}
 		return MStatus::kSuccess;
+	}
+
+	RigInverse::ChannelOrigins Solver::getOrigins() const
+	{
+		// A channel is supplied only when the joints gave it on no frame.
+		RigInverse::ChannelOrigins origins;
+		origins.derived = fDerived;
+		for (const auto& [side, usages] : fSupplied)
+		{
+			for (const auto& [usage, channels] : usages)
+			{
+				for (const std::string& channel : channels)
+				{
+					const auto itSide = fDerived.find(side);
+					bool isDerived = false;
+					if (itSide != fDerived.end())
+					{
+						const auto itUsage = itSide->second.find(usage);
+						isDerived = itUsage != itSide->second.end() && itUsage->second.count(channel) > 0;
+					}
+					if (!isDerived)
+					{
+						origins.supplied[side][usage].insert(channel);
+					}
+				}
+			}
+		}
+		return origins;
 	}
 
 	void Solver::showWarnings() const
@@ -764,7 +817,12 @@ namespace
 	}
 }
 
-MStatus RigInverse::solve(const MObject& oRigRoot, const JointClip& clip, const std::vector<PoseMap>& sidecars, std::vector<PoseMap>& outPoses)
+MStatus RigInverse::solve(
+	const MObject& oRigRoot,
+	const JointClip& clip,
+	const std::vector<PoseMap>& sidecars,
+	std::vector<PoseMap>& outPoses,
+	ChannelOrigins* pOutOrigins)
 {
 	outPoses.clear();
 	if (sidecars.size() != clip.poses.size())
@@ -792,5 +850,9 @@ MStatus RigInverse::solve(const MObject& oRigRoot, const JointClip& clip, const 
 
 	solver.showWarnings();
 	outPoses = std::move(poses);
+	if (pOutOrigins != nullptr)
+	{
+		*pOutOrigins = solver.getOrigins();
+	}
 	return MStatus::kSuccess;
 }

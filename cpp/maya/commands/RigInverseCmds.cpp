@@ -1,5 +1,5 @@
 #include "maya/commands/RigInverseCmds.h"
-#include "core/AnimationSidecar.h"
+#include "core/ControlAnimFile.h"
 #include "core/JointClipFile.h"
 #include "core/PoseFile.h"
 #include "core/RigKeys.h"
@@ -8,7 +8,9 @@
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/Utilities.h"
 
+#include <algorithm>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -269,21 +271,22 @@ MStatus AnimateRigFromJointClipCmd::doIt(const MArgList& args)
 		return MStatus::kInvalidParameter;
 	}
 
-	AnimationSidecar sidecar;
+	// The sidecar is a ControlAnim file: the control data the joints can't give (D42).
+	ControlAnim sidecar;
 	if (hasSidecar)
 	{
 		std::string text;
-		status = CommandUtils::readTextFile(sidecarPath, "animation sidecar", text);
+		status = CommandUtils::readTextFile(sidecarPath, "ControlAnim", text);
 		if (!status)
 		{
 			return status;
 		}
 		ValidationReport report;
-		deserializeAnimationSidecar(text, sidecar, report);
+		deserializeControlAnim(text, sidecar, report);
 		if (report.hasErrors())
 		{
 			ReportUtils::displayReport(report);
-			MGlobal::displayError(MString("The animation sidecar failed validation, so nothing was changed: ") + sidecarPath);
+			MGlobal::displayError(MString("The sidecar failed validation, so nothing was changed: ") + sidecarPath);
 			return MStatus::kFailure;
 		}
 	}
@@ -319,31 +322,36 @@ MStatus AnimateRigFromJointClipCmd::doIt(const MArgList& args)
 		return MStatus::kInvalidParameter;
 	}
 
-	// The range of the clip, with each frame's sidecar entry (none where the sidecar has no frame).
 	JointClip range = clip;
 	range.poses.assign(clip.poses.begin() + (first - clipFirst), clip.poses.begin() + (last - clipFirst) + 1);
-	std::vector<PoseMap> sidecars;
-	int framesWithoutSidecar = 0;
-	for (int frame = first; frame <= last; ++frame)
+
+	// The sidecar's curves evaluated on the clip's frames, by scratch curves that leave the scene alone.
+	std::vector<PoseMap> sidecars(range.poses.size());
+	if (hasSidecar)
 	{
-		const auto it = sidecar.frames.find(frame);
-		sidecars.push_back(it == sidecar.frames.end() ? PoseMap() : it->second);
-		framesWithoutSidecar += (hasSidecar && it == sidecar.frames.end()) ? 1 : 0;
-	}
-	if (framesWithoutSidecar > 0)
-	{
-		MGlobal::displayWarning(MString(aCommandString) + ": the sidecar has no entry for " + framesWithoutSidecar + " of the " + (last - first + 1)
-			+ " frames, so those frames have no values for the channels only the sidecar gives.");
+		if (sidecar.startFrame > first || sidecar.endFrame < last)
+		{
+			MGlobal::displayWarning(MString(aCommandString) + ": the sidecar covers frames " + sidecar.startFrame + " to " + sidecar.endFrame
+				+ ", and the restore frames " + first + " to " + last + ". Outside its range its curves hold their first and last values.");
+		}
+		status = RigKeyScene::sampleRigKeys(scope.oRigRoot, sidecar.controls, first, last, sidecars);
+		if (!status)
+		{
+			return status;
+		}
 	}
 
 	std::vector<PoseMap> poses;
-	status = RigInverse::solve(scope.oRigRoot, range, sidecars, poses);
+	RigInverse::ChannelOrigins origins;
+	status = RigInverse::solve(scope.oRigRoot, range, sidecars, poses, &origins);
 	if (!status)
 	{
 		return status;
 	}
 
-	// Every channel the solve wrote gets a key on every frame, all of a channel's keys in one call.
+	// A channel the joints gave is keyed on every frame, all of a channel's keys in one call. A channel only the sidecar
+	// gave keeps the sidecar's own keys, with their tangents, inside the range. A channel nothing gave is not keyed, so a
+	// control with no joints and no sidecar keeps its keys.
 	RigKeys keys;
 	for (std::size_t p = 0; p < poses.size(); ++p)
 	{
@@ -351,9 +359,36 @@ MStatus AnimateRigFromJointClipCmd::doIt(const MArgList& args)
 		{
 			for (const auto& [usage, channels] : usages)
 			{
+				const auto itSide = origins.derived.find(side);
+				if (itSide == origins.derived.end() || itSide->second.find(usage) == itSide->second.end())
+				{
+					continue;
+				}
+				const std::set<std::string>& derived = itSide->second.at(usage);
 				for (const auto& [name, value] : channels)
 				{
-					keys[side][usage][name].keys.push_back(Key{ static_cast<double>(first) + static_cast<double>(p), value, {}, {} });
+					if (derived.count(name) > 0)
+					{
+						keys[side][usage][name].keys.push_back(Key{ static_cast<double>(first) + static_cast<double>(p), value, {}, {} });
+					}
+				}
+			}
+		}
+	}
+	for (const auto& [side, usages] : origins.supplied)
+	{
+		for (const auto& [usage, channels] : usages)
+		{
+			for (const std::string& name : channels)
+			{
+				ChannelCurve curve = sidecar.controls.at(side).at(usage).at(name);
+				curve.keys.erase(std::remove_if(curve.keys.begin(), curve.keys.end(), [first, last](const Key& key)
+				{
+					return key.frame < first || key.frame > last;
+				}), curve.keys.end());
+				if (!curve.keys.empty())
+				{
+					keys[side][usage][name] = curve;
 				}
 			}
 		}

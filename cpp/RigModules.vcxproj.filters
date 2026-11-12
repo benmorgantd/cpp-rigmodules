@@ -27,9 +27,6 @@
     <ClCompile Include="core\AssetId.cpp">
       <Filter>core</Filter>
     </ClCompile>
-    <ClCompile Include="core\AnimationSidecar.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
     <ClCompile Include="core\JointClipFile.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -186,9 +183,6 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\Constants.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="core\AnimationSidecar.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\JointClipFile.h">

@@ -1,4 +1,4 @@
-"""poseRigFromJointPose and animateRigFromJointClip (D41): argument handling, every JointClip and sidecar validation
+"""poseRigFromJointPose and animateRigFromJointClip (D41): argument handling, every JointClip validation
 rule, and what a clip does to a rig it does not match. The solve itself is in test_inverse_solve.py.
 """
 import copy
@@ -32,6 +32,11 @@ def joint_clip():
         ],
         "poses": [[copy.deepcopy(IDENTITY), copy.deepcopy(IDENTITY)]],
     }
+
+
+def control_anim(controls=None, frame_rate=30.0, version=1):
+    """A ControlAnim file over frames 1 to 10. A channel is given as {"keys": [...]}."""
+    return {"formatVersion": version, "frameRate": frame_rate, "startFrame": 1, "endFrame": 10, "controls": controls or {}}
 
 
 def rig_root():
@@ -171,7 +176,7 @@ class AnimateRigFromJointClip(InverseCmdsTestCase):
         path = self.write_clip()
         self.assertMayaError(
             lambda: cmds.animateRigFromJointClip(rig_root(), jointClip=path, sidecar=os.path.join(self.folder, "none.json")),
-            "Could not read the animation sidecar file")
+            "Could not read the ControlAnim file")
 
     def test_start_after_end_is_an_error(self):
         path = self.write_clip()
@@ -196,55 +201,55 @@ class AnimateRigFromJointClip(InverseCmdsTestCase):
     def test_the_sidecar_must_run_at_the_clip_frame_rate(self):
         cmds.currentUnit(time="ntsc")
         path = self.write_clip()
-        sidecar = self.write("sidecar.json", {"formatVersion": 1, "frameRate": 24.0, "frames": {}})
+        sidecar = self.write("sidecar.json", control_anim(frame_rate=24.0))
         self.assertMayaError(lambda: cmds.animateRigFromJointClip(rig_root(), jointClip=path, sidecar=sidecar), "sidecar runs at 24", "JointClip at 30")
 
-    def test_a_valid_clip_keys_every_transform_channel_of_every_control(self):
+    def test_a_clip_that_matches_no_joint_and_has_no_sidecar_keys_nothing(self):
         cmds.currentUnit(time="ntsc")
         path = self.write_clip()
         changed = cmds.animateRigFromJointClip(rig_root(), jointClip=path)
-        self.assertIn(CHEST.lstrip(":"), [c.lstrip(":") for c in changed])
+        self.assertEqual(changed or [], [])
+        self.assertEqual(cmds.ls(type="animCurve") or [], [])
+
+    def test_a_clip_that_matches_no_joint_keys_what_the_sidecar_gives_with_its_own_keys(self):
+        cmds.currentUnit(time="ntsc")
+        path = self.write_clip()
+        sidecar = self.write("sidecar.json", control_anim({"Center": {"chest": {"rotateX": {"keys": [[1, 5.0, "auto", "flat"]]}}}}))
+        changed = cmds.animateRigFromJointClip(rig_root(), jointClip=path, sidecar=sidecar)
+        self.assertEqual([c.lstrip(":") for c in changed], [CHEST.lstrip(":")])
         self.assertEqual(cmds.keyframe(CHEST + ".rotateX", query=True, timeChange=True), [1])
-        self.assertEqual(cmds.keyframe(CHEST + ".scaleZ", query=True, timeChange=True), [1])
+        self.assertEqual(cmds.keyframe(CHEST + ".rotateX", query=True, valueChange=True), [5.0])
+        self.assertEqual(cmds.keyTangent(CHEST + ".rotateX", query=True, outTangentType=True), ["flat"])
 
 
-class AnimationSidecarValidation(InverseCmdsTestCase):
-    """Every rule of the animation sidecar reader, through animateRigFromJointClip (it is read before the clip)."""
+class SidecarValidation(InverseCmdsTestCase):
+    """The animation command's sidecar is a ControlAnim file. Its reader's rules are in test_rig_animation_cmds, and
+    here a bad one changes nothing."""
 
     def setUp(self):
         super().setUp()
+        cmds.currentUnit(time="ntsc")
         self.clip = self.write_clip()
-
-    def sidecar(self, **edits):
-        data = {"formatVersion": 1, "frameRate": 30.0, "frames": {"1": {"Center": {"chest": {"rotateX": 5.0}}}}}
-        data.update(edits)
-        return self.write("sidecar.json", data)
 
     def assert_rejected(self, path, *contains):
         self.assertMayaError(lambda: cmds.animateRigFromJointClip(rig_root(), jointClip=self.clip, sidecar=path),
-                             "animation sidecar failed validation", *contains)
+                             "sidecar failed validation", *contains)
+        self.assertEqual(cmds.ls(type="animCurve") or [], [])
 
     def test_not_json(self):
-        self.assert_rejected(self.write("sidecar.json", "{ nope"), "animation sidecar")
+        self.assert_rejected(self.write("sidecar.json", "{ nope"), "ControlAnim file")
 
     def test_missing_and_unknown_keys(self):
-        self.assert_rejected(self.write("a.json", {"formatVersion": 1, "frameRate": 30.0}), "frames")
-        self.assert_rejected(self.sidecar(extra=1), "extra")
+        self.assert_rejected(self.write("a.json", {"formatVersion": 1, "frameRate": 30.0}), "controls")
+        data = control_anim()
+        data["extra"] = 1
+        self.assert_rejected(self.write("b.json", data), "extra")
+
+    def test_the_old_animation_sidecar_is_not_a_format_any_more(self):
+        self.assert_rejected(self.write("c.json", {"formatVersion": 1, "frameRate": 30.0, "frames": {"1": {}}}), "frames")
 
     def test_format_version(self):
-        self.assert_rejected(self.sidecar(formatVersion=99), "formatVersion")
-        self.assert_rejected(self.sidecar(formatVersion="1"), "formatVersion", "integer")
+        self.assert_rejected(self.write("d.json", control_anim(version=99)), "formatVersion")
 
-    def test_frame_rate(self):
-        self.assert_rejected(self.sidecar(frameRate=0), "frameRate")
-        self.assert_rejected(self.sidecar(frameRate="fast"), "frameRate")
-
-    def test_frames_must_be_an_object_of_whole_numbers(self):
-        self.assert_rejected(self.sidecar(frames=[]), "frames", "object")
-        self.assert_rejected(self.sidecar(frames={"one": {}}), "frames.one", "whole number")
-        self.assert_rejected(self.sidecar(frames={"1.5": {}}), "frames.1.5", "whole number")
-
-    def test_a_frame_holds_pose_controls(self):
-        self.assert_rejected(self.sidecar(frames={"1": {"Middle": {}}}), "frames.1.Middle")
-        self.assert_rejected(self.sidecar(frames={"1": {"Center": {"chest": {"rotateX": "x"}}}}), "frames.1.Center.chest.rotateX", "number")
-        self.assert_rejected(self.sidecar(frames={"1": []}), "frames.1", "object")
+    def test_a_key_outside_the_range(self):
+        self.assert_rejected(self.write("e.json", control_anim({"Center": {"chest": {"rotateX": {"keys": [[50, 1.0]]}}}})), "outside")

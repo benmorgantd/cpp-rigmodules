@@ -32,59 +32,63 @@ std::string serializePose(const PoseMap& pose)
 	return file.dump(4) + "\n";
 }
 
-void deserializePoseControls(const nlohmann::json& controls, const std::string& controlsPath, PoseMap& outPose, ValidationReport& report)
+namespace
 {
-	if (!controls.is_object())
+	// The `controls` object of a pose file: side -> usage -> channel values. controlsPath is the prefix of the messages.
+	void deserializePoseControls(const nlohmann::json& controls, const std::string& controlsPath, PoseMap& outPose, ValidationReport& report)
 	{
-		report.addError(controlsPath, "must be a JSON object of sides");
-		return;
-	}
-
-	for (const auto& [side, usages] : controls.items())
-	{
-		const std::string sidePath = controlsPath + "." + side;
-		if (!isValidSideName(side))
+		if (!controls.is_object())
 		{
-			report.addError(sidePath, "'" + side + "' is not one of " + SideNames::Center + ", " + SideNames::Left + ", " + SideNames::Right);
-			continue;
-		}
-		if (!usages.is_object())
-		{
-			report.addError(sidePath, "must be a JSON object of usages");
-			continue;
+			report.addError(controlsPath, "must be a JSON object of sides");
+			return;
 		}
 
-		for (const auto& [usage, values] : usages.items())
+		for (const auto& [side, usages] : controls.items())
 		{
-			const std::string usagePath = sidePath + "." + usage;
-			if (usage.empty())
+			const std::string sidePath = controlsPath + "." + side;
+			if (!isValidSideName(side))
 			{
-				report.addError(sidePath, "usage is empty");
+				report.addError(sidePath, "'" + side + "' is not one of " + SideNames::Center + ", " + SideNames::Left + ", " + SideNames::Right);
 				continue;
 			}
-			if (!values.is_object())
+			if (!usages.is_object())
 			{
-				report.addError(usagePath, "must be a JSON object of channel values");
+				report.addError(sidePath, "must be a JSON object of usages");
 				continue;
 			}
 
-			PoseChannels channels;
-			for (const auto& [name, value] : values.items())
+			for (const auto& [usage, values] : usages.items())
 			{
-				if (name.empty())
+				const std::string usagePath = sidePath + "." + usage;
+				if (usage.empty())
 				{
-					report.addError(usagePath, "channel name is empty");
+					report.addError(sidePath, "usage is empty");
+					continue;
 				}
-				else if (!value.is_number())
+				if (!values.is_object())
 				{
-					report.addError(usagePath + "." + name, "must be a number, not " + value.dump());
+					report.addError(usagePath, "must be a JSON object of channel values");
+					continue;
 				}
-				else
+
+				PoseChannels channels;
+				for (const auto& [name, value] : values.items())
 				{
-					channels.emplace_back(name, value.get<double>());
+					if (name.empty())
+					{
+						report.addError(usagePath, "channel name is empty");
+					}
+					else if (!value.is_number())
+					{
+						report.addError(usagePath + "." + name, "must be a number, not " + value.dump());
+					}
+					else
+					{
+						channels.emplace_back(name, value.get<double>());
+					}
 				}
+				outPose[side][usage] = channels;
 			}
-			outPose[side][usage] = channels;
 		}
 	}
 }

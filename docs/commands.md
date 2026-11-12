@@ -518,7 +518,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 | Flag | Type | Meaning |
 |---|---|---|
 | `jointPose` | string | A JointClip file with exactly one JointPose, as written by [`rigmodules.jointclip.capture_joint_clip`](python.md#rigmodulesjointclip). Required. |
-| `sidecar` | string | A pose file with the control values the joints can't give. Optional. |
+| `sidecar` | string | A pose file (a ControlPose, [`saveRigPose`](#saverigpose)) with the control values the joints can't give. Optional. |
 | `mode` | string | `match`, the only mode. Optional. |
 
 - Sets values and keys nothing, like `loadRigPose`. Undoable.
@@ -540,7 +540,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 Keys a rig's controls from an animated joint clip, by the solve of [`poseRigFromJointPose`](#how-the-joints-become-control-values) on every frame.
 
 ```python
-cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.jointclip.json", sidecar="C:/anims/walk.rigdata.json", startFrame=1, endFrame=60)
+cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.jointclip.json", sidecar="C:/export/walk/walk.anim.json", startFrame=1, endFrame=60)
 # Returns the controls keyed
 ```
 
@@ -549,35 +549,33 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 | Flag | Type | Meaning |
 |---|---|---|
 | `jointClip` | string | A JointClip file. Required. |
-| `sidecar` | string | An animation sidecar file ([format](#animation-sidecar-format)). Optional. |
+| `sidecar` | string | A [ControlAnim file](library.md#controlanim-files) with the control data the joints can't give: `space`, IK/FK blend, custom channels, Layout controls. An export folder's `<name>.anim.json` is one. Optional. |
 | `mode` | string | `match`, the only mode. Optional. |
 | `startFrame`, `endFrame` | int | The part of the clip to write, the whole clip by default. Both must be inside the clip's frames, and `startFrame` can't be after `endFrame`. |
 
-- Every channel it writes gets a key on every frame of the range, with the global default tangents (`space` and other enums step). Nothing is simplified: that is a separate tool on the animation. The whole call is written through [`setRigKeys`](#setrigkeys)'s path, so it is one undo.
-- The keys land on the clip's own frame numbers (`startFrame` in the file). Keys the animator set outside the range stay, and the keys inside it are replaced.
+- **What is keyed.** A channel the joints gave (FkChain and Aim transforms) gets a key on every frame of the range, with auto tangents (`space` and other enums step). Nothing is simplified: that is a separate tool on the animation. A channel only the sidecar gave gets the sidecar's own keys, tangents and curve flags, the ones inside the range, not a baked key on every frame. A channel nothing gave is not keyed, so a control with no joints and no sidecar entry keeps its keys. The whole call is written through [`setRigKeys`](#setrigkeys)'s path, so it is one undo.
+- **The joints win.** A channel the joints give and the sidecar also has comes from the joints.
+- **How the sidecar feeds the solve.** Its curves are evaluated on every frame of the range (on scratch animation curves that are deleted afterwards, so the scene and the undo queue are untouched) and the solve reads the values, `space` first, because it decides which driver feeds each constrained control. Outside the sidecar's own range its curves hold their first and last values, with a warning.
+- The keys land on the clip's own frame numbers (`startFrame` in the file), which the sidecar shares. Keys the animator set outside the range stay, and the keys inside it are replaced.
 - The clip must run at the scene's frame rate, and the sidecar at the clip's, or the command is an error. A resample is not built.
-- Controls are solved as for `poseRigFromJointPose`, so a Layout control is keyed at rest on every frame unless the sidecar says otherwise.
-- A frame the sidecar has no entry for is a warning, and that frame has no values for the channels only the sidecar gives.
-- Everything is checked before anything is written, so a bad file changes nothing. Undoable.
+- Everything is checked before anything is written, so a bad file, including a sidecar that isn't a valid ControlAnim file, changes nothing. Undoable.
 
-### Animation sidecar format
+### The sidecar
 
-The control values a clip's joints can't give, one entry for every frame: the [pose file](#saverigpose)'s `controls` map, per frame.
+The ControlAnim file for `sidecar` is the one `saveRigAnimation` writes ([format](library.md#controlanim-files)). It needs only the channels the joints can't give:
 
 ```json
 {
     "formatVersion": 1,
     "frameRate": 24.0,
-    "frames": {
-        "1": { "Center": { "layout_0": { "translateX": 0.0 } }, "Left": { "upperArm": { "space": 0 } } },
-        "2": { "Center": { "layout_0": { "translateX": 0.5 } }, "Left": { "upperArm": { "space": 0 } } },
-        "3": { "Center": { "layout_0": { "translateX": 1.0 } }, "Left": { "upperArm": { "space": 0 } } }
+    "startFrame": 1,
+    "endFrame": 3,
+    "controls": {
+        "Center": { "layout_0": { "translateX": { "keys": [[1, 0.0, "linear", "linear"], [3, 1.0, "linear", "linear"]] } } },
+        "Left": { "upperArm": { "space": { "keys": [[1, 0, "auto", "step"]] } } }
     }
 }
 ```
-
-- `frames` maps a frame number to what the pose file's `controls` holds: markup, then channel values in UI units, an enum by index. Every channel is baked on every frame, so the file has no sparse keys and no tangent data.
-- The reader checks the whole file (bad JSON, a missing or unknown key, a `formatVersion` this build doesn't read, a `frameRate` that isn't above 0, a frame that isn't a whole number, anything a pose file's `controls` rejects).
 
 ## setRigMeshId
 
