@@ -159,12 +159,11 @@ joints = rigmodules.jointclip.capture_joint_clip("hero:rigRootModule1", 1, 48, "
 | Function | Does |
 |---|---|
 | `capture_joint_clip(rig_root, start_frame, end_frame, clip_path)` | Writes a JointClip file from the rig's export joints (the joints in its namespace whose markup has `export` set), one JointPose per frame, and returns the joints captured, parents first. It reads each frame without moving the time slider. Raises `ValueError` when `start_frame` is after `end_frame`, and `RuntimeError` when the rig has no export joints or two would share a path |
+| `write_fbx(clip_path, fbx_path)` | Writes a JointClip file as an FBX file ([below](#fbx-files)). An existing file is replaced, and a failed write leaves it as it was. Raises `ValueError` for a file that isn't a JointClip, a clip with no poses, a joint name Maya can't use, two joints with one name, or a frame rate that differs from the scene's, and `RuntimeError` when the scene already has a node named like a joint |
+| `read_fbx(fbx_path, clip_path, bone_map=None)` | Reads an FBX file into a JointClip file, with the markup of a [bone map](#bone-maps) when given. Raises `FileNotFoundError`, and `ValueError` for a bad bone map or a file with no joints |
+| `write_skeleton_fbx(rig_root, skeleton_id, fbx_path, bone_map_path)` | The skeleton export: the rig's export joints at rest as a static FBX, and their bone map with the rig's asset id and `skeleton_id` (the id of the shared skeleton asset, which the caller knows). Raises what `write_fbx` raises, and `RuntimeError` when the rig has no export joints |
 
 A joint's transform is its world matrix relative to its nearest captured ancestor, so it doesn't depend on the rig's joints inheriting transforms. A joint's rest is its build pose. Shear is dropped, and a quaternion keeps the sign nearest the previous frame, so a long turn doesn't flip.
-
-### Joint files for mocap and the engine
-
-A JointClip file is the only joint file now. A joint file in the exchange format of mocap and Unreal is planned as FBX, written and read through Maya by adapters over the JointClip file (D42, `design/control-library.md`, section 12). It is not built, and USD was dropped.
 
 ### File format
 
@@ -190,3 +189,49 @@ A JointClip file is the only joint file now. A joint file in the exchange format
 - A joint's `path` is its hierarchy: the path above it is its parent, which comes earlier in the list. `markup` is the joint's `rigMarkup` JSON as it is, or `""` for a joint that has none. Unmarked joints stay in the file and are never matched to a rig. Two joints can't have the same side and usage.
 - Every transform is local to the joint's parent: `translate` in Maya's internal units (centimeters), `rotate` a unit quaternion (x, y, z, w) and `scale`. A pose has one transform per joint, in joint order. `rest` is the source's rest, kept for retargeting.
 - The reader checks the whole file before anything uses it (bad JSON, a missing or unknown key, a `formatVersion` this build doesn't read, a bad path or markup, a pose of the wrong length, a rotation that isn't a unit quaternion), so a bad file changes nothing.
+
+### FBX files
+
+FBX is the joint file for mocap and the engine (D42). `write_fbx` and `read_fbx` are adapters over the JointClip file and run through a Maya session with the FBX plugin, which they load. Both build or import a scratch skeleton and delete it, restore the selection, time, playback range and time unit, and leave nothing on the undo queue.
+
+- **Writing** builds plain joints named like the clip's, parented by path, with the clip's local transforms keyed on every frame (euler rotation, the solution nearest the frame before, so a long turn doesn't flip), and exports them baked in the scene's up axis. A clip with one pose gives a static skeleton with no keys. A joint's markup is written as its `rigMarkup` attribute. The rig's own joints aren't exported, because the exporter ignores `offsetParentMatrix`.
+- **Reading** imports the file into a scratch namespace, applies the bone map, and samples every joint on the file's whole frames. The clip's frame rate is the file's (the scene keeps its own unit), its rest is the file's first frame, and a file with no keys gives one pose.
+- **Names.** FBX bones bind by name, so joint names are unique in a clip, valid Maya node names, and the scene mustn't already hold a node of the same name when writing. A namespace is dropped in the file.
+- **Frame rate.** Writing refuses a clip whose frame rate isn't the scene's. A restore does too (`poseRigFromJointPose` and `animateRigFromJointClip`).
+- **Precision.** A round trip matches to about 1e-7.
+- **Importer messages.** Maya's importer prints `setAttr: No object matches name: ...rigMarkup` lines in the Script Editor for markup it then sets anyway. They are harmless.
+- **Unreal.** The skeleton and animation pairing and the import and export paths are in `design/control-library.md`, section 6b. The import into Unreal itself has not been tested.
+
+```python
+import rigmodules.jointclip
+
+rigmodules.jointclip.capture_joint_clip("hero:rigRootModule1", 1, 48, "C:/tmp/walk.json")
+rigmodules.jointclip.write_fbx("C:/tmp/walk.json", "C:/export/walk/walk.fbx")
+rigmodules.jointclip.read_fbx("C:/export/walk/walk.fbx", "C:/tmp/walk.json")
+cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.json")
+```
+
+### Bone maps
+
+A foreign FBX (a mocap take, a vendor skeleton) carries no markup, so a bone map file gives it some: a joint's leaf name (without namespace) to its `rigMarkup` object. `write_skeleton_fbx` writes one beside the skeleton FBX, `read_fbx` applies one, and a vendor skeleton's is written once and reused for every take.
+
+```json
+{
+    "formatVersion": 1,
+    "assetId": "shooter|characters|hero",
+    "skeletonId": "shooter|skeletons|human",
+    "joints": {
+        "LeftArm": { "markupVersion": 1, "side": "Left", "usage": "upperArm", "export": true, "skin": true },
+        "Hips": { "markupVersion": 1, "side": "Center", "usage": "pelvis", "export": true, "skin": true }
+    }
+}
+```
+
+| Function (`rigmodules.bonemap`) | Does |
+|---|---|
+| `write_bone_map(path, asset_id, skeleton_id, markups)` | Writes a bone map. `markups` is `{leaf name: rigMarkup JSON}`, and a joint with `""` is left out. A failed write keeps the old file. Raises `ValueError` for a bad id or markup |
+| `read_bone_map(path)` | Reads and checks a bone map. Raises `FileNotFoundError`, and `ValueError` listing every problem: a `formatVersion` this build doesn't read, a bad id, a missing or mistyped markup key, an empty usage, two joints with the same side and usage |
+| `apply_bone_map(bone_map, joints)` | Writes the map's markup on the joints it names, replacing markup they have, and returns the names no joint has |
+
+A joint the map leaves out keeps the markup the file carries, or none: it stays in the clip for the world matrices of the joints below it and is never matched to a rig.
+

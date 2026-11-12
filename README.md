@@ -4,7 +4,7 @@ A C++ rigging plugin for Autodesk Maya 2026+. You mark up a skeleton, describe t
 
 The rig it builds is aimed at animation and game export: predictable controls, stable names, and a clean split between controls and export joints.
 
-> **Status:** early development. Three modules exist (Layout, FkChain, Aim). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has the rig queries, the skin weight helpers and `rigmodules.pose` (key controls) so far.
+> **Status:** early development. Three modules exist (Layout, FkChain, Aim). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has the rig queries, the skin weight helpers, `rigmodules.pose` (key controls) and FBX joint files with bone maps so far.
 
 ## How it works
 

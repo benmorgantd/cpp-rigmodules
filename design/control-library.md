@@ -1,6 +1,6 @@
 # Control library: poses and animation on the rig's own controls
 
-**Status:** Decided (author, 2026-11-12), D42. The folder names, the export's control copy, the sampling and FBX as the joint file are settled (sections 10 and 12). Not built apart from the USD removal (section 13, done: tag `usd-joint-io`, suite 626 passed). Sections 2 and 6b hold the data vocabulary and the Unreal pairing. The ControlAnim format in section 4 still needs sign-off before code.
+**Status:** Decided (author, 2026-11-12), D42. The ControlAnim key layout and tangent encoding (section 4) are signed off (author, 2026-11-12). The FBX adapters, the bone map and the skeleton export are built (section 12); the ControlAnim, its commands and mayadev's library are not. The folder names, the export's control copy, the sampling and FBX as the joint file are settled (sections 10 and 12). Not built apart from the USD removal (section 13, done: tag `usd-joint-io`, suite 626 passed). Sections 2 and 6b hold the data vocabulary and the Unreal pairing. The command names in section 4 are proposals.
 
 D41 built the inverse solve and picked USD as its carrier. It never asked what an animator's pose and animation library should be, so the file roles blurred: `poses/` was going to hold control poses and USD joint files side by side, the sidecar was a "pose file" that was not one, and nothing said how animation reaches an engine. This design starts from the library and the engine, and fits the inverse into it.
 
@@ -130,7 +130,7 @@ Three things travel to the engine, and each has one owner and one place in the a
 
 The ControlAnim copy (`<name>.anim.json`) sits in the export folder but isn't engine data: it makes the export reopenable on the rig.
 
-**The pairing key is the skeleton.** An animation FBX is valid for a skeleton asset when its joint names and hierarchy match the skeleton's. The bone map's `skeletonId` is the stable name for that skeleton, and an export folder carries no copy of it: the clip is made on the asset's skeleton, so its names are the skeleton's. A check in the adapter (not the engine) compares an animation FBX's joints to the skeleton export's before it is written or read, and refuses a mismatch with the names that differ.
+**The pairing key is the skeleton.** An animation FBX is valid for a skeleton asset when its joint names and hierarchy match the skeleton's. The bone map's `skeletonId` is the stable name for that skeleton, and an export folder carries no copy of it: the clip is made on the asset's skeleton, so its names are the skeleton's. A check that compares an animation FBX's joints to the skeleton export's, and refuses a mismatch with the names that differ, is intended in the adapter (not the engine). It is not built: today the adapter checks the clip alone.
 
 **Out of Maya (export), per animation:**
 1. Pick a ControlAnim from `controlanims/` (or the animator's keys on the scene).
@@ -168,7 +168,7 @@ No existing control, channel, socket or child plug changes. `poses/<name>.json` 
 2. **ControlAnim in `core/`**: the types, serialize and deserialize, the update table, validation. Tests by hand-written files, including every error path.
 3. **Tangents in `RigKeyScene`**: read and write, curve flags, stepped enum channels. Round trip test on a rig: key with mixed tangents, save, zero, load, compare keys and curve shape.
 4. **`saveRigAnimation` and `loadRigAnimation`**, with offset and mirror, docs and tests.
-5. **FBX adapters and the skeleton export** (section 12): `core/BoneMapFile`, `rigmodules.jointclip.write_fbx` and `read_fbx`, and the skeleton export with its bone map.
+5. **FBX adapters and the skeleton export** (section 12). Built 2026-11-12: `rigmodules.jointclip.write_fbx`, `read_fbx` and `write_skeleton_fbx`, and `rigmodules.bonemap`.
 6. **The restore from joints with a ControlAnim supplement** in Python (section 7).
 7. **mayadev:** the folders, handlers and library UI, and `animprops`.
 8. IK, then retargeting, as in D41.
@@ -196,7 +196,7 @@ The author switched from USD to FBX because FBX is the mocap standard (Vicon, Op
 
 **The core doesn't change.** It depends on the JointClip, not on a file format (inverse-solve.md, section 7), so FBX is an adapter at the edge, written in Python in `rigmodules.jointclip` beside `write_usd` and `read_usd`. Both go through a Maya scene:
 
-- **`write_fbx(clip_path, fbx_path)`**: builds a scratch skeleton of plain joints from the JointClip (real parenting, each joint's local translate, rotate and scale keyed on its frame), exports it with Maya's FBX exporter, and deletes it. A scratch skeleton, not the rig's joints, because the rig drives its joints through `offsetParentMatrix` with `inheritsTransform` off. The exporter reads transform attributes and the DAG parent, and whether it honours `offsetParentMatrix` was not checked. This plan doesn't depend on it. Keying euler rotation needs the rule D41 already uses: the euler nearest the previous frame, so no curve flips.
+- **`write_fbx(clip_path, fbx_path)`**: builds a scratch skeleton of plain joints from the JointClip (real parenting, each joint's local translate, rotate and scale keyed on its frame), exports it with Maya's FBX exporter, and deletes it. A scratch skeleton, not the rig's joints, because the rig drives its joints through `offsetParentMatrix` with `inheritsTransform` off. The spike showed the exporter ignores `offsetParentMatrix`. Keying euler rotation needs the rule D41 already uses: the euler nearest the previous frame, so no curve flips.
 - **`read_fbx(fbx_path, clip_path, bone_map=None)`**: imports the FBX into a scratch namespace, applies the bone map's markup to the imported joints with `rigJointMarkup`, runs `capture_joint_clip` over the file's frame range, and deletes the scratch nodes. Capture reads Maya's own space, so the unit and up-axis code written for USD isn't needed. The FBX import and export options (up axis, scale, frame rate) are still needed, and the engine's convention decides them (the spike).
 
 **The bone map** is the bone id markup sidecar of the author's previous pipeline. A foreign FBX (mocap) has no `rigMarkup`, so a JSON file maps joint names to markup:
@@ -215,7 +215,7 @@ The author switched from USD to FBX because FBX is the mocap standard (Vicon, Op
 
 - Each entry is the joint's `rigMarkup` object (D15, D16), keyed by the joint's leaf name, so one markup schema serves the scene, the clip and the map.
 - Our own skeleton export writes one from the skeleton scene's markup, with `assetId` and `skeletonId` (D29). A mocap vendor's skeleton gets one authored once, kept in `sources/` and reused for every take.
-- `core/BoneMapFile` holds the format and its update table (D33), with the reader, validation and tests. Python writes the file.
+- **The bone map is Python (`rigmodules.bonemap`), not `core/BoneMapFile` as first planned.** Only Python reads and writes it: the plugin sees the markup on the joints, never the map, so a core reader would have no caller. It has a `formatVersion` and refuses any other until a version 2 needs an update table (D33). If a C++ command ever reads a bone map, the format moves to `core/` then.
 - A joint the map leaves out stays unmarked. It is kept for composing world matrices and never mapped to a rig (inverse-solve.md, section 6.1). The rig's `rigMarkup` rides in FBX user attributes only if the exporter keeps them, so the bone map is the dependable carrier.
 
 **What it costs against USD:**

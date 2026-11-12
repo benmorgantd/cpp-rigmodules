@@ -232,6 +232,48 @@ class JointClipDocExample(RigTestCase):
         self.assertIsInstance(changed, list)
 
 
+class FbxDocExample(RigTestCase):
+    """The FBX and bone map sections of docs/python.md name what exists, and their examples run."""
+
+    def section(self, heading, next_heading):
+        with open(PYTHON_DOC, encoding="utf-8") as handle:
+            return handle.read().split(heading, 1)[1].split(next_heading, 1)[0]
+
+    def test_the_bone_map_example_is_accepted_and_every_function_is_documented(self):
+        import rigmodules.bonemap
+        import rigmodules.jointclip
+
+        section = self.section("### Bone maps", "### File format")
+        path = os.path.join(config.WORK_DIR, "doc_bone_map.bonemap.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(re.search(r"```json\s*\n(.*?)```", section, re.S).group(1))
+        self.assertEqual(rigmodules.bonemap.read_bone_map(path)["skeletonId"], "shooter|skeletons|human")
+        everything = self.section("## rigmodules.jointclip", "### File format") + section
+        for function in ("write_fbx", "read_fbx", "write_skeleton_fbx", "write_bone_map", "read_bone_map", "apply_bone_map"):
+            self.assertIn(function + "(", everything)
+            self.assertTrue(hasattr(rigmodules.jointclip, function) or hasattr(rigmodules.bonemap, function), function)
+
+    def test_the_fbx_example_runs(self):
+        import rigmodules.jointclip
+
+        section = self.section("### FBX files", "### Bone maps")
+        for call in ("capture_joint_clip", "write_fbx", "read_fbx", "animateRigFromJointClip"):
+            self.assertIn(call, section)
+        self.build_standard("mirror_arms", "mirror_arms")
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        control = rig_name("upperArm_l_ctrl_l")
+        cmds.setKeyframe(control + ".rotateZ", time=1, value=0)
+        cmds.setKeyframe(control + ".rotateZ", time=3, value=60)
+        clip = os.path.join(config.WORK_DIR, "doc_fbx_clip.json")
+        fbx = os.path.join(config.WORK_DIR, "doc_fbx_clip.fbx")
+        rigmodules.jointclip.capture_joint_clip(root, 1, 3, clip)
+        rigmodules.jointclip.write_fbx(clip, fbx)
+        cmds.cutKey(control, attribute="rotateZ", clear=True)
+        rigmodules.jointclip.read_fbx(fbx, clip)
+        cmds.animateRigFromJointClip(root, jointClip=clip.replace("\\", "/"))
+        self.assertAlmostEqual(cmds.getAttr(control + ".rotateZ", time=3), 60, places=2)
+
+
 COMMANDS_DOC = os.path.join(config.REPO_DIR, "docs", "commands.md")
 
 

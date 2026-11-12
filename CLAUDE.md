@@ -181,7 +181,7 @@ RigTemplates/        example template
 | Path | Contents |
 |---|---|
 | `RigTemplates/` | Example templates, `LayoutRig.json` and `Human.json`. Their joints use `[side, usage]` selectors. |
-| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`, `get_rig_controls`, `get_control`, `find_control`, `RigControl`, `get_channels`, `get_control_channels`, `ControlChannel`), `pose.py` (`key_controls`, `key_rig`, `key_modules`), `displaylayers.py` (`get_layer`, `add_meshes`), `selection.py` (`find_set`, `get_set`, `get_members`, `get_skin_joints`, `select_skin_joints`, `get_missing_influences`, `get_extra_influences`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`), `jointclip.py` (`capture_joint_clip` writes a JointClip file from a rig, D41. It imports no pxr and no numpy, D42, and a test checks the whole package. FBX adapters are planned). `_namespace.py` is private: the `cmds.ls` pattern for a namespace's nodes, shared by `query` and `skinweights`. Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
+| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`, `get_rig_controls`, `get_control`, `find_control`, `RigControl`, `get_channels`, `get_control_channels`, `ControlChannel`), `pose.py` (`key_controls`, `key_rig`, `key_modules`), `displaylayers.py` (`get_layer`, `add_meshes`), `selection.py` (`find_set`, `get_set`, `get_members`, `get_skin_joints`, `select_skin_joints`, `get_missing_influences`, `get_extra_influences`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`), `jointclip.py` (`capture_joint_clip` writes a JointClip file from a rig, D41. `write_fbx`, `read_fbx` and `write_skeleton_fbx` convert a JointClip file to and from an FBX file through a scratch skeleton in Maya, D42. The package imports no pxr and no numpy, and a test checks that), `bonemap.py` (`write_bone_map`, `read_bone_map`, `apply_bone_map`: joint markup for an FBX that carries none, with the asset and skeleton ids, D42). `_namespace.py` is private: the `cmds.ls` pattern for a namespace's nodes, shared by `query` and `skinweights`. Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
 | `RigModules.mod` | Puts `python/` on `PYTHONPATH`, by a path relative to itself. It doesn't add the plugin path, because a loaded `.mll` locks the build. |
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
@@ -330,7 +330,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 626 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 662 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.
