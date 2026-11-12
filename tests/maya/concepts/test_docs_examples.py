@@ -204,3 +204,29 @@ class TemplatesDocMirroring(RigTestCase):
         self.assertOpmDrivenBy(rig_name("upperArm_r_jnt"), "arm_r")
         self.assertEqual(cmds.attributeQuery("space", node=rig_name("upperArm_r_ctrl_r"), listEnum=True), ["Clavicle:World"])
 
+
+PYTHON_DOC = os.path.join(config.REPO_DIR, "docs", "python.md")
+
+
+def python_doc_joint_clip():
+    """The first ```json block under '### File format' in docs/python.md."""
+    with open(PYTHON_DOC, encoding="utf-8") as handle:
+        text = handle.read()
+    section = text.split("### File format", 1)[1]
+    match = re.search(r"```json\s*\n(.*?)```", section, re.S)
+    if not match:
+        raise AssertionError("docs/python.md '### File format' has no ```json block")
+    return match.group(1)
+
+
+class JointClipDocExample(RigTestCase):
+    """The JointClip file in docs/python.md passes the plugin's reader. The solve is not built, so the command then
+    fails at the solve, which is how a file that was accepted shows."""
+
+    def test_joint_clip_example_is_accepted(self):
+        self.build_standard("mirror_arms", "mirror_arms")
+        path = os.path.join(config.WORK_DIR, "doc_joint_clip.json").replace("\\", "/")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(python_doc_joint_clip())
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        self.assertMayaError(lambda: cmds.poseRigFromJointPose(root, jointPose=path), "solve is not built yet")

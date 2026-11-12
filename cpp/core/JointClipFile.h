@@ -1,8 +1,6 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// Skeleton (D41): the types and the reader's signature are here, and the reader reports "not built yet".
-//
 // A JointClip file is the transient bridge between Python and the plugin (D41, inverse-solve.md section 7). Python reads a
 // USD file with pxr and writes this JSON, and a command reads it. It is never stored in an asset. It holds the source's
 // joints, each joint's markup and rest, and a list of JointPoses. A pose from a single-frame USD is a JointClip with one
@@ -10,6 +8,7 @@
 // {
 //     "formatVersion": 1,
 //     "frameRate": 30.0,
+//     "startFrame": 1,
 //     "joints": [
 //         { "path": "hips/spine", "markup": "<the joint's rigMarkup JSON>", "rest": { "translate": [0, 1, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1] } }
 //     ],
@@ -17,10 +16,12 @@
 //         [ { "translate": [0, 1, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1] } ]
 //     ]
 // }
-// Every transform is local to the joint's parent (UsdSkel's convention), in the scene's units: the Python reader has
-// already converted meters per unit, the up axis and the frame rate. A joint's parent is the path above it. A joint
-// with no markup has "markup": "", stays in the file and is never mapped to the rig (it still composes the world
-// matrices of the joints below it). A pose has one transform per joint, in joint order.
+// Every transform is local to the joint's parent (UsdSkel's convention). Translations are in Maya's internal units
+// (centimeters), whatever the scene's unit: the Python writer has already converted units, the up axis and the frame
+// rate. startFrame is the frame number of poses[0], and the poses are consecutive frames. A joint's parent is the path
+// above it, and comes before it in the list. A joint with no markup has "markup": "", stays in the file and is never
+// mapped to the rig (it still composes the world matrices of the joints below it). A pose has one transform per joint,
+// in joint order. A rotation is a unit quaternion. Two joints can't share a (side, usage).
 
 #include "RigTemplateValidation.h"
 
@@ -52,10 +53,14 @@ using JointPose = std::vector<JointTransform>;
 struct JointClip
 {
 	double frameRate = 30.0;
+	int startFrame = 1;   // the frame number of poses[0]
 	std::vector<JointClipJoint> joints;
 	std::vector<JointPose> poses;
 };
 
-// Every problem goes into report. An older formatVersion is updated first. outClip holds a complete clip only when
-// report has no errors, and the caller should use nothing otherwise. Reading only: Python writes the file.
+// Every problem goes into report: bad JSON, a missing or unknown key, an unknown formatVersion, a duplicate or
+// parentless joint path, markup that doesn't parse or repeats a (side, usage), a pose of the wrong length, a
+// transform that isn't numbers or a rotation that isn't a unit quaternion. An older formatVersion is updated first.
+// outClip is set only when report has no errors, and the caller should use nothing otherwise. Reading only: Python
+// writes the file.
 void deserializeJointClip(const std::string& text, JointClip& outClip, ValidationReport& report);

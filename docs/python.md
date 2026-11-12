@@ -147,4 +147,43 @@ mesh = meshes[rigmodules.skinweights.read_file_mesh_id("C:/weights/body_geo.json
 
 ## rigmodules.jointclip
 
-Not built yet. `read_usd(usd_path, clip_path)`, `write_usd(clip_path, usd_path)` and `capture(rig_root, start_frame, end_frame, usd_path, sidecar_path)` exist and raise `NotImplementedError`. They will convert between USD joint files and the JointClip file that [`poseRigFromJointPose`](commands.md#poserigfromjointpose) and [`animateRigFromJointClip`](commands.md#animaterigfromjointclip) read. The design is in [`design/inverse-solve.md`](../design/inverse-solve.md).
+Joint animation as a file the plugin reads (D41). A JointClip file is JSON: a source skeleton's joints with their markup and rest, and one JointPose per frame. [`poseRigFromJointPose`](commands.md#poserigfromjointpose) and [`animateRigFromJointClip`](commands.md#animaterigfromjointclip) read it.
+
+```python
+import rigmodules.jointclip
+
+# Samples the active rig's export joints over frames 1 to 48 and writes the file. The same frame twice is a JointPose.
+joints = rigmodules.jointclip.capture_joint_clip("hero:rigRootModule1", 1, 48, "C:/anims/walk.json")
+```
+
+| Function | Does |
+|---|---|
+| `capture_joint_clip(rig_root, start_frame, end_frame, clip_path)` | Writes a JointClip file from the rig's export joints (the joints in its namespace whose markup has `export` set), one JointPose per frame, and returns the joints captured, parents first. It reads each frame without moving the time slider. Raises `ValueError` when `start_frame` is after `end_frame`, and `RuntimeError` when the rig has no export joints or two would share a path |
+| `read_usd(usd_path, clip_path)`, `write_usd(clip_path, usd_path)` | Not built yet. They raise `NotImplementedError` |
+
+A joint's transform is its world matrix relative to its nearest captured ancestor, so it doesn't depend on the rig's joints inheriting transforms. A joint's rest is its build pose. Shear is dropped, and a quaternion keeps the sign nearest the previous frame, so a long turn doesn't flip.
+
+### File format
+
+```json
+{
+    "formatVersion": 1,
+    "frameRate": 30.0,
+    "startFrame": 1,
+    "joints": [
+        { "path": "hips", "markup": "{\"markupVersion\":1,\"usage\":\"hips\",\"side\":\"Center\",\"export\":true,\"skin\":true}", "rest": { "translate": [0, 100, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1] } },
+        { "path": "hips/spine", "markup": "", "rest": { "translate": [0, 10, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1] } }
+    ],
+    "poses": [
+        [
+            { "translate": [0, 100, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1] },
+            { "translate": [0, 10, 0], "rotate": [0, 0, 0.7071068, 0.7071068], "scale": [1, 1, 1] }
+        ]
+    ]
+}
+```
+
+- `startFrame` is the frame number of the first pose, and the poses are consecutive frames. `frameRate` is in frames per second.
+- A joint's `path` is its hierarchy: the path above it is its parent, which comes earlier in the list. `markup` is the joint's `rigMarkup` JSON as it is, or `""` for a joint that has none. Unmarked joints stay in the file and are never matched to a rig. Two joints can't have the same side and usage.
+- Every transform is local to the joint's parent: `translate` in Maya's internal units (centimeters), `rotate` a unit quaternion (x, y, z, w) and `scale`. A pose has one transform per joint, in joint order. `rest` is the source's rest, kept for retargeting.
+- The reader checks the whole file before anything uses it (bad JSON, a missing or unknown key, a `formatVersion` this build doesn't read, a bad path or markup, a pose of the wrong length, a rotation that isn't a unit quaternion), so a bad file changes nothing.

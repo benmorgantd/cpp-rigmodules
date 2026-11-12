@@ -67,6 +67,22 @@ namespace PoseFileKey
 	inline constexpr const char* Controls{ "controls" };
 }
 
+// Keys in a JointClip file, see JointClipFile.h. Public API: the Python capture and USD reader write them.
+namespace JointClipFileKey
+{
+	inline constexpr const char* FormatVersion{ "formatVersion" };
+	inline constexpr const char* FrameRate{ "frameRate" };
+	inline constexpr const char* StartFrame{ "startFrame" };
+	inline constexpr const char* Joints{ "joints" };
+	inline constexpr const char* Poses{ "poses" };
+	inline constexpr const char* Path{ "path" };
+	inline constexpr const char* Markup{ "markup" };
+	inline constexpr const char* Rest{ "rest" };
+	inline constexpr const char* Translate{ "translate" };
+	inline constexpr const char* Rotate{ "rotate" };
+	inline constexpr const char* Scale{ "scale" };
+}
+
 // Keys in a skin weight file, see SkinWeightFile.h. Public API: saved weight files depend on them.
 namespace SkinWeightFileKey
 {

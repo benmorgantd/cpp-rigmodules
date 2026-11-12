@@ -135,7 +135,7 @@ RigTemplates/        example template
 | `SkinWeightFile.h/.cpp` | Weight file format: `SkinWeights`, `topologyHash` (FNV-1a), `sortSkinInfluences`, `findUnnormalizedVertices`, `serializeSkinWeights` / `deserializeSkinWeights` (D35). |
 | `SkinWeightTable.h/.cpp` | Operations on a whole weight table, the home for the paintable skin tools to come (normalize, mirror, smooth). Now: `pruneToMaxInfluences`, on a table (rows are vertices, columns influences), the layout `getWeights` and `setWeights` use (D35). |
 | `PoseFile.h/.cpp` | Pose file format (version 1): `PoseMap` (side, usage, channel values in UI units), `poseUpdateTable` (D33), `serializePose` / `deserializePose` (D34). |
-| `JointClipFile.h/.cpp` | JointClip file types (`JointClip`, `JointPose`, `JointTransform`): the JSON Python hands the plugin from a USD file (D41). Skeleton: `deserializeJointClip` reports "not built yet". |
+| `JointClipFile.h/.cpp` | JointClip file types (`JointClip`, `JointPose`, `JointTransform`): the JSON file Python hands the plugin (D41): `deserializeJointClip` reads and validates it, and Python writes it. |
 | `AnimationSidecar.h/.cpp` | A clip's sidecar: the pose file's control values, one entry per frame (D41). Skeleton: `deserializeAnimationSidecar` reports "not built yet". |
 | `RigControlFilter.h/.cpp` | `RigControlFilter` for `getRigControls`: moduleType, side and usage lists. |
 
@@ -152,7 +152,7 @@ RigTemplates/        example template
 | `commands/JointMarkupCmd.h/.cpp` | `rigJointMarkup`. The reference command shape (D14). |
 | `commands/RigControlCmds.h/.cpp` | `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `saveRigControlShapes`, `loadRigControlShapes`, `getRigMirrorControl`, `mirrorRigControlShapes`. They call `RigTraversal`, `RigPoseScene` and `ControlShapeScene`. |
 | `commands/RigPoseCmds.h/.cpp` | `zeroRigControls`, `mirrorRigPose`, `flipRigPose`, `saveRigPose`, `loadRigPose`: the pose tools on a control's channels, each on a rig root or on controls (D34). They call `RigPoseScene`. |
-| `commands/RigInverseCmds.h/.cpp` | `poseRigFromJointPose`, `animateRigFromJointClip` (D41). Skeleton: they check arguments and files, then fail with "not built yet". |
+| `commands/RigInverseCmds.h/.cpp` | `poseRigFromJointPose`, `animateRigFromJointClip` (D41). Skeleton: they check arguments, read and validate their files, then fail because the solve and keying are not built. |
 | `commands/RigInfoCmd.h/.cpp` | `getRigInfo`: any rig root, module, control or rig-driven joint (`""` for other nodes) to its rig root, asset root, asset id, variant, namespace and stamps, as JSON (keys in `RigInfoKey` and `RigAttr`). |
 | `commands/SkinWeightCmds.h/.cpp` | `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `pruneToMaxInfluences`. `setRigMeshId` and `pruneToMaxInfluences` are the commands that read the selection. They call `SkinWeightScene`. |
 | `nodes/RigRoot.h/.cpp` | `RigRootNode`, `RigBuildInputs` and `createRig` (read phase: parse, scan markup, `planModules`, validate. Write phase: roots, `buildModules`, parenting pass, constraints). |
@@ -178,7 +178,7 @@ RigTemplates/        example template
 | Path | Contents |
 |---|---|
 | `RigTemplates/` | Example templates, `LayoutRig.json` and `Human.json`. Their joints use `[side, usage]` selectors. |
-| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`, `get_rig_controls`, `get_control`, `find_control`, `RigControl`, `get_channels`, `get_control_channels`, `ControlChannel`), `pose.py` (`key_controls`, `key_rig`, `key_modules`), `displaylayers.py` (`get_layer`, `add_meshes`), `selection.py` (`find_set`, `get_set`, `get_members`, `get_skin_joints`, `select_skin_joints`, `get_missing_influences`, `get_extra_influences`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`), `jointclip.py` (USD and JointClip IO, D41: skeleton, raises `NotImplementedError`). `_namespace.py` is private: the `cmds.ls` pattern for a namespace's nodes, shared by `query` and `skinweights`. Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
+| `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`, `get_rig_controls`, `get_control`, `find_control`, `RigControl`, `get_channels`, `get_control_channels`, `ControlChannel`), `pose.py` (`key_controls`, `key_rig`, `key_modules`), `displaylayers.py` (`get_layer`, `add_meshes`), `selection.py` (`find_set`, `get_set`, `get_members`, `get_skin_joints`, `select_skin_joints`, `get_missing_influences`, `get_extra_influences`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`), `jointclip.py` (`capture_joint_clip` writes a JointClip file from a rig, D41; the USD functions raise `NotImplementedError`). `_namespace.py` is private: the `cmds.ls` pattern for a namespace's nodes, shared by `query` and `skinweights`. Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
 | `RigModules.mod` | Puts `python/` on `PYTHONPATH`, by a path relative to itself. It doesn't add the plugin path, because a loaded `.mll` locks the build. |
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
@@ -326,7 +326,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 533 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 563 tests in 6 tiers in one watched mayapy process in about 10 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.

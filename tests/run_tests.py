@@ -71,7 +71,8 @@ TIERS = [
         "concepts.test_docs_examples",    # the README quick start ends with a space switch
         "concepts.test_mirror",            # mirrored templates include mirrored constraints (D28)
         "commands.test_rig_pose_cmds",     # the animation interface: channels, zero, mirror and flip pose (D34)
-        "commands.test_rig_inverse_cmds",  # poseRigFromJointPose and animateRigFromJointClip, skeleton stage (D41)
+        "commands.test_rig_inverse_cmds",  # poseRigFromJointPose and animateRigFromJointClip, JointClip reader (D41)
+        "commands.test_joint_clip_capture",  # rigmodules.jointclip.capture_joint_clip (D41)
     ]),
     # Animation, then import/export tiers go here, after constraints.
     ("known bugs", False, [                # expected failures, never block anything

@@ -396,7 +396,7 @@ Objects: the rig root node, or one or more controls of one rig. Flag: `file` (re
 
 ## poseRigFromJointPose
 
-Sets a rig's control values from a joint pose, by solving each module's controls from the joints. **Not built yet:** the command checks its arguments and files, then fails with "not built yet" and changes nothing. The design is in [`design/inverse-solve.md`](../design/inverse-solve.md).
+Sets a rig's control values from a joint pose, by solving each module's controls from the joints. **Not built yet:** the command checks its arguments and reads and validates its files (a JointClip file, [format](python.md#file-format)), then fails with "solve is not built yet" and changes nothing. The design is in [`design/inverse-solve.md`](../design/inverse-solve.md).
 
 ```python
 cmds.poseRigFromJointPose("hero:rigRootModule1", jointPose="C:/tmp/idle.jointclip.json", sidecar="C:/poses/idle.rigdata.json", mode="match")
@@ -408,7 +408,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 
 | Flag | Type | Meaning |
 |---|---|---|
-| `jointPose` | string | A JointClip file with exactly one JointPose. Required. |
+| `jointPose` | string | A JointClip file with exactly one JointPose, as written by [`rigmodules.jointclip.capture_joint_clip`](python.md#rigmodulesjointclip). Required. |
 | `sidecar` | string | A pose file with the control values the joints can't give. Optional. |
 | `mode` | string | `match`, the only mode. Optional. |
 
@@ -417,7 +417,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 
 ## animateRigFromJointClip
 
-Keys a rig's controls from an animated joint clip. **Not built yet:** it checks its arguments and files, then fails with "not built yet" and keys nothing. It is not undoable until the keyframe command it needs exists.
+Keys a rig's controls from an animated joint clip. **Not built yet:** it checks its arguments and reads and validates its files, then fails with "not built yet" and keys nothing. It is not undoable until the keyframe command it needs exists.
 
 ```python
 cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.jointclip.json", sidecar="C:/anims/walk.rigdata.json", startFrame=1, endFrame=60)
