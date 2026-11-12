@@ -12,7 +12,7 @@ D41 assumed control-value libraries are the weak case ("restore 1:1 only on the 
 - Control data keeps what joints can't: IK/FK blend, space switches, stretch, Layout controls, and the animator's keys and tangents.
 - Joints are right for a smaller set of cases: a different rig or skeleton, mocap, and animation that arrives from an engine or another tool.
 
-So **control data is the primary library**, and joint data (FBX, section 12) is for special remaps, mocap and the engine. The inverse solve stays as built and its role is smaller. D41's USD IO stays built and is no longer the export path.
+So **control data is the primary library**, and joint data (FBX, section 12) is for special remaps, mocap and the engine. The inverse solve stays as built and its role is smaller. D41's USD IO is retired (section 13).
 
 ## 2. The data types
 
@@ -20,7 +20,7 @@ So **control data is the primary library**, and joint data (FBX, section 12) is 
 |---|---|---|---|
 | ControlPose | Control channel values, one frame | A rig's controls, by markup | `PoseFile` (D34), built |
 | ControlAnim | Sparse keys with tangents per control channel | A rig's controls, by markup | New, section 4 |
-| JointClip / JointPose | Joint transforms per frame | A skeleton, by joint markup | FBX through Maya (section 12). The JSON form is a transient. USD IO (D41) is built and secondary. |
+| JointClip / JointPose | Joint transforms per frame | A skeleton, by joint markup | FBX through Maya (section 12). The JSON form is a transient. USD IO (D41) is retired (section 13). |
 | Animation properties | Engine data about a clip: loop, root motion, events, curves, additive type | An engine asset | `<name>.animprops.json`, mayadev's, section 6 |
 
 A pose is still one frame of an animation. The two control formats stay separate files: a ControlPose has no time, no frame rate and no tangents, and it is applied as values without keys, like `loadRigPose`. Merging them would give a pose file a frame layer it never uses.
@@ -115,7 +115,7 @@ exports/walk/
 - **The "derived channels" problem goes away.** The sidecar writer is no longer needed, and so neither is the list it would have consulted. Transform channels of a joint-driven control come from joints, and everything else from the ControlAnim.
 - **The Layout keying wart goes away** if the solve stops writing a control it could not solve (D41 currently writes rest on every frame). A control with no joints and no supplement keeps its own keys.
 - **`poses/` in `asset-model.md` and `mayadev-integration.md`** becomes `controlposes/` and holds only ControlPoses, and the sentence about USD pairing by basename in the same folder is replaced by section 3.
-- **Not changed:** the inverse, `poseRigFromJointPose`, `animateRigFromJointClip` (their `sidecar` argument stays, fed by Python), the JointClip file, USD IO and the keyframe command.
+- **Not changed:** the inverse, `poseRigFromJointPose`, `animateRigFromJointClip` (their `sidecar` argument stays, fed by Python), the JointClip file and the keyframe command. USD IO is removed (section 13).
 
 ## 8. Names and compatibility
 
@@ -139,7 +139,8 @@ No existing control, channel, socket or child plug changes. `poses/<name>.json` 
 2. **Every export carries its ControlAnim copy.** It is the export's source data, so it is not optional.
 3. **The restore samples through Maya.** Python loads the ControlAnim onto the rig and reads the non-derived channels per frame, so `core/` needs no curve evaluator.
 4. **Tangents mirror** by negating fixed angles on a negated channel (section 4).
-5. **The joint file is FBX** for mocap and Unreal (section 12). The open question is whether USD IO is kept or retired once the FBX path round-trips.
+5. **The joint file is FBX** for mocap and Unreal (section 12).
+6. **USD IO is retired** to drop the `pxr` dependency (section 13).
 
 ## 11. Maintenance surface and cost
 
@@ -185,6 +186,33 @@ The author switched from USD to FBX because FBX is the mocap standard (Vicon, Op
 - **Tests:** the bone map and JointClip logic stay testable without FBX. The FBX round trip is a Maya test (write, read, compare every joint's matrices to the JointClip, tolerance 1e-4), and depends on the plugin loading in the suite.
 - **Precision is better**: FBX stores doubles, where USD's scale was half precision.
 
-**USD IO stays built, tested and not extended.** It remains a working second adapter, but it adds the `pxr` dependency and a test tier. Whether to keep it or retire it is an open question (author). My suggestion is to keep it until the FBX path round-trips, then decide.
+**USD IO is retired** (author, 2026-11-12), see section 13.
 
 **Spike first (build order 1b):** write one baked animation FBX from a scratch skeleton, check that Maya's exporter and importer run in mayapy, and import the file into the target Unreal version against a skeleton asset. Record the options that worked. Unreal's FBX importer is the standard path, but nothing here has been run.
+
+## 13. Retiring USD (author, 2026-11-12)
+
+**Why.** The plugin never linked USD (D41), but the Python package did: `rigmodules/jointclip.py` imports `pxr` and `numpy` at module level, so even `capture_joint_clip`, which uses neither, fails to import without Maya's bundled USD build. That ties the package to the OpenUSD version Maya ships (0.24.11 in Maya 2026), and USD is no longer the export path. Removing it takes the dependency out of the package and a test file out of the suite.
+
+**Remove, don't deprecate.** A deprecated adapter is dead code that still needs `pxr` to import. Git keeps it: tag the commit just before the removal as `usd-joint-io`, the way `legacy-rig-builder` keeps the old builder.
+
+**What goes** (the removal is one commit):
+
+| Where | Remove | Keep |
+|---|---|---|
+| `python/rigmodules/jointclip.py` | `write_usd`, `read_usd`, the `_USD_*` constants and the helpers only they use: `_get_path_parent_indices`, `_get_temp_usd_path`, `_write_stage_metadata`, `_is_scene_z_up`, `_write_skeleton`, `_write_animation`, `_matrix_from_transform`, `_decompose_matrix`, `_get_single_skeleton`, `_get_usd_markups`, `_get_up_axis_conversion`, `_apply_conversion`, `_get_frames`, `_dot_lists`, `_check_clip`, and the `pxr` and `numpy` imports. The module docstring loses its USD lines. | `capture_joint_clip`, `_write_clip`, `_get_frame_rate`, `_dot`, and the rest of capture's helpers |
+| `tests/` | `commands/test_joint_clip_usd.py` and its `TIERS` line in `run_tests.py`. `UsdDocExample` in `concepts/test_docs_examples.py`. The "needs neither pxr nor" comments in `rigtest/jointclips.py` and `test_inverse_solve.py`. | `test_joint_clip_capture`, every solve and contract test |
+| `docs/python.md` | The `write_usd` and `read_usd` rows and the "USD files" section, and the `pxr` note. | The capture row and the JointClip file format section |
+| `cpp/core` | Comments only: "USD" and "UsdSkel's convention" in `JointClipFile.h`, `JointClipFile.cpp` and `Constants.h`. | The format: parent-local transforms, quaternion rotations, centimeters. No version bump, so FBX-fed clips use the same file. |
+| `design/` and `CLAUDE.md` | The repo map's `jointclip.py` row loses `write_usd` and `read_usd`. `inverse-solve.md` section 6.1 (the USD layout) gets a withdrawn banner, as the rest of that file got its amendment. D41's USD IO bullet gets a pointer to D42. | The history |
+| mayadev | `AnimClipHandler` saves and loads `.usd`. It loses that until `write_fbx` and `read_fbx` exist. Needs the author's go-ahead and a commit in that repo. | |
+
+No C++ source, `.vcxproj`, `.mod` file or plugin build changes. The `.mll` is the same.
+
+**What the removal leaves.** Capture, the JointClip JSON file and both restore commands, so a rig's joints can still be sampled and restored through JSON. There is no joint file format until the FBX adapters exist (build order 5). Nothing else in this repo reads USD, and the clip menu and the engine export are not built, so the gap costs no animator-facing feature. Doing it first is simpler than keeping `pxr` until the FBX path is done.
+
+**What to carry into the FBX adapters** (lessons, not code kept as dead code): a quaternion keeps `w >= 0` and the sign nearest the previous frame; joints come parents before children; joints the bone map leaves out stay in the file; a write goes to a temporary file and `os.replace`, so a failed write leaves the old file; a name the format can't hold is refused before anything is written. `write_fbx` needs a clip check and a Maya-side matrix helper, and writes them fresh against `maya.api.OpenMaya` rather than the `pxr.Gf` versions.
+
+**Tests.** The suite shrinks by the USD file's tests (the TOTAL moves, and `CLAUDE.md`'s 662 goes stale, so update it from the run). Proposed new test, in the concepts tier: no module under `python/rigmodules` imports `pxr` or `numpy`, checked statically like `test_source_layout.py`, so the dependency can't come back unnoticed. Needs a local build and suite run: the removal touches Python and tests that run in Maya.
+
+**Risks.** Anyone who saved `.usd` clips loses the reader, and the tag is their way back. mayadev's handler breaks until FBX lands, so decide whether to remove its USD paths now or leave them failing with a clear message.
