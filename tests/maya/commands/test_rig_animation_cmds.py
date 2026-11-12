@@ -324,18 +324,17 @@ class SaveAndLoad(AnimTestCase):
             text = handle.read()
         self.assertTrue(text.startswith('{\n    "formatVersion": 1,'))
 
-    def test_a_pose_is_an_animation_over_two_frames_with_the_same_values(self):
+    def test_a_pose_is_an_animation_over_one_frame(self):
         cmds.setAttr(ARM_L + ".rotateZ", 33)
         cmds.setAttr(CHEST + ".translateX", 2)
         rigmodules.pose.key_rig(rig_root(), time=1)
-        rigmodules.pose.key_rig(rig_root(), time=2)
-        cmds.saveRigAnimation(rig_root(), file=self.path(), startFrame=1, endFrame=2)
+        cmds.saveRigAnimation(rig_root(), file=self.path(), startFrame=1, endFrame=1)
         data = self.read()
-        self.assertEqual([key[:2] for key in data["controls"]["Left"]["upperArm"]["rotateZ"]["keys"]], [[1, 33], [2, 33]])
+        self.assertEqual([key[:2] for key in data["controls"]["Left"]["upperArm"]["rotateZ"]["keys"]], [[1, 33]])
         cmds.setAttr(ARM_L + ".rotateZ", 0)
         cmds.cutKey(ARM_L, attribute="rotateZ", clear=True)
         cmds.loadRigAnimation(rig_root(), file=self.path(), offset=10)
-        self.assertKeys(ARM_L + ".rotateZ", [11, 12], [33, 33])
+        self.assertKeys(ARM_L + ".rotateZ", [11], [33])
 
     def test_getRigKeys_is_compact_for_default_curves_and_a_curve_object_otherwise(self):
         cmds.setKeyframe(ARM_L + ".rotateX", time=1, value=1, inTangentType="auto", outTangentType="auto")

@@ -99,25 +99,20 @@ _FRAME_RATE_TOLERANCE = 1e-3
 _FBX_PLUGIN = "fbxmaya"
 
 
-def write_fbx(clip_path: str, fbx_path: str, hold_frames: int = 1) -> None:
+def write_fbx(clip_path: str, fbx_path: str) -> None:
     """Writes a JointClip file as an FBX file: a scratch skeleton of plain joints (real parenting, each joint's local
-    translate, rotate and scale keyed on the clip's frames), exported baked and deleted. A clip with one pose writes
-    a static skeleton with no animation, unless hold_frames is above 1: an engine that needs a pose to be an
-    animation gets the pose held on that many frames, the same values on each. A joint's markup rides along as its rigMarkup attribute, so read_fbx gives
-    it back without a bone map. An existing file is replaced, and a failed write leaves it as it was.
+    translate, rotate and scale keyed on the clip's frames), exported baked and deleted. A clip with one pose is a
+    one frame animation, which is how a pose goes to an engine. (write_skeleton_fbx writes the skeleton with no
+    animation.) A joint's markup rides along as its rigMarkup attribute, so read_fbx gives it back without a bone
+    map. An existing file is replaced, and a failed write leaves it as it was.
 
     The scratch joints are not the rig's joints: the rig drives them through offsetParentMatrix, which the exporter
     ignores. Raises ValueError for a file that isn't a JointClip, a clip with no poses, a joint name that isn't a
-    valid Maya node name, two joints with the same name, a frame rate that differs from the scene's, or a
-    hold_frames that is below 1 or is above 1 for a clip with more than one pose, and RuntimeError when the scene
-    already has a node named like one of the joints (FBX bones bind by name)."""
+    valid Maya node name, two joints with the same name, or a frame rate that differs from the scene's, and
+    RuntimeError when the scene already has a node named like one of the joints (FBX bones bind by name)."""
     with open(clip_path, encoding="utf-8") as handle:
         clip = json.load(handle)
-    if hold_frames < 1 or (hold_frames > 1 and len(clip.get("poses") or []) > 1):
-        raise ValueError(f"hold_frames is {hold_frames}: it must be 1 or more, and above 1 only for a clip with one pose.")
-    if hold_frames > 1:
-        clip["poses"] = clip["poses"] * hold_frames
-    _write_fbx(clip, clip_path, fbx_path)
+    _write_fbx(clip, clip_path, fbx_path, animated=True)
 
 
 def write_skeleton_fbx(rig_root: str, skeleton_id: str, fbx_path: str, bone_map_path: str) -> None:
@@ -130,7 +125,7 @@ def write_skeleton_fbx(rig_root: str, skeleton_id: str, fbx_path: str, bone_map_
     clip = _capture_clip(joints, frame, frame)
     clip["poses"] = [[joint["rest"] for joint in clip["joints"]]]
     info = rigmodules.query.get_rig_info(rig_root)
-    _write_fbx(clip, rig_root, fbx_path)
+    _write_fbx(clip, rig_root, fbx_path, animated=False)
     rigmodules.bonemap.write_bone_map(
         bone_map_path, info.asset_id, skeleton_id, {joint["path"].split("/")[-1]: joint["markup"] for joint in clip["joints"]})
 
@@ -157,11 +152,17 @@ def read_fbx(fbx_path: str, clip_path: str, bone_map: str | None = None) -> None
         with _scratch_scene() as before:
             cmds.namespace(add=namespace)
             cmds.namespace(set=namespace)
+            # The importer sets rigMarkup by an un-namespaced name, which prints an error for each marked joint
+            # and then sets the attribute anyway. Importing without the namespace would rename the joints that clash
+            # with the scene's, so the errors are muted for the import instead, and a failed import still raises.
+            muted = cmds.scriptEditorInfo(query=True, suppressErrors=True)
+            cmds.scriptEditorInfo(suppressErrors=True)
             try:
                 mel.eval("FBXResetImport")
                 mel.eval("FBXImportMode -v add")
                 mel.eval('FBXImport -f "%s"' % fbx_path.replace("\\", "/"))
             finally:
+                cmds.scriptEditorInfo(suppressErrors=muted)
                 cmds.namespace(set=":")
             joints = [joint for joint in cmds.ls(type="joint", long=True) or [] if joint not in before]
             if not joints:
@@ -227,20 +228,19 @@ def _get_skeleton_differences(skeleton: dict, animation: dict) -> list[str]:
     return differences
 
 
-def _write_fbx(clip: dict, source: str, fbx_path: str) -> None:
+def _write_fbx(clip: dict, source: str, fbx_path: str, animated: bool) -> None:
     joints = _check_clip(clip, source)
     leaves = [joint["path"].split("/")[-1] for joint in joints]
     taken = [leaf for leaf in leaves if cmds.objExists(leaf)]
     if taken:
         raise RuntimeError("The scene already has nodes named like these joints, and FBX bones bind by name: " + ", ".join(taken))
     _load_fbx_plugin()
-    animated = len(clip["poses"]) > 1
     start = int(clip["startFrame"])
     end = start + len(clip["poses"]) - 1
     temp = os.path.splitext(fbx_path)[0] + ".tmp.fbx"
     try:
         with _scratch_scene():
-            nodes = _build_scratch_skeleton(clip, joints, leaves)
+            nodes = _build_scratch_skeleton(clip, joints, leaves, animated)
             cmds.select([node for node, joint in zip(nodes, joints) if "/" not in joint["path"]], replace=True)
             cmds.select(hierarchy=True)
             mel.eval("FBXResetExport")
@@ -280,9 +280,9 @@ def _check_clip(clip: dict, source: str) -> list[dict]:
     return joints
 
 
-def _build_scratch_skeleton(clip: dict, joints: list[dict], leaves: list[str]) -> list[str]:
-    """Plain joints named like the clip's, parented by path, with the clip's transforms: values for one pose, anim
-    curves with a key per frame for more. Returns the joints in clip order."""
+def _build_scratch_skeleton(clip: dict, joints: list[dict], leaves: list[str], animated: bool) -> list[str]:
+    """Plain joints named like the clip's, parented by path, with the clip's transforms: anim curves with a key per
+    frame, or plain values when not animated (the clip then has one pose). Returns the joints in clip order."""
     nodes: list[str] = []
     node_by_path: dict[str, str] = {}
     for joint, leaf in zip(joints, leaves):
@@ -315,7 +315,7 @@ def _build_scratch_skeleton(clip: dict, joints: list[dict], leaves: list[str]) -
         for attribute, tracks in channels.items():
             for axis, values in zip("XYZ", tracks):
                 plug = f"{node}.{attribute}{axis}"
-                if len(values) == 1:
+                if not animated:
                     # setAttr takes degrees for a rotation, the curves below take radians.
                     cmds.setAttr(plug, math.degrees(values[0]) if attribute == "rotate" else values[0])
                 else:

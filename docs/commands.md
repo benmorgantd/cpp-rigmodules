@@ -478,7 +478,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 
 - Only keys from `startFrame` to `endFrame` go in. A channel with no key in the range is left out, and so is a control with none.
 - The file holds the keys with their tangents and each curve's flags ([keys format](#keys-format)), the range, and the scene's frame rate. Its format is in [library.md](library.md#controlanim-files).
-- A pose that has to be an animation (an engine wants two frames) is the rig keyed on two frames with the same values: `rigmodules.pose.key_rig(root, time=1)` and again at `time=2`, then save frames 1 to 2.
+- A pose that has to be an animation is the rig keyed on one frame: `rigmodules.pose.key_rig(root, time=1)`, then save frames 1 to 1.
 - Changes no scene data and isn't undoable. It fails when `endFrame` is before `startFrame`.
 
 ## loadRigAnimation

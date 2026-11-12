@@ -11,6 +11,7 @@ import shutil
 import tempfile
 
 from maya import cmds
+import maya.mel as mel
 
 import rigmodules.bonemap
 import rigmodules.jointclip
@@ -84,6 +85,15 @@ class FbxTestCase(RigTestCase):
         rigmodules.jointclip.read_fbx(self.path("clip.fbx"), self.path("out.json"), bone_map)
         return self.read_json("out.json")
 
+    def count_anim_curves(self, fbx_path):
+        """How many animation curves the file holds, imported into a scratch scene."""
+        rigmodules.jointclip._load_fbx_plugin()
+        with rigmodules.jointclip._scratch_scene():
+            mel.eval("FBXResetImport")
+            mel.eval("FBXImportMode -v add")
+            mel.eval('FBXImport -f "%s"' % fbx_path.replace("\\", "/"))
+            return len(cmds.ls(type="animCurve") or [])
+
     def assertTransform(self, actual, expected):
         for key in ("translate", "scale"):
             for a, e in zip(actual[key], expected[key]):
@@ -124,32 +134,19 @@ class FbxRoundTrip(FbxTestCase):
         self.assertEqual(out["startFrame"], 11)
         self.assertEqual(len(out["poses"]), 5)
 
-    def test_a_single_pose_is_a_static_skeleton(self):
+    def test_a_single_pose_is_a_one_frame_animation(self):
         clip = hand_clip(frames=3)
         clip["poses"] = clip["poses"][2:]
         out = self.round_trip(clip)
         self.assertEqual(len(out["poses"]), 1)
         for expected, actual in zip(clip["poses"][0], out["poses"][0]):
             self.assertTransform(actual, expected)
+        self.assertGreater(self.count_anim_curves(self.path("clip.fbx")), 0, "the file has keys, not only values")
 
-    def test_a_pose_can_be_held_as_a_two_frame_animation(self):
-        clip = hand_clip(frames=3)
-        clip["poses"] = clip["poses"][2:]
-        clip_path = self.write_json("in.json", clip)
-        rigmodules.jointclip.write_fbx(clip_path, self.path("clip.fbx"), hold_frames=2)
-        rigmodules.jointclip.read_fbx(self.path("clip.fbx"), self.path("out.json"))
-        out = self.read_json("out.json")
-        self.assertEqual(len(out["poses"]), 2)
-        for pose in out["poses"]:
-            for expected, actual in zip(clip["poses"][0], pose):
-                self.assertTransform(actual, expected)
-
-    def test_hold_frames_is_for_a_one_pose_clip(self):
-        clip_path = self.write_json("in.json", hand_clip())
-        for frames in (0, 2):
-            with self.assertRaises(ValueError):
-                rigmodules.jointclip.write_fbx(clip_path, self.path("clip.fbx"), hold_frames=frames)
-        self.assertFalse(os.path.exists(self.path("clip.fbx")))
+    def test_the_importers_error_muting_is_undone(self):
+        cmds.scriptEditorInfo(suppressErrors=False)
+        self.round_trip(hand_clip())
+        self.assertFalse(cmds.scriptEditorInfo(query=True, suppressErrors=True))
 
     def test_the_scene_is_left_as_it_was(self):
         cmds.currentTime(7)
@@ -423,6 +420,7 @@ class SkeletonExport(FbxTestCase):
         rigmodules.jointclip.read_fbx(self.fbx, self.path("out.json"), self.map)
         out = self.read_json("out.json")
         self.assertEqual(len(out["poses"]), 1)
+        self.assertEqual(self.count_anim_curves(self.fbx), 0, "the skeleton export carries no animation")
         by_path = {joint["path"]: pose for joint, pose in zip(out["joints"], out["poses"][0])}
         # the fixture's joints are flat (every joint a root), at these world positions
         for path, position in (("chest_jnt", (0, 4, 0)), ("upperArm_l_jnt", (2, 5, 0)), ("lowerArm_r_jnt", (-4, 5, 0))):

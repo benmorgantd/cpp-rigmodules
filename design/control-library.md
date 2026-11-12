@@ -1,6 +1,6 @@
 # Control library: poses and animation on the rig's own controls
 
-**Status:** Decided (author, 2026-11-12), D42. The ControlAnim key layout and tangent encoding (section 4) are signed off (author, 2026-11-12). The FBX adapters, the bone map, the skeleton export, the ControlAnim file, tangents in the keys payload and `saveRigAnimation` / `loadRigAnimation` are built; the restore from joints with a ControlAnim sidecar is built too; mayadev's library UI and `animprops` are not. The folder names, the export's control copy, the sampling and FBX as the joint file are settled (sections 10 and 12). Not built apart from the USD removal (section 13, done: tag `usd-joint-io`, suite 626 passed). Sections 2 and 6b hold the data vocabulary and the Unreal pairing. The command names in section 4 are proposals.
+**Status:** Decided (author, 2026-11-12), D42. The ControlAnim key layout and tangent encoding (section 4) are signed off (author, 2026-11-12). The FBX adapters, the bone map, the skeleton export, the ControlAnim file, tangents in the keys payload and `saveRigAnimation` / `loadRigAnimation` are built; the restore from joints with a ControlAnim sidecar is built too; mayadev's library UI and `animproperties` are not. The folder names, the export's control copy, the sampling and FBX as the joint file are settled (sections 10 and 12). Not built apart from the USD removal (section 13, done: tag `usd-joint-io`, suite 626 passed). Sections 2 and 6b hold the data vocabulary and the Unreal pairing. The command names in section 4 are proposals.
 
 D41 built the inverse solve and picked USD as its carrier. It never asked what an animator's pose and animation library should be, so the file roles blurred: `poses/` was going to hold control poses and USD joint files side by side, the sidecar was a "pose file" that was not one, and nothing said how animation reaches an engine. This design starts from the library and the engine, and fits the inverse into it.
 
@@ -26,7 +26,7 @@ Two families, which never share a file or a name. The word that was blurred befo
 | Control | ControlPose / ControlAnim | ControlPose: channel values, no keys, no time. | ControlAnim: sparse keys with tangents per channel (section 4). | `PoseFile` JSON (D34, built) / `<name>.anim.json` (new) |
 | Skeleton | JointPose / JointClip | JointPose: every joint's local transform. | JointClip: a JointPose per frame, baked. | FBX (section 12). The JSON JointClip is a transient between Python and the plugin. |
 | Skeleton | Skeleton asset | The joints at rest, the hierarchy and the joint markup. No animation. | | `<asset>_skeleton.fbx` and `<asset>_skeleton.bonemap.json` (section 6) |
-| Engine | Animation properties | | Loop, root motion, events, curves, additive type. | `<name>.animprops.json`, mayadev's (section 6) |
+| Engine | Animation properties | | Loop, root motion, events, curves, additive type. | `<name>.animproperties.json`, mayadev's (section 6) |
 
 Rules that keep the families apart:
 
@@ -44,7 +44,7 @@ The asset's file model (D29, `asset-model.md`) gets folders by role. The model i
 |---|---|---|
 | `controlposes/` | ControlPoses | `<name>.json`, the `PoseFile` format unchanged |
 | `controlanims/` | ControlAnims | `<name>.anim.json` |
-| `exports/<name>/` | One engine export per folder (section 6) | `<name>.fbx`, `<name>.animprops.json`, `<name>.anim.json` |
+| `exports/<name>/` | One engine export per folder (section 6) | `<name>.fbx`, `<name>.animproperties.json`, `<name>.anim.json` |
 | `sources/` | Skeleton data brought in for a remap: mocap, an engine export, another rig's clip | `<name>.fbx`, and `<name>.bonemap.json` when the skeleton has no markup (section 12) |
 
 `controlposes/` and `controlanims/` never hold joint files. An export folder is a bundle: its files describe one thing and travel together, so the rule is one folder per purpose, with its own folder per entry where an entry has several files.
@@ -108,15 +108,15 @@ An export of one animation is a folder, and the animation is described twice, fo
 ```
 exports/walk/
     walk.fbx              joints: the export skeleton, baked, for the engine (capture_joint_clip, then write_fbx)
-    walk.animprops.json   engine properties, read by the engine importer
+    walk.animproperties.json   engine properties, read by the engine importer
     walk.anim.json        the ControlAnim the export was made from
 ```
 
 - **The FBX is the engine's file.** The engine imports it against its skeleton asset. Bones bind by name, and the engine's skeleton asset comes from the skeleton export (below). Nothing in the engine path reads `walk.anim.json`.
 - **The ControlAnim is a copy as of export time, and every export has one.** It makes the export reproducible and reopenable on the rig with keys and tangents, and it is the supplement for a restore through the joints. A copy, not a reference to `controlanims/`, so a later edit of the library entry can't change a past export.
-- **`animprops` is not control data.** It is engine data about the clip: loop, root motion, events and notifies, curves, sync markers, additive type, compression. It never mentions RigModules names, so by the placement rule it belongs to mayadev's asset tools. RigModules only keeps from blocking it.
+- **`animproperties` is not control data.** Built 2026-11-12 in mayadev (`bmaya.asset.animproperties`, version 1): `loop`, `rootMotion` (a flag, not a joint), `additive` (`none`, `local`, `mesh`), `events` (name and frame) and float `curves` (name and keys of frame and value). The engine-side importer that reads it is not built, and Unreal was never run against it. It is engine data about the clip: loop, root motion, events and notifies, curves, sync markers, additive type, compression. It never mentions RigModules names, so by the placement rule it belongs to mayadev's asset tools. RigModules only keeps from blocking it.
 - **The skeleton export** is the engine's skeleton asset source: an FBX of the export joints at rest, plus `<asset>_skeleton.bonemap.json`, the bone map (section 12) with the asset's `assetId` and `skeletonId`. This is the author's previous pipeline's asset skeleton export and bone id sidecar. A clip's export folder doesn't repeat the bone map: the clip is made on the asset's skeleton, so its joint names are the skeleton's.
-- **How Unreal imports it** is an engine-side choice that this design doesn't fix: the FBX importer against the skeleton asset, or a script that builds `AnimSequence`s from the bone tracks and applies `animprops`. It was not tested.
+- **How Unreal imports it** is an engine-side choice that this design doesn't fix: the FBX importer against the skeleton asset, or a script that builds `AnimSequence`s from the bone tracks and applies `animproperties`. It was not tested.
 
 ## 6b. The Unreal paths: skeleton, animation and control data pairing
 
@@ -126,7 +126,7 @@ Three things travel to the engine, and each has one owner and one place in the a
 |---|---|---|---|
 | Skeleton asset | The rig's export joints at rest | `<asset>_skeleton.fbx` + `<asset>_skeleton.bonemap.json` (`assetId`, `skeletonId`) | The Skeleton (and mesh) asset, imported once |
 | Animation | A ControlAnim, baked by `capture_joint_clip` | `exports/<name>/<name>.fbx` | An AnimSequence on that Skeleton, bound by bone name |
-| Properties | Authored in mayadev | `exports/<name>/<name>.animprops.json` | Loop, root motion, notifies, curves |
+| Properties | Authored in mayadev | `exports/<name>/<name>.animproperties.json` | Loop, root motion, notifies, curves |
 
 The ControlAnim copy (`<name>.anim.json`) sits in the export folder but isn't engine data: it makes the export reopenable on the rig.
 
@@ -136,7 +136,7 @@ The ControlAnim copy (`<name>.anim.json`) sits in the export folder but isn't en
 1. Pick a ControlAnim from `controlanims/` (or the animator's keys on the scene).
 2. `capture_joint_clip` bakes the export joints to a JointClip.
 3. `write_fbx` writes the animation FBX, with the skeleton's names.
-4. mayadev writes `animprops.json` and copies the ControlAnim beside them. The folder is `exports/<name>/`.
+4. mayadev writes `animproperties.json` and copies the ControlAnim beside them. The folder is `exports/<name>/`.
 5. The skeleton export is made once per skeleton and again when the skeleton changes. A skeleton change is a versioned event: the bone map's `skeletonId` and `assetId` say which clips it can break.
 
 **Into Maya (import), per source:**
@@ -171,7 +171,7 @@ No existing control, channel, socket or child plug changes. `poses/<name>.json` 
 4. **`saveRigAnimation` and `loadRigAnimation`** (built 2026-11-12), with offset and mirror, docs and tests.
 5. **FBX adapters and the skeleton export** (section 12). Built 2026-11-12: `rigmodules.jointclip.write_fbx`, `read_fbx` and `write_skeleton_fbx`, and `rigmodules.bonemap`.
 6. **The restore from joints with a ControlAnim sidecar** (section 7). Built 2026-11-12, in C++ instead of Python.
-7. **mayadev:** the folders, handlers and library UI, and `animprops`.
+7. **mayadev:** the folders, handlers and library UI, and `animproperties`.
 8. IK, then retargeting, as in D41.
 
 ## 10. Decisions (author, 2026-11-12)
@@ -185,7 +185,7 @@ No existing control, channel, socket or child plug changes. `poses/<name>.json` 
 
 ## 11. Maintenance surface and cost
 
-- **New permanent surface:** `core/ControlAnimFile`, the extended keys payload, `saveRigAnimation` and `loadRigAnimation`, the folder rules, and `animprops` in mayadev. A new `formatVersion` to maintain.
+- **New permanent surface:** `core/ControlAnimFile`, the extended keys payload, `saveRigAnimation` and `loadRigAnimation`, the folder rules, and `animproperties` in mayadev. A new `formatVersion` to maintain.
 - **Complexity removed:** the stored sidecar format and its writer, the derived channels question, and the mixed-type `poses/` folder.
 - **Evaluation cost:** none. No node or `compute()` change, so D36 isn't affected and no `bench` run is needed.
 - **Tests:** ControlAnim file tests (core tier), key round trips with tangents (commands tier), the docs example test for each worked example, and a restore-with-supplement test (Python tier).

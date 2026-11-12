@@ -11,7 +11,7 @@ How poses and animation are stored and moved: on the rig's own controls, on a sk
 
 Control data is what an animator edits, and it is the primary library: a rig built from a template matches another build of the same template by markup, and keeps what joints can't (IK/FK blend, spaces, stretch, the animator's keys and tangents). Skeleton data is for a different rig or skeleton, mocap and the engine.
 
-A **pose** is one frame and an **animation** is many, in each kind. A ControlPose is channel values with no time and no keys ([`saveRigPose`](commands.md#saverigpose)). A pose that has to be an animation (an engine wants two frames) is a ControlAnim over two frames with the same values, or a one-pose FBX written with `hold_frames=2` ([python.md](python.md#fbx-files)).
+A **pose** is one frame and an **animation** is many, in each kind. A ControlPose is channel values with no time and no keys ([`saveRigPose`](commands.md#saverigpose)). A pose that has to be an animation is a ControlAnim over one frame, and a one-pose JointClip written with `write_fbx` is a one-frame animation ([python.md](python.md#fbx-files)).
 
 ## Folders
 
@@ -21,7 +21,7 @@ One folder, one data type. An asset gets these (mayadev's asset tools make them)
 |---|---|
 | `controlposes/` | ControlPoses: `<name>.json` |
 | `controlanims/` | ControlAnims: `<name>.anim.json` |
-| `exports/<name>/` | One engine export: `<name>.fbx`, `<name>.animprops.json`, a copy of the ControlAnim it was made from |
+| `exports/<name>/` | One engine export: `<name>.fbx`, `<name>.animproperties.json`, a copy of the ControlAnim it was made from |
 | `sources/` | Skeleton data brought in for a remap: mocap or an engine export as FBX, with a bone map when the skeleton has no markup |
 
 ## ControlAnim files
