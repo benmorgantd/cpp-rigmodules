@@ -344,6 +344,61 @@ class FbxErrors(FbxTestCase):
             rigmodules.jointclip.read_fbx(self.path("none.fbx"), self.path("out.json"))
 
 
+class SkeletonMatch(FbxTestCase):
+    """check_skeleton_match compares joint names and parents, never rests, so an animation made on other proportions
+    still matches."""
+
+    def write_fbx(self, name, clip):
+        rigmodules.jointclip.write_fbx(self.write_json(name + ".json", clip), self.path(name + ".fbx"))
+        return self.path(name + ".fbx")
+
+    def skeleton(self):
+        clip = hand_clip(frames=1)
+        return self.write_fbx("skeleton", clip)
+
+    def assertMismatch(self, clip, *contains):
+        skeleton, animation = self.skeleton(), self.write_fbx("anim", clip)
+        with self.assertRaises(ValueError) as caught:
+            rigmodules.jointclip.check_skeleton_match(animation, skeleton)
+        for text in contains:
+            self.assertIn(text, str(caught.exception))
+
+    def test_an_animation_on_the_skeleton_matches(self):
+        rigmodules.jointclip.check_skeleton_match(self.write_fbx("anim", hand_clip()), self.skeleton())
+
+    def test_other_proportions_still_match(self):
+        clip = hand_clip()
+        for joint in clip["joints"]:
+            joint["rest"] = transform((5, 5, 5))
+        rigmodules.jointclip.check_skeleton_match(self.write_fbx("anim", clip), self.skeleton())
+
+    def test_a_joint_the_animation_lacks(self):
+        clip = hand_clip()
+        clip["joints"] = clip["joints"][:2]
+        clip["poses"] = [pose[:2] for pose in clip["poses"]]
+        self.assertMismatch(clip, "the animation lacks head")
+
+    def test_a_joint_the_skeleton_lacks(self):
+        clip = hand_clip()
+        clip["joints"][2]["path"] = "hips/spine/neck"
+        self.assertMismatch(clip, "the animation lacks head", "the skeleton lacks neck")
+
+    def test_a_joint_under_another_parent(self):
+        clip = hand_clip()
+        clip["joints"][2]["path"] = "hips/head"
+        self.assertMismatch(clip, "head is under hips but the skeleton has it under spine")
+
+    def test_the_scene_is_left_as_it_was(self):
+        skeleton, animation = self.skeleton(), self.write_fbx("anim", hand_clip())
+        nodes = set(cmds.ls(long=True))
+        rigmodules.jointclip.check_skeleton_match(animation, skeleton)
+        self.assertEqual(set(cmds.ls(long=True)), nodes)
+
+    def test_a_missing_file(self):
+        with self.assertRaises(FileNotFoundError):
+            rigmodules.jointclip.check_skeleton_match(self.path("none.fbx"), self.skeleton())
+
+
 class SkeletonExport(FbxTestCase):
 
     def setUp(self):

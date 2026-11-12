@@ -130,7 +130,7 @@ Three things travel to the engine, and each has one owner and one place in the a
 
 The ControlAnim copy (`<name>.anim.json`) sits in the export folder but isn't engine data: it makes the export reopenable on the rig.
 
-**The pairing key is the skeleton.** An animation FBX is valid for a skeleton asset when its joint names and hierarchy match the skeleton's. The bone map's `skeletonId` is the stable name for that skeleton, and an export folder carries no copy of it: the clip is made on the asset's skeleton, so its names are the skeleton's. A check that compares an animation FBX's joints to the skeleton export's, and refuses a mismatch with the names that differ, is intended in the adapter (not the engine). It is not built: today the adapter checks the clip alone.
+**The pairing key is the skeleton.** An animation FBX is valid for a skeleton asset when its joint names and hierarchy match the skeleton's. The bone map's `skeletonId` is the stable name for that skeleton, and an export folder carries no copy of it: the clip is made on the asset's skeleton, so its names are the skeleton's. A check that compares an animation FBX's joints to the skeleton export's, and refuses a mismatch with the names that differ, is `rigmodules.jointclip.check_skeleton_match` (built 2026-11-12, in the adapter, not the engine). It compares joint names and parents and ignores rests, so an animation made on other proportions passes. A caller runs it before it hands an animation FBX on; `write_fbx` itself still checks the clip alone.
 
 **Out of Maya (export), per animation:**
 1. Pick a ControlAnim from `controlanims/` (or the animator's keys on the scene).

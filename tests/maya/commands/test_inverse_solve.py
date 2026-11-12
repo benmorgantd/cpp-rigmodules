@@ -531,6 +531,22 @@ class AnimateWithSidecar(SolveTestCase):
             self.assertAlmostEqual(actual, expected, places=2)
         self.assertJointsFollow(snapshots)
 
+    def test_a_weighted_fixed_tangent_on_an_angle_channel_samples_as_the_rigs_own_curve(self):
+        """The joints must land where the animator's weighted curve put them, on a frame between the keys."""
+        plug = rig_name("layout_0_ctrl_c.rotateZ")
+        cmds.setKeyframe(plug, time=1, value=0)
+        cmds.setKeyframe(plug, time=3, value=60)
+        cmds.keyTangent(plug, edit=True, weightedTangents=True)
+        cmds.keyTangent(plug, edit=True, time=(1, 1), lock=False, outAngle=70, outWeight=3.0)
+        cmds.keyTangent(plug, edit=True, time=(3, 3), lock=False, inAngle=-40, inWeight=0.5)
+        snapshots = self.capture()
+        self.assertNotAlmostEqual(cmds.getAttr(plug, time=2), 30.0, places=1, msg="the curve is not a straight line")
+        layout = {"Center": {"layout_0": {"rotateZ": {"weighted": True, "keys": [[1, 0.0, "auto", [70.0, 3.0]], [3, 60.0, [-40.0, 0.5], "auto"]]}}}}
+
+        self.restore(snapshots, layout)
+
+        self.assertJointsFollow(snapshots)
+
     def test_the_sampling_leaves_no_scratch_curve_and_the_restore_is_one_undo_step(self):
         cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=1, value=1)
         cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=3, value=3)

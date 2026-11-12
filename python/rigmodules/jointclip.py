@@ -17,6 +17,7 @@ import json
 import math
 import os
 import re
+import tempfile
 
 import maya.api.OpenMaya
 import maya.api.OpenMayaAnim
@@ -184,6 +185,46 @@ def read_fbx(fbx_path: str, clip_path: str, bone_map: str | None = None) -> None
         if cmds.namespace(exists=namespace):
             cmds.namespace(removeNamespace=namespace)
     _write_clip(clip, clip_path)
+
+
+def check_skeleton_match(animation_fbx: str, skeleton_fbx: str) -> None:
+    """Checks that an animation FBX is valid for a skeleton export (design/control-library.md, section 6b): the same
+    joint names, each under the same parent. Rests and bone lengths aren't compared, so an animation made on a
+    skeleton of other proportions still matches. Reads both files with read_fbx, so it has the same needs. Raises
+    FileNotFoundError, and ValueError naming every joint that differs."""
+    with tempfile.TemporaryDirectory() as folder:
+        clips = []
+        for index, fbx_path in enumerate((skeleton_fbx, animation_fbx)):
+            clip_path = os.path.join(folder, f"{index}.json")
+            read_fbx(fbx_path, clip_path)
+            with open(clip_path, encoding="utf-8") as handle:
+                clips.append(json.load(handle))
+    differences = _get_skeleton_differences(*clips)
+    if differences:
+        raise ValueError(f"{animation_fbx} doesn't match the skeleton {skeleton_fbx}: {'; '.join(differences)}")
+
+
+def _get_skeleton_differences(skeleton: dict, animation: dict) -> list[str]:
+    """What differs between two clips' joints, by name and parent name. Empty when they match."""
+    def parents(clip: dict) -> dict[str, str]:
+        result = {}
+        for joint in clip["joints"]:
+            *above, leaf = joint["path"].split("/")
+            result[leaf] = above[-1] if above else ""
+        return result
+
+    expected, actual = parents(skeleton), parents(animation)
+    differences = []
+    missing = [name for name in expected if name not in actual]
+    extra = [name for name in actual if name not in expected]
+    if missing:
+        differences.append("the animation lacks " + ", ".join(missing))
+    if extra:
+        differences.append("the skeleton lacks " + ", ".join(extra))
+    for name in expected:
+        if name in actual and expected[name] != actual[name]:
+            differences.append(f"{name} is under {actual[name] or 'nothing'} but the skeleton has it under {expected[name] or 'nothing'}")
+    return differences
 
 
 def _write_fbx(clip: dict, source: str, fbx_path: str) -> None:

@@ -375,6 +375,20 @@ class MirrorOnLoad(AnimTestCase):
         self.assertEqual((self.tangent(plug, 10, "out"), self.tangent(plug, 20, "in"), self.tangent(plug, 20, "out")), ("flat", "linear", "step"))
         self.assertTrue(cmds.keyTangent(plug, query=True, weightedTangents=True)[0])
 
+    def test_auto_clamped_and_spline_tangents_evaluate_as_the_negated_curve(self):
+        """Those types are computed from the neighbouring keys, so they should stay valid under negation. Checked
+        against the evaluated curve, between the keys too."""
+        for control in (ARM_L, ARM_R):
+            cmds.addAttr(control, longName="lean", keyable=True, attributeType="double", category="mirrorNegate")
+        keys = [[1, 0.0, "auto", "auto"], [6, 4.0, "clamped", "clamped"], [11, -2.0, "spline", "spline"],
+                [16, 3.0, "auto", "clamped"], [20, 1.0, "spline", "auto"]]
+        self.load(anim({"Left": {"upperArm": {"lean": curve(keys)}}}))
+        self.load(anim({"Left": {"upperArm": {"lean": curve(keys)}}}), mirror=True)
+        for frame in [1 + 0.5 * i for i in range(39)]:
+            left = cmds.getAttr(ARM_L + ".lean", time=frame)
+            right = cmds.getAttr(ARM_R + ".lean", time=frame)
+            self.assertAlmostEqual(right, -left, places=4, msg="frame %s" % frame)
+
     def test_a_center_control_flips_by_its_axis(self):
         self.load(anim({"Center": {"chest": {
             "translateX": curve([[1, 2.0]]), "translateY": curve([[1, 3.0]]),
