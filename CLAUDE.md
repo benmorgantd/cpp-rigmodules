@@ -189,7 +189,7 @@ RigTemplates/        example template
 | `design/decisions.md` | Decision log (D1–D42). |
 | `design/asset-model.md` | Asset id, namespace ownership, rig variants, file model, local versions and the registry (D29). The file model is planned for a mayadev branch. |
 | `design/inverse-solve.md` | Restoring controls from joints (D41): module-owned inverse, USD joint files, pose-format sidecar, the offset seam for different proportions. The solve, keys and USD IO are built. The sidecar writer is not. |
-| `design/control-library.md` | The pose and animation library (D42): control data (ControlPose, ControlAnim with tangents) as the primary library, USD for remaps and the engine, one folder per data type (`controlposes/`, `controlanims/`, `exports/`, `sources/`), the engine export folder. Design only, not built. |
+| `design/control-library.md` | The pose and animation library (D42): control data (ControlPose, ControlAnim with tangents) as the primary library, FBX (a bone map for markup) for remaps, mocap and the engine, one folder per data type (`controlposes/`, `controlanims/`, `exports/`, `sources/`), the engine export folder. Design only, not built. |
 | `design/mayadev-integration.md` | Survey of the sibling mayadev repo, conflicts with RigModules, the proposed boundary and phases (D24). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. `ViewportGallery.cmd` is the manual VP2 shape check. |
