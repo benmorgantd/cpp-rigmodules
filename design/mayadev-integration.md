@@ -118,7 +118,7 @@ rig/components/facePoses.json  face poses
 TODO for the RigModules era:
 - `build.json` becomes a RigModules template. Its `assetId` matches the folder.
 - `cvs.json` becomes the shape IO file (`shapes.json`).
-- Add a `poses/` folder for pose library data, in the format RigModules `python/` defines.
+- Add a `controlposes/` folder for ControlPoses (D42, `control-library.md`), and `exports/` and `sources/` for FBX joint files. Built on mayadev's `anim-clip-handler` branch (D42).
 - Keep `weights/`, `postops.py`, `animRig.ma` and versioning as they are.
 - A tool can go from a node in the scene to the asset folder: query API → rig root → asset root `assetId` → mayadev `Asset`.
 
