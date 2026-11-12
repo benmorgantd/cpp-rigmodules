@@ -1,9 +1,5 @@
-"""poseRigFromJointPose and animateRigFromJointClip (D41), the stage before the solve.
-
-The JointClip reader is built. The solve and the keyframe command are not, so a call that gets past argument and file
-checking fails with "not built yet" and changes nothing. These tests pin the argument handling, every JointClip
-validation rule and that failure. Each "not built yet" test is replaced by a real round trip test
-(inverse-solve.md section 11) when its piece is built.
+"""poseRigFromJointPose and animateRigFromJointClip (D41): argument handling, every JointClip and sidecar validation
+rule, and what a clip does to a rig it does not match. The solve itself is in test_inverse_solve.py.
 """
 import copy
 import json
@@ -87,16 +83,18 @@ class PoseRigFromJointPose(InverseCmdsTestCase):
         path = self.write_clip(edit=lambda data: data["poses"].append(copy.deepcopy(data["poses"][0])))
         self.assertMayaError(lambda: cmds.poseRigFromJointPose(rig_root(), jointPose=path), "exactly one JointPose, not 2")
 
-    def test_a_valid_file_fails_as_not_built_and_changes_nothing(self):
+    def test_a_clip_that_matches_no_joint_puts_every_transform_at_rest(self):
         path = self.write_clip()
-        before = cmds.getAttr(CHEST + ".rotateX")
-        self.assertMayaError(lambda: cmds.poseRigFromJointPose(rig_root(), jointPose=path, mode="match"), "solve is not built yet")
-        self.assertEqual(cmds.getAttr(CHEST + ".rotateX"), before)
+        cmds.setAttr(CHEST + ".rotateX", 20)
+        changed = cmds.poseRigFromJointPose(rig_root(), jointPose=path, mode="match")
+        self.assertEqual(cmds.getAttr(CHEST + ".rotateX"), 0)
+        self.assertIn(CHEST.lstrip(":"), [c.lstrip(":") for c in changed])
 
-    def test_a_pose_file_sidecar_is_accepted(self):
+    def test_a_pose_file_sidecar_fills_what_no_joint_gives(self):
         path = self.write_clip()
         sidecar = self.write("sidecar.json", {"formatVersion": 1, "controls": {"Center": {"chest": {"rotateX": 5.0}}}})
-        self.assertMayaError(lambda: cmds.poseRigFromJointPose(rig_root(), jointPose=path, sidecar=sidecar), "solve is not built yet")
+        cmds.poseRigFromJointPose(rig_root(), jointPose=path, sidecar=sidecar)
+        self.assertAlmostEqual(cmds.getAttr(CHEST + ".rotateX"), 5.0)
 
     def test_an_invalid_sidecar_is_an_error(self):
         path = self.write_clip()
@@ -184,7 +182,69 @@ class AnimateRigFromJointClip(InverseCmdsTestCase):
         path = self.write("clip.json")
         self.assertMayaError(lambda: cmds.animateRigFromJointClip(rig_root(), jointClip=path), "JointClip file failed validation")
 
-    def test_a_valid_clip_fails_as_not_built_and_keys_nothing(self):
-        path = self.write_clip()
-        self.assertMayaError(lambda: cmds.animateRigFromJointClip(rig_root(), jointClip=path), "not built yet")
+    def test_the_clip_must_run_at_the_scene_frame_rate(self):
+        path = self.write_clip()   # 30 fps, and a new scene is 24
+        self.assertMayaError(lambda: cmds.animateRigFromJointClip(rig_root(), jointClip=path), "30 fps", "24 fps")
         self.assertFalse(cmds.keyframe(CHEST, query=True, keyframeCount=True))
+
+    def test_the_range_must_be_inside_the_clip(self):
+        cmds.currentUnit(time="ntsc")
+        path = self.write_clip()   # one frame, 1
+        self.assertMayaError(lambda: cmds.animateRigFromJointClip(rig_root(), jointClip=path, startFrame=1, endFrame=3), "frames 1 to 3", "frames 1 to 1")
+        self.assertMayaError(lambda: cmds.animateRigFromJointClip(rig_root(), jointClip=path, startFrame=0), "frames 0 to 1")
+
+    def test_the_sidecar_must_run_at_the_clip_frame_rate(self):
+        cmds.currentUnit(time="ntsc")
+        path = self.write_clip()
+        sidecar = self.write("sidecar.json", {"formatVersion": 1, "frameRate": 24.0, "frames": {}})
+        self.assertMayaError(lambda: cmds.animateRigFromJointClip(rig_root(), jointClip=path, sidecar=sidecar), "sidecar runs at 24", "JointClip at 30")
+
+    def test_a_valid_clip_keys_every_transform_channel_of_every_control(self):
+        cmds.currentUnit(time="ntsc")
+        path = self.write_clip()
+        changed = cmds.animateRigFromJointClip(rig_root(), jointClip=path)
+        self.assertIn(CHEST.lstrip(":"), [c.lstrip(":") for c in changed])
+        self.assertEqual(cmds.keyframe(CHEST + ".rotateX", query=True, timeChange=True), [1])
+        self.assertEqual(cmds.keyframe(CHEST + ".scaleZ", query=True, timeChange=True), [1])
+
+
+class AnimationSidecarValidation(InverseCmdsTestCase):
+    """Every rule of the animation sidecar reader, through animateRigFromJointClip (it is read before the clip)."""
+
+    def setUp(self):
+        super().setUp()
+        self.clip = self.write_clip()
+
+    def sidecar(self, **edits):
+        data = {"formatVersion": 1, "frameRate": 30.0, "frames": {"1": {"Center": {"chest": {"rotateX": 5.0}}}}}
+        data.update(edits)
+        return self.write("sidecar.json", data)
+
+    def assert_rejected(self, path, *contains):
+        self.assertMayaError(lambda: cmds.animateRigFromJointClip(rig_root(), jointClip=self.clip, sidecar=path),
+                             "animation sidecar failed validation", *contains)
+
+    def test_not_json(self):
+        self.assert_rejected(self.write("sidecar.json", "{ nope"), "animation sidecar")
+
+    def test_missing_and_unknown_keys(self):
+        self.assert_rejected(self.write("a.json", {"formatVersion": 1, "frameRate": 30.0}), "frames")
+        self.assert_rejected(self.sidecar(extra=1), "extra")
+
+    def test_format_version(self):
+        self.assert_rejected(self.sidecar(formatVersion=99), "formatVersion")
+        self.assert_rejected(self.sidecar(formatVersion="1"), "formatVersion", "integer")
+
+    def test_frame_rate(self):
+        self.assert_rejected(self.sidecar(frameRate=0), "frameRate")
+        self.assert_rejected(self.sidecar(frameRate="fast"), "frameRate")
+
+    def test_frames_must_be_an_object_of_whole_numbers(self):
+        self.assert_rejected(self.sidecar(frames=[]), "frames", "object")
+        self.assert_rejected(self.sidecar(frames={"one": {}}), "frames.one", "whole number")
+        self.assert_rejected(self.sidecar(frames={"1.5": {}}), "frames.1.5", "whole number")
+
+    def test_a_frame_holds_pose_controls(self):
+        self.assert_rejected(self.sidecar(frames={"1": {"Middle": {}}}), "frames.1.Middle")
+        self.assert_rejected(self.sidecar(frames={"1": {"Center": {"chest": {"rotateX": "x"}}}}), "frames.1.Center.chest.rotateX", "number")
+        self.assert_rejected(self.sidecar(frames={"1": []}), "frames.1", "object")

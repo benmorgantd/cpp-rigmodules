@@ -114,9 +114,14 @@ class CaptureFlatRig(CaptureTestCase):
         for before, after in zip(rotations, rotations[1:]):
             self.assertGreater(sum(a * b for a, b in zip(before, after)), 0.0)
 
-    def test_the_file_is_accepted_by_the_plugin_reader(self):
+    def test_the_plugin_restores_the_pose_from_the_file(self):
+        control = rig_name("upperArm_l_ctrl_l")
+        cmds.setAttr(control + ".rotateZ", 90)
         self.capture()
-        self.assertMayaError(lambda: cmds.poseRigFromJointPose(rig_root(), jointPose=self.path), "solve is not built yet")
+        cmds.zeroRigControls(rig_root())
+        cmds.poseRigFromJointPose(rig_root(), jointPose=self.path)
+        self.assertAlmostEqual(cmds.getAttr(control + ".rotateZ"), 90, places=3)
+        self.assertAlmostEqual(cmds.getAttr(rig_name("lowerArm_l_ctrl_l") + ".rotateZ"), 0, places=3)
 
     def test_start_after_end_is_an_error(self):
         with self.assertRaisesRegex(ValueError, "start_frame 5 is after end_frame 2"):

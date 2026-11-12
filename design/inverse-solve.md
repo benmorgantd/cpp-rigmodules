@@ -1,6 +1,6 @@
 # Inverse solve: restoring controls from joints
 
-**Status:** Decided, D41 (2026-11-11). Amended 2026-11-11 (author): every channel is baked every frame with no tangent data, and the calibration offset and its composition order are dropped for now. Skeleton built 2026-11-11 (section 13, step 1): types, signatures, registered commands and stubs. Then built: the JointClip reader and the JSON capture (`rigmodules.jointclip.capture_joint_clip`). The file now has `startFrame`, and translations are in internal units (centimeters). No solve yet.
+**Status:** Decided, D41 (2026-11-11). Amended 2026-11-11 (author): every channel is baked every frame with no tangent data, and the calibration offset and its composition order are dropped for now. Built 2026-11-11 (section 13, steps 1 and 2): the types, the JointClip reader and capture, the animation sidecar reader, the solve driver with the inverses of FkChain, Aim and Layout, the shared constraint delta, `poseRigFromJointPose`, `animateRigFromJointClip` and the keyframe command (D34). The file has `startFrame`, and translations are in internal units (centimeters). Not built: USD IO, the sidecar writer, mayadev's `anims/` folder, IK and retargeting. Where the code differs from sections 4 and 5, the code wins and D41 lists why: a module's inverse takes and returns matrices only, and the driver converts them to channels.
 
 The forward rig turns control values into joint matrices. This design adds the other direction: given joint matrices, find the control values that reproduce them. Modules own that behaviour. It comes before the IK module, so IK is designed with an inverse from the start.
 
@@ -61,7 +61,7 @@ struct ModuleInverseResult
 };
 ```
 
-- **`ModuleDescriptor::inverse`**: `std::function<ModuleInverseResult(const ModuleInverseContext&, const ModuleInverseInput&)>`, where the context holds the module's stored rests and its derived-channel list, read once per restore. `nullptr` is not allowed: a module that can't be inverted says so with an `inverse` that returns `solved = false` and a reason, and `ModuleContract` requires one or the other. A new module without a decision can't ship.
+- **`ModuleDescriptor::inverse`** (built as a plain function pointer, and the types below are the sketch the code replaced, see D41): `std::function<ModuleInverseResult(const ModuleInverseContext&, const ModuleInverseInput&)>`, where the context holds the module's stored rests and its derived-channel list, read once per restore. `nullptr` is not allowed: a module that can't be inverted says so with an `inverse` that returns `solved = false` and a reason, and `ModuleContract` requires one or the other. A new module without a decision can't ship.
 - **Derived channels** are declared, not discovered: FkChain derives every transform channel of every control, Aim derives its target and up transforms, Layout derives nothing. A custom channel a module derives (a stretch from bone lengths) is declared by that module. Anything not declared derived comes from the sidecar. The list is also what the sidecar writer uses to decide what to save (section 6).
 - **Euler output.** The solver converts each control's local matrix to rotate values in the control's locked order, choosing the euler closest to the previous frame (the same rule as D27), so curves don't flip. The first frame uses the closest to the control's current value.
 - **Shear and scale** a control's channels can't hold give one warning per control, as in D27. Locked or driven channels keep their values and give a warning naming them.
@@ -181,7 +181,7 @@ A rig with different proportions from the source can't use `match` mode: it repr
 
 ## 10. Writing keys
 
-Animating from a JointClip needs the keyframe command that D34 lists as a TODO: animCurve creation and key insertion in one `MDGModifier`, undoable. With a key on every frame it is also the speed-critical part of a restore: a 200 joint, 300 frame clip is tens of thousands of keys. It is the first thing in this design that depends on unbuilt work, and key all, pose restore and bake need it as well. Until it exists, a range uses `cmds.setKeyframe` and a single pose uses `setRigPose`. Neither touches the solver. Keys go only on channels the command wrote.
+Built (D34, 2026-11-11): `RigKeyScene::setRigKeys` creates the animCurves through an `MDGModifier` and adds each channel's keys in one `MFnAnimCurve::addKeys` call recorded in an `MAnimCurveChange`, and it is undoable as one step. The design before building read: animating from a JointClip needs the keyframe command that D34 listed as a TODO: animCurve creation and key insertion in one `MDGModifier`, undoable. With a key on every frame it is also the speed-critical part of a restore: a 200 joint, 300 frame clip is tens of thousands of keys. It is the first thing in this design that depends on unbuilt work, and key all, pose restore and bake need it as well. Until it exists, a range uses `cmds.setKeyframe` and a single pose uses `setRigPose`. Neither touches the solver. Keys go only on channels the command wrote.
 ## 11. Tests
 
 Per CLAUDE.md the checks live in the suite. Proposed, by tier:

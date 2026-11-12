@@ -72,6 +72,11 @@ public:
 	static MObject aRigRoot;           // message
 
 public:
+	// The delta a constraint of this type outputs, from plain matrices: the child's rest, the motion of its
+	// parentStructure parent and the motion of the active driver (each rest^-1 * world, identity at rest). compute()
+	// and the inverse solve's sweep (D41) both call it, so the two can't drift.
+	static MMatrix computeDelta(int type, const MMatrix& mChildRest, const MMatrix& mParentDelta, const MMatrix& mDriverDelta);
+
 	// An unqualified module name resolves in rigNamespace (the constrained control's namespace), the same ids templates use.
 	static MStatus resolveSocket(const std::string& socketId, const MString& rigNamespace, ConstraintDriverInfo& outDriver);
 

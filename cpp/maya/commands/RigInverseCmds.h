@@ -1,5 +1,7 @@
 #pragma once
 
+#include "maya/shared/RigKeyScene.h"
+
 #include <maya/MArgList.h>
 #include <maya/MDGModifier.h>
 #include <maya/MPxCommand.h>
@@ -8,8 +10,6 @@
 // Set a rig's control values from joints (D41). Both take either one rig root (every control in the rig) or one or more
 // controls of one rig (those only), always by name: the selection is never used. They set values on a rig that
 // already exists. Both validate everything first and write nothing on any error.
-//
-// Skeleton: both read and check their arguments and files, then fail because the solve (RigInverse) is not built.
 
 // cmds.poseRigFromJointPose("rig:rigRoot", jointPose=path, sidecar=path, mode="match")
 //   jointPose: a JointClip file (JointClipFile.h) with exactly one JointPose. Required.
@@ -37,14 +37,21 @@ private:
 //   sidecar: an animation sidecar file (AnimationSidecar.h). Optional.
 //   mode: "match", the only mode. Optional.
 //   startFrame, endFrame: the range of the clip to write, the whole clip by default. Optional.
-//   Keys every channel it writes on every frame (needs the keyframe command of D34, which is not built).
-//   Not undoable yet: its undo comes with the keyframe command.
+//   Keys every channel it writes on every frame of the range, all of a channel's keys in one call (RigKeyScene), on the
+//   clip's own frame numbers. The clip must run at the scene's frame rate. Returns the names of the controls it keyed.
+//   Undoable as one step.
 class AnimateRigFromJointClipCmd : public MPxCommand
 {
 public:
 	MStatus doIt(const MArgList& args) override;
+	MStatus redoIt() override;
+	MStatus undoIt() override;
+	bool isUndoable() const override;
 
 	static void* creator();
 	static MSyntax newSyntax();
 	static const char* aCommandString;
+
+private:
+	RigKeyEdit fEdit;
 };

@@ -1,7 +1,6 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// Skeleton (D41): the type and the reader's signature are here, and the reader reports "not built yet".
 //
 // A clip's sidecar: the control values a JointClip can't carry (custom channels, `space`, Layout controls, and the
 // transforms of controls whose joints are missing from the source), one entry for every frame of the clip. A pose's
@@ -32,5 +31,7 @@ struct AnimationSidecar
 	std::map<int, PoseMap> frames;   // frame number -> that frame's pose
 };
 
-// Every problem goes into report, as for deserializePose. Reading only: Python writes the file.
+// Every problem goes into report, as for deserializePose: bad JSON, a missing or unknown key, an unknown formatVersion,
+// a frameRate that is not a number above 0, a frame that is not a whole number, and anything deserializePoseControls
+// rejects. outSidecar is set only when report has no errors. Reading only: Python writes the file.
 void deserializeAnimationSidecar(const std::string& text, AnimationSidecar& outSidecar, ValidationReport& report);

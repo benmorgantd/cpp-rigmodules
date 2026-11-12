@@ -33,6 +33,9 @@
     <ClCompile Include="core\JointClipFile.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\RigKeys.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\PoseFile.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -102,6 +105,9 @@
     <ClCompile Include="maya\commands\RigInfoCmd.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
+    <ClCompile Include="maya\commands\RigKeyCmds.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
     <ClCompile Include="maya\commands\RigInverseCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
@@ -141,6 +147,12 @@
     <ClCompile Include="maya\shared\JointMarkupScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
+    <ClCompile Include="maya\shared\ModuleInverse.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\RigKeyScene.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
     <ClCompile Include="maya\shared\RigInverse.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
@@ -177,6 +189,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\JointClipFile.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\RigKeys.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\PoseFile.h">
@@ -251,6 +266,9 @@
     <ClInclude Include="maya\commands\RigInfoCmd.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
+    <ClInclude Include="maya\commands\RigKeyCmds.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
     <ClInclude Include="maya\commands\RigInverseCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
@@ -294,6 +312,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\ModuleInverse.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\RigKeyScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigInverse.h">

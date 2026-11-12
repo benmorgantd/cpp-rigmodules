@@ -2,16 +2,22 @@
 #include "core/AnimationSidecar.h"
 #include "core/JointClipFile.h"
 #include "core/PoseFile.h"
+#include "core/RigKeys.h"
 #include "maya/shared/RigInverse.h"
+#include "maya/shared/RigKeyScene.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/Utilities.h"
 
+#include <cmath>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <maya/MArgDatabase.h>
 #include <maya/MGlobal.h>
 #include <maya/MStringArray.h>
+#include <maya/MTime.h>
 
 namespace
 {
@@ -22,6 +28,9 @@ namespace
 	constexpr const char* kModeFlag{ "-mode" };
 	constexpr const char* kStartFrameFlag{ "-startFrame" };
 	constexpr const char* kEndFrameFlag{ "-endFrame" };
+
+	// Two frame rates this close are the same (23.976 and 24 are not).
+	constexpr double kFrameRateTolerance{ 1e-3 };
 
 	// mode is optional and only accepts match (D41). Reports anything else.
 	MStatus readMode(const MArgDatabase& argData, const char* commandName)
@@ -53,6 +62,18 @@ namespace
 			MGlobal::displayError(MString(commandName) + ": " + kSidecarFlag + " needs a file path.");
 			return MStatus::kInvalidParameter;
 		}
+		return MStatus::kSuccess;
+	}
+
+	MStatus readOptionalFrame(const MArgDatabase& argData, const char* flag, std::optional<int>& outFrame)
+	{
+		if (!argData.isFlagSet(flag))
+		{
+			return MStatus::kSuccess;
+		}
+		int frame = 0;
+		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(flag, 0, frame));
+		outFrame = frame;
 		return MStatus::kSuccess;
 	}
 
@@ -236,19 +257,24 @@ MStatus AnimateRigFromJointClipCmd::doIt(const MArgList& args)
 		return status;
 	}
 
-	if (argData.isFlagSet(kStartFrameFlag) && argData.isFlagSet(kEndFrameFlag))
+	std::optional<int> startFrame;
+	std::optional<int> endFrame;
+	status = readOptionalFrame(argData, kStartFrameFlag, startFrame);
+	if (status)
 	{
-		int startFrame = 0;
-		int endFrame = 0;
-		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kStartFrameFlag, 0, startFrame));
-		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kEndFrameFlag, 0, endFrame));
-		if (startFrame > endFrame)
-		{
-			MGlobal::displayError(MString(aCommandString) + ": startFrame " + startFrame + " is after endFrame " + endFrame + ".");
-			return MStatus::kInvalidParameter;
-		}
+		status = readOptionalFrame(argData, kEndFrameFlag, endFrame);
+	}
+	if (!status)
+	{
+		return status;
+	}
+	if (startFrame.has_value() && endFrame.has_value() && *startFrame > *endFrame)
+	{
+		MGlobal::displayError(MString(aCommandString) + ": startFrame " + *startFrame + " is after endFrame " + *endFrame + ".");
+		return MStatus::kInvalidParameter;
 	}
 
+	AnimationSidecar sidecar;
 	if (hasSidecar)
 	{
 		std::string text;
@@ -257,7 +283,6 @@ MStatus AnimateRigFromJointClipCmd::doIt(const MArgList& args)
 		{
 			return status;
 		}
-		AnimationSidecar sidecar;
 		ValidationReport report;
 		deserializeAnimationSidecar(text, sidecar, report);
 		if (report.hasErrors())
@@ -275,6 +300,92 @@ MStatus AnimateRigFromJointClipCmd::doIt(const MArgList& args)
 		return status;
 	}
 
-	MGlobal::displayError(MString(aCommandString) + " is not built yet (D41 skeleton): it needs the solve and the keyframe command (D34).");
-	return MStatus::kNotImplemented;
+	// Keys land on the clip's own frame numbers, so the clip must run at the scene's rate (a resample is not built).
+	const double sceneFrameRate = 1.0 / MTime(1.0, MTime::uiUnit()).as(MTime::kSeconds);
+	if (std::abs(clip.frameRate - sceneFrameRate) > kFrameRateTolerance)
+	{
+		MGlobal::displayError(MString(aCommandString) + ": the JointClip runs at " + clip.frameRate + " fps and the scene at " + sceneFrameRate
+			+ " fps. Change the scene's time unit, or capture the clip again at the scene's rate.");
+		return MStatus::kInvalidParameter;
+	}
+	if (hasSidecar && std::abs(sidecar.frameRate - clip.frameRate) > kFrameRateTolerance)
+	{
+		MGlobal::displayError(MString(aCommandString) + ": the sidecar runs at " + sidecar.frameRate + " fps and the JointClip at " + clip.frameRate + " fps.");
+		return MStatus::kInvalidParameter;
+	}
+
+	const int clipFirst = clip.startFrame;
+	const int clipLast = clip.startFrame + static_cast<int>(clip.poses.size()) - 1;
+	const int first = startFrame.value_or(clipFirst);
+	const int last = endFrame.value_or(clipLast);
+	if (first > last || first < clipFirst || last > clipLast)
+	{
+		MGlobal::displayError(MString(aCommandString) + ": frames " + first + " to " + last + " are not inside the JointClip's frames " + clipFirst + " to " + clipLast + ".");
+		return MStatus::kInvalidParameter;
+	}
+
+	// The range of the clip, with each frame's sidecar entry (none where the sidecar has no frame).
+	JointClip range = clip;
+	range.poses.assign(clip.poses.begin() + (first - clipFirst), clip.poses.begin() + (last - clipFirst) + 1);
+	std::vector<PoseMap> sidecars;
+	int framesWithoutSidecar = 0;
+	for (int frame = first; frame <= last; ++frame)
+	{
+		const auto it = sidecar.frames.find(frame);
+		sidecars.push_back(it == sidecar.frames.end() ? PoseMap() : it->second);
+		framesWithoutSidecar += (hasSidecar && it == sidecar.frames.end()) ? 1 : 0;
+	}
+	if (framesWithoutSidecar > 0)
+	{
+		MGlobal::displayWarning(MString(aCommandString) + ": the sidecar has no entry for " + framesWithoutSidecar + " of the " + (last - first + 1)
+			+ " frames, so those frames have no values for the channels only the sidecar gives.");
+	}
+
+	std::vector<PoseMap> poses;
+	status = RigInverse::solve(scope.oRigRoot, range, sidecars, poses);
+	if (!status)
+	{
+		return status;
+	}
+
+	// Every channel the solve wrote gets a key on every frame, all of a channel's keys in one call.
+	RigKeys keys;
+	for (std::size_t p = 0; p < poses.size(); ++p)
+	{
+		for (const auto& [side, usages] : poses[p])
+		{
+			for (const auto& [usage, channels] : usages)
+			{
+				for (const auto& [name, value] : channels)
+				{
+					keys[side][usage][name].emplace_back(static_cast<double>(first) + static_cast<double>(p), value);
+				}
+			}
+		}
+	}
+
+	MStringArray changedNames;
+	status = RigKeyScene::setRigKeys(scope, keys, fEdit, changedNames);
+	if (!status)
+	{
+		return status;
+	}
+
+	setResult(changedNames);
+	return MStatus::kSuccess;
+}
+
+bool AnimateRigFromJointClipCmd::isUndoable() const
+{
+	return true;
+}
+
+MStatus AnimateRigFromJointClipCmd::redoIt()
+{
+	return fEdit.redo();
+}
+
+MStatus AnimateRigFromJointClipCmd::undoIt()
+{
+	return fEdit.undo();
 }

@@ -99,29 +99,29 @@ namespace
 
 	constexpr int kParentType{ ConstraintTypes::indexOf(ConstraintTypes::Parent) };
 	constexpr int kOrientType{ ConstraintTypes::indexOf(ConstraintTypes::Orient) };
+}
 
-	// The delta the module receives (D31). Parent passes the driver's motion through. Orient and Point apply both
-	// motions to the control's rest, keep the driver's rotation or translation, take the rest from the parent,
-	// and turn the result back into a delta on that rest.
-	MMatrix constraintDelta(int type, const MMatrix& mChildRest, const MMatrix& mParentDelta, const MMatrix& mDriverDelta)
+// The delta the module receives (D31). Parent passes the driver's motion through. Orient and Point apply both
+// motions to the control's rest, keep the driver's rotation or translation, take the rest from the parent,
+// and turn the result back into a delta on that rest.
+MMatrix RigConstraintNode::computeDelta(int type, const MMatrix& mChildRest, const MMatrix& mParentDelta, const MMatrix& mDriverDelta)
+{
+	if (type == kParentType)
 	{
-		if (type == kParentType)
-		{
-			return mDriverDelta;
-		}
-
-		MTransformationMatrix tOut(mChildRest * mParentDelta);
-		const MTransformationMatrix tDriver(mChildRest * mDriverDelta);
-		if (type == kOrientType)
-		{
-			tOut.rotateTo(tDriver.rotation());
-		}
-		else
-		{
-			tOut.setTranslation(tDriver.getTranslation(MSpace::kTransform), MSpace::kTransform);
-		}
-		return mChildRest.inverse() * tOut.asMatrix();
+		return mDriverDelta;
 	}
+
+	MTransformationMatrix tOut(mChildRest * mParentDelta);
+	const MTransformationMatrix tDriver(mChildRest * mDriverDelta);
+	if (type == kOrientType)
+	{
+		tOut.rotateTo(tDriver.rotation());
+	}
+	else
+	{
+		tOut.setTranslation(tDriver.getTranslation(MSpace::kTransform), MSpace::kTransform);
+	}
+	return mChildRest.inverse() * tOut.asMatrix();
 }
 
 MTypeId RigConstraintNode::id(0x00218E);
@@ -268,7 +268,7 @@ MStatus RigConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 	{
 		const MMatrix mParentDelta = MathUtils::computeDeltaFromRest(
 			data.inputValue(aParentRest).asMatrix(), data.inputValue(aParentMatrix).asMatrix());
-		mOut = constraintDelta(type, data.inputValue(aChildRest).asMatrix(), mParentDelta, mDriverDelta);
+		mOut = computeDelta(type, data.inputValue(aChildRest).asMatrix(), mParentDelta, mDriverDelta);
 	}
 
 	data.outputValue(aOutParentMatrix).setMMatrix(mOut);
@@ -386,7 +386,7 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 	const MMatrix mCurrentDelta = MathUtils::computeDeltaFromRest(mParentRest, DagUtils::getMatrixFromPlug(pPlugParentMatrix));
 
 	const ConstraintDriverInfo& initialDriver = args.drivers[args.initialDriver];
-	const MMatrix mInitialDriverDelta = constraintDelta(args.type, mChildRest, mCurrentDelta, MathUtils::computeDeltaFromRest(
+	const MMatrix mInitialDriverDelta = computeDelta(args.type, mChildRest, mCurrentDelta, MathUtils::computeDeltaFromRest(
 		initialDriver.mRestWorld,
 		DagUtils::getMatrixFromPlug(RigModuleNodeBase::getSocketMatrixPlug(initialDriver.oModule, initialDriver.socketIndex))));
 
@@ -611,7 +611,7 @@ MStatus RigConstraintNode::matchSwitchSpace(const MObject& oConstraint, unsigned
 	const MMatrix mParentDelta = MathUtils::computeDeltaFromRest(
 		DagUtils::getMatrixFromPlug(MPlug(oConstraint, aParentRest)),
 		DagUtils::getMatrixFromPlug(MPlug(oConstraint, aParentMatrix)));
-	const MMatrix mNewDelta = constraintDelta(
+	const MMatrix mNewDelta = computeDelta(
 		MPlug(oConstraint, aConstraintType).asShort(),
 		DagUtils::getMatrixFromPlug(MPlug(oConstraint, aChildRest)),
 		mParentDelta,

@@ -154,6 +154,7 @@
     <ClCompile Include="core\RigControlFilter.cpp" />
     <ClCompile Include="core\AnimationSidecar.cpp" />
     <ClCompile Include="core\JointClipFile.cpp" />
+    <ClCompile Include="core\RigKeys.cpp" />
     <ClCompile Include="core\PoseFile.cpp" />
     <ClCompile Include="core\RigJsonStructs.cpp" />
     <ClCompile Include="core\RigTemplateValidation.cpp" />
@@ -169,6 +170,7 @@
     <ClCompile Include="maya\commands\JointMarkupCmd.cpp" />
     <ClCompile Include="maya\commands\RigControlCmds.cpp" />
     <ClCompile Include="maya\commands\RigInfoCmd.cpp" />
+    <ClCompile Include="maya\commands\RigKeyCmds.cpp" />
     <ClCompile Include="maya\commands\RigInverseCmds.cpp" />
     <ClCompile Include="maya\commands\RigPoseCmds.cpp" />
     <ClCompile Include="maya\commands\SkinWeightCmds.cpp" />
@@ -182,6 +184,8 @@
     <ClCompile Include="maya\shared\ControlShapeScene.cpp" />
     <ClCompile Include="maya\shared\DisplayLayerScene.cpp" />
     <ClCompile Include="maya\shared\JointMarkupScene.cpp" />
+    <ClCompile Include="maya\shared\ModuleInverse.cpp" />
+    <ClCompile Include="maya\shared\RigKeyScene.cpp" />
     <ClCompile Include="maya\shared\RigInverse.cpp" />
     <ClCompile Include="maya\shared\RigModule.cpp" />
     <ClCompile Include="maya\shared\RigPoseScene.cpp" />
@@ -205,6 +209,7 @@
     <ClInclude Include="core\RigControlFilter.h" />
     <ClInclude Include="core\AnimationSidecar.h" />
     <ClInclude Include="core\JointClipFile.h" />
+    <ClInclude Include="core\RigKeys.h" />
     <ClInclude Include="core\PoseFile.h" />
     <ClInclude Include="core\RigJsonStructs.h" />
     <ClInclude Include="core\RigTemplateValidation.h" />
@@ -220,6 +225,7 @@
     <ClInclude Include="maya\commands\JointMarkupCmd.h" />
     <ClInclude Include="maya\commands\RigControlCmds.h" />
     <ClInclude Include="maya\commands\RigInfoCmd.h" />
+    <ClInclude Include="maya\commands\RigKeyCmds.h" />
     <ClInclude Include="maya\commands\RigInverseCmds.h" />
     <ClInclude Include="maya\commands\RigPoseCmds.h" />
     <ClInclude Include="maya\commands\SkinWeightCmds.h" />
@@ -235,6 +241,7 @@
     <ClInclude Include="maya\shared\DisplayLayerScene.h" />
     <ClInclude Include="maya\shared\JointMarkupScene.h" />
     <ClInclude Include="maya\shared\ModuleInverse.h" />
+    <ClInclude Include="maya\shared\RigKeyScene.h" />
     <ClInclude Include="maya\shared\RigInverse.h" />
     <ClInclude Include="maya\shared\RigModule.h" />
     <ClInclude Include="maya\shared\RigPoseScene.h" />

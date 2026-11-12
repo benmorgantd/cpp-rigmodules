@@ -167,33 +167,6 @@ namespace
 		}
 	}
 
-	// A channel's value between internal units (radians, centimeters) and the UI units a pose file holds.
-	double toUiUnits(const RigPoseScene::Channel& channel, double internal)
-	{
-		switch (channel.kind)
-		{
-		case RigPoseScene::ValueKind::kAngle:
-			return MAngle(internal, MAngle::kRadians).as(MAngle::uiUnit());
-		case RigPoseScene::ValueKind::kDistance:
-			return MDistance(internal, MDistance::kCentimeters).as(MDistance::uiUnit());
-		default:
-			return internal;
-		}
-	}
-
-	double fromUiUnits(const RigPoseScene::Channel& channel, double ui)
-	{
-		switch (channel.kind)
-		{
-		case RigPoseScene::ValueKind::kAngle:
-			return MAngle(ui, MAngle::uiUnit()).asRadians();
-		case RigPoseScene::ValueKind::kDistance:
-			return MDistance(ui, MDistance::uiUnit()).asCentimeters();
-		default:
-			return ui;
-		}
-	}
-
 	// Queues the write when value differs from the channel's current one. outChanged is set, never cleared.
 	MStatus setValue(const RigPoseScene::Channel& channel, double value, MDGModifier& dgMod, bool& outChanged)
 	{
@@ -429,6 +402,32 @@ namespace
 			}
 		}
 		return MStatus::kSuccess;
+	}
+}
+
+double RigPoseScene::toUiUnits(const Channel& channel, double internal)
+{
+	switch (channel.kind)
+	{
+	case ValueKind::kAngle:
+		return MAngle(internal, MAngle::kRadians).as(MAngle::uiUnit());
+	case ValueKind::kDistance:
+		return MDistance(internal, MDistance::kCentimeters).as(MDistance::uiUnit());
+	default:
+		return internal;
+	}
+}
+
+double RigPoseScene::fromUiUnits(const Channel& channel, double ui)
+{
+	switch (channel.kind)
+	{
+	case ValueKind::kAngle:
+		return MAngle(ui, MAngle::uiUnit()).asRadians();
+	case ValueKind::kDistance:
+		return MDistance(ui, MDistance::uiUnit()).asCentimeters();
+	default:
+		return ui;
 	}
 }
 

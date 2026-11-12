@@ -73,6 +73,8 @@ TIERS = [
         "commands.test_rig_pose_cmds",     # the animation interface: channels, zero, mirror and flip pose (D34)
         "commands.test_rig_inverse_cmds",  # poseRigFromJointPose and animateRigFromJointClip, JointClip reader (D41)
         "commands.test_joint_clip_capture",  # rigmodules.jointclip.capture_joint_clip (D41)
+        "commands.test_inverse_solve",     # the inverse solve: round trips through every module, constraint and the sidecar (D41)
+        "commands.test_rig_key_cmds",      # getRigKeys and setRigKeys, and animateRigFromJointClip's keys (D34, D41)
     ]),
     # Animation, then import/export tiers go here, after constraints.
     ("known bugs", False, [                # expected failures, never block anything

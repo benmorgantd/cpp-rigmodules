@@ -50,6 +50,29 @@ namespace
 	{
 		return MVector(mRestWorld[3][0], mRestWorld[3][1], mRestWorld[3][2]);
 	}
+
+	MPoint position(const MMatrix& mWorld)
+	{
+		return MPoint(mWorld[3][0], mWorld[3][1], mWorld[3][2]);
+	}
+
+	// The aim joint's world from the three part worlds (the aim part's own, as its control step left it): +X toward the
+	// target, +Z toward up, then the rest offset so it equals the joint's rest matrix at rest. compute() and the inverse
+	// both build the aim joint here, so the two can't drift (D41).
+	MMatrix computeAimJointWorld(const MMatrix& mAimWorld, const MMatrix& mTargetWorld, const MMatrix& mUpWorld, const MMatrix& mAimRestOffset)
+	{
+		return mAimRestOffset * MathUtils::computeAimMatrix(position(mAimWorld), position(mTargetWorld), position(mUpWorld), mAimWorld);
+	}
+
+	// Offset so the aim joint keeps its original rest orientation (bind pose safe): jointRest * aimSolvedRest^-1.
+	MMatrix computeAimRestOffset(const MMatrix& mAimRest, const MMatrix& mTargetRest, const MMatrix& mUpRest)
+	{
+		const MMatrix mAimSolvedRest = MathUtils::computeAimMatrix(position(mAimRest), position(mTargetRest), position(mUpRest), mAimRest);
+		return mAimRest * mAimSolvedRest.inverse();
+	}
+
+	// Two aim joints this far apart in any matrix element disagree. Matrices hold centimeters and unit axes.
+	constexpr double kAimJointTolerance{ 1e-3 };
 }
 
 AimModuleNode::AimModuleNode()
@@ -111,19 +134,10 @@ MStatus AimModuleNode::solveAim(MDataBlock& data, AimSolveResult& outResult)
 	}
 
 	// 2. Aim solve (+X toward target, +Z toward up) from the three world positions.
-	const MMatrix& mAimWorld = outResult.mPartWorld[AimPart::Aim];
-	const MMatrix& mTargetWorld = outResult.mPartWorld[AimPart::Target];
-	const MMatrix& mUpWorld = outResult.mPartWorld[AimPart::Up];
-
-	const MPoint pAim(mAimWorld[3][0], mAimWorld[3][1], mAimWorld[3][2]);
-	const MPoint pTarget(mTargetWorld[3][0], mTargetWorld[3][1], mTargetWorld[3][2]);
-	const MPoint pUp(mUpWorld[3][0], mUpWorld[3][1], mUpWorld[3][2]);
-
-	const MMatrix mAimSolved = MathUtils::computeAimMatrix(pAim, pTarget, pUp, mAimWorld);
-
 	// 3. Row-major: offset first, then the live solve. At rest this equals the joint's original rest matrix.
 	const MMatrix mAimRestOffset = data.inputValue(aAimRestOffset).asMatrix();
-	outResult.mPartWorld[AimPart::Aim] = mAimRestOffset * mAimSolved;
+	outResult.mPartWorld[AimPart::Aim] = computeAimJointWorld(
+		outResult.mPartWorld[AimPart::Aim], outResult.mPartWorld[AimPart::Target], outResult.mPartWorld[AimPart::Up], mAimRestOffset);
 
 	return MStatus::kSuccess;
 }
@@ -166,9 +180,48 @@ MStatus AimModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kSuccess;
 }
 
-ModuleInverseResult AimModuleNode::inverse(const ModuleInverseContext&, const ModuleInverseInput&)
+ModuleInverseResult AimModuleNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput& input)
 {
-	return ModuleInverse::notBuilt("Aim");
+	ModuleInverseResult result;
+	result.controlLocal.resize(AimPart::Count);
+	result.socketWorld.resize(AimPart::Count);
+	result.solved = true;
+
+	// Target and up are control steps on their own joints, each carried by its own parent socket.
+	MMatrix mPartWorld[AimPart::Count];
+	for (const unsigned int part : { AimPart::Target, AimPart::Up })
+	{
+		const MMatrix& mRestWorld = context.controlRestWorld[part];
+		MMatrix mLocal = input.fallbackLocal[part];
+		if (input.jointWorld[part].has_value())
+		{
+			mLocal = ModuleInverse::localFromWorld(*input.jointWorld[part], mRestWorld, input.parentDelta[part]);
+			result.controlLocal[part] = mLocal;
+		}
+		else
+		{
+			result.solved = false;
+			result.reason = std::string("the ") + kAimPartNames[part] + " joint is missing from the source";
+		}
+		mPartWorld[part] = RigModuleNodeBase::solveControlStep(mLocal, mRestWorld, input.parentDelta[part]).mWorld;
+	}
+
+	// The aim joint isn't inverted. It follows from the other two, like compute() does it.
+	const MMatrix& mAimRest = context.controlRestWorld[AimPart::Aim];
+	const MMatrix mAimWorld = RigModuleNodeBase::solveControlStep(MMatrix::identity, mAimRest, input.parentDelta[AimPart::Aim]).mWorld;
+	const MMatrix mAimRestOffset = computeAimRestOffset(mAimRest, context.controlRestWorld[AimPart::Target], context.controlRestWorld[AimPart::Up]);
+	mPartWorld[AimPart::Aim] = computeAimJointWorld(mAimWorld, mPartWorld[AimPart::Target], mPartWorld[AimPart::Up], mAimRestOffset);
+
+	if (input.jointWorld[AimPart::Aim].has_value() && !input.jointWorld[AimPart::Aim]->isEquivalent(mPartWorld[AimPart::Aim], kAimJointTolerance))
+	{
+		result.warnings.push_back("the source's aim joint is not where the target and up joints aim it, so it wasn't driven by this aim");
+	}
+
+	for (unsigned int part = 0; part < AimPart::Count; ++part)
+	{
+		result.socketWorld[part] = mPartWorld[part];
+	}
+	return result;
 }
 
 RigModuleBuildResult AimModuleNode::createModule(
@@ -239,13 +292,7 @@ RigModuleBuildResult AimModuleNode::createModule(
 	const MMatrix& mTargetRest = parts[AimPart::Target].mRestWorld;
 	const MMatrix& mUpRest = parts[AimPart::Up].mRestWorld;
 
-	const MMatrix mAimSolvedRest = MathUtils::computeAimMatrix(
-		MPoint(mAimRest[3][0], mAimRest[3][1], mAimRest[3][2]),
-		MPoint(mTargetRest[3][0], mTargetRest[3][1], mTargetRest[3][2]),
-		MPoint(mUpRest[3][0], mUpRest[3][1], mUpRest[3][2]),
-		mAimRest);
-
-	MMatrix mAimRestOffset = mAimRest * mAimSolvedRest.inverse();
+	const MMatrix mAimRestOffset = computeAimRestOffset(mAimRest, mTargetRest, mUpRest);
 	MPlug pAimRestOffset(oAimModule, AimModuleNode::aAimRestOffset);
 	DagUtils::setMatrixPlug(pAimRestOffset, mAimRestOffset, dagMod);
 

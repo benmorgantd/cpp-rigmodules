@@ -1,8 +1,5 @@
 #pragma once
 
-#include "core/PoseFile.h"
-
-#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -10,49 +7,47 @@
 #include <maya/MMatrix.h>
 
 // What a module's inverse is given and returns (D41, inverse-solve.md section 4). A module's inverse matches world
-// matrices only: it knows nothing about source skeletons, proportions or files, and reads no scene. Skeleton: no module
-// implements one yet. They all return ModuleInverse::notBuilt.
+// matrices only: it knows nothing about source skeletons, proportions, files or channels, and reads no scene. Every
+// vector is indexed by the module's slot, the logical index its controlInputData, jointOPM, outputSocketMatrix and
+// childPlugs arrays share (FkChain: control i, joint i, socket i. Aim: aim 0, target 1, up 2. Layout: control i,
+// socket i). A slot with no control, joint or child plug is an empty entry. Matrices are in Maya's internal units.
 
-// One control's derived channel values, in the pose file's shape (channel name, UI units).
-using ControlValues = PoseChannels;
-
-// A module's controls' sidecar values for one frame, by control index.
-using SidecarChannels = std::vector<ControlValues>;
-
-// What a module's inverse reads from its stored rests, once per restore.
+// What a module's inverse reads from its stored rests, once per solve.
 struct ModuleInverseContext
 {
-	std::vector<MMatrix> controlRestWorld;   // by control index
-	std::vector<MMatrix> jointRestWorld;     // by joint index (the jointOPM index)
-	std::vector<std::string> derivedChannels;   // the control channels the module derives from joints. Declared, not discovered.
+	std::vector<MMatrix> controlRestWorld;   // by slot. Aim's slot 0 holds the aim joint's rest, there is no control.
 };
 
 // One module's input for one frame.
 struct ModuleInverseInput
 {
-	std::vector<std::optional<MMatrix>> jointWorld;   // by joint index. Empty: the joint is missing from the source.
-	std::vector<MMatrix> parentDelta;                 // by child plug index: the parent socket's motion since rest, from the sweep
-	const SidecarChannels& sidecar;
+	std::vector<std::optional<MMatrix>> jointWorld;   // by slot. Empty: the joint is missing from the source.
+	std::vector<MMatrix> parentDelta;                 // by slot: the child plug's parent motion since rest, from the sweep (identity when unconnected)
+	std::vector<MMatrix> fallbackLocal;               // by slot: the control's local matrix from the sidecar, or rest, for when its joint can't give it
 };
 
 struct ModuleInverseResult
 {
-	std::vector<ControlValues> controls;   // by control index: the channels it derived
-	std::vector<MMatrix> socketWorld;      // the forward result, so the sweep can feed the next module
-	bool solved = false;                   // false: the controls are left to the sidecar, and reason says why
+	std::vector<std::optional<MMatrix>> controlLocal;   // by slot: the control's local matrix, when the joints gave it
+	std::vector<MMatrix> socketWorld;                   // by slot: the forward result, so the sweep can feed the modules below
+	bool solved = false;                                // false: a joint the module needs is missing, and reason says why
 	std::string reason;
+	std::vector<std::string> warnings;                  // the driver shows each distinct one once
 };
 
-using ModuleInverseFn = std::function<ModuleInverseResult(const ModuleInverseContext&, const ModuleInverseInput&)>;
+using ModuleInverseFn = ModuleInverseResult(*)(const ModuleInverseContext&, const ModuleInverseInput&);
 
 namespace ModuleInverse
 {
-	// The result of a module whose inverse isn't written. A module that can never be inverted returns the same shape
-	// with its own reason, so a new module has to decide (ModuleContract checks the descriptor has one).
-	inline ModuleInverseResult notBuilt(const char* moduleType)
+	// The control local that puts a control at world: world = local * rest * parentDelta (solveControlStep), so
+	// local = world * parentDelta^-1 * rest^-1.
+	inline MMatrix localFromWorld(const MMatrix& mWorld, const MMatrix& mRestWorld, const MMatrix& mParentDelta)
 	{
-		ModuleInverseResult result;
-		result.reason = std::string(moduleType) + " has no inverse yet (D41 skeleton)";
-		return result;
+		return mWorld * mParentDelta.inverse() * mRestWorld.inverse();
 	}
+
+	// A chain of controls where each is the parent of the next and the first hangs from parentDelta[0]: FkChain, and
+	// Layout (no joints, identity rests, no parent). With useJoints, a control whose joint is present takes the local
+	// that reproduces the joint, and the others use fallbackLocal.
+	ModuleInverseResult solveChain(const ModuleInverseContext& context, const ModuleInverseInput& input, bool useJoints);
 }

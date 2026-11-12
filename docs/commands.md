@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId` and `pruneToMaxInfluences` when no mesh is named.
-- Is undoable, apart from `animateRigFromJointClip` (not built yet), the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigMirrorControl` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
+- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigMirrorControl`, `getRigKeys` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -394,9 +394,53 @@ Objects: the rig root node, or one or more controls of one rig. Flag: `file` (re
 - The whole file is checked before anything is applied (bad JSON, an unknown side, a value that isn't a number, a `formatVersion` this build doesn't read), so a bad file changes nothing. An older `formatVersion` is updated on load.
 - Sets values and keys nothing: use [`rigmodules.pose`](python.md#rigmodulespose) to key. Undoable.
 
+## getRigKeys
+
+Reads the keys of a rig's controls.
+
+```python
+import json
+
+keys = json.loads(cmds.getRigKeys("hero:rigRootModule1"))
+# {"Left": {"upperArm": {"rotateZ": [[1.0, 0.0], [10.0, 90.0]]}}}
+cmds.getRigKeys("hero:upperArm_l_ctrl_l")   # only this control
+```
+
+Objects: the rig root node (every control), or one or more controls of one rig. Returns one JSON string.
+
+- The string is `{side: {usage: {channel: [[frame, value], ...]}}}`, keyed by control markup like a pose, so it survives renames and rebuilds. Frames are in the scene's UI time unit and values in its UI units, as `cmds.keyframe` reports them.
+- Only channels with an animation curve are listed. A control with none is left out.
+- Changes no scene data and isn't undoable.
+
+## setRigKeys
+
+Adds keys to a rig's controls, every key of the call at once.
+
+```python
+import json
+
+keys = {"Left": {"upperArm": {"rotateZ": [[1, 0], [10, 90], [20, 45]]}}}
+cmds.setRigKeys("hero:rigRootModule1", keys=json.dumps(keys))
+# Returns the controls keyed
+```
+
+The string is the one `getRigKeys` returns:
+
+```json
+{ "Left": { "upperArm": { "rotateZ": [[1, 0], [10, 90], [20, 45]], "translateX": [[1, 0], [20, 2.5]] } } }
+```
+
+Objects: the rig root node, or one or more controls of one rig. Flag: `keys` (required, the JSON string).
+
+- Controls and channels match by markup and channel name. A control or channel the keys have and the rig lacks is skipped with a warning. With controls, the keys for the rest of the rig are ignored without one.
+- Each channel gets all its keys in one `MFnAnimCurve::addKeys` call, and a channel with no curve gets one. A channel's keys replace the curve's keys from its first frame to its last, and keys outside that range stay. Keys may come in any order, but a frame can't repeat within a channel.
+- Enum, bool and integer channels (`space`) key stepped. The other channels use the global default tangents.
+- The whole string is checked before anything is written (bad JSON, a side outside `Center`, `Left` and `Right`, an empty usage or channel name, a key that isn't a `[frame, value]` pair of numbers, a repeated frame), so a bad string changes nothing.
+- Undoable as one step, however many channels and keys it wrote.
+
 ## poseRigFromJointPose
 
-Sets a rig's control values from a joint pose, by solving each module's controls from the joints. **Not built yet:** the command checks its arguments and reads and validates its files (a JointClip file, [format](python.md#file-format)), then fails with "solve is not built yet" and changes nothing. The design is in [`design/inverse-solve.md`](../design/inverse-solve.md).
+Sets a rig's control values from a joint pose, by solving each module's controls from the joints ([how it solves](#how-the-joints-become-control-values)). The design is in [`design/inverse-solve.md`](../design/inverse-solve.md).
 
 ```python
 cmds.poseRigFromJointPose("hero:rigRootModule1", jointPose="C:/tmp/idle.jointclip.json", sidecar="C:/poses/idle.rigdata.json", mode="match")
@@ -414,16 +458,61 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 
 - Sets values and keys nothing, like `loadRigPose`. Undoable.
 - Everything is checked before anything is written, so a bad file changes nothing.
+- The whole rig is solved, whatever the objects: with controls, only those controls are set.
+
+### How the joints become control values
+
+- A source joint matches a rig joint by markup (`side`, `usage`). A source joint the rig lacks is ignored. A rig joint the source lacks is a warning: its control comes from the sidecar, and stays at rest without one.
+- The rig's modules are solved parents first, so every module's child plugs see where its parents' sockets are. The [Layout](modules.md) has no joints, so its controls come only from the sidecar (at rest without one) and everything below it hangs from them. A rig whose layout was moved but whose sidecar doesn't say so still matches the joints: the controls below the layout take up the difference.
+- An [FkChain](modules.md) gets every control's translate, rotate and scale from its joints. An Aim gets its target and up controls from their joints, and its aim joint follows from them. A source aim joint that doesn't sit where its target and up aim it is a warning.
+- A control with a [space switch](commands.md#createrigconstraint) is solved in the space the sidecar's `space` channel names. Without one, it is solved in the constraint's current space. Its values are relative to that space, so they differ from space to space while the joints match.
+- Per channel, the value comes from the joints, else the sidecar, else rest. A control's transform channels always get a value. A custom channel, `space` included, is set only when the sidecar has it: nothing derives it, so a missing one keeps its value.
+- A rotation is the euler nearest the control's current value (nearest the previous frame for a clip), in the control's own rotate order. Shear the channels can't hold, and locked or driven channels, are warnings.
+- The source's rest is compared with the rig's. If a joint is more than 0.01 cm out, the source has other proportions: the command warns that the result won't reproduce the source's pose, and a retarget is needed.
 
 ## animateRigFromJointClip
 
-Keys a rig's controls from an animated joint clip. **Not built yet:** it checks its arguments and reads and validates its files, then fails with "not built yet" and keys nothing. It is not undoable until the keyframe command it needs exists.
+Keys a rig's controls from an animated joint clip, by the solve of [`poseRigFromJointPose`](#how-the-joints-become-control-values) on every frame.
 
 ```python
 cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.jointclip.json", sidecar="C:/anims/walk.rigdata.json", startFrame=1, endFrame=60)
+# Returns the controls keyed
 ```
 
-Objects: the rig root node, or one or more controls of one rig. Flags: `jointClip` (required), `sidecar`, `mode` (`match`), `startFrame` and `endFrame` (the part of the clip to write, the whole clip by default; `startFrame` can't be after `endFrame`).
+Objects: the rig root node, or one or more controls of one rig. Flags:
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `jointClip` | string | A JointClip file. Required. |
+| `sidecar` | string | An animation sidecar file ([format](#animation-sidecar-format)). Optional. |
+| `mode` | string | `match`, the only mode. Optional. |
+| `startFrame`, `endFrame` | int | The part of the clip to write, the whole clip by default. Both must be inside the clip's frames, and `startFrame` can't be after `endFrame`. |
+
+- Every channel it writes gets a key on every frame of the range, with the global default tangents (`space` and other enums step). Nothing is simplified: that is a separate tool on the animation. The whole call is written through [`setRigKeys`](#setrigkeys)'s path, so it is one undo.
+- The keys land on the clip's own frame numbers (`startFrame` in the file). Keys the animator set outside the range stay, and the keys inside it are replaced.
+- The clip must run at the scene's frame rate, and the sidecar at the clip's, or the command is an error. A resample is not built.
+- Controls are solved as for `poseRigFromJointPose`, so a Layout control is keyed at rest on every frame unless the sidecar says otherwise.
+- A frame the sidecar has no entry for is a warning, and that frame has no values for the channels only the sidecar gives.
+- Everything is checked before anything is written, so a bad file changes nothing. Undoable.
+
+### Animation sidecar format
+
+The control values a clip's joints can't give, one entry for every frame: the [pose file](#saverigpose)'s `controls` map, per frame.
+
+```json
+{
+    "formatVersion": 1,
+    "frameRate": 24.0,
+    "frames": {
+        "1": { "Center": { "layout_0": { "translateX": 0.0 } }, "Left": { "upperArm": { "space": 0 } } },
+        "2": { "Center": { "layout_0": { "translateX": 0.5 } }, "Left": { "upperArm": { "space": 0 } } },
+        "3": { "Center": { "layout_0": { "translateX": 1.0 } }, "Left": { "upperArm": { "space": 0 } } }
+    }
+}
+```
+
+- `frames` maps a frame number to what the pose file's `controls` holds: markup, then channel values in UI units, an enum by index. Every channel is baked on every frame, so the file has no sparse keys and no tangent data.
+- The reader checks the whole file (bad JSON, a missing or unknown key, a `formatVersion` this build doesn't read, a `frameRate` that isn't above 0, a frame that isn't a whole number, anything a pose file's `controls` rejects).
 
 ## setRigMeshId
 

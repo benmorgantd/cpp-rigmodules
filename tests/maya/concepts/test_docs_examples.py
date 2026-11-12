@@ -220,8 +220,7 @@ def python_doc_joint_clip():
 
 
 class JointClipDocExample(RigTestCase):
-    """The JointClip file in docs/python.md passes the plugin's reader. The solve is not built, so the command then
-    fails at the solve, which is how a file that was accepted shows."""
+    """The JointClip file in docs/python.md passes the plugin's reader and the solve runs on it."""
 
     def test_joint_clip_example_is_accepted(self):
         self.build_standard("mirror_arms", "mirror_arms")
@@ -229,4 +228,52 @@ class JointClipDocExample(RigTestCase):
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(python_doc_joint_clip())
         root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
-        self.assertMayaError(lambda: cmds.poseRigFromJointPose(root, jointPose=path), "solve is not built yet")
+        changed = cmds.poseRigFromJointPose(root, jointPose=path) or []
+        self.assertIsInstance(changed, list)
+
+
+COMMANDS_DOC = os.path.join(config.REPO_DIR, "docs", "commands.md")
+
+
+def commands_doc_json(heading):
+    """The first ```json block after a heading of docs/commands.md."""
+    with open(COMMANDS_DOC, encoding="utf-8") as handle:
+        text = handle.read()
+    section = text.split(heading, 1)[1]
+    match = re.search(r"```json\s*\n(.*?)```", section, re.S)
+    if not match:
+        raise AssertionError("docs/commands.md %r has no ```json block" % heading)
+    return match.group(1)
+
+
+class KeysDocExample(RigTestCase):
+    """The setRigKeys string in docs/commands.md keys the mirror_arms rig, and getRigKeys reads it back."""
+
+    def test_set_rig_keys_example(self):
+        self.build_standard("mirror_arms", "mirror_arms")
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        keys = commands_doc_json("## setRigKeys")
+        changed = cmds.setRigKeys(root, keys=keys)
+        self.assertEqual([c.split(":")[-1] for c in changed], ["upperArm_l_ctrl_l"])
+        arm = rig_name("upperArm_l_ctrl_l")
+        self.assertEqual(cmds.keyframe(arm + ".rotateZ", query=True, valueChange=True), [0, 90, 45])
+        self.assertEqual(cmds.keyframe(arm + ".translateX", query=True, valueChange=True), [0, 2.5])
+        found = json.loads(cmds.getRigKeys(root))
+        self.assertEqual(found["Left"]["upperArm"]["rotateZ"], [[1, 0], [10, 90], [20, 45]])
+
+
+class AnimationSidecarDocExample(RigTestCase):
+    """The animation sidecar in docs/commands.md passes the plugin's reader, and animateRigFromJointClip uses it."""
+
+    def test_sidecar_example_is_accepted(self):
+        import rigtest.jointclips as jointclips
+        self.build_standard("mirror_arms", "mirror_arms")
+        root = jointclips.rig_root()
+        rest = jointclips.snapshot()
+        folder = config.WORK_DIR
+        clip = jointclips.write_json(os.path.join(folder, "doc_anim_clip.json"), jointclips.clip_data(rest, [rest, rest, rest]))
+        sidecar = jointclips.write_json(os.path.join(folder, "doc_anim_sidecar.json"), commands_doc_json("### Animation sidecar format"))
+        cmds.animateRigFromJointClip(root, jointClip=clip.replace("\\", "/"), sidecar=sidecar.replace("\\", "/"))
+        layout = rig_name("layout_0_ctrl_c")
+        self.assertEqual(cmds.keyframe(layout + ".translateX", query=True, valueChange=True), [0, 0.5, 1.0])
+        self.assertEqual(cmds.keyframe(rig_name("upperArm_l_ctrl_l") + ".space", query=True, valueChange=True), [0, 0, 0])

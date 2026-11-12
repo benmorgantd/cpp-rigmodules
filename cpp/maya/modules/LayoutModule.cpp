@@ -57,9 +57,9 @@ MStatus LayoutModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kUnknownParameter;
 }
 
-ModuleInverseResult LayoutModuleNode::inverse(const ModuleInverseContext&, const ModuleInverseInput&)
+ModuleInverseResult LayoutModuleNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput& input)
 {
-	return ModuleInverse::notBuilt("Layout");
+	return ModuleInverse::solveChain(context, input, false);
 }
 
 RigModuleBuildResult LayoutModuleNode::createModule(

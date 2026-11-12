@@ -63,9 +63,9 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kUnknownParameter;
 }
 
-ModuleInverseResult FkChainNode::inverse(const ModuleInverseContext&, const ModuleInverseInput&)
+ModuleInverseResult FkChainNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput& input)
 {
-	return ModuleInverse::notBuilt("FkChain");
+	return ModuleInverse::solveChain(context, input, true);
 }
 
 // Joints run down +X and bend about Z, so the middle axis (the one that gimbal locks at 90 degrees) should be

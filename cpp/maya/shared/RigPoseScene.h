@@ -47,6 +47,10 @@ public:
 	// on one that didn't. Built-in channels (transforms, visibility) need nothing and copy.
 	static MStatus setMirrorMode(MFnAttribute& fnAttr, bool negate);
 
+	// A channel's value between internal units (radians, centimeters) and the UI units a pose file holds.
+	static double toUiUnits(const Channel& channel, double internal);
+	static double fromUiUnits(const Channel& channel, double ui);
+
 	// The control's channels in channel box order.
 	static MStatus getControlChannels(const MObject& oControl, std::vector<Channel>& outChannels);
 

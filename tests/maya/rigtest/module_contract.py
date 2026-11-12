@@ -10,6 +10,7 @@
 
 A module that can only be Center sets MIRROR_TEMPLATE = False. Leaving it unset fails the mirror tests.
 """
+import json
 import os
 import re
 import tempfile
@@ -18,7 +19,7 @@ from maya import cmds
 import maya.api.OpenMaya as om
 
 import rigmodules.query
-from rigtest import config
+from rigtest import config, jointclips
 from rigtest.case import rig_name
 
 
@@ -148,6 +149,99 @@ class ModuleContract:
         self._build()
         for module in cmds.ls(rig_name("*"), type=self.MODULE_TYPE):
             assert_one_solve_fills_every_output(self, module)
+
+    # ---- the inverse solve (D41) -----------------------------------------------------------------
+
+    def _pose_every_transform(self):
+        """Moves every plain channel of every control off rest, and returns {control: transform values}."""
+        for control in cmds.ls(rig_name("*"), type="rigControlNode"):
+            self._pose_channels(control)
+        return {c: jointclips.values_of(c) for c in cmds.ls(rig_name("*"), type="rigControlNode")}
+
+    def _sidecar_for_what_joints_cannot_give(self, root, folder):
+        """A pose file holding the posed rig's Layout controls (no joints can give them) and its non-transform channels."""
+        path = os.path.join(folder, "full.json")
+        cmds.saveRigPose(root, file=path.replace("\\", "/"))
+        with open(path, encoding="utf-8") as handle:
+            controls = json.load(handle)["controls"]
+        transforms = jointclips.CHANNELS
+        kept = {}
+        for side, usages in controls.items():
+            for usage, channels in usages.items():
+                values = channels if usage.startswith("layout_") else {k: v for k, v in channels.items() if k not in transforms}
+                if values:
+                    kept.setdefault(side, {})[usage] = values
+        return jointclips.write_json(os.path.join(folder, "sidecar.json"), {"formatVersion": 1, "controls": kept})
+
+    def _check_inverse_round_trip(self):
+        """Forward and inverse agree (D41): pose every control, write the joints as a JointClip, zero the controls and
+        restore from the clip. The joints come back where they were and so does every control's transform. The Layout
+        has no joints, so its values come from the sidecar, as in a real restore."""
+        root = jointclips.rig_root()
+        folder = tempfile.mkdtemp()
+        rest = jointclips.snapshot()
+        posed_values = self._pose_every_transform()
+        posed_joints = jointclips.snapshot()
+        sidecar = self._sidecar_for_what_joints_cannot_give(root, folder)
+        clip = jointclips.write_json(os.path.join(folder, "clip.json"), jointclips.clip_data(rest, [posed_joints]))
+
+        cmds.zeroRigControls(root)
+        cmds.poseRigFromJointPose(root, jointPose=clip.replace("\\", "/"), sidecar=sidecar.replace("\\", "/"))
+
+        for joint, matrix in posed_joints.items():
+            after = jointclips.world(joint)
+            if not after.isEquivalent(matrix, 1e-4):
+                self.fail("%s is off after restoring from joints\n  posed %s\n  after %s" % (joint, list(matrix), list(after)))
+        for control, values in posed_values.items():
+            for name, value in values.items():
+                actual = cmds.getAttr("%s.%s" % (control, name))
+                self.assertAlmostEqual(actual, value, places=3, msg="%s.%s was posed to %s, and restored as %s" % (control, name, value, actual))
+
+    def test_contract_inverse_round_trip(self):
+        """Every module has an inverse that agrees with its forward solve, in the standard build."""
+        self._build()
+        self._check_inverse_round_trip()
+
+    def test_contract_inverse_round_trip_mirrored(self):
+        """The same for a mirrored build: a mirrored module is an ordinary module (D28)."""
+        self._build_mirrored()
+        self._check_inverse_round_trip()
+
+    def test_contract_inverse_without_a_joint_falls_back_to_the_sidecar(self):
+        """A source that lacks a joint is normal (D41): the module's control for it comes from the sidecar, and
+        everything else still matches."""
+        if not self.JOINT_OWNERS:
+            self.skipTest("%s has no joints" % self.MODULE_TYPE)
+        self._build()
+        root = jointclips.rig_root()
+        folder = tempfile.mkdtemp()
+        rest = jointclips.snapshot()
+        posed_values = self._pose_every_transform()
+        posed_joints = jointclips.snapshot()
+
+        # Leave out the last joint the module drives. The control that shares its markup comes from the sidecar.
+        last = rig_name(list(self.JOINT_OWNERS)[-1])
+        markup = json.loads(jointclips.markup_of(last))
+        controls = [c for c in rigmodules.query.get_rig_controls(root) if (c.side, c.usage) == (markup["side"], markup["usage"])]
+        short = last.split(":")[-1]
+        clip = jointclips.write_json(os.path.join(folder, "clip.json"), jointclips.clip_data(rest, [posed_joints], skip=(short,)))
+        # The Layout has no joints, so it always comes from the sidecar, and the control for the missing joint with it.
+        sidecar_controls = {}
+        layout = [c for c in rigmodules.query.get_rig_controls(root) if c.usage.startswith("layout_")]
+        for control in controls + layout:
+            sidecar_controls.setdefault(control.side, {})[control.usage] = dict(posed_values[control.node])
+        sidecar = jointclips.write_json(os.path.join(folder, "sidecar.json"), {"formatVersion": 1, "controls": sidecar_controls})
+
+        cmds.zeroRigControls(root)
+        cmds.poseRigFromJointPose(root, jointPose=clip.replace("\\", "/"), sidecar=sidecar.replace("\\", "/"))
+
+        for control in controls:
+            for name, value in posed_values[control.node].items():
+                actual = cmds.getAttr("%s.%s" % (control.node, name))
+                self.assertAlmostEqual(actual, value, places=3, msg="%s.%s should come from the sidecar" % (control.node, name))
+        for joint, matrix in posed_joints.items():
+            if joint.split(":")[-1] != short and not jointclips.world(joint).isEquivalent(matrix, 1e-4):
+                self.fail("%s is off when the source lacks %s" % (joint, short))
 
     # ---- mirrored build (D28, D34) ---------------------------------------------------------------
 

@@ -32,41 +32,8 @@ std::string serializePose(const PoseMap& pose)
 	return file.dump(4) + "\n";
 }
 
-void deserializePose(const std::string& text, PoseMap& outPose, ValidationReport& report)
+void deserializePoseControls(const nlohmann::json& controls, const std::string& controlsPath, PoseMap& outPose, ValidationReport& report)
 {
-	const std::string where = "pose file";
-	nlohmann::json file;
-	try
-	{
-		file = nlohmann::json::parse(text);
-	}
-	catch (const nlohmann::json::exception& e)
-	{
-		report.addError(where, e.what());
-		return;
-	}
-
-	const std::size_t errorCount = report.errors.size();
-	RigTemplateValidation::checkKeys(file, { PoseFileKey::FormatVersion, PoseFileKey::Controls }, {}, where, report);
-	if (report.errors.size() != errorCount)
-	{
-		return;
-	}
-
-	const nlohmann::json& version = file.at(PoseFileKey::FormatVersion);
-	const std::string versionPath = where + "." + PoseFileKey::FormatVersion;
-	if (!version.is_number_integer())
-	{
-		report.addError(versionPath, "must be an integer, not " + version.dump());
-		return;
-	}
-	if (!FormatUpdate::runUpdates(poseUpdateTable(), version.get<int>(), file, versionPath, report))
-	{
-		return;
-	}
-
-	const nlohmann::json& controls = file.at(PoseFileKey::Controls);
-	const std::string controlsPath = where + "." + PoseFileKey::Controls;
 	if (!controls.is_object())
 	{
 		report.addError(controlsPath, "must be a JSON object of sides");
@@ -120,4 +87,40 @@ void deserializePose(const std::string& text, PoseMap& outPose, ValidationReport
 			outPose[side][usage] = channels;
 		}
 	}
+}
+
+void deserializePose(const std::string& text, PoseMap& outPose, ValidationReport& report)
+{
+	const std::string where = "pose file";
+	nlohmann::json file;
+	try
+	{
+		file = nlohmann::json::parse(text);
+	}
+	catch (const nlohmann::json::exception& e)
+	{
+		report.addError(where, e.what());
+		return;
+	}
+
+	const std::size_t errorCount = report.errors.size();
+	RigTemplateValidation::checkKeys(file, { PoseFileKey::FormatVersion, PoseFileKey::Controls }, {}, where, report);
+	if (report.errors.size() != errorCount)
+	{
+		return;
+	}
+
+	const nlohmann::json& version = file.at(PoseFileKey::FormatVersion);
+	const std::string versionPath = where + "." + PoseFileKey::FormatVersion;
+	if (!version.is_number_integer())
+	{
+		report.addError(versionPath, "must be an integer, not " + version.dump());
+		return;
+	}
+	if (!FormatUpdate::runUpdates(poseUpdateTable(), version.get<int>(), file, versionPath, report))
+	{
+		return;
+	}
+
+	deserializePoseControls(file.at(PoseFileKey::Controls), where + "." + PoseFileKey::Controls, outPose, report);
 }

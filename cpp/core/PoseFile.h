@@ -14,6 +14,8 @@
 
 #include "RigTemplateValidation.h"
 
+#include <nlohmann/json.hpp>
+
 #include <map>
 #include <string>
 #include <utility>
@@ -31,6 +33,10 @@ using PoseMap = std::map<std::string, std::map<std::string, PoseChannels>>;
 
 // Pretty-printed JSON for a pose file.
 std::string serializePose(const PoseMap& pose);
+
+// The `controls` object of a pose file: side -> usage -> channel values. Shared with the animation sidecar, which holds
+// one per frame. controlsPath is the prefix of the messages. Adds the entries that parsed to outPose.
+void deserializePoseControls(const nlohmann::json& controls, const std::string& controlsPath, PoseMap& outPose, ValidationReport& report);
 
 // Every problem goes into report: bad JSON, a missing or unknown key, an unknown formatVersion, a side outside
 // SideNames, an empty usage, an empty channel name or a value that is not a number. An older formatVersion is updated

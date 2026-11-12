@@ -67,6 +67,14 @@ namespace PoseFileKey
 	inline constexpr const char* Controls{ "controls" };
 }
 
+// Keys in an animation sidecar file, see AnimationSidecar.h. Public API: the Python capture writes them.
+namespace AnimationSidecarKey
+{
+	inline constexpr const char* FormatVersion{ "formatVersion" };
+	inline constexpr const char* FrameRate{ "frameRate" };
+	inline constexpr const char* Frames{ "frames" };
+}
+
 // Keys in a JointClip file, see JointClipFile.h. Public API: the Python capture and USD reader write them.
 namespace JointClipFileKey
 {
