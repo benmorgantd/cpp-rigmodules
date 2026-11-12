@@ -166,6 +166,11 @@ MStatus AimModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kSuccess;
 }
 
+ModuleInverseResult AimModuleNode::inverse(const ModuleInverseContext&, const ModuleInverseInput&)
+{
+	return ModuleInverse::notBuilt("Aim");
+}
+
 RigModuleBuildResult AimModuleNode::createModule(
 	const MString& moduleName,
 	const Side& side,

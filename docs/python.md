@@ -144,3 +144,7 @@ mesh = meshes[rigmodules.skinweights.read_file_mesh_id("C:/weights/body_geo.json
 | `read_file_mesh_id(path)` | The `meshId` a weight file is for, read from the top of the file. Raises `ValueError` when it has none |
 
 `MESH_ID_ATTR` is the attribute name, `"meshId"`.
+
+## rigmodules.jointclip
+
+Not built yet. `read_usd(usd_path, clip_path)`, `write_usd(clip_path, usd_path)` and `capture(rig_root, start_frame, end_frame, usd_path, sidecar_path)` exist and raise `NotImplementedError`. They will convert between USD joint files and the JointClip file that [`poseRigFromJointPose`](commands.md#poserigfromjointpose) and [`animateRigFromJointClip`](commands.md#animaterigfromjointclip) read. The design is in [`design/inverse-solve.md`](../design/inverse-solve.md).

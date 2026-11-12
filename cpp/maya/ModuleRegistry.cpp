@@ -19,34 +19,34 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
         {
             "assetRootModule", "AssetRoot", AssetRootNode::id,
             AssetRootNode::creator, AssetRootNode::initialize,
-            {}, nullptr, false
+            {}, nullptr, nullptr, false
         },
 
         {
             "rigRootModule", "RigRoot", RigRootNode::id,
             RigRootNode::creator, RigRootNode::initialize,
-            {}, nullptr, false
+            {}, nullptr, nullptr, false
         },
 
         {
             "layoutModule", "Layout", LayoutModuleNode::id,
             LayoutModuleNode::creator, LayoutModuleNode::initialize,
-            {}, nullptr, true   // built implicitly by RigRootNode::createRig, not from JSON
+            {}, nullptr, LayoutModuleNode::inverse, true   // built implicitly by RigRootNode::createRig, not from JSON
         },
         {
             "fkChainModule", "FkChain", FkChainNode::id,
             FkChainNode::creator, FkChainNode::initialize,
-            {}, FkChainNode::planFromJson, true
+            {}, FkChainNode::planFromJson, FkChainNode::inverse, true
         },
         {
             "aimModule", "Aim", AimModuleNode::id,
             AimModuleNode::creator, AimModuleNode::initialize,
-            {}, AimModuleNode::planFromJson, true
+            {}, AimModuleNode::planFromJson, AimModuleNode::inverse, true
         },
         {
             "rigConstraint", "RigConstraint", RigConstraintNode::id,
             RigConstraintNode::creator, RigConstraintNode::initialize,
-            {}, nullptr, false   // built by RigConstraintNode::buildFromTemplate, not as a module
+            {}, nullptr, nullptr, false   // built by RigConstraintNode::buildFromTemplate, not as a module
         }
     };
     return descriptors;

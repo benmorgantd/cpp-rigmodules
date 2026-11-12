@@ -6,6 +6,7 @@
 #include "core/RigTemplateValidation.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/JointMarkupScene.h"
+#include "maya/shared/ModuleInverse.h"
 #include "maya/shared/Utilities.h"
 
 #include <functional>
@@ -117,7 +118,10 @@ struct ModuleDescriptor
 	// version 1. A change to the shape or meaning of moduleArgs adds a step here, which raises the current version.
 	UpdateTable argUpdates;
 	ModulePlanFn plan;          // nullptr = registered with Maya but not buildable from JSON
-	bool isRigModule;           // Connects to a rig root's rigModules. Its moduleType is a getRigControls filter value.
+	// Control values from joint world matrices (D41). A rig module always has one: a module that can't be inverted
+	// says so with a result that has solved = false and a reason. nullptr for nodes that are not rig modules.
+	ModuleInverseFn inverse;
+	bool isRigModule;          // Connects to a rig root's rigModules. Its moduleType is a getRigControls filter value.
 };
 
 // Result of solving one control step. Shared by every module that carries controls.

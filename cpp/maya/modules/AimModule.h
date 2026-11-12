@@ -69,6 +69,9 @@ public:
 		MDagModifier& dagMod
 	);
 	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
+	// Derives the target and up controls' transforms from their joints. The aim joint isn't inverted (D41, inverse-solve.md
+	// section 8). Skeleton: not built.
+	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
 
 private:
 	struct AimSolveResult

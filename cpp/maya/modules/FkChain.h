@@ -39,6 +39,8 @@ public:
 		MDagModifier& dagMod
 	);
 	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
+	// Derives every control's transform from the joints (D41, inverse-solve.md section 8). Skeleton: not built.
+	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
 
 	// Names of socket index in a chain of count controls: index_N, plus start on the first and end on the last.
 	// The plan step and createModule both read this, so they cannot drift apart.

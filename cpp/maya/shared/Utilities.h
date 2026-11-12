@@ -13,6 +13,7 @@
 #include <maya/MPxTransform.h>
 #include <maya/MStatus.h>
 #include <maya/MString.h>
+#include <maya/MSyntax.h>
 
 #include <string>
 #include <vector>
@@ -130,6 +131,10 @@ public:
 	// The command's objects as a rig control scope (RigTraversal::getControlScope): one rig root, or one or more
 	// controls of one rig. Reports a parse failure and anything else.
 	static MStatus readControlScope(const MArgDatabase& argData, MStatus parseStatus, const char* commandName, RigControlScope& outScope);
+
+	// The syntax of a command that takes a rig control scope: one or more string objects, never the selection. The
+	// command adds its flags.
+	static MSyntax controlScopeSyntax();
 
 	// The command's one string object. Reports "<command> takes exactly one <what>." for none or several.
 	static MStatus readSingleObject(const MArgDatabase& argData, const char* commandName, const char* what, MString& outName);

@@ -436,6 +436,14 @@ MStatus CommandUtils::readControlScope(const MArgDatabase& argData, MStatus pars
 	return RigTraversal::getControlScope(names, outScope);
 }
 
+MSyntax CommandUtils::controlScopeSyntax()
+{
+	MSyntax syntax;
+	syntax.setObjectType(MSyntax::kStringObjects, 1);
+	syntax.useSelectionAsDefault(false);
+	return syntax;
+}
+
 MStatus CommandUtils::readSingleObject(const MArgDatabase& argData, const char* commandName, const char* what, MString& outName)
 {
 	MStringArray objects;

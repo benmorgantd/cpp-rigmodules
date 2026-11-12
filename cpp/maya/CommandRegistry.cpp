@@ -5,6 +5,7 @@
 #include "maya/commands/JointMarkupCmd.h"
 #include "maya/commands/RigControlCmds.h"
 #include "maya/commands/RigInfoCmd.h"
+#include "maya/commands/RigInverseCmds.h"
 #include "maya/commands/RigPoseCmds.h"
 #include "maya/commands/SkinWeightCmds.h"
 
@@ -33,7 +34,9 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ SetRigMeshIdCmd::aCommandString, SetRigMeshIdCmd::creator, SetRigMeshIdCmd::newSyntax },
 		{ SaveRigSkinWeightsCmd::aCommandString, SaveRigSkinWeightsCmd::creator, SaveRigSkinWeightsCmd::newSyntax },
 		{ LoadRigSkinWeightsCmd::aCommandString, LoadRigSkinWeightsCmd::creator, LoadRigSkinWeightsCmd::newSyntax },
-		{ PruneToMaxInfluencesCmd::aCommandString, PruneToMaxInfluencesCmd::creator, PruneToMaxInfluencesCmd::newSyntax }
+		{ PruneToMaxInfluencesCmd::aCommandString, PruneToMaxInfluencesCmd::creator, PruneToMaxInfluencesCmd::newSyntax },
+		{ PoseRigFromJointPoseCmd::aCommandString, PoseRigFromJointPoseCmd::creator, PoseRigFromJointPoseCmd::newSyntax },
+		{ AnimateRigFromJointClipCmd::aCommandString, AnimateRigFromJointClipCmd::creator, AnimateRigFromJointClipCmd::newSyntax }
 	};
 	return descriptors;
 }

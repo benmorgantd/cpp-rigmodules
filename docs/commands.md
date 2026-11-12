@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId` and `pruneToMaxInfluences` when no mesh is named.
-- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigMirrorControl` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
+- Is undoable, apart from `animateRigFromJointClip` (not built yet), the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigMirrorControl` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -393,6 +393,37 @@ Objects: the rig root node, or one or more controls of one rig. Flag: `file` (re
 - Controls match the file by markup. A control the file lacks keeps its values, and so does a channel it lacks. With the rig root, a control or channel the file has and the rig lacks is skipped with a warning. With controls, the rest of the file is ignored without one.
 - The whole file is checked before anything is applied (bad JSON, an unknown side, a value that isn't a number, a `formatVersion` this build doesn't read), so a bad file changes nothing. An older `formatVersion` is updated on load.
 - Sets values and keys nothing: use [`rigmodules.pose`](python.md#rigmodulespose) to key. Undoable.
+
+## poseRigFromJointPose
+
+Sets a rig's control values from a joint pose, by solving each module's controls from the joints. **Not built yet:** the command checks its arguments and files, then fails with "not built yet" and changes nothing. The design is in [`design/inverse-solve.md`](../design/inverse-solve.md).
+
+```python
+cmds.poseRigFromJointPose("hero:rigRootModule1", jointPose="C:/tmp/idle.jointclip.json", sidecar="C:/poses/idle.rigdata.json", mode="match")
+cmds.poseRigFromJointPose("hero:upperArm_l_ctrl_l", jointPose="C:/tmp/idle.jointclip.json")   # only this control
+# Returns the controls that changed
+```
+
+Objects: the rig root node, or one or more controls of one rig. Flags:
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `jointPose` | string | A JointClip file with exactly one JointPose. Required. |
+| `sidecar` | string | A pose file with the control values the joints can't give. Optional. |
+| `mode` | string | `match`, the only mode. Optional. |
+
+- Sets values and keys nothing, like `loadRigPose`. Undoable.
+- Everything is checked before anything is written, so a bad file changes nothing.
+
+## animateRigFromJointClip
+
+Keys a rig's controls from an animated joint clip. **Not built yet:** it checks its arguments and files, then fails with "not built yet" and keys nothing. It is not undoable until the keyframe command it needs exists.
+
+```python
+cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.jointclip.json", sidecar="C:/anims/walk.rigdata.json", startFrame=1, endFrame=60)
+```
+
+Objects: the rig root node, or one or more controls of one rig. Flags: `jointClip` (required), `sidecar`, `mode` (`match`), `startFrame` and `endFrame` (the part of the clip to write, the whole clip by default; `startFrame` can't be after `endFrame`).
 
 ## setRigMeshId
 

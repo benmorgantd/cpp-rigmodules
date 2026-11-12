@@ -1,6 +1,6 @@
 # Inverse solve: restoring controls from joints
 
-**Status:** Decided, D41 (2026-11-11). Amended 2026-11-11 (author): every channel is baked every frame with no tangent data, and the calibration offset and its composition order are dropped for now. Nothing built.
+**Status:** Decided, D41 (2026-11-11). Amended 2026-11-11 (author): every channel is baked every frame with no tangent data, and the calibration offset and its composition order are dropped for now. Skeleton built 2026-11-11 (section 13, step 1): types, signatures, registered commands and stubs only, with no solve.
 
 The forward rig turns control values into joint matrices. This design adds the other direction: given joint matrices, find the control values that reproduce them. Modules own that behaviour. It comes before the IK module, so IK is designed with an inverse from the start.
 

@@ -16,19 +16,10 @@ namespace
 	constexpr const char* kLeftToRightFlag{ "-leftToRight" };
 	constexpr const char* kFileFlag{ "-file" };
 
-	// The syntax of a command that takes a rig root or one or more controls.
-	MSyntax controlScopeSyntax()
-	{
-		MSyntax syntax;
-		syntax.setObjectType(MSyntax::kStringObjects, 1);
-		syntax.useSelectionAsDefault(false);
-		return syntax;
-	}
-
-	// The same, with the pose file flag.
+	// The syntax of a command that takes a control scope, with the pose file flag.
 	MSyntax fileScopeSyntax()
 	{
-		MSyntax syntax = controlScopeSyntax();
+		MSyntax syntax = CommandUtils::controlScopeSyntax();
 		CHECK_MSTATUS(syntax.addFlag("-f", kFileFlag, MSyntax::kString));
 		return syntax;
 	}
@@ -60,7 +51,7 @@ bool ZeroRigControlsCmd::isUndoable() const
 
 MSyntax ZeroRigControlsCmd::newSyntax()
 {
-	return controlScopeSyntax();
+	return CommandUtils::controlScopeSyntax();
 }
 
 MStatus ZeroRigControlsCmd::doIt(const MArgList& args)
@@ -110,7 +101,7 @@ bool MirrorRigPoseCmd::isUndoable() const
 
 MSyntax MirrorRigPoseCmd::newSyntax()
 {
-	MSyntax syntax = controlScopeSyntax();
+	MSyntax syntax = CommandUtils::controlScopeSyntax();
 	CHECK_MSTATUS(syntax.addFlag("-ltr", kLeftToRightFlag, MSyntax::kBoolean));
 	return syntax;
 }
@@ -171,7 +162,7 @@ bool FlipRigPoseCmd::isUndoable() const
 
 MSyntax FlipRigPoseCmd::newSyntax()
 {
-	return controlScopeSyntax();
+	return CommandUtils::controlScopeSyntax();
 }
 
 MStatus FlipRigPoseCmd::doIt(const MArgList& args)
