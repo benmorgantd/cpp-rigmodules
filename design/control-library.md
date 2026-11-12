@@ -1,8 +1,8 @@
 # Control library: poses and animation on the rig's own controls
 
-**Status:** Decided in direction (author, 2026-11-12), D42. Not built. Needs sign-off on the format and the open questions in section 10 before any code.
+**Status:** Decided (author, 2026-11-12), D42. The folder names, the export's control copy and the sampling are settled (section 10). Not built. The ControlAnim format in section 4 still needs sign-off before code.
 
-D41 built the inverse solve and picked USD as its carrier. It never asked what an animator's pose and animation library should be, so the file roles blurred: `poses/` was going to hold control poses and USD joint files side by side, the sidecar was a "pose file" that was not one, and nothing said how animation reaches an engine. This design starts from the library and the engine, and fits the inverse into it.
+D41 built the inverse solve and picked USD as its carrier. It never asked what an animator's pose and animation library should be, so the file roles blurred: `controlposes/` was going to hold control poses and USD joint files side by side, the sidecar was a "pose file" that was not one, and nothing said how animation reaches an engine. This design starts from the library and the engine, and fits the inverse into it.
 
 ## 1. What changed in the premise
 
@@ -33,12 +33,12 @@ The asset's file model (D29, `asset-model.md`) gets folders by role. The model i
 
 | Folder | Holds | Files |
 |---|---|---|
-| `poses/` | ControlPoses | `<name>.json` (unchanged, so existing poses stay valid) |
-| `anims/` | ControlAnims | `<name>.anim.json` |
+| `controlposes/` | ControlPoses | `<name>.json`, the `PoseFile` format unchanged |
+| `controlanims/` | ControlAnims | `<name>.anim.json` |
 | `exports/<name>/` | One engine export per folder (section 6) | `<name>.usd`, `<name>.animprops.json`, `<name>.anim.json` |
 | `sources/` | Joint data brought in for a remap: mocap, an engine export, another rig's clip | `<name>.usd` |
 
-`poses/` and `anims/` never hold USD. An export folder is a bundle: its files describe one thing and travel together, so the rule is one folder per purpose, with its own folder per entry where an entry has several files.
+`controlposes/` and `controlanims/` never hold USD. An export folder is a bundle: its files describe one thing and travel together, so the rule is one folder per purpose, with its own folder per entry where an entry has several files.
 
 mayadev's `AnimClipHandler` saves `<name>.usd` into `anims`. It moves to `exports/` or `sources/`, depending on direction.
 
@@ -78,7 +78,7 @@ mayadev's `AnimClipHandler` saves `<name>.usd` into `anims`. It moves to `export
 - **Versioning:** its own `formatVersion` and update table (D33).
 - **Payload:** `getRigKeys` and `setRigKeys` take and return the same shape. A two-number key (`[frame, value]`) stays valid and means two `auto` tangents, so existing callers and tests keep working. The `setRigKeys` default tangent changes from the scene's global default to `auto` only for keys that name a tangent.
 - **Commands (names proposed):** `saveRigAnimation(rigRoot | *controls, file=path, startFrame=n, endFrame=n)` and `loadRigAnimation(rigRoot | *controls, file=path, offset=n, mirror=False)`. They follow D14. `loadRigAnimation` goes through `RigKeyScene::setRigKeys`, so it is one undo step.
-- **Mirror on load** uses the pose tools' per-channel transform (D34, D28): copy or negate by channel, the Center axis flip. For keys a negate also negates tangent angles.
+- **Mirror on load** uses the pose tools' per-channel transform (D34, D28): copy or negate by channel, and the Center axis flip. It is a flip (the sides swap). A negated channel negates its values and its fixed tangent angles, and weights, tangent types and frames never change. `auto`, `clamped`, `spline`, `linear`, `flat` and `step` tangents are recomputed from the negated keys and come out as the mirror image, so only an `[angle, weight]` tangent needs the sign change. Baking and re-keying is rejected: it throws away the sparse keys.
 
 ## 5. Which path restores what
 
@@ -104,22 +104,22 @@ exports/walk/
 ```
 
 - **The USD is the engine's file.** The engine imports it against its skeleton asset. Bones bind by name, and the engine's skeleton asset comes from the skeleton export (below). Nothing in the engine path reads `walk.anim.json`.
-- **The ControlAnim is a copy as of export time.** It makes the export reproducible and reopenable on the rig with keys and tangents, and it is the supplement for a restore through the joints. A copy, not a reference to `anims/`, so a later edit of the library entry can't change a past export.
+- **The ControlAnim is a copy as of export time, and every export has one.** It makes the export reproducible and reopenable on the rig with keys and tangents, and it is the supplement for a restore through the joints. A copy, not a reference to `controlanims/`, so a later edit of the library entry can't change a past export.
 - **`animprops` is not control data.** It is engine data about the clip: loop, root motion, events and notifies, curves, sync markers, additive type, compression. It never mentions RigModules names, so by the placement rule it belongs to mayadev's asset tools. RigModules only keeps from blocking it.
 - **The skeleton export** is the same as a clip of one pose at rest: the export joints, their rest and markup, written through `write_usd`. It carries `rigmodules:assetId` and `rigmodules:skeletonId`, which were left out of D41 for lack of a reader. The engine now reads them, so they are written. The markup in the skeleton gives the engine's bone name to markup map, the bone id sidecar of the author's previous pipeline.
 - **How Unreal imports it** (USD Importer or Interchange, or a script that builds `AnimSequence`s from the bone tracks and applies `animprops`) is an engine-side choice that this design doesn't fix. It was not tested.
 
 ## 7. What changes in D41
 
-- **The animation sidecar stops being a stored file.** It was the per-frame, baked control supplement. With ControlAnims, a restore from joints gets custom channels (`space`, `ikFkBlend`) and non-derivable transforms (Layout) from the ControlAnim. To keep the C++ solve unchanged, Python loads the ControlAnim onto the rig, samples the non-derived channels per frame, and hands the solve the existing in-memory sidecar. So `AnimationSidecar` becomes a transient like the JointClip file, never saved in an asset. Doing it in Python avoids a curve evaluator in `core/` (open question 3).
+- **The animation sidecar stops being a stored file.** It was the per-frame, baked control supplement. With ControlAnims, a restore from joints gets custom channels (`space`, `ikFkBlend`) and non-derivable transforms (Layout) from the ControlAnim. To keep the C++ solve unchanged, Python loads the ControlAnim onto the rig, samples the non-derived channels per frame, and hands the solve the existing in-memory sidecar. So `AnimationSidecar` becomes a transient like the JointClip file, never saved in an asset. Doing it in Python avoids a curve evaluator in `core/` (decision 3).
 - **The "derived channels" problem goes away.** The sidecar writer is no longer needed, and so neither is the list it would have consulted. Transform channels of a joint-driven control come from joints, and everything else from the ControlAnim.
 - **The Layout keying wart goes away** if the solve stops writing a control it could not solve (D41 currently writes rest on every frame). A control with no joints and no supplement keeps its own keys.
-- **`poses/` in `asset-model.md` and `mayadev-integration.md`** now holds only ControlPoses, and the sentence about USD pairing by basename in the same folder is replaced by section 3.
+- **`poses/` in `asset-model.md` and `mayadev-integration.md`** becomes `controlposes/` and holds only ControlPoses, and the sentence about USD pairing by basename in the same folder is replaced by section 3.
 - **Not changed:** the inverse, `poseRigFromJointPose`, `animateRigFromJointClip` (their `sidecar` argument stays, fed by Python), the JointClip file, USD IO and the keyframe command.
 
 ## 8. Names and compatibility
 
-No existing control, channel, socket or child plug changes. `poses/<name>.json` files keep working. `getRigKeys` output gains tangent fields only when the keys have non-default tangents, and `setRigKeys` input stays valid. The only renamed idea is the sidecar, and no sidecar file was ever written by a tool (the writer was never built), so nothing stored needs migration.
+No existing control, channel, socket or child plug changes. `poses/<name>.json` files keep their format and move to `controlposes/`. `getRigKeys` output gains tangent fields only when the keys have non-default tangents, and `setRigKeys` input stays valid. The only renamed idea is the sidecar, and no sidecar file was ever written by a tool (the writer was never built), so nothing stored needs migration.
 
 ## 9. Build order
 
@@ -132,12 +132,12 @@ No existing control, channel, socket or child plug changes. `poses/<name>.json` 
 7. **mayadev:** the folders, handlers and library UI, and `animprops`.
 8. IK, then retargeting, as in D41.
 
-## 10. Open questions (author)
+## 10. Decisions (author, 2026-11-12)
 
-1. **Folder names.** `poses/` and `anims/` stay as control-only and USD moves to `exports/` and `sources/`? Or rename the control folders (`controlposes/`, `controlanims/`) so an old `anims/` full of USD files can't be mistaken for them?
-2. **Is the export's control copy required or optional?** I assumed an export always has one, because it is the export's source.
-3. **Sampling for the restore.** Python samples the loaded keys through Maya (no new C++, a scene round trip), or a curve evaluator goes in `core/` (exact, in memory, but Maya's weighted tangents are real code to write and test)? I recommend Python.
-4. **Tangent data on a mirror.** Negating a channel flips tangent angles. Whether to rewrite tangents on a mirror or bake and re-key is an implementation detail to decide when building step 4.
+1. **Folder names:** `controlposes/` and `controlanims/`, so an old `anims/` full of USD can't be mistaken for them. `exports/` and `sources/` stay. An existing `poses/` folder, if any asset has one, moves to `controlposes/` (a mayadev change, no format change).
+2. **Every export carries its ControlAnim copy.** It is the export's source data, so it is not optional.
+3. **The restore samples through Maya.** Python loads the ControlAnim onto the rig and reads the non-derived channels per frame, so `core/` needs no curve evaluator.
+4. **Tangents mirror** by negating fixed angles on a negated channel (section 4).
 
 ## 11. Maintenance surface and cost
 
@@ -146,3 +146,21 @@ No existing control, channel, socket or child plug changes. `poses/<name>.json` 
 - **Evaluation cost:** none. No node or `compute()` change, so D36 isn't affected and no `bench` run is needed.
 - **Tests:** ControlAnim file tests (core tier), key round trips with tangents (commands tier), the docs example test for each worked example, and a restore-with-supplement test (Python tier).
 - **Docs:** `commands.md` for the two commands and the changed keys payload, a new `docs/library.md` for the folders, formats and paths (owned page, row in `docs/README.md`), and `docs/python.md` for any new Python function.
+
+## 12. USD or FBX for the joint file
+
+The core depends on the JointClip, not on USD, so the file format is an adapter at the edge. `capture_joint_clip` already reads joints from the scene, and an FBX imported into a scene is "a source skeleton in the scene", a second producer of a JointClip that needs no solver change (inverse-solve.md, section 7). Both formats can coexist.
+
+| | USD | FBX |
+|---|---|---|
+| Read and write without Maya | Yes: `pxr` is open and ships in Maya, so the writer and reader are plain Python and run on a farm | No: needs the FBX SDK, or a Maya session to import and export |
+| Skeleton, rest, units, up axis, frame rate | A defined schema, in stage metadata | Present, and unit and axis handling is a known source of bugs |
+| Our data (joint markup, ids) | Namespaced custom attributes, validated by our reader | User attributes, with less control over what an exporter keeps |
+| Diffs and tests | `.usda` is text, and the suite can write test files | Binary or a large ASCII file |
+| Unreal import | Newer importer. Skeletal animation support depends on the engine version. Not tested | The long-standing path, with animation curves, root motion and per-take settings |
+| Mocap and other DCCs | Growing, not universal | The common exchange format |
+
+Most of USD's benefit is on our side of the boundary (Python access, tests, defined schema, markup). On Unreal's side FBX is the safer path today. So the decision stays USD, as the author set out, with two checks:
+
+- **Spike before building the export further:** import one animation USD into the target Unreal version, against a skeleton asset, and record what works. It is the one unknown here.
+- **An FBX adapter is probably needed later**, for mocap and other tools that only give FBX. It would be a JointClip producer and consumer through a Maya scene, and nothing in the modules or the solve would change.
