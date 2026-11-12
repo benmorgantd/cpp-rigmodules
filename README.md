@@ -79,7 +79,7 @@ cmds.rigJointMarkup("skel:arm_jnt", usage="arm", side="Left", export=True, skin=
 
 # Every joint passed in must carry markup.
 joints = ["skel:spine1_jnt", "skel:spine2_jnt", "skel:spine3_jnt", "skel:arm_jnt"]
-cmds.createRigFromTemplate(*joints, template=r"C:\path\to\spine_arm.json", asset="shooter|characters|hero")
+cmds.createRigFromTemplate(*joints, template=r"C:\path\to\spine_arm.json", asset="shooter\\characters\\hero")
 ```
 
 `asset` is the asset's folder path below the projects root. The template names no asset, so one template can build many assets. The rig and its input joints end up in a namespace named after the asset, `hero`. The `namespace` flag changes that, and `:` means the root. Joint names are kept. Controls are named from their joint and their module's side, so `skel:arm_jnt` in a `Left` module gives `hero:arm_ctrl_l`.

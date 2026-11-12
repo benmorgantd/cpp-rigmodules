@@ -368,10 +368,10 @@ A constraint's `type` is `Parent`, `Orient` or `Point`. The driver gives only it
 ### D29. The asset owns its namespace, its rig variants and its files
 **Status:** Decided (2026-11-08). The scene side is built and run in mayapy 2026. The file model, versions, registry and handlers are built on mayadev branch `asset-model` (not merged), as described in `asset-model.md`.
 
-An asset is the top-level container for a character, prop, vehicle, vfx element or environment piece. In a scene, one `assetRootModule` per flat namespace owns every rig variant built into that namespace. On disk, the asset is a folder under `RIGGING_PROJECT_DIR` holding an `asset.json`, and its pipe-separated id is that folder's relative path. Full design: `asset-model.md`.
+An asset is the top-level container for a character, prop, vehicle, vfx element or environment piece. In a scene, one `assetRootModule` per flat namespace owns every rig variant built into that namespace. On disk, the asset is a folder under `RIGGING_PROJECT_DIR` holding an `asset.json`, and its backslash-separated id is that folder's relative path. Full design: `asset-model.md`.
 
 - **Author's answers (2026-11-08):**
-  - Keep `|` in asset ids, because existing tools depend on it (rejected: `/`). Depth varies (rejected: always `project|type|name`, which is idealistic once assets end up everywhere). Ids compare case-insensitively.
+  - Keep `|` in asset ids, because existing tools depend on it (rejected: `/`). **Amended 2026-11-12: the separator is now `\`**, see the end of this entry. Depth varies (rejected: always `project|type|name`, which is idealistic once assets end up everywhere). Ids compare case-insensitively.
   - The asset comes from `createRigFromTemplate(asset=...)`, so templates can be shared between assets (rejected: an `assetId` template key, which ties a template to one asset and goes stale when a template is copied).
   - Namespaces are flat, one per asset instance (rejected: nested `asset:variant`). The default is the id's last token, and `namespace` overrides it (`hero_damaged`). Variants share the namespace, and the variant is the rig root's `rigName`.
   - `rigType` is removed, and asset types come from the project's `project.json` and are stored in `asset.json`. The C++ keeps no asset type list (rejected: the `Mesh`/`Rig`/`Other` enum, which described file kinds and repeated what the project defines).
@@ -385,7 +385,7 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
   - Asset data must be readable without opening Maya: per-asset `asset.json`, a `project.json` holding the asset types and file types, and a registry cache. The registry tracks shared skeletons, so assets that can share poses and animations, and the dependents of a changed skeleton, come from one query.
   - The environment variable is `RIGGING_PROJECT_DIR`.
 - **Built (2026-11-08):**
-  - `createRigFromTemplate` needs `asset`, checks it (pipe-separated tokens of letters, digits and `_`), and defaults `namespace` to its last token.
+  - `createRigFromTemplate` needs `asset`, checks it (backslash-separated tokens of letters, digits and `_`), and defaults `namespace` to its last token.
   - The build reuses the namespace's asset root or creates one. The read phase fails when the namespace holds more than one asset root, when the asset root's `assetId` differs from `asset` (case is ignored), or when a rig root under it already has the template's `rigName`.
   - Before this change, the asset root's id came from `rigTemplateName` by mistake, and every build made a new asset root.
   - Rig roots get `pluginVersion` (set by the build from `PluginInfo::Version`, which `MFnPlugin` also registers) and `publishVersion` (a string holding the publish id, empty until the publish step sets it).
@@ -396,6 +396,10 @@ An asset is the top-level container for a character, prop, vehicle, vfx element 
   - Two templates with the same `rigName` can't be built into one namespace.
   - Pose and animation data aren't affected: no control, attribute or socket names changed.
 - **Amendment (2026-11-11, author):** the `rig` file type ends with `_rig`, `variants/{variant}/{name}_{variant}_rig.ma`, like `_skeleton` and `_model`, so every Maya scene's role reads from its name. It is the default in mayadev's `Project.create`. An existing `project.json` keeps the layout it was written with until edited, and a rig saved under the old name needs renaming by hand.
+- **Amendment (2026-11-12, author):** the asset id separator is `\`, not `|` (`shooter\main\characters\hero`). Done in RigModules and mayadev together (`core/AssetId`, `bmaya.asset.assetid`, their tests and docs). A `|` id is now invalid everywhere, with no migration: no rigs or files need to survive.
+  - **Costs accepted:** `\` is the escape character in Python and C++ string literals, JSON, MEL and regexes. A Python id is written `"shooter\\hero"` (or a raw string), a JSON file holds `\\`, a MEL call needs `\\\\`, and a regex needs `re.escape`. Validation rejects control characters, so a stray `\n` or `\t` in a non-raw literal fails loudly instead of building a wrong id. `maya.cmds` passes the flag value through unchanged.
+  - **Why it was acceptable:** `|` is also Maya's DAG path separator, so an id and a node path could be confused. Ids only split and join through `AssetId` and `bmaya.asset.assetid`. The id maps to a Windows folder path, so the separator matches the disk. Tokens stay letters, digits and `_`, so `\` can never appear inside one.
+  - **Rejected:** `/` again (the pass the earlier amendment planned is replaced by this).
 
 ### D30. mayadev stays the pipeline repo, and rigs build anywhere before an asset exists
 **Status:** Decided (2026-11-08). Steps 1 to 5 are built, except the template authoring UI: RigModules side run in the mayapy suite, mayadev side in its mayapy tests. Branch `asset-tools` is merged into mayadev main (checked 2026-11-09).
@@ -643,7 +647,6 @@ Poses and animation are saved as control data, by control markup: a ControlPose 
 - **D24:** the TODOs in `mayadev-integration.md` (the `python/` package, `.mod` files), plus control sets. Asset folders moved to D29.
 - **D29, D30:** the template authoring UI (after a module interface query), building a second variant into a namespace, the publish step, the out-of-date check, and a Perforce adapter when a project uses Perforce.
 - **D29 (potential):** asset GUIDs for references between assets, if renames and moves become common. Not needed now: ids are relative to the projects root, so they survive branching. See "Potential TODO: asset GUIDs" in `asset-model.md`.
-- **D29:** a later pass moves asset ids from `|` to `/` separators (author, 2026-11-08). It has to be done together with the existing tools that read `|` ids, and with a migration for existing rigs whose `assetId` uses `|`.
 - **D28:** mirroring poses and animation, built on `getRigMirrorControl` with the animation tools.
 - **D26:** the selection highlight still reads the active selection list once per control per `prepareForDraw`, which scales with control count times selection size.
 

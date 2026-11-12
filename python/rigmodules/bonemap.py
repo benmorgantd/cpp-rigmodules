@@ -6,8 +6,8 @@ the skeleton id that say which rigs and clips the skeleton belongs to (design/co
 
 {
     "formatVersion": 1,
-    "assetId": "proj|character|hero",
-    "skeletonId": "proj|skeleton|human",
+    "assetId": "proj\\character\\hero",
+    "skeletonId": "proj\\skeleton\\human",
     "joints": { "LeftArm": { "markupVersion": 1, "side": "Left", "usage": "upperArm", "export": true, "skin": true } }
 }
 
@@ -82,8 +82,8 @@ def _check(data: object) -> list[str]:
         problems.append(f"formatVersion {version} is not {FORMAT_VERSION}")
     for key in ("assetId", "skeletonId"):
         value = data.get(key)
-        if not isinstance(value, str) or not all(value.split("|")):
-            problems.append(f"{key} is missing or not a '|' separated id")
+        if not isinstance(value, str) or not all(value.split("\\")):
+            problems.append(f"{key} is missing or not a '\\' separated id")
     joints = data.get("joints")
     if not isinstance(joints, dict):
         return problems + ["joints is missing or not an object"]

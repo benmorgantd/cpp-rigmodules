@@ -35,14 +35,14 @@ class Arguments(RigTestCase):
 
     def test_invalid_asset_id_fails(self):
         joints = self.make_skeleton(SKELETON)
-        for asset_id in ["", "shooter||hero", "shooter|main chars|hero", "shooter/hero", "hero|"]:
+        for asset_id in ["", "shooter\\\\hero", "shooter\\main chars\\hero", "shooter/hero", "shooter|hero", "hero\\"]:
             self.assertMayaError(lambda: self.build(TEMPLATE, joints, asset=asset_id), "Asset id")
         self.assertNothingBuilt()
 
     def test_asset_keys_in_a_template_are_unknown(self):
         # Templates carry no asset since D29, so one template serves many assets.
         template = fixtures.load_template(TEMPLATE)
-        template["assetId"] = "old|style"
+        template["assetId"] = "old\\style"
         joints = self.make_skeleton(SKELETON)
         self.assertMayaError(lambda: self.build(template, joints), "assetId", "Nothing was built")
         self.assertNothingBuilt()
@@ -89,13 +89,13 @@ class Namespaces(RigTestCase):
 
     def test_default_namespace_is_the_asset_name(self):
         joints = self.make_skeleton(SKELETON)
-        self.build(TEMPLATE, joints, asset="shooter|main|characters|hero")
+        self.build(TEMPLATE, joints, asset="shooter\\main\\characters\\hero")
         self.assertExists(":hero:layout")
         self.assertExists(":hero:fkchain1_ctrl_c")
 
     def test_namespace_flag_overrides_the_asset_name(self):
         joints = self.make_skeleton(SKELETON)
-        self.build(TEMPLATE, joints, asset="shooter|main|characters|hero", namespace="hero_damaged")
+        self.build(TEMPLATE, joints, asset="shooter\\main\\characters\\hero", namespace="hero_damaged")
         self.assertExists(":hero_damaged:layout")
         self.assertFalse(cmds.namespace(exists=":hero"))
 
@@ -201,9 +201,9 @@ class AssetRoots(RigTestCase):
         self.assertEqual(cmds.ls(type="rigRootModule"), [])
 
     def test_asset_root_with_another_id_fails(self):
-        self.make_asset_root("other|asset")
+        self.make_asset_root("other\\asset")
         joints = self.make_skeleton(SKELETON)
-        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "other|asset", "owns the namespace", "Nothing was built")
+        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "other\\asset", "owns the namespace", "Nothing was built")
         self.assertEqual(cmds.ls(type="rigRootModule"), [])
 
     def test_two_asset_roots_in_the_namespace_fail(self):
@@ -223,7 +223,7 @@ class AssetRoots(RigTestCase):
         self.assertEqual(cmds.ls(type="rigRootModule"), ["rig:other_rig_root"])
 
     def test_other_namespace_gets_its_own_asset_root(self):
-        self.make_asset_root("other|asset")
+        self.make_asset_root("other\\asset")
         self.build_standard(TEMPLATE, SKELETON, namespace="hero")
         self.assertEqual(len(cmds.ls(type="assetRootModule")), 2)
 

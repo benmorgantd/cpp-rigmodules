@@ -16,7 +16,7 @@ class RigInfo:
 
     rig_root: str          # the rigRootModule node
     asset_root: str        # the assetRootModule node that owns the rig's namespace
-    asset_id: str          # "shooter|main|characters|hero"
+    asset_id: str          # "shooter\\main\\characters\\hero"
     variant: str           # the rig root's rigName
     namespace: str         # the namespace the rig was built into, without a leading ":"
     rig_version: int       # the template's rigVersion

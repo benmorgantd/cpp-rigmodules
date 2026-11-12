@@ -17,7 +17,7 @@ The file model has one implementation, in Python, with the layout stored as data
 
 ## Asset id
 
-- Pipe-separated, kept for existing tools: `shooter|main|characters|hero`.
+- Backslash-separated (it was `|` until 2026-11-12, D29): `shooter\main\characters\hero`.
 - The id is the asset folder's path relative to `RIGGING_PROJECT_DIR`, with `\` replaced by `|`. Depth varies, because assets end up everywhere.
 - A folder is an asset when it holds an `asset.json`, which keeps variable depth unambiguous. Assets never nest: no asset folder sits inside another.
 - Each token is letters, digits and `_`, and none is empty.
@@ -28,7 +28,7 @@ The file model has one implementation, in Python, with the layout stored as data
 
 ## Scene structure
 
-- **The build takes the asset as a flag:** `cmds.createRigFromTemplate(*joints, template=path, asset="shooter|main|characters|hero")`. Templates don't name an asset, so one template (a shared biped) builds many assets. Each asset's own `template` file type can still hold its own copy.
+- **The build takes the asset as a flag:** `cmds.createRigFromTemplate(*joints, template=path, asset="shooter\\main\\characters\\hero")`. Templates don't name an asset, so one template (a shared biped) builds many assets. Each asset's own `template` file type can still hold its own copy.
 - **The asset owns the namespace,** and it is flat: one namespace per asset instance in a scene. Everything goes in it: the asset root, every rig root and module, the controls and the joints.
 - **The default namespace is the id's last token** (`hero`). `namespace` overrides it, for example a second instance, or `hero_damaged` when the rigger wants the namespace to hint at the variant. Nothing reads the variant from the namespace.
 - **One `assetRootModule` per namespace.** It stores the id in `assetId`. Rig roots connect to it through `assetRoot.children → rigRoot.assetRoot`.
@@ -84,7 +84,7 @@ The out-of-date check runs in mayadev. For each rig root in a scene, it compares
 {
   "assetType": "Character",
   "formatVersion": 1,
-  "skeleton": "shooter|main|skeletons|biped"
+  "skeleton": "shooter\\main\\skeletons\\biped"
 }
 ```
 

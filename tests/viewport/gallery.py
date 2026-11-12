@@ -110,7 +110,7 @@ def build_mirrored_arm():
     path = os.path.join(OUT, "mirror_template.json").replace("\\", "/")
     with open(path, "w") as handle:
         json.dump(template, handle)
-    cmds.createRigFromTemplate(*joints, template=path, asset="gallery|rig")
+    cmds.createRigFromTemplate(*joints, template=path, asset="gallery\\rig")
 
     # shapeType index, shapeTransform, filled. Offsets and pointers make a wrong reflection obvious.
     left_shapes = {

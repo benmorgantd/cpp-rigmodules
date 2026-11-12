@@ -184,7 +184,7 @@ class FbxBoneMap(FbxTestCase):
 
     def bone_map(self, joints):
         path = self.path("map.bonemap.json")
-        rigmodules.bonemap.write_bone_map(path, "tests|hero", "tests|human", joints)
+        rigmodules.bonemap.write_bone_map(path, "tests\\hero", "tests\\human", joints)
         return path
 
     def test_a_bone_map_marks_a_file_with_no_markup(self):
@@ -217,7 +217,7 @@ class FbxBoneMap(FbxTestCase):
 class BoneMapFile(FbxTestCase):
 
     def valid(self):
-        return {"formatVersion": 1, "assetId": "tests|hero", "skeletonId": "tests|human", "joints": {"Hips": dict(MARKUP_HIPS)}}
+        return {"formatVersion": 1, "assetId": "tests\\hero", "skeletonId": "tests\\human", "joints": {"Hips": dict(MARKUP_HIPS)}}
 
     def check(self, data, *contains):
         path = self.write_json("m.bonemap.json", data)
@@ -232,10 +232,10 @@ class BoneMapFile(FbxTestCase):
 
     def test_write_then_read(self):
         path = self.path("m.bonemap.json")
-        rigmodules.bonemap.write_bone_map(path, "tests|hero", "tests|human", {"Hips": json.dumps(MARKUP_HIPS), "Spine": ""})
+        rigmodules.bonemap.write_bone_map(path, "tests\\hero", "tests\\human", {"Hips": json.dumps(MARKUP_HIPS), "Spine": ""})
         data = rigmodules.bonemap.read_bone_map(path)
         self.assertEqual(data["joints"], {"Hips": MARKUP_HIPS}, "an unmarked joint is left out")
-        self.assertEqual((data["assetId"], data["skeletonId"]), ("tests|hero", "tests|human"))
+        self.assertEqual((data["assetId"], data["skeletonId"]), ("tests\\hero", "tests\\human"))
 
     def test_a_missing_file_is_file_not_found(self):
         with self.assertRaises(FileNotFoundError):
@@ -250,7 +250,7 @@ class BoneMapFile(FbxTestCase):
     def test_every_problem_is_reported_at_once(self):
         data = self.valid()
         data["formatVersion"] = 2
-        data["assetId"] = "tests||hero"
+        data["assetId"] = "tests\\\\hero"
         del data["skeletonId"]
         self.check(data, "formatVersion 2", "assetId", "skeletonId")
 
@@ -277,11 +277,11 @@ class BoneMapFile(FbxTestCase):
 
     def test_a_failed_write_keeps_the_old_file(self):
         path = self.path("m.bonemap.json")
-        rigmodules.bonemap.write_bone_map(path, "tests|hero", "tests|human", {"Hips": json.dumps(MARKUP_HIPS)})
+        rigmodules.bonemap.write_bone_map(path, "tests\\hero", "tests\\human", {"Hips": json.dumps(MARKUP_HIPS)})
         with open(path, encoding="utf-8") as handle:
             before = handle.read()
         with self.assertRaises(ValueError):
-            rigmodules.bonemap.write_bone_map(path, "tests|hero", "", {"Hips": json.dumps(MARKUP_HIPS)})
+            rigmodules.bonemap.write_bone_map(path, "tests\\hero", "", {"Hips": json.dumps(MARKUP_HIPS)})
         with open(path, encoding="utf-8") as handle:
             self.assertEqual(handle.read(), before)
 
@@ -406,17 +406,17 @@ class SkeletonExport(FbxTestCase):
         self.root = rig_root()
 
     def test_writes_the_fbx_and_a_bone_map_with_the_asset_and_skeleton_ids(self):
-        rigmodules.jointclip.write_skeleton_fbx(self.root, "tests|human", self.fbx, self.map)
+        rigmodules.jointclip.write_skeleton_fbx(self.root, "tests\\human", self.fbx, self.map)
         self.assertTrue(os.path.isfile(self.fbx))
         data = rigmodules.bonemap.read_bone_map(self.map)
-        self.assertEqual((data["assetId"], data["skeletonId"]), (config.ASSET_ID, "tests|human"))
+        self.assertEqual((data["assetId"], data["skeletonId"]), (config.ASSET_ID, "tests\\human"))
         self.assertEqual(sorted(data["joints"]), sorted([
             "chest_jnt", "clavicle_l_jnt", "upperArm_l_jnt", "lowerArm_l_jnt", "clavicle_r_jnt", "upperArm_r_jnt", "lowerArm_r_jnt"]))
         self.assertEqual(data["joints"]["upperArm_l_jnt"],
                          {"markupVersion": 1, "side": "Left", "usage": "upperArm", "export": True, "skin": True})
 
     def test_the_skeleton_is_at_rest_with_no_animation(self):
-        rigmodules.jointclip.write_skeleton_fbx(self.root, "tests|human", self.fbx, self.map)
+        rigmodules.jointclip.write_skeleton_fbx(self.root, "tests\\human", self.fbx, self.map)
         rigmodules.jointclip.read_fbx(self.fbx, self.path("out.json"), self.map)
         out = self.read_json("out.json")
         self.assertEqual(len(out["poses"]), 1)
@@ -429,7 +429,7 @@ class SkeletonExport(FbxTestCase):
 
     def test_a_posed_rig_still_exports_its_rest(self):
         cmds.setAttr(rig_name("upperArm_l_ctrl_l") + ".rotateZ", 60)
-        rigmodules.jointclip.write_skeleton_fbx(self.root, "tests|human", self.fbx, self.map)
+        rigmodules.jointclip.write_skeleton_fbx(self.root, "tests\\human", self.fbx, self.map)
         rigmodules.jointclip.read_fbx(self.fbx, self.path("out.json"), self.map)
         out = self.read_json("out.json")
         pose = {joint["path"]: transform for joint, transform in zip(out["joints"], out["poses"][0])}["upperArm_l_jnt"]

@@ -205,8 +205,8 @@ The author switched from USD to FBX because FBX is the mocap standard (Vicon, Op
 ```json
 {
     "formatVersion": 1,
-    "assetId": "proj|character|hero",
-    "skeletonId": "proj|skeleton|human",
+    "assetId": "proj\\character\\hero",
+    "skeletonId": "proj\\skeleton\\human",
     "joints": {
         "LeftArm": { "markupVersion": 1, "side": "Left", "usage": "upperArm", "export": true, "skin": true },
         "Hips": { "markupVersion": 1, "side": "Center", "usage": "pelvis", "export": true, "skin": true }

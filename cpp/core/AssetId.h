@@ -4,8 +4,8 @@
 
 #include <string>
 
-// An asset id is the asset folder's path below RIGGING_PROJECT_DIR, '|' between folders, any depth (D29):
-// "shooter|main|characters|hero". Ids compare without case (StringUtils::equalsIgnoreCase).
+// An asset id is the asset folder's path below RIGGING_PROJECT_DIR, '\' between folders, any depth (D29):
+// "shooter\main\characters\hero". Ids compare without case (StringUtils::equalsIgnoreCase).
 namespace AssetId
 {
 	// Each token becomes a folder name: letters, digits and '_', none empty.

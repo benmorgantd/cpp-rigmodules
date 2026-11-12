@@ -139,7 +139,7 @@ mayadev's `Rig.build_rig` steps, and who owns each one afterwards:
 | Legacy step | New owner |
 |---|---|
 | New scene, load plugins | mayadev (startup and the build both load `RigModules.mll`) |
-| Make the character network node | RigModules: `createRig` makes `assetRootModule` and `rigRootModule`. The `assetId` is the same `\|`-separated format, with variable depth (D29). One asset root per namespace, shared by the rig variants |
+| Make the character network node | RigModules: `createRig` makes `assetRootModule` and `rigRootModule`. The `assetId` is the same `\`-separated format, with variable depth (D29). One asset root per namespace, shared by the rig variants |
 | Read `build.json` | The asset's template file |
 | `Layout` imports the skeleton and mesh files | mayadev, importing the skeleton into the rig namespace |
 | Build each module, then mirror | `cmds.createRigFromTemplate(*joints, template=path, asset=assetId)` through the `python/` wrapper (D29) |

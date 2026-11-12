@@ -52,7 +52,7 @@ namespace
 		inputs.assetId = assetId.asChar();
 		if (!AssetId::isValid(inputs.assetId))
 		{
-			MGlobal::displayError("Asset id '" + assetId + "' must be '|'-separated folder names of letters, digits and '_'.");
+			MGlobal::displayError("Asset id '" + assetId + "' must be '\\'-separated folder names of letters, digits and '_'.");
 			return MStatus::kFailure;
 		}
 

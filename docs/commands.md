@@ -51,13 +51,13 @@ Builds a rig from a template and the joints passed in.
 
 ```python
 joints = ["skel:spine1_jnt", "skel:spine2_jnt", "skel:arm_jnt"]
-cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="shooter|characters|hero")
+cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="shooter\\characters\\hero")
 ```
 
 | Flag | Type | Meaning |
 |---|---|---|
 | `template` | string | Path to the template. Required. |
-| `asset` | string | The asset the rig belongs to: its folder path below the projects root, `\|` between folders (`shooter\|characters\|hero`), any depth. Each folder name is letters, digits and `_`. Compared without case. Required. Templates name no asset, so one template builds many assets. |
+| `asset` | string | The asset the rig belongs to: its folder path below the projects root, `\` between folders (`shooter\characters\hero`), any depth. Each folder name is letters, digits and `_`. Compared without case. Required. Templates name no asset, so one template builds many assets. |
 | `namespace` | string | The rig's namespace. Defaults to the asset's last folder name (`hero`). `":"` is the root, nested paths such as `char:rig` work, and an existing namespace is reused. |
 | `checkMirrorPositions` | bool | Default `False`. With `True`, a mirrored module ([templates.md](templates.md#mirroring)) fails the build when one of its joints is more than 0.001 from its source joint reflected across X = 0. |
 
@@ -237,7 +237,7 @@ Returns what a rig node belongs to, as JSON text: its rig root and asset root, t
 
 ```python
 cmds.getRigInfo("hero:arm_ctrl_l")
-# Returns '{"assetId":"shooter|main|characters|hero","assetRoot":"hero:assetRootModule1","namespace":"hero",
+# Returns '{"assetId":"shooter\\main\\characters\\hero","assetRoot":"hero:assetRootModule1","namespace":"hero",
 #           "pluginVersion":"0.1","publishVersion":"","rigName":"game","rigRoot":"hero:rigRootModule1","rigVersion":1}'
 ```
 

@@ -22,7 +22,7 @@ public:
 	static MTypeId id;
 
 	// Attribute handles
-	static MObject aAssetId;   // Pipe-separated folder path below RIGGING_PROJECT_DIR (D29), e.g. "shooter|main|characters|hero"
+	static MObject aAssetId;   // Backslash-separated folder path below RIGGING_PROJECT_DIR (D29), e.g. "shooter\main\characters\hero"
 	static MObject aChildren;   // Message links to connected nodes
 public:
 	static MObject createAssetRoot(const MString& assetId, MDagModifier& dagMod);

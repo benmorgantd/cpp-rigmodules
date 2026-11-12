@@ -9,7 +9,7 @@ namespace AssetId
 		bool tokenEmpty = true;
 		for (char c : assetId)
 		{
-			if (c == '|')
+			if (c == '\\')
 			{
 				if (tokenEmpty)
 				{
@@ -31,7 +31,7 @@ namespace AssetId
 
 	std::string name(const std::string& assetId)
 	{
-		const std::size_t lastPipe = assetId.rfind('|');
-		return lastPipe == std::string::npos ? assetId : assetId.substr(lastPipe + 1);
+		const std::size_t lastSeparator = assetId.rfind('\\');
+		return lastSeparator == std::string::npos ? assetId : assetId.substr(lastSeparator + 1);
 	}
 }

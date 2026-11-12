@@ -37,7 +37,7 @@ MStatus AssetRootNode::initialize()
 	MFnMessageAttribute msgAttr;
 	MStatus status;
 
-	// Asset ID: the asset folder path, '|' between folders (D29)
+	// Asset ID: the asset folder path, '\' between folders (D29)
 	aAssetId = tAttr.create(RigAttr::AssetId, RigAttr::AssetId, MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	addAttribute(aAssetId);

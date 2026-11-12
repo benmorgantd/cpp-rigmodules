@@ -5,5 +5,5 @@ mayapy with only the plugin loaded. Pipeline code (mayadev) reaches rig internal
 
     import rigmodules.query
     info = rigmodules.query.get_rig_info("hero:arm_ctrl_l")
-    info.asset_id, info.variant                                # "shooter|main|characters|hero", "game"
+    info.asset_id, info.variant                                # "shooter\\main\\characters\\hero", "game"
 """

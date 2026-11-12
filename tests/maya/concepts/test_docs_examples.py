@@ -16,8 +16,8 @@ from rigtest.case import RigTestCase, rig_name
 README = os.path.join(config.REPO_DIR, "README.md")
 TEMPLATES_DOC = os.path.join(config.REPO_DIR, "docs", "templates.md")
 
-# The README builds with asset="shooter|characters|hero", so the rig lands in the asset's namespace, hero.
-DOC_ASSET = "shooter|characters|hero"
+# The README builds with asset="shooter\\characters\\hero", so the rig lands in the asset's namespace, hero.
+DOC_ASSET = "shooter\\characters\\hero"
 DOC_NAMESPACE = "hero"
 
 SPINE3_CTRL = rig_name("spine3_ctrl_c", DOC_NAMESPACE)
@@ -247,7 +247,7 @@ class FbxDocExample(RigTestCase):
         path = os.path.join(config.WORK_DIR, "doc_bone_map.bonemap.json")
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(re.search(r"```json\s*\n(.*?)```", section, re.S).group(1))
-        self.assertEqual(rigmodules.bonemap.read_bone_map(path)["skeletonId"], "shooter|skeletons|human")
+        self.assertEqual(rigmodules.bonemap.read_bone_map(path)["skeletonId"], "shooter\\skeletons\\human")
         everything = self.section("## rigmodules.jointclip", "### File format") + section
         for function in ("write_fbx", "read_fbx", "write_skeleton_fbx", "write_bone_map", "read_bone_map", "apply_bone_map"):
             self.assertIn(function + "(", everything)

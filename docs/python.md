@@ -19,7 +19,7 @@ The `.mod` doesn't add the plugin to `MAYA_PLUG_IN_PATH`. Load the `.mll` by pat
 import rigmodules.query
 
 info = rigmodules.query.get_rig_info("hero:arm_ctrl_l")      # a control, module, rig root or driven joint
-info.asset_id      # "shooter|main|characters|hero"
+info.asset_id      # "shooter\\main\\characters\\hero"
 info.variant       # "game"
 info.rig_root      # "hero:rigRootModule1"
 
@@ -219,8 +219,8 @@ A foreign FBX (a mocap take, a vendor skeleton) carries no markup, so a bone map
 ```json
 {
     "formatVersion": 1,
-    "assetId": "shooter|characters|hero",
-    "skeletonId": "shooter|skeletons|human",
+    "assetId": "shooter\\characters\\hero",
+    "skeletonId": "shooter\\skeletons\\human",
     "joints": {
         "LeftArm": { "markupVersion": 1, "side": "Left", "usage": "upperArm", "export": true, "skin": true },
         "Hips": { "markupVersion": 1, "side": "Center", "usage": "pelvis", "export": true, "skin": true }

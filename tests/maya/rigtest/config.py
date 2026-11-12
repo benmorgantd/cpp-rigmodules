@@ -15,7 +15,7 @@ UPDATE_GOLDEN = False
 SKELETON_NAMESPACE = "skel"
 RIG_NAMESPACE = "rig"
 # Asset every build uses unless it is testing assets. Its last token is the default namespace, RIG_NAMESPACE.
-ASSET_ID = "tests|rig"
+ASSET_ID = "tests\\rig"
 
 # Every node type the plugin registers that a build creates.
 RIG_NODE_TYPES = ["assetRootModule", "rigRootModule", "layoutModule", "fkChainModule", "aimModule",

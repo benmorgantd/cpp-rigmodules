@@ -38,8 +38,8 @@ DEFAULT_PLUGIN = os.path.join(REPO_DIR, "cpp", "x64", "Release", "RigModules.mll
 DEFAULT_ASSET_DIR = r"C:\Users\bmorgan\Documents\Art\Maya\Projects\test\character\biped"
 DEFAULT_MAYA = r"C:\Program Files\Autodesk\Maya2026\bin\maya.exe"
 
-HUMAN_ASSET_ID = "test|character|biped"
-COMPLEX_ASSET_ID = "test|character|complex"
+HUMAN_ASSET_ID = "test\\character\\biped"
+COMPLEX_ASSET_ID = "test\\character\\complex"
 
 # The poses a Human instance cycles through, one step per frame, offset by instance so no two instances
 # in a frame are doing the same thing.
