@@ -1,6 +1,6 @@
 # Control library: poses and animation on the rig's own controls
 
-**Status:** Decided (author, 2026-11-12), D42. The ControlAnim key layout and tangent encoding (section 4) are signed off (author, 2026-11-12). The FBX adapters, the bone map and the skeleton export are built (section 12); the ControlAnim, its commands and mayadev's library are not. The folder names, the export's control copy, the sampling and FBX as the joint file are settled (sections 10 and 12). Not built apart from the USD removal (section 13, done: tag `usd-joint-io`, suite 626 passed). Sections 2 and 6b hold the data vocabulary and the Unreal pairing. The command names in section 4 are proposals.
+**Status:** Decided (author, 2026-11-12), D42. The ControlAnim key layout and tangent encoding (section 4) are signed off (author, 2026-11-12). The FBX adapters, the bone map, the skeleton export, the ControlAnim file, tangents in the keys payload and `saveRigAnimation` / `loadRigAnimation` are built; the restore from joints with a ControlAnim supplement and mayadev's library are not. The folder names, the export's control copy, the sampling and FBX as the joint file are settled (sections 10 and 12). Not built apart from the USD removal (section 13, done: tag `usd-joint-io`, suite 626 passed). Sections 2 and 6b hold the data vocabulary and the Unreal pairing. The command names in section 4 are proposals.
 
 D41 built the inverse solve and picked USD as its carrier. It never asked what an animator's pose and animation library should be, so the file roles blurred: `poses/` was going to hold control poses and USD joint files side by side, the sidecar was a "pose file" that was not one, and nothing said how animation reaches an engine. This design starts from the library and the engine, and fits the inverse into it.
 
@@ -71,7 +71,7 @@ mayadev's pose handler writes `poses/<name>.json` today, so it and any existing 
                     "keys": [
                         [1, 0.0, "auto", "auto"],
                         [10, 90.0, [-12.5, 1.0], "flat"],
-                        [20, 45.0, "step", "step"]
+                        [20, 45.0, "auto", "step"]
                     ]
                 }
             }
@@ -85,7 +85,7 @@ mayadev's pose handler writes `poses/<name>.json` today, so it and any existing 
 - **Which channels:** the keyable, writable channels of D34, by markup and channel name, exactly as a pose. A channel the rig lacks warns and is skipped. A control the file lacks keeps its keys.
 - **Frame rate:** an error when it differs from the scene's, as in D41. A resample is not built.
 - **Versioning:** its own `formatVersion` and update table (D33).
-- **Payload:** `getRigKeys` and `setRigKeys` take and return the same shape. A two-number key (`[frame, value]`) stays valid and means two `auto` tangents, so existing callers and tests keep working. The `setRigKeys` default tangent changes from the scene's global default to `auto` only for keys that name a tangent.
+- **Payload:** `getRigKeys` and `setRigKeys` take and return the same shape. A two-number key (`[frame, value]`) stays valid and means two `auto` tangents, so existing callers and tests keep working. As built, `setRigKeys` now keys a two-number key with `auto` tangents where it used the scene's global default, and a curve's `weighted` flag and infinities are set from the data (a curve the data gives no flags goes back to unweighted and constant). Maya has no step in-tangent, so `"step"` as an in tangent reads back `auto`; the examples write `["auto", "step"]`.
 - **Commands (names proposed):** `saveRigAnimation(rigRoot | *controls, file=path, startFrame=n, endFrame=n)` and `loadRigAnimation(rigRoot | *controls, file=path, offset=n, mirror=False)`. They follow D14. `loadRigAnimation` goes through `RigKeyScene::setRigKeys`, so it is one undo step.
 - **Mirror on load** uses the pose tools' per-channel transform (D34, D28): copy or negate by channel, and the Center axis flip. It is a flip (the sides swap). A negated channel negates its values and its fixed tangent angles, and weights, tangent types and frames never change. `auto`, `clamped`, `spline`, `linear`, `flat` and `step` tangents are recomputed from the negated keys and come out as the mirror image, so only an `[angle, weight]` tangent needs the sign change. Baking and re-keying is rejected: it throws away the sparse keys.
 
@@ -165,9 +165,9 @@ No existing control, channel, socket or child plug changes. `poses/<name>.json` 
 
 1. **Design sign-off** (this file, D42).
 1b. **Spike** (section 12, Maya half done 2026-11-12, the Unreal half open): Maya's FBX export and import in mayapy, and one baked animation FBX into the target Unreal version. It decides the FBX options and whether the adapters work headless.
-2. **ControlAnim in `core/`**: the types, serialize and deserialize, the update table, validation. Tests by hand-written files, including every error path.
-3. **Tangents in `RigKeyScene`**: read and write, curve flags, stepped enum channels. Round trip test on a rig: key with mixed tangents, save, zero, load, compare keys and curve shape.
-4. **`saveRigAnimation` and `loadRigAnimation`**, with offset and mirror, docs and tests.
+2. **ControlAnim in `core/`** (built 2026-11-12): the types, serialize and deserialize, the update table, validation. Tests by hand-written files, including every error path.
+3. **Tangents in `RigKeyScene`** (built 2026-11-12): read and write, curve flags, stepped enum channels. Round trip test on a rig: key with mixed tangents, save, zero, load, compare keys and curve shape.
+4. **`saveRigAnimation` and `loadRigAnimation`** (built 2026-11-12), with offset and mirror, docs and tests.
 5. **FBX adapters and the skeleton export** (section 12). Built 2026-11-12: `rigmodules.jointclip.write_fbx`, `read_fbx` and `write_skeleton_fbx`, and `rigmodules.bonemap`.
 6. **The restore from joints with a ControlAnim supplement** in Python (section 7).
 7. **mayadev:** the folders, handlers and library UI, and `animprops`.

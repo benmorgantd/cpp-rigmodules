@@ -33,6 +33,9 @@
     <ClCompile Include="core\JointClipFile.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\ControlAnimFile.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\RigKeys.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -189,6 +192,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\JointClipFile.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\ControlAnimFile.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\RigKeys.h">

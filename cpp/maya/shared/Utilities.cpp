@@ -4,6 +4,7 @@
 #include "core/RigTemplateValidation.h"
 #include "maya/shared/RigTraversal.h"
 
+#include <cmath>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -33,6 +34,7 @@
 #include <maya/MStatus.h>
 #include <maya/MString.h>
 #include <maya/MStringArray.h>
+#include <maya/MTime.h>
 #include <maya/MVector.h>
 
 // ---------------------------------
@@ -115,6 +117,17 @@ MMatrix MathUtils::computeAimMatrix(
 // DAG Utilities
 // ---------------------------------
 // Locks and hides rotation and scale channels on a control object
+double TimeUtils::getSceneFrameRate()
+{
+	return 1.0 / MTime(1.0, MTime::uiUnit()).as(MTime::kSeconds);
+}
+
+bool TimeUtils::isSameFrameRate(double a, double b)
+{
+	constexpr double kFrameRateTolerance{ 1e-3 };
+	return std::abs(a - b) <= kFrameRateTolerance;
+}
+
 void DagUtils::lockAndHideTranslate(MObject oControl)
 {
 	MFnTransform fnControl(oControl);

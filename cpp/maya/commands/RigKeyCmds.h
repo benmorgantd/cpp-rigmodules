@@ -44,3 +44,42 @@ public:
 private:
 	RigKeyEdit fEdit;
 };
+
+// cmds.saveRigAnimation("rig:rigRoot", file=path, startFrame=n, endFrame=n) or cmds.saveRigAnimation(*controls, ...)
+//   Writes the keys of the controls' channels as a ControlAnim file (core/ControlAnimFile.h, D42): the keys with their
+//   tangents and each curve's flags, by control markup. Only the keys from startFrame to endFrame go in, and both
+//   default to the scene's playback range. A channel with no key in the range is left out. The file records the
+//   range and the scene's frame rate. Returns the names of the controls it read. Not undoable: it changes no scene
+//   data. Keying the rig at two frames first (rigmodules.pose.key_rig) saves a pose that is an animation.
+class SaveRigAnimationCmd : public MPxCommand
+{
+public:
+	MStatus doIt(const MArgList& args) override;
+	bool isUndoable() const override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const char* aCommandString;
+};
+
+// cmds.loadRigAnimation("rig:rigRoot", file=path, offset=n, mirror=False) or cmds.loadRigAnimation(*controls, ...)
+//   Keys the controls' channels from a ControlAnim file, matched by markup, as setRigKeys does (one undo step, a key
+//   replaces an existing one at its frame, a control the file lacks keeps its keys). A newer or damaged file changes
+//   nothing, and so does one whose frame rate isn't the scene's. offset (default 0) moves every key by that many
+//   frames. mirror=True puts each side's keys on the other, negating the channels that mirror negates and the fixed
+//   tangent angles with them, and flips Center controls. Returns the names of the controls it keyed.
+class LoadRigAnimationCmd : public MPxCommand
+{
+public:
+	MStatus doIt(const MArgList& args) override;
+	MStatus redoIt() override;
+	MStatus undoIt() override;
+	bool isUndoable() const override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const char* aCommandString;
+
+private:
+	RigKeyEdit fEdit;
+};

@@ -154,6 +154,7 @@
     <ClCompile Include="core\RigControlFilter.cpp" />
     <ClCompile Include="core\AnimationSidecar.cpp" />
     <ClCompile Include="core\JointClipFile.cpp" />
+    <ClCompile Include="core\ControlAnimFile.cpp" />
     <ClCompile Include="core\RigKeys.cpp" />
     <ClCompile Include="core\PoseFile.cpp" />
     <ClCompile Include="core\RigJsonStructs.cpp" />
@@ -209,6 +210,7 @@
     <ClInclude Include="core\RigControlFilter.h" />
     <ClInclude Include="core\AnimationSidecar.h" />
     <ClInclude Include="core\JointClipFile.h" />
+    <ClInclude Include="core\ControlAnimFile.h" />
     <ClInclude Include="core\RigKeys.h" />
     <ClInclude Include="core\PoseFile.h" />
     <ClInclude Include="core\RigJsonStructs.h" />

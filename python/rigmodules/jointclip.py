@@ -98,18 +98,24 @@ _FRAME_RATE_TOLERANCE = 1e-3
 _FBX_PLUGIN = "fbxmaya"
 
 
-def write_fbx(clip_path: str, fbx_path: str) -> None:
+def write_fbx(clip_path: str, fbx_path: str, hold_frames: int = 1) -> None:
     """Writes a JointClip file as an FBX file: a scratch skeleton of plain joints (real parenting, each joint's local
     translate, rotate and scale keyed on the clip's frames), exported baked and deleted. A clip with one pose writes
-    a static skeleton with no animation. A joint's markup rides along as its rigMarkup attribute, so read_fbx gives
+    a static skeleton with no animation, unless hold_frames is above 1: an engine that needs a pose to be an
+    animation gets the pose held on that many frames, the same values on each. A joint's markup rides along as its rigMarkup attribute, so read_fbx gives
     it back without a bone map. An existing file is replaced, and a failed write leaves it as it was.
 
     The scratch joints are not the rig's joints: the rig drives them through offsetParentMatrix, which the exporter
     ignores. Raises ValueError for a file that isn't a JointClip, a clip with no poses, a joint name that isn't a
-    valid Maya node name, two joints with the same name, or a frame rate that differs from the scene's, and
-    RuntimeError when the scene already has a node named like one of the joints (FBX bones bind by name)."""
+    valid Maya node name, two joints with the same name, a frame rate that differs from the scene's, or a
+    hold_frames that is below 1 or is above 1 for a clip with more than one pose, and RuntimeError when the scene
+    already has a node named like one of the joints (FBX bones bind by name)."""
     with open(clip_path, encoding="utf-8") as handle:
         clip = json.load(handle)
+    if hold_frames < 1 or (hold_frames > 1 and len(clip.get("poses") or []) > 1):
+        raise ValueError(f"hold_frames is {hold_frames}: it must be 1 or more, and above 1 only for a clip with one pose.")
+    if hold_frames > 1:
+        clip["poses"] = clip["poses"] * hold_frames
     _write_fbx(clip, clip_path, fbx_path)
 
 

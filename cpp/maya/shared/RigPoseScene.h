@@ -68,6 +68,14 @@ public:
 	// outChangedNames lists the controls that changed.
 	static MStatus flipRigPose(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames);
 
+	// A Center control's flip axis: the index (0 to 2) of the local rest axis along world X (findMirrorAxis), or -1 when
+	// none is, which leaves the control's channels unable to hold a flipped pose.
+	static MStatus getFlipAxis(const MObject& oControl, int& outAxis);
+
+	// Whether a flip (or a mirror of a Center control's keys) negates the channel: a transform channel by its place
+	// against the flip axis, any other by its mirror mode.
+	static bool isNegatedByFlip(const Channel& channel, int flipAxis);
+
 	// The channel values of every control in the scope, keyed by markup (PoseFile.h). outControlNames lists the controls
 	// read, in scope order.
 	static MStatus getRigPose(const RigControlScope& scope, PoseMap& outPose, MStringArray& outControlNames);

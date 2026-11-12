@@ -53,6 +53,16 @@ public:
 	}
 };
 
+class TimeUtils
+{
+public:
+	// The scene's frames per second, from its UI time unit.
+	static double getSceneFrameRate();
+
+	// Two frame rates this close are the same (23.976 and 24 are not).
+	static bool isSameFrameRate(double a, double b);
+};
+
 class DagUtils
 {
 public:

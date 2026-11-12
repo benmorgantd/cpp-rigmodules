@@ -91,6 +91,21 @@ namespace JointClipFileKey
 	inline constexpr const char* Scale{ "scale" };
 }
 
+// Keys in a ControlAnim file and in the keys payload of getRigKeys and setRigKeys, see ControlAnimFile.h and RigKeys.h.
+// Public API: saved animation depends on them.
+namespace ControlAnimKey
+{
+	inline constexpr const char* FormatVersion{ "formatVersion" };
+	inline constexpr const char* FrameRate{ "frameRate" };
+	inline constexpr const char* StartFrame{ "startFrame" };
+	inline constexpr const char* EndFrame{ "endFrame" };
+	inline constexpr const char* Controls{ "controls" };
+	inline constexpr const char* Weighted{ "weighted" };
+	inline constexpr const char* PreInfinity{ "preInfinity" };
+	inline constexpr const char* PostInfinity{ "postInfinity" };
+	inline constexpr const char* Keys{ "keys" };
+}
+
 // Keys in a skin weight file, see SkinWeightFile.h. Public API: saved weight files depend on them.
 namespace SkinWeightFileKey
 {

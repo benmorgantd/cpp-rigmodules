@@ -247,21 +247,12 @@ namespace
 	// Queues a Center control's reflection across the world YZ plane (see findMirrorAxis).
 	MStatus flipCenterControl(const MObject& oControl, MDGModifier& dgMod, MStringArray& outChangedNames)
 	{
-		MMatrix mRest;
-		MStatus status = RigTraversal::getControlRestWorld(oControl, mRest);
+		int mirrorAxis = -1;
+		MStatus status = RigPoseScene::getFlipAxis(oControl, mirrorAxis);
 		if (!status)
 		{
 			return status;
 		}
-
-		// Row i of the rest matrix is local axis i in world space.
-		double xOfLocalAxes[3];
-		for (unsigned int axis = 0; axis < 3; ++axis)
-		{
-			const double length = std::sqrt(mRest[axis][0] * mRest[axis][0] + mRest[axis][1] * mRest[axis][1] + mRest[axis][2] * mRest[axis][2]);
-			xOfLocalAxes[axis] = length > 0.0 ? mRest[axis][0] / length : 0.0;
-		}
-		const int mirrorAxis = findMirrorAxis(xOfLocalAxes);
 		if (mirrorAxis < 0)
 		{
 			MGlobal::displayWarning(DagUtils::getPartialPathName(oControl)
@@ -279,13 +270,7 @@ namespace
 		bool changed = false;
 		for (const RigPoseScene::Channel& channel : channels)
 		{
-			// kDefaultTransformValues order: translate 0-2, rotate 3-5, scale 6-8.
-			const int index = channel.transformIndex;
-			const bool negate = index < 0 ? channel.info.negate
-				: index < 3 ? index == mirrorAxis
-				: index < 6 ? index - 3 != mirrorAxis
-				: false;
-			if (negate)
+			if (RigPoseScene::isNegatedByFlip(channel, mirrorAxis))
 			{
 				status = setValue(channel, -getValue(channel), dgMod, changed);
 				CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -518,6 +503,36 @@ MStatus RigPoseScene::getControlChannels(const MObject& oControl, std::vector<Ch
 		outChannels.push_back(channel);
 	}
 	return MStatus::kSuccess;
+}
+
+MStatus RigPoseScene::getFlipAxis(const MObject& oControl, int& outAxis)
+{
+	MMatrix mRest;
+	MStatus status = RigTraversal::getControlRestWorld(oControl, mRest);
+	if (!status)
+	{
+		return status;
+	}
+
+	// Row i of the rest matrix is local axis i in world space.
+	double xOfLocalAxes[3];
+	for (unsigned int axis = 0; axis < 3; ++axis)
+	{
+		const double length = std::sqrt(mRest[axis][0] * mRest[axis][0] + mRest[axis][1] * mRest[axis][1] + mRest[axis][2] * mRest[axis][2]);
+		xOfLocalAxes[axis] = length > 0.0 ? mRest[axis][0] / length : 0.0;
+	}
+	outAxis = findMirrorAxis(xOfLocalAxes);
+	return MStatus::kSuccess;
+}
+
+bool RigPoseScene::isNegatedByFlip(const Channel& channel, int flipAxis)
+{
+	// kDefaultTransformValues order: translate 0-2, rotate 3-5, scale 6-8.
+	const int index = channel.transformIndex;
+	return index < 0 ? channel.info.negate
+		: index < 3 ? index == flipAxis
+		: index < 6 ? index - 3 != flipAxis
+		: false;
 }
 
 MStatus RigPoseScene::zeroRigControls(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames)

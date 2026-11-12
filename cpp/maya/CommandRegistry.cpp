@@ -39,7 +39,9 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ PoseRigFromJointPoseCmd::aCommandString, PoseRigFromJointPoseCmd::creator, PoseRigFromJointPoseCmd::newSyntax },
 		{ AnimateRigFromJointClipCmd::aCommandString, AnimateRigFromJointClipCmd::creator, AnimateRigFromJointClipCmd::newSyntax },
 		{ GetRigKeysCmd::aCommandString, GetRigKeysCmd::creator, GetRigKeysCmd::newSyntax },
-		{ SetRigKeysCmd::aCommandString, SetRigKeysCmd::creator, SetRigKeysCmd::newSyntax }
+		{ SetRigKeysCmd::aCommandString, SetRigKeysCmd::creator, SetRigKeysCmd::newSyntax },
+		{ SaveRigAnimationCmd::aCommandString, SaveRigAnimationCmd::creator, SaveRigAnimationCmd::newSyntax },
+		{ LoadRigAnimationCmd::aCommandString, LoadRigAnimationCmd::creator, LoadRigAnimationCmd::newSyntax }
 	};
 	return descriptors;
 }

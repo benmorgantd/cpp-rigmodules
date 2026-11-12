@@ -408,7 +408,7 @@ cmds.getRigKeys("hero:upperArm_l_ctrl_l")   # only this control
 
 Objects: the rig root node (every control), or one or more controls of one rig. Returns one JSON string.
 
-- The string is `{side: {usage: {channel: [[frame, value], ...]}}}`, keyed by control markup like a pose, so it survives renames and rebuilds. Frames are in the scene's UI time unit and values in its UI units, as `cmds.keyframe` reports them.
+- The string is `{side: {usage: {channel: keys}}}`, keyed by control markup like a pose, so it survives renames and rebuilds. Frames are in the scene's UI time unit and values in its UI units, as `cmds.keyframe` reports them. The [keys format](#keys-format) is below.
 - Only channels with an animation curve are listed. A control with none is left out.
 - Changes no scene data and isn't undoable.
 
@@ -424,7 +424,7 @@ cmds.setRigKeys("hero:rigRootModule1", keys=json.dumps(keys))
 # Returns the controls keyed
 ```
 
-The string is the one `getRigKeys` returns:
+The string is the one `getRigKeys` returns ([format](#keys-format)):
 
 ```json
 { "Left": { "upperArm": { "rotateZ": [[1, 0], [10, 90], [20, 45]], "translateX": [[1, 0], [20, 2.5]] } } }
@@ -434,9 +434,74 @@ Objects: the rig root node, or one or more controls of one rig. Flag: `keys` (re
 
 - Controls and channels match by markup and channel name. A control or channel the keys have and the rig lacks is skipped with a warning. With controls, the keys for the rest of the rig are ignored without one.
 - Each channel gets all its keys in one `MFnAnimCurve::addKeys` call, and a channel with no curve gets one. A channel's keys replace the curve's keys from its first frame to its last, and keys outside that range stay. Keys may come in any order, but a frame can't repeat within a channel.
-- Enum, bool and integer channels (`space`) key stepped. The other channels use the global default tangents.
-- The whole string is checked before anything is written (bad JSON, a side outside `Center`, `Left` and `Right`, an empty usage or channel name, a key that isn't a `[frame, value]` pair of numbers, a repeated frame), so a bad string changes nothing.
+- A key with two numbers has two `auto` tangents. A key that names its tangents gets them, and a curve object sets the curve's `weighted` flag and infinities. A curve the data gives no flags goes back to unweighted and constant, so `animateRigFromJointClip` and the plain two-number form leave the curve with default flags.
+- Enum, bool and integer channels (`space`) key stepped whatever the tangents say.
+- The whole string is checked before anything is written (bad JSON, a side outside `Center`, `Left` and `Right`, an empty usage or channel name, a channel that is neither a key array nor a curve object, a key that isn't `[frame, value]` or `[frame, value, in, out]`, a tangent or infinity that doesn't exist, a repeated frame), so a bad string changes nothing.
 - Undoable as one step, however many channels and keys it wrote.
+
+### Keys format
+
+```json
+{
+    "Left": { "upperArm": {
+        "rotateX": [[1, 0.0], [10, 12.5]],
+        "rotateZ": {
+            "weighted": false, "preInfinity": "constant", "postInfinity": "constant",
+            "keys": [[1, 0.0, "auto", "auto"], [10, 90.0, [-12.5, 1.0], "flat"], [20, 45.0, "auto", "step"]]
+        }
+    } }
+}
+```
+
+- A channel is an array of keys, or a curve object with `keys` and optionally `weighted` (default `false`), `preInfinity` and `postInfinity` (`constant`, `linear`, `cycle`, `cycleRelative` or `oscillate`, default `constant`). `getRigKeys` returns the array form for a curve with default flags and the object form otherwise.
+- A key is `[frame, value]` or `[frame, value, in, out]`. A tangent is a type name (`auto`, `clamped`, `linear`, `flat`, `step` or `spline`) or `[angleDegrees, weight]` for a fixed tangent. `getRigKeys` writes two numbers for a key whose tangents are both `auto`.
+- Maya has no step in-tangent: a key written with `"step"` as its in tangent reads back `auto`. A tangent type with no name here (plateau, step next, the auto variants) is read as the fixed tangent it currently is.
+- A key's tangents are not locked or unlocked by the data: a key with two different tangents is unlocked.
+
+## saveRigAnimation
+
+Writes the keys of a rig's controls as a ControlAnim file, the animator's own library format ([library.md](library.md)).
+
+```python
+cmds.saveRigAnimation("hero:rigRootModule1", file="C:/anims/walk.anim.json", startFrame=1, endFrame=48)
+cmds.saveRigAnimation("hero:upperArm_l_ctrl_l", file="C:/anims/wave.anim.json")   # only this control, over the playback range
+# Returns the controls it read
+```
+
+Objects: the rig root node, or one or more controls of one rig. Flags:
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | Where to write the file. Required. An existing file is replaced. |
+| `startFrame` | float | First frame to save. Default: the playback range's start. |
+| `endFrame` | float | Last frame to save. Default: the playback range's end. |
+
+- Only keys from `startFrame` to `endFrame` go in. A channel with no key in the range is left out, and so is a control with none.
+- The file holds the keys with their tangents and each curve's flags ([keys format](#keys-format)), the range, and the scene's frame rate. Its format is in [library.md](library.md#controlanim-files).
+- A pose that has to be an animation (an engine wants two frames) is the rig keyed on two frames with the same values: `rigmodules.pose.key_rig(root, time=1)` and again at `time=2`, then save frames 1 to 2.
+- Changes no scene data and isn't undoable. It fails when `endFrame` is before `startFrame`.
+
+## loadRigAnimation
+
+Keys a rig's controls from a ControlAnim file.
+
+```python
+cmds.loadRigAnimation("hero:rigRootModule1", file="C:/anims/walk.anim.json")
+cmds.loadRigAnimation("hero:rigRootModule1", file="C:/anims/walk.anim.json", offset=100, mirror=True)
+# Returns the controls keyed
+```
+
+Objects: the rig root node, or one or more controls of one rig. Flags:
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The ControlAnim file. Required. |
+| `offset` | float | Moves every key by this many frames. Default 0. |
+| `mirror` | bool | `True` puts each side's keys on the other side (a flip, below). Default `False`. |
+
+- Matching, replacing and undo are those of [`setRigKeys`](#setrigkeys): a control the file lacks keeps its keys, a control or channel only one side has is skipped with a warning, and the whole load is one undo step.
+- The file is checked whole before anything is written. A file that fails validation, one with a newer `formatVersion` than this build reads, and one whose frame rate isn't the scene's change nothing. A resample is not built.
+- **Mirror** is a flip. Left keys go onto the Right control of the same usage and the Right keys onto Left. A channel the mirror negates (a custom channel declared `mirrorNegate`, [D34](../design/decisions.md)) has its values negated and its fixed tangent angles with it, and the other tangent types recompute from the negated keys and come out mirrored. A Center control reflects through its flip axis, as [`flipRigPose`](#fliprigpose) does. Frames, weights, curve flags and tangent types don't change. With controls as the objects, only those controls are keyed: the keys that mirror onto them.
 
 ## poseRigFromJointPose
 

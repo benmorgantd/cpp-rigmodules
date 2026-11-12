@@ -132,6 +132,25 @@ class FbxRoundTrip(FbxTestCase):
         for expected, actual in zip(clip["poses"][0], out["poses"][0]):
             self.assertTransform(actual, expected)
 
+    def test_a_pose_can_be_held_as_a_two_frame_animation(self):
+        clip = hand_clip(frames=3)
+        clip["poses"] = clip["poses"][2:]
+        clip_path = self.write_json("in.json", clip)
+        rigmodules.jointclip.write_fbx(clip_path, self.path("clip.fbx"), hold_frames=2)
+        rigmodules.jointclip.read_fbx(self.path("clip.fbx"), self.path("out.json"))
+        out = self.read_json("out.json")
+        self.assertEqual(len(out["poses"]), 2)
+        for pose in out["poses"]:
+            for expected, actual in zip(clip["poses"][0], pose):
+                self.assertTransform(actual, expected)
+
+    def test_hold_frames_is_for_a_one_pose_clip(self):
+        clip_path = self.write_json("in.json", hand_clip())
+        for frames in (0, 2):
+            with self.assertRaises(ValueError):
+                rigmodules.jointclip.write_fbx(clip_path, self.path("clip.fbx"), hold_frames=frames)
+        self.assertFalse(os.path.exists(self.path("clip.fbx")))
+
     def test_the_scene_is_left_as_it_was(self):
         cmds.currentTime(7)
         cmds.playbackOptions(minTime=3, maxTime=9)

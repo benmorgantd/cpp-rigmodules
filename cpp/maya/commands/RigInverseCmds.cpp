@@ -8,7 +8,6 @@
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/Utilities.h"
 
-#include <cmath>
 #include <optional>
 #include <string>
 #include <utility>
@@ -17,7 +16,6 @@
 #include <maya/MArgDatabase.h>
 #include <maya/MGlobal.h>
 #include <maya/MStringArray.h>
-#include <maya/MTime.h>
 
 namespace
 {
@@ -28,9 +26,6 @@ namespace
 	constexpr const char* kModeFlag{ "-mode" };
 	constexpr const char* kStartFrameFlag{ "-startFrame" };
 	constexpr const char* kEndFrameFlag{ "-endFrame" };
-
-	// Two frame rates this close are the same (23.976 and 24 are not).
-	constexpr double kFrameRateTolerance{ 1e-3 };
 
 	// mode is optional and only accepts match (D41). Reports anything else.
 	MStatus readMode(const MArgDatabase& argData, const char* commandName)
@@ -301,14 +296,14 @@ MStatus AnimateRigFromJointClipCmd::doIt(const MArgList& args)
 	}
 
 	// Keys land on the clip's own frame numbers, so the clip must run at the scene's rate (a resample is not built).
-	const double sceneFrameRate = 1.0 / MTime(1.0, MTime::uiUnit()).as(MTime::kSeconds);
-	if (std::abs(clip.frameRate - sceneFrameRate) > kFrameRateTolerance)
+	const double sceneFrameRate = TimeUtils::getSceneFrameRate();
+	if (!TimeUtils::isSameFrameRate(clip.frameRate, sceneFrameRate))
 	{
 		MGlobal::displayError(MString(aCommandString) + ": the JointClip runs at " + clip.frameRate + " fps and the scene at " + sceneFrameRate
 			+ " fps. Change the scene's time unit, or capture the clip again at the scene's rate.");
 		return MStatus::kInvalidParameter;
 	}
-	if (hasSidecar && std::abs(sidecar.frameRate - clip.frameRate) > kFrameRateTolerance)
+	if (hasSidecar && !TimeUtils::isSameFrameRate(sidecar.frameRate, clip.frameRate))
 	{
 		MGlobal::displayError(MString(aCommandString) + ": the sidecar runs at " + sidecar.frameRate + " fps and the JointClip at " + clip.frameRate + " fps.");
 		return MStatus::kInvalidParameter;
@@ -358,7 +353,7 @@ MStatus AnimateRigFromJointClipCmd::doIt(const MArgList& args)
 			{
 				for (const auto& [name, value] : channels)
 				{
-					keys[side][usage][name].emplace_back(static_cast<double>(first) + static_cast<double>(p), value);
+					keys[side][usage][name].keys.push_back(Key{ static_cast<double>(first) + static_cast<double>(p), value, {}, {} });
 				}
 			}
 		}

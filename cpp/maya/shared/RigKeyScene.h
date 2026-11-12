@@ -32,9 +32,17 @@ public:
 
 	// Adds the keys to the channels of the controls in the scope, matched by markup, creating a curve for a channel that
 	// has none. Each channel gets all its keys in one MFnAnimCurve::addKeys call, and a key replaces an existing one
-	// within the frames the call covers. Enum, bool and integer channels key stepped, the others use the global default
-	// tangents. The whole call is checked first, so an error changes nothing. A control or channel the keys have and the
+	// within the frames the call covers. Each key then gets the tangents it names, and the curve its flags (weighted
+	// and the infinities, so a curve the data gives no flags goes back to unweighted and constant). Enum, bool and
+	// integer channels key stepped whatever the tangents say. The whole call is checked first, so an error changes
+	// nothing. A control or channel the keys have and the
 	// rig lacks is skipped with a warning (a control outside a selection scope is not one). outChangedNames lists the
 	// controls that were keyed. The edit has run when this returns, and the caller keeps it for undo and redo.
 	static MStatus setRigKeys(const RigControlScope& scope, const RigKeys& keys, RigKeyEdit& edit, MStringArray& outChangedNames);
+
+	// The keys as they go onto the other side (D42): each entry moves to its mirror control, and a channel the mirror
+	// negates (a Center control's by its flip axis, any other by its mirror mode) has its values and fixed tangent
+	// angles negated. It is a flip: both sides' entries move, so a rig keyed on one side only gets keys on the other.
+	// An entry whose control has no mirror, or that the rig lacks, is skipped with a warning.
+	static MStatus mirrorRigKeys(const RigControlScope& scope, const RigKeys& keys, RigKeys& outMirrored);
 };

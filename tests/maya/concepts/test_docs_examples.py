@@ -274,6 +274,41 @@ class FbxDocExample(RigTestCase):
         self.assertAlmostEqual(cmds.getAttr(control + ".rotateZ", time=3), 60, places=2)
 
 
+class ControlAnimDocExample(RigTestCase):
+    """The ControlAnim file in docs/library.md loads, and the keys format example in docs/commands.md is accepted."""
+
+    def first_json(self, doc, heading, next_heading=None):
+        with open(os.path.join(config.REPO_DIR, "docs", doc), encoding="utf-8") as handle:
+            section = handle.read().split(heading, 1)[1]
+        if next_heading:
+            section = section.split(next_heading, 1)[0]
+        return re.search(r"```json\s*\n(.*?)```", section, re.S).group(1)
+
+    def test_the_library_example_loads_and_a_save_has_the_same_shape(self):
+        cmds.currentUnit(time="film")
+        self.build_standard("mirror_arms", "mirror_arms")
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        path = os.path.join(config.WORK_DIR, "doc_control_anim.json").replace("\\", "/")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(self.first_json("library.md", "## ControlAnim files"))
+        cmds.loadRigAnimation(root, file=path)
+        plug = rig_name("upperArm_l_ctrl_l") + ".rotateZ"
+        self.assertEqual(cmds.keyframe(plug, query=True, timeChange=True), [1, 10, 20])
+        self.assertAlmostEqual(cmds.keyframe(plug, query=True, valueChange=True)[1], 90.0, places=3)
+        saved = os.path.join(config.WORK_DIR, "doc_control_anim_saved.json").replace("\\", "/")
+        cmds.saveRigAnimation(root, file=saved, startFrame=1, endFrame=20)
+        with open(saved, encoding="utf-8") as handle:
+            written = json.load(handle)
+        documented = json.loads(self.first_json("library.md", "## ControlAnim files"))
+        self.assertEqual(sorted(written), sorted(documented), "the documented file has the keys a save writes")
+
+    def test_the_keys_format_example_is_accepted(self):
+        self.build_standard("mirror_arms", "mirror_arms")
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        changed = cmds.setRigKeys(root, keys=self.first_json("commands.md", "### Keys format"))
+        self.assertEqual(changed, ["rig:upperArm_l_ctrl_l"])
+
+
 COMMANDS_DOC = os.path.join(config.REPO_DIR, "docs", "commands.md")
 
 
