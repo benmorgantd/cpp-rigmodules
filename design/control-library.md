@@ -2,7 +2,7 @@
 
 **Status:** Decided (author, 2026-11-12), D42. The folder names, the export's control copy and the sampling are settled (section 10). Not built. The ControlAnim format in section 4 still needs sign-off before code.
 
-D41 built the inverse solve and picked USD as its carrier. It never asked what an animator's pose and animation library should be, so the file roles blurred: `controlposes/` was going to hold control poses and USD joint files side by side, the sidecar was a "pose file" that was not one, and nothing said how animation reaches an engine. This design starts from the library and the engine, and fits the inverse into it.
+D41 built the inverse solve and picked USD as its carrier. It never asked what an animator's pose and animation library should be, so the file roles blurred: `poses/` was going to hold control poses and USD joint files side by side, the sidecar was a "pose file" that was not one, and nothing said how animation reaches an engine. This design starts from the library and the engine, and fits the inverse into it.
 
 ## 1. What changed in the premise
 
