@@ -232,41 +232,6 @@ class JointClipDocExample(RigTestCase):
         self.assertIsInstance(changed, list)
 
 
-class UsdDocExample(RigTestCase):
-    """The USD section of docs/python.md names what write_usd writes, and its worked example runs."""
-
-    def test_the_layout_table_matches_the_file_and_the_example_runs(self):
-        import pxr.Usd
-
-        import rigmodules.jointclip
-
-        with open(os.path.join(config.REPO_DIR, "docs", "python.md"), encoding="utf-8") as handle:
-            section = handle.read().split("### USD files", 1)[1].split("### File format", 1)[0]
-        self.build_standard("mirror_arms", "mirror_arms")
-        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
-        control = rig_name("upperArm_l_ctrl_l")
-        cmds.setKeyframe(control + ".rotateZ", time=1, value=0)
-        cmds.setKeyframe(control + ".rotateZ", time=3, value=60)
-
-        clip_path = os.path.join(config.WORK_DIR, "doc_usd_clip.json")
-        usd_path = os.path.join(config.WORK_DIR, "doc_usd_clip.usd")
-        rigmodules.jointclip.capture_joint_clip(root, 1, 3, clip_path)
-        rigmodules.jointclip.write_usd(clip_path, usd_path)
-        stage = pxr.Usd.Stage.Open(usd_path)
-        for name in ("/Root/Skeleton", "/Root/Animation"):
-            self.assertIn(name, section)
-            self.assertTrue(stage.GetPrimAtPath(name))
-        for name in ("rigmodules:jointMarkup", "rigmodules:formatVersion"):
-            self.assertIn(name, section)
-            self.assertTrue(stage.GetPrimAtPath("/Root/Skeleton").GetAttribute(name).HasValue())
-        del stage
-
-        cmds.cutKey(control, attribute="rotateZ", clear=True)
-        rigmodules.jointclip.read_usd(usd_path, clip_path)
-        cmds.animateRigFromJointClip(root, jointClip=clip_path.replace("\\", "/"))
-        self.assertAlmostEqual(cmds.getAttr(control + ".rotateZ", time=3), 60, places=2)
-
-
 COMMANDS_DOC = os.path.join(config.REPO_DIR, "docs", "commands.md")
 
 

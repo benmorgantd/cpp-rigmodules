@@ -1,6 +1,6 @@
 # Control library: poses and animation on the rig's own controls
 
-**Status:** Decided (author, 2026-11-12), D42. The folder names, the export's control copy, the sampling and FBX as the joint file are settled (sections 10 and 12). Not built. The ControlAnim format in section 4 still needs sign-off before code.
+**Status:** Decided (author, 2026-11-12), D42. The folder names, the export's control copy, the sampling and FBX as the joint file are settled (sections 10 and 12). Not built apart from the USD removal (section 13, done: tag `usd-joint-io`, suite 626 passed). Sections 2 and 6b hold the data vocabulary and the Unreal pairing. The ControlAnim format in section 4 still needs sign-off before code.
 
 D41 built the inverse solve and picked USD as its carrier. It never asked what an animator's pose and animation library should be, so the file roles blurred: `poses/` was going to hold control poses and USD joint files side by side, the sidecar was a "pose file" that was not one, and nothing said how animation reaches an engine. This design starts from the library and the engine, and fits the inverse into it.
 
@@ -16,16 +16,25 @@ So **control data is the primary library**, and joint data (FBX, section 12) is 
 
 ## 2. The data types
 
-| Name | What it holds | Bound to | File |
-|---|---|---|---|
-| ControlPose | Control channel values, one frame | A rig's controls, by markup | `PoseFile` (D34), built |
-| ControlAnim | Sparse keys with tangents per control channel | A rig's controls, by markup | New, section 4 |
-| JointClip / JointPose | Joint transforms per frame | A skeleton, by joint markup | FBX through Maya (section 12). The JSON form is a transient. USD IO (D41) is retired (section 13). |
-| Animation properties | Engine data about a clip: loop, root motion, events, curves, additive type | An engine asset | `<name>.animprops.json`, mayadev's, section 6 |
+Two families, which never share a file or a name. The word that was blurred before is "pose": it means a different thing in each family, so it is never used alone.
 
-A pose is still one frame of an animation. The two control formats stay separate files: a ControlPose has no time, no frame rate and no tangents, and it is applied as values without keys, like `loadRigPose`. Merging them would give a pose file a frame layer it never uses.
+**Control data** is what the animator edits. It is bound to a rig's controls by control markup (D25) and holds channel values in UI units.
+**Skeleton data** is what the engine and mocap speak. It is bound to a skeleton's joints by joint markup (D15), or by a bone map for a foreign skeleton, and holds joint transforms.
 
-Terms to stop using: "pose file" for the sidecar, and "sidecar" for control data stored beside a joint file. Control data is control data wherever it is stored.
+| Family | Name | One frame (a pose) | Many frames (an animation) | File |
+|---|---|---|---|---|
+| Control | ControlPose / ControlAnim | ControlPose: channel values, no keys, no time. | ControlAnim: sparse keys with tangents per channel (section 4). | `PoseFile` JSON (D34, built) / `<name>.anim.json` (new) |
+| Skeleton | JointPose / JointClip | JointPose: every joint's local transform. | JointClip: a JointPose per frame, baked. | FBX (section 12). The JSON JointClip is a transient between Python and the plugin. |
+| Skeleton | Skeleton asset | The joints at rest, the hierarchy and the joint markup. No animation. | | `<asset>_skeleton.fbx` and `<asset>_skeleton.bonemap.json` (section 6) |
+| Engine | Animation properties | | Loop, root motion, events, curves, additive type. | `<name>.animprops.json`, mayadev's (section 6) |
+
+Rules that keep the families apart:
+
+- **A ControlPose is not a JointPose.** One is channel values on a rig (an IK/FK blend, a space, a finger curl). The other is joint matrices. Converting between them is the inverse solve (forward is the rig itself), never a file rename.
+- **The skeleton asset has no animation, and an animation FBX has no skeleton asset.** The engine imports the skeleton once, and each animation after it binds to that skeleton by bone name. The pairing is in section 6b.
+- **A pose is one frame of an animation.** The two control formats stay separate files: a ControlPose has no time, no frame rate and no tangents, and it is applied as values without keys, like `loadRigPose`. Merging them would give a pose file a frame layer it never uses.
+
+Terms to stop using: "pose file" for the sidecar, "sidecar" for control data stored beside a joint file, and "pose" on its own. Say ControlPose or JointPose.
 
 ## 3. Folders: one folder, one data type
 
@@ -36,7 +45,7 @@ The asset's file model (D29, `asset-model.md`) gets folders by role. The model i
 | `controlposes/` | ControlPoses | `<name>.json`, the `PoseFile` format unchanged |
 | `controlanims/` | ControlAnims | `<name>.anim.json` |
 | `exports/<name>/` | One engine export per folder (section 6) | `<name>.fbx`, `<name>.animprops.json`, `<name>.anim.json` |
-| `sources/` | Joint data brought in for a remap: mocap, an engine export, another rig's clip | `<name>.fbx`, and `<name>.bonemap.json` when the skeleton has no markup (section 12) |
+| `sources/` | Skeleton data brought in for a remap: mocap, an engine export, another rig's clip | `<name>.fbx`, and `<name>.bonemap.json` when the skeleton has no markup (section 12) |
 
 `controlposes/` and `controlanims/` never hold joint files. An export folder is a bundle: its files describe one thing and travel together, so the rule is one folder per purpose, with its own folder per entry where an entry has several files.
 
@@ -108,6 +117,37 @@ exports/walk/
 - **`animprops` is not control data.** It is engine data about the clip: loop, root motion, events and notifies, curves, sync markers, additive type, compression. It never mentions RigModules names, so by the placement rule it belongs to mayadev's asset tools. RigModules only keeps from blocking it.
 - **The skeleton export** is the engine's skeleton asset source: an FBX of the export joints at rest, plus `<asset>_skeleton.bonemap.json`, the bone map (section 12) with the asset's `assetId` and `skeletonId`. This is the author's previous pipeline's asset skeleton export and bone id sidecar. A clip's export folder doesn't repeat the bone map: the clip is made on the asset's skeleton, so its joint names are the skeleton's.
 - **How Unreal imports it** is an engine-side choice that this design doesn't fix: the FBX importer against the skeleton asset, or a script that builds `AnimSequence`s from the bone tracks and applies `animprops`. It was not tested.
+
+## 6b. The Unreal paths: skeleton, animation and control data pairing
+
+Three things travel to the engine, and each has one owner and one place in the asset's folders.
+
+| Item | Made from | Files | Engine-side |
+|---|---|---|---|
+| Skeleton asset | The rig's export joints at rest | `<asset>_skeleton.fbx` + `<asset>_skeleton.bonemap.json` (`assetId`, `skeletonId`) | The Skeleton (and mesh) asset, imported once |
+| Animation | A ControlAnim, baked by `capture_joint_clip` | `exports/<name>/<name>.fbx` | An AnimSequence on that Skeleton, bound by bone name |
+| Properties | Authored in mayadev | `exports/<name>/<name>.animprops.json` | Loop, root motion, notifies, curves |
+
+The ControlAnim copy (`<name>.anim.json`) sits in the export folder but isn't engine data: it makes the export reopenable on the rig.
+
+**The pairing key is the skeleton.** An animation FBX is valid for a skeleton asset when its joint names and hierarchy match the skeleton's. The bone map's `skeletonId` is the stable name for that skeleton, and an export folder carries no copy of it: the clip is made on the asset's skeleton, so its names are the skeleton's. A check in the adapter (not the engine) compares an animation FBX's joints to the skeleton export's before it is written or read, and refuses a mismatch with the names that differ.
+
+**Out of Maya (export), per animation:**
+1. Pick a ControlAnim from `controlanims/` (or the animator's keys on the scene).
+2. `capture_joint_clip` bakes the export joints to a JointClip.
+3. `write_fbx` writes the animation FBX, with the skeleton's names.
+4. mayadev writes `animprops.json` and copies the ControlAnim beside them. The folder is `exports/<name>/`.
+5. The skeleton export is made once per skeleton and again when the skeleton changes. A skeleton change is a versioned event: the bone map's `skeletonId` and `assetId` say which clips it can break.
+
+**Into Maya (import), per source:**
+1. A mocap take, an engine export or another rig's clip lands in `sources/` as an FBX, with a bone map when the skeleton has no markup.
+2. `read_fbx` imports it, applies the bone map and captures a JointClip.
+3. The inverse solve (`animateRigFromJointClip`) keys the rig's controls from the JointClip.
+4. The animator cleans the keys on the rig and saves a ControlAnim to `controlanims/`. From then on the animation is control data, and the source FBX is kept only as a record.
+
+**An export reopened** skips steps 1 to 3 of the import: the ControlAnim copy loads on the rig directly (`loadRigAnimation`), with the FBX as the fallback for a rig that can't use it (section 5).
+
+**Not fixed here:** whether Unreal imports the FBX through its importer or a script that builds AnimSequences from bone tracks (section 6), and the import options. The spike decides both. Until it runs, this section is the intended flow, not a verified one.
 
 ## 7. What changes in D41
 
@@ -190,7 +230,7 @@ The author switched from USD to FBX because FBX is the mocap standard (Vicon, Op
 
 **Spike first (build order 1b):** write one baked animation FBX from a scratch skeleton, check that Maya's exporter and importer run in mayapy, and import the file into the target Unreal version against a skeleton asset. Record the options that worked. Unreal's FBX importer is the standard path, but nothing here has been run.
 
-## 13. Retiring USD (author, 2026-11-12)
+## 13. Retiring USD (author, 2026-11-12). Done 2026-11-12
 
 **Why.** The plugin never linked USD (D41), but the Python package did: `rigmodules/jointclip.py` imports `pxr` and `numpy` at module level, so even `capture_joint_clip`, which uses neither, fails to import without Maya's bundled USD build. That ties the package to the OpenUSD version Maya ships (0.24.11 in Maya 2026), and USD is no longer the export path. Removing it takes the dependency out of the package and a test file out of the suite.
 

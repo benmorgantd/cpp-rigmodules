@@ -123,7 +123,7 @@ namespace
 				report.addError(where + "." + JointClipFileKey::Path, "'" + clipJoint.path + "' is already used by an earlier joint");
 				continue;
 			}
-			// The hierarchy is the path, and a parent comes before its children, as in UsdSkel.
+			// The hierarchy is the path, and a parent comes before its children.
 			const std::string parent = parentPath(clipJoint.path);
 			if (!parent.empty() && paths.find(parent) == paths.end())
 			{

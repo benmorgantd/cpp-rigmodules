@@ -1,9 +1,9 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// A JointClip file is the transient bridge between Python and the plugin (D41, inverse-solve.md section 7). Python reads a
-// USD file with pxr and writes this JSON, and a command reads it. It is never stored in an asset. It holds the source's
-// joints, each joint's markup and rest, and a list of JointPoses. A pose from a single-frame USD is a JointClip with one
+// A JointClip file is the transient bridge between Python and the plugin (D41, inverse-solve.md section 7). Python writes
+// this JSON (from a rig, or from an FBX through Maya, D42), and a command reads it. It is never stored in an asset. It holds the source's
+// joints, each joint's markup and rest, and a list of JointPoses. A pose from a single-frame file is a JointClip with one
 // JointPose.
 // {
 //     "formatVersion": 1,
@@ -16,9 +16,8 @@
 //         [ { "translate": [0, 1, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1] } ]
 //     ]
 // }
-// Every transform is local to the joint's parent (UsdSkel's convention). Translations are in Maya's internal units
-// (centimeters), whatever the scene's unit: the Python writer has already converted units, the up axis and the frame
-// rate. startFrame is the frame number of poses[0], and the poses are consecutive frames. A joint's parent is the path
+// Every transform is local to the joint's parent (the convention of skeleton file formats). Translations are in Maya's internal units
+// (centimeters), whatever the scene's unit: the Python writer has already converted units and the up axis. startFrame is the frame number of poses[0], and the poses are consecutive frames. A joint's parent is the path
 // above it, and comes before it in the list. A joint with no markup has "markup": "", stays in the file and is never
 // mapped to the rig (it still composes the world matrices of the joints below it). A pose has one transform per joint,
 // in joint order. A rotation is a unit quaternion. Two joints can't share a (side, usage).

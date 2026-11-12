@@ -125,3 +125,20 @@ class SourceLayout(unittest.TestCase):
                         bad.append("%s: %s" % (path, ", ".join(key[3] for key in block)))
                     block = []
         self.assertEqual(bad, [], "include blocks are sorted; run clang-format on the include lines (cpp/.clang-format)")
+
+
+class PythonPackageDependencies(unittest.TestCase):
+    """The Python package imports no pxr and no numpy (D42): joint files go through Maya, so the package needs nothing
+    beyond maya. Checked statically, so the dependency can't come back unnoticed."""
+
+    def test_no_module_imports_pxr_or_numpy(self):
+        package = os.path.join(REPO_DIR, "python", "rigmodules")
+        bad = []
+        for name in sorted(os.listdir(package)):
+            if not name.endswith(".py"):
+                continue
+            with open(os.path.join(package, name), encoding="utf-8") as handle:
+                for number, line in enumerate(handle, 1):
+                    if re.match(r"\s*(import|from)\s+(pxr|numpy)\b", line):
+                        bad.append("%s:%d" % (name, number))
+        self.assertEqual(bad, [], "python/rigmodules must not import pxr or numpy")

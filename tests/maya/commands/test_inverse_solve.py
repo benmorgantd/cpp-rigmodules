@@ -3,7 +3,7 @@
 Most tests are round trips: pose a rig, write its joints as a JointClip, zero the controls and restore from the clip.
 Forward and inverse must agree, in joints and in control values. The posed values are chosen by hand in each test. A
 JointClip here is flat (every joint a root, local equal to world), which the format allows, so it holds the rig's helper
-joints too (an aim's target and up are not exported joints) and needs no pxr and no capture.
+joints too (an aim's target and up are not exported joints) and needs no capture.
 """
 import json
 import math

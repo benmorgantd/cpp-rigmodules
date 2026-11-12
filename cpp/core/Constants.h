@@ -75,7 +75,7 @@ namespace AnimationSidecarKey
 	inline constexpr const char* Frames{ "frames" };
 }
 
-// Keys in a JointClip file, see JointClipFile.h. Public API: the Python capture and USD reader write them.
+// Keys in a JointClip file, see JointClipFile.h. Public API: the Python capture writes them.
 namespace JointClipFileKey
 {
 	inline constexpr const char* FormatVersion{ "formatVersion" };

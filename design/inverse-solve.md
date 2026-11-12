@@ -91,6 +91,8 @@ A module whose parent didn't solve (a missing joint, no sidecar) gets its parent
 
 ### 6.1 The joint file: USD
 
+**Withdrawn (D42, 2026-11-12).** USD IO was removed and FBX is the joint file (`control-library.md`, section 12). The layout below is kept as history, and the tag `usd-joint-io` has the code.
+
 A joint pose or clip is one USD file (`.usd`, `.usda` or `.usdc`) holding a `UsdSkelRoot` with a `Skeleton` and, for a clip, a `SkelAnimation`.
 
 | USD | Content |

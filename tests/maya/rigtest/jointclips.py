@@ -1,7 +1,7 @@
 """Helpers that write a rig's joints as a JointClip file (D41), for tests of the inverse solve.
 
 A JointClip here is flat: every joint is a root, and its local transform is its world transform, which the format allows.
-That keeps the helper joints a rig has (an aim's target and up are not exported) in the file, and needs neither pxr nor
+That keeps the helper joints a rig has (an aim's target and up are not exported) in the file, and needs no
 rigmodules.jointclip.capture_joint_clip, so a test of the solve doesn't depend on the capture.
 """
 import json
