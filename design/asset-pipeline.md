@@ -102,35 +102,41 @@ The transfer is the "closest-point transfer for changed meshes" that D35 lists a
 
 ### 5.2 Mesh markup
 
-Some meshes are not ordinary render meshes: the face, a proxy for previews, and similar. At the previous studio they were marked with an identifier like a joint's `usage`, so tools could find them without relying on names, which nobody kept. `meshId` says which mesh a file belongs to. It cannot say what a mesh is for. So a mesh may carry a **usage**, like joint and control markup (D15, D25).
+Some meshes are not ordinary render meshes, and some carry data the engine reads. At the previous studio a mesh could be marked with an identifier like a joint's `usage`, so tools could find it without relying on names, which nobody kept. Examples were `face_proxy` and `helmet`, used to toggle between a helmeted view and a face view. Separately, meshes carried engine-side properties for shaders, looks and variants. Those were not usage, so they get their own key. `meshId` says which mesh a file belongs to. Markup says what it is and what the engine should do with it.
 
-- **Attribute:** `meshMarkup`, a JSON string on the mesh transform next to `meshId` (D16), read and written with `JsonUtils`. Keys: `markupVersion` and `usage`. Nothing else until a second key is needed.
-- **No usage means an ordinary render mesh.**
-- **The vocabulary is per project**, in `project.json` like `assetTypes`, and the semantics are data, not code:
+- **Attribute:** `meshMarkup`, a JSON string on the mesh transform next to `meshId` (D16), read and written with `JsonUtils`:
   ```json
-  "meshUsages": {
-    "face":  { "skin": true,  "export": true },
-    "proxy": { "skin": false, "export": false }
+  { "markupVersion": 1, "usage": "helmet", "properties": { "shader": "armor_metal", "look": "damaged" } }
+  ```
+- **`usage`** is an optional string: the mesh's role. It is not unique, so a query returns a list. A view toggle shows the meshes of one usage and hides another's, as a Python tool over the query. No usage means an ordinary render mesh.
+- **`properties`** is an optional object of scalar values (string, int, float, bool): the engine-side data. The C++ checks only that shape when it writes.
+- **The schema is the project's, and C++ checks against it.** `project.json` says which properties exist (`meshProperties`: a type, an optional list of allowed values, a default, whether it is required). A Maya-free `core/MeshPropertySchema` validates a mesh's properties against it: unknown names, wrong types, values outside an enum and missing required ones. The C++ never reads a project path (D24), so the schema arrives as a file. Engine-specific names live in the project's file, never in C++.
+  ```json
+  "meshProperties": {
+    "shader": { "type": "string", "required": true },
+    "look":   { "type": "enum", "values": ["clean", "damaged"], "default": "clean" }
   }
   ```
-  The C++ knows no usages. A project adds `lod1` or `collision` by editing its file.
-- **Not unique.** Several proxies are fine, so a query returns a list. `meshId` stays the one identity. Weight files stay keyed by `meshId` and topology hash (D35), and usage is part of neither key, so changing a mesh's usage never invalidates weights.
+- **The name is `look`, not `variant`.** A variant in D29 is a rig variant. An engine look is a different thing, and two meanings of one word is how pipelines drift.
+- **Not part of any key.** Weight files stay keyed by `meshId` and topology hash (D35), so changing a mesh's usage or properties never invalidates weights.
+- **Cheap in the file.** The markup is one string attribute per mesh, nothing like the mesh data section the previous studio paid for.
 - **What tools do with it:**
-  - Skin tools skip a mesh whose usage says `skin: false`. A proxy skinned to a preview rig is not the asset's weights.
-  - The publish step leaves out meshes whose usage says `export: false`.
-  - Checks and budgets apply per usage.
+  - View toggles by usage.
+  - The publish step writes each mesh's usage and properties into `publish.json` (section 9), so the engine reads them without Maya.
+  - Checks and budgets can apply per usage.
   - Face tools find the face mesh of any variant, whatever it is called.
-  - Intake can set the usage from the neutral file (an object property or a naming prefix the project chooses).
-- **Where it lives:** the same split as `meshId`.
+  - Intake sets them from the neutral file (an object property or a naming prefix the project chooses).
+- **Commands** (names need the author's call): `cmds.setRigMeshMarkup(*meshes, usage=..., properties=json)`, `cmds.getRigMeshMarkup(mesh)` and `cmds.validateRigMeshMarkup(*meshes, schema=path)`. `validate` is not one of the verb pairs in CLAUDE.md, but the template checks already use that word (D17). Setting and getting check only the structure, and the project schema is checked by `validate`, so a tool can set markup without the project file at hand.
+- **Where it lives:**
 
   | Piece | Home |
   |---|---|
-  | `RigAttr::MeshMarkup`, the schema and its version | RigModules `core/` (a small `MeshMarkup`, like `ControlMarkup`) |
-  | `cmds.setRigMeshMarkup(*meshes, usage=...)` and `cmds.getRigMeshMarkup(mesh)` | RigModules `maya/commands/` (D14 shape) |
+  | `RigAttr::MeshMarkup`, `core/MeshMarkup` (schema, version, serialize) and `core/MeshPropertySchema` (parse the schema, validate properties) | RigModules `core/` |
+  | The three commands | RigModules `maya/commands/` (D14 shape) |
   | A query by usage in a namespace (`get_meshes(namespace, usage=...)`) | RigModules `python/rigmodules/skinweights.py` |
-  | The `meshUsages` vocabulary and what a usage means for publish and checks | mayadev (`project.json`) |
+  | `meshProperties`, which file holds the schema, and the view toggle tool | mayadev (`project.json`) |
 
-- **Simpler alternative:** Python only. Tools write the JSON with `cmds.setAttr`, and `RigAttr` holds only the attribute name. That drops the commands and the schema in `core/`, but nothing then validates the JSON or its version. I lean toward the commands because `meshId` is already here and a C# tool will read the same attribute. It needs sign-off (the gate, D12).
+- **Complexity added:** one attribute, two `core/` files, three commands and one `project.json` key. The alternative was Python only, and the author chose C++ for anything with a schema (2026-11-13). It still needs sign-off through the gate (D12) before implementation.
 
 ## 6. Status model
 
@@ -228,7 +234,7 @@ All of the logic stays in Python modules under `bmaya/asset`, and the panel only
 | Piece | Home |
 |---|---|
 | File types, stages, status, intake tool, mesh checks, publish manifest, panel | mayadev |
-| Mesh markup (`meshMarkup`, `core/MeshMarkup`, `getRigMeshMarkup`, `setRigMeshMarkup`), if signed off | RigModules (`core/`, `maya/commands/`) |
+| Mesh markup and its property schema (`meshMarkup`, `core/MeshMarkup`, `core/MeshPropertySchema`, three commands), if signed off | RigModules (`core/`, `maya/commands/`) |
 | Weight transfer on a table, content hash on weights | RigModules `core/` (`SkinWeightTable`, `SkinWeightFile`) |
 | Closest-point and UV lookups, applying the transfer to a skinCluster | RigModules `maya/shared/SkinWeightScene` |
 | Rig version stamps, `getRigInfo` | RigModules, unchanged |
@@ -249,8 +255,8 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 
 ## 13. Maintenance surface
 
-- Three optional keys on file types in `project.json` (`stage`, `inputs`, `root`), a `meshUsages` key, and one new status vocabulary.
-- If signed off: one string attribute (`meshMarkup`), its schema in `core/`, and a get/set command pair.
+- Three optional keys on file types in `project.json` (`stage`, `inputs`, `root`), a `meshProperties` key, and one new status vocabulary.
+- If signed off: one string attribute (`meshMarkup`), its markup and property schema code in `core/`, and three commands.
 - One new environment variable for the source root.
 - A weight-table transfer in `core/` and a content hash in the weight file (a `formatVersion` step, D33).
 - If adopted: a blend shape delta file format in `core/` (versioned, D33), a load command, and the target editing scene.
@@ -265,7 +271,8 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 - **Fixing topology silently during intake.** It breaks skinning.
 - **Checking mesh names.** The studio never cared, and identity is by `meshId`.
 - **Making the source root a requirement.** Most people do not map it.
-- **Putting usage in the weight file key.** It would invalidate weights whenever someone relabelled a mesh.
+- **Putting usage or properties in the weight file key.** It would invalidate weights whenever someone relabelled a mesh.
+- **A property bag with no schema in C++.** It would let a typo ship to the engine unnoticed.
 - **Blend shape targets as meshes in the production scene.** They bloat the Maya file and make the rig the only place to edit them (section 7).
 - **A face rig that layers blend shapes, joints and a skinning solve** (D45).
 
@@ -276,8 +283,9 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 - Which updates keep animation layers, and which drop them (section 9.1)?
 - Delta file: text or binary, and FACS ids or free target names?
 - How long does a whole asset take at build, split into Maya file import and weight load, given D35's per-mesh numbers (section 5.1)?
-- Which usages did the previous studio mark meshes with beyond faces and proxies, and did any need more than a name, such as an export flag (section 5.2)?
-- Mesh markup as commands with a schema in `core/`, or Python only (section 5.2)?
+- Are engine properties per mesh, or per material or shader slot (section 5.2)?
+- Should a usage give default property values, such as `face_proxy` defaulting to not exported, or is that set per mesh at intake?
+- The names of the three mesh markup commands (section 5.2).
 - Which neutral format do the Blender and Max artists deliver, FBX or USD?
 - Which mesh checks hurt most when missing, and what are the budgets per asset type?
 - Does the engine side read `publish.json`, or does it need its own format?
