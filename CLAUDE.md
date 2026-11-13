@@ -186,11 +186,12 @@ RigTemplates/        example template
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules, the pose and animation library (`library.md`), and `architecture.md`, the code guide (layers, source map, build phases, module layers, recipes for a new module, command or format). `docs/README.md` holds the documentation process. Update `architecture.md` when a file, folder, base class or build phase changes. |
-| `design/decisions.md` | Decision log (D1–D45). |
+| `design/decisions.md` | Decision log (D1–D46). |
 | `design/asset-model.md` | Asset id, namespace ownership, rig variants, file model, local versions and the registry (D29). The file model is planned for a mayadev branch. |
 | `design/inverse-solve.md` | Restoring controls from joints (D41): module-owned inverse, joint files (USD in the first design, FBX now, D42), the offset seam for different proportions. The solve and keys are built. The USD IO was removed, and the sidecar writer is dropped. |
 | `design/control-library.md` | The pose and animation library (D42): control data (ControlPose, ControlAnim with tangents) as the primary library, FBX (a bone map for markup) for remaps, mocap and the engine, the control data vs skeleton data vocabulary, the skeleton, animation and properties pairing for Unreal, one folder per data type (`controlposes/`, `controlanims/`, `exports/`, `sources/`), the engine export folder. Design only, not built. |
 | `design/asset-pipeline.md` | The art stages before the rig (D44): source, intake, scene and export stages as file types, the intake and mesh checks, skinning that survives an art change, the status model, face data (D45: expressions by blend shapes, blend shape deltas as asset data), source files on an unmapped root, the publish manifest as the engine equivalent, cheap updates, the interface. Proposal, not built. |
+| `design/module-directions.md` | Where the author's production experience points the modules after the IK limb (D46): pose-driver and markers, the face module, channel map and rules file, overlap, the engine round trip, diagnostics, and why gear swapping is not a design driver. Proposals, not built. |
 | `design/mayadev-integration.md` | Survey of the sibling mayadev repo, conflicts with RigModules, the proposed boundary and phases (D24). |
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. `ViewportGallery.cmd` is the manual VP2 shape check. |

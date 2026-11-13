@@ -107,7 +107,8 @@ Two separate things, as at the previous studio: tools identify meshes by a **usa
 **Usage.**
 
 - An optional string on a mesh: what the mesh is for. Its presence is how a specific tool recognises a mesh. There are no defaults, and no usage is normal, because markup is generally not enforced.
-- Examples: `face_proxy` and `helmet`, used to toggle between a face view and a helmeted view (a Python tool shows one usage and hides another). For the player and some characters, the parts of a gear system (arms, legs, torso, helmet, cape) must be separate meshes with their own usage, so pieces can be swapped in a plug and socket system.
+- Examples: `face_proxy` and `helmet`, used to toggle between a face view and a helmeted view (a Python tool shows one usage and hides another).
+- **Gear parts are a legacy need, supported but not assumed.** For the player and some characters the previous studio separated meshes by usage (arms, legs, torso, helmet, cape) for a plug and socket gear system. That system dated from about 2013, limited what designs could do, cost design continuity, and paid off mainly for microtransactions. Usage supports it where an asset needs it, as the opt-in set below, and nothing in the asset model assumes characters are built from swappable parts. Rig variants (D29) and looks (properties, below) are the other route. Whether a replacement is wanted is open.
 - Not unique, so a query returns a list.
 - **Required usages are opt-in.** `project.json` can define a usage set (`"usageSets": { "gear": ["arms", "legs", "torso", "helmet", "cape"] }`), and an asset's `asset.json` names the set it follows. Publish validation then requires every usage in the set, and only for that asset. Which level opts in, per asset or per asset type, is open.
 - **Gear pieces and the skeleton.** Swappable pieces share the character's skeleton through the registry's skeleton query (D29). Weights are per mesh, keyed by joint markup (D35), so a piece's weights should load onto any rig on that skeleton. That is design reasoning, not tested.
@@ -309,7 +310,7 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 - How long does a whole asset take at build, split into Maya file import and weight load, given D35's per-mesh numbers (section 5.1)?
 - Are a mesh's face groups its Maya shading groups, or separate face sets (section 5.2)?
 - Do dye regions fit as ordinary properties (a map name and a channel to dye mapping), or do they need their own data (section 5.2)?
-- Do required usages (the gear set) opt in per asset or per asset type, and which usages does it hold (section 5.2)?
+- Do required usages (the gear set) opt in per asset or per asset type, and is a replacement for the plug and socket gear model wanted at all (section 5.2)?
 - The names of the three mesh markup commands (section 5.2).
 - Which neutral format do the Blender and Max artists deliver, FBX or USD?
 - Which mesh checks hurt most when missing, and what are the budgets per asset type?
