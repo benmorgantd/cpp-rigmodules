@@ -102,41 +102,65 @@ The transfer is the "closest-point transfer for changed meshes" that D35 lists a
 
 ### 5.2 Mesh markup
 
-Some meshes are not ordinary render meshes, and some carry data the engine reads. At the previous studio a mesh could be marked with an identifier like a joint's `usage`, so tools could find it without relying on names, which nobody kept. Examples were `face_proxy` and `helmet`, used to toggle between a helmeted view and a face view. Separately, meshes carried engine-side properties for shaders, looks and variants. Those were not usage, so they get their own key. `meshId` says which mesh a file belongs to. Markup says what it is and what the engine should do with it.
+Two separate things, as at the previous studio: tools identify meshes by a **usage**, and the engine reads **properties** from the parts of a mesh.
 
-- **Attribute:** `meshMarkup`, a JSON string on the mesh transform next to `meshId` (D16), read and written with `JsonUtils`:
+**Usage.**
+
+- An optional string on a mesh: what the mesh is for. Its presence is how a specific tool recognises a mesh. There are no defaults, and no usage is normal, because markup is generally not enforced.
+- Examples: `face_proxy` and `helmet`, used to toggle between a face view and a helmeted view (a Python tool shows one usage and hides another). For the player and some characters, the parts of a gear system (arms, legs, torso, helmet, cape) must be separate meshes with their own usage, so pieces can be swapped in a plug and socket system.
+- Not unique, so a query returns a list.
+- **Required usages are opt-in.** `project.json` can define a usage set (`"usageSets": { "gear": ["arms", "legs", "torso", "helmet", "cape"] }`), and an asset's `asset.json` names the set it follows. Publish validation then requires every usage in the set, and only for that asset. Which level opts in, per asset or per asset type, is open.
+- **Gear pieces and the skeleton.** Swappable pieces share the character's skeleton through the registry's skeleton query (D29). Weights are per mesh, keyed by joint markup (D35), so a piece's weights should load onto any rig on that skeleton. That is design reasoning, not tested.
+
+**Properties.**
+
+- Engine-side data: shaders, looks and the like. They are **per face group**, because a mesh can have several materials. They are not usage.
+- **A face group is a Maya shading group,** the face assignment Maya and the engine already agree on. Storing it that way means we keep no per-face data of our own. The markup goes on the shading group, not the mesh.
+- A **dye system** applied materials to regions generically, from painted maps. Those regions are texture-space, not geometry, so the C++ stores none of them. A face group's properties can only reference the map and say which channel is which dye region, and the painted map is a file under the `textures` type. Whether that fits ordinary properties is open below.
+
+**The attribute.** One string, `meshMarkup` (D16), read and written with `JsonUtils`, on a mesh transform or on a shading group:
+
+```json
+{ "markupVersion": 1, "usage": "helmet" }
+{ "markupVersion": 1, "properties": { "shader": "armor_metal", "look": "damaged", "dyeMap": "helmet_dye.tga" } }
+```
+
+A mesh carries `usage`. A shading group carries `properties`. The C++ checks only the shape when it writes.
+
+**The schema is the project's, and C++ checks against it.**
+
+- `project.json` lists the properties that exist for each target: a type, optional allowed values, a default and whether it is required.
   ```json
-  { "markupVersion": 1, "usage": "helmet", "properties": { "shader": "armor_metal", "look": "damaged" } }
-  ```
-- **`usage`** is an optional string: the mesh's role. It is not unique, so a query returns a list. A view toggle shows the meshes of one usage and hides another's, as a Python tool over the query. No usage means an ordinary render mesh.
-- **`properties`** is an optional object of scalar values (string, int, float, bool): the engine-side data. The C++ checks only that shape when it writes.
-- **The schema is the project's, and C++ checks against it.** `project.json` says which properties exist (`meshProperties`: a type, an optional list of allowed values, a default, whether it is required). A Maya-free `core/MeshPropertySchema` validates a mesh's properties against it: unknown names, wrong types, values outside an enum and missing required ones. The C++ never reads a project path (D24), so the schema arrives as a file. Engine-specific names live in the project's file, never in C++.
-  ```json
-  "meshProperties": {
+  "faceGroupProperties": {
     "shader": { "type": "string", "required": true },
     "look":   { "type": "enum", "values": ["clean", "damaged"], "default": "clean" }
   }
   ```
-- **The name is `look`, not `variant`.** A variant in D29 is a rig variant. An engine look is a different thing, and two meanings of one word is how pipelines drift.
-- **Not part of any key.** Weight files stay keyed by `meshId` and topology hash (D35), so changing a mesh's usage or properties never invalidates weights.
-- **Cheap in the file.** The markup is one string attribute per mesh, nothing like the mesh data section the previous studio paid for.
-- **What tools do with it:**
-  - View toggles by usage.
-  - The publish step writes each mesh's usage and properties into `publish.json` (section 9), so the engine reads them without Maya.
-  - Checks and budgets can apply per usage.
-  - Face tools find the face mesh of any variant, whatever it is called.
-  - Intake sets them from the neutral file (an object property or a naming prefix the project chooses).
-- **Commands** (names need the author's call): `cmds.setRigMeshMarkup(*meshes, usage=..., properties=json)`, `cmds.getRigMeshMarkup(mesh)` and `cmds.validateRigMeshMarkup(*meshes, schema=path)`. `validate` is not one of the verb pairs in CLAUDE.md, but the template checks already use that word (D17). Setting and getting check only the structure, and the project schema is checked by `validate`, so a tool can set markup without the project file at hand.
-- **Where it lives:**
+- A Maya-free `core/MeshPropertySchema` validates a properties object against it: unknown names, wrong types, values outside an enum and missing required ones. The C++ never reads a project path (D24), so the schema arrives as a file. Engine-specific names live in the project's file, never in C++.
+- The word is `look`, not `variant`. A variant in D29 is a rig variant.
 
-  | Piece | Home |
-  |---|---|
-  | `RigAttr::MeshMarkup`, `core/MeshMarkup` (schema, version, serialize) and `core/MeshPropertySchema` (parse the schema, validate properties) | RigModules `core/` |
-  | The three commands | RigModules `maya/commands/` (D14 shape) |
-  | A query by usage in a namespace (`get_meshes(namespace, usage=...)`) | RigModules `python/rigmodules/skinweights.py` |
-  | `meshProperties`, which file holds the schema, and the view toggle tool | mayadev (`project.json`) |
+**Not part of any key.** Weight files stay keyed by `meshId` and topology hash (D35), so changing markup never invalidates weights. The markup is one small string attribute, nothing like the mesh data section the previous studio paid for.
 
-- **Complexity added:** one attribute, two `core/` files, three commands and one `project.json` key. The alternative was Python only, and the author chose C++ for anything with a schema (2026-11-13). It still needs sign-off through the gate (D12) before implementation.
+**What tools do with it.**
+
+- View toggles by usage.
+- Publish writes each mesh's usage and each face group's properties into `publish.json` (section 9), so the engine reads them without Maya.
+- Checks and budgets can apply per usage.
+- Face tools find the face mesh of any variant, whatever it is called.
+- Intake sets them from the neutral file (an object property or a naming prefix the project chooses).
+
+**Commands** (names need the author's call): `cmds.setRigMeshMarkup(*nodes, usage=..., properties=json)`, `cmds.getRigMeshMarkup(node)` and `cmds.validateRigMeshMarkup(*nodes, schema=path)`, each taking meshes or shading groups. `validate` is not one of the verb pairs in CLAUDE.md, but the template checks already use that word (D17). Setting and getting check only the structure, and `validate` checks the project schema, so a tool can set markup without the project file at hand.
+
+**Where it lives.**
+
+| Piece | Home |
+|---|---|
+| `RigAttr::MeshMarkup`, `core/MeshMarkup` (schema, version, serialize) and `core/MeshPropertySchema` (parse the schema, validate properties) | RigModules `core/` |
+| The three commands | RigModules `maya/commands/` (D14 shape) |
+| A query by usage in a namespace (`get_meshes(namespace, usage=...)`) | RigModules `python/rigmodules/skinweights.py` |
+| `meshProperties`, `faceGroupProperties` and `usageSets`, which file holds the schema, the view toggle tool | mayadev (`project.json`) |
+
+**Complexity added:** one attribute, two `core/` files, three commands and three `project.json` keys. The author chose C++ for anything with a schema (2026-11-13). It still needs sign-off through the gate (D12) before implementation.
 
 ## 6. Status model
 
@@ -163,7 +187,7 @@ Each derived file stores the id or hash of each input when it was made, as `publ
 
 ### 7.2 Direction (D45)
 
-A face rig here is **mainly blend shapes, or a strong and flexible module-based joint rig. Never both layered**, and no linear skinning decomposition step. Which one an asset uses is a template choice. The animation interface is the same either way: channel-only controls (D34), so poses, animation and mocap data (D42) do not care which one is underneath. The face modules themselves go through the gate (D12) separately. This page covers only their data.
+Face expressions are driven **almost entirely by blend shapes**. A rig may layer a joint rig under them where it is needed, such as the skinning of the head and neck, but expressions do not come from joints or from a skinning solve such as linear skinning decomposition. A strong, flexible module-based joint rig is the alternative for a face that cannot use blend shapes. Which one an asset uses is a template choice. The animation interface is the same either way: channel-only controls (D34), so poses, animation and mocap data (D42) do not care which one is underneath. The face modules themselves go through the gate (D12) separately. This page covers only their data.
 
 ### 7.3 Blend shape targets as asset data (proposed)
 
@@ -171,7 +195,7 @@ Targets are data, not meshes in the production scene.
 
 - **A `blendshapes` file type per variant** (a folder, one file per base mesh). The name keeps it apart from the control `shapes` file. Each file holds its targets by name, as **sparse deltas** (vertex index and offset), keyed by the base mesh's `meshId` and topology hash like weight files (D35), with a `formatVersion` (D33). Most targets move one region, so the files are small and a diff shows which target changed.
 - **The rig loads them at build,** like weights, and builds the deformer from them. No target meshes sit in the rig scene, and the `model` file stays lean, so the import cost the previous studio paid goes away.
-- **Editing happens in a target editing scene, not on a rig.** It holds the base mesh and working target meshes, generated from the deltas when it opens and written back as deltas on save. A modeler or sculptor edits targets without a rig, and a rigger does not push anything: the file the rig reads is the file they saved. The working meshes carry the mesh usage `target` (section 5.2), so tools find them and the publish step leaves them out.
+- **Targets are edited in context, on a rig built from the template, with the targets as data.** A modeler judges a target on a lightweight build (head and neck, from a template, with the deltas loaded), together with a simple pose library of face poses (ControlPoses, D34) and optionally a test clip (a ControlAnim, D42), so a target is seen in combination and in motion, not on a bare mesh. Nobody hand-edits the rig for this. The working target meshes are generated from the deltas when the scene opens and written back as deltas on save, so what the rig reads is what the modeler saved, and a rigger does not push anything. The working meshes carry the usage `target` (section 5.2), so tools find them and the publish step leaves them out.
 - **A topology change** transfers deltas the way it transfers weights (section 5.1), with the same closest-point or UV lookup.
 - **The engine.** A blend-shape-first face needs the engine to take deltas (morph targets), or a bake to joints it can use. That is a project decision, and it is open below.
 - **Not decided:** the file encoding (text for diffs or binary for size; D35 chose text and left binary open), the target naming vocabulary (FACS ids or free names), and whether a corrective's combination rule belongs in this file or in the face module.
@@ -255,7 +279,7 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 
 ## 13. Maintenance surface
 
-- Three optional keys on file types in `project.json` (`stage`, `inputs`, `root`), a `meshProperties` key, and one new status vocabulary.
+- Three optional keys on file types in `project.json` (`stage`, `inputs`, `root`), the `meshProperties`, `faceGroupProperties` and `usageSets` keys, and one new status vocabulary.
 - If signed off: one string attribute (`meshMarkup`), its markup and property schema code in `core/`, and three commands.
 - One new environment variable for the source root.
 - A weight-table transfer in `core/` and a content hash in the weight file (a `formatVersion` step, D33).
@@ -274,7 +298,7 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 - **Putting usage or properties in the weight file key.** It would invalidate weights whenever someone relabelled a mesh.
 - **A property bag with no schema in C++.** It would let a typo ship to the engine unnoticed.
 - **Blend shape targets as meshes in the production scene.** They bloat the Maya file and make the rig the only place to edit them (section 7).
-- **A face rig that layers blend shapes, joints and a skinning solve** (D45).
+- **A face whose expressions come from a mix of blend shapes, joints and a skinning solve** (D45). Layering a joint rig for the head and neck is fine.
 
 ## 15. Open questions
 
@@ -283,8 +307,9 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 - Which updates keep animation layers, and which drop them (section 9.1)?
 - Delta file: text or binary, and FACS ids or free target names?
 - How long does a whole asset take at build, split into Maya file import and weight load, given D35's per-mesh numbers (section 5.1)?
-- Are engine properties per mesh, or per material or shader slot (section 5.2)?
-- Should a usage give default property values, such as `face_proxy` defaulting to not exported, or is that set per mesh at intake?
+- Are a mesh's face groups its Maya shading groups, or separate face sets (section 5.2)?
+- Do dye regions fit as ordinary properties (a map name and a channel to dye mapping), or do they need their own data (section 5.2)?
+- Do required usages (the gear set) opt in per asset or per asset type, and which usages does it hold (section 5.2)?
 - The names of the three mesh markup commands (section 5.2).
 - Which neutral format do the Blender and Max artists deliver, FBX or USD?
 - Which mesh checks hurt most when missing, and what are the budgets per asset type?
