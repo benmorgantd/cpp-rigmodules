@@ -1,6 +1,6 @@
 # Asset art pipeline
 
-**Status:** proposal (D44, Leaning). Nothing here is built. It extends the asset model (`asset-model.md`, D29) upstream of the rig, to the art that becomes the model: sculpt, lowpoly, UVs, bakes, textures and shaders. It adds no C++ except possibly the skin tools named in section 5.
+**Status:** proposal (D44, Leaning). Nothing here is built. It extends the asset model (`asset-model.md`, D29) upstream of the rig, to the art that becomes the model: sculpt, lowpoly, UVs, bakes, textures and shaders. It adds C++ only for the skin tools in section 5.1 and, if signed off, mesh markup in section 5.2.
 
 ## 1. The problem
 
@@ -42,7 +42,7 @@ What is missing: file types for the upstream stages, an intake step into Maya, p
 3. **Never parse a source format we do not own.** ZBrush, Substance, Blender and Max files are tracked opaquely. Only their exports to a neutral format are read.
 4. **Status is computed, never stored.** It comes from stamps inside the files themselves, found by a scan. A shared status file would conflict on every integrate (the D29 reasoning).
 5. **A part that cannot be reached is `unavailable`, not `missing` and not an error.** It never blocks a save or a publish (section 8).
-6. **Identity is not a name.** Meshes are found by `meshId`, topology hash or closest-point match, never by name.
+6. **Identity is not a name.** Meshes are found by `meshId`, topology hash or closest-point match, never by name. What a mesh is for (face, proxy) is a marked usage, never a name (section 5.2).
 
 ## 4. Stages and file types
 
@@ -92,13 +92,43 @@ The author's most common pain was an art change breaking skinning. There are thr
 
 The transfer is the "closest-point transfer for changed meshes" that D35 lists as not built. It belongs in `core/SkinWeightTable` (a table in, a table out, no Maya), with the closest-point and UV lookups in the Maya layer. The previous weights come from the last publish or the local versions (`asset-model.md`), so nothing new is stored.
 
-**Load speed.** The weight file is JSON. Before changing the format, measure where the time goes: parsing, building the `MDoubleArray`s, or the bind and `setWeights` calls. Likely options, in order of cost:
+**Load speed.** D35 already measured this: a 102,082-vertex mesh with 60 influences loads in place in 0.75 s (JSON parse 0.25 s, `setWeights` 0.44 s) and onto a new skinCluster in 1.0 s, so Maya's own calls are most of it. The author's pain was the previous studio's gr2 and custom format, not this one. What is not known is the total for a whole asset, with every mesh loaded at build. Measure that before changing anything. Options, cheapest first:
 
-1. Skip the load when the mesh already has the weights in the file (a content hash, stored with the file and checked first).
+1. Skip the load when the mesh already holds the file's weights (a content hash, stored in the file and checked first).
 2. Load only the meshes that changed.
-3. A compact binary encoding of the table.
+3. D35's open question: a binary format or a faster text parser. Binary gives up the clean diffs the author asked for.
 
-Do not pick one until the author has numbers for a real asset.
+### 5.2 Mesh markup
+
+Some meshes are not ordinary render meshes: the face, a proxy for previews, and similar. At the previous studio they were marked with an identifier like a joint's `usage`, so tools could find them without relying on names, which nobody kept. `meshId` says which mesh a file belongs to. It cannot say what a mesh is for. So a mesh may carry a **usage**, like joint and control markup (D15, D25).
+
+- **Attribute:** `meshMarkup`, a JSON string on the mesh transform next to `meshId` (D16), read and written with `JsonUtils`. Keys: `markupVersion` and `usage`. Nothing else until a second key is needed.
+- **No usage means an ordinary render mesh.**
+- **The vocabulary is per project**, in `project.json` like `assetTypes`, and the semantics are data, not code:
+  ```json
+  "meshUsages": {
+    "face":  { "skin": true,  "export": true },
+    "proxy": { "skin": false, "export": false }
+  }
+  ```
+  The C++ knows no usages. A project adds `lod1` or `collision` by editing its file.
+- **Not unique.** Several proxies are fine, so a query returns a list. `meshId` stays the one identity. Weight files stay keyed by `meshId` and topology hash (D35), and usage is part of neither key, so changing a mesh's usage never invalidates weights.
+- **What tools do with it:**
+  - Skin tools skip a mesh whose usage says `skin: false`. A proxy skinned to a preview rig is not the asset's weights.
+  - The publish step leaves out meshes whose usage says `export: false`.
+  - Checks and budgets apply per usage.
+  - Face tools find the face mesh of any variant, whatever it is called.
+  - Intake can set the usage from the neutral file (an object property or a naming prefix the project chooses).
+- **Where it lives:** the same split as `meshId`.
+
+  | Piece | Home |
+  |---|---|
+  | `RigAttr::MeshMarkup`, the schema and its version | RigModules `core/` (a small `MeshMarkup`, like `ControlMarkup`) |
+  | `cmds.setRigMeshMarkup(*meshes, usage=...)` and `cmds.getRigMeshMarkup(mesh)` | RigModules `maya/commands/` (D14 shape) |
+  | A query by usage in a namespace (`get_meshes(namespace, usage=...)`) | RigModules `python/rigmodules/skinweights.py` |
+  | The `meshUsages` vocabulary and what a usage means for publish and checks | mayadev (`project.json`) |
+
+- **Simpler alternative:** Python only. Tools write the JSON with `cmds.setAttr`, and `RigAttr` holds only the attribute name. That drops the commands and the schema in `core/`, but nothing then validates the JSON or its version. I lean toward the commands because `meshId` is already here and a C# tool will read the same attribute. It needs sign-off (the gate, D12).
 
 ## 6. Status model
 
@@ -121,7 +151,7 @@ Getting face data in was hard, and the design does not yet say what "face data" 
 - Which of those did the aggregator handle badly?
 - Do heads share a topology family, so that data moves between them without transfer?
 
-If they do, the registry could answer "every asset on this topology", the way it answers "every asset on this skeleton" for poses. That would be a **topology id** on the asset, in `asset.json`. Do not add it until the answer is known.
+If they do, the registry could answer "every asset on this topology", the way it answers "every asset on this skeleton" for poses. That would be a **topology id** on the asset, in `asset.json`. A mesh with the usage `face` (section 5.2) would let tools find the face mesh in any variant. Do not add the topology id until the answer is known.
 
 ## 8. Source files outside the asset folder
 
@@ -163,6 +193,7 @@ All of the logic stays in Python modules under `bmaya/asset`, and the panel only
 | Piece | Home |
 |---|---|
 | File types, stages, status, intake tool, mesh checks, publish manifest, panel | mayadev |
+| Mesh markup (`meshMarkup`, `core/MeshMarkup`, `getRigMeshMarkup`, `setRigMeshMarkup`), if signed off | RigModules (`core/`, `maya/commands/`) |
 | Weight transfer on a table, content hash on weights | RigModules `core/` (`SkinWeightTable`, `SkinWeightFile`) |
 | Closest-point and UV lookups, applying the transfer to a skinCluster | RigModules `maya/shared/SkinWeightScene` |
 | Rig version stamps, `getRigInfo` | RigModules, unchanged |
@@ -173,15 +204,17 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 
 1. A read-only status query in mayadev, over the file types that exist today. No UI, and `stage` and `inputs` not yet needed.
 2. `stage`, `inputs` and `root` in `project.json`, with the handlers writing input stamps.
-3. A measured profile of skin weight load time on a real asset (section 5.1). The answer picks the fix.
-4. The intake tool and the mesh checks.
-5. The weight transfer for a changed topology.
-6. The panel.
-7. The publish manifest, then the Perforce adapter, which makes per-part checkout real.
+3. A measured build of a whole asset's weights (section 5.1). The answer picks the fix.
+4. Mesh markup (section 5.2), so intake, checks and the skin and publish tools can filter by usage.
+5. The intake tool and the mesh checks.
+6. The weight transfer for a changed topology.
+7. The panel.
+8. The publish manifest, then the Perforce adapter, which makes per-part checkout real.
 
 ## 13. Maintenance surface
 
-- Three optional keys on file types in `project.json` (`stage`, `inputs`, `root`), and one new status vocabulary.
+- Three optional keys on file types in `project.json` (`stage`, `inputs`, `root`), a `meshUsages` key, and one new status vocabulary.
+- If signed off: one string attribute (`meshMarkup`), its schema in `core/`, and a get/set command pair.
 - One new environment variable for the source root.
 - A weight-table transfer in `core/` and a content hash in the weight file (a `formatVersion` step, D33).
 - A set of mesh checks, with thresholds in `project.json`.
@@ -195,11 +228,14 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 - **Fixing topology silently during intake.** It breaks skinning.
 - **Checking mesh names.** The studio never cared, and identity is by `meshId`.
 - **Making the source root a requirement.** Most people do not map it.
+- **Putting usage in the weight file key.** It would invalidate weights whenever someone relabelled a mesh.
 
 ## 15. Open questions
 
 - Which face data was hardest to get in, and do heads share a topology family (section 7)?
-- How long does a skin load take on a real asset, and where does the time go (section 5.1)?
+- How long does a whole asset's weight load take at build, given D35's per-mesh numbers (section 5.1)?
+- Which usages did the previous studio mark meshes with beyond faces and proxies, and did any need more than a name, such as an export flag (section 5.2)?
+- Mesh markup as commands with a schema in `core/`, or Python only (section 5.2)?
 - Which neutral format do the Blender and Max artists deliver, FBX or USD?
 - Which mesh checks hurt most when missing, and what are the budgets per asset type?
 - Does the engine side read `publish.json`, or does it need its own format?
