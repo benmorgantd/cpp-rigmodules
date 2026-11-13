@@ -1,6 +1,6 @@
 # Asset art pipeline
 
-**Status:** proposal (D44, Leaning). Nothing here is built. It extends the asset model (`asset-model.md`, D29) upstream of the rig, to the art that becomes the model: sculpt, lowpoly, UVs, bakes, textures and shaders. It adds C++ only for the skin tools in section 5.1 and, if signed off, mesh markup in section 5.2.
+**Status:** proposal (D44 and D45, Leaning). Nothing here is built. It extends the asset model (`asset-model.md`, D29) upstream of the rig, to the art that becomes the model: sculpt, lowpoly, UVs, bakes, textures and shaders. It adds C++ only for the skin tools in section 5.1 and, if signed off, mesh markup in section 5.2.
 
 ## 1. The problem
 
@@ -16,8 +16,10 @@ What went wrong with it:
 | The container was a poor art-side equivalent of the engine | It mirrored the engine's data types, not the artist's intent |
 | Mesh cleanliness was not checked until it caused trouble | No intake step, and no checks tied to a stage |
 | An art change broke skinning | Weights were tied to a mesh the artist had just replaced, with no way to carry them across |
-| Face data was hard to get in | No path for it that matched the rest of the pipeline (see section 7, still open) |
-| Loading skin data was slow | The author's pain with the load length |
+| Face blend shape targets were stored as meshes in the rig's Maya file, and edits needed the rig | The Maya file was the source, so a rigger pushed every modeler edit through (section 7) |
+| Importing Maya files and loading skin data for many meshes were slow | Too much data written into the files, and one load per mesh |
+| Updating a rig cost an animator their keys and layers, so they avoided updates | An update meant reanimating from the skeleton and baking (section 9.1) |
+| Nothing said what was out of date | No `publish.json` equivalent. Perforce was the only signal, skeleton versions never moved and meshes had none |
 | High-poly source files were out of reach | They lived in a parallel `highpoly` folder that most people did not map in their workspace |
 
 Mesh names mattered little to anyone, so a design that relies on them will fight the studio's habits.
@@ -92,7 +94,7 @@ The author's most common pain was an art change breaking skinning. There are thr
 
 The transfer is the "closest-point transfer for changed meshes" that D35 lists as not built. It belongs in `core/SkinWeightTable` (a table in, a table out, no Maya), with the closest-point and UV lookups in the Maya layer. The previous weights come from the last publish or the local versions (`asset-model.md`), so nothing new is stored.
 
-**Load speed.** D35 already measured this: a 102,082-vertex mesh with 60 influences loads in place in 0.75 s (JSON parse 0.25 s, `setWeights` 0.44 s) and onto a new skinCluster in 1.0 s, so Maya's own calls are most of it. The author's pain was the previous studio's gr2 and custom format, not this one. What is not known is the total for a whole asset, with every mesh loaded at build. Measure that before changing anything. Options, cheapest first:
+**Load speed.** D35 already measured this: a 102,082-vertex mesh with 60 influences loads in place in 0.75 s (JSON parse 0.25 s, `setWeights` 0.44 s) and onto a new skinCluster in 1.0 s, so Maya's own calls are most of it. The author's pain was the previous studio's gr2 and custom format, not this one. The author reports loads were still slow for many meshes, so what is not known is the total for a whole asset, with every mesh loaded at build, and how much of it is the Maya file import rather than the weights. Measure both before changing anything. Options, cheapest first:
 
 1. Skip the load when the mesh already holds the file's weights (a content hash, stored in the file and checked first).
 2. Load only the meshes that changed.
@@ -144,14 +146,37 @@ For each part of each variant, the tool computes one status:
 
 Each derived file stores the id or hash of each input when it was made, as `publish.json` already does for publishes. Staleness is then a comparison, so nothing is written anywhere central. A scan reads the stamps, the same way the registry reads `asset.json`.
 
-## 7. Face data (open)
+## 7. Face data
 
-Getting face data in was hard, and the design does not yet say what "face data" means here. The likely pieces are blendshape targets, face skinning, and the topology a head must share so that data can move between heads. Questions for the author:
+### 7.1 What the previous studio did
 
-- Which of those did the aggregator handle badly?
-- Do heads share a topology family, so that data moves between them without transfer?
+- **Targets lived in the Maya file.** Blend shape targets were stored in a "mesh data section" of the rig's Maya file, as non-export meshes found by markup. They held the delta between a target and the base. To keep the file light, their normals were stripped, they had one standard surface and no UVs.
+- **It was slow and out of step.** Importing Maya files was among the slowest operations, because of how much data they carry, and loading skinning for many meshes was slow too. The targets in the file were the source, but editing them needed the rig, so a rigger almost always had to push a modeler's target edits through to the rig.
+- **A shape editing tool helped, but on the rig.** The author wrapped Maya's native shape editor into a tool for the face rig. It worked well and had useful tools, but it ran on a rig, not in an aggregated data editing context.
+- **The face rig was both things at once.** Blend shapes drove joints that rode a master base mesh on UV pins, and the engine result was skinning, solved with linear skinning decomposition. The author's verdict: the worst of both worlds.
 
-If they do, the registry could answer "every asset on this topology", the way it answers "every asset on this skeleton" for poses. That would be a **topology id** on the asset, in `asset.json`. A mesh with the usage `face` (section 5.2) would let tools find the face mesh in any variant. Do not add the topology id until the answer is known.
+### 7.2 Direction (D45)
+
+A face rig here is **mainly blend shapes, or a strong and flexible module-based joint rig. Never both layered**, and no linear skinning decomposition step. Which one an asset uses is a template choice. The animation interface is the same either way: channel-only controls (D34), so poses, animation and mocap data (D42) do not care which one is underneath. The face modules themselves go through the gate (D12) separately. This page covers only their data.
+
+### 7.3 Blend shape targets as asset data (proposed)
+
+Targets are data, not meshes in the production scene.
+
+- **A `blendshapes` file type per variant** (a folder, one file per base mesh). The name keeps it apart from the control `shapes` file. Each file holds its targets by name, as **sparse deltas** (vertex index and offset), keyed by the base mesh's `meshId` and topology hash like weight files (D35), with a `formatVersion` (D33). Most targets move one region, so the files are small and a diff shows which target changed.
+- **The rig loads them at build,** like weights, and builds the deformer from them. No target meshes sit in the rig scene, and the `model` file stays lean, so the import cost the previous studio paid goes away.
+- **Editing happens in a target editing scene, not on a rig.** It holds the base mesh and working target meshes, generated from the deltas when it opens and written back as deltas on save. A modeler or sculptor edits targets without a rig, and a rigger does not push anything: the file the rig reads is the file they saved. The working meshes carry the mesh usage `target` (section 5.2), so tools find them and the publish step leaves them out.
+- **A topology change** transfers deltas the way it transfers weights (section 5.1), with the same closest-point or UV lookup.
+- **The engine.** A blend-shape-first face needs the engine to take deltas (morph targets), or a bake to joints it can use. That is a project decision, and it is open below.
+- **Not decided:** the file encoding (text for diffs or binary for size; D35 chose text and left binary open), the target naming vocabulary (FACS ids or free names), and whether a corrective's combination rule belongs in this file or in the face module.
+
+### 7.4 Face animation and mocap
+
+Getting a face into a scene with its keys lined up to an editor's mocap takes was slow. The pieces already exist or are planned: a ControlAnim (D42) holds keys by control markup and channel, and `cmds.loadRigAnimation` takes an `offset`. What is missing is a tool in mayadev that places a take onto a shot's frame range, and the channel map from a source's channel names to ours. Both go with the face module design.
+
+### 7.5 Shared topology (open)
+
+If heads share a topology family, data moves between them without a transfer, and the registry could answer "every asset on this topology", like "every asset on this skeleton" for poses. That would be a **topology id** in `asset.json`. A mesh with the usage `face` (section 5.2) already lets tools find the face mesh of any variant. Do not add the topology id until the author says heads share one.
 
 ## 8. Source files outside the asset folder
 
@@ -177,6 +202,16 @@ Two rules keep the parts from drifting apart:
 
 1. **A publish holds every part, with shared stamps.** A new skeleton with old skinning cannot be published, because the weights' recorded inputs would not match the skeleton in the same publish.
 2. **Per-part export is allowed, and stamped.** A rigger can export only the skin weights for an engine test, and the result carries the same stamps, so it is comparable to a full publish.
+
+### 9.1 Updates must be cheap
+
+At the previous studio nothing like `publish.json` existed. Perforce was the only way to tell something was out of date. Skeleton versions never got updated, meshes had no version, and a rig had one, but an out-of-date rig meant reanimating from the skeleton onto the new rig and baking, which lost keyframes and animation layers. Animators avoided updating rigs, and faces had the same problem. A version number that nobody dares act on is worth nothing, so the cost of an update is a requirement.
+
+- **Every part has a version** (its publish id, `publish.json`), and its status is computed (section 6), so skeletons and meshes can be stale in view, not only rigs.
+- **An update never bakes** (D33). Animation lives only on control channels, control and channel names are public API, and a format change comes with an update step, so keys survive.
+- **Layers are an open gap.** The animation file format (D42) stores keys per control and channel. Nothing in the code or docs mentions animation layers, so a rebuild that saves and loads a ControlAnim would drop layer membership. The referenced-rig path (D32, a newer publish replaces the old rig and the curves follow by channel name) may keep them. Find out which cases keep layers before promising that updates are safe.
+- **Show what an update changes** before it runs: the stamps, the update steps it will apply and whether any step touches a control or channel name.
+- **Proposed test** (for when this is built; not written): build a rig at one version, key several channels, apply an update to the next version, and check that every key and tangent is unchanged. A second case adds an animation layer and checks that its membership survives. Tier: the mayapy concepts tier, with the expectation written by hand.
 
 ## 10. Interface
 
@@ -208,8 +243,9 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 4. Mesh markup (section 5.2), so intake, checks and the skin and publish tools can filter by usage.
 5. The intake tool and the mesh checks.
 6. The weight transfer for a changed topology.
-7. The panel.
-8. The publish manifest, then the Perforce adapter, which makes per-part checkout real.
+7. The blend shape delta file and the target editing scene, designed with the face module (section 7).
+8. The panel.
+9. The publish manifest, with the update preview (section 9.1), then the Perforce adapter, which makes per-part checkout real.
 
 ## 13. Maintenance surface
 
@@ -217,6 +253,7 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 - If signed off: one string attribute (`meshMarkup`), its schema in `core/`, and a get/set command pair.
 - One new environment variable for the source root.
 - A weight-table transfer in `core/` and a content hash in the weight file (a `formatVersion` step, D33).
+- If adopted: a blend shape delta file format in `core/` (versioned, D33), a load command, and the target editing scene.
 - A set of mesh checks, with thresholds in `project.json`.
 - Tests: plain Python for status and file-type rules, mayapy for the checks and the transfer (pose-style cases written by hand, never recorded), and a round trip for the weights.
 
@@ -229,11 +266,16 @@ The boundary is D24 and D30 unchanged: no C++ resolves a path from an asset id.
 - **Checking mesh names.** The studio never cared, and identity is by `meshId`.
 - **Making the source root a requirement.** Most people do not map it.
 - **Putting usage in the weight file key.** It would invalidate weights whenever someone relabelled a mesh.
+- **Blend shape targets as meshes in the production scene.** They bloat the Maya file and make the rig the only place to edit them (section 7).
+- **A face rig that layers blend shapes, joints and a skinning solve** (D45).
 
 ## 15. Open questions
 
-- Which face data was hardest to get in, and do heads share a topology family (section 7)?
-- How long does a whole asset's weight load take at build, given D35's per-mesh numbers (section 5.1)?
+- Do heads share a topology family (section 7.5)?
+- Does the engine take blend shape deltas, or does a blend-shape-first face need a bake to joints (section 7.3)?
+- Which updates keep animation layers, and which drop them (section 9.1)?
+- Delta file: text or binary, and FACS ids or free target names?
+- How long does a whole asset take at build, split into Maya file import and weight load, given D35's per-mesh numbers (section 5.1)?
 - Which usages did the previous studio mark meshes with beyond faces and proxies, and did any need more than a name, such as an export flag (section 5.2)?
 - Mesh markup as commands with a schema in `core/`, or Python only (section 5.2)?
 - Which neutral format do the Blender and Max artists deliver, FBX or USD?
