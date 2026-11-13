@@ -170,6 +170,14 @@ MStatus CreateRigCmd::redoIt()
 		return status;
 	}
 
+	// The build leaves the new nodes selected. A rig starts with nothing selected, so the animator picks what to work on.
+	status = MGlobal::clearSelectionList();
+	if (!status)
+	{
+		MGlobal::displayError("Failed clearing the selection after rig creation: " + status.errorString());
+		return status;
+	}
+
 	MGlobal::displayInfo("Rig successfully created.");
 	return MStatus::kSuccess;
 }

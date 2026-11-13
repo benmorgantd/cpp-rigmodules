@@ -48,6 +48,12 @@ class Arguments(RigTestCase):
         self.assertMayaError(lambda: self.build(template, joints), "assetId", "Nothing was built")
         self.assertNothingBuilt()
 
+    def test_build_leaves_nothing_selected(self):
+        joints = self.make_skeleton(SKELETON)
+        cmds.select(joints)
+        self.build(TEMPLATE, joints)
+        self.assertEqual([], cmds.ls(selection=True))
+
     def test_missing_joint_name(self):
         self.assertMayaError(lambda: self.build(TEMPLATE, ["skel:nope"]), "No DAG node named skel:nope")
         self.assertNothingBuilt()

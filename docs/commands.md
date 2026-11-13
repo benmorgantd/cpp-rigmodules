@@ -63,6 +63,8 @@ cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="sh
 
 Objects: one or more joint names, with their namespace (`skel:arm_jnt`).
 
+After a successful build the selection is cleared.
+
 1. **Read and check.** Loads the template, reads markup from the given joints, and validates everything (see [templates.md](templates.md#validation)). Every joint passed in must have markup. On any error nothing is built, and every error is reported at once.
 2. **Build.** Creates the rig root, the `layout` module and every template module, connects child plugs to sockets, makes the display layers, groups and selection sets (below) and builds the template's constraints.
 
