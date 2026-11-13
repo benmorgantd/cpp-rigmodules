@@ -64,7 +64,7 @@ cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="sh
 Objects: one or more joint names, with their namespace (`skel:arm_jnt`).
 
 1. **Read and check.** Loads the template, reads markup from the given joints, and validates everything (see [templates.md](templates.md#validation)). Every joint passed in must have markup. On any error nothing is built, and every error is reported at once.
-2. **Build.** Creates the rig root, the `layout` module and every template module, connects child plugs to sockets, makes the display layers and selection sets (below) and builds the template's constraints.
+2. **Build.** Creates the rig root, the `layout` module and every template module, connects child plugs to sockets, makes the display layers, groups and selection sets (below) and builds the template's constraints.
 
 Every node created goes in the rig namespace. The input joints are moved there too, with their names unchanged. A joint already in that namespace stays where it is. Joint and module names must be free in the rig namespace, so `skel:a` and `other:a` cannot both be passed.
 
@@ -79,6 +79,15 @@ The build makes three display layers in the rig namespace: `jointsLayer` (the jo
 | `controlDisplayLayer` | `controlsLayer` |
 
 Meshes are not inputs of the build: the model is imported after it, so `meshesLayer` starts empty and the tool that imports the model fills it with the imported meshes ([`rigmodules.displaylayers.add_meshes`](python.md#rigmodulesdisplaylayers)). A second rig variant built into the same namespace replaces the first variant's layers.
+
+The build also makes two groups in the rig namespace. `rig_all` is the parent of the rig's topmost joints and topmost controls, and `mesh_grp` is an empty group under it. The tool that imports the model parents the imported transforms to `mesh_grp` ([`rigmodules.groups.parent_meshes`](python.md#rigmodulesgroups)). Both groups have translate, rotate and scale locked and hidden, and only `visibility` is keyable. Each connects to a message attribute on the rig root:
+
+| Attribute | Group |
+|---|---|
+| `allGroup` | `rig_all` |
+| `meshGroup` | `mesh_grp` |
+
+The names `rig_all` and `mesh_grp` must be free in the rig namespace, like joint and module names.
 
 The build also makes selection sets in the rig namespace, for selecting and for skinning. There are two hierarchies, one for the controls and one for the skin joints (the joints marked `skin`):
 

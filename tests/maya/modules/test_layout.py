@@ -24,7 +24,7 @@ class LayoutBehaviour(RigTestCase):
     def test_three_stacked_layout_controls(self):
         self.build_standard("fkchain_three", "fk_three")
         parent = lambda n: (cmds.listRelatives(rig_name(n), parent=True) or [None])[0]
-        self.assertIsNone(parent("layout_0_ctrl_c"), "layout_0_ctrl_c should be a top-level node")
+        self.assertEqual(parent("layout_0_ctrl_c"), "rig:rig_all", "layout_0_ctrl_c should be the topmost control, under rig_all (D43)")
         self.assertEqual(parent("layout_1_ctrl_c"), "rig:layout_0_ctrl_c")
         self.assertEqual(parent("layout_2_ctrl_c"), "rig:layout_1_ctrl_c")
 

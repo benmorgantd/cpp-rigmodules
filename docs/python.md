@@ -101,6 +101,23 @@ layer = rigmodules.displaylayers.get_layer("hero:rigRootModule1", "control")   #
 | `get_layer(rig_root, kind)` | The rig's `"joint"`, `"mesh"` or `"control"` display layer. Raises `RuntimeError` when the rig has none |
 | `add_meshes(rig_root, nodes)` | Puts the mesh objects among `nodes` and under them in the mesh layer, moving them out of any other layer, and returns the mesh transforms added. Skips intermediate shapes. Undoable |
 
+## rigmodules.groups
+
+A rig's groups ([`createRigFromTemplate`](commands.md#createrigfromtemplate)). The build makes `rig_all` and `mesh_grp`, and the model is imported after it, so a tool that imports the model parents the imported transforms to `mesh_grp`.
+
+```python
+import rigmodules.groups
+
+nodes = cmds.file(path, i=True, namespace="hero", returnNewNodes=True)
+rigmodules.groups.parent_meshes("hero:rigRootModule1", nodes)
+group = rigmodules.groups.get_group("hero:rigRootModule1", "all")   # "|hero:rig_all"
+```
+
+| Function | Meaning |
+|---|---|
+| `get_group(rig_root, kind)` | The rig's `"all"` (`rig_all`) or `"mesh"` (`mesh_grp`) group, as a full path, because a model's own group can share the short name `mesh_grp`. Raises `RuntimeError` when the rig has none |
+| `parent_meshes(rig_root, nodes)` | Parents the topmost transforms among `nodes` to the mesh group, keeping their world transforms, and returns them (long names). A mesh shape counts as its transform, joints are skipped, and a transform already under the mesh group stays. Undoable |
+
 ## rigmodules.selection
 
 A rig's selection sets ([`createRigFromTemplate`](commands.md#createrigfromtemplate)) and the skinning selections built on them. Sets are found through their `setMarkup`, and joints through their markup, never through names.

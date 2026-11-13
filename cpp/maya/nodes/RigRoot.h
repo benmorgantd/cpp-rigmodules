@@ -57,6 +57,8 @@ public:
 	static MObject aMeshDisplayLayer;
 	static MObject aControlDisplayLayer;
 	static MObject aSelectionSets;
+	static MObject aAllGroup;
+	static MObject aMeshGroup;
 public:
 	static MObject createRigRoot(
 		const MString& name,

@@ -189,6 +189,10 @@ namespace RigAttr
 	inline constexpr const char* JointDisplayLayer{ "jointDisplayLayer" };
 	inline constexpr const char* MeshDisplayLayer{ "meshDisplayLayer" };
 	inline constexpr const char* ControlDisplayLayer{ "controlDisplayLayer" };
+	// The groups the build creates (D43): rig_all, the parent of the rig's top joints and controls, and mesh_grp under it,
+	// which the model import fills. One message attribute each.
+	inline constexpr const char* AllGroup{ "allGroup" };
+	inline constexpr const char* MeshGroup{ "meshGroup" };
 	// Selection sets the build creates (D39): every set, nested module subsets included, on one message array.
 	// Each set says what it is in its own SetMarkup attribute.
 	inline constexpr const char* SelectionSets{ "selectionSets" };
@@ -368,4 +372,7 @@ namespace RigNaming
 	inline constexpr const char* JointLayer{ "jointsLayer" };
 	inline constexpr const char* MeshLayer{ "meshesLayer" };
 	inline constexpr const char* ControlLayer{ "controlsLayer" };
+	// The rig's top group and the group of its imported meshes (D43), in the rig namespace.
+	inline constexpr const char* AllGroup{ "rig_all" };
+	inline constexpr const char* MeshGroup{ "mesh_grp" };
 }

@@ -9,6 +9,7 @@
 #include <maya/MFn.h>
 #include <maya/MMatrix.h>
 #include <maya/MObject.h>
+#include <maya/MObjectArray.h>
 #include <maya/MPoint.h>
 #include <maya/MPxTransform.h>
 #include <maya/MStatus.h>
@@ -107,6 +108,13 @@ public:
 	// The nearest node upstream of the node whose type matches filter (MFn::kSkinClusterFilter, say), breadth first,
 	// or a null object if there is none.
 	static MObject findUpstreamNode(const MObject& oNode, MFn::Type filter);
+
+	// The nodes of oNodes whose DAG parent is not also in oNodes, in order. Read before any reparent is queued.
+	static MObjectArray getTopmostNodes(const MObjectArray& oNodes);
+
+	// Queues locking and hiding translate, rotate and scale on a transform that exists (after a doIt), leaving
+	// visibility alone. MEL on the modifier, so undo and redo replay it (D40).
+	static MStatus queueLockAndHideTransform(const MObject& oTransform, MDagModifier& dagMod);
 };
 
 class MeshUtils

@@ -3,6 +3,7 @@ concepts/test_template_validation.py, undo in concepts/test_undo_redo.py."""
 from maya import cmds
 
 import rigmodules.displaylayers
+import rigmodules.groups
 
 from rigtest import config, fixtures
 from rigtest.case import RigTestCase, rig_name
@@ -322,6 +323,142 @@ class DisplayLayers(RigTestCase):
         self.assertEqual({name: self.members(rig_name(name)) for name in self.LAYERS.values()}, before)
         for attr, name in self.LAYERS.items():
             self.assertEqual(cmds.listConnections(self.rig_root() + "." + attr, source=True, destination=False), [rig_name(name)[1:]])
+
+
+class RigGroups(RigTestCase):
+    """The build makes rig_all over the rig's topmost joints and controls, and mesh_grp under it (D43)."""
+
+    CHANNELS = ["tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz"]
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard(TEMPLATE, SKELETON)
+        self.rig_root = cmds.ls(type="rigRootModule")[0]
+
+    def parent_of(self, node):
+        return (cmds.listRelatives(node, parent=True, fullPath=True) or [None])[0]
+
+    def test_groups_are_named_in_the_namespace_and_on_the_rig_root(self):
+        self.assertEqual(cmds.listConnections(self.rig_root + ".allGroup", source=True, destination=False), ["rig:rig_all"])
+        self.assertEqual(cmds.listConnections(self.rig_root + ".meshGroup", source=True, destination=False), ["rig:mesh_grp"])
+        self.assertEqual(rigmodules.groups.get_group(self.rig_root, "all"), "|rig:rig_all")
+        self.assertEqual(rigmodules.groups.get_group(self.rig_root, "mesh"), "|rig:rig_all|rig:mesh_grp")
+
+    def test_rig_all_is_at_the_top_and_holds_mesh_grp(self):
+        all_group = cmds.ls("rig:rig_all", long=True)[0]
+        self.assertIsNone(self.parent_of(all_group))
+        self.assertEqual(self.parent_of("rig:mesh_grp"), all_group)
+        self.assertEqual(cmds.nodeType(all_group), "transform")
+
+    def test_topmost_joints_and_controls_are_under_rig_all_and_the_rest_keep_their_parents(self):
+        all_group = cmds.ls("rig:rig_all", long=True)[0]
+        joints = cmds.ls(rig_name("*"), type="joint", long=True)
+        controls = cmds.ls(cmds.getRigControls(self.rig_root), long=True)
+        self.assertTrue(joints and controls)
+        for nodes in (joints, controls):
+            for node in nodes:
+                self.assertTrue(node.startswith(all_group + "|"))
+                # Directly under rig_all exactly when nothing in the set is above it.
+                self.assertEqual(self.parent_of(node) == all_group, self.parent_of(node) not in nodes)
+            self.assertTrue([n for n in nodes if self.parent_of(n) == all_group])
+
+    def test_a_parented_skeleton_has_one_topmost_joint(self):
+        cmds.file(new=True, force=True)
+        self.build_standard("fkchain_three", "fk_three_parented")
+        all_group = cmds.ls("rig:rig_all", long=True)[0]
+        joints = cmds.ls(rig_name("*"), type="joint", long=True)
+        topmost = [n for n in joints if self.parent_of(n) == all_group]
+        self.assertEqual(len(joints), 3)
+        self.assertEqual(len(topmost), 1)
+        for joint in joints:
+            if joint not in topmost:
+                self.assertIn(self.parent_of(joint), joints)
+
+    def test_transforms_are_locked_and_hidden_but_visibility_is_not(self):
+        for group in ("rig:rig_all", "rig:mesh_grp"):
+            for channel in self.CHANNELS:
+                plug = f"{group}.{channel}"
+                self.assertTrue(cmds.getAttr(plug, lock=True), plug)
+                self.assertFalse(cmds.getAttr(plug, keyable=True), plug)
+                self.assertFalse(cmds.getAttr(plug, channelBox=True), plug)
+            self.assertFalse(cmds.getAttr(group + ".visibility", lock=True))
+            self.assertTrue(cmds.getAttr(group + ".visibility", keyable=True))
+
+    def test_a_name_already_in_the_namespace_fails_the_build(self):
+        cmds.file(new=True, force=True)
+        cmds.namespace(add=":rig")
+        cmds.createNode("transform", name=":rig:rig_all")
+        joints = self.make_skeleton(SKELETON)
+        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "rig_all", "already exists")
+
+    def test_undo_and_redo(self):
+        cmds.undo()
+        self.assertEqual(cmds.ls("rig:rig_all", "rig:mesh_grp"), [])
+        cmds.redo()
+        self.assertEqual(cmds.ls("rig:rig_all", "rig:mesh_grp"), ["rig:rig_all", "rig:mesh_grp"])
+        self.assertTrue(cmds.getAttr("rig:rig_all.tx", lock=True))
+        self.assertEqual(self.parent_of("rig:mesh_grp"), cmds.ls("rig:rig_all", long=True)[0])
+
+
+class ParentMeshes(RigTestCase):
+    """rigmodules.groups.parent_meshes: what a tool does with the new nodes of a model import."""
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard(TEMPLATE, SKELETON)
+        self.rig_root = cmds.ls(type="rigRootModule")[0]
+        self.mesh_grp = "|rig:rig_all|rig:mesh_grp"
+
+    def test_only_the_topmost_imported_transforms_move_and_keep_their_world(self):
+        group = cmds.group(empty=True, name="rig:model_grp")
+        body = cmds.parent(cmds.polyCube(name="rig:body")[0], group)[0]
+        loose = cmds.polyCube(name="rig:loose")[0]
+        cmds.xform(loose, translation=(3, 4, 5), worldSpace=True)
+        outside = cmds.polyCube(name="outside")[0]
+        imported = [group, body, cmds.listRelatives(body, shapes=True)[0], loose]
+        moved = rigmodules.groups.parent_meshes(self.rig_root, imported)
+        self.assertEqual(sorted(moved), sorted(cmds.ls("rig:model_grp", "rig:loose", long=True)))
+        for node in moved:
+            self.assertEqual(cmds.listRelatives(node, parent=True, fullPath=True), [self.mesh_grp])
+        self.assertEqual(cmds.listRelatives("rig:body", parent=True, fullPath=True), cmds.ls("rig:model_grp", long=True))
+        self.assertEqual(cmds.xform("rig:loose", query=True, translation=True, worldSpace=True), [3, 4, 5])
+        self.assertIsNone(cmds.listRelatives(outside, parent=True))
+
+    def test_an_imported_group_named_like_the_mesh_group_goes_under_it(self):
+        # A model file's own mesh_grp is a root node, so it shares the rig's short name without Maya renaming it.
+        imported = cmds.ls(cmds.group(empty=True, name="rig:mesh_grp"), long=True)[0]
+        self.assertEqual(imported, "|rig:mesh_grp")
+        body = cmds.ls(cmds.parent(cmds.polyCube(name="rig:body")[0], imported)[0], long=True)[0]
+        moved = rigmodules.groups.parent_meshes(self.rig_root, [imported, body])
+        self.assertEqual(moved, [self.mesh_grp + "|rig:mesh_grp"])
+        self.assertEqual(cmds.listRelatives(self.mesh_grp + "|rig:mesh_grp", children=True, fullPath=True),
+                         [self.mesh_grp + "|rig:mesh_grp|rig:body"])
+        self.assertEqual(cmds.listRelatives(self.mesh_grp, parent=True, fullPath=True), ["|rig:rig_all"])
+        self.assertEqual(cmds.listRelatives("|rig:rig_all", children=True, fullPath=True)[0:1], [self.mesh_grp])
+
+    def test_a_shape_alone_moves_its_transform_and_joints_are_skipped(self):
+        body = cmds.polyCube(name="rig:body")[0]
+        joint = cmds.createNode("joint", name="rig:stray_jnt")
+        moved = rigmodules.groups.parent_meshes(self.rig_root, [cmds.listRelatives(body, shapes=True)[0], joint])
+        self.assertEqual(moved, cmds.ls("rig:body", long=True))
+        self.assertIsNone(cmds.listRelatives(joint, parent=True))
+
+    def test_nothing_to_move_and_a_second_call_move_nothing(self):
+        self.assertEqual(rigmodules.groups.parent_meshes(self.rig_root, []), [])
+        body = cmds.polyCube(name="rig:body")[0]
+        rigmodules.groups.parent_meshes(self.rig_root, [body])
+        self.assertEqual(rigmodules.groups.parent_meshes(self.rig_root, cmds.ls("rig:body", long=True)), [])
+
+    def test_undo(self):
+        body = cmds.polyCube(name="rig:body")[0]
+        rigmodules.groups.parent_meshes(self.rig_root, [body])
+        cmds.undo()
+        self.assertIsNone(cmds.listRelatives("rig:body", parent=True))
+
+    def test_a_rig_without_the_group_fails(self):
+        root = cmds.createNode("transform", name="notARig")
+        with self.assertRaises(RuntimeError):
+            rigmodules.groups.parent_meshes(root, [])
 
 
 class AddMeshes(RigTestCase):

@@ -4,6 +4,7 @@
 #include "core/RigTemplateValidation.h"
 #include "maya/shared/RigTraversal.h"
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <sstream>
@@ -376,6 +377,45 @@ MObject DagUtils::findUpstreamNode(const MObject& oNode, MFn::Type filter)
 		return MObject::kNullObj;
 	}
 	return itGraph.currentItem();
+}
+
+MObjectArray DagUtils::getTopmostNodes(const MObjectArray& oNodes)
+{
+	std::vector<MObjectHandle> handles;
+	for (unsigned int i = 0; i < oNodes.length(); ++i)
+	{
+		handles.emplace_back(oNodes[i]);
+	}
+
+	MObjectArray oTopmost;
+	for (unsigned int i = 0; i < oNodes.length(); ++i)
+	{
+		MStatus status;
+		const MFnDagNode fnNode(oNodes[i], &status);
+		const bool hasParentInSet = status && fnNode.parentCount() > 0
+			&& std::find(handles.begin(), handles.end(), MObjectHandle(fnNode.parent(0))) != handles.end();
+		if (!hasParentInSet)
+		{
+			oTopmost.append(oNodes[i]);
+		}
+	}
+	return oTopmost;
+}
+
+MStatus DagUtils::queueLockAndHideTransform(const MObject& oTransform, MDagModifier& dagMod)
+{
+	MStatus status;
+	const MFnDagNode fnTransform(oTransform, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// The children, not the compound plugs: setAttr -lock on a compound leaves the children keyable in the channel box.
+	for (const char* channel : { "tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz" })
+	{
+		status = dagMod.commandToExecute(MString("setAttr -lock true -keyable false -channelBox false ")
+			+ MelUtils::quoted(fnTransform.fullPathName() + "." + channel));
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+	return MStatus::kSuccess;
 }
 
 // ---------------------------------

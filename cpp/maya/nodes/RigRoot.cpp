@@ -60,6 +60,8 @@ MObject RigRootNode::aJointDisplayLayer;
 MObject RigRootNode::aMeshDisplayLayer;
 MObject RigRootNode::aControlDisplayLayer;
 MObject RigRootNode::aSelectionSets;
+MObject RigRootNode::aAllGroup;
+MObject RigRootNode::aMeshGroup;
 
 // Boilerplate constructor, destructor, and creator
 RigRootNode::RigRootNode()
@@ -132,6 +134,12 @@ MStatus RigRootNode::initialize()
 	aSelectionSets = msgAttr.create(RigAttr::SelectionSets, RigAttr::SelectionSets, &status);
 	msgAttr.setArray(true);
 	addAttribute(aSelectionSets);
+
+	aAllGroup = msgAttr.create(RigAttr::AllGroup, RigAttr::AllGroup, &status);
+	addAttribute(aAllGroup);
+
+	aMeshGroup = msgAttr.create(RigAttr::MeshGroup, RigAttr::MeshGroup, &status);
+	addAttribute(aMeshGroup);
 
 	// In the case of this node, there are no attribute affect relationships.
 
@@ -228,6 +236,8 @@ namespace
 		};
 
 		checkName(DagUtils::getAbsoluteName(rigNamespace, RigNaming::LayoutModule), MObject::kNullObj, RigNaming::LayoutModule);
+		checkName(DagUtils::getAbsoluteName(rigNamespace, RigNaming::AllGroup), MObject::kNullObj, RigNaming::AllGroup);
+		checkName(DagUtils::getAbsoluteName(rigNamespace, RigNaming::MeshGroup), MObject::kNullObj, RigNaming::MeshGroup);
 		for (std::size_t i = 0; i < modules.size(); ++i)
 		{
 			checkName(DagUtils::getAbsoluteName(rigNamespace, modules[i].name.c_str()), MObject::kNullObj,
@@ -589,6 +599,67 @@ namespace
 		return dagMod.doIt();
 	}
 
+	// Write phase, after the first doIt. Makes rig_all, the parent of the rig's topmost joints and controls, and mesh_grp
+	// under it, for the model import to fill (D43). Each goes on its own message attribute of the rig root. Their
+	// transforms are locked and hidden, leaving visibility. Inheritance is off for joints and controls, so reparenting
+	// them under an identity group changes no result.
+	MStatus queueRigGroups(
+		const RigBuildInputs& inputs,
+		const MObject& oRigRoot,
+		MDagModifier& dagMod)
+	{
+		MStatus status;
+		MObject oAll = dagMod.createNode("transform", MObject::kNullObj, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = dagMod.renameNode(oAll, DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::AllGroup));
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		MObject oMeshGroup = dagMod.createNode("transform", oAll, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = dagMod.renameNode(oMeshGroup, DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::MeshGroup));
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// Joints and controls are measured apart: a joint is topmost among the input joints, a control among the controls.
+		MObjectArray oJoints;
+		for (unsigned int i = 0; i < inputs.joints.length(); ++i)
+		{
+			oJoints.append(inputs.joints[i].node());
+		}
+		MObjectArray oControls;
+		status = RigTraversal::getRigControls(oRigRoot, RigControlFilter{}, oControls);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		MObjectArray oTopmost = DagUtils::getTopmostNodes(oJoints);
+		const MObjectArray oTopControls = DagUtils::getTopmostNodes(oControls);
+		for (unsigned int i = 0; i < oTopControls.length(); ++i)
+		{
+			oTopmost.append(oTopControls[i]);
+		}
+		for (unsigned int i = 0; i < oTopmost.length(); ++i)
+		{
+			status = dagMod.reparentNode(oTopmost[i], oAll);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+
+		const MObject oGroups[] = { oAll, oMeshGroup };
+		const MObject oAttrs[] = { RigRootNode::aAllGroup, RigRootNode::aMeshGroup };
+		for (int i = 0; i < 2; ++i)
+		{
+			MPlug pMessage = MFnDependencyNode(oGroups[i]).findPlug("message", false);
+			status = dagMod.connect(pMessage, MPlug(oRigRoot, oAttrs[i]));
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		status = dagMod.doIt();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// After the doIt, because the lock commands name the transforms by path.
+		for (const MObject& oGroup : oGroups)
+		{
+			status = DagUtils::queueLockAndHideTransform(oGroup, dagMod);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		return dagMod.doIt();
+	}
+
 	// Write phase. Runs only on a clean report. Constraints come after the first doIt because they add an enum
 	// attribute to controls that must exist by then.
 	MStatus buildRig(
@@ -662,6 +733,14 @@ namespace
 		if (!status)
 		{
 			MGlobal::displayError("Failed locking the controls' rotate orders.");
+			dagMod.undoIt();
+			return status;
+		}
+
+		status = queueRigGroups(inputs, oRigRoot, dagMod);
+		if (!status)
+		{
+			MGlobal::displayError("Failed building the rig's groups.");
 			dagMod.undoIt();
 			return status;
 		}

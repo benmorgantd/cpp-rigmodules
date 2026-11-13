@@ -100,6 +100,7 @@ assetRootModule
                   .constraints[] --> rigConstraint ...
                   .jointDisplayLayer, .meshDisplayLayer, .controlDisplayLayer  (D38)
                   .selectionSets[]                                              (D39)
+                  .allGroup --> rig_all, .meshGroup --> mesh_grp                (D43)
 
 module node
   .controlInputData[i]   .controlLocalMatrix  <-- control.matrix
