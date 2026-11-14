@@ -126,6 +126,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [design/module-directions.md](design/module-directions.md) | Proposed module directions after the IK limb |
 | [design/mayadev-integration.md](design/mayadev-integration.md) | Plan for how RigModules and the mayadev Python pipeline fit together |
 | [design/tool-registry.md](design/tool-registry.md) | Proposal for mayadev's tool registry: fixes, readable ids, function calls, checked and versioned files |
+| [design/active-rig-panel.md](design/active-rig-panel.md) | Design for the active rig panel (D50, decided, not built): rig picker, control selection by module and side, pose tools and space switching, as a view over `RigPanelSession` and one new space query |
 | [design/mayadev-ui.md](design/mayadev-ui.md) | Proposal for mayadev's user interfaces: thin Qt views over headless view-models, a startup registration pass between layers, questions through a `Prompter`, layer tests |
 
 [docs/README.md](docs/README.md) explains how the documentation is organized and kept current.
