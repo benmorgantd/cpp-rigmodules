@@ -30,8 +30,7 @@ REPO_DIR = os.path.dirname(TESTS_DIR)
 CPP_DIR = os.path.join(REPO_DIR, "cpp")
 
 # Starting and ending Maya is mayalaunch's job (D48), shared with the tools and with mayadev.
-sys.path.insert(0, os.path.join(REPO_DIR, "tools"))
-import mayalaunch_path  # noqa: E402,F401  (puts mayalaunch on sys.path)
+sys.path.insert(0, os.path.join(REPO_DIR, "python"))
 import mayalaunch  # noqa: E402
 DEFAULT_PLUGIN = os.path.join(CPP_DIR, "x64", "Release", "RigModules.mll")
 # The rigmodules Python package, tested together with the plugin it wraps (D24).
@@ -44,6 +43,7 @@ TIERS = [
     ("registration", True, [
         "concepts.test_plugin",
         "concepts.test_source_layout",     # core/ stays Maya-free; reads files, not the scene
+        "concepts.test_mayalaunch",        # the launcher every script that starts Maya uses (D48)
     ]),
     ("read only", True, [                  # commands and checks that never build a rig
         "commands.test_joint_markup_cmd",

@@ -159,4 +159,4 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | `docs/` | User documentation |
 | `design/` | Decision log and original planning document |
 | `tests/` | mayapy test suite |
-| `tools/` | Developer scripts: `build.bat` (a Release build), `generate_control_shapes.py` writes the control shape library, `mayalaunch_path.py` finds the shared `mayalaunch` launcher that every script starting Maya uses (D48), `fbx_spike.py` (the FBX experiment behind D42), and `perf/perf_scenes.py` builds the 50-rig performance scenes and times and profiles them ([tests/README.md](tests/README.md#performance-scenes)) |
+| `tools/` | Developer scripts: `build.bat` (a Release build), `generate_control_shapes.py` writes the control shape library, `fbx_spike.py` (the FBX experiment behind D42), and `perf/perf_scenes.py` builds the 50-rig performance scenes and times and profiles them ([tests/README.md](tests/README.md#performance-scenes)) |

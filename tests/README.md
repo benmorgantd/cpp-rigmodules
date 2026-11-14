@@ -34,15 +34,24 @@ ok = run_tests.run_in_current_maya()          # filters=["fkchain"], verbose=Tru
 - The runner copies the `.mll` to a temp folder before loading it, so the build output stays unlocked.
 - mayapy comes from `MAYA_LOCATION`, or the Maya 2026 default path if that is unset.
 
-### Launching Maya (mayalaunch)
-
-Every script here that starts Maya (the suite runner, the viewport gallery, `perf_scenes.py`, the shape generator) does it through `mayalaunch` (D48), a small plain-Python repo shared with mayadev. It is found through `MAYALAUNCH_ROOT`, the folder that holds the `mayalaunch` package, else a folder named `mayalaunch` beside any parent of this repo (`tools/mayalaunch_path.py` does the finding). Its own tests are in that repo: `python -m unittest discover -s tests`. A new script that starts Maya calls `mayalaunch` instead of setting `MAYA_DISABLE_CER`, copying the plugin, calling `os._exit` or writing a `maya.exe -command` string itself.
-
 **Output:**
 - Maya's own output goes to a log file whose path is printed at the end.
 - The exit code is 0 only when nothing failed.
 - While a tier runs it prints one mark per test (`.` pass, `F` fail, `E` error, `x` expected failure, `X` unexpected pass). Each failure's message follows the tier's line.
 - The window waits for a key press when the script is started by double-click or from PowerShell.
+
+### Launching Maya (mayalaunch)
+
+Every script here that starts Maya (the suite runner, the viewport gallery, `perf_scenes.py`, the shape generator) does it through `python/mayalaunch` (D48), a plain-Python package beside `rigmodules`. mayadev's batch framework calls it too. A new script that starts Maya adds `python/` to `sys.path` and calls `mayalaunch` instead of setting `MAYA_DISABLE_CER`, copying the plugin, calling `os._exit` or writing a `maya.exe -command` string itself.
+
+| Module | Does |
+|---|---|
+| `install` | `find_maya_dir`, `mayapy_exe`, `maya_exe`: the argument, else `MAYA_LOCATION`, else the Maya 2026 folder. A missing install raises `FileNotFoundError` naming what was tried |
+| `process` | `child_environment` (`MAYA_DISABLE_CER`, `MAYA_SKIP_USERSETUP_PY`, `PYTHONDONTWRITEBYTECODE`, and `TEMP` inside a run folder), `copy_plugin`, `run_watched` and `run_mayapy` (a child with a timeout: on timeout the process tree stops by pid, and after a crash or timeout the `senddmp.exe` and `cer_dialog.exe` it started are closed) |
+| `standalone` | Inside a mayapy: `start_standalone`, `Redirect` (Maya's C++ output and Python's print into a log), `stop_standalone`, `finish_standalone` (uninitialize, flush, `os._exit`: Maya 2026 crashes at exit otherwise) |
+| `gui` | `run_gui`: a script in a Maya window. The script path goes through `MAYALAUNCH_SCRIPT`, because `-command` takes MEL and a path in the string is mangled |
+
+Its tests are `tests/maya/concepts/test_mayalaunch.py`, in the suite's first tier (about 30 s: they start child processes, and one starts a real mayapy). Stopping Maya is always by the pid the launcher started, never by name.
 
 ## Tiers
 

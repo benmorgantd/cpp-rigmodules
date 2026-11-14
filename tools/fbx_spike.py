@@ -2,8 +2,8 @@ import os
 import sys
 import traceback
 
-import mayalaunch_path  # noqa: F401  (puts mayalaunch on sys.path: it is in this folder)
-import mayalaunch
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "python"))
+import mayalaunch  # noqa: E402
 
 mayalaunch.start_standalone()
 import maya.api.OpenMaya as om

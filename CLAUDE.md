@@ -182,6 +182,7 @@ RigTemplates/        example template
 |---|---|
 | `RigTemplates/` | Example templates, `LayoutRig.json` and `Human.json`. Their joints use `[side, usage]` selectors. |
 | `python/rigmodules/` | `query.py` (`find_rig_info`, `get_rig_info`, `get_rigs`, `RigInfo`, `get_rig_controls`, `get_control`, `find_control`, `RigControl`, `get_channels`, `get_control_channels`, `ControlChannel`), `pose.py` (`key_controls`, `key_rig`, `key_modules`), `displaylayers.py` (`get_layer`, `add_meshes`), `groups.py` (`get_group`, `parent_meshes`, D43), `selection.py` (`find_set`, `get_set`, `get_members`, `get_skin_joints`, `select_skin_joints`, `get_missing_influences`, `get_extra_influences`), `template.py` (`get_rig_name`) and `skinweights.py` (meshes by `meshId`, skinned meshes, a weight file's `meshId`), `jointclip.py` (`capture_joint_clip` writes a JointClip file from a rig, D41. `write_fbx`, `read_fbx`, `write_skeleton_fbx` and `check_skeleton_match` (animation FBX against the skeleton export: names and parents) convert a JointClip file to and from an FBX file through a scratch skeleton in Maya, D42. The package imports no pxr and no numpy, and a test checks that), `bonemap.py` (`write_bone_map`, `read_bone_map`, `apply_bone_map`: joint markup for an FBX that carries none, with the asset and skeleton ids, D42). `_namespace.py` is private: the `cmds.ls` pattern for a namespace's nodes, shared by `query` and `skinweights`. Tested in the suite, which puts `python/` on `sys.path`. Reference in `docs/python.md`. |
+| `python/mayalaunch/` | A separate package from `rigmodules` (D48): the one place that starts and ends Maya. `install` (`find_maya_dir`, `mayapy_exe`, `maya_exe`), `process` (`child_environment`, `copy_plugin`, `run_mayapy`, `run_watched` with a timeout, `close_crash_reporters`), `standalone` (`start_standalone`, `finish_standalone`, `Redirect`, for inside a mayapy) and `gui` (`run_gui`). Plain Python, no dependencies, no Maya import at module level. Every script here that starts or ends Maya, and mayadev's batch framework, calls it: never set `MAYA_DISABLE_CER`, copy the plugin, call `os._exit` or write a `maya.exe -command` string by hand. Tested by `tests/maya/concepts/test_mayalaunch.py`. A change to it affects mayadev, so run mayadev's `tests\coreun.bat` too. |
 | `RigModules.mod` | Puts `python/` on `PYTHONPATH`, by a path relative to itself. It doesn't add the plugin path, because a loaded `.mll` locks the build. |
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
@@ -198,7 +199,6 @@ RigTemplates/        example template
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. `ViewportGallery.cmd` is the manual VP2 shape check. |
 | `tools/generate_control_shapes.py` | mayapy script that writes `cpp/core/ControlShapeLibrary.cpp`. Rerun it after changing a shape, then rebuild. |
-| `tools/mayalaunch_path.py` | Puts the shared `mayalaunch` package on `sys.path` (D48). Every script that starts or ends Maya imports it, then calls `mayalaunch` rather than setting `MAYA_DISABLE_CER`, copying the plugin, calling `os._exit` or writing a `maya.exe -command` string itself. |
 | `tools/perf/` | `perf_scenes.py` builds 50-rig scenes (the Human asset with a pose cycle, a generated 200 joint rig with 51 constraints and Aim modules and a range of motion) and measures evaluation and playback speed. `playback_gui.py` and `profile_gui.py` (Maya's profiler over selection and playback, by node type and the `RigModules` category) are its Maya-window halves. Output goes to the ignored `tools/perf/out`. See `tests/README.md`. |
 | `cpp/RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files, with its folder relative to `cpp/` (`core\X.cpp`). The filters file has one filter per folder. |
 
@@ -290,10 +290,6 @@ Studio-style split, matching how the author structures their Python code. The fo
 - **Plugin layer (`maya/`, Maya API):** nodes, attribute definitions, plug I/O, and the commands that bridge to the core.
 - **Python (started, D30):** a thin package in `python/rigmodules`. Built: the rig query (`get_rig_info`, `get_rigs`), `template.get_rig_name` and `skinweights`. Planned: a build wrapper, the rest of the rig query API (modules, controls, sockets, rest values), template validation passed through to the core, shape IO and pose data read and write, and user-facing error messages. Placement rule: Python goes here only if it would have to change when a RigModules node, attribute, flag or template key changes. It imports no Qt or `bmaya` and reads no environment variables or asset paths (D24).
 
-## Sibling repo: mayalaunch
-
-`dev\maya\mayalaunch` is a tiny plain-Python repo that starts and ends Maya (D48): the install lookup, the child environment, watched mayapy and GUI runs with a timeout, crash reporter cleanup, the plugin copy, and standalone start and finish. Both this repo and mayadev call it. Its own tests: `python -m unittest discover -s tests` inside it. Changing it affects both repos, so run this suite and mayadev's `tests\core\run.bat` after.
-
 ## Sibling repo: mayadev
 
 The author's Python pipeline lives in a separate repo: https://github.com/benmorgantd/mayadev, local checkout `C:\Users\bmorgan\Documents\dev\maya\mayadev`, package `bmaya` under `py/scripts/bmaya`. The author uses it for the asset file model, the menus and tools, the active rig, skinning, animation and GUI tools. Read `design/mayadev-integration.md` before touching either side of the boundary. The boundary is decided (D24).
@@ -351,7 +347,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 744 tests in 6 tiers in one watched mayapy process (stopped by `--timeout`, default 900 s) in about 20 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 763 tests in 6 tiers in one watched mayapy process (stopped by `--timeout`, default 900 s) in about 50 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.

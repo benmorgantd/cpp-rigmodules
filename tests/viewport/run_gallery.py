@@ -13,8 +13,7 @@ REPO_DIR = os.path.dirname(TESTS_DIR)
 DEFAULT_PLUGIN = os.path.join(REPO_DIR, "cpp", "x64", "Release", "RigModules.mll")
 TIMEOUT_SECONDS = 300
 
-sys.path.insert(0, os.path.join(REPO_DIR, "tools"))
-import mayalaunch_path  # noqa: E402,F401  (puts mayalaunch on sys.path)
+sys.path.insert(0, os.path.join(REPO_DIR, "python"))
 import mayalaunch  # noqa: E402
 
 
