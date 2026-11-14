@@ -125,6 +125,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [design/asset-pipeline.md](design/asset-pipeline.md) | Proposal for the art stages before the rig: file types with stages, a status model, intake checks |
 | [design/module-directions.md](design/module-directions.md) | Proposed module directions after the IK limb |
 | [design/mayadev-integration.md](design/mayadev-integration.md) | Plan for how RigModules and the mayadev Python pipeline fit together |
+| [design/tool-registry.md](design/tool-registry.md) | Proposal for mayadev's tool registry: fixes, readable ids, function calls, checked and versioned files |
 
 [docs/README.md](docs/README.md) explains how the documentation is organized and kept current.
 
