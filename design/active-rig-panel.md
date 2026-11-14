@@ -1,6 +1,6 @@
 # The active rig panel
 
-**Status:** Decided (D50), written 2026-11-14, and the author answered the five open questions the same day (section 11). Phases 1 and 2 are built (sections 12 and 13), the rest is not. It is the first item of phase 3 in `mayadev-ui.md` (section 5). The code it changes is in mayadev, plus one small query gap in RigModules (section 6). Changes to mayadev need the author's go-ahead and a commit in that repo.
+**Status:** Decided (D50), written 2026-11-14, and the author answered the five open questions the same day (section 11). Phases 1, 2 and 3 are built (sections 12, 13 and 14). The out-of-date line (phase 4) is not. It is the first item of phase 3 in `mayadev-ui.md` (section 5). The code it changes is in mayadev, plus one small query gap in RigModules (section 6). Changes to mayadev need the author's go-ahead and a commit in that repo.
 
 ## 1. The problem it solves
 
@@ -286,3 +286,18 @@ Why the tree had been proposed, and why it is not kept: it let an animator selec
 - **Removed:** `RigPanelSession.select_controls`, which only the tree called.
 - **Dock restore:** with the smaller panel the first `restore` after docking left the control hidden in 3 of 3 GUI Maya runs, and a second restore showed it. `host._restore` looks again after 300 ms. This corrects section 13.1, which called the first hidden check a harness artifact: it was partly one, and partly a race that the new panel made reproducible.
 - **Checked:** the GUI check passes 3 of 3 runs, now including the fold checks. mayapy: tests/core 76, tests/asset 104, tests/rigging/rigmodules_menu 43. Plain: core 112, asset 60.
+
+## 14. Phase 3 as built: the space row (2026-11-14)
+
+RigModules `32d631b` adds `getRigControlSpace`, and mayadev `4792de8` (branch `ui-phase1`) adds the Space section. Checked: RigModules build and full suite, TOTAL 774 passed (was 763). mayadev with a copy of that build, in mayapy: tests/core 80, tests/asset 115, tests/rigging/rigmodules_menu 43. Plain: core 112, asset 60. The GUI check, now with the space steps, passed 2 of 2 runs. Not checked: the author's own `userSetup.py` and layout.
+
+| Section | Designed | Built | Why |
+|---|---|---|---|
+| 6 | Option B, a new command `getRigControlSpace(control)` | As designed. An empty string, not `null`, for a control with no switch | Matches `getRigInfo`, which returns an empty string for a node that is not a rig node. A control built with one driver has no `space` enum, so it reports no switch |
+| 6 | The lookup walks connections | The control's `space` enum is followed to the `activeDriver` plug of a `rigConstraint` it is connected to | It is the same connection `matchSwitchSpace` follows the other way |
+| 5 | A Key checkbox, remembered between sessions with the panel's other view settings | A Key box, off by default, not remembered | Nothing in mayadev stores view settings, and a `QSettings` entry for one box was not worth adding it. Say if you want it |
+| 4.1 | The panel connects its own selection callback while shown | `RigPanelSession.watch_selection(bool)`, called from `showEvent` and `hideEvent`. The callback is registered through `EventsRegistry` with one key per session, and `close()` removes it | The callback has to be a session thing so it can be tested without a window. A docked tab the user switched away from hides the panel, so it stops reading |
+| 5 | `set_space(label, key=False)` | As designed, with a no-op for the current space, a refusal for an unknown label or no selected switch, and one undo chunk around the keys and the switch | |
+| 4 | A `QButtonGroup` of the labels | A row of checkable buttons in a three-column grid, rebuilt on each change | The same grid as the group buttons, and an exclusive group adds nothing when the panel rebuilds the buttons from the session each time |
+
+Cost on the selection path while the panel shows: one `cmds.ls(selection=True, type="rigControlNode")`, and one command call only when exactly one control is selected.
