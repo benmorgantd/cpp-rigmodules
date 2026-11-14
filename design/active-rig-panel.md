@@ -263,3 +263,14 @@ Built on mayadev branch `ui-phase1`, commit `157d21a`. Checked in mayapy offscre
 | 9 | A RigModules menu item | A new first submenu, `panels`, holding tool `rigmodules.panels.active_rig`. The menu has 39 tools | The menu's top level is submenus only (a layout test), and a panel isn't a pose or control tool |
 | 4.1 | The space row follows the selection | Not built | Phase 3. The panel connects no selection callback yet, so it costs nothing on the selection path |
 | 7 | The real-rig window test runs with the asset tests | It is in `tests/core`, and skips without `RIGMODULES_PLUGIN` | A `QApplication` has to exist before Maya's standalone initialize, and the asset suite initializes Maya once per file, so a `QApplication` there crashed the run |
+
+### 13.1 The docked panel in a GUI Maya (2026-11-14)
+
+The author said dockable widgets crash Maya easily and that their older dock code (`qtbase.DockableWidget`, removed in D49 phase 2) worked. It was the reference. `mayalaunch.run_gui` ran the panel in Maya 2026 and found two bugs that the offscreen tests could not, fixed in mayadev `12d927d`:
+
+- **The workspace control and the widget had one name.** `host.show` named the widget `bmayaRigPanel` and `_dock` named the control the same. The first dock worked, and the second raised "Object's name 'bmayaRigPanel' is not unique". The older code never named its widget. The control is now `<object name>WorkspaceControl` (`host.dock_control_name`).
+- **A destroyed panel stayed connected.** A docked panel is destroyed with its workspace control, often with no `closeEvent`, and its session kept following `ActiveRigTracker.changed`, so the next active rig change would have called a deleted widget. The panel now has `WA_DeleteOnClose` (the container too, as the older code did), and its `destroyed` signal calls `RigPanelSession.close()`.
+
+The manual check is `tests/gui/rigpanel/run.bat` in mayadev. It passes: the dock shows, three reopens work, a click selects, Key keys, a closed dock's session stops listening, a rig change after a close raises nothing, and the panel shows again.
+
+Not checked: the author's own `userSetup.py` and window layout (the Attribute Editor closed or in another dock), and dragging the tab to another dock area. A first version of the check showed the panel hidden right after docking. That was the check itself, which ran inside one Maya idle callback so the dock's deferred `restore` had not run. After going idle, the first restore shows it.
