@@ -26,6 +26,7 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 | [`library.md`](library.md) | The pose and animation library: control data vs skeleton data, the folders, the ControlAnim file, the paths to the engine |
 | [`architecture.md`](architecture.md) | The code: layers, source map, plugin startup, the module node layers, the two-phase build, evaluation, the command shape, file format versioning, the inverse solve, and recipes for adding a module, command or format |
 | [`python.md`](python.md) | The `rigmodules` Python package: installing it with `RigModules.mod`, and every function |
+| [`mayadev.md`](mayadev.md) | The sibling mayadev repo as a consumer: which commands and `rigmodules` functions it calls, how to find its call sites, what to check before changing a name it uses |
 | [`../tests/README.md`](../tests/README.md) | Running tests, case-file formats, where new tests go |
 | [`../design/decisions.md`](../design/decisions.md) | Design decisions and their reasons |
 
@@ -44,6 +45,7 @@ A change updates its owning page **in the same change** when it touches anything
 - The pose or animation library: its folders, the ControlAnim file or how data reaches the engine → `library.md`
 - Build steps, requirements, or the repo layout → `README.md`
 - The code's structure: a new file or folder, a base class, the build phases, a registry, a file format's core files, a new recipe step → `architecture.md`
+- A command, flag, return shape or `rigmodules` function that mayadev calls, or a new one meant for it → `mayadev.md`, and tell the author to update mayadev's `docs/rigmodules.md`
 - Running or writing tests → `tests/README.md`
 
 **New things get docs, not just changed things.** A new module, command, template key or workflow is not done until it is documented. Add it to the page that owns its topic. If no page fits, add a page here, a row in the table above, and a link in the README's documentation list.

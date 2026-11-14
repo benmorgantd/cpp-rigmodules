@@ -130,7 +130,7 @@ Riggers edit control shapes per asset. Artists and animators don't. A rig rebuil
 - **Commands:** `cmds.saveRigControlShapes(rigRoot, file=path)` and the undoable `cmds.loadRigControlShapes(rigRoot, file=path)`. Load reports controls missing from the file and entries with no control, and applies the rest.
 - **Apply:** mayadev's asset build calls `loadRigControlShapes` after `createRigFromTemplate`, with the path from the asset layer.
 - **Mirroring:** `cmds.mirrorRigControlShapes(rigRoot, leftToRight=True)` replaces legacy `shapeio.mirror`, keyed on markup `usage` across sides (D28).
-- **Still TODO:** documenting the asset's `shapes.json` in mayadev's docs.
+- **Documented 2026-11-14:** the asset's `shapes.json` is in mayadev's `docs/assets.md` (file type `shapes`, the `shapes` handler).
 
 ## How a rig build maps across
 
@@ -174,6 +174,17 @@ Animator-facing features found there, which RigModules does not have yet:
 - `joint.add_twist_joints` hard-codes `skel:shoulder_00_L_JNT` and `skel:elbow_00_L_JNT`.
 - The only test is a one-joint build smoke test.
 - At the time of reading, `rig.py` and `Spline.py` had uncommitted changes.
+
+**Status on 2026-11-14**, from reading mayadev at commit `21de6e7`:
+
+- Still true: `weightutils.py` calls API 1 names (`om.MScriptUtil`) on the API 2 module. The two `plug-ins` folders hold different copies. The "Orient to World" and "Orient to Mesh" scripts import `bmaya.maya.rigging.joints`, and the module is `joint`. `joint.add_twist_joints` hard-codes `skel:shoulder_00_L_JNT` and `skel:elbow_00_L_JNT`.
+- Fixed or gone: the env setup guide no longer points `RIG_TEMPLATES_DIR` at a missing path (the variable is not read). `rig.py` and `Spline.py` are deleted with the legacy builder.
+- Stale: "the only test is a one-joint build smoke test". mayadev has about 180 unittest tests across `bmaya.asset`, the handlers and tools, the active rig and the menu. The Maya ones skip without `RIGMODULES_PLUGIN`.
+- New: three skinning files don't compile under Python 3 (`averageVertexSkinWeightCmd.py`, `bm_softCluster.py`, `cvshapeinverter.py`), and so does `py/plug-ins/cv_nodeTemplate.py`.
+- `mayadev.mod`, described under "Packaging", is not in the mayadev repo.
+- The ControlAnim file name differs: the design puts ControlAnims in `controlanims/` as `<name>.anim.json`, and mayadev's `ControlAnimHandler` writes `<name>.json`. Open, for the author.
+
+mayadev now documents itself in its `docs/` folder, with its own list of problems in `docs/status.md` and the call list in `docs/rigmodules.md`. This repo's view is [`docs/mayadev.md`](../docs/mayadev.md).
 
 ## Phases
 

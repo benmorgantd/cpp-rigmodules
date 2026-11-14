@@ -115,12 +115,15 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/library.md](docs/library.md) | The pose and animation library: ControlPose and ControlAnim files, FBX, the folders |
 | [docs/python.md](docs/python.md) | The `rigmodules` Python package and `RigModules.mod` |
 | [docs/architecture.md](docs/architecture.md) | The code: layers, source map, the build, module nodes, evaluation, and how to add a module, command or format |
+| [docs/mayadev.md](docs/mayadev.md) | The mayadev pipeline repo as a consumer: what it calls and how to check its call sites before changing a name |
 | [tests/README.md](tests/README.md) | Running and writing tests |
 | [design/decisions.md](design/decisions.md) | Why the system is built the way it is (decision log) |
 | [design/asset-model.md](design/asset-model.md) | Asset id, namespaces, rig variants and the file model |
 | [design/inverse-solve.md](design/inverse-solve.md) | Restoring controls from joints |
 | [design/control-library.md](design/control-library.md) | The pose and animation library design |
 | [design/engine-rig.md](design/engine-rig.md) | Running the rig in Unreal (speculative, not decided) |
+| [design/asset-pipeline.md](design/asset-pipeline.md) | Proposal for the art stages before the rig: file types with stages, a status model, intake checks |
+| [design/module-directions.md](design/module-directions.md) | Proposed module directions after the IK limb |
 | [design/mayadev-integration.md](design/mayadev-integration.md) | Plan for how RigModules and the mayadev Python pipeline fit together |
 
 [docs/README.md](docs/README.md) explains how the documentation is organized and kept current.

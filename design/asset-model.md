@@ -185,6 +185,8 @@ Tests: `tests/asset/run.bat` runs 44 plain Python tests, then 3 mayapy tests aga
 
 ## Next
 
+The proposed extension upstream of the rig (art stages, status, intake, face data, mesh markup) is in `asset-pipeline.md` (D44, D45).
+
 1. The template authoring UI, after a module interface query command.
 2. Building a second variant into a namespace that already holds the shared skeleton.
 3. Build Rig from Asset… with a file browser on `asset.json`, loading shapes and weights after the build (`decisions.md`, "Before adding more modules").
