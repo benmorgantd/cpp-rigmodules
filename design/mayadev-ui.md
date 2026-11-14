@@ -1,6 +1,6 @@
 # mayadev user interfaces: thin views over headless workflows
 
-**Status:** Decided (D49). Written 2026-11-14 from a read of mayadev `main` (two commits ahead of `origin/main`) and the author's rules below. The author answered the open questions the same day (section 9). Phase 1 is built on mayadev branch `ui-phase1`, not yet merged, with the differences and what was verified in section 10. Phases 2 and 3 are not built. Section 2 describes the code before phase 1. The code it would change is in mayadev, and mayadev keeps its design history here (mayadev `docs/README.md`). Changes to mayadev need the author's go-ahead and a commit there.
+**Status:** Decided (D49). Written 2026-11-14 from a read of mayadev `main` (two commits ahead of `origin/main`) and the author's rules below. The author answered the open questions the same day (section 9). Phases 1 and 2 are built on mayadev branch `ui-phase1`, not yet merged, with the differences and what was verified in sections 10 and 11. Phase 3 is not built. Section 2 describes the code before phase 1. The code it would change is in mayadev, and mayadev keeps its design history here (mayadev `docs/README.md`). Changes to mayadev need the author's go-ahead and a commit there.
 
 The goal is a UI layer that is only a view. Every pipeline action, and every question a tool asks the user, runs the same way in a GUI Maya, a mayapy batch job and a plain-Python test. The UI binds widgets to state that lives somewhere else.
 
@@ -314,7 +314,7 @@ Each phase is reviewable on its own and leaves every menu tool working.
 6. Delete `loadUiFile`, the `designerFile` arguments and the unused `Table` members.
 7. Add the tests in section 7.
 
-**Phase 2: view-models and host**
+**Phase 2: view-models and host** (built, section 11)
 
 1. `RegistryEditSession`. Move `list_modules`, `list_functions` and `_unwrap_optional` to `core`, and `menu_layout_paths` to `bmaya.maya.constants`. Rebuild the Registry Editor on the session.
 2. `maya_ui/host.py` and `maya_ui/menus.py`, replacing `get_maya_main_window`, the `deleteUI` single-instance code, `DockableWidget.dock` and `tool_views/`.
@@ -412,3 +412,41 @@ Phase 1 is built on mayadev branch `ui-phase1`, not committed or merged yet. The
 
 - In mayapy, a real dev reload tear-down (new scene, undo flush) run after `test_maya_tool_editors.py` crashed Maya in `TundoManager::storeCommand`. The hook tests replace `devreload`'s `cmds` for that reason. The cause was not investigated, and it hasn't been seen in a GUI session.
 - A second `maya.standalone.initialize` in the same process, after the editor tests, crashed once in `melRemoveDynamicProc`. `test_maya_ui_layer.py` initializes only when Maya isn't up yet.
+
+## 11. As built: phase 2 (2026-11-14)
+
+Phase 2 is built on mayadev branch `ui-phase1`, on top of phase 1, not committed or merged yet. User-facing description: mayadev `docs/framework.md` (host, forms), `docs/tools.md` (editors) and `docs/architecture.md` (file map).
+
+### Differences from the text above
+
+| Section | Designed | Built | Why |
+|---|---|---|---|
+| 3.3 | `RegistryEditSession.open(path)` | `open(path, master_path="", layout_paths=())`, and the constructor takes the same | `core` can't import `bmaya.maya.constants`, so the master registry's path and its layout paths are arguments, and the window passes them. A save to `master_path` checks every layout, as the old window did |
+| 3.3 | `select`, `set_field`, `set_call`, `status`, `check`, `save`, one change `Event` | Three `Event`s: `tools_changed` (the list), `selection_changed`, `changed` (the picked tool or the unsaved flag). Added `load`, `add_tool`, `delete_tool`, `id_problem`, `set_kwargs`, `report_input_problem`, `search`, `can_run`, `run`, `module_names`, `function_names`, `function`, `doc` | One event would rebuild the argument form on every keystroke. The window keeps no state and its widgets only call the session. `report_input_problem` carries a view's text that isn't a value yet (JSON that isn't JSON) |
+| 3.3 | `list_modules`, `list_functions`, `_unwrap_optional` to `core` | `list_modules`, `list_functions` and `import_module` in `core/tool_registry_edit.py`, `unwrap_optional` in `core/tool_registry.py`, `menu_layout_paths` in `bmaya.maya.constants` | `unwrap_optional` is public now: `widgets.py` imports it |
+| 3.5 | `show(widget, *, object_name, dock=False)`, `parent_window()`, `defer(fn)` | Also `find(object_name)`, and `show` takes `width` and `height` for a dock. A window that refuses to close (the Registry Editor with unsaved edits) is raised and the new widget is deleted, and `show` returns the window on screen | Single instance without `cmds.deleteUI`, which probably never matched a window (section 2.1). The window constructors no longer look for Maya: `show_window()` passes `host.parent_window()` |
+| 3.5 | `tool_views/tool_menu.py` becomes `menus.py` | Done with `git mv`, `tool_views/` is gone. `get_maya_main_window`, `DockableWidget` and the `deleteUI` calls are gone from `qtbase`, which now imports no Maya. The registry's two `call`s and `userSetup.py` name `bmaya.maya_ui.menus` | |
+| 3.6 | `FieldEditor` (phase 1) becomes `field_widget` and `read_value` / `show_value` | `field_widget(hint, on_change)`, `show_value(widget, hint, value)` and `read_value(widget, hint)`, and `FieldEditor` is deleted. `DataclassForm` has `widgets` and `hints` where it had `editors` | A function pair and the hint are all a form needs, and the object held nothing else |
+| 3.6 | `SignatureForm(function, kwargs)` replaces `ArgumentForm` | As designed, built once per function: the window builds a new form when the function changes, so there is no `clear` or `set_function`. `rows`, `stale` and `remove_stale(name)` are public | |
+| 3.6 | `maya_ui/widgets/` a package, `ListModel` | `widgets.py` stays one file, and `ListModel` is not built | `ListModel` is not in phase 2's list, and the tool list is a `QListWidget` of 47 rows. It comes with the first panel that needs it (phase 3) |
+| 3.6 | `DataclassForm` for "the tool fields of the Registry Editor" | The tool fields stay plain widgets | The id is read-only, the call is a nested dataclass with its own picker, and each field edit applies at once rather than on OK |
+| Phase 2, step 3 | The clip properties workflow uses `ask_form` | Already true from phase 1 (`ClipSettings`) | |
+
+### Tests
+
+`test_core_tool_registry_edit.py` (36, plain Python) drives the session with no Qt. `test_core_layers.py` gained "`maya_ui` imports Maya only in `host.py` and `menus.py`" (section 7). `test_maya_ui_layer.py` gained `SignatureForm`, `field_widget` and `host`, and `test_maya_tool_editors.py`'s Registry Editor tests now check the window over a session.
+
+### Verified
+
+- mayadev's suites with a copy of the RigModules build: 60 asset tests and 112 core tests in plain Python (76 before), and in mayapy 62 core (the editors, the UI layer, batch), 81 asset and 43 RigModules menu tests. None failed. Two skips in the menu layout run, which need mayapy.
+- A GUI Maya through `mayalaunch.run_gui`: `parent_window()` is Maya's `MayaWindow`; `show_window()` of the Registry Editor opens parented to it with its 47 tools, a second call leaves exactly one open window; the Menu Editor opens parented to it; a `host.show(..., dock=True)` makes a workspace control; a `defer`red call runs; after both `register()` passes and `build_menus()` the prompter is `QtPrompter`, the reload hooks are `menus.delete_plugin_menus` and `menus.build_menus`, and both menus exist.
+
+### Not verified
+
+- The author's own `userSetup.py` in a GUI Maya after this change: the check above called the two `register()` passes and `build_menus()` itself, because the Maya `mayalaunch` started did not run `userSetup.py`.
+- How the docked widget and the dialogs look, and a person using the Registry Editor: Run, Save and the discard question were checked only offscreen and with the message boxes replaced.
+- Whether the Registry Editor's refusal to close (unsaved edits) behaves well from the menu in a GUI session.
+
+### Found while testing
+
+- `maya_ui/namingTool/namingTool.py` calls `cmds.ls` without importing `cmds` and nothing opens it, so it can't have run for a while. Only its `run()` was moved to `host.show`; the tool is still unused (section 2).
