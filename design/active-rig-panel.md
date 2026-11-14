@@ -1,6 +1,6 @@
 # The active rig panel
 
-**Status:** Decided (D50), written 2026-11-14, and the author answered the five open questions the same day (section 11). Phase 1 is built (section 12), the rest is not. It is the first item of phase 3 in `mayadev-ui.md` (section 5). The code it changes is in mayadev, plus one small query gap in RigModules (section 6). Changes to mayadev need the author's go-ahead and a commit in that repo.
+**Status:** Decided (D50), written 2026-11-14, and the author answered the five open questions the same day (section 11). Phases 1 and 2 are built (sections 12 and 13), the rest is not. It is the first item of phase 3 in `mayadev-ui.md` (section 5). The code it changes is in mayadev, plus one small query gap in RigModules (section 6). Changes to mayadev need the author's go-ahead and a commit in that repo.
 
 ## 1. The problem it solves
 
@@ -250,3 +250,16 @@ Built on mayadev branch `ui-phase1`, commit `62fabc6`. Checked by mayadev's suit
 | 3.2 | `RigPanelSession` has `get_space`, `set_space`, `spaces_changed`, `get_status` | Left out | They are phase 3 and 4. Nothing in phase 1 reads them |
 | 3.2 | The session reads the tracker | Its constructor starts the tracker singleton if none runs | A test or a mayapy job gets a working session with no startup |
 | 3.3 | Plain functions, log line in the `*_interactive` ones | The log line is in the plain function, and `*_interactive` is the plain function on `get_scope()` | One home for the message. The interactive functions keep their docstrings, which the call picker shows |
+
+## 13. Phase 2 as built (2026-11-14)
+
+Built on mayadev branch `ui-phase1`, commit `157d21a`. Checked in mayapy offscreen with a copy of the RigModules build: tests/core 71 (9 new in `test_maya_rigpanel_view.py`, one of them on a real rig), tests/asset 103 and tests/rigging/rigmodules_menu 43, and the plain core (112) and asset (60) suites. Not checked: the docked panel in a GUI Maya (the `workspaceControl`, clicks in a real viewport) and the author's `userSetup.py`.
+
+| Section | Designed | Built | Why |
+|---|---|---|---|
+| 4 | Tree rows: module, then side, then controls | One row per module and side, with its controls under it | `ControlGroup` is already per module and side, so a module with one side would have shown a side row with one child |
+| 3.2 | `select_group` only | Also `select_controls(controls, add)`, which `select_group` calls | A click on one control needs it |
+| 4 | An error goes to `bmaya.core.log.error` | The same, through one `run` wrapper that catches `RuntimeError` | |
+| 9 | A RigModules menu item | A new first submenu, `panels`, holding tool `rigmodules.panels.active_rig`. The menu has 39 tools | The menu's top level is submenus only (a layout test), and a panel isn't a pose or control tool |
+| 4.1 | The space row follows the selection | Not built | Phase 3. The panel connects no selection callback yet, so it costs nothing on the selection path |
+| 7 | The real-rig window test runs with the asset tests | It is in `tests/core`, and skips without `RIGMODULES_PLUGIN` | A `QApplication` has to exist before Maya's standalone initialize, and the asset suite initializes Maya once per file, so a `QApplication` there crashed the run |
