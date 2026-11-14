@@ -546,7 +546,7 @@ Animators play rigs back in Maya's parallel evaluation manager, so that is the m
 - **Process:** a new module or constraint type adds many instances to the complex perf rig in the same change, and `bench` is run on it, on the 20-rig scene against 30 fps and on the 50-rig scene against the floor (D12, "Gate for new modules"). The perf run is manual and never part of the suite, because it takes too long: `tools/perf/perf_scenes.py`, documented in `tests/README.md`. `check` is its quick validity check.
 
 ### D37. Control drawing stays an MPxDrawOverride, with cached bounds and a callback-kept selection set
-**Status:** Decided for the cheap fixes (author go-ahead, 2026-11-11). Built and tested in Maya 2026: mayapy suite, `ViewportGallery.cmd` and `perf_scenes.py profile`. Whether to replace the draw override is **Open**, see below.
+**Status:** Decided for the cheap fixes (author go-ahead, 2026-11-11). Built and tested in Maya 2026: mayapy suite, `ViewportGallery.cmd` and `perf_scenes.py profile`. Whether to replace the draw override is **Open** and deferred (author, 2026-11-14): the override's flags can't reduce its cost, see below.
 `rigControlNode` keeps its retained `MPxDrawOverride`. Its bounds are cached on the node, its draw data is versioned by a generation counter, the selection lookup is a hash set kept by an `MModelMessage::kActiveListModified` callback (`ActiveSelection`), and its callbacks report to Maya's Profiler in a `RigModules` category (`ProfilerUtils`).
 - **Measured (2026-11-11, GUI, parallel evaluation, cached playback off, `perf_scenes.py profile`):** during playback the override's `prepareForDraw`, `addUIDrawables` and `boundingBox` are not called at all. VP2 keeps each control's UI drawables and moves them with its matrix. They run on first draw, on a shape edit and when a control's display status changes. So the bounds cache and the selection set don't change playback speed (frame-time differences between builds were within session noise). Selecting every control of 100 Human rigs (1,400) went from 478 to 151 ms per select or clear with its redraw, because the old code copied and scanned the whole active list once per re-prepared control (quadratic). Selecting 14 controls: 30 and 27 ms.
 - **Multi-viewport fix:** the dirty flag lived on the node and the first override to draw cleared it, so another panel's cached data could keep an old shape. Each `ControlDrawData` now keeps the node generation it read.
@@ -564,7 +564,27 @@ Animators play rigs back in Maya's parallel evaluation manager, so that is the m
   | controls hidden | 76 | 73 |
 
   A separate run with the current build: drawn 282 and 270, `filled` off 205, hidden 75. So the transparent queue costs about 27 ms, xray saves about 40 ms (turning it off is slower), hierarchy depth isn't the cost (flat is slower), and the fill is about 70 ms. The wire alone is about 130 ms, about 13 µs per control for an 8-point mesh. The cost is VP2's fixed overhead for each UI drawable on each object, not geometry. Unexplained: Human controls cost about 2 µs each in the same kind of test.
-- **Open, needs a design proposal and the author's sign-off:** a retained, batched draw. VP2's per-object overhead is the cost, so only drawing many controls per render item removes it: an `MPxSubSceneOverride` with instanced render items per shape type. The per-rig version (one host DAG node per rig, `getInstancedSelectionPath` back to each control) removes the most, but costs the animator-facing behaviour listed above. Prototype a per-control version with consolidation first (each control keeps its own DAG drawing, so visibility, layers and isolate select keep working) and measure it on this scene. Also possible without a rewrite: `isTransparent()` false when `wireframeAlpha` is 1, for about 10%, if VP2 reads it again when alpha changes (not checked).
+- **Animated matrix is the trigger, and the override's presence is the cost (2026-11-14, author asked for the flag experiments, GUI, 5,000 flat `rigControlNode`s with a driven `rotateY`, parallel evaluation, cached playback off, plugged in, one Maya at a time, a throwaway build with `RIGCTRL_EXP` toggles and a throwaway probe):**
+  - A static redraw costs about 0.6 µs per control, cheaper than native curves. The cost appears only when a control's matrix animates. During playback the plugin's callbacks don't run (above), and node evaluation is about 2 µs per control. The rest is inside VP2 (`Vp2BuildRenderLists`, `Vp2PrepareToUpdate`, `Vp2PrepareProcessChanges` and one `Vp2WaitForEvaluation` per object).
+
+    | Variant (animated, µs per control) | µs | Static redraw µs |
+    |---|---|---|
+    | Native transform | 1.7 | 0.3 |
+    | Native curve | 2.8 | 0.7 |
+    | Native mesh (cube) | 3.3 | 0.8 |
+    | Current `rigControlNode` | 8.5 | 0.6 |
+    | `isTransparent()` false | 8.6 | 1.0 |
+    | `hasUIDrawables()` false (draws nothing) | 7.9 | 0.4 |
+    | `isBounded()` false | 19.1 | 14.3 |
+    | No draw classification registered | 3.2 | 0.4 |
+    | No classification, native curve child shape | 4.9 | 2.6 |
+    | No classification, native mesh child shape | 6.0 | 2.8 |
+
+  - **Override flags don't help.** `isTransparent()` false gave nothing here (the 10% above was not reproduced). An override that draws nothing costs nearly as much as the current one, so the cost is the `MPxDrawOverride` registration on a moving object, not its content. `isBounded()` false is much worse: VP2 can't cache or cull. Don't change these flags.
+  - **The floor is 3.2 µs** for a `rigControlNode` with no override. Native child shapes (curve 4.9, mesh 6.0) save 30–40% but lose the fill, the alpha and xray (not checked whether per-shape overrides can reproduce them), raise static redraw to about 2.7 µs and change the shape file and attributes. Not adopted.
+  - **Scale:** at 8.5 µs, 1,500–2,100 controls (5–7 rigs of 300) cost 12.8–17.9 ms per frame in VP2. The floor is 4.8–6.7 ms, a native curve child 7.4–10.3 ms. Absolute numbers drift up to about 30% between sessions: an earlier session measured 11–12 µs for the same probe on the same code.
+  - **Not measured:** the Human versus complex gap (about 2 µs against 12–20 µs per control) is still unexplained.
+- **Open, needs a design proposal and the author's sign-off:** a retained, batched draw is still the only way to reach the floor, because VP2's per-object overhead is the cost: an `MPxSubSceneOverride` with instanced render items per shape type. The per-rig version (one host DAG node per rig, `getInstancedSelectionPath` back to each control, and no draw classification on `rigControlNode`) removes the most, but costs the animator-facing behaviour listed above. The per-control version doesn't consolidate anything: it is still one override per DAG node, so don't expect it to help. The author's view (2026-11-14) is that it isn't worth the effort while a cheaper route exists, so the effort stays deferred.
 - **Consequence:** shape attributes are data that is set, not driven by an animated connection: parallel evaluation doesn't call `setDependentsDirty`, so a driven shape wouldn't refresh its bounds or drawing (`docs/controls.md`). Profiler event names (`rigControl ...`) are developer-facing and may change.
 
 ### D38. The build makes three display layers, found by message attributes on the rig root
