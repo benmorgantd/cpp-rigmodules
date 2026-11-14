@@ -186,7 +186,7 @@ RigTemplates/        example template
 | `cpp/include/nlohmann/json.hpp` | nlohmann json 3.12, vendored. |
 | `README.md` | User-facing overview: install, quick start, links into `docs/`. |
 | `docs/` | User-facing reference: templates, commands, modules, the pose and animation library (`library.md`), and `architecture.md`, the code guide (layers, source map, build phases, module layers, recipes for a new module, command or format). `docs/README.md` holds the documentation process. Update `architecture.md` when a file, folder, base class or build phase changes. |
-| `design/decisions.md` | Decision log (D1–D47). |
+| `design/decisions.md` | Decision log (D1–D48). |
 | `design/asset-model.md` | Asset id, namespace ownership, rig variants, file model, local versions and the registry (D29). The file model is planned for a mayadev branch. |
 | `design/inverse-solve.md` | Restoring controls from joints (D41): module-owned inverse, joint files (USD in the first design, FBX now, D42), the offset seam for different proportions. The solve and keys are built. The USD IO was removed, and the sidecar writer is dropped. |
 | `design/control-library.md` | The pose and animation library (D42): control data (ControlPose, ControlAnim with tangents) as the primary library, FBX (a bone map for markup) for remaps, mocap and the engine, the control data vs skeleton data vocabulary, the skeleton, animation and properties pairing for Unreal, one folder per data type (`controlposes/`, `controlanims/`, `exports/`, `sources/`), the engine export folder. Design only, not built. |
@@ -198,6 +198,7 @@ RigTemplates/        example template
 | `design/Rigging System Planning.pdf` | The author's original design instructions. |
 | `tests/` | mayapy test suite (D20). `RigTests.cmd` runs it. `tests/README.md` has the layout, case-file formats and where new tests go. `ViewportGallery.cmd` is the manual VP2 shape check. |
 | `tools/generate_control_shapes.py` | mayapy script that writes `cpp/core/ControlShapeLibrary.cpp`. Rerun it after changing a shape, then rebuild. |
+| `tools/mayalaunch_path.py` | Puts the shared `mayalaunch` package on `sys.path` (D48). Every script that starts or ends Maya imports it, then calls `mayalaunch` rather than setting `MAYA_DISABLE_CER`, copying the plugin, calling `os._exit` or writing a `maya.exe -command` string itself. |
 | `tools/perf/` | `perf_scenes.py` builds 50-rig scenes (the Human asset with a pose cycle, a generated 200 joint rig with 51 constraints and Aim modules and a range of motion) and measures evaluation and playback speed. `playback_gui.py` and `profile_gui.py` (Maya's profiler over selection and playback, by node type and the `RigModules` category) are its Maya-window halves. Output goes to the ignored `tools/perf/out`. See `tests/README.md`. |
 | `cpp/RigModules.vcxproj` + `.filters` | Add every new `.h`/`.cpp` to both files, with its folder relative to `cpp/` (`core\X.cpp`). The filters file has one filter per folder. |
 
@@ -289,6 +290,10 @@ Studio-style split, matching how the author structures their Python code. The fo
 - **Plugin layer (`maya/`, Maya API):** nodes, attribute definitions, plug I/O, and the commands that bridge to the core.
 - **Python (started, D30):** a thin package in `python/rigmodules`. Built: the rig query (`get_rig_info`, `get_rigs`), `template.get_rig_name` and `skinweights`. Planned: a build wrapper, the rest of the rig query API (modules, controls, sockets, rest values), template validation passed through to the core, shape IO and pose data read and write, and user-facing error messages. Placement rule: Python goes here only if it would have to change when a RigModules node, attribute, flag or template key changes. It imports no Qt or `bmaya` and reads no environment variables or asset paths (D24).
 
+## Sibling repo: mayalaunch
+
+`dev\maya\mayalaunch` is a tiny plain-Python repo that starts and ends Maya (D48): the install lookup, the child environment, watched mayapy and GUI runs with a timeout, crash reporter cleanup, the plugin copy, and standalone start and finish. Both this repo and mayadev call it. Its own tests: `python -m unittest discover -s tests` inside it. Changing it affects both repos, so run this suite and mayadev's `tests\core\run.bat` after.
+
 ## Sibling repo: mayadev
 
 The author's Python pipeline lives in a separate repo: https://github.com/benmorgantd/mayadev, local checkout `C:\Users\bmorgan\Documents\dev\maya\mayadev`, package `bmaya` under `py/scripts/bmaya`. The author uses it for the asset file model, the menus and tools, the active rig, skinning, animation and GUI tools. Read `design/mayadev-integration.md` before touching either side of the boundary. The boundary is decided (D24).
@@ -320,7 +325,8 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
 - **Run Maya headless:** `C:\Program Files\Autodesk\Maya2026\bin\mayapy.exe script.py`. Start the script with `maya.standalone.initialize(name="python")`, then `cmds.loadPlugin(path)`.
 - **No crash handler windows from your own scripts.** Set `MAYA_DISABLE_CER=1` before running mayapy or maya.exe yourself, and end a standalone script with `maya.standalone.uninitialize()` then `os._exit(0)`, as `tests/run_tests.py` does (Maya 2026 crashes at process exit without it). After a run that crashed, close any `senddmp.exe` or `cer_dialog.exe` it left open.
 - **Viewport (VP2) checks need a GUI session.** mayapy, `mayabatch` and `ogsRender` don't draw UI drawables or curves, so a draw override can't be checked there. After changing control drawing or shapes, run `cmd /c tests\ViewportGallery.cmd` and look at the images (see `tests/README.md`). It starts `maya.exe -command` with a one-line `python(...)` bootstrap (see the next bullet for how to write one). The script runs its work through `maya.utils.executeDeferred` (so the UI exists), sets the camera on `cmds.playblast(activeEditor=True)` (not the first model panel, which playblast may not capture), playblasts with `offScreen=True`, then calls `cmds.quit(force=True)`. `exec` gives it no `__file__`, so paths come through env vars.
-- **Starting a script in a GUI Maya (`maya.exe -command`): MEL parses the string before Python sees it.** `-command` takes MEL, so `python("...")` is a MEL string literal first. Rules, with the failure each one caused here:
+- **Starting a script in a GUI Maya: use `mayalaunch.run_gui(script, env, timeout)` (D48), which applies every rule below.** Never write the `-command` string by hand. The rules are kept here because they explain what it does. `-command` takes MEL, so MEL parses the string before Python sees it.
+  - `-command` takes MEL, so `python("...")` is a MEL string literal first. Rules, with the failure each one caused here:
   - **A backslash in a MEL string is an escape.** `\n`, `\t`, `\r`, `\"` and `\\` are escapes, and any other `\x` is mangled or dropped. `python("exec(open('C:\Users\me\x.py').read())")` reached Python as `C:Users` plus a stray control character (`Invalid argument`), and the script never ran. Never put a Windows path in the string.
   - **Only the double quote delimits a MEL string.** A single quote is plain text to MEL, so Python's `'...'` survives. A literal double quote inside needs `\"`, and a literal backslash needs `\\`. Avoid both: use single quotes in the Python and no backslashes at all.
   - **Pass paths through environment variables, not the command string.** Set `PERF_SCRIPT` (and the plugin and output paths) before launching, and bootstrap with `python("exec(open(__import__('os').environ['PERF_SCRIPT'], encoding='utf-8').read())")`. The string then has no path, no backslash and no escaped quote. Forward slashes also work, but the variable removes the question.
@@ -345,7 +351,7 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 742 tests in 6 tiers in one watched mayapy process in about 20 s, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 744 tests in 6 tiers in one watched mayapy process (stopped by `--timeout`, default 900 s) in about 20 s, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.

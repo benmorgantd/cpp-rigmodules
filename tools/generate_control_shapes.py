@@ -16,11 +16,12 @@ triangulated, as the fill.
 """
 import math
 import os
-import sys
+import traceback
 
-import maya.standalone
+import mayalaunch_path  # noqa: F401  (puts mayalaunch on sys.path: it is in this folder)
+import mayalaunch
 
-maya.standalone.initialize(name="python")
+mayalaunch.start_standalone()
 
 from maya import cmds  # noqa: E402
 import maya.api.OpenMaya as om  # noqa: E402
@@ -298,6 +299,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    finally:
-        maya.standalone.uninitialize()
-    sys.exit(0)
+    except Exception:
+        traceback.print_exc()
+        mayalaunch.finish_standalone(1)
+    mayalaunch.finish_standalone(0)

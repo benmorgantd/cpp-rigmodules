@@ -18,8 +18,6 @@ import argparse
 import glob
 import json
 import os
-import shutil
-import subprocess
 import sys
 import tempfile
 import time
@@ -30,6 +28,11 @@ TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 MAYA_TESTS_DIR = os.path.join(TESTS_DIR, "maya")
 REPO_DIR = os.path.dirname(TESTS_DIR)
 CPP_DIR = os.path.join(REPO_DIR, "cpp")
+
+# Starting and ending Maya is mayalaunch's job (D48), shared with the tools and with mayadev.
+sys.path.insert(0, os.path.join(REPO_DIR, "tools"))
+import mayalaunch_path  # noqa: E402,F401  (puts mayalaunch on sys.path)
+import mayalaunch  # noqa: E402
 DEFAULT_PLUGIN = os.path.join(CPP_DIR, "x64", "Release", "RigModules.mll")
 # The rigmodules Python package, tested together with the plugin it wraps (D24).
 PYTHON_DIR = os.path.join(REPO_DIR, "python")
@@ -88,8 +91,8 @@ OUTCOME_CHARS = {"pass": ".", "FAIL": "F", "ERROR": "E", "xfail": "x", "XPASS": 
 BAD_OUTCOMES = ("FAIL", "ERROR", "XPASS")
 FILES = {"results": "results.json", "progress": "progress.txt", "outcomes": "outcomes.jsonl", "log": "maya_output.log"}
 
-# Processes Maya's crash handler starts. Disabled through MAYA_DISABLE_CER, and closed after a crash in case.
-CRASH_REPORTER_PROCESSES = ("senddmp.exe", "cer_dialog.exe")
+# A run that takes longer than this is a hung Maya. The suite takes about 20 s.
+DEFAULT_TIMEOUT_SECONDS = 900
 
 
 def parse_args():
@@ -99,6 +102,8 @@ def parse_args():
     parser.add_argument("--keep-going", action="store_true", help="run every tier even after one fails")
     parser.add_argument("--update-golden", action="store_true", help="rewrite golden interface snapshots")
     parser.add_argument("--plugin", default=DEFAULT_PLUGIN, help="plugin to test (default: Release build)")
+    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_SECONDS,
+                        help="seconds before a Maya that has not finished is stopped (default: %(default)s)")
     # Internal: the parent starts the Maya process with these.
     parser.add_argument("--child-from-tier", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--work-dir", help=argparse.SUPPRESS)
@@ -153,27 +158,6 @@ def group_of(test):
     """Report group: the test file name without its test_ prefix, e.g. 'fkchain'."""
     test = getattr(test, "test_case", test)   # a subTest reports under its parent test
     return type(test).__module__.split(".")[-1].replace("test_", "", 1)
-
-
-class Redirect:
-    """Sends fd 1 and 2 (Maya's C++ output and Python's print) to a log file until stop()."""
-
-    def __init__(self, log_path):
-        sys.stdout.flush()
-        sys.stderr.flush()
-        self.saved = (os.dup(1), os.dup(2))
-        self.log = open(log_path, "a", encoding="utf-8", errors="replace")
-        os.dup2(self.log.fileno(), 1)
-        os.dup2(self.log.fileno(), 2)
-
-    def stop(self):
-        sys.stdout.flush()
-        sys.stderr.flush()
-        os.dup2(self.saved[0], 1)
-        os.dup2(self.saved[1], 2)
-        os.close(self.saved[0])
-        os.close(self.saved[1])
-        self.log.close()
 
 
 class TierResult(unittest.TestResult):
@@ -338,7 +322,7 @@ def run_in_current_maya(filters=(), verbose=False, keep_going=False):
     report = os.fdopen(os.dup(1), "w", encoding="utf-8", errors="replace")
     report.write("\nRigModules tests | in the current Maya session\n\n")
     start = time.time()
-    redirect = Redirect(files["log"])
+    redirect = mayalaunch.Redirect(files["log"])
     try:
         run_tiers(report, files, 0, list(filters), verbose, keep_going)
     finally:
@@ -353,7 +337,7 @@ def run_child(args):
     and stays redirected until the process exits so anything Maya prints on the way out is logged too."""
     files = {k: os.path.join(args.work_dir, v) for k, v in FILES.items()}
     report = os.fdopen(os.dup(1), "w", encoding="utf-8", errors="replace")
-    Redirect(files["log"])
+    mayalaunch.Redirect(files["log"])
 
     def progress(text):
         with open(files["progress"], "w", encoding="utf-8") as handle:
@@ -362,8 +346,7 @@ def run_child(args):
     results = {"startupError": None}
     try:
         progress("startup: initializing Maya")
-        import maya.standalone
-        maya.standalone.initialize(name="python")
+        mayalaunch.start_standalone()
         from maya import cmds
         progress("startup: loading the plugin")
         cmds.loadPlugin(args.plugin)
@@ -376,15 +359,7 @@ def run_child(args):
     with open(files["results"], "w", encoding="utf-8") as handle:
         json.dump(results, handle)
     report.close()
-    # Maya 2026 crashes at process exit without uninitialize().
-    try:
-        import maya.standalone
-        maya.standalone.uninitialize()
-    except Exception:
-        traceback.print_exc()
-    sys.stdout.flush()
-    sys.stderr.flush()
-    os._exit(0)
+    mayalaunch.finish_standalone(0)
 
 
 # ==== parent: starts Maya, watches it, and reports crashes =======================================
@@ -413,38 +388,12 @@ def stale_sources(plugin):
     return sorted(os.path.relpath(s, CPP_DIR) for s in sources if os.path.getmtime(s) > built)
 
 
-def mayapy_path():
-    exe = sys.executable
-    if "mayapy" in os.path.basename(exe).lower():
-        return exe
-    return os.path.join(os.path.dirname(exe), "mayapy.exe")
-
-
-def child_environment(work_dir):
-    env = dict(os.environ)
-    # No crash report dialog, and crash dumps and Maya's temp files stay in the run folder.
-    env["MAYA_DISABLE_CER"] = "1"
-    maya_temp = os.path.join(work_dir, "maya_temp")
-    os.makedirs(maya_temp, exist_ok=True)
-    env["TEMP"] = maya_temp
-    env["TMP"] = maya_temp
-    return env
-
-
-def close_crash_reporters(child_pid):
-    """Closes crash reporter processes the crashed child started. Returns how many were closed.
-    Matches on parent process id, so the user's own Maya sessions are never touched."""
-    script = (
-        "$ids = @(%d); $found = @();"
-        "do { $next = Get-CimInstance Win32_Process | Where-Object { $ids -contains $_.ParentProcessId -and $found -notcontains $_.ProcessId };"
-        " $found += $next.ProcessId; $ids = $next.ProcessId } while ($next);"
-        "$found | Where-Object { $_ } | ForEach-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue } |"
-        " Where-Object { @('%s') -contains ($_.ProcessName + '.exe') } |"
-        " ForEach-Object { Stop-Process -Id $_.Id -Force; $_.Id }"
-    ) % (child_pid, "','".join(CRASH_REPORTER_PROCESSES))
-    output = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-                            capture_output=True, text=True).stdout
-    return len([line for line in output.splitlines() if line.strip()])
+def running_maya_dir():
+    """The Maya install this script runs under, so the child is the same mayapy. None outside mayapy, which
+    leaves mayalaunch to find the install."""
+    if "mayapy" in os.path.basename(sys.executable).lower():
+        return os.path.dirname(os.path.dirname(sys.executable))
+    return None
 
 
 def log_tail(path, lines=15):
@@ -462,32 +411,31 @@ def run_maya(args, work_dir, plugin_copy, from_tier):
     for key in ("results", "progress"):
         if os.path.exists(files[key]):
             os.remove(files[key])
-    command = [mayapy_path(), os.path.abspath(__file__), "--child-from-tier", str(from_tier),
-               "--work-dir", work_dir, "--plugin", plugin_copy] + args.filters
-    command += ["-v"] if args.verbose else []
-    command += ["--keep-going"] if args.keep_going else []
-    command += ["--update-golden"] if args.update_golden else []
-    child = subprocess.Popen(command, env=child_environment(work_dir))
-    exit_code = child.wait()
+    child_args = ["--child-from-tier", str(from_tier), "--work-dir", work_dir, "--plugin", plugin_copy] + args.filters
+    child_args += ["-v"] if args.verbose else []
+    child_args += ["--keep-going"] if args.keep_going else []
+    child_args += ["--update-golden"] if args.update_golden else []
+    run = mayalaunch.run_mayapy(os.path.abspath(__file__), child_args, mayalaunch.child_environment(work_dir),
+                                timeout=args.timeout, maya_dir=running_maya_dir())
+    how = "stopped after %d s without finishing" % args.timeout if run.timed_out else "exited with code %s" % run.exit_code
 
     if os.path.isfile(files["results"]):
         with open(files["results"], encoding="utf-8") as handle:
             error = json.load(handle)["startupError"]
         return ("startup", from_tier, error) if error else ("ok", None, None)
 
-    closed = close_crash_reporters(child.pid)
-    cleanup = "\nClosed %d crash reporter process(es)." % closed if closed else ""
+    cleanup = "\nClosed %d crash reporter process(es)." % run.closed_reporters if run.closed_reporters else ""
     try:
         with open(files["progress"], encoding="utf-8") as handle:
             stage = handle.read().strip()
     except OSError:
         stage = "startup: before Maya began"
     if stage.startswith("startup"):
-        return "startup", from_tier, "Maya exited (code %s) during %s.%s\n--- end of Maya log ---\n%s" % (
-            exit_code, stage, cleanup, log_tail(files["log"]))
+        return "startup", from_tier, "Maya %s during %s.%s\n--- end of Maya log ---\n%s" % (
+            how, stage, cleanup, log_tail(files["log"]))
     tier, test_id = stage.split("\t", 1)
-    return "crash", int(tier), "Maya stopped unexpectedly (exit code %s) during %s%s\nRerun just that test with RigTests.cmd -v %s" % (
-        exit_code, test_id, cleanup, test_id.split(".")[-1])
+    return "crash", int(tier), "Maya %s during %s%s\nRerun just that test with RigTests.cmd -v %s" % (
+        how, test_id, cleanup, test_id.split(".")[-1])
 
 
 def run_parent(args):
@@ -501,9 +449,7 @@ def run_parent(args):
         return 2
 
     work_dir = tempfile.mkdtemp(prefix="RigTests_")
-    # A loaded plugin locks its file, so load a copy and leave the build output free.
-    plugin_copy = os.path.join(work_dir, "RigModules.mll")
-    shutil.copy(args.plugin, plugin_copy)
+    plugin_copy = mayalaunch.copy_plugin(args.plugin, work_dir)
 
     shown = os.path.abspath(args.plugin)
     if shown.lower().startswith(REPO_DIR.lower() + os.sep):

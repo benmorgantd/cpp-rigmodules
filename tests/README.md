@@ -34,6 +34,10 @@ ok = run_tests.run_in_current_maya()          # filters=["fkchain"], verbose=Tru
 - The runner copies the `.mll` to a temp folder before loading it, so the build output stays unlocked.
 - mayapy comes from `MAYA_LOCATION`, or the Maya 2026 default path if that is unset.
 
+### Launching Maya (mayalaunch)
+
+Every script here that starts Maya (the suite runner, the viewport gallery, `perf_scenes.py`, the shape generator) does it through `mayalaunch` (D48), a small plain-Python repo shared with mayadev. It is found through `MAYALAUNCH_ROOT`, the folder that holds the `mayalaunch` package, else a folder named `mayalaunch` beside any parent of this repo (`tools/mayalaunch_path.py` does the finding). Its own tests are in that repo: `python -m unittest discover -s tests`. A new script that starts Maya calls `mayalaunch` instead of setting `MAYA_DISABLE_CER`, copying the plugin, calling `os._exit` or writing a `maya.exe -command` string itself.
+
 **Output:**
 - Maya's own output goes to a log file whose path is printed at the end.
 - The exit code is 0 only when nothing failed.
@@ -57,6 +61,7 @@ Maya tests can't each run in isolation. If the plugin doesn't load, every test f
 - **One Maya process, watched:** `run_tests.py` starts a single mayapy process that runs every tier, and watches it. That process writes each outcome as it happens and records the running test's id before the test starts.
   - **Crash:** the report names the test that caused it, keeps every result from before it, and marks the later tiers `NOT RUN`. With `--keep-going`, a new Maya process starts at the next tier.
   - **Startup failure:** if mayapy or the plugin fails to load, the report shows the error, with the end of the Maya log when there is no Python error to show.
+  - **Hang:** a Maya that has not finished after `--timeout` seconds (default 900, the suite takes about 20) is stopped, and the report names the test it was running.
   - **No crash dialogs:** the Maya process runs with `MAYA_DISABLE_CER=1`, so a crash opens no "Error Report" window. `TEMP` points at the run folder, so crash dumps and recovery files stay out of your Temp folder. After a crash, the runner also closes any `senddmp.exe` or `cer_dialog.exe` that the crashed process started. It finds them by parent process id, so your own Maya sessions are never touched.
 - **Where tiers are defined:** `TIERS` in `run_tests.py` is the one place that says which file runs in which tier. A test file missing from it fails the run before anything starts.
 - **Future tiers:** animation, then import/export, go after constraints, because they need working modules and constraints.
@@ -67,7 +72,8 @@ Maya tests can't each run in isolation. If the plugin doesn't load, every test f
 tests/
   RigTests.cmd, run_tests.py     entry point and runner
   ViewportGallery.cmd            manual VP2 check of every control shape (not part of the suite)
-  viewport/gallery.py            the script ViewportGallery.cmd runs in a GUI Maya
+  viewport/run_gallery.py        starts the gallery (through mayalaunch) and reports its log
+  viewport/gallery.py            the script that runs in a GUI Maya
   maya/
     rigtest/                     shared helpers (no tests)
       case.py                    RigTestCase: new scene per test, build helpers, assertions
@@ -180,7 +186,7 @@ The suite runs in mayapy, which has no viewport, so it checks control bounds but
 cmd /c tests\ViewportGallery.cmd
 ```
 
-It starts Maya with a window (`maya.exe -command`), builds every shape beside a -1 to 1 reference cube with a red line along +X, playblasts ten views, closes Maya and opens the image folder (`%TEMP%\RigViewportGallery\out`). It takes about a minute. Pass a plugin path to check another build. The docstring at the top of `viewport/gallery.py` says what each image should show.
+It starts Maya with a window (`maya.exe -command`, through `mayalaunch`, which stops it after 5 minutes if it hangs), builds every shape beside a -1 to 1 reference cube with a red line along +X, playblasts ten views, closes Maya and opens the image folder (`%TEMP%\RigViewportGallery\out`). It takes about a minute. Pass a plugin path to check another build. The docstring at the top of `viewport/gallery.py` says what each image should show.
 
 - **Exit code:** 0 when every image was written. It does not judge the images. Look at them.
 - **Unattended:** like the suite, it skips `userSetup.py` and turns off the crash reporter, so nothing waits for input.
