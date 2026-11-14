@@ -4,6 +4,7 @@
 #include "core/ControlMarkup.h"
 #include "core/ControlShapeFile.h"
 #include "core/RigControlFilter.h"
+#include "maya/nodes/Constraints.h"
 #include "maya/shared/ControlShapeScene.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/RigTraversal.h"
@@ -400,6 +401,56 @@ MStatus GetRigControlInfoCmd::doIt(const MArgList& args)
 	}
 
 	setResult(MString(serializeControlInfo(result).c_str()));
+	return MStatus::kSuccess;
+}
+
+// getRigControlSpace -----------------------------------------------------------------------------
+const char* GetRigControlSpaceCmd::aCommandString = "getRigControlSpace";
+
+void* GetRigControlSpaceCmd::creator()
+{
+	return new GetRigControlSpaceCmd();
+}
+
+bool GetRigControlSpaceCmd::isUndoable() const
+{
+	return false;
+}
+
+MSyntax GetRigControlSpaceCmd::newSyntax()
+{
+	MSyntax syntax;
+	syntax.setObjectType(MSyntax::kStringObjects, 1, 1);
+	syntax.useSelectionAsDefault(false);
+	return syntax;
+}
+
+MStatus GetRigControlSpaceCmd::doIt(const MArgList& args)
+{
+	MStatus status;
+	MArgDatabase argData(syntax(), args, &status);
+	if (!status)
+	{
+		MGlobal::displayError(MString("Error parsing ") + aCommandString + " arguments.");
+		return status;
+	}
+
+	MString controlName;
+	status = CommandUtils::readSingleObject(argData, aCommandString, "control name", controlName);
+	if (!status)
+	{
+		return status;
+	}
+
+	MObject oControl;
+	status = RigTraversal::getRigControl(controlName, oControl);
+	if (!status)
+	{
+		return status;
+	}
+
+	ControlSpace space;
+	setResult(RigConstraintNode::getControlSpace(oControl, space) ? MString(serializeControlSpace(space).c_str()) : MString(""));
 	return MStatus::kSuccess;
 }
 

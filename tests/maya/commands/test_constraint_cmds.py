@@ -1,9 +1,12 @@
 """createRigConstraint and setRigConstraintSpace: arguments, space switching, undo, and how
 driver ids and constraint names resolve across namespaces (D14, D19). Parent constraints only:
 Orient and Point are in test_constraint_types."""
+import json
+
 from maya import cmds
 import maya.api.OpenMaya as om
 
+import rigmodules.query
 from rigtest.case import RigTestCase, rig_name
 
 # up_ctrl_r drives aim_1.up. Its drivers must not depend on aim_1, or the constraint would form a cycle.
@@ -319,3 +322,59 @@ class CommandIdResolution(RigTestCase):
     def test_old_layout_module_name_rejected(self):
         control = self.build_in("rig")
         self.assertMayaError(lambda: cmds.createRigConstraint(control, driver=["layoutModule.end"]), "layoutModule")
+
+
+class GetRigControlSpace(ConstraintTestCase):
+    """getRigControlSpace and rigmodules.query.find_control_space (D50): a control's constraint, labels and current space."""
+
+    def test_reports_the_constraint_the_labels_and_the_current_space(self):
+        con = self.create(label=["World", "Arm"], initial=1)
+        found = json.loads(cmds.getRigControlSpace(CONTROL))
+        self.assertEqual(found, {"constraint": con.lstrip(":"), "labels": ["World", "Arm"], "current": 1})
+
+    def test_labels_default_to_the_driver_ids(self):
+        self.create()
+        self.assertEqual(json.loads(cmds.getRigControlSpace(CONTROL))["labels"], ["layout.end", "fkchain_1.end"])
+
+    def test_current_follows_a_space_switch(self):
+        con = self.create(label=["World", "Arm"])
+        cmds.setRigConstraintSpace(con, label="Arm")
+        self.assertEqual(json.loads(cmds.getRigControlSpace(CONTROL))["current"], 1)
+        cmds.setRigConstraintSpace(con, space=0)
+        self.assertEqual(json.loads(cmds.getRigControlSpace(CONTROL))["current"], 0)
+
+    def test_the_constraint_it_returns_is_the_one_setRigConstraintSpace_takes(self):
+        self.create(label=["World", "Arm"])
+        found = json.loads(cmds.getRigControlSpace(CONTROL))
+        cmds.setRigConstraintSpace(found["constraint"], label="Arm")
+        self.assertEqual(cmds.getAttr(CONTROL + ".space"), 1)
+
+    def test_a_control_with_no_space_switch_gives_an_empty_string(self):
+        self.assertEqual(cmds.getRigControlSpace(OTHER_CONTROL), "")
+
+    def test_a_single_driver_constraint_has_no_space_switch(self):
+        """With one driver there is no `space` enum, so the control has nothing to switch."""
+        self.create(driver=["layout.end"])
+        self.assertEqual(cmds.getRigControlSpace(CONTROL), "")
+
+    def test_it_is_not_undoable_and_changes_nothing(self):
+        self.create()
+        cmds.undoInfo(state=True, infinity=True)
+        cmds.getRigControlSpace(CONTROL)
+        self.assertNotIn("getRigControlSpace", cmds.undoInfo(query=True, undoName=True) or "")
+
+    def test_the_node_must_be_a_rig_control(self):
+        self.assertMayaError(lambda: cmds.getRigControlSpace(rig_name("fkchain_1")), "Not a rig control")
+        self.assertMayaError(lambda: cmds.getRigControlSpace("missing"), "Not a rig control")
+
+    def test_it_takes_exactly_one_control(self):
+        self.assertMayaError(lambda: cmds.getRigControlSpace(CONTROL, OTHER_CONTROL))
+        self.assertMayaError(lambda: cmds.getRigControlSpace())
+
+    def test_the_python_query(self):
+        con = self.create(label=["World", "Arm"], initial=1)
+        space = rigmodules.query.find_control_space(CONTROL)
+        self.assertEqual(space, rigmodules.query.ControlSpace(constraint=con.lstrip(":"), labels=("World", "Arm"), current=1))
+        self.assertIsNone(rigmodules.query.find_control_space(OTHER_CONTROL))
+        with self.assertRaises(RuntimeError):
+            rigmodules.query.find_control_space(rig_name("fkchain_1"))

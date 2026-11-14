@@ -30,6 +30,19 @@ using ControlChannelList = std::vector<std::pair<std::string, std::vector<Contro
 // One JSON object keyed by control name. Keys in ControlChannelKey, mirror names in ChannelMirror.
 std::string serializeControlChannels(const ControlChannelList& controls);
 
+// A control's space switch (D19, D50): the rigConstraint node that holds its drivers, the drivers' labels in driver
+// order, and the driver the control's `space` enum is on now.
+struct ControlSpace
+{
+	std::string constraint;
+	std::vector<std::string> labels;
+	int current = 0;
+};
+
+// One JSON object: {"constraint": "hero:arm_ctrl_l_space", "labels": ["World", "Chest"], "current": 1}. Keys in
+// ControlSpaceKey.
+std::string serializeControlSpace(const ControlSpace& space);
+
 // Flipping a Center control across the world YZ plane (D34). xOfLocalAxes holds the world X component of the
 // control's three unit rest axes. When one local axis lies along world X, the flip negates the translate on that
 // axis and the rotates on the other two, and this returns its index (0 to 2). Returns -1 when no axis does: the flip

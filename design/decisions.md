@@ -732,7 +732,7 @@ The first panel of phase 3 (D49). It shows the active rig, selects controls by m
 - **`ActiveRigTracker` gets a `changed` Event** and a public `refresh`, so the panel and the later library browser follow the active rig without polling.
 - **The controls are read once per rig change** (`get_rig_controls`), not per selection change. The panel lists no controls (author, 2026-11-14: the Outliner does that, and a copy would need its native selection, icons and spacing). The Select section has a button per module and side, a click selects and ctrl or shift adds, and nothing follows the viewport selection. The sections are labelled and fold.
 - **`posetools` gets plain functions** with explicit controls beside the `_interactive` ones.
-- **RigModules gains one read-only query** for a control's space switch (recommended: a new command `getRigControlSpace`, over adding `spaces` to `getRigControlInfo`), because no Python query finds a control's constraint, labels or current space.
+- **RigModules gains one read-only query** for a control's space switch: a new command `getRigControlSpace` (built 2026-11-14), over adding `spaces` to `getRigControlInfo`, because no Python query found a control's constraint, labels or current space. `rigmodules.query.find_control_space` wraps it.
 - **Rejected:** a channel box copy, two-way selection sync, selection sets as the control source, a control tree or a custom tree model, keying a space switch by default, a panel that updates a rig itself, and `ListModel` in this panel: it comes with the library browser.
 - **Consequence if accepted:** no node, attribute or name changes in RigModules, no D36 impact. The space row waits on the query.
 

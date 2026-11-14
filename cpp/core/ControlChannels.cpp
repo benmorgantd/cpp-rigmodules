@@ -34,6 +34,15 @@ std::string serializeControlChannels(const ControlChannelList& controls)
 	return result.dump();
 }
 
+std::string serializeControlSpace(const ControlSpace& space)
+{
+	nlohmann::json result;
+	result[ControlSpaceKey::Constraint] = space.constraint;
+	result[ControlSpaceKey::Labels] = space.labels;
+	result[ControlSpaceKey::Current] = space.current;
+	return result.dump();
+}
+
 int findMirrorAxis(const double xOfLocalAxes[3])
 {
 	for (int axis = 0; axis < 3; ++axis)

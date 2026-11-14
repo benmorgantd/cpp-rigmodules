@@ -34,8 +34,11 @@ rigmodules.query.get_rigs("hero")    # every rig built into the hero namespace
 | `get_rig_controls(rig_root, module_type=None, side=None, usage=None)` | A list of `RigControl` in module order, then each module's control order. Each filter is optional, takes one value or a list, and every one given must match. Wraps [`getRigControls`](commands.md#getrigcontrols) and [`getRigControlInfo`](commands.md#getrigcontrolinfo) |
 | `get_control(node)` | The `RigControl` for a rig control. Raises `RuntimeError` for any other node |
 | `find_control(node)` | Like `get_control`, but returns `None` for a node that isn't a rig control |
+| `find_control_space(control)` | A `ControlSpace` for a control with a space switch, or `None` when it has none. Raises `RuntimeError` for a node that isn't a rig control. Wraps [`getRigControlSpace`](commands.md#getrigcontrolspace) |
 | `get_channels(controls)` | A dict from each control's name to its list of `ControlChannel`, in one command call. Use it instead of `get_control_channels` in a loop |
 | `get_control_channels(control)` | A list of `ControlChannel`, the control's animation interface in channel box order. Raises `RuntimeError` for a node that isn't a rig control, or a custom channel with no mirror mode. Wraps [`getRigControlChannels`](commands.md#getrigcontrolchannels) |
+
+`ControlSpace` is a frozen dataclass: `constraint` (the `rigConstraint` node, which `cmds.setRigConstraintSpace` takes), `labels` (a tuple, in driver order) and `current` (the index into `labels`).
 
 `RigControl` is a frozen dataclass: `node`, `module` (the module node that owns it), `module_type` (`"Layout"`, `"FkChain"` or `"Aim"`), `side`, `usage` and `mirror` (the control on the other side, itself for a Center control, `None` when a side control has none).
 

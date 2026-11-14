@@ -76,6 +76,13 @@ class ReadmeQuickStart(RigTestCase):
         self.rotate_spine3_z(90)
         self.assertWorldTranslation(ARM_JNT, ARM_AFTER_SPINE3_ROTATE_Z_90)
 
+    def test_get_rig_control_space_example(self):
+        """The example under '## getRigControlSpace' in docs/commands.md."""
+        cmds.createRigConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
+        self.assertEqual(json.loads(cmds.getRigControlSpace(ARM_CTRL)),
+                         {"constraint": "hero:arm_ctrl_l_space", "labels": ["World", "Chest"], "current": 1})
+        self.assertEqual(cmds.getRigControlSpace(SPINE3_CTRL), "")
+
 
 def templates_doc_orient_constraint():
     """The first ```json block under '### Constraint types' in docs/templates.md."""

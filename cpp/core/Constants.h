@@ -233,6 +233,14 @@ namespace ControlChannelKey
 	inline constexpr const char* Mirror{ "mirror" };
 }
 
+// Keys of getRigControlSpace's JSON result. Public API, read through the rigmodules Python package.
+namespace ControlSpaceKey
+{
+	inline constexpr const char* Constraint{ "constraint" };
+	inline constexpr const char* Labels{ "labels" };
+	inline constexpr const char* Current{ "current" };
+}
+
 // Keys of one control in getRigControlInfo's JSON result (D34). Public API, read through the rigmodules Python package.
 namespace ControlInfoKey
 {

@@ -19,6 +19,7 @@
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MGlobal.h>
+#include <maya/MPlugArray.h>
 #include <maya/MPxTransform.h>
 #include <maya/MTransformationMatrix.h>
 #include <maya/MVector.h>
@@ -577,6 +578,43 @@ MStatus RigConstraintNode::buildFromTemplate(
 	}
 
 	return anyFailed ? MStatus::kFailure : MStatus::kSuccess;
+}
+
+// ------------------------------------------------------------------
+// Reading a control's space switch
+// ------------------------------------------------------------------
+bool RigConstraintNode::getControlSpace(const MObject& oControl, ControlSpace& outSpace)
+{
+	MStatus status;
+	MFnDependencyNode fnControl(oControl);
+	MPlug pSpace = fnControl.findPlug(RigAttr::ControlSpace, false, &status);
+	if (!status)
+	{
+		return false;
+	}
+
+	// The enum drives the constraint's activeDriver, which is how the two are found from each other (D19).
+	MPlugArray pDestinations;
+	pSpace.destinations(pDestinations, &status);
+	for (unsigned int i = 0; i < pDestinations.length(); ++i)
+	{
+		const MObject oConstraint = pDestinations[i].node();
+		if (MFnDependencyNode(oConstraint).typeId() != id || pDestinations[i].attribute() != aActiveDriver)
+		{
+			continue;
+		}
+
+		outSpace.constraint = MFnDependencyNode(oConstraint).name().asChar();
+		outSpace.labels.clear();
+		MPlug pDrivers(oConstraint, aDrivers);
+		for (unsigned int e = 0; e < pDrivers.numElements(); ++e)
+		{
+			outSpace.labels.push_back(pDrivers.elementByPhysicalIndex(e).child(aDriverLabel).asString().asChar());
+		}
+		outSpace.current = pSpace.asShort();
+		return true;
+	}
+	return false;
 }
 
 // ------------------------------------------------------------------

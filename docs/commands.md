@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId` and `pruneToMaxInfluences` when no mesh is named.
-- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigMirrorControl`, `getRigKeys` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
+- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `getRigMirrorControl`, `getRigKeys` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -303,6 +303,27 @@ data["hero:upperArm_l_ctrl_l"]
 Objects: one or more rig controls. Returns a JSON object keyed by control name. From Python, [`rigmodules.query.get_control`](python.md#rigmodulesquery) and `get_rig_controls` wrap it.
 
 - **`mirror`** is the control with the same usage on the other side ([`getRigMirrorControl`](#getrigmirrorcontrol)). A `Center` control is its own mirror, and a side control with no mirror gives `null` where `getRigMirrorControl` raises an error.
+- Not undoable: it changes nothing.
+
+## getRigControlSpace
+
+Reports a control's space switch: the constraint that holds its drivers, the drivers' labels and the space it is in now. It is how a tool finds the constraint to hand to [`setRigConstraintSpace`](#setrigconstraintspace) from a control.
+
+```python
+import json
+text = cmds.getRigControlSpace("hero:arm_ctrl_l")
+json.loads(text)
+# {"constraint": "hero:arm_ctrl_l_space", "labels": ["World", "Chest"], "current": 1}
+```
+
+Object: exactly one rig control. Returns a JSON string, or an empty string for a control that has no space switch. A control built with a single driver has none: the `space` enum exists only for two or more drivers. From Python, [`rigmodules.query.find_control_space`](python.md#rigmodulesquery) wraps it.
+
+| Key | Meaning |
+|---|---|
+| `constraint` | The `rigConstraint` node. Pass it to `setRigConstraintSpace`. |
+| `labels` | The driver labels in driver order, which is the order of the `space` enum. |
+| `current` | The index into `labels` that the control is in now. |
+
 - Not undoable: it changes nothing.
 
 ## getRigControlChannels

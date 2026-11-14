@@ -207,7 +207,7 @@ Every command is an `MPxCommand` with the same shape (D14):
 | `CreateRigCmd` | `createRigFromTemplate` | `RigRootNode::createRig` |
 | `ConstraintCmds` | `createRigConstraint`, `setRigConstraintSpace` | `RigConstraintNode` |
 | `JointMarkupCmd` | `rigJointMarkup` | `JointMarkupScene` |
-| `RigControlCmds` | `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigMirrorControl`, `saveRigControlShapes`, `loadRigControlShapes`, `mirrorRigControlShapes` | `RigTraversal`, `RigPoseScene`, `ControlShapeScene` |
+| `RigControlCmds` | `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `getRigMirrorControl`, `saveRigControlShapes`, `loadRigControlShapes`, `mirrorRigControlShapes` | `RigTraversal`, `RigPoseScene`, `ControlShapeScene` |
 | `RigPoseCmds` | `zeroRigControls`, `mirrorRigPose`, `flipRigPose`, `saveRigPose`, `loadRigPose` | `RigPoseScene` |
 | `RigKeyCmds` | `getRigKeys`, `setRigKeys`, `saveRigAnimation`, `loadRigAnimation` | `RigKeyScene` |
 | `RigInverseCmds` | `poseRigFromJointPose`, `animateRigFromJointClip` | `RigInverse`, then `RigPoseScene` or `RigKeyScene` |

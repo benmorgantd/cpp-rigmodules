@@ -18,6 +18,7 @@ COMMAND_FLAGS = {
     "getRigControls": ["moduleType", "side", "usage"],
     "saveRigControlShapes": ["file"],
     "loadRigControlShapes": ["file"],
+    "getRigControlSpace": [],
     "getRigMirrorControl": [],
     "mirrorRigControlShapes": ["leftToRight"],
     "getRigInfo": [],

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Constants.h"
+#include "core/ControlChannels.h"
 #include "core/RigJsonStructs.h"
 #include "maya/shared/RigModule.h"
 
@@ -89,6 +90,10 @@ public:
 		const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,
 		const MObject& oRigRoot,
 		MDagModifier& dagMod);
+
+	// The space switch of a rig control: its constraint, the drivers' labels and the driver its `space` enum is on.
+	// Returns false for a control that has no space switch (no `space` enum, as with a single driver). Read only.
+	static bool getControlSpace(const MObject& oControl, ControlSpace& outSpace);
 
 	// Switch space without a jump: sets the control's translate, rotate and scale so it keeps its world matrix
 	// under the new driver, then sets the enum. Sets no keys.

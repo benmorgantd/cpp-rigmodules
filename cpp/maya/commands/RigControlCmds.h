@@ -94,6 +94,20 @@ public:
 	static const char* aCommandString;
 };
 
+// cmds.getRigControlSpace("rig:arm_ctrl_l")
+//   -> a JSON object {"constraint": ..., "labels": [...], "current": n}, keys in ControlSpaceKey (D50), or an empty
+//   string for a control with no space switch. Exactly one control, by name. Query only, so not undoable.
+class GetRigControlSpaceCmd : public MPxCommand
+{
+public:
+	MStatus doIt(const MArgList& args) override;
+	bool isUndoable() const override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const char* aCommandString;
+};
+
 // cmds.mirrorRigControlShapes("rig:rigRoot", leftToRight=True)
 //   -> the names of the controls changed. Reflects every Left control's shape across world X = 0 onto its Right
 //   mirror (or Right onto Left with leftToRight=False), using rest world matrices (D28). Undoable.

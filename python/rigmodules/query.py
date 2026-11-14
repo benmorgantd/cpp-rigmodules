@@ -49,6 +49,15 @@ class RigControl:
     mirror: str | None     # the control on the other side. A Center control is its own mirror. None when it has none.
 
 
+@dataclasses.dataclass(frozen=True)
+class ControlSpace:
+    """A control's space switch (D19, D50). Built from getRigControlSpace's JSON result."""
+
+    constraint: str        # the rigConstraint node: the argument of setRigConstraintSpace
+    labels: tuple[str, ...]  # the driver labels, in driver order. The `space` enum lists the same names
+    current: int           # the index in labels that the control is in now
+
+
 RIG_ROOT_TYPE = "rigRootModule"
 RIG_CONTROL_TYPE = "rigControlNode"
 
@@ -93,6 +102,16 @@ def get_control_channels(control: str) -> list[ControlChannel]:
     RuntimeError for a node that isn't a rig control, or a custom channel that declares no mirror mode."""
     (entries,) = json.loads(cmds.getRigControlChannels(control)).values()
     return [ControlChannel(**entry) for entry in entries]
+
+
+def find_control_space(control: str) -> ControlSpace | None:
+    """The space switch of a rig control, or None when it has none. Raises RuntimeError for a node that isn't a rig
+    control."""
+    text = cmds.getRigControlSpace(control)
+    if not text:
+        return None
+    data = json.loads(text)
+    return ControlSpace(constraint=data["constraint"], labels=tuple(data["labels"]), current=data["current"])
 
 
 def get_rig_controls(
