@@ -12,14 +12,14 @@ The boundary is decided (D24, [`design/mayadev-integration.md`](../design/mayade
 |---|---|---|
 | Rig build | `createRigFromTemplate` (`template`, `asset`, `namespace`) | `bmaya.maya.assettools.build_rig` |
 | Which rig, which asset | `rigmodules.query`: `get_rig_info`, `find_rig_info`, `get_rigs`, `RigInfo` (`rig_root`, `asset_id`, `variant`, `namespace`), `get_rig_controls`, `find_control`, `RIG_CONTROL_TYPE`. `rigmodules.template.get_rig_name` | `activerig`, `assettools`, `posetools`, `assethandlers` |
-| Joint markup | `rigJointMarkup` (query and remove) | `assettools.print_joint_markup_ui` and `remove_joint_markup_ui` |
+| Joint markup | `rigJointMarkup` (query and remove) | `assettools.print_joint_markup_interactive` and `remove_joint_markup_interactive` |
 | Controls and shapes | `getRigControls`, `getRigMirrorControl`, `saveRigControlShapes`, `loadRigControlShapes`, `mirrorRigControlShapes` | `assettools` (including the Mirror Shapes tools), `posetools` (Select All and Select Mirror Controls), `assethandlers.RigShapesHandler` |
 | Poses | `zeroRigControls`, `mirrorRigPose`, `flipRigPose`, `saveRigPose`, `loadRigPose`, `rigmodules.pose.key_rig`, `key_modules` | `posetools`, `assethandlers.ControlPoseHandler`, `assettools` |
 | Animation | `saveRigAnimation`, `loadRigAnimation` | `assethandlers.ControlAnimHandler` and `AnimClipHandler`, `assettools` |
 | Clips | `poseRigFromJointPose`, `animateRigFromJointClip` (`jointPose`, `jointClip`, `sidecar`), `rigmodules.jointclip`: `capture_joint_clip`, `write_fbx`, `read_fbx`, `write_skeleton_fbx`, `check_skeleton_match` | `assethandlers.AnimClipHandler`, `save_skeleton_export`, `assettools` |
 | Skin weights | `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `rigmodules.skinweights`: `get_mesh_id`, `get_meshes`, `get_skinned_meshes`, `read_file_mesh_id` | `assethandlers.RigSkinWeightsHandler`, `assettools` |
 | Imported model | `rigmodules.displaylayers.add_meshes`, `rigmodules.groups.parent_meshes` | `assettools.build_rig` |
-| Asset id | The id rules in `core/AssetId` and the `assetId` on a built rig | `bmaya.asset.assetid`, the same rules in Python |
+| Asset id | The id rules in `core/AssetId` and the `assetId` on a built rig | `bmaya.core.asset.assetid`, the same rules in Python |
 
 mayadev also reads RigModules' data formats as files, not through a function: it chooses where a shape file, weight file, ControlPose, ControlAnim or FBX clip lives, and passes that path to the command. It never parses them, except that `rigmodules.jointclip` converts FBX.
 

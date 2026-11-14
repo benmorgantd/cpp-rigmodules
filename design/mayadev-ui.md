@@ -1,6 +1,6 @@
 # mayadev user interfaces: thin views over headless workflows
 
-**Status:** Leaning (D49). Written 2026-11-14 from a read of mayadev `main` (two commits ahead of `origin/main`) and the author's rules below. The author answered the open questions the same day (section 9). Nothing is built, and nothing in this document was run: every claim about the current code comes from reading it. The code it would change is in mayadev, and mayadev keeps its design history here (mayadev `docs/README.md`). Changes to mayadev need the author's go-ahead and a commit there.
+**Status:** Decided (D49). Written 2026-11-14 from a read of mayadev `main` (two commits ahead of `origin/main`) and the author's rules below. The author answered the open questions the same day (section 9). Phase 1 is built on mayadev branch `ui-phase1`, not yet merged, with the differences and what was verified in section 10. Phases 2 and 3 are not built. Section 2 describes the code before phase 1. The code it would change is in mayadev, and mayadev keeps its design history here (mayadev `docs/README.md`). Changes to mayadev need the author's go-ahead and a commit there.
 
 The goal is a UI layer that is only a view. Every pipeline action, and every question a tool asks the user, runs the same way in a GUI Maya, a mayapy batch job and a plain-Python test. The UI binds widgets to state that lives somewhere else.
 
@@ -370,4 +370,45 @@ The active rig panel, and the pose and animation library browser (`control-libra
 4. **The `*_ui` names** are renamed (section 3.8). The suffix `_interactive` is this document's proposal.
 5. **The prompter** uses Qt dialogs. `cmds` UI only where Maya is the host, which is the docking and the main menus (section 3.5).
 
-Still open: the `_interactive` suffix itself, and whether `register()` should also start the active rig tracker, which `userSetup.py` starts now.
+The author started phase 1 with the `_interactive` suffix as proposed. `userSetup.py` still starts the active rig tracker, outside `register()`.
+
+## 10. As built: phase 1 (2026-11-14)
+
+Phase 1 is built on mayadev branch `ui-phase1`, not committed or merged yet. The author started it with the `_interactive` suffix as proposed, and `userSetup.py` still starts the active rig tracker. The user-facing description is in mayadev `docs/architecture.md` (the registration pass, questions a tool asks), `docs/framework.md` (logger, `Event`, the Qt layer) and `docs/setup.md` (startup).
+
+### Differences from the text above
+
+| Section | Designed | Built | Why |
+|---|---|---|---|
+| 3.1 | One `reset()` per slot module | `reset_writers()`, `reset_prompter()`, `reset_hooks()` | A module can own more than one thing, so each reset names its slot |
+| 3.1 | File handlers filled by `maya.startup` | Each tool still calls `bmaya.maya.assethandlers.register()` itself | A mayapy job that never ran startup must still save and load files. The handlers stay the precedent, not a startup slot |
+| 3.1 | Progress watched through `maya_ui.startup` | `userSetup.py` opens `ProgressWindow` and keeps it in `_progress_window` | The window is created during startup anyway, and the `Event` holds it weakly, so the owner keeps it alive |
+| 3.1 | `maya.startup.register()` fills the log writers | Only in a GUI session. In batch it resets them to stdout | `maya -batch` and mayapy then log where the batch framework captures. This fixes mayadev's known problem of a batch session getting the Maya handler |
+| 3.3 | A `RegistryEditSession` | Not built (phase 2) | |
+| 3.4 | `confirm(title, message)` | `confirm(title, message, accept="OK")` | The replace confirm needs a Replace button, not OK |
+| 3.4 | Only the `*_interactive` functions ask | The five plain functions with a file fallback (`save_rig`, `save_control_shapes`, `load_control_shapes`, `save_skin_weights`, `load_skin_weights`) take `prompter=None` too | They ask only when the asset folder doesn't exist. With an asset they never ask, so batch calls them as before |
+| 3.4 | | `Question` (kind, title, message, options, default) and `ScriptedPrompter.remaining` | Tests check what was asked (a dialog's starting folder, a confirm's button) and that every answer was used |
+| 3.5 | `QtPrompter` parented by `host.py` | `QtPrompter(parent_window)` takes a callable; `maya_ui.startup` passes `qtbase.get_maya_main_window` | `host.py` is phase 2. The prompter already imports no Maya |
+| 3.5 | `tool_views/tool_menu.py` becomes `menus.py` | Not moved (phase 2). It gained `delete_plugin_menus`, and `reload_menus` from `devreload.reload_menu` | Reload Menu is only UI, so it moved with the menus. Its tool id is unchanged and its `call` changed |
+| 3.6 | `field_widget`, `DataclassForm`, `SignatureForm` in phase 2 | `maya_ui/widgets.py` with `FieldEditor` and `DataclassForm` in phase 1; `ArgumentRow` built on `FieldEditor`; no `SignatureForm` | Edit Clip Properties used a `cmds.layoutDialog`, and rule 8 needed a Qt form for it now. The argument form is a thin layer over `FieldEditor`, so a second class wasn't needed |
+| 3.6 | | An `Enum` field reads back its member; `ArgumentRow` converts it to the member's value | A dataclass holds the member, the registry's JSON holds the value. The old editor code returned the value and couldn't show a member |
+| 3.8 | `show_ui`, `show_menu_editor_ui` → `show_window` | As designed | |
+| 4 | Remove the unused `Table` members | `Table` and `List` deleted | Nothing used either class |
+| 7 | `Event` holds bound methods weakly | A Python bound method weakly, a built-in method (`list.append`) strongly | `weakref.WeakMethod` rejects a built-in method; a test found it |
+
+### Verified
+
+- mayadev's suites, run with a copy of the RigModules build: 60 asset tests and 75 core tests in plain Python; 81 asset, 46 core and 43 menu tests in mayapy. 305 in all (270 before), none skipped.
+- `test_core_layers.py` run against the pre-change code fails on exactly the breaks section 2.1 lists: `core/log.py`'s Maya imports, `devreload`'s import of `maya_ui`, and the four `cmds` dialog commands in `assettools`.
+- The startup smoke test (`tests/basic/startup_test`) through the batch framework: `userSetup.py` runs the Maya registration pass in batch, and its log lines reach `session_output.log`.
+- A GUI Maya through `mayalaunch.run_gui`, with the author's `userSetup.py`: after startup the prompter is `QtPrompter`, the log writers are `MGlobal`'s, the reload hooks are the menu functions, both menus are built (RigModules from a copy of the plugin), the progress window listens and has finished, and a `FormDialog` for `ClipSettings` builds its three rows on Maya's main window.
+
+### Not verified
+
+- A person clicking each menu tool in a GUI Maya and answering its Qt dialogs. The dialogs' look and layout were not seen.
+- Reload RigModules and Unload RigModules in a GUI session after the change. Their hook order is tested with Maya's calls replaced.
+
+### Found while testing
+
+- In mayapy, a real dev reload tear-down (new scene, undo flush) run after `test_maya_tool_editors.py` crashed Maya in `TundoManager::storeCommand`. The hook tests replace `devreload`'s `cmds` for that reason. The cause was not investigated, and it hasn't been seen in a GUI session.
+- A second `maya.standalone.initialize` in the same process, after the editor tests, crashed once in `melRemoveDynamicProc`. `test_maya_ui_layer.py` initializes only when Maya isn't up yet.
