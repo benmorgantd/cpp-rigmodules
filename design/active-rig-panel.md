@@ -1,6 +1,6 @@
 # The active rig panel
 
-**Status:** Decided (D50), written 2026-11-14, and the author answered the five open questions the same day (section 11). Not built. It is the first item of phase 3 in `mayadev-ui.md` (section 5). The code it changes is in mayadev, plus one small query gap in RigModules (section 6). Changes to mayadev need the author's go-ahead and a commit in that repo.
+**Status:** Decided (D50), written 2026-11-14, and the author answered the five open questions the same day (section 11). Phase 1 is built (section 12), the rest is not. It is the first item of phase 3 in `mayadev-ui.md` (section 5). The code it changes is in mayadev, plus one small query gap in RigModules (section 6). Changes to mayadev need the author's go-ahead and a commit in that repo.
 
 ## 1. The problem it solves
 
@@ -238,3 +238,15 @@ The questions as first asked, kept for the history:
 3. **One window or two for the panel and the library?** Recommendation: two panels. They have different lifetimes (the library is opened to load something and closed), and a tab can be added later with no change to either.
 4. **Where does `changed` live?** On the tracker class (survives `stop()`, as proposed) or on the instance (a view reconnects after a dev reload, and a view that does not leaks nothing because bound methods are weak). Recommendation: the class, because the dev reload tool restarts the tracker and the panel should not have to know.
 5. **Which control scope for Key?** `key_all_controls` keys the whole rig and `key_selected_modules` keys the modules of the selection. The panel shows both. Is a third ("key selected controls") wanted? It is a one-line function over `rigmodules.pose.key_controls`, but each button is one more thing to learn.
+
+## 12. Phase 1 as built (2026-11-14)
+
+Built on mayadev branch `ui-phase1`, commit `62fabc6`. Checked by mayadev's suites against a copy of the RigModules build: tests/core 62, tests/asset 103 (22 new in `test_maya_rigpanel.py`) and tests/rigging/rigmodules_menu 43, all in mayapy, and the plain asset (60) and core (112) suites. No GUI check, because nothing draws yet.
+
+| Section | Designed | Built | Why |
+|---|---|---|---|
+| 3.1 | `build_rig` calls `tracker.refresh()` | `build_rig` calls `tracker.set_rig_root(rig_root)`, so the built rig becomes active | `refresh()` picks the selection's rig, else the scene's first rig. A build clears the selection, so after building a second rig `refresh()` would have left the first one active. Behavior change: after a build the new rig is active |
+| 3.1 | `refresh` is `update_from_scene` made public | `update_from_scene` is renamed `refresh` (no other caller), and it emits `changed` even when the rig is the same | The panel's rig list can change under an unchanged active rig |
+| 3.2 | `RigPanelSession` has `get_space`, `set_space`, `spaces_changed`, `get_status` | Left out | They are phase 3 and 4. Nothing in phase 1 reads them |
+| 3.2 | The session reads the tracker | Its constructor starts the tracker singleton if none runs | A test or a mayapy job gets a working session with no startup |
+| 3.3 | Plain functions, log line in the `*_interactive` ones | The log line is in the plain function, and `*_interactive` is the plain function on `get_scope()` | One home for the message. The interactive functions keep their docstrings, which the call picker shows |
