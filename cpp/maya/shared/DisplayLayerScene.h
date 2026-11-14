@@ -9,11 +9,13 @@
 #include <maya/MStatus.h>
 #include <maya/MString.h>
 
-// A display layer to create: its absolute name (":rig:jointsLayer") and the DAG nodes it holds.
+// A display layer to create: its absolute name (":rig:jointsLayer"), the DAG nodes it holds and whether the layer's
+// members are hidden while the timeline plays (the layer's hideOnPlayback).
 struct DisplayLayerSpec
 {
 	MString name;
 	MObjectArray members;
+	bool hideOnPlayback{ false };
 };
 
 class DisplayLayerScene

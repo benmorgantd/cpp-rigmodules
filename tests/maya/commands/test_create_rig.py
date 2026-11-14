@@ -290,6 +290,11 @@ class DisplayLayers(RigTestCase):
         self.assertEqual(self.members(rig_name("controlsLayer")), sorted(controls))
         self.assertEqual(self.layer_of(body), [])
 
+    def test_only_the_controls_layer_hides_on_playback(self):
+        self.build_standard(TEMPLATE, SKELETON)
+        for name in self.LAYERS.values():
+            self.assertEqual(cmds.getAttr(rig_name(name) + ".hideOnPlayback"), name == "controlsLayer", name)
+
     def test_layers_are_in_the_layer_editor(self):
         self.build_standard(TEMPLATE, SKELETON)
         ids = [cmds.getAttr(rig_name(n) + ".identification") for n in self.LAYERS.values()]
