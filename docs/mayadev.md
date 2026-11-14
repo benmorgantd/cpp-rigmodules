@@ -12,8 +12,8 @@ The boundary is decided (D24, [`design/mayadev-integration.md`](../design/mayade
 |---|---|---|
 | Rig build | `createRigFromTemplate` (`template`, `asset`, `namespace`) | `bmaya.maya.assettools.build_rig` |
 | Which rig, which asset | `rigmodules.query`: `get_rig_info`, `find_rig_info`, `get_rigs`, `RigInfo` (`rig_root`, `asset_id`, `variant`, `namespace`), `get_rig_controls`, `find_control`, `RIG_CONTROL_TYPE`. `rigmodules.template.get_rig_name` | `activerig`, `assettools`, `posetools`, `assethandlers` |
-| Joint markup | `rigJointMarkup` (query and remove) | Two registry scripts in `toolsets/master_tool_registry.json` |
-| Controls and shapes | `getRigControls`, `getRigMirrorControl`, `saveRigControlShapes`, `loadRigControlShapes`, `mirrorRigControlShapes` | Registry scripts, `assethandlers.RigShapesHandler`, `assettools` |
+| Joint markup | `rigJointMarkup` (query and remove) | `assettools.print_joint_markup_ui` and `remove_joint_markup_ui` |
+| Controls and shapes | `getRigControls`, `getRigMirrorControl`, `saveRigControlShapes`, `loadRigControlShapes`, `mirrorRigControlShapes` | `assettools` (including the Mirror Shapes tools), `posetools` (Select All and Select Mirror Controls), `assethandlers.RigShapesHandler` |
 | Poses | `zeroRigControls`, `mirrorRigPose`, `flipRigPose`, `saveRigPose`, `loadRigPose`, `rigmodules.pose.key_rig`, `key_modules` | `posetools`, `assethandlers.ControlPoseHandler`, `assettools` |
 | Animation | `saveRigAnimation`, `loadRigAnimation` | `assethandlers.ControlAnimHandler` and `AnimClipHandler`, `assettools` |
 | Clips | `poseRigFromJointPose`, `animateRigFromJointClip` (`jointPose`, `jointClip`, `sidecar`), `rigmodules.jointclip`: `capture_joint_clip`, `write_fbx`, `read_fbx`, `write_skeleton_fbx`, `check_skeleton_match` | `assethandlers.AnimClipHandler`, `save_skeleton_export`, `assettools` |
@@ -25,7 +25,7 @@ mayadev also reads RigModules' data formats as files, not through a function: it
 
 ## Before changing a name mayadev uses
 
-A rename, a removed flag or a changed return shape in anything in the table breaks mayadev, and the break is quiet in two places: the menu scripts in `toolsets/master_tool_registry.json` are Python strings in JSON, and mayadev's Maya tests skip without a plugin build.
+A rename, a removed flag or a changed return shape in anything in the table breaks mayadev, and the break is quiet because a command is called inside a mayadev function and mayadev's Maya tests skip without a plugin build. The menu entries in `toolsets/master_tool_registry.json` name a mayadev function (a module, a function and keyword arguments) and hold no code, so they are not a place to search.
 
 1. **Find the call sites.** In a local session, search the mayadev checkout (`C:\Users\bmorgan\Documents\dev\maya\mayadev`). In a cloud session, `benmorgantd/mayadev` is in the session's repository scope and is cloned beside this repo (attach it with `add_repo` when it isn't). Search `py/scripts`, `toolsets` and `tests`:
 

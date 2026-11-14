@@ -1,6 +1,6 @@
 # mayadev tool registry: fixes and format version 2
 
-**Status:** proposal (D47, Leaning). Nothing here is built. It is written from the author's review of 2026-11-14. The code it changes is in mayadev, and mayadev keeps its design history here (mayadev `docs/README.md`).
+**Status:** built in mayadev, 2026-11-14 (D47). It was written from the author's review of that day. The code it changes is in mayadev, and mayadev keeps its design history here (mayadev `docs/README.md`). Section 7 lists what differs from the text below, what was verified and what was not. The user-facing description is mayadev `docs/tools.md`.
 
 The registry stays three kinds of plain JSON file, edited by hand or in the two editors: one registry of tools and one layout per menu. What changes: every file is checked before it is used, with every problem reported at once. A tool names a function instead of carrying a Python string. Tools get readable ids. And the files carry a version with update steps.
 
@@ -337,3 +337,21 @@ This closes two gaps listed in mayadev `docs/status.md`: the registry has no tes
 2. **The RigModules menu keeps a plugin flag** in `MenuSpec`, and is built only while the plugin is loaded. The dev tools move to the bmaya menu so they stay reachable after an unload (3.7), approved by the author.
 3. **The `__main__` globals fix is skipped.** Phase 2 removes `exec`.
 4. **`short_name` uniqueness waits for the shelf view.**
+
+## 7. As built (2026-11-14)
+
+Phases 1 and 2 were built in one change, because phase 2 keeps every phase 1 fix and the phase 1 files would have been thrown away. The version 1 to 2 rewrite ran once (47 tools: the 48 minus `Create a Cube`), and its script was not kept.
+
+**Differences from the text above:**
+
+- **Module completer.** It reads the package folders with `os.walk` and imports nothing. `pkgutil.walk_packages` skips a folder with no `__init__.py`, and `bmaya` and `bmaya.maya` are namespace packages, so it missed `bmaya.maya.posetools`. A test found it.
+- **`icon` and `enabled` are optional when reading** a registry entry (`id`, `name`, `short_name` and `call` are required), and `call.kwargs` is optional. A save writes every key.
+- **Extra API.** `load_all(registry_path, layout_paths)` backs `build_menus` and the editors' Save (one `ToolDataError` for every broken file). `check_call(call)` returns one tool's messages for the editor's status line. `ToolDataError.combine` merges errors. `ToolError` can carry the tool id (`resolve_call(call, tool_id)`).
+- **`resolve_call` turns any import failure into `ToolError`**, not only `ImportError`, so a tool module that raises when imported breaks only its own items. An empty module or function is a `ToolError` too (a new tool starts with an empty call).
+- **A layout is still checked when its menu's plugin is missing**, and a registry that fails its check still lets layouts report their structure (without their references), so one reload shows every problem.
+- **Tests** are in mayadev `tests/core` (plain Python, and offscreen Qt in mayapy) and `tests/rigging/rigmodules_menu`. A Qt window in mayapy needs the `QApplication` created before `maya.standalone.initialize`: standalone otherwise starts a `QCoreApplication` and creating a widget aborts the process. The editor tests cover the tree and `Layout` round trip, so section 4's "decide at implementation" is decided: covered.
+
+**Verified:** the plain Python suite, the menu suite with a plugin build (every registry call resolves and binds, each tool runs in mayapy), both editors and `build_menus` offscreen with the menu drawing replaced.
+
+**Not verified:** the real menus in a GUI Maya (`ToolMenu.build_ui` needs `MayaWindow`), startup through `userSetup.py`, Reload Menu, Reload RigModules and Unload RigModules (the pluginInfo check by plugin name `RigModules` in particular), and the editors with a mouse.
+
