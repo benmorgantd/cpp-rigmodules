@@ -18,7 +18,7 @@ It is a launcher and a state display over functions that already exist. It adds 
 ### What it does not do
 
 - **No channel box.** Maya's channel box already shows and edits a control's keyable channels, and `getRigControlChannels` is the same list. A second one would be a worse copy (simplicity).
-- **No selection mirroring.** The tree does not highlight what is selected in the viewport. Two-way sync needs a guard against loops, and it costs a scene read on every selection change. The tree is one-way: a click selects.
+- **No control list, and no selection mirroring (author, 2026-11-14).** The panel does not list controls: Maya's Outliner does, and a copy would have to match the Outliner's ctrl and shift selection, icons and spacing to feel native, or it feels like a stock tree widget. The Select section has one button per module and side instead, and nothing in the panel follows the viewport selection (two-way sync needs a loop guard and a scene read on every selection change).
 - **No library.** The pose and animation library browser is its own panel (section 8). It reads the active rig from the same view-model.
 - **No build or asset UI.** That stays in the menu tools and is a separate design.
 
@@ -108,28 +108,29 @@ def flip_pose(scope: list[str]) -> int
 
 One `QWidget`, docked beside the Attribute Editor (`host.show(..., dock=True)`, object name `bmaya_active_rig_panel`). About 385 px wide, the host's default.
 
+Three framed sections with a bold title bar. Pressing a title folds the section, with a down arrow when open and a right arrow when folded (`widgets.CollapsibleSection`).
+
 ```
 +----------------------------------+
-| hero  (main)            [Refresh]|   rig picker: a label for one rig, a combo for several
-| newer publish exists (section 4.2)|   only when the rig is out of date
+| v Rig                            |
+|   hero  (main)         [Refresh] |   a label for one rig, a combo for several
+|   newer publish exists           |   only when the rig is out of date (section 4.2)
 +----------------------------------+
-| [filter............]            |
-| v arm_l  (FkChain)               |   module
-|     Left                         |   side, one row when a module has one side
-|       upperArm  lowerArm  hand   |   controls: a click selects, ctrl adds
-| v spine  (FkChain)               |
-|     Center ...                   |
-|  [All]   [Mirror]                |   select every control, select the other side
+| v Select                         |
+|   [All]  [Mirror]                |   every control, the controls on the other side
+|   [spine] [arm_l] [arm_r]        |   one button per module and side: a click selects,
+|   [leg_l] [leg_r] [head]         |   ctrl or shift adds
 +----------------------------------+
-| Pose   [Zero] [Mirror L>R] [R>L] |
-|        [Flip] [Key] [Key Module] |
+| v Pose                           |
+|   [Zero] [Mirror L>R] [R>L]      |
+|   [Flip] [Key] [Key Module]      |
 +----------------------------------+
-| Space  [ World | Chest | Hip ]   |   only when the selected control has one
-|        [ ] Key                   |   off by default (section 5)
+| v Space                          |   only when the selected control has one
+|   [ World | Chest | Hip ]  [ ] Key|   Key is off by default (section 5)
 +----------------------------------+
 ```
 
-- **The tree** is a `QTreeView` over a `QStandardItemModel` filled from `session.groups`, rebuilt when `changed` fires, with a `QSortFilterProxyModel` for the filter box. The model is small (a rig has tens of controls) and is replaced whole, so a custom `QAbstractItemModel` would cost more code than it saves. This is the call `mayadev-ui.md` section 3.6 made for the Menu Editor's tree.
+- **The group buttons** come from `session.groups`, rebuilt when `changed` fires, in a grid of three columns. A button is labelled by its module's name, plus the side when two groups share the module name. A rig has tens of modules at most, so the grid is not paged.
 - **The buttons** call one `session` method each. A button's slot is one line.
 - **The space row** is a `QButtonGroup` of the labels, built from `SpaceState.labels`, with the current one checked. It is hidden when `get_space()` is `None`.
 - **Empty state:** one label, "There is no RigModules rig in the scene.", and every other widget disabled.
@@ -139,7 +140,7 @@ One `QWidget`, docked beside the Attribute Editor (`host.show(..., dock=True)`, 
 
 | Event | Source | Panel does |
 |---|---|---|
-| Active rig changed | `ActiveRigTracker.changed` | `session.refresh()`, rebuild the tree |
+| Active rig changed | `ActiveRigTracker.changed` | `session.refresh()`, rebuild the group buttons |
 | New or opened scene | tracker (it already listens) | the same, through `changed` |
 | A rig built or deleted | the build workflow calls `tracker.refresh()`, or the Refresh button | the same |
 | Selection changed | the tracker's selection callback, only when it changes the rig | nothing, except the space row |
@@ -195,7 +196,7 @@ Nothing else changes in RigModules: no node, no attribute, no name. D36 is not a
 | `RigPanelSession` on a built rig (Human) | mayapy, no Qt | `refresh` groups every control once and in module order, `select_group` selects exactly the group, `set_active` changes the tracker and emits `changed`, a deleted rig gives the empty state, a broken rig logs and does not raise |
 | `ActiveRigTracker.changed` | mayapy | emits on a selection that changes the rig, does not emit on one that does not, survives `stop()` and a new tracker |
 | `posetools` plain functions | mayapy | explicit controls give the same result as the `_interactive` ones, which are now one line each |
-| `RigPanel` offscreen | mayapy with `QT_QPA_PLATFORM=offscreen` | the tree matches `session.groups`, the filter hides rows, each button calls its session method (a fake session records the calls), the space row is hidden for a control with no space |
+| `RigPanel` offscreen | mayapy with `QT_QPA_PLATFORM=offscreen` | a button per group, three folding sections and no tree, ctrl and shift add, each button calls its session method (a fake session records the calls), the space row is hidden for a control with no space |
 | Layer test | plain Python | `maya_ui/rigpanel.py` imports `PySide6` and `bmaya.maya.rigpanel` only, and `maya/rigpanel.py` imports no Qt. `maya_ui` imports Maya only in `host.py` and `menus.py` (the rule from phase 2 holds) |
 | `find_control_space` or `getRigControlSpace` | RigModules, commands tier | a control with two drivers returns its labels and current, a control with none returns `None`, an invalid node raises |
 
@@ -219,7 +220,7 @@ Each phase leaves every menu tool working and is reviewable alone.
 - **New public surface in mayadev:** `ActiveRigTracker.changed` and `refresh`, `RigPanelSession` and `ControlGroup`, `SpaceState`, three plain `posetools` functions, one tool id.
 - **New public surface in RigModules:** one query (section 6), with its docs and tests.
 - **Cost on the selection hot path:** none while the panel is closed. While it is open, one `cmds.ls` with a type filter per selection change, and one query only when exactly one control is selected.
-- **Rejected:** a channel box (a copy of Maya's), two-way selection sync (loop guard and a per-selection scene read), selection sets as the control source (a second source for a list already in hand), a custom `QAbstractItemModel` for the tree (more code than the small model it would serve), keying inside `set_space` without a decision (section 5), `getRigControlInfo` with spaces for every control (option A).
+- **Rejected:** a channel box (a copy of Maya's), two-way selection sync (loop guard and a per-selection scene read), selection sets as the control source (a second source for a list already in hand), a control tree, with or without a filter (the author did not want an Outliner copy: section 13.2), keying inside `set_space` without a decision (section 5), `getRigControlInfo` with spaces for every control (option A).
 
 ## 11. Answers (author, 2026-11-14)
 
@@ -274,3 +275,14 @@ The author said dockable widgets crash Maya easily and that their older dock cod
 The manual check is `tests/gui/rigpanel/run.bat` in mayadev. It passes: the dock shows, three reopens work, a click selects, Key keys, a closed dock's session stops listening, a rig change after a close raises nothing, and the panel shows again.
 
 Not checked: the author's own `userSetup.py` and window layout (the Attribute Editor closed or in another dock), and dragging the tab to another dock area. A first version of the check showed the panel hidden right after docking. That was the check itself, which ran inside one Maya idle callback so the dock's deferred `restore` had not run. After going idle, the first restore shows it.
+
+### 13.2 No control tree, folding sections (2026-11-14)
+
+The author asked why the panel recreated the Outliner, and asked for labelled sections that fold. The tree, its filter and the standard item model are gone (mayadev `9cb5958`).
+
+Why the tree had been proposed, and why it is not kept: it let an animator select a limb without hunting for its controls, which would also free the screen space the Outliner takes. Keeping that value meant matching the Outliner's ctrl and shift selection, icons and spacing, and the Outliner already lists controls. What an animator needs from the panel is a way to select a module's controls in one press, and the Select section gives that with a button per module and side, without listing controls.
+
+- **Sections:** Rig, Select and Pose, each a `CollapsibleSection` (a framed box, a bold title and a down or right arrow). The space row will be a fourth.
+- **Removed:** `RigPanelSession.select_controls`, which only the tree called.
+- **Dock restore:** with the smaller panel the first `restore` after docking left the control hidden in 3 of 3 GUI Maya runs, and a second restore showed it. `host._restore` looks again after 300 ms. This corrects section 13.1, which called the first hidden check a harness artifact: it was partly one, and partly a race that the new panel made reproducible.
+- **Checked:** the GUI check passes 3 of 3 runs, now including the fold checks. mayapy: tests/core 76, tests/asset 104, tests/rigging/rigmodules_menu 43. Plain: core 112, asset 60.
