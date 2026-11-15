@@ -1,0 +1,13 @@
+{
+  "description": "Default blend is IK (ikFkBlend 1): every joint and marker joint sits at its rest, with no rotation. Rest: L1 = 3, L2 = 4, root (0,0,0), end (5,0,0), axis +X, pole at (2.5,5,0) so the bend is toward +Y. Reach d = 5: x = (25+9-16)/10 = 1.8, h = sqrt(9-3.24) = 2.4, mid = (1.8,2.4,0). ",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "expect": {
+    "upperArm_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, 0] },
+    "lowerArm_jnt": { "translate": [1.8, 2.4, 0], "rotate": [0, 0, 0] },
+    "hand_jnt": { "translate": [5, 0, 0], "rotate": [0, 0, 0] },
+    "handIk_jnt": { "translate": [5, 0, 0] },
+    "armPole_jnt": { "translate": [2.5, 5, 0] },
+    "armSettings_jnt": { "translate": [0, 8, 0] }
+  }
+}

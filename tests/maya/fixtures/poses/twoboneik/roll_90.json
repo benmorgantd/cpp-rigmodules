@@ -1,0 +1,11 @@
+{
+  "description": "Roll 90 degrees about the root-to-handle axis +X turns n from +Y to +Z: mid = 1.8*(1,0,0) + 2.4*(0,0,1) = (1.8,0,2.4), end (5,0,0). Both bone joints turn 90 degrees about X with the plane. The hand has no handle rotation, so it keeps its orientation.",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "set": { "handIk_ctrl_l.roll": 90 },
+  "expect": {
+    "upperArm_jnt": { "translate": [0, 0, 0], "rotate": [90, 0, 0] },
+    "lowerArm_jnt": { "translate": [1.8, 0, 2.4], "rotate": [90, 0, 0] },
+    "hand_jnt": { "translate": [5, 0, 0], "rotate": [0, 0, 0] }
+  }
+}

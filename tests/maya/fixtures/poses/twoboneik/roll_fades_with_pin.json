@@ -1,0 +1,10 @@
+{
+  "description": "Roll 90 with pin 0.5: the plane angle is roll*(1-pin) = 45 degrees, so n = (0,cos45,sin45) and the free mid is (1.8,1.697056,1.697056). The pole is at rest (2.5,5,0). mid = lerp(free, pole, 0.5) = (2.15,3.348528,0.848528). End (5,0,0).",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "set": { "handIk_ctrl_l.roll": 90, "armPole_ctrl_l.pin": 0.5 },
+  "expect": {
+    "lowerArm_jnt": { "translate": [2.15, 3.348528, 0.848528] },
+    "hand_jnt": { "translate": [5, 0, 0] }
+  }
+}

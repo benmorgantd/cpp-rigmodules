@@ -1,0 +1,11 @@
+{
+  "description": "At blend 0 rotating the FK lower control 90 degrees about Z swings the hand about the elbow: the lower bone vector (3.2,-2.4,0) becomes (2.4,3.2,0), so the hand is (1.8+2.4, 2.4+3.2, 0) = (4.2,5.6,0). The upper joint is untouched.",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "set": { "armSettings_ctrl_l.ikFkBlend": 0, "lowerArm_ctrl_l.rotateZ": 90 },
+  "expect": {
+    "upperArm_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, 0] },
+    "lowerArm_jnt": { "translate": [1.8, 2.4, 0], "rotate": [0, 0, 90] },
+    "hand_jnt": { "translate": [4.2, 5.6, 0], "rotate": [0, 0, 90] }
+  }
+}

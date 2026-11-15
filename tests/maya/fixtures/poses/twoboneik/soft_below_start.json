@@ -1,0 +1,10 @@
+{
+  "description": "Soft 1/7 so ds = soft*L = 1, da = L-ds = 6; the handle is on +X at distance d from the root, pole at rest (n = +Y). d = 5 is below da, so de = d = 5: the rest pose, unchanged.",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "set": { "armSettings_ctrl_l.soft": 0.142857 },
+  "expect": {
+    "lowerArm_jnt": { "translate": [1.8, 2.4, 0] },
+    "hand_jnt": { "translate": [5, 0, 0] }
+  }
+}

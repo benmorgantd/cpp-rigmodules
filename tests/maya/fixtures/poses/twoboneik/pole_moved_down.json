@@ -1,0 +1,11 @@
+{
+  "description": "Pole moved to (2.5,-5,0): n = -Y, so the elbow bends the other way. mid = (1.8,-2.4,0), end stays (5,0,0). Rest: L1 = 3, L2 = 4, root (0,0,0), end (5,0,0), axis +X, pole at (2.5,5,0) so the bend is toward +Y. Reach d = 5: x = (25+9-16)/10 = 1.8, h = sqrt(9-3.24) = 2.4, mid = (1.8,2.4,0). ",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "set": { "armPole_ctrl_l.translateY": -10 },
+  "expect": {
+    "lowerArm_jnt": { "translate": [1.8, -2.4, 0] },
+    "hand_jnt": { "translate": [5, 0, 0], "rotate": [0, 0, 0] },
+    "armPole_jnt": { "translate": [2.5, -5, 0] }
+  }
+}

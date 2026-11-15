@@ -1,0 +1,11 @@
+{
+  "description": "Handle moved by (-5,5,0) to (0,5,0), axis +Y, the pole control is at rest (2.5,5,0) and the pole's space is Ik (enum 1), so the pole follows the handle's motion since rest, (-5,5,0), and sits at (-2.5,10,0). Its perpendicular to the +Y axis is -X, n = -X, mid = (0,1.8,0) + 2.4*(-1,0,0) = (-2.4,1.8,0). Set directly with setAttr, so no match is done.",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "set": { "handIk_ctrl_l.translateX": -5, "handIk_ctrl_l.translateY": 5, "armPole_ctrl_l.space": 1 },
+  "expect": {
+    "lowerArm_jnt": { "translate": [-2.4, 1.8, 0] },
+    "hand_jnt": { "translate": [0, 5, 0] },
+    "armPole_jnt": { "translate": [-2.5, 10, 0] }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "description": "Rest bends toward +Z with the pole toward +Y (restPlaneAngle +90). Handle moved to (0,5,0): the axis is +Y, the pole's perpendicular is +X, and turning it +90 degrees about +Y gives n = -Z (a x n0 = Y x X = -Z). mid = 1.8*(0,1,0) + 2.4*(0,0,-1) = (0,1.8,-2.4), end (0,5,0).",
+  "skeleton": "twoboneik_offplane",
+  "template": "twoboneik_basic",
+  "set": { "handIk_ctrl_l.translateX": -5, "handIk_ctrl_l.translateY": 5 },
+  "expect": {
+    "lowerArm_jnt": { "translate": [0, 1.8, -2.4] },
+    "hand_jnt": { "translate": [0, 5, 0] }
+  }
+}

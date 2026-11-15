@@ -1,0 +1,11 @@
+{
+  "description": "The rest limb bends toward +Z (mid (1.8,0,2.4)) while the pole joint is toward +Y. restPlaneAngle is +90 degrees, so IK at rest reproduces every joint with no rotation.",
+  "skeleton": "twoboneik_offplane",
+  "template": "twoboneik_basic",
+  "expect": {
+    "upperArm_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, 0] },
+    "lowerArm_jnt": { "translate": [1.8, 0, 2.4], "rotate": [0, 0, 0] },
+    "hand_jnt": { "translate": [5, 0, 0], "rotate": [0, 0, 0] },
+    "armPole_jnt": { "translate": [2.5, 5, 0] }
+  }
+}

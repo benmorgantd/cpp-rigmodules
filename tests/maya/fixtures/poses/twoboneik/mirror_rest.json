@@ -1,0 +1,15 @@
+{
+  "description": "Mirrored pair: left root (1,0,0), end (6,0,0), pole (3.5,5,0); right root (-1,0,0), end (-6,0,0), pole (-3.5,5,0). Both limbs bend toward +Y at rest: left mid (2.8,2.4,0), right mid (-2.8,2.4,0). Every joint is at its rest.",
+  "skeleton": "twoboneik_mirror",
+  "template": "twoboneik_mirror",
+  "expect": {
+    "upperArm_l_jnt": { "translate": [1, 0, 0], "rotate": [0, 0, 0] },
+    "lowerArm_l_jnt": { "translate": [2.8, 2.4, 0], "rotate": [0, 0, 0] },
+    "hand_l_jnt": { "translate": [6, 0, 0] },
+    "upperArm_r_jnt": { "translate": [-1, 0, 0], "rotate": [0, 0, 0] },
+    "lowerArm_r_jnt": { "translate": [-2.8, 2.4, 0], "rotate": [0, 0, 0] },
+    "hand_r_jnt": { "translate": [-6, 0, 0] },
+    "armPole_r_jnt": { "translate": [-3.5, 5, 0] },
+    "armSettings_r_jnt": { "translate": [-1, 8, 0] }
+  }
+}

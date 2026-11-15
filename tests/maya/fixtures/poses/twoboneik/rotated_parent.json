@@ -1,0 +1,14 @@
+{
+  "description": "Rotating the top layout control 90 degrees about Z (it sits at the origin) carries the start, handle and pole child plugs rigidly: (x,y) goes to (-y,x). mid (1.8,2.4,0) -> (-2.4,1.8,0), end (5,0,0) -> (0,5,0), pole (2.5,5,0) -> (-5,2.5,0), settings (0,8,0) -> (-8,0,0), and every joint turns 90 degrees.",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "set": { "layout_0_ctrl_c.rotateZ": 90 },
+  "expect": {
+    "upperArm_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, 90] },
+    "lowerArm_jnt": { "translate": [-2.4, 1.8, 0], "rotate": [0, 0, 90] },
+    "hand_jnt": { "translate": [0, 5, 0], "rotate": [0, 0, 90] },
+    "handIk_jnt": { "translate": [0, 5, 0] },
+    "armPole_jnt": { "translate": [-5, 2.5, 0] },
+    "armSettings_jnt": { "translate": [-8, 0, 0] }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "description": "Handle at (10,0,0), d = 10 beyond L1+L2 = 7, stretch 0: de = min(d,7) = 7, x = (49+9-16)/14 = 3, h = 0, so the limb is straight: mid (3,0,0), end (7,0,0) on the line to the handle. The marker joint stays on the handle. Root bone turns -53.1301 degrees from its rest direction (atan 4/3), the mid bone +36.8699, the hand has no handle rotation.",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "set": { "handIk_ctrl_l.translateX": 5 },
+  "expect": {
+    "upperArm_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, -53.130102] },
+    "lowerArm_jnt": { "translate": [3, 0, 0], "rotate": [0, 0, 36.869898] },
+    "hand_jnt": { "translate": [7, 0, 0], "rotate": [0, 0, 0] },
+    "handIk_jnt": { "translate": [10, 0, 0] }
+  }
+}

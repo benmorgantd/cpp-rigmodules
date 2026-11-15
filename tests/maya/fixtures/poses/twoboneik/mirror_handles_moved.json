@@ -1,0 +1,12 @@
+{
+  "description": "Mirrored pair: left root (1,0,0), end (6,0,0), pole (3.5,5,0); right root (-1,0,0), end (-6,0,0), pole (-3.5,5,0). Left handle by (-1,3,0) to (5,3,0): relative to the root (4,3,0), d = 5, as in handle_moved_rigid, mid = (1,3,0). Right handle by (+1,3,0) to (-5,3,0): relative (-4,3,0), a = (-0.8,0.6,0), pole relative (-2.5,5,0) has dot 5 with a, perpendicular (1.5,2,0)/2.5 = (0.6,0.8,0), mid = 1.8*a + 2.4*(0.6,0.8,0) = (0,3,0) relative, so (-1,3,0). The two limbs are mirror images.",
+  "skeleton": "twoboneik_mirror",
+  "template": "twoboneik_mirror",
+  "set": { "handIk_ctrl_l.translateX": -1, "handIk_ctrl_l.translateY": 3, "handIk_ctrl_r.translateX": 1, "handIk_ctrl_r.translateY": 3 },
+  "expect": {
+    "lowerArm_l_jnt": { "translate": [1, 3, 0] },
+    "hand_l_jnt": { "translate": [5, 3, 0] },
+    "lowerArm_r_jnt": { "translate": [-1, 3, 0] },
+    "hand_r_jnt": { "translate": [-5, 3, 0] }
+  }
+}

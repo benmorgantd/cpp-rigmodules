@@ -1,0 +1,16 @@
+{
+  "joints": [
+    { "name": "upperArm_l_jnt", "side": "Left", "usage": "upperArm", "translate": [1, 0, 0] },
+    { "name": "lowerArm_l_jnt", "side": "Left", "usage": "lowerArm", "translate": [2.8, 2.4, 0] },
+    { "name": "hand_l_jnt", "side": "Left", "usage": "hand", "translate": [6, 0, 0] },
+    { "name": "handIk_l_jnt", "side": "Left", "usage": "handIk", "translate": [6, 0, 0], "export": false, "skin": false },
+    { "name": "armPole_l_jnt", "side": "Left", "usage": "armPole", "translate": [3.5, 5, 0], "export": false, "skin": false },
+    { "name": "armSettings_l_jnt", "side": "Left", "usage": "armSettings", "translate": [1, 8, 0], "export": false, "skin": false },
+    { "name": "upperArm_r_jnt", "side": "Right", "usage": "upperArm", "translate": [-1, 0, 0] },
+    { "name": "lowerArm_r_jnt", "side": "Right", "usage": "lowerArm", "translate": [-2.8, 2.4, 0] },
+    { "name": "hand_r_jnt", "side": "Right", "usage": "hand", "translate": [-6, 0, 0] },
+    { "name": "handIk_r_jnt", "side": "Right", "usage": "handIk", "translate": [-6, 0, 0], "export": false, "skin": false },
+    { "name": "armPole_r_jnt", "side": "Right", "usage": "armPole", "translate": [-3.5, 5, 0], "export": false, "skin": false },
+    { "name": "armSettings_r_jnt", "side": "Right", "usage": "armSettings", "translate": [-1, 8, 0], "export": false, "skin": false }
+  ]
+}

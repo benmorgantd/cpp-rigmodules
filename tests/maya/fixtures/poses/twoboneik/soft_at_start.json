@@ -1,0 +1,10 @@
+{
+  "description": "Soft 1/7 so ds = soft*L = 1, da = L-ds = 6; the handle is on +X at distance d from the root, pole at rest (n = +Y). d = 6 = da gives de = 6 (value and slope match, no kink). x = (36+9-16)/12 = 29/12 = 2.416667, h = sqrt(9-x^2) = sqrt(455)/12 = 1.777561. mid (2.416667,1.777561,0), end (6,0,0).",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "set": { "handIk_ctrl_l.translateX": 1, "armSettings_ctrl_l.soft": 0.142857 },
+  "expect": {
+    "lowerArm_jnt": { "translate": [2.416667, 1.777561, 0] },
+    "hand_jnt": { "translate": [6, 0, 0] }
+  }
+}
