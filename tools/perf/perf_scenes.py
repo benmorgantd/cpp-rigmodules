@@ -25,8 +25,6 @@ import argparse
 import json
 import math
 import os
-import shutil
-import subprocess
 import sys
 import tempfile
 import time
@@ -36,7 +34,10 @@ REPO_DIR = os.path.dirname(os.path.dirname(PERF_DIR))
 DEFAULT_OUT = os.path.join(PERF_DIR, "out")
 DEFAULT_PLUGIN = os.path.join(REPO_DIR, "cpp", "x64", "Release", "RigModules.mll")
 DEFAULT_ASSET_DIR = r"C:\Users\bmorgan\Documents\Art\Maya\Projects\test\character\biped"
-DEFAULT_MAYA = r"C:\Program Files\Autodesk\Maya2026\bin\maya.exe"
+
+# Starting and ending Maya is mayalaunch's job (D48).
+sys.path.insert(0, os.path.join(REPO_DIR, "python"))
+import mayalaunch  # noqa: E402
 
 HUMAN_ASSET_ID = "test\\character\\biped"
 COMPLEX_ASSET_ID = "test\\character\\complex"
@@ -276,25 +277,13 @@ def built_constraint_count(template):
 
 def start_maya(plugin):
     """Starts standalone Maya and loads a copy of the plugin (a loaded .mll locks the build output)."""
-    os.environ["MAYA_DISABLE_CER"] = "1"
-    os.environ["MAYA_SKIP_USERSETUP_PY"] = "1"
-    import maya.standalone
-    maya.standalone.initialize(name="python")
+    mayalaunch.start_standalone()
     from maya import cmds
-    copy_dir = tempfile.mkdtemp(prefix="perf_plugin_")
-    copy = os.path.join(copy_dir, os.path.basename(plugin))
-    shutil.copyfile(plugin, copy)
-    cmds.loadPlugin(copy)
+    cmds.loadPlugin(mayalaunch.copy_plugin(plugin, tempfile.mkdtemp(prefix="perf_plugin_")))
     python_dir = os.path.join(REPO_DIR, "python")
     if python_dir not in sys.path:
         sys.path.insert(0, python_dir)
     cmds.undoInfo(state=False)
-
-
-def finish():
-    import maya.standalone
-    maya.standalone.uninitialize()
-    os._exit(0)
 
 
 def build_skeleton(joints):
@@ -410,7 +399,7 @@ def make_human(args):
     keys = key_pose_series(instances, args.frames, pose_file.replace("\\", "/"))
     print("%d instances, %d keys" % (len(instances), keys))
     save_scene(os.path.join(out, "human_x%d.mb" % args.count), 1, args.frames)
-    finish()
+    mayalaunch.finish_standalone(0)
 
 
 # ---- the complex scene -------------------------------------------------------------------------------
@@ -453,7 +442,7 @@ def make_complex(args):
     last = key_rom(instances)
     print("%d instances, %d controls each, ROM to frame %d" % (len(instances), len(instances[0].controls), last))
     save_scene(os.path.join(out, "complex_x%d.mb" % args.count), 1, last)
-    finish()
+    mayalaunch.finish_standalone(0)
 
 
 # ---- benchmarks --------------------------------------------------------------------------------------
@@ -499,9 +488,7 @@ def bench_eval(args):
               "meets target" if results[mode] >= args.target_fps else "BELOW TARGET"))
     ok = results["parallel"] >= args.target_fps
     print("RESULT: %s (parallel %.1f fps, target %.0f)" % ("PASS" if ok else "FAIL", results["parallel"], args.target_fps))
-    import maya.standalone
-    maya.standalone.uninitialize()
-    os._exit(0 if ok else 1)
+    mayalaunch.finish_standalone(0 if ok else 1)
 
 
 def run_check(args):
@@ -513,30 +500,25 @@ def run_check(args):
     import check_perf_scene
     check_perf_scene.config.WORK_DIR = tempfile.mkdtemp(prefix="perf_check_")
     result = unittest.TextTestRunner(verbosity=1).run(unittest.defaultTestLoader.loadTestsFromModule(check_perf_scene))
-    import maya.standalone
-    maya.standalone.uninitialize()
-    os._exit(0 if result.wasSuccessful() else 1)
+    mayalaunch.finish_standalone(0 if result.wasSuccessful() else 1)
 
 
 def run_gui_script(args, script_name, **settings):
     """Runs a script from this folder in a Maya window on a copy of the plugin and prints the log it writes.
     `settings` become PERF_<NAME> environment variables."""
     work = tempfile.mkdtemp(prefix="perf_gui_")
-    plugin_copy = os.path.join(work, "RigModules.mll")
-    shutil.copyfile(args.plugin, plugin_copy)
-    env = dict(os.environ, PERF_SCENE=os.path.abspath(args.scene).replace("\\", "/"),
-               PERF_PLUGIN=plugin_copy.replace("\\", "/"), PERF_OUT=work.replace("\\", "/"),
-               MAYA_SKIP_USERSETUP_PY="1", MAYA_DISABLE_CER="1")
-    env.update({"PERF_" + name.upper(): str(value) for name, value in settings.items()})
-    script = os.path.join(PERF_DIR, script_name).replace("\\", "/")
-    command = [args.maya, "-command", 'python("exec(open(\'%s\').read())")' % script]
-    subprocess.run(command, env=env, timeout=args.timeout)
+    plugin_copy = mayalaunch.copy_plugin(args.plugin, work)
+    extra = {"PERF_SCENE": os.path.abspath(args.scene).replace("\\", "/"),
+             "PERF_PLUGIN": plugin_copy.replace("\\", "/"), "PERF_OUT": work.replace("\\", "/")}
+    extra.update({"PERF_" + name.upper(): value for name, value in settings.items()})
+    result = mayalaunch.run_gui(os.path.join(PERF_DIR, script_name), mayalaunch.child_environment(extra=extra),
+                                args.timeout, args.maya_dir)
     log = os.path.join(work, "log.txt")
     if os.path.exists(log):
         with open(log, encoding="utf-8") as handle:
             print(handle.read())
     else:
-        print("No log was written: Maya did not finish. Work folder: %s" % work)
+        print("No log was written: Maya %s. Work folder: %s" % ("timed out" if result.timed_out else "did not finish", work))
 
 
 def bench_gui(args):
@@ -572,7 +554,7 @@ def main():
         if name == "profile":
             p.add_argument("--frames", type=int, default=20)
         if name in ("gui", "profile"):
-            p.add_argument("--maya", default=DEFAULT_MAYA)
+            p.add_argument("--maya-dir", default=None, help="Maya install folder (default: MAYA_LOCATION or Maya 2026)")
             p.add_argument("--timeout", type=int, default=900)
     args = parser.parse_args()
     {"human": make_human, "complex": make_complex, "bench": bench_eval, "gui": bench_gui,

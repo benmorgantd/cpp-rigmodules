@@ -20,6 +20,7 @@ namespace
 	constexpr const char* kDrawOverrideAttr = "drawOverride";
 	constexpr const char* kIdentificationAttr = "identification";
 	constexpr const char* kDisplayOrderAttr = "displayOrder";
+	constexpr const char* kHideOnPlaybackAttr = "hideOnPlayback";
 	constexpr const char* kLayerManagerName = "layerManager";
 	constexpr const char* kLayerIdsAttr = "displayLayerId";
 
@@ -115,6 +116,13 @@ MStatus DisplayLayerScene::replaceLayers(const std::vector<DisplayLayerSpec>& sp
 		MPlug pManagerId = MFnDependencyNode(oManager).findPlug(kLayerIdsAttr, false).elementByLogicalIndex(nextId);
 		status = dagMod.connect(pId, pManagerId);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		if (spec.hideOnPlayback)
+		{
+			MPlug pHide = fnLayer.findPlug(kHideOnPlaybackAttr, false);
+			status = dagMod.newPlugValueBool(pHide, true);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
 
 		for (unsigned int i = 0; i < spec.members.length(); ++i)
 		{

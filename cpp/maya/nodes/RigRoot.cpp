@@ -472,6 +472,8 @@ namespace
 		specs[1].name = DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::MeshLayer);
 		specs[2].name = DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::ControlLayer);
 		specs[2].members = oControls;
+		// Not drawing the controls during playback is the cheapest way to skip their custom draw override (D37).
+		specs[2].hideOnPlayback = true;
 
 		MObjectArray oLayers;
 		status = DisplayLayerScene::replaceLayers(specs, dagMod, oLayers);

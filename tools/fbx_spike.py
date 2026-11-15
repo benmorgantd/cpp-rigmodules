@@ -2,11 +2,10 @@ import os
 import sys
 import traceback
 
-os.environ["MAYA_DISABLE_CER"] = "1"
-os.environ["MAYA_SKIP_USERSETUP_PY"] = "1"
-import maya.standalone
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "python"))
+import mayalaunch  # noqa: E402
 
-maya.standalone.initialize(name="python")
+mayalaunch.start_standalone()
 import maya.api.OpenMaya as om
 import maya.cmds as cmds
 import maya.mel as mel
@@ -113,5 +112,4 @@ try:
 except Exception:
     log("FAILED", traceback.format_exc())
 finally:
-    maya.standalone.uninitialize()
-    os._exit(0)
+    mayalaunch.finish_standalone(0)
