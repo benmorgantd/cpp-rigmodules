@@ -1,6 +1,6 @@
 # The library browser
 
-**Status:** Proposed (D51), written 2026-11-14 and revised the same day with the author's notes from past libraries and answers to the first round of questions (section 12). Signed off by the author the same day. Phase 1 (the RigModules side) is built, with the differences in section 12c. Phase 2 (mayadev, headless) is built, with the differences in section 12d. The window (phases 3 to 5) is not. It is the second panel of phase 3 in `mayadev-ui.md` (section 5), after the active rig panel (`active-rig-panel.md`, D50). The code is in mayadev, plus a set of RigModules changes (section 8). Changes to mayadev need the author's go-ahead and a commit in that repo.
+**Status:** Proposed (D51), written 2026-11-14 and revised the same day with the author's notes from past libraries and answers to the first round of questions (section 12). Signed off by the author the same day. Phase 1 (the RigModules side) is built, with the differences in section 12c. Phase 2 (mayadev, headless) is built, with the differences in section 12d. Phase 3, the window, is built, with the differences in section 12e. Publish to Approved and thumbnails (phases 4 and 5) are not. It is the second panel of phase 3 in `mayadev-ui.md` (section 5), after the active rig panel (`active-rig-panel.md`, D50). The code is in mayadev, plus a set of RigModules changes (section 8). Changes to mayadev need the author's go-ahead and a commit in that repo.
 
 ## 1. The problem it solves
 
@@ -278,12 +278,33 @@ Delete keeps a local version copy (`versions.version`) before it removes the fil
 
 Not done, by design: the window, the tool registry entry and the `panels` item (phase 3), Publish to Approved (phase 4), thumbnails (phase 5). The menu tools are still file-dialog tools and write to the User library now.
 
+## 12e. Phase 3 as built (2026-11-14)
+
+Phase 3 is built in mayadev on branch `ui-phase1` (uncommitted when this was written). The window is `bmaya/maya_ui/librarybrowser.py`, the tool is `rigmodules.panels.library_browser` under `panels`, and the user-facing description is `docs/tools.md` there ("The library browser"). What differs from section 7, and why:
+
+| Section | Designed | Built | Why |
+|---|---|---|---|
+| 7 | A `QListView` for List and a `QTableView` for Details over one model | One `QTableView`: List shows Name and Source, Details all seven columns | One selection model, no syncing between two views. The Grid view of phase 5 adds a `QListView` in icon mode then. The author agreed |
+| 5, 7 | Facet chips for source, kind, region, status, category, tags and template | Chips for the sources only. A **Filter** menu lists the tags, templates, regions, statuses and categories in use, and a pick writes its term in the search box (`toggle_term`, in `core.asset.library`). Kind is the tab | A chip per tag does not fit 385 px and grows with the library. The box still shows exactly what filters the list |
+| 7 | The session offers what the window needs | Added: `facets()`, `name_taken(name)`, `current_frame()`, `playback_range()`, `mask_from_selection(name)` | The window has no Maya, so a frame, a free name check and the selected controls have to come from the session |
+| 12 | The browser warns on a status or region outside the project's lists | `details()` adds a line for each. A project that lists none is not checked, and an asset whose project can't be read is not checked | The author asked for it. The format still checks only the shape |
+| 6 | A user can save a named mask | **Masks** button: Save Selection as Mask (one item per `(side, usage)`, so it picks the same controls on any rig of the template) and Delete Mask (only the user's own). The saved mask becomes the scope | The author asked for it in phase 3 |
+| 7 | Apply on a click, Enter or the button | Only a double click, Return or the button, through an `EntryTable` signal, not `activated` (which fires from a single click on some platforms) | Nothing is applied by hover, a click or arrow keys |
+| 7 | Save: name, Tags, Save | The same. The tags field clears after a save (a stale tag on the next file would be a surprise), and the name returns to a free suggestion. A taken name asks through the `Prompter` | |
+| 7 | Rename, Delete, Edit Tags, Publish in the context menu | Apply, Copy to My Library, Rename, Edit Tags and Description, Delete. The ones a source can't have are disabled. No Publish | Publish is phase 4 |
+
+Also built: `widgets.TagsEdit` (completes the tag under the cursor from the tags in use), a `pose` icon and a `warning` label property in `theme.py`, and a layout that fits the 385 px dock (the scope on one row, then Mirror, Start at, Now and Apply on another, because one row made the window about 560 px wide in Animations).
+
+**Found in a GUI Maya, not in mayapy.** `menu.addAction(text)`, and `menu.addMenu(text)`, returned objects whose C++ side was gone by the next reload, and `widget.style()` returned a deleted style. The window now makes each `QAction` and submenu explicitly with the menu as its parent, and shows errors and warnings in labels that are made for them and hidden while empty, rather than changing a label's style. `tests/gui/librarybrowser/run.bat` checks the actions are alive, so a regression there is caught, though not by the offscreen suite.
+
+**Verified:** `tests/core` 112 plain and 135 in mayapy (42 of them the window and `TagsEdit`, offscreen, over a fake session), `tests/asset` 97 and 155, the menu tier (43, 40 tools), and `tests/gui/librarybrowser/run.bat` in a GUI Maya: the dock, a save by Enter, apply and its one undo, search, the Animations tab, reopening three times, and a closed window's session no longer listening. **Not verified:** the tag completer's pop-up and the right-click menu in a GUI Maya (the offscreen tests call the completion and menu code, not the pop-ups), and a library of hundreds of files.
+
 ## 13. Phases
 
 Each phase leaves every menu tool working and is reviewable alone.
 
 1. **RigModules** (section 8): `meta` and its update steps, the save flags, `getRigDataFileInfo`, `setRigDataFileMeta`, `loadRigPose(mirror=)`, the file names, the contract and round trip tests, docs.
 2. **mayadev headless (built, section 12d):** `core.asset.library` (sources, index, search, masks), `LibrarySession`, `ListModel`, the menu tools' save and load moved onto the library functions (Save writes to User), tests. No window.
-3. **The view:** `LibraryBrowser` with List and Details, search and facets, scope, apply, save, edit tags, the tool registry entry and the `panels` item, offscreen tests, mayadev docs.
+3. **The view (built, section 12e):** `LibraryBrowser` with List and Details, search and facets, scope, apply, save, edit tags, the tool registry entry and the `panels` item, offscreen tests, mayadev docs.
 4. **Approved:** Publish to Approved, and the Approved and Shared write rules.
 5. **Thumbnails and the Grid view** (section 9).
