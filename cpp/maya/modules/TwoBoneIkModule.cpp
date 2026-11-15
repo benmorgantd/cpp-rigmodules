@@ -26,6 +26,7 @@
 #include <maya/MMatrix.h>
 #include <maya/MObject.h>
 #include <maya/MPlug.h>
+#include <maya/MPoint.h>
 #include <maya/MTypeId.h>
 #include <maya/MVector.h>
 
@@ -51,6 +52,8 @@ namespace
 	constexpr double kMinPoleSine{ 1.0e-4 };
 	// A rest mid this near the root-to-end line is a straight limb: it has no bend direction of its own.
 	constexpr double kMinRestBend{ 1.0e-4 };
+	// The IK solve of a restored pose may miss the joints by this fraction of the limb's reach before the restore warns.
+	constexpr double kMaxIkMismatch{ 1.0e-3 };
 
 	// The child plug each slot owns, or nullptr for the slots with none (the FK lower and end controls).
 	const char* childPlugNameAt(unsigned int slot)
@@ -133,29 +136,36 @@ namespace
 		return makeFrame(vX, vZ ^ vX, vZ, vOrigin);
 	}
 
+	// A matrix's rotation as a frame at vOrigin: +X along its X row, +Z perpendicular to that and its Y row. Scale and
+	// shear are dropped.
+	MMatrix orthonormalFrame(const MMatrix& mMatrix, const MVector& vOrigin)
+	{
+		const MVector vX = MVector(mMatrix[0][0], mMatrix[0][1], mMatrix[0][2]).normal();
+		const MVector vZ = (vX ^ MVector(mMatrix[1][0], mMatrix[1][1], mMatrix[1][2])).normal();
+		return makeFrame(vX, vZ ^ vX, vZ, vOrigin);
+	}
+
 	// The three limb joints' frames from a solve: root and mid by position and the bend normal, the end by the solved
 	// end and the IK handle's rotation (scale dropped), so turning the handle turns the hand. The plan step builds the
-	// rest offsets with this, compute() builds the live joints, and the inverse will too, so they can't drift (D41).
+	// rest offsets with this, compute() builds the live joints, and the inverse reads the handle back through the same
+	// frame, so they can't drift (D41).
 	void computeLimbFrames(const TwoBoneIkResult& solve, const MVector& vRoot, const MMatrix& mIkWorld, MMatrix outFrames[TwoBoneIkSlot::LimbCount])
 	{
 		outFrames[TwoBoneIkSlot::Upper] = makeBoneFrame(vRoot, solve.mid, solve.normal);
 		outFrames[TwoBoneIkSlot::Lower] = makeBoneFrame(solve.mid, solve.end, solve.normal);
-
-		const MVector vX = MVector(mIkWorld[0][0], mIkWorld[0][1], mIkWorld[0][2]).normal();
-		const MVector vZ = (vX ^ MVector(mIkWorld[1][0], mIkWorld[1][1], mIkWorld[1][2])).normal();
-		outFrames[TwoBoneIkSlot::End] = makeFrame(vX, vZ ^ vX, vZ, solve.end);
+		outFrames[TwoBoneIkSlot::End] = orthonormalFrame(mIkWorld, solve.end);
 	}
 
 	// Everything the rest pose fixes: bone lengths, the plane angle that makes IK at rest reproduce the rest bend, and
-	// the offsets that give each IK joint its own rest orientation (bind pose safe). The slots' rests are valid
-	// (planFromJson checked the geometry).
-	TwoBoneIkRest computeRest(const std::array<TwoBoneIkSlotInput, TwoBoneIkSlot::Count>& slots)
+	// the offsets that give each IK joint its own rest orientation (bind pose safe). The rests are valid (planFromJson
+	// checked the geometry). The inverse calls this again from the controls' stored rests.
+	TwoBoneIkRest computeRest(const std::array<MMatrix, TwoBoneIkSlot::Count>& restWorlds)
 	{
-		const MVector vRoot = MathUtils::translationOf(slots[TwoBoneIkSlot::Upper].mRestWorld);
-		const MVector vMid = MathUtils::translationOf(slots[TwoBoneIkSlot::Lower].mRestWorld);
-		const MVector vEnd = MathUtils::translationOf(slots[TwoBoneIkSlot::End].mRestWorld);
-		const MVector vHandle = MathUtils::translationOf(slots[TwoBoneIkSlot::Ik].mRestWorld);
-		const MVector vPole = MathUtils::translationOf(slots[TwoBoneIkSlot::Pole].mRestWorld);
+		const MVector vRoot = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Upper]);
+		const MVector vMid = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Lower]);
+		const MVector vEnd = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::End]);
+		const MVector vHandle = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Ik]);
+		const MVector vPole = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Pole]);
 
 		TwoBoneIkRest rest;
 		rest.length1 = (vMid - vRoot).length();
@@ -186,10 +196,10 @@ namespace
 		input.restBendNormal = rest.restBendNormal;
 		input.restAxis = vAxis;
 		MMatrix mFrames[TwoBoneIkSlot::LimbCount];
-		computeLimbFrames(MathUtils::computeTwoBoneIk(input), vRoot, slots[TwoBoneIkSlot::Ik].mRestWorld, mFrames);
+		computeLimbFrames(MathUtils::computeTwoBoneIk(input), vRoot, restWorlds[TwoBoneIkSlot::Ik], mFrames);
 		for (unsigned int i = 0; i < TwoBoneIkSlot::LimbCount; ++i)
 		{
-			rest.ikRestOffset[i] = slots[i].mRestWorld * mFrames[i].inverse();
+			rest.ikRestOffset[i] = restWorlds[i] * mFrames[i].inverse();
 		}
 		return rest;
 	}
@@ -301,7 +311,7 @@ MStatus TwoBoneIkNode::initialize()
 	return MStatus::kSuccess;
 }
 
-// Solves the limb once. compute() writes every output array from this one solve.
+// Reads the limb's plugs and evaluates it once. compute() writes every output array from this one evaluation.
 MStatus TwoBoneIkNode::solve(MDataBlock& data, TwoBoneIkSolveResult& outResult)
 {
 	MStatus status;
@@ -311,38 +321,71 @@ MStatus TwoBoneIkNode::solve(MDataBlock& data, TwoBoneIkSolveResult& outResult)
 	MArrayDataHandle hChildPlugs = data.inputArrayValue(aChildPlugs, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MMatrix mLocal[TwoBoneIkSlot::Count];
-	MMatrix mRest[TwoBoneIkSlot::Count];
+	TwoBoneIkEval eval;
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
 	{
-		status = readControlInput(hControlInputData, slot, mLocal[slot], mRest[slot]);
+		status = readControlInput(hControlInputData, slot, eval.mLocal[slot], eval.mRest[slot]);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
+	eval.mUpperDelta = readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Upper);
+	eval.mIkDelta = readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Ik);
+	eval.mSettingsDelta = readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Settings);
+	eval.poleFollowsIk = data.inputValue(aPoleSpace).asShort() == 1;
+	if (!eval.poleFollowsIk)
+	{
+		eval.mPoleParentDelta = readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Pole);
+	}
 
+	eval.blend = data.inputValue(aIkFkBlend).asDouble();
+	if (eval.blend > 0.0)
+	{
+		eval.stretch = data.inputValue(aStretch).asDouble();
+		eval.soft = data.inputValue(aSoft).asDouble();
+		eval.pin = data.inputValue(aPin).asDouble();
+		eval.rollRadians = data.inputValue(aRoll).asAngle().asRadians();
+		const double2& lengths = data.inputValue(aLimbLengths).asDouble2();
+		eval.rest.length1 = lengths[0];
+		eval.rest.length2 = lengths[1];
+		eval.rest.restPlaneAngle = data.inputValue(aRestPlaneAngle).asDouble();
+		eval.rest.restBendNormal = data.inputValue(aRestBendNormal).asVector();
+
+		MArrayDataHandle hRestOffset = data.inputArrayValue(aIkRestOffset, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		for (unsigned int slot = 0; slot < TwoBoneIkSlot::LimbCount; ++slot)
+		{
+			status = hRestOffset.jumpToElement(slot);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			eval.rest.ikRestOffset[slot] = hRestOffset.inputValue().asMatrix();
+		}
+	}
+
+	evaluate(eval, outResult);
+	return MStatus::kSuccess;
+}
+
+void TwoBoneIkNode::evaluate(const TwoBoneIkEval& eval, TwoBoneIkSolveResult& outResult)
+{
 	// 1. FK chain. Always solved, even at blend 1: the controls' offsets stay current, and the IK root follows the start control.
 	MMatrix mFkWorld[TwoBoneIkSlot::LimbCount];
-	MMatrix mParentDelta = readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Upper);
+	MMatrix mParentDelta = eval.mUpperDelta;
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::LimbCount; ++slot)
 	{
-		const ControlSolveStep step = solveControlStep(mLocal[slot], mRest[slot], mParentDelta);
+		const ControlSolveStep step = solveControlStep(eval.mLocal[slot], eval.mRest[slot], mParentDelta);
 		outResult.mControlOPM[slot] = step.mOPM;
 		mFkWorld[slot] = step.mWorld;
 		if (slot + 1 < TwoBoneIkSlot::LimbCount)
 		{
-			mParentDelta = MathUtils::computeDeltaFromRest(mRest[slot], step.mWorld);
+			mParentDelta = MathUtils::computeDeltaFromRest(eval.mRest[slot], step.mWorld);
 		}
 	}
 
 	// 2. The IK handle, then the pole, which reads the handle's solved world in Ik space (slot order matters, section 4.4).
-	const ControlSolveStep ikStep = solveControlStep(mLocal[TwoBoneIkSlot::Ik], mRest[TwoBoneIkSlot::Ik],
-		readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Ik));
-	const bool poleFollowsIk = data.inputValue(aPoleSpace).asShort() == 1;
-	const MMatrix mPoleDelta = poleFollowsIk
-		? MathUtils::computeDeltaFromRest(mRest[TwoBoneIkSlot::Ik], ikStep.mWorld)
-		: readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Pole);
-	const ControlSolveStep poleStep = solveControlStep(mLocal[TwoBoneIkSlot::Pole], mRest[TwoBoneIkSlot::Pole], mPoleDelta);
-	const ControlSolveStep settingsStep = solveControlStep(mLocal[TwoBoneIkSlot::Settings], mRest[TwoBoneIkSlot::Settings],
-		readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Settings));
+	const ControlSolveStep ikStep = solveControlStep(eval.mLocal[TwoBoneIkSlot::Ik], eval.mRest[TwoBoneIkSlot::Ik], eval.mIkDelta);
+	const MMatrix mPoleDelta = eval.poleFollowsIk
+		? MathUtils::computeDeltaFromRest(eval.mRest[TwoBoneIkSlot::Ik], ikStep.mWorld)
+		: eval.mPoleParentDelta;
+	const ControlSolveStep poleStep = solveControlStep(eval.mLocal[TwoBoneIkSlot::Pole], eval.mRest[TwoBoneIkSlot::Pole], mPoleDelta);
+	const ControlSolveStep settingsStep = solveControlStep(eval.mLocal[TwoBoneIkSlot::Settings], eval.mRest[TwoBoneIkSlot::Settings], eval.mSettingsDelta);
 
 	outResult.mControlOPM[TwoBoneIkSlot::Ik] = ikStep.mOPM;
 	outResult.mControlOPM[TwoBoneIkSlot::Pole] = poleStep.mOPM;
@@ -352,14 +395,13 @@ MStatus TwoBoneIkNode::solve(MDataBlock& data, TwoBoneIkSolveResult& outResult)
 	outResult.mJointWorld[TwoBoneIkSlot::Settings] = settingsStep.mWorld;
 
 	// 3. The limb joints: FK at blend 0 and IK at blend 1 exactly, the solve skipped at 0, a blend between.
-	const double blend = data.inputValue(aIkFkBlend).asDouble();
-	if (blend <= 0.0)
+	if (eval.blend <= 0.0)
 	{
 		for (unsigned int slot = 0; slot < TwoBoneIkSlot::LimbCount; ++slot)
 		{
 			outResult.mJointWorld[slot] = mFkWorld[slot];
 		}
-		return MStatus::kSuccess;
+		return;
 	}
 
 	const MVector vRoot = MathUtils::translationOf(mFkWorld[TwoBoneIkSlot::Upper]);   // the start control's rotation does nothing in IK
@@ -367,30 +409,22 @@ MStatus TwoBoneIkNode::solve(MDataBlock& data, TwoBoneIkSolveResult& outResult)
 	input.root = vRoot;
 	input.handle = MathUtils::translationOf(ikStep.mWorld);
 	input.pole = MathUtils::translationOf(poleStep.mWorld);
-	const double2& lengths = data.inputValue(aLimbLengths).asDouble2();
-	input.length1 = lengths[0];
-	input.length2 = lengths[1];
-	input.stretch = data.inputValue(aStretch).asDouble();
-	input.soft = data.inputValue(aSoft).asDouble();
-	input.pin = data.inputValue(aPin).asDouble();
-	input.rollRadians = data.inputValue(aRoll).asAngle().asRadians();
-	input.restPlaneAngle = data.inputValue(aRestPlaneAngle).asDouble();
-	input.restBendNormal = data.inputValue(aRestBendNormal).asVector();
-	input.restAxis = MathUtils::translationOf(mRest[TwoBoneIkSlot::Ik]) - MathUtils::translationOf(mRest[TwoBoneIkSlot::Upper]);
+	input.length1 = eval.rest.length1;
+	input.length2 = eval.rest.length2;
+	input.stretch = eval.stretch;
+	input.soft = eval.soft;
+	input.pin = eval.pin;
+	input.rollRadians = eval.rollRadians;
+	input.restPlaneAngle = eval.rest.restPlaneAngle;
+	input.restBendNormal = eval.rest.restBendNormal;
+	input.restAxis = MathUtils::translationOf(eval.mRest[TwoBoneIkSlot::Ik]) - MathUtils::translationOf(eval.mRest[TwoBoneIkSlot::Upper]);
 
 	MMatrix mFrames[TwoBoneIkSlot::LimbCount];
 	computeLimbFrames(MathUtils::computeTwoBoneIk(input), vRoot, ikStep.mWorld, mFrames);
-
-	MArrayDataHandle hRestOffset = data.inputArrayValue(aIkRestOffset, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::LimbCount; ++slot)
 	{
-		status = hRestOffset.jumpToElement(slot);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		const MMatrix mIkJoint = hRestOffset.inputValue().asMatrix() * mFrames[slot];
-		outResult.mJointWorld[slot] = MathUtils::blendMatrices(mFkWorld[slot], mIkJoint, blend);
+		outResult.mJointWorld[slot] = MathUtils::blendMatrices(mFkWorld[slot], eval.rest.ikRestOffset[slot] * mFrames[slot], eval.blend);
 	}
-	return MStatus::kSuccess;
 }
 
 MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
@@ -440,16 +474,155 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kSuccess;
 }
 
+std::vector<ModuleInverseChannel> TwoBoneIkNode::inverseChannels()
+{
+	// In TwoBoneIkInverseChannel order. The defaults are the channels' rests.
+	return
+	{
+		{ RigAttr::Soft, TwoBoneIkSlot::Settings, 0.0 },
+		{ RigAttr::Stretch, TwoBoneIkSlot::Settings, 0.0 },
+		{ RigAttr::Pin, TwoBoneIkSlot::Pole, 0.0 },
+		{ RigAttr::Roll, TwoBoneIkSlot::Ik, 0.0 },
+		{ RigAttr::ControlSpace, TwoBoneIkSlot::Pole, 0.0 },
+		{ RigAttr::IkFkBlend, TwoBoneIkSlot::Settings, 1.0 }
+	};
+}
+
+// Allocates (the contract's vectors, the warnings), which is fine for a restore. compute() never calls it (D52 section 6).
 ModuleInverseResult TwoBoneIkNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput& input)
 {
 	ModuleInverseResult result;
 	result.controlLocal.resize(TwoBoneIkSlot::Count);
 	result.socketWorld.resize(TwoBoneIkSlot::Count);
-	result.solved = false;
-	result.reason = "the TwoBoneIk inverse is not built yet (phase 5), so its controls come from the sidecar or rest";
+
+	// The forward evaluation's inputs: the controls at their fallback values to start with, and the settings the forward
+	// solve will read.
+	const std::vector<ModuleInverseChannel> wanted = inverseChannels();
+	const auto channel = [&input, &wanted](unsigned int which)
+	{
+		return which < input.channels.size() ? input.channels[which] : wanted[which].defaultValue;
+	};
+	TwoBoneIkEval eval;
+	std::array<MMatrix, TwoBoneIkSlot::Count> restWorlds;
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
 	{
-		result.socketWorld[slot] = RigModuleNodeBase::solveControlStep(input.fallbackLocal[slot], context.controlRestWorld[slot], input.parentDelta[slot]).mWorld;
+		restWorlds[slot] = context.controlRestWorld[slot];
+		eval.mRest[slot] = context.controlRestWorld[slot];
+		eval.mLocal[slot] = input.fallbackLocal[slot];
+	}
+	eval.mUpperDelta = input.parentDelta[TwoBoneIkSlot::Upper];
+	eval.mIkDelta = input.parentDelta[TwoBoneIkSlot::Ik];
+	eval.mPoleParentDelta = input.parentDelta[TwoBoneIkSlot::Pole];
+	eval.mSettingsDelta = input.parentDelta[TwoBoneIkSlot::Settings];
+	eval.poleFollowsIk = std::lround(channel(TwoBoneIkInverseChannel::Space)) == 1;
+	eval.blend = channel(TwoBoneIkInverseChannel::IkFkBlend);
+	eval.stretch = channel(TwoBoneIkInverseChannel::Stretch);
+	eval.soft = channel(TwoBoneIkInverseChannel::Soft);
+	eval.pin = channel(TwoBoneIkInverseChannel::Pin);
+	eval.rollRadians = channel(TwoBoneIkInverseChannel::Roll);
+	eval.rest = computeRest(restWorlds);
+
+	const auto fillSockets = [&result, &eval]()
+	{
+		TwoBoneIkSolveResult forward;
+		evaluate(eval, forward);
+		for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
+		{
+			result.socketWorld[slot] = forward.mJointWorld[slot];
+		}
+	};
+
+	// The marker joints (slots 3 to 5) are not exported, so their joints are never read. The limb's three are.
+	bool hasLimb = input.jointWorld.size() >= TwoBoneIkSlot::LimbCount;
+	for (unsigned int slot = 0; hasLimb && slot < TwoBoneIkSlot::LimbCount; ++slot)
+	{
+		hasLimb = input.jointWorld[slot].has_value();
+	}
+	if (!hasLimb)
+	{
+		result.reason = "a limb joint is missing from the source, so the limb's controls come from the sidecar or rest";
+		fillSockets();
+		return result;
+	}
+	result.solved = true;
+
+	// 1. FK: the chain walk, so a stretched or sheared pose is reproduced in the FK controls at any blend.
+	ModuleInverseContext fkContext;
+	ModuleInverseInput fkInput;
+	for (unsigned int slot = 0; slot < TwoBoneIkSlot::LimbCount; ++slot)
+	{
+		fkContext.controlRestWorld.push_back(context.controlRestWorld[slot]);
+		fkInput.jointWorld.push_back(input.jointWorld[slot]);
+		fkInput.fallbackLocal.push_back(input.fallbackLocal[slot]);
+	}
+	fkInput.parentDelta.push_back(input.parentDelta[TwoBoneIkSlot::Upper]);
+	const ModuleInverseResult fk = ModuleInverse::solveChain(fkContext, fkInput, true);
+	for (unsigned int slot = 0; slot < TwoBoneIkSlot::LimbCount; ++slot)
+	{
+		result.controlLocal[slot] = fk.controlLocal[slot];
+		eval.mLocal[slot] = *fk.controlLocal[slot];
+	}
+
+	// 2. The IK handle and pole from the joints' positions.
+	const MVector vRoot = MathUtils::translationOf(*input.jointWorld[TwoBoneIkSlot::Upper]);
+	const MVector vMid = MathUtils::translationOf(*input.jointWorld[TwoBoneIkSlot::Lower]);
+	const MVector vEnd = MathUtils::translationOf(*input.jointWorld[TwoBoneIkSlot::End]);
+	TwoBoneIkInverseInput ikInput;
+	ikInput.root = vRoot;
+	ikInput.mid = vMid;
+	ikInput.end = vEnd;
+	ikInput.length1 = eval.rest.length1;
+	ikInput.length2 = eval.rest.length2;
+	ikInput.stretch = eval.stretch;
+	ikInput.soft = eval.soft;
+	ikInput.pin = eval.pin;
+	ikInput.rollRadians = eval.rollRadians;
+	ikInput.restPlaneAngle = eval.rest.restPlaneAngle;
+	ikInput.restAxis = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Ik]) - MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Upper]);
+	ikInput.restPoleOffset = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Pole]) - MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Upper]);
+	const TwoBoneIkInverseResult ik = MathUtils::computeTwoBoneIkInverse(ikInput);
+
+	// The handle: at the solved position, turned the way the hand joint is (the frame the forward solve gives the end).
+	const MMatrix mEndFrame = eval.rest.ikRestOffset[TwoBoneIkSlot::End].inverse() * (*input.jointWorld[TwoBoneIkSlot::End]);
+	const MMatrix mHandleWorld = orthonormalFrame(mEndFrame, ik.handle);
+	eval.mLocal[TwoBoneIkSlot::Ik] = ModuleInverse::localFromWorld(mHandleWorld, restWorlds[TwoBoneIkSlot::Ik], eval.mIkDelta);
+	result.controlLocal[TwoBoneIkSlot::Ik] = eval.mLocal[TwoBoneIkSlot::Ik];
+
+	// The pole: in Ik space it moves with the matched handle (the one being written), not the handle's current world.
+	// Its rotation channels are locked, so only the local translation that puts it at the solved position is set.
+	const MMatrix mPoleDelta = eval.poleFollowsIk ? MathUtils::computeDeltaFromRest(restWorlds[TwoBoneIkSlot::Ik], mHandleWorld) : eval.mPoleParentDelta;
+	const MPoint pPoleLocal = MPoint(ik.pole) * (restWorlds[TwoBoneIkSlot::Pole] * mPoleDelta).inverse();
+	eval.mLocal[TwoBoneIkSlot::Pole] = makeFrame(MVector(1.0, 0.0, 0.0), MVector(0.0, 1.0, 0.0), MVector(0.0, 0.0, 1.0), MVector(pPoleLocal.x, pPoleLocal.y, pPoleLocal.z));
+	result.controlLocal[TwoBoneIkSlot::Pole] = eval.mLocal[TwoBoneIkSlot::Pole];
+
+	// The settings control has no joint, so it keeps its fallback. The sockets are what the forward solve gives these controls.
+	fillSockets();
+
+	// 3. A pose IK can't make. FK always matches, so only the IK side warns.
+	if (eval.blend > 0.0 && eval.blend < 1.0)
+	{
+		result.warnings.push_back("ikFkBlend is between 0 and 1, so the IK handle and pole match the joints only approximately. FK matches exactly. Match at blend 0 or 1.");
+		return result;
+	}
+	TwoBoneIkInput check;
+	check.root = vRoot;
+	check.handle = ik.handle;
+	check.pole = ik.pole;
+	check.length1 = eval.rest.length1;
+	check.length2 = eval.rest.length2;
+	check.stretch = eval.stretch;
+	check.soft = eval.soft;
+	check.pin = eval.pin;
+	check.rollRadians = eval.rollRadians;
+	check.restPlaneAngle = eval.rest.restPlaneAngle;
+	check.restBendNormal = eval.rest.restBendNormal;
+	check.restAxis = ikInput.restAxis;
+	const TwoBoneIkResult forward = MathUtils::computeTwoBoneIk(check);
+	const double tolerance = kMaxIkMismatch * (eval.rest.length1 + eval.rest.length2);
+	if ((forward.mid - vMid).length() > tolerance || (forward.end - vEnd).length() > tolerance)
+	{
+		result.warnings.push_back("IK can't make the joints' pose: their bone lengths differ from the rig's with stretch and pin off, or the limb is past its reach. "
+			"The IK handle and pole are as near as the limb gets. FK matches exactly.");
 	}
 	return result;
 }
@@ -694,7 +867,12 @@ bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 		return false;
 	}
 
-	const TwoBoneIkRest rest = computeRest(slots);
+	std::array<MMatrix, TwoBoneIkSlot::Count> restWorlds;
+	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
+	{
+		restWorlds[slot] = slots[slot].mRestWorld;
+	}
+	const TwoBoneIkRest rest = computeRest(restWorlds);
 
 	outPlan.moduleInterface = makeTwoBoneIkInterface();
 	for (const TwoBoneIkSlotInput& slot : slots)

@@ -390,6 +390,11 @@ namespace
 	}
 }
 
+double RigPoseScene::getChannelValue(const Channel& channel)
+{
+	return getValue(channel);
+}
+
 double RigPoseScene::toUiUnits(const Channel& channel, double internal)
 {
 	switch (channel.kind)

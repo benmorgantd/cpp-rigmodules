@@ -137,6 +137,18 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 - A handle on the root folds the limb to its shortest reach. No input gives a NaN.
 - Each IK joint keeps its rest orientation at rest, wherever the rigger put the pole. The end joint's rotation follows the IK handle's.
 
+### Restoring a limb from joints
+
+`poseRigFromJointPose` and `animateRigFromJointClip` put a limb's controls where its joints say ([commands.md](commands.md#how-the-joints-become-control-values)):
+
+- **FK** controls come from the three joints, translate, rotate and scale, at any blend.
+- The **IK handle** goes to the end joint, turned the way the hand joint is. The **pole** is placed so the elbow bends the way the joints bend, at its rest height from the root-to-handle line. With `pin` above 0 the pole's place along the limb is in the joints too, and it comes back where it was.
+- `ikFkBlend`, `stretch`, `soft`, `pin`, `roll` and the pole's `space` come from the pose file given as the sidecar, and otherwise stay as they are in the scene. A `soft` or `stretch` the restore doesn't know about puts the handle in the wrong place, so give them in the sidecar for a pose that used them.
+- **The IK side is exact at blend 0 and blend 1** for any pose the limb can make: bone lengths as built, or `stretch` or `pin` on. Between 0 and 1 the joints are a mix of both chains and IK matches them only approximately, so the restore warns. The FK controls reproduce the joints at any blend. A source with other bone lengths and `stretch` and `pin` off warns too: IK stops at the reach and FK still matches.
+- A handle pulled past full reach with `stretch` off comes back at the wrist, because every handle from there on gives the same pose.
+- The marker joints (`ik`, `pole`, `settings`) are not read. The settings control comes from the sidecar.
+- A limb joint the source lacks leaves all the limb's controls to the sidecar, or rest.
+
 **The settings control** follows the parent of the `start` child plug (the chest for an arm, the pelvis for a leg), whatever space the arm is in. A constraint on `start` doesn't carry it.
 
 **Parenting:**

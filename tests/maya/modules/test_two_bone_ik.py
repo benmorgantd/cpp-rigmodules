@@ -21,7 +21,6 @@ POLE = "armPole_ctrl_l"
 SETTINGS = "armSettings_ctrl_l"
 LIMB_JOINTS = ["upperArm_jnt", "lowerArm_jnt", "hand_jnt"]
 ALL_CONTROLS = ARM + [HANDLE, POLE, SETTINGS]
-INVERSE_SKIP = "the TwoBoneIk inverse is phase 5 of D52 (section 11, answer 3), so the contract's round trip waits for it"
 
 
 class TwoBoneIkContract(ModuleContract, RigTestCase):
@@ -35,15 +34,12 @@ class TwoBoneIkContract(ModuleContract, RigTestCase):
     MIRROR_TEMPLATE = "twoboneik_mirror"
     MIRROR_SKELETON = "twoboneik_mirror"
 
-    # The inverse returns solved = false until phase 5 (D41 requires one to exist).
-    def test_contract_inverse_round_trip(self):
-        self.skipTest(INVERSE_SKIP)
-
-    def test_contract_inverse_round_trip_mirrored(self):
-        self.skipTest(INVERSE_SKIP)
-
-    def test_contract_inverse_without_a_joint_falls_back_to_the_sidecar(self):
-        self.skipTest(INVERSE_SKIP)
+    def joints_cannot_give(self, control, channel):
+        """The contract poses every channel and the blend stays at 1 (IK), so the FK controls the blend hides can't come
+        back from joints: the lower and end controls entirely, and the start control's rotation and scale (the IK root
+        takes its translation only, D52 decision 16). The joints still match, which the round trip checks."""
+        name = control.split(":")[-1].split("_")[0]   # upperArm_ctrl_l, or upperArm_l_ctrl_l in the mirror skeleton
+        return name in ("lowerArm", "hand") or (name == "upperArm" and not channel.startswith("translate"))
 
 
 class TwoBoneIkPoses(RigTestCase):

@@ -89,6 +89,7 @@ namespace
 		MObject oControl;
 		ControlMarkup markup;
 		std::vector<RigPoseScene::Channel> channels;
+		std::vector<double> current;   // each channel's value in the scene when the solve started, internal units
 		MEulerRotation::RotationOrder rotateOrder = MEulerRotation::kXYZ;
 		MEulerRotation previousRotation;
 		int spaceChannel = -1;   // index into channels of the `space` enum, -1 for a control without one
@@ -101,6 +102,8 @@ namespace
 		std::string name;
 		ModuleInverseFn inverse = nullptr;
 		ModuleInverseContext context;
+		std::vector<ModuleInverseChannel> inverseChannels;   // the scalar channels the inverse reads
+		std::vector<std::pair<int, int>> channelAt;           // by inverseChannels: the solver's control and its channel, -1 for a control without it
 		std::vector<int> controlOfSlot;                       // index into the solver's controls, -1 for none
 		std::vector<int> clipJointOfSlot;                     // index into the clip's joints, -1 when the slot has no rig joint or the source lacks it
 		std::vector<std::string> missingJoints;               // the rig's joints the source lacks, as "[side, usage]"
@@ -328,6 +331,10 @@ namespace
 			}
 
 			control.label = DagUtils::getPartialPathName(control.oControl).asChar();
+			for (const RigPoseScene::Channel& channel : control.channels)
+			{
+				control.current.push_back(RigPoseScene::getChannelValue(channel));
+			}
 			control.rotateOrder = static_cast<MEulerRotation::RotationOrder>(MPlug(control.oControl, MPxTransform::rotateOrder).asShort());
 			control.previousRotation = MEulerRotation(
 				MPlug(control.oControl, MPxTransform::rotateX).asMAngle().asRadians(),
@@ -575,11 +582,31 @@ namespace
 				return MStatus::kFailure;
 			}
 			module.inverse = pDescriptor->inverse;
+			module.inverseChannels = pDescriptor->inverseChannels;
 
 			status = readControls(module, controlByKey);
 			if (!status)
 			{
 				return status;
+			}
+
+			for (const ModuleInverseChannel& wanted : module.inverseChannels)
+			{
+				std::pair<int, int> at{ -1, -1 };
+				const int control = wanted.slot < module.controlOfSlot.size() ? module.controlOfSlot[wanted.slot] : -1;
+				if (control >= 0)
+				{
+					const std::vector<RigPoseScene::Channel>& channels = fControls[control].channels;
+					const auto it = std::find_if(channels.begin(), channels.end(), [&wanted](const RigPoseScene::Channel& channel)
+					{
+						return channel.info.name == wanted.name;
+					});
+					if (it != channels.end())
+					{
+						at = { control, static_cast<int>(it - channels.begin()) };
+					}
+				}
+				module.channelAt.push_back(at);
 			}
 		}
 
@@ -731,6 +758,21 @@ namespace
 				if (control >= 0)
 				{
 					input.fallbackLocal[slot] = localFromValues(fControls[control], values[control]);
+				}
+			}
+
+			// The scalar channels the joints can't give: the sidecar's value, else the one in the scene, which is what the
+			// forward solve will read once the controls are written.
+			for (std::size_t k = 0; k < module.inverseChannels.size(); ++k)
+			{
+				const auto [control, channel] = module.channelAt[k];
+				if (control < 0)
+				{
+					input.channels.push_back(module.inverseChannels[k].defaultValue);
+				}
+				else
+				{
+					input.channels.push_back(isSupplied[control][channel] ? values[control][channel] : fControls[control].current[channel]);
 				}
 			}
 

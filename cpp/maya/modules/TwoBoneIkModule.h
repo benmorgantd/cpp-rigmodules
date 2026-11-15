@@ -30,6 +30,19 @@ namespace TwoBoneIkSlot
 	inline constexpr unsigned int LimbCount{ 3 };  // the slots that are limb joints
 }
 
+// The order of the scalar channels the inverse reads (inverseChannels), which is the order of ModuleInverseInput::channels.
+// Append only: the order is not a name, but the inverse indexes by it.
+namespace TwoBoneIkInverseChannel
+{
+	inline constexpr unsigned int Soft{ 0 };
+	inline constexpr unsigned int Stretch{ 1 };
+	inline constexpr unsigned int Pin{ 2 };
+	inline constexpr unsigned int Roll{ 3 };
+	inline constexpr unsigned int Space{ 4 };
+	inline constexpr unsigned int IkFkBlend{ 5 };
+	inline constexpr unsigned int Count{ 6 };
+}
+
 struct TwoBoneIkSlotInput
 {
 	MObject oJoint;
@@ -102,9 +115,12 @@ public:
 		MDagModifier& dagMod
 	);
 	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
-	// Not built yet (D52 phase 5): reports solved = false with the reason, and returns each slot's control step so a restore's
-	// sweep still has a socket for every slot.
+	// Control values from the limb joints (D52 section 6): the FK controls from the joint worlds, the IK handle and pole
+	// from the observed positions through MathUtils::computeTwoBoneIkInverse, for the channels in inverseChannels().
+	// The sockets are the forward evaluation of those controls. Not solved when a limb joint is missing.
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
+	// The scalar channels the inverse reads, in TwoBoneIkInverseChannel order.
+	static std::vector<ModuleInverseChannel> inverseChannels();
 
 private:
 	struct TwoBoneIkSolveResult
@@ -113,5 +129,25 @@ private:
 		MMatrix mJointWorld[TwoBoneIkSlot::Count];   // Slots 0 to 2 are the blended limb joints, the rest are the controls' worlds
 	};
 
+	// What one evaluation reads, as plain values: compute() fills it from plugs and the inverse from its input.
+	struct TwoBoneIkEval
+	{
+		MMatrix mLocal[TwoBoneIkSlot::Count];
+		MMatrix mRest[TwoBoneIkSlot::Count];
+		MMatrix mUpperDelta;         // the child plugs' parent motion
+		MMatrix mIkDelta;
+		MMatrix mPoleParentDelta;    // used when the pole's space is Parent
+		MMatrix mSettingsDelta;
+		bool poleFollowsIk = false;
+		double blend = 1.0;
+		double stretch = 0.0;
+		double soft = 0.0;
+		double pin = 0.0;
+		double rollRadians = 0.0;
+		TwoBoneIkRest rest;          // not read at blend 0
+	};
+
 	static MStatus solve(MDataBlock& data, TwoBoneIkSolveResult& outResult);
+	// The forward evaluation, shared by compute() and the inverse so the sockets a restore returns are compute()'s.
+	static void evaluate(const TwoBoneIkEval& eval, TwoBoneIkSolveResult& outResult);
 };

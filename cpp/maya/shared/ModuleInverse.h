@@ -18,12 +18,24 @@ struct ModuleInverseContext
 	std::vector<MMatrix> controlRestWorld;   // by slot. Aim's slot 0 holds the aim joint's rest, there is no control.
 };
 
+// A scalar channel a module's inverse needs and the joints can't give (D41 amendment, D52 section 6): the name of
+// the channel on the control at that slot, and the value the driver passes when the control has no such channel.
+// A module lists them in ModuleDescriptor::inverseChannels, and receives their values in ModuleInverseInput::channels
+// in the same order. Names are the animator's, as in a pose file.
+struct ModuleInverseChannel
+{
+	const char* name;
+	unsigned int slot;
+	double defaultValue;
+};
+
 // One module's input for one frame.
 struct ModuleInverseInput
 {
 	std::vector<std::optional<MMatrix>> jointWorld;   // by slot. Empty: the joint is missing from the source.
 	std::vector<MMatrix> parentDelta;                 // by slot: the child plug's parent motion since rest, from the sweep (identity when unconnected)
 	std::vector<MMatrix> fallbackLocal;               // by slot: the control's local matrix from the sidecar, or rest, for when its joint can't give it
+	std::vector<double> channels;                     // by ModuleDescriptor::inverseChannels, in internal units (angles in radians): the sidecar's value, else the rig's current one
 };
 
 struct ModuleInverseResult

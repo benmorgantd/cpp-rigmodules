@@ -47,7 +47,7 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
         {
             "twoBoneIkModule", "TwoBoneIk", TwoBoneIkNode::id,
             TwoBoneIkNode::creator, TwoBoneIkNode::initialize,
-            {}, TwoBoneIkNode::planFromJson, TwoBoneIkNode::inverse, true
+            {}, TwoBoneIkNode::planFromJson, TwoBoneIkNode::inverse, true, TwoBoneIkNode::inverseChannels()
         },
         {
             "rigConstraint", "RigConstraint", RigConstraintNode::id,

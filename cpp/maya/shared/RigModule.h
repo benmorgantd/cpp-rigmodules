@@ -125,6 +125,8 @@ struct ModuleDescriptor
 	// says so with a result that has solved = false and a reason. nullptr for nodes that are not rig modules.
 	ModuleInverseFn inverse;
 	bool isRigModule;          // Connects to a rig root's rigModules. Its moduleType is a getRigControls filter value.
+	// The scalar channels the module's inverse reads (D41 amendment). Empty for a module whose controls are all transforms.
+	std::vector<ModuleInverseChannel> inverseChannels;
 };
 
 // Result of solving one control step. Shared by every module that carries controls.

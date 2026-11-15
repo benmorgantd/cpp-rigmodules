@@ -194,8 +194,15 @@ class ModuleContract:
                 self.fail("%s is off after restoring from joints\n  posed %s\n  after %s" % (joint, list(matrix), list(after)))
         for control, values in posed_values.items():
             for name, value in values.items():
+                if self.joints_cannot_give(control, name):
+                    continue
                 actual = cmds.getAttr("%s.%s" % (control, name))
                 self.assertAlmostEqual(actual, value, places=3, msg="%s.%s was posed to %s, and restored as %s" % (control, name, value, actual))
+
+    def joints_cannot_give(self, control, channel):
+        """True for a posed value no joint carries, so the round trip can't expect it back. The default is none. A module
+        with two ways to drive the same joints (TwoBoneIk: FK and IK, one of which the blend hides) overrides it."""
+        return False
 
     def test_contract_inverse_round_trip(self):
         """Every module has an inverse that agrees with its forward solve, in the standard build."""
@@ -225,12 +232,14 @@ class ModuleContract:
         controls = [c for c in rigmodules.query.get_rig_controls(root) if (c.side, c.usage) == (markup["side"], markup["usage"])]
         short = last.split(":")[-1]
         clip = jointclips.write_json(os.path.join(folder, "clip.json"), jointclips.clip_data(rest, [posed_joints], skip=(short,)))
-        # The Layout has no joints, so it always comes from the sidecar, and the control for the missing joint with it.
-        sidecar_controls = {}
+        # The sidecar carries what no joint can (the Layout, the channels that aren't transforms), and the control for the
+        # missing joint with all its values.
+        with open(self._sidecar_for_what_joints_cannot_give(root, folder), encoding="utf-8") as handle:
+            sidecar_controls = json.load(handle)["controls"]
         layout = [c for c in rigmodules.query.get_rig_controls(root) if c.usage.startswith("layout_")]
         for control in controls + layout:
-            sidecar_controls.setdefault(control.side, {})[control.usage] = dict(posed_values[control.node])
-        sidecar = jointclips.write_json(os.path.join(folder, "sidecar.json"), {"formatVersion": 1, "controls": sidecar_controls})
+            sidecar_controls.setdefault(control.side, {}).setdefault(control.usage, {}).update(posed_values[control.node])
+        sidecar = jointclips.write_json(os.path.join(folder, "sidecar_full.json"), {"formatVersion": 1, "controls": sidecar_controls})
 
         cmds.zeroRigControls(root)
         cmds.poseRigFromJointPose(root, jointPose=clip.replace("\\", "/"), sidecar=sidecar.replace("\\", "/"))

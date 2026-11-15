@@ -80,6 +80,9 @@ public:
 	static double toUiUnits(const Channel& channel, double internal);
 	static double fromUiUnits(const Channel& channel, double ui);
 
+	// The channel's current value in internal units.
+	static double getChannelValue(const Channel& channel);
+
 	// The control's channels in channel box order.
 	static MStatus getControlChannels(const MObject& oControl, std::vector<Channel>& outChannels);
 
