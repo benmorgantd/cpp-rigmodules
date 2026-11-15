@@ -2,7 +2,7 @@
 
 **Status:** draft for sign-off, revised 2026-11-15 with the author's requirements and answers, a soft IK design, a roll channel and a full review (section 9). Nothing here is built, and the module has not passed the gate (D12) until the author signs off section 2. Written from the code, `decisions.md` (D1 to D46), `inverse-solve.md` and `module-directions.md`. Where those disagree, section 9 lists it.
 
-The IK limb is the next module (author, 2026-11-10). It is IK/FK only. It is **not** a bendy limb: no twist, no bend bow, no ribbon. Section 7.4 says how those can be built on top later.
+The IK limb is the next module (author, 2026-11-10). **It is a two-bone IK limb: exactly three joints (root, mid, end), for arms and legs.** Three or more IK bones is a different solve (a chain solver such as CCD or FABRIK, with no closed form, no single pole plane and no analytic inverse), and spline IK is another again. Both would be their own modules through the gate (D12) and share nothing with this solver except the blend and the matched-switch pattern. The module is IK/FK only. It is **not** a bendy limb: no twist, no bend bow, no ribbon. Section 7.4 says how those can be built on top later.
 
 ## 0. Requirements and answers (author, 2026-11-15)
 
@@ -26,7 +26,7 @@ Answers and confirmations:
 
 ## 1. Gate (D12)
 
-1. **Animator-facing problem.** Arms and legs that animators pose by placing a hand or foot (IK) and by rotating joints (FK), that switch between the two without a pop, that can stretch or pin the elbow, and whose pole follows the world or the hand. `FkChain` gives FK only and `Aim` points one joint. Nothing solves a two-bone chain.
+1. **Animator-facing problem.** Two-bone limbs (arms and legs) that animators pose by placing a hand or foot (IK) and by rotating joints (FK), that switch between the two without a pop, that can stretch or pin the elbow, and whose pole follows the world or the hand. `FkChain` gives FK only and `Aim` points one joint. Nothing solves a two-bone chain.
 2. **Existing module check.** No small extension of FkChain or Aim covers it. A two-bone solve, a blend between two joint solutions and channels on controls are new, and all transform math lives in module nodes (D1).
 3. **Design.** Sections 3 to 7.
 4. **Maintenance surface.** Section 10.
@@ -44,7 +44,7 @@ Each has a recommendation. Changing one after the module ships changes a templat
 | 4 | What is the blend's default? | **Answered: 1 (IK) for every limb, no template key.** | Default equals rest (D34), so a built rig, `zeroRigControls` and the contract's rest pose are all in IK, with the FK lower and end controls hidden. FK pose cases set `ikFkBlend` to 0. |
 | 5 | FK controls: which channels are keyable? | **All of FkChain's** (translate, rotate, scale), so FK can reproduce a stretched or pinned IK pose when the matched switch writes it. | Locking FK translate would leave stretch and pin unreproducible in FK, and the switch would pop. |
 | 6 | Hide controls by blend? | **Yes in v1, confirmed.** FK lower and end visible when blend < 1, IK handle and pole when blend > 0. The FK **start** control and the settings control are always visible (the start control moves the IK chain too). | Nothing surprising for the animator. Cost: two scalar outputs on the node (section 3.4). |
-| 7 | Scope of v1. | Two-bone limb, IK/FK blend, pole, `stretch`, `pin`, `roll`, pole spaces, matched switch, spaces on `start` and `ik` through `rigConstraint`. **Not in v1:** twist joints, bend bow, ribbon, reverse foot, spline IK (soft IK is decision 10). | Each is its own gate. Section 7.4 keeps them open. |
+| 7 | Scope of v1. | Two-bone limb, IK/FK blend, pole, `stretch`, `pin`, `roll`, pole spaces, matched switch, spaces on `start` and `ik` through `rigConstraint`. **Not in v1, and not this module:** IK over three or more bones, spline IK, twist joints, bend bow, ribbon, reverse foot (soft IK is decision 10). A limb with more than three joints is an error, not a longer chain (section 5). | Each is its own gate. Section 7.4 keeps them open. |
 | 8 | Names. | Module type `IkLimb`, node `ikLimbModule`, MTypeId `0x00218F` (checked free 2026-11-15), channels `ikFkBlend`, `stretch`, `soft`, `pin`, `roll`, and `space` on the pole. | Names are public API. They follow D34: camelCase, no side or module in them, 0 at the first-named end. |
 | 9 | New commands. | **Two:** `setRigIkFkBlend` and `setRigPoleSpace` (section 7.2). | The matched switch needs scene access and undo, so it is a C++ command like `setRigConstraintSpace`. |
 | 10 | Soft IK in v1? | **Yes, if you agree.** One channel, one attribute and one formula (section 4.2a). The author said it can wait. | Adding it later is a new channel on the settings control of every existing rig, which means a rebuild (D33) and a new golden snapshot, but no template key and no rename. The solver is written for it either way (`computeTwoBoneIk` takes the soft distance). |
@@ -162,7 +162,7 @@ Blend at exactly 0 returns the FK worlds and at exactly 1 the IK worlds, with no
 
 ### 4.2 Two-bone solve with stretch, pin and roll
 
-`MathUtils::computeTwoBoneIk` in `maya/shared/Utilities.h`, next to `computeAimMatrix`. It is shareable (a leg, a ribbon module or a future module can call it), so it goes in the shared layer when written (CLAUDE.md, "Look before you write", step 6). It takes `rootPos`, `handlePos`, `polePos`, `L1`, `L2`, `stretch`, `soft`, `pin`, `roll`, `restPlaneAngle`, the rest bend normal and the rest axis, and returns the three positions and the plane normal.
+`MathUtils::computeTwoBoneIk` in `maya/shared/Utilities.h`, next to `computeAimMatrix`. It solves exactly two bones in closed form and is not a general chain solver (a multi-bone solver would be a separate function). It is shareable (a ribbon module or another two-bone user can call it), so it goes in the shared layer when written (CLAUDE.md, "Look before you write", step 6). It takes `rootPos`, `handlePos`, `polePos`, `L1`, `L2`, `stretch`, `soft`, `pin`, `roll`, `restPlaneAngle`, the rest bend normal and the rest axis, and returns the three positions and the plane normal.
 
 1. Reach `d = |handle - root|`, axis `a = normalize(handle - root)`. Below a small epsilon the axis is the rest axis (the rest handle's position minus the rest root's, both stored as control rests), so a handle on the root gives no NaN.
 2. Soft reach `de = softReach(d)` (section 4.2a). With `soft = 0` it is `min(d, L1 + L2)`.
@@ -232,7 +232,7 @@ Translation lerps, rotation slerps along the shorter arc, scale lerps. Decompose
 
 All errors go to `ctx.report` with the JSON path, and every selector is claimed even after a failure so the report lists all of them (the FkChain and Aim pattern).
 
-1. `joints` has exactly three selectors. `ik`, `pole`, `settings` each resolve to one joint, and none of the six is claimed twice (`claimJoint` covers it).
+1. `joints` has exactly three selectors. Any other count is an error that says this is a two-bone IK limb and that longer chains need a different module. `ik`, `pole`, `settings` each resolve to one joint, and none of the six is claimed twice (`claimJoint` covers it).
 2. Rest bone lengths `L1` and `L2` are above a minimum (as `kMinAimDistance`).
 3. The pole joint is not on the root-end line (as `kMinAimUpSine`). Its side and plane don't matter: `restPlaneAngle` absorbs them (section 4.3).
 4. The `ik` joint is within a tolerance of the end joint's position. An offset handle is a separate feature: error for now.
