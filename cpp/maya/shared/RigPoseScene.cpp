@@ -421,6 +421,33 @@ MStatus RigPoseScene::setMirrorMode(MFnAttribute& fnAttr, bool negate)
 	return fnAttr.addToCategory(negate ? ChannelMirror::NegateCategory : ChannelMirror::CopyCategory);
 }
 
+MStatus RigPoseScene::addEnumChannel(
+	const MObject& oControl,
+	const char* name,
+	const std::vector<std::string>& labels,
+	short defaultIndex,
+	bool negate,
+	MDagModifier& dagMod)
+{
+	MStatus status;
+	MFnEnumAttribute fnEnum;
+	MObject oAttr = fnEnum.create(name, name, defaultIndex, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	for (size_t i = 0; i < labels.size(); ++i)
+	{
+		status = fnEnum.addField(labels[i].c_str(), static_cast<short>(i));
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+	status = fnEnum.setKeyable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	status = fnEnum.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	status = setMirrorMode(fnEnum, negate);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	return dagMod.addAttribute(oControl, oAttr);
+}
+
 MStatus RigPoseScene::getControlChannels(const MObject& oControl, std::vector<Channel>& outChannels)
 {
 	outChannels.clear();

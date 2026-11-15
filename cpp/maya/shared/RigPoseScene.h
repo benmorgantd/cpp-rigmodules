@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include <maya/MDagModifier.h>
 #include <maya/MDGModifier.h>
 #include <maya/MFnAttribute.h>
 #include <maya/MObject.h>
@@ -46,6 +47,19 @@ public:
 	// module or constraint adds to a control must call this before the attribute is added: getControlChannels fails
 	// on one that didn't. Built-in channels (transforms, visibility) need nothing and copy.
 	static MStatus setMirrorMode(MFnAttribute& fnAttr, bool negate);
+
+	// Queues a keyable, storable enum channel on a control, with its mirror mode declared (setMirrorMode), through the
+	// caller's modifier so undo and redo replay it. The control must exist in the scene: the caller runs doIt before
+	// wiring the attribute. labels[i] is the label of value i, and defaultIndex is the rest (D34).
+	// A double or angle channel (a clamped blend, a roll) is a sibling function with the same shape, added by the
+	// first caller that needs one.
+	static MStatus addEnumChannel(
+		const MObject& oControl,
+		const char* name,
+		const std::vector<std::string>& labels,
+		short defaultIndex,
+		bool negate,
+		MDagModifier& dagMod);
 
 	// A channel's value between internal units (radians, centimeters) and the UI units a pose file holds.
 	static double toUiUnits(const Channel& channel, double internal);

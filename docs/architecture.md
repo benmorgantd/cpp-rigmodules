@@ -272,6 +272,13 @@ The reverse of a rig's evaluation: from joint world matrices to control values (
 2. The scene side in a `shared/*Scene` class, and a save and load command pair.
 3. Docs: a section in its owning page (see the table above).
 
+**A new control channel** (a keyable custom attribute on a control)
+
+1. Add the name to `RigAttr` in `core/Constants.h`.
+2. Add it with `RigPoseScene::addEnumChannel` through the build's `MDagModifier`: it sets keyable and storable, declares the mirror mode (copy or negate, D34) and adds the attribute, so undo and redo replay it. A double or angle channel gets a sibling function when its first caller needs one. The default is the channel's rest.
+3. A control that keeps a transform channel keyable passes it in `DagUtils::queueLockAndHideTransform`'s `keepChannels`.
+4. `getRigControlChannels` fails on a channel with no mirror mode, so `ModuleContract` catches a missed one. The golden snapshots record the channels.
+
 **A change to saved data**: raise the format's version and add an update step. Never change the meaning of an existing version.
 
 ## Conventions

@@ -402,7 +402,7 @@ MObjectArray DagUtils::getTopmostNodes(const MObjectArray& oNodes)
 	return oTopmost;
 }
 
-MStatus DagUtils::queueLockAndHideTransform(const MObject& oTransform, MDagModifier& dagMod)
+MStatus DagUtils::queueLockAndHideTransform(const MObject& oTransform, MDagModifier& dagMod, const std::vector<std::string>& keepChannels)
 {
 	MStatus status;
 	const MFnDagNode fnTransform(oTransform, &status);
@@ -411,6 +411,10 @@ MStatus DagUtils::queueLockAndHideTransform(const MObject& oTransform, MDagModif
 	// The children, not the compound plugs: setAttr -lock on a compound leaves the children keyable in the channel box.
 	for (const char* channel : { "tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz" })
 	{
+		if (std::find(keepChannels.begin(), keepChannels.end(), channel) != keepChannels.end())
+		{
+			continue;
+		}
 		status = dagMod.commandToExecute(MString("setAttr -lock true -keyable false -channelBox false ")
 			+ MelUtils::quoted(fnTransform.fullPathName() + "." + channel));
 		CHECK_MSTATUS_AND_RETURN_IT(status);

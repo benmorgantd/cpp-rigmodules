@@ -113,8 +113,9 @@ public:
 	static MObjectArray getTopmostNodes(const MObjectArray& oNodes);
 
 	// Queues locking and hiding translate, rotate and scale on a transform that exists (after a doIt), leaving
-	// visibility alone. MEL on the modifier, so undo and redo replay it (D40).
-	static MStatus queueLockAndHideTransform(const MObject& oTransform, MDagModifier& dagMod);
+	// visibility alone. MEL on the modifier, so undo and redo replay it (D40). keepChannels names channels ("rx", "ty")
+	// that stay as they are, for a control whose rotate must stay keyable.
+	static MStatus queueLockAndHideTransform(const MObject& oTransform, MDagModifier& dagMod, const std::vector<std::string>& keepChannels = {});
 };
 
 class MeshUtils

@@ -397,19 +397,13 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 
 	if (createEnumAttr)
 	{
-		MFnEnumAttribute eAttr;
-		MObject oSpaceAttr = eAttr.create(RigAttr::ControlSpace, RigAttr::ControlSpace, static_cast<short>(args.initialDriver), &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		for (unsigned int i = 0; i < args.drivers.size(); ++i)
+		std::vector<std::string> labels;
+		for (const ConstraintDriverInfo& driver : args.drivers)
 		{
-			eAttr.addField(args.drivers[i].label.c_str(), static_cast<short>(i));
+			labels.push_back(driver.label);
 		}
-		eAttr.setKeyable(true);
-		eAttr.setStorable(true);
 		// The mirrored constraint lists its drivers in the same order (D28), so the index copies across.
-		CHECK_MSTATUS_AND_RETURN_IT(RigPoseScene::setMirrorMode(eAttr, false));
-
-		status = dagMod.addAttribute(args.oControl, oSpaceAttr);
+		status = RigPoseScene::addEnumChannel(args.oControl, RigAttr::ControlSpace, labels, static_cast<short>(args.initialDriver), false, dagMod);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
 
