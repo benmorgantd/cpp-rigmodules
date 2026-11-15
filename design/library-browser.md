@@ -1,6 +1,6 @@
 # The library browser
 
-**Status:** Proposed (D51), written 2026-11-14 and revised the same day with the author's notes from past libraries and answers to the first round of questions (section 12). Signed off by the author the same day. Phase 1 (the RigModules side) is built, with the differences in section 12c. The mayadev side is not. It is the second panel of phase 3 in `mayadev-ui.md` (section 5), after the active rig panel (`active-rig-panel.md`, D50). The code is in mayadev, plus a set of RigModules changes (section 8). Changes to mayadev need the author's go-ahead and a commit in that repo.
+**Status:** Proposed (D51), written 2026-11-14 and revised the same day with the author's notes from past libraries and answers to the first round of questions (section 12). Signed off by the author the same day. Phase 1 (the RigModules side) is built, with the differences in section 12c. Phase 2 (mayadev, headless) is built, with the differences in section 12d. The window (phases 3 to 5) is not. It is the second panel of phase 3 in `mayadev-ui.md` (section 5), after the active rig panel (`active-rig-panel.md`, D50). The code is in mayadev, plus a set of RigModules changes (section 8). Changes to mayadev need the author's go-ahead and a commit in that repo.
 
 ## 1. The problem it solves
 
@@ -253,12 +253,37 @@ Phase 1 (the RigModules side) is built and the suite passes (TOTAL in the commit
 
 Also: both formats are version 2 with a required `meta` object, and a version 1 file loads with an empty one. `core/` gained `LibraryMeta` (the field table is the one list of fields) and `LibraryFile` (a file's summary, the info JSON and a meta-only edit), and `maya/shared` gained `RigDataFileScene`. The `status`, `rigRegions` and `category` vocabularies are not checked by RigModules (section 12). Nothing in the vocabulary or the project.json parts is built: they belong to phase 2, in mayadev.
 
+## 12d. Phase 2 as built (2026-11-14)
+
+Phase 2 is built in mayadev on branch `ui-phase1` (uncommitted when this was written, with the suites passing). No window. What differs from sections 3 to 7, and why:
+
+| Section | Designed | Built | Why |
+|---|---|---|---|
+| 2 | `ListModel` is a `QAbstractListModel` | A `QAbstractTableModel` with optional `columns` | The Details view is a `QTableView` over the same model as the List view. A list model has one column. A `QListView` over a table model shows column 0 |
+| 5 | The index is keyed by path and modified time | Path, modified time and a **context** (the rig root) | `getRigDataFileInfo` reports `unmatchedControls` for one rig, so a cached answer is wrong for another. Switching rigs rereads the files once |
+| 5 | Search terms `tag:`, `template:`, ... | `tag`, `template`, `skeleton`, `by`, `category`, `asset` match a part of the value, ignoring case. `source`, `kind`, `status`, `region` match the whole value. Every term must match | Typing `tag:fis` finds `fist` while the animator types. A source or a status is a fixed word, so a part of it would be a surprise |
+| 6 | A mask item is `{module, side, usage}` | `MaskItem(module_type, side, usage)`, saved as `moduleType`, `side`, `usage` | It is the `moduleType` filter of `getRigControls`, and `module` could be read as a module's name. The rig's per-module mask is the list of its controls' `(side, usage)`, which is unique in a rig (D25) |
+| 6 | Saved masks as JSON beside the library | `masks.json` beside the `controlposes` and `controlanims` folders of the Approved source (the team's) and of the User source (the user's). A user mask replaces a team mask of the same name | "Beside the library" has two libraries. A mask is per asset because module types differ between rigs |
+| 7 | `scope: str` | `None` (selection when something is selected, else the rig), `"selection"`, `"rig"` or a mask's name | The default follows the selection without the view setting it. A mask with a selection keeps the selected controls of the mask |
+| 7 | A cache of the last mirrored result | Not built | The command mirrors inside `loadRigPose` and `loadRigAnimation` and returns no data, so there is nothing to cache. The design already said the first build doesn't precompute |
+| 7 | `save(name, tags, description)` | Adds `replace`, `start_frame` and `end_frame`. An existing name raises `LibraryError` unless `replace`. The menu tools ask through the prompter, the session raises | The view asks the prompter, and the session stays free of dialogs |
+| 3 | Approved, Shared and User, in `core.asset.library` | As designed. `sources(asset)` leaves Approved and Shared out while the asset isn't on disk, so a rig whose asset was never created still has a User library | Section 7: "the User folder of that rig's asset id when the id is valid" |
+| 3 | The registry skips a top-level `user` folder and an id can't start with `user` | `assetid.check` refuses a first token of `user`, ignoring case, and the registry skips `<projects root>\user`. A project whose folder is below the projects root never walks into it | RigModules' `core/AssetId` has no such rule: flagged in `docs/mayadev.md` |
+| 4 | The vocabularies in `project.json` | `Project.rig_regions` (`rig.regions`) and `Project.library_statuses` (`library.statuses`), both in `DEFAULT_PROJECT`, an absent key an empty list, the `formatVersion` unchanged | Additive keys. An existing `project.json` keeps working and is not checked against them |
+| 4 | File names, `.anim.json` becomes `.controlanim.json` | The two handlers write `.controlpose.json` and `.controlanim.json`, list a legacy `<name>.json`, and a clip's sidecar `.anim.json` is still read. A rename gives a legacy file the new suffix | One name for the format, and nothing stored stops loading |
+| 7 | Save goes through `assettools` with the User folder as the target | `assettools.save_pose` and `save_animation` write to the User library with `meta` (author, template, skeletonId, tags, description). `save_control_file(folder=)` versions the old file and never calls source control for it. Load goes through `posetools.load_pose` and `load_animation` (one undo step), which the session and the menu tools share | A file in the User folder isn't in source control, so a checkout or add would be wrong under Perforce |
+| 4 | `template` in `meta` | The rig's variant (`rigName`) | The rig stores no template name (section 12c), and a variant is the template's `rigName` |
+
+Delete keeps a local version copy (`versions.version`) before it removes the file. `copy_to_user` was added to the session and the library, since the Approved and Shared entries can be copied to User (section 3).
+
+Not done, by design: the window, the tool registry entry and the `panels` item (phase 3), Publish to Approved (phase 4), thumbnails (phase 5). The menu tools are still file-dialog tools and write to the User library now.
+
 ## 13. Phases
 
 Each phase leaves every menu tool working and is reviewable alone.
 
 1. **RigModules** (section 8): `meta` and its update steps, the save flags, `getRigDataFileInfo`, `setRigDataFileMeta`, `loadRigPose(mirror=)`, the file names, the contract and round trip tests, docs.
-2. **mayadev headless:** `core.asset.library` (sources, index, search, masks), `LibrarySession`, `ListModel`, the menu tools' save and load moved onto the library functions (Save writes to User), tests. No window.
+2. **mayadev headless (built, section 12d):** `core.asset.library` (sources, index, search, masks), `LibrarySession`, `ListModel`, the menu tools' save and load moved onto the library functions (Save writes to User), tests. No window.
 3. **The view:** `LibraryBrowser` with List and Details, search and facets, scope, apply, save, edit tags, the tool registry entry and the `panels` item, offscreen tests, mayadev docs.
 4. **Approved:** Publish to Approved, and the Approved and Shared write rules.
 5. **Thumbnails and the Grid view** (section 9).

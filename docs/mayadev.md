@@ -51,7 +51,8 @@ A rename, a removed flag or a changed return shape in anything in the table brea
 
 Found reading mayadev's code on 2026-11-14. The code wins, so these are flagged for the author, not changed.
 
-- **Library file names (decided 2026-11-14, D51).** [`library.md`](library.md) names ControlAnims `<name>.controlanim.json` and ControlPoses `<name>.controlpose.json`, in `controlanims/`, `controlposes/` and the ControlAnim copy in an export folder. mayadev's `ControlDataHandler.file_path` still writes `<name>.json` in both folders, and `CONTROL_ANIM_SUFFIX` in `bmaya.maya.assethandlers` is `.anim.json`. The change is mayadev's, and old files keep loading because the commands take any path.
+- **Library file names (decided 2026-11-14, D51, built in mayadev 2026-11-14).** [`library.md`](library.md) names ControlAnims `<name>.controlanim.json` and ControlPoses `<name>.controlpose.json`. mayadev's `ControlDataHandler` and `CONTROL_ANIM_SUFFIX` write those names now, list a legacy `<name>.json` and load it, and its Save Pose and Save Animation tools write to the user's own library (`<projects root>\user\<login>\animlibrary\<asset id>\...`), not the asset's folders. This is on mayadev's branch `ui-phase1` until it merges.
+- **The reserved `user` folder.** mayadev's `assetid.check` refuses an asset id whose first token is `user` (the top-level folder of the projects root that holds each user's library), and its registry skips that folder. `core/AssetId` here has no such rule, so `createRigFromTemplate(asset="user\\x")` is accepted and mayadev then can't open the asset. Not changed here: it needs a decision on whether the plugin should know a mayadev folder name.
 - **`mayadev.mod`** is described by [`design/mayadev-integration.md`](../design/mayadev-integration.md) as existing, but is not in the mayadev repo.
 - The list of mayadev issues in that document is dated: see its "Status on 2026-11-14".
 

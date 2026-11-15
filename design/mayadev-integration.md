@@ -182,7 +182,7 @@ Animator-facing features found there, which RigModules does not have yet:
 - Stale: "the only test is a one-joint build smoke test". mayadev has about 180 unittest tests across `bmaya.asset`, the handlers and tools, the active rig and the menu. The Maya ones skip without `RIGMODULES_PLUGIN`.
 - New: three skinning files don't compile under Python 3 (`averageVertexSkinWeightCmd.py`, `bm_softCluster.py`, `cvshapeinverter.py`), and so does `py/plug-ins/cv_nodeTemplate.py`.
 - `mayadev.mod`, described under "Packaging", is not in the mayadev repo.
-- The ControlAnim file name differs: the design puts ControlAnims in `controlanims/` as `<name>.anim.json`, and mayadev's `ControlAnimHandler` writes `<name>.json`. Open, for the author.
+- The ControlAnim file name differed: settled by D51 as `<name>.controlanim.json` (and `<name>.controlpose.json`), and built in mayadev on 2026-11-14.
 
 mayadev now documents itself in its `docs/` folder, with its own list of problems in `docs/status.md` and the call list in `docs/rigmodules.md`. This repo's view is [`docs/mayadev.md`](../docs/mayadev.md).
 
