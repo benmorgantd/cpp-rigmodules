@@ -1,0 +1,60 @@
+{
+  "description": "Public names of a single TwoBoneIk module: the six slots, its sockets and child plugs, and the channels D52 fixes",
+  "template": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "interface": {
+    "modules": {
+      "arm_1": {
+        "type": "twoBoneIkModule",
+        "sockets": [["index_0", "start"], ["index_1"], ["index_2", "end"], ["ik"], ["pole"], ["settings"]],
+        "childPlugs": ["start", "ik", "pole", "settings"]
+      },
+      "layout": {
+        "type": "layoutModule",
+        "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
+        "childPlugs": []
+      }
+    },
+    "controls": {
+      "armPole_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "pin", "space"],
+        "markup": ["Left", "armPole"],
+        "spaces": ["Parent", "Ik"]
+      },
+      "armSettings_ctrl_l": {
+        "keyable": ["visibility", "ikFkBlend", "stretch", "soft"],
+        "markup": ["Left", "armSettings"]
+      },
+      "handIk_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "roll"],
+        "markup": ["Left", "handIk"]
+      },
+      "hand_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "hand"]
+      },
+      "layout_0_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_0"]
+      },
+      "layout_1_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_1"]
+      },
+      "layout_2_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_2"]
+      },
+      "lowerArm_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "lowerArm"]
+      },
+      "upperArm_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "upperArm"]
+      }
+    },
+    "joints": ["armPole_jnt", "armSettings_jnt", "handIk_jnt", "hand_jnt", "lowerArm_jnt", "upperArm_jnt"],
+    "constraints": {}
+  }
+}

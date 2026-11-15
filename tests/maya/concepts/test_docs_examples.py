@@ -396,3 +396,48 @@ class LibraryMetaDocExample(RigTestCase):
         self.assertEqual({key for entry in entries for key in entry} - {"file"}, self.documented_info_keys() - {"file"})
         cmds.setRigDataFileMeta(file=pose, meta=json.dumps({"tags": ["hands"], "status": "review"}))
         self.assertEqual(json.loads(cmds.getRigDataFileInfo(root, file=[pose]))[0]["meta"]["status"], "review")
+
+
+MODULES_DOC = os.path.join(config.REPO_DIR, "docs", "modules.md")
+
+
+def doc_code_block(path, heading, language, index=0):
+    """The index-th fenced block of a language under a heading, up to the next heading of the same level."""
+    with open(path, encoding="utf-8") as handle:
+        section = handle.read().split(heading, 1)[1]
+    blocks = re.findall(r"```%s\s*\n(.*?)```" % language, section, re.S)
+    if len(blocks) <= index:
+        raise AssertionError("%s '%s' has no %s block number %d" % (path, heading, language, index))
+    return blocks[index]
+
+
+class TwoBoneIkDocExamples(RigTestCase):
+    """The TwoBoneIk entry and snippet in docs/modules.md and the mirrored limb in docs/templates.md (D52)."""
+
+    def build_entry(self, template):
+        self.build(template, self.make_skeleton("twoboneik_mirror"))
+
+    def test_modules_doc_entry_builds_a_mirrored_limb_at_rest(self):
+        entry = json.loads(doc_code_block(MODULES_DOC, "## TwoBoneIk", "json"))
+        self.build_entry({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [entry]})
+        for module in ("arm_l", "arm_r", "layout"):
+            self.assertExists(rig_name(module))
+        self.assertWorldTranslation(rig_name("hand_l_jnt"), [6, 0, 0])
+        self.assertWorldTranslation(rig_name("lowerArm_r_jnt"), [-2.8, 2.4, 0])
+
+    def test_modules_doc_snippet(self):
+        entry = json.loads(doc_code_block(MODULES_DOC, "## TwoBoneIk", "json"))
+        self.build_entry({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [entry]})
+        cmds.setAttr("rig:handIk_l_ctrl_l.translateY", 3)
+        cmds.setAttr("rig:armSettings_l_ctrl_l.stretch", 1)
+        cmds.setAttr("rig:armPole_l_ctrl_l.space", 1)
+        # The hand follows the handle: the root is at (1, 0, 0) and the handle at (6, 3, 0), within reach.
+        self.assertWorldTranslation(rig_name("hand_l_jnt"), [6, 3, 0])
+        self.assertEqual(cmds.attributeQuery("space", node="rig:armPole_l_ctrl_l", listEnum=True)[0], "Parent:Ik")
+
+    def test_templates_doc_mirrored_limb(self):
+        template = json.loads(doc_code_block(TEMPLATES_DOC, "## Mirroring", "json", index=1))
+        self.build_entry(template)
+        self.assertExists(rig_name("arm_ik_space_r"))
+        for control in ("handIk_l_ctrl_l", "handIk_r_ctrl_r"):
+            self.assertEqual(cmds.attributeQuery("space", node=rig_name(control), listEnum=True)[0], "World:Hips")

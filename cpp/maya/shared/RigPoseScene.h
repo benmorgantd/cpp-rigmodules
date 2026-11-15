@@ -51,13 +51,28 @@ public:
 	// Queues a keyable, storable enum channel on a control, with its mirror mode declared (setMirrorMode), through the
 	// caller's modifier so undo and redo replay it. The control must exist in the scene: the caller runs doIt before
 	// wiring the attribute. labels[i] is the label of value i, and defaultIndex is the rest (D34).
-	// A double or angle channel (a clamped blend, a roll) is a sibling function with the same shape, added by the
-	// first caller that needs one.
 	static MStatus addEnumChannel(
 		const MObject& oControl,
 		const char* name,
 		const std::vector<std::string>& labels,
 		short defaultIndex,
+		bool negate,
+		MDagModifier& dagMod);
+
+	// The same for a double clamped to [min, max] (a blend, a stretch). defaultValue is the rest.
+	static MStatus addDoubleChannel(
+		const MObject& oControl,
+		const char* name,
+		double defaultValue,
+		double min,
+		double max,
+		bool negate,
+		MDagModifier& dagMod);
+
+	// The same for an unbounded angle (a roll) with a rest of 0. Shown in degrees, stored in radians like any angle.
+	static MStatus addAngleChannel(
+		const MObject& oControl,
+		const char* name,
 		bool negate,
 		MDagModifier& dagMod);
 

@@ -1,0 +1,12 @@
+{
+  "description": "Two limb joints on each other leave a bone with no length",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_zero_bone",
+  "edits": [],
+  "expectErrors": [
+    {
+      "contains": "a bone has no length",
+      "path": "rigModules[0] 'arm_1'.moduleArgs.joints"
+    }
+  ]
+}

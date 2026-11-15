@@ -1,0 +1,33 @@
+{
+  "description": "A constraint on the pole is an error: the module owns its space (D52)",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": [
+        {
+          "name": "c1",
+          "type": "Parent",
+          "target": "arm_1.pole",
+          "drivers": [
+            {
+              "socket": "layout.index_0",
+              "label": "A"
+            },
+            {
+              "socket": "layout.end",
+              "label": "B"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "does not take a constraint",
+      "path": "constraints[0] 'c1'.target"
+    }
+  ]
+}

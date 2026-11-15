@@ -78,7 +78,8 @@ namespace
 		for (const ModulePlugInfo& plug : moduleInterface.childPlugs)
 		{
 			auto it = result.childPlugs.find(plug.name);
-			plugsMatch = plugsMatch && it != result.childPlugs.end() && plug.hasControl == !it->second.oTransform.isNull();
+			plugsMatch = plugsMatch && it != result.childPlugs.end() && plug.hasControl == !it->second.oTransform.isNull()
+				&& plug.followsPlug == it->second.followsPlug;
 		}
 
 		bool socketsMatch = result.parentSockets.size() == moduleInterface.sockets.size();

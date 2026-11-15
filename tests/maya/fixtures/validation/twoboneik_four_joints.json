@@ -1,0 +1,34 @@
+{
+  "description": "A fourth joint is an error that names the Aim module and longer chains",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/joints",
+      "value": [
+        [
+          "Left",
+          "upperArm"
+        ],
+        [
+          "Left",
+          "lowerArm"
+        ],
+        [
+          "Left",
+          "hand"
+        ],
+        [
+          "Left",
+          "armSettings"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "Aim module",
+      "path": "rigModules[0] 'arm_1'.moduleArgs.joints"
+    }
+  ]
+}

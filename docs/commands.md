@@ -184,7 +184,7 @@ cmds.getRigControls("hero:rigRootModule1", usage=["spine1", "spine2"])
 
 | Flag | Type | Meaning |
 |---|---|---|
-| `moduleType` | string, multi-use | A template `moduleType`: `Layout`, `FkChain` or `Aim` |
+| `moduleType` | string, multi-use | A template `moduleType`: `Layout`, `FkChain`, `Aim` or `TwoBoneIk` |
 | `side` | string, multi-use | `Center`, `Left` or `Right` |
 | `usage` | string, multi-use | A control markup usage |
 
@@ -625,7 +625,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 
 - A source joint matches a rig joint by markup (`side`, `usage`). A source joint the rig lacks is ignored. A rig joint the source lacks is a warning: its control comes from the sidecar, and stays at rest without one.
 - The rig's modules are solved parents first, so every module's child plugs see where its parents' sockets are. The [Layout](modules.md) has no joints, so its controls come only from the sidecar (at rest without one) and everything below it hangs from them. A rig whose layout was moved but whose sidecar doesn't say so still matches the joints: the controls below the layout take up the difference.
-- An [FkChain](modules.md) gets every control's translate, rotate and scale from its joints. An Aim gets its target and up controls from their joints, and its aim joint follows from them. A source aim joint that doesn't sit where its target and up aim it is a warning.
+- An [FkChain](modules.md) gets every control's translate, rotate and scale from its joints. An Aim gets its target and up controls from their joints, and its aim joint follows from them. A source aim joint that doesn't sit where its target and up aim it is a warning. A [TwoBoneIk](modules.md#twoboneik) has no inverse yet (it is a later phase of D52): the command warns, and takes its controls from the sidecar, or rest without one.
 - A control with a [space switch](commands.md#createrigconstraint) is solved in the space the sidecar's `space` channel names. Without one, it is solved in the constraint's current space. Its values are relative to that space, so they differ from space to space while the joints match.
 - Per channel, the value comes from the joints, else the sidecar, else rest. A control's transform channels always get a value. A custom channel, `space` included, is set only when the sidecar has it: nothing derives it, so a missing one keeps its value.
 - A rotation is the euler nearest the control's current value (nearest the previous frame for a clip), in the control's own rotate order. Shear the channels can't hold, and locked or driven channels, are warnings.

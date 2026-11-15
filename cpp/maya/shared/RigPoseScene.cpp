@@ -421,6 +421,23 @@ MStatus RigPoseScene::setMirrorMode(MFnAttribute& fnAttr, bool negate)
 	return fnAttr.addToCategory(negate ? ChannelMirror::NegateCategory : ChannelMirror::CopyCategory);
 }
 
+namespace
+{
+	// What every custom channel kind shares: keyable, storable, a mirror mode, queued on the control.
+	MStatus queueChannel(MFnAttribute& fnAttr, const MObject& oControl, bool negate, MDagModifier& dagMod)
+	{
+		MStatus status = fnAttr.setKeyable(true);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = fnAttr.setStorable(true);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = RigPoseScene::setMirrorMode(fnAttr, negate);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		MObject oAttr = fnAttr.object(&status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		return dagMod.addAttribute(oControl, oAttr);
+	}
+}
+
 MStatus RigPoseScene::addEnumChannel(
 	const MObject& oControl,
 	const char* name,
@@ -438,14 +455,40 @@ MStatus RigPoseScene::addEnumChannel(
 		status = fnEnum.addField(labels[i].c_str(), static_cast<short>(i));
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
-	status = fnEnum.setKeyable(true);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	status = fnEnum.setStorable(true);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	status = setMirrorMode(fnEnum, negate);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	return queueChannel(fnEnum, oControl, negate, dagMod);
+}
 
-	return dagMod.addAttribute(oControl, oAttr);
+MStatus RigPoseScene::addDoubleChannel(
+	const MObject& oControl,
+	const char* name,
+	double defaultValue,
+	double min,
+	double max,
+	bool negate,
+	MDagModifier& dagMod)
+{
+	MStatus status;
+	MFnNumericAttribute fnNumeric;
+	MObject oAttr = fnNumeric.create(name, name, MFnNumericData::kDouble, defaultValue, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	status = fnNumeric.setMin(min);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	status = fnNumeric.setMax(max);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	return queueChannel(fnNumeric, oControl, negate, dagMod);
+}
+
+MStatus RigPoseScene::addAngleChannel(
+	const MObject& oControl,
+	const char* name,
+	bool negate,
+	MDagModifier& dagMod)
+{
+	MStatus status;
+	MFnUnitAttribute fnUnit;
+	MObject oAttr = fnUnit.create(name, name, MFnUnitAttribute::kAngle, 0.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	return queueChannel(fnUnit, oControl, negate, dagMod);
 }
 
 MStatus RigPoseScene::getControlChannels(const MObject& oControl, std::vector<Channel>& outChannels)

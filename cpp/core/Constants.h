@@ -241,6 +241,22 @@ namespace RigAttr
 	// Constraints
 	inline constexpr const char* Constraints{ "constraints" };      // RigRoot message array
 	inline constexpr const char* ControlSpace{ "space" };           // dynamic enum on a constrained control
+
+	// TwoBoneIk channels (D52). Each is the attribute on its control and the input of the same name on the module.
+	// Public API: saved poses and animation key on them.
+	inline constexpr const char* IkFkBlend{ "ikFkBlend" };   // settings control: 0 is FK, 1 is IK
+	inline constexpr const char* Stretch{ "stretch" };       // settings control
+	inline constexpr const char* Soft{ "soft" };             // settings control
+	inline constexpr const char* Pin{ "pin" };               // pole control
+	inline constexpr const char* Roll{ "roll" };             // IK handle control
+	inline constexpr const char* PoleSpace{ "poleSpace" };   // module input, fed by the pole control's ControlSpace enum
+}
+
+// Labels of the pole control's module-owned space enum (D52 section 4.4). Append-only (D34): the index is the value.
+namespace PoleSpaceLabels
+{
+	inline constexpr const char* Parent{ "Parent" };
+	inline constexpr const char* Ik{ "Ik" };
 }
 
 // Keys of getRigInfo's JSON result. Public API: mayadev reads them through the rigmodules Python package.
@@ -296,6 +312,9 @@ namespace PlugAndSocketNames
 	inline constexpr const char* Start{ "start" };
 	inline constexpr const char* End{ "end" };
 	inline constexpr const char* Index{ "index_" };
+	inline constexpr const char* Ik{ "ik" };
+	inline constexpr const char* Pole{ "pole" };
+	inline constexpr const char* Settings{ "settings" };
 }
 
 // JSON keys in a rig template. Public API: every saved template depends on them.

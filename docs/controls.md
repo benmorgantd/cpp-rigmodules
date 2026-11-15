@@ -8,13 +8,14 @@ The build writes markup on every control, so tools find controls by what they ar
 
 | Control | Markup |
 |---|---|
-| A control made for a joint (FkChain, Aim target and up) | The joint's `side` and `usage` |
+| A control made for a joint (FkChain, Aim target and up, all six of a TwoBoneIk) | The joint's `side` and `usage` |
 | Layout control *n* | `Center`, `layout_<n>` |
 
 The attribute is `controlMarkup`, a JSON string: `{"markupVersion": 1, "side": "Left", "usage": "upperArm"}`. It is not keyable. The key names are public, so don't rename them.
 
 - `(side, usage)` is unique across a rig's controls. The build fails if a joint's markup would give a control the same pair as a layout control (a `Center` joint with usage `layout_0`, for example).
 - The control's color and name suffix come from its module's `side`, not from its markup.
+- A **marker joint** is a joint that exists only to place a control: Aim's `target` and `up`, and TwoBoneIk's `ik`, `pole` and `settings`. Mark it `export: false, skin: false`, so it never reaches the engine skeleton or the skin. Its control takes its markup like any other.
 - Find controls with [`getRigControls`](commands.md#getrigcontrols).
 
 ## Channels
@@ -23,7 +24,10 @@ A control's channels are its keyable attributes that aren't locked or driven: th
 
 - A channel's **rest** is its attribute default, so a build pose is every channel at rest. [`zeroRigControls`](commands.md#zerorigcontrols) goes there.
 - Its **mirror mode** is `copy` or `negate`. Transforms copy. A custom channel states its own as an attribute category (`mirrorCopy` or `mirrorNegate`), and the pose commands refuse a control that has a custom channel with neither.
+- The **TwoBoneIk** module adds `ikFkBlend`, `stretch` and `soft` (its settings control), `pin` and a `space` (its pole) and `roll` (its IK handle). The first four are numbers from 0 to 1 that copy in a mirror. `roll` is an angle and **negates**: a reflection reverses the sense of a rotation about the limb's axis. The values and what they do are in [modules.md](modules.md#twoboneik).
 - A control's **rotate order** is set by its module and locked, so it isn't a channel and can't be changed in the channel box. FkChain controls use XYZ: Y, the side swing, is the middle axis that gimbal locks at 90 degrees, Z is the bend and X the twist.
+- A channel a module drives is not a channel. The TwoBoneIk module drives the `visibility` of its FK lower and end controls, its IK handle and its pole, so those controls have no `visibility` channel, and the pose commands skip it.
+- A **module-owned space** is a `space` enum that the module itself reads (the TwoBoneIk pole's `Parent` and `Ik`), not a [constraint](commands.md#createrigconstraint). The labels are fixed by the module. Setting it directly moves the control without matching, like setting a constraint's `space` directly. [`getRigControlSpace`](commands.md#getrigcontrolspace) doesn't report it yet.
 - Channel names are public API, like markup: saved poses and animation depend on them. A rename needs an entry in the alias list (see D32).
 - Query them with [`getRigControlChannels`](commands.md#getrigcontrolchannels). [`getRigControlInfo`](commands.md#getrigcontrolinfo) gives a control's module, side, usage and mirror.
 

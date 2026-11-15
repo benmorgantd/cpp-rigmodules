@@ -31,6 +31,12 @@ struct ModulePlugInfo
 {
 	std::string name;
 	bool hasControl = true;   // A constraint needs a control on its target child plug to host the space attribute.
+	// False for a plug whose input the module owns (a pole's module-owned space, an internal plug): a constraint would
+	// take the input over, so a template constraint on it is a read-phase error (D52 decision 14).
+	bool allowsConstraint = true;
+	// Not empty for an internal plug: the name of the module's own child plug whose parentStructure parent it takes.
+	// The template can't name a parent for it, so a parentStructure entry for it is an error too.
+	std::string followsPlug;
 };
 
 // The child plug and socket names a module will create, known before anything is built.

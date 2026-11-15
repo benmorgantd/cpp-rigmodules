@@ -1,0 +1,17 @@
+{
+  "description": "The settings plug follows start, so a parentStructure entry for it is an error",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/parentStructure/settings",
+      "value": "layout.end"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "is internal",
+      "path": "rigModules[0] 'arm_1'.parentStructure.settings"
+    }
+  ]
+}

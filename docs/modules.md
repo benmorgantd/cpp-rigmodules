@@ -79,3 +79,79 @@ Points a joint at a target control, with an up control setting its roll. The aim
 
 - The `aim` child plug has no control, so it cannot be a constraint target. `target` and `up` can.
 - The build fails if the target or up joint sits on the aim joint, or if the up joint lies on the line from the aim joint to the target.
+
+## TwoBoneIk
+
+A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three joints, blended joint by joint. Animators pose it by placing the hand or foot (IK) and by rotating the joints (FK), and switch between the two with `ikFkBlend`. The module does IK and FK only: there is no twist, bend bow or ribbon. One IK bone is [Aim](#aim), and an IK chain of three or more bones needs a different module.
+
+```json
+{
+  "moduleType": "TwoBoneIk",
+  "name": "arm_l",
+  "side": "Left",
+  "mirror": true,
+  "moduleArgs": {
+    "joints": [["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"]],
+    "ik": ["Left", "handIk"],
+    "pole": ["Left", "armPole"],
+    "settings": ["Left", "armSettings"]
+  },
+  "parentStructure": { "start": "layout.end", "ik": "layout.end", "pole": "layout.end" }
+}
+```
+
+| `moduleArgs` key | Required | Value |
+|---|---|---|
+| `joints` | yes | Exactly three selectors: root, mid, end |
+| `ik` | yes | Selector for the joint where the IK handle is placed. It must sit at the end joint |
+| `pole` | yes | Selector for the joint where the pole control is placed, out in front of the elbow or knee |
+| `settings` | yes | Selector for the joint where the settings control is placed, anywhere the animator will find it |
+
+`ik`, `pole` and `settings` are **marker joints**: joints that exist only to place a control. Mark them `export: false, skin: false`, as for Aim's target and up. Each of the six joints belongs to this module alone.
+
+| | |
+|---|---|
+| Node type | `twoBoneIkModule` |
+| Controls | Six, named from their joints, each with its joint's markup: the FK start, lower and end controls (`joints`), the IK handle (`ik`), the pole (`pole`) and the settings control (`settings`). Control shapes come from the module's `shapeType`. |
+| Child plugs | `start` (the FK start control's parent), `ik`, `pole`. A fourth, `settings`, is internal: see below. |
+| Sockets | `index_0`, `index_1`, `index_2` for the three blended joints, with `start` the same socket as `index_0` and `end` the same as `index_2`. Also `ik`, `pole` and `settings` (the three marker controls). |
+
+**Channels.** Names are public: saved poses and animation depend on them ([controls.md](controls.md#channels)).
+
+| Control | Keyable channels | Locked and hidden |
+|---|---|---|
+| FK start, lower, end | translate, rotate, scale | none |
+| IK handle | translate, rotate, `roll` | scale |
+| Pole | translate, `pin`, `space` | rotate, scale |
+| Settings | `ikFkBlend`, `stretch`, `soft` | translate, rotate, scale |
+
+- **`ikFkBlend`** (0 to 1, default 1): 0 is FK and 1 is IK, so **every limb is in IK when built**. Between, each joint's translation and scale lerp and its rotation slerps. At exactly 0 and 1 the result is exactly FK or IK. The FK lower and end controls show below 1, and the IK handle and pole show above 0. The start control and the settings control are always visible.
+- **Switching with `setAttr` pops.** The two chains hold their own control values, so setting `ikFkBlend` directly shows whatever the other side's controls say. A command that matches the controls first is planned (D52), the same way setting a `space` directly doesn't match.
+- **The FK start control** moves the whole chain. Its rotation turns the FK upper joint and **does nothing to the IK chain**: the IK root takes the start control's translation only, and the IK plane comes from the pole.
+- **`stretch`** (0 to 1, default 0): 0 stops the end at full reach, on the line to the handle, like any native IK. 1 stretches both bones so the end reaches the handle.
+- **`soft`** (0 to 1, default 0): eases the reach as the handle nears full length, so the elbow doesn't snap straight. It is a fraction of the limb's reach: 0 is a hard stop, and 0.1 starts easing in the last tenth of the reach. With `stretch` off, the end stops a little short of a far handle, which is the point of soft IK.
+- **`pin`** (0 to 1, default 0, on the pole): 1 puts the elbow on the pole control and the wrist on the handle, so the bones lengthen or shorten to fit. Pin wins over stretch and soft, and it fades `roll` out.
+- **`roll`** (an angle, default 0, on the IK handle): turns the bend plane about the root-to-handle axis, right-handed. A mirrored limb negates it.
+- **The pole's `space`** (`Parent` or `Ik`, default `Parent`): in `Parent` the pole follows what its child plug is attached to (`layout.end` by default). In `Ik` it follows the IK handle's motion. This space belongs to the module, so the template can't add to it and a constraint on `pole` is an error. Setting it directly moves the pole and doesn't match.
+- **The solve is stateless**: the same controls always give the same pose. A pole that crosses the line from the root to the handle flips the bend, as in a native IK. With the pole exactly on that line the bend keeps the direction it had at rest.
+- A handle on the root folds the limb to its shortest reach. No input gives a NaN.
+- Each IK joint keeps its rest orientation at rest, wherever the rigger put the pole. The end joint's rotation follows the IK handle's.
+
+**The settings control** follows the parent of the `start` child plug (the chest for an arm, the pelvis for a leg), whatever space the arm is in. A constraint on `start` doesn't carry it.
+
+**Parenting:**
+
+- `parentStructure` has three keys: `start`, `ik` and `pole`. A `settings` key is an error: the settings child plug is internal, and takes `start`'s parent.
+- A constraint may target `start` and `ik`. A constraint on `pole` or `settings` is an error.
+- Attach a hand's fingers to `arm_l.end` (or `index_2`): the sockets carry the blended joint, so the fingers follow the hand in IK and in FK, and their controls stay visible. A module cannot attach to its own sockets, so this module's own `pole` can't be parented to its `ik` socket: the pole's `Ik` space does that inside the module.
+- Mirroring needs nothing extra: every selector's side is swapped, `roll` is negated by the pose mirror and everything else copies.
+
+The build fails if the limb has any other count of joints, if two limb joints sit on each other, if the `ik` joint is more than 0.001 from the end joint, or if the pole joint lies on the line from the root to the end joint. A limb with a bent rest pose works wherever the pole joint is: IK at rest reproduces the rest bend.
+
+```python
+from maya import cmds
+
+cmds.setAttr("rig:handIk_l_ctrl_l.translateY", 3)               # the hand follows the handle
+cmds.setAttr("rig:armSettings_l_ctrl_l.stretch", 1)             # and reaches it even when it is far
+cmds.setAttr("rig:armPole_l_ctrl_l.space", 1)                   # the pole now follows the handle
+```

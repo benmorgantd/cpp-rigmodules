@@ -54,7 +54,7 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 
 | Key | Required | Value |
 |---|---|---|
-| `moduleType` | yes | A module type from [modules.md](modules.md): `FkChain` or `Aim` |
+| `moduleType` | yes | A module type from [modules.md](modules.md): `FkChain`, `Aim` or `TwoBoneIk` |
 | `name` | yes | The module's id. Unique in the template, a valid Maya node name (no `.`), and not `layout`. The module node gets this name in the rig namespace. |
 | `side` | no | `Center` (default), `Left` or `Right`. Sets the control name suffix (`_c`, `_l`, `_r`). |
 | `shapeType` | no | Control shape for the module's controls: `Box` (default) or any shape in [controls.md](controls.md#shapes) |
@@ -105,6 +105,8 @@ Drivers:
 
 A module cannot drive its own child plug, and no loop may run through `parentStructure` and constraint drivers together.
 
+A module can own a child plug's space, or take its parent from another plug of its own. [`TwoBoneIk`](modules.md#twoboneik)'s `pole` and `settings` take no constraint, and its `settings` takes no `parentStructure` entry either.
+
 ### Constraint types
 
 The active driver gives only its own part of the motion. Everything else comes from the child plug's parent, the socket it attaches to in `parentStructure` (or `layout.end`), as if there were no constraint.
@@ -154,7 +156,29 @@ A space switch keeps the control in place whatever the type. On an `Orient` cons
 }
 ```
 
-This builds `clavicle_r`, `arm_r` and `arm_space_r` as well. The mirror is the source entry with:
+This builds `clavicle_r`, `arm_r` and `arm_space_r` as well.
+
+A [`TwoBoneIk`](modules.md#twoboneik) limb mirrors the same way. Its six selectors swap sides, and the constraints that target its `start` and `ik` child plugs mirror like any other:
+
+```json
+{
+  "rigVersion": 1,
+  "rigTemplateName": "Arms", "rigAuthor": "you",
+  "rigModules": [
+    { "moduleType": "TwoBoneIk", "name": "arm_l", "side": "Left", "mirror": true,
+      "moduleArgs": {
+        "joints": [["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"]],
+        "ik": ["Left", "handIk"], "pole": ["Left", "armPole"], "settings": ["Left", "armSettings"] },
+      "parentStructure": { "start": "layout.end", "ik": "layout.end", "pole": "layout.end" } }
+  ],
+  "constraints": [
+    { "name": "arm_ik_space_l", "target": "arm_l.ik", "mirror": true,
+      "drivers": [ { "socket": "layout.end", "label": "World", "weight": 1.0 }, { "socket": "layout.index_0", "label": "Hips" } ] }
+  ]
+}
+```
+
+The mirror is the source entry with:
 
 - **`side`** swapped, `Left` and `Right`.
 - **`name`** with its side suffix swapped: `arm_l` becomes `arm_r`. A mirrored module's name must end in its side's suffix (`_l` or `_r`), and a mirrored constraint's name must end in `_l` or `_r`.

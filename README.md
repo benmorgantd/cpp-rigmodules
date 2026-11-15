@@ -4,7 +4,7 @@ A C++ rigging plugin for Autodesk Maya 2026+. You mark up a skeleton, describe t
 
 The rig it builds is aimed at animation and game export: predictable controls, stable names, and a clean split between controls and export joints.
 
-> **Status:** early development. Three modules exist (Layout, FkChain, Aim). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has the rig queries, display layers and selection sets, skin weight helpers, `rigmodules.pose` (key controls), and JointClip capture with FBX files and bone maps. Beyond building, the plugin has a pose and animation library (poses, keys, animation files, mirror and flip), skin weight files, and a solve that restores control values from joint data.
+> **Status:** early development. Four modules exist (Layout, FkChain, Aim, TwoBoneIk). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has the rig queries, display layers and selection sets, skin weight helpers, `rigmodules.pose` (key controls), and JointClip capture with FBX files and bone maps. Beyond building, the plugin has a pose and animation library (poses, keys, animation files, mirror and flip), skin weight files, and a solve that restores control values from joint data.
 
 ## How it works
 
@@ -100,6 +100,7 @@ Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`
 | Layout | built in, named `layout` | none | `index_0` … `index_2`, `end` |
 | FkChain | `FkChain` | `start` | `index_<n>` per joint, plus `start` (first) and `end` (last) |
 | Aim | `Aim` | `aim`, `target`, `up` | `aim`, `target`, `up` |
+| TwoBoneIk | `TwoBoneIk` | `start`, `ik`, `pole` | `index_0`, `index_1`, `index_2` (with `start` and `end`), `ik`, `pole`, `settings` |
 
 Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 
@@ -128,7 +129,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [design/tool-registry.md](design/tool-registry.md) | Proposal for mayadev's tool registry: fixes, readable ids, function calls, checked and versioned files |
 | [design/active-rig-panel.md](design/active-rig-panel.md) | The active rig panel (D50, built in mayadev except its out-of-date line): rig picker, control selection by module and side, pose tools and space switching, as a view over `RigPanelSession` |
 | [design/library-browser.md](design/library-browser.md) | Design for the library browser (D51, decided): list, apply, save, rename and delete poses and animations, as a searchable view over `LibrarySession`. The RigModules side (file metadata, two commands, `loadRigPose` mirror) and the mayadev side (the session and the window) are built. Publish to Approved and thumbnails are not |
-| [design/two-bone-ik.md](design/two-bone-ik.md) | Design for the two-bone IK limb (D52, decided, not built): controls, channels, matched IK/FK switch, module-owned spaces, inverse and build phases |
+| [design/two-bone-ik.md](design/two-bone-ik.md) | Design for the two-bone IK limb (D52, decided, phases 1 to 4 built): controls, channels, matched IK/FK switch, module-owned spaces, inverse and build phases |
 | [design/mayadev-ui.md](design/mayadev-ui.md) | Proposal for mayadev's user interfaces: thin Qt views over headless view-models, a startup registration pass between layers, questions through a `Prompter`, layer tests |
 
 [docs/README.md](docs/README.md) explains how the documentation is organized and kept current.
@@ -152,7 +153,7 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | `cpp/` | `RigModules.vcxproj`, and the build output in `cpp/x64/` |
 | `cpp/core/` | Maya-free: template structs, loading, mirroring and validation, format version updates, joint and control markup schemas, control channels, the control shape library, and the file formats (shapes, skin weights, poses, keys, animation, joint clips), selection set layout, JSON and string helpers, shared name constants |
 | `cpp/maya/` | Plugin entry (`PluginMain.cpp`) and the registries every node and command is added to |
-| `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim |
+| `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim, TwoBoneIk |
 | `cpp/maya/commands/` | The Maya commands, one file per command or related set: building, constraints, joint markup, controls and shapes, poses, keys and animation files, restoring from joints, rig info, skin weights. The list is in [docs/commands.md](docs/commands.md) |
 | `cpp/maya/nodes/` | Other nodes: rig and asset roots (the root also runs the build), the constraint node, the control node |
 | `cpp/maya/shared/` | Code used across those folders: the module base, utilities, rig traversal, and the scene sides of joint markup, shapes, skin weights, display layers, selection sets, poses, keys and the inverse solve |

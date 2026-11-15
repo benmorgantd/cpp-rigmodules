@@ -1,0 +1,20 @@
+{
+  "description": "A marker selector that matches no joint is reported",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/pole",
+      "value": [
+        "Left",
+        "noSuchPole"
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "noSuchPole",
+      "path": "rigModules[0] 'arm_1'"
+    }
+  ]
+}

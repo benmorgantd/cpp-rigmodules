@@ -15,6 +15,7 @@
 #include <maya/MStatus.h>
 #include <maya/MString.h>
 #include <maya/MSyntax.h>
+#include <maya/MVector.h>
 
 #include <string>
 #include <vector>
@@ -36,9 +37,41 @@ static const TransformAttrEntry kDefaultTransformValues[] =
 	{ MPxTransform::scaleX,     1.0 }, { MPxTransform::scaleY,     1.0 }, { MPxTransform::scaleZ,     1.0 }
 };
 
+// Inputs of MathUtils::computeTwoBoneIk. Positions are world space, lengths are the rest bone lengths.
+struct TwoBoneIkInput
+{
+	MVector root;
+	MVector handle;
+	MVector pole;
+	double length1 = 1.0;
+	double length2 = 1.0;
+	double stretch = 0.0;          // 0 to 1
+	double soft = 0.0;             // 0 to 1, a fraction of the limb's reach
+	double pin = 0.0;              // 0 to 1
+	double rollRadians = 0.0;
+	double restPlaneAngle = 0.0;   // radians: the rest mid's direction from the pole's, about the root-to-handle axis
+	MVector restBendNormal;        // the bend direction when the pole is on the root-to-handle line
+	MVector restAxis;              // the root-to-handle direction when the handle sits on the root
+};
+
+struct TwoBoneIkResult
+{
+	MVector mid;
+	MVector end;
+	MVector normal;   // unit bend direction, perpendicular to the root-to-handle axis (the solved plane)
+};
+
 class MathUtils
 {
 public:
+	// Closed-form two-bone solve with stretch, soft reach, pin and roll (D52 section 4.2). Stateless: the same inputs
+	// give the same pose, so a pole that crosses the root-to-handle line flips the limb. Allocation-free.
+	static TwoBoneIkResult computeTwoBoneIk(const TwoBoneIkInput& input);
+
+	// Blends two world matrices: translation and scale lerp, rotation slerps the short way round. t of exactly 0 or 1
+	// returns a or b unchanged. Rows are taken as scale times a rotation, so a shear is dropped. Allocation-free.
+	static MMatrix blendMatrices(const MMatrix& a, const MMatrix& b, double t);
+
 	static MMatrix computeAimMatrix(
 		const MPoint& pAim,
 		const MPoint& pTarget,
@@ -51,6 +84,12 @@ public:
 	static inline MMatrix computeDeltaFromRest(const MMatrix& mRest, const MMatrix& mWorld)
 	{
 		return mRest.inverse() * mWorld;
+	}
+
+	// A matrix's translation row.
+	static inline MVector translationOf(const MMatrix& mMatrix)
+	{
+		return MVector(mMatrix[3][0], mMatrix[3][1], mMatrix[3][2]);
 	}
 };
 

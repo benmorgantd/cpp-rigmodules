@@ -226,9 +226,16 @@ namespace
 		{
 			const std::string entryPath = where + "." + TemplateKey::ParentStructure + "." + plugName;
 
-			if (moduleInterface.findChildPlug(plugName) == nullptr)
+			const ModulePlugInfo* pPlugInfo = moduleInterface.findChildPlug(plugName);
+			if (pPlugInfo == nullptr)
 			{
 				report.addError(entryPath, "no child plug '" + plugName + "' on this module (has: " + childPlugNames(moduleInterface) + ")");
+			}
+			else if (!pPlugInfo->followsPlug.empty())
+			{
+				report.addError(entryPath, "child plug '" + plugName + "' is internal: it follows the parent of '" + pPlugInfo->followsPlug
+					+ "', so it takes no parentStructure entry");
+				continue;
 			}
 
 			std::string parentModule;
@@ -307,6 +314,10 @@ namespace
 				else if (!pPlugInfo->hasControl)
 				{
 					report.addError(targetPath, "child plug '" + constraint.target + "' has no control to hold the space attribute");
+				}
+				else if (!pPlugInfo->allowsConstraint)
+				{
+					report.addError(targetPath, "child plug '" + constraint.target + "' does not take a constraint: its module owns its space");
 				}
 				else if (!constrainedPlugs.emplace(constraint.target, constraint.name).second)
 				{

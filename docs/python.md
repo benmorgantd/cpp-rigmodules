@@ -40,7 +40,7 @@ rigmodules.query.get_rigs("hero")    # every rig built into the hero namespace
 
 `ControlSpace` is a frozen dataclass: `constraint` (the `rigConstraint` node, which `cmds.setRigConstraintSpace` takes), `labels` (a tuple, in driver order) and `current` (the index into `labels`).
 
-`RigControl` is a frozen dataclass: `node`, `module` (the module node that owns it), `module_type` (`"Layout"`, `"FkChain"` or `"Aim"`), `side`, `usage` and `mirror` (the control on the other side, itself for a Center control, `None` when a side control has none).
+`RigControl` is a frozen dataclass: `node`, `module` (the module node that owns it), `module_type` (`"Layout"`, `"FkChain"`, `"Aim"` or `"TwoBoneIk"`), `side`, `usage` and `mirror` (the control on the other side, itself for a Center control, `None` when a side control has none).
 
 `ControlChannel` is a frozen dataclass: `name`, `type` (Maya's attribute type, such as `doubleAngle` or `enum`), `rest` (the attribute default), `min` and `max` (`None` for no limit) and `mirror` (`"copy"` or `"negate"`). Values are in the scene's UI units.
 

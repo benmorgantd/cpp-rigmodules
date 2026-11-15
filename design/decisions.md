@@ -749,7 +749,7 @@ The second panel of phase 3 (D49, D50). It lists ControlPoses and ControlAnims f
 - **Consequence:** no node, attribute or name change in RigModules, no D36 impact. Two commands, one flag on each of three commands, and a format version. Thumbnails and a grid view are phase 5.
 
 ### D52. Two-bone IK: a `TwoBoneIk` limb with a matched IK/FK switch and module-owned spaces
-**Status:** Decided (author, 2026-11-15: three rounds of answers). Not built. Design and build phases: `two-bone-ik.md`.
+**Status:** Decided (author, 2026-11-15: three rounds of answers). Phases 1 to 4 built 2026-11-15 (the forward module). The inverse, matched switch, `setRigControlSpace` and perf rig are not. Design and build phases: `two-bone-ik.md`.
 The IK limb (2026-11-10) is a two-bone limb: exactly three joints, for arms and legs. One-bone IK is `Aim`, and three or more bones or spline IK would be their own modules.
 - **Controls:** an FK chain whose start control also moves the IK root (translation only, its rotation does nothing to the IK chain), an IK handle, a pole and a channel-only settings control. The handle, pole and settings take their markup and rest from three non-export marker joints, selected in `moduleArgs` like Aim's `target` and `up`.
 - **Channels:** `ikFkBlend` (default 1, IK, for every limb), `stretch`, `soft` and `pin` (0 to 1), `roll` on the handle (`mirrorNegate`), and a module-owned `space` on the pole (`Parent`, `Ik`). Soft IK is in v1. FK controls keep translate, rotate and scale so FK can reproduce a stretched or pinned pose. Controls hide by blend.
@@ -758,6 +758,7 @@ The IK limb (2026-11-10) is a two-bone limb: exactly three joints, for arms and 
 - **The settings control** follows the `parentStructure` socket of the module's first child plug (the chest for an arm, the pelvis for a leg), through an internal child plug the template can't name, so a constraint on `start` doesn't carry it.
 - **Inverse (amends D41 when built):** the contract gains scalar channels, a vector like its other fields, filled from the sidecar or the rig's current value. The match outputs call the same inverse inside `compute()` and allocate, the one exception to the allocation-free rule, accepted because only tools pull them.
 - **Rejected:** FK values as offsets from IK (FK poses stop transferring, and the other direction is a cycle), a `poleFollow` slider beside a constraint enum, relaxing D17 to per-slot dependencies, derived usages with a computed pole, a pole-only `setRigPoleSpace` and a `setRigModuleSpace`, a template-named settings child plug, settings following `start`'s constraint, a fixed-size channel array or contract (it would cap FkChain's length, and the matrices would allocate anyway).
+- **Phase 4 settled:** the internal `settings` plug is `ModulePlugInfo::followsPlug` (pass 2 reads the followed plug's `parentStructure` entry), `createModule` runs the modifier twice to add and wire the channels (as `createConstraint` does), and the FK chain is solved at every blend so each control's offset stays current. Details in `two-bone-ik.md` section 8.
 - **Consequence:** one module node (`twoBoneIkModule`, `0x00218F`), six channel names, two commands (`setRigIkFkBlend`, `setRigControlSpace`), a `module` key on `getRigControlSpace`, `ModulePlugInfo::allowsConstraint`, a descriptor hook, and a mayadev rig panel edit. Built in eight phases, one commit each, with a `bench` run on the perf rig (D36).
 
 ## Open items
@@ -792,7 +793,7 @@ The asset root, asset folders, the `python/` package and the `.mod` files are do
 7. **`moduleVersion` update table and methods** (D33), before the next module (author, 2026-11-10). `moduleVersion` is already a template key, checked against the module's current version, with a comment in `RigModule.h` marking where migration goes. No update step exists yet.
 8. **Channel naming rules** (D32, D34), written before the next module.
 
-**The next module is the IK limb** (author, 2026-11-10). It goes through the gate (D12) after items 5 to 8. Designed and signed off as D52 (2026-11-15), not built: `two-bone-ik.md`.
+**The next module is the IK limb** (author, 2026-11-10). It goes through the gate (D12) after items 5 to 8. Designed and signed off as D52 (2026-11-15), forward module built (phases 1 to 4): `two-bone-ik.md`.
 
 Design for these now, build them later:
 

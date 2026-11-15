@@ -135,6 +135,9 @@
     <ClCompile Include="maya\modules\LayoutModule.cpp">
       <Filter>maya\modules</Filter>
     </ClCompile>
+    <ClCompile Include="maya\modules\TwoBoneIkModule.cpp">
+      <Filter>maya\modules</Filter>
+    </ClCompile>
     <ClCompile Include="maya\nodes\AssetRoot.cpp">
       <Filter>maya\nodes</Filter>
     </ClCompile>
@@ -306,6 +309,9 @@
       <Filter>maya\modules</Filter>
     </ClInclude>
     <ClInclude Include="maya\modules\LayoutModule.h">
+      <Filter>maya\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\modules\TwoBoneIkModule.h">
       <Filter>maya\modules</Filter>
     </ClInclude>
     <ClInclude Include="maya\nodes\AssetRoot.h">

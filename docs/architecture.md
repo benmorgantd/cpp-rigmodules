@@ -11,7 +11,7 @@ Contents: [Layers](#layers) · [Source map](#source-map) · [Plugin startup](#pl
         |  cmds.*
  Commands (cpp/maya/commands)    parse flags, delegate, report
         |
- Nodes and scene code            cpp/maya/modules   module nodes (Layout, FkChain, Aim)
+ Nodes and scene code            cpp/maya/modules   module nodes (Layout, FkChain, Aim, TwoBoneIk)
  (cpp/maya)                      cpp/maya/nodes     rig root, asset root, constraint, control
                                  cpp/maya/shared    module base, scene helpers, traversal, utilities
         |  includes
@@ -43,7 +43,7 @@ Paths are relative to `cpp/`. Include lines use the same paths (`"maya/shared/Ri
 | Folder | Files | What they hold |
 |---|---|---|
 | `maya/` | `PluginMain.cpp`, `ModuleRegistry`, `CommandRegistry` | Plugin entry, and the only files that include every module or command header. |
-| `modules/` | `LayoutModule`, `FkChain`, `AimModule` | One file pair per module node. FkChain is the reference. |
+| `modules/` | `LayoutModule`, `FkChain`, `AimModule`, `TwoBoneIkModule` | One file pair per module node. FkChain is the reference. |
 | `nodes/` | `RigRoot`, `AssetRoot`, `Constraints`, `RigControlNode` | The rig root (it also runs the build), the asset root, the constraint node, and the control transform with its VP2 draw override. |
 | `commands/` | one file pair per command, or per closely related set | Flag parsing and delegation. See [Commands](#commands). |
 | `shared/` | see below | Code used by more than one of the folders above. |
@@ -96,7 +96,7 @@ Node ids are listed in `CLAUDE.md`. Check that list before picking an id for a n
 ```
 assetRootModule
   .children --> rigRootModule            asset root, one per asset (D29)
-                  .rigModules[] --> layoutModule, fkChainModule, aimModule ...
+                  .rigModules[] --> layoutModule, fkChainModule, aimModule, twoBoneIkModule ...
                   .constraints[] --> rigConstraint ...
                   .jointDisplayLayer, .meshDisplayLayer, .controlDisplayLayer  (D38)
                   .selectionSets[]                                              (D39)
@@ -141,6 +141,20 @@ MPxNode
 | `LayoutModuleNode` | WithControls | none | 3 | none | `index_0`..`index_2`, `end` |
 | `FkChainNode` | WithJoints | n | n | `start` | `index_<n>`, `start`, `end` |
 | `AimModuleNode` | WithJoints | 1 | 2 (target, up) | `aim`, `target`, `up` | `aim`, `target`, `up` |
+| `TwoBoneIkNode` | WithJoints | 6 (three limb, three marker) | 6 | `start`, `ik`, `pole`, `settings` (internal) | `index_0`..`index_2` (with `start`, `end`), `ik`, `pole`, `settings` |
+
+`TwoBoneIkNode`'s slots (`TwoBoneIkSlot`, shared by `controlData`, `controlOPM`, `jointOPM`, `outputSocketMatrix`, `childPlugs` and `socketNames`):
+
+| Slot | Name | Control | Joint | Child plug | Sockets |
+|---|---|---|---|---|---|
+| 0 | `Upper` | FK start | `joints[0]` | `start` | `index_0`, `start` |
+| 1 | `Lower` | FK | `joints[1]` | none | `index_1` |
+| 2 | `End` | FK | `joints[2]` | none | `index_2`, `end` |
+| 3 | `Ik` | IK handle | `ik` marker | `ik` | `ik` |
+| 4 | `Pole` | pole | `pole` marker | `pole` | `pole` |
+| 5 | `Settings` | settings | `settings` marker | `settings` (internal) | `settings` |
+
+Slot numbers are never reused. The three `index_*` sockets have no DAG transform: a child module's controls would otherwise inherit an FK control's visibility, and the FK controls hide in IK.
 
 A module has the same four pieces. A new one copies FkChain:
 
@@ -150,6 +164,14 @@ A module has the same four pieces. A new one copies FkChain:
 4. **`inverse`**: the module's controls from joint matrices ([The inverse solve](#the-inverse-solve)).
 
 Then add one row to `ModuleRegistry.cpp`.
+
+**A module with controls that carry custom channels** (TwoBoneIk is the example) also does this, in `createModule`:
+
+- Add each channel to its control with `RigPoseScene::addEnumChannel`, `addDoubleChannel` or `addAngleChannel`. Each takes the channel's rest and range and its mirror mode, and a mirror mode is required (D34). The controls must exist before an attribute can be added, and the attribute before it can be wired, so `createModule` runs `dagMod.doIt()` between the steps, as `RigConstraintNode::createConstraint` does.
+- Wire each channel from the control to a same-named input on the module (names from `RigAttr`), and add that input's `attributeAffects` in `initialize()`.
+- A control that keeps only some transform channels calls `DagUtils::queueLockAndHideTransform` with a keep list.
+- A **marker joint** gets a slot like any other, its control and its joint wired with `wireControl` and `wireJoint`. Its plan claims it with `claimJoint`.
+- A plug whose parent the template shouldn't choose is **internal**: its `ModulePlugInfo` sets `followsPlug` to the module's own plug whose `parentStructure` entry it takes, and `allowsConstraint` is false for a plug whose input the module owns. The build result's `RigModuleChildPlugInfo::followsPlug` must match, and pass 2 (`parentModuleControls`) reads it.
 
 ## Building a rig
 
@@ -190,6 +212,7 @@ parentDelta      = motion of control i since rest, for control i + 1
 
 - The control's `matrix` goes in, and `offsetParentMatrix` comes out, so the control's own transform is purely its local channels. That is why animation lives on control channels only (D27, D34).
 - Rests are stored at build time (`controlRestWorld`, `childPlugParentRestMatrix`, `jointRestWorld`) and never change. Skin weight loading binds new influences at `jointRestWorld` (D35).
+- `TwoBoneIkNode::compute` solves the FK chain, the IK handle, the pole (reading the handle's solved world in `Ik` space) and the settings control. It then builds the three IK joints from `MathUtils::computeTwoBoneIk` and a frame per joint times a stored rest offset (`ikRestOffset`), and blends each with its FK joint (`MathUtils::blendMatrices`). The FK chain is solved at every blend, so each control's offset stays current. The IK solve is skipped at blend 0.
 - `compute` is kept free of allocations and string lookups. One solve per evaluation writes every output array and marks them clean. Performance goals and the measuring tools are in D36 and [`../tests/README.md`](../tests/README.md#performance-scenes).
 
 ## Commands

@@ -1,0 +1,20 @@
+{
+  "description": "An unknown moduleArgs key is an error, as for every module",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/bend",
+      "value": [
+        "Left",
+        "upperArm"
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "unknown key 'bend'",
+      "path": "rigModules[0] 'arm_1'.moduleArgs"
+    }
+  ]
+}

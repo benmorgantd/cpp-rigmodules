@@ -43,6 +43,9 @@ struct RigModuleChildPlugInfo
 {
 	MObject oTransform;             // The control that gets DAG parented
 	unsigned int plugIndex = 0;     // Logical index into childPlugs
+	// The internal plug's source of a parent: the module's own child plug whose parentStructure entry it takes
+	// (ModulePlugInfo::followsPlug). Empty for every plug the template parents.
+	std::string followsPlug;
 };
 
 // Common struct for the args used when parenting module plugs.

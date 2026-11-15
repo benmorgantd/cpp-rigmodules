@@ -31,6 +31,7 @@
 #include <maya/MObjectHandle.h>
 #include <maya/MPlug.h>
 #include <maya/MProfiler.h>
+#include <maya/MQuaternion.h>
 #include <maya/MSelectionList.h>
 #include <maya/MStatus.h>
 #include <maya/MString.h>
@@ -111,6 +112,155 @@ MMatrix MathUtils::computeAimMatrix(
 	// Row 3: Origin Position
 	mData[3][0] = pAim.x; mData[3][1] = pAim.y; mData[3][2] = pAim.z; mData[3][3] = 1.0;
 
+	return MMatrix(mData);
+}
+
+namespace
+{
+	// Below these the solve has no direction or no softness (centimeters).
+	constexpr double kMinIkReach{ 1.0e-4 };
+	constexpr double kMinIkSoftDistance{ 1.0e-6 };
+	constexpr double kMinIkFold{ 1.0e-6 };
+	constexpr double kMinIkPlaneNormal{ 1.0e-4 };
+
+	// Any unit vector perpendicular to a unit vector.
+	MVector perpendicularTo(const MVector& vUnit)
+	{
+		const MVector vReference = std::abs(vUnit.y) < 0.9 ? MVector(0.0, 1.0, 0.0) : MVector(0.0, 0.0, 1.0);
+		return (vReference - vUnit * (vReference * vUnit)).normal();
+	}
+
+	// A matrix as scale (row lengths) and rotation (unit rows, no shear). Returns the rotation as a quaternion.
+	MQuaternion decomposeScaleRotation(const MMatrix& mMatrix, double outScale[3])
+	{
+		double mRotation[4][4] = { { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 1 } };
+		for (int row = 0; row < 3; ++row)
+		{
+			const MVector vRow(mMatrix[row][0], mMatrix[row][1], mMatrix[row][2]);
+			outScale[row] = vRow.length();
+			const double inverseLength = outScale[row] > 1.0e-12 ? 1.0 / outScale[row] : 1.0;
+			for (int column = 0; column < 3; ++column)
+			{
+				mRotation[row][column] = mMatrix[row][column] * inverseLength;
+			}
+		}
+		MQuaternion qRotation;
+		qRotation = MMatrix(mRotation);
+		return qRotation;
+	}
+
+	// The short way round: a quaternion and its negative are the same rotation, so the one nearer a is taken.
+	MQuaternion slerpShortArc(const MQuaternion& qA, const MQuaternion& qB, double t)
+	{
+		double dot = qA.x * qB.x + qA.y * qB.y + qA.z * qB.z + qA.w * qB.w;
+		const double sign = dot < 0.0 ? -1.0 : 1.0;
+		dot *= sign;
+
+		double weightA = 1.0 - t;
+		double weightB = t;
+		if (dot < 0.9995)
+		{
+			const double theta = std::acos(dot);
+			const double inverseSine = 1.0 / std::sin(theta);
+			weightA = std::sin((1.0 - t) * theta) * inverseSine;
+			weightB = std::sin(t * theta) * inverseSine;
+		}
+		MQuaternion qResult(
+			qA.x * weightA + qB.x * sign * weightB,
+			qA.y * weightA + qB.y * sign * weightB,
+			qA.z * weightA + qB.z * sign * weightB,
+			qA.w * weightA + qB.w * sign * weightB);
+		qResult.normalizeIt();
+		return qResult;
+	}
+}
+
+TwoBoneIkResult MathUtils::computeTwoBoneIk(const TwoBoneIkInput& input)
+{
+	const double reach = input.length1 + input.length2;
+
+	// 1. Reach and axis. A handle on the root has no direction, so the rest axis stands in.
+	const MVector vToHandle = input.handle - input.root;
+	const double distance = vToHandle.length();
+	const MVector vAxis = distance > kMinIkReach ? vToHandle / distance : input.restAxis.normal();
+
+	// 2. Soft reach (section 4.2a): linear up to da, then an exponential that nears the full reach and never gets there.
+	const double softDistance = input.soft * reach;
+	double effective = std::min(distance, reach);
+	if (softDistance > kMinIkSoftDistance)
+	{
+		const double softStart = reach - softDistance;
+		effective = distance <= softStart ? distance : softStart + softDistance * (1.0 - std::exp(-(distance - softStart) / softDistance));
+	}
+
+	// 3. Stretch scales both bones so the end still reaches the handle, with the softened bend.
+	const double scale = effective > kMinIkFold ? 1.0 + input.stretch * (distance / effective - 1.0) : 1.0;
+	const double length1 = input.length1 * scale;
+	const double length2 = input.length2 * scale;
+	const double base = std::clamp(effective * scale, std::abs(length1 - length2) + kMinIkFold, length1 + length2);
+
+	// 4. The bend plane: the pole's side of the axis, turned by the rest plane angle and the roll (which pin fades out).
+	// With the pole on the axis the rest bend normal stands in. It already holds the rest plane angle, so only the roll applies.
+	const MVector vToPole = input.pole - input.root;
+	MVector vBase = vToPole - vAxis * (vToPole * vAxis);
+	double angle = input.rollRadians * (1.0 - input.pin);
+	if (vBase.length() > kMinIkPlaneNormal)
+	{
+		vBase = vBase.normal();
+		angle += input.restPlaneAngle;
+	}
+	else
+	{
+		const MVector vRest = input.restBendNormal - vAxis * (input.restBendNormal * vAxis);
+		vBase = vRest.length() > kMinIkPlaneNormal ? vRest.normal() : perpendicularTo(vAxis);
+	}
+	const MVector vNormal = (vBase * std::cos(angle) + (vAxis ^ vBase) * std::sin(angle)).normal();
+
+	// 5. Law of cosines.
+	const double along = (base * base + length1 * length1 - length2 * length2) / (2.0 * base);
+	const double height = std::sqrt(std::max(0.0, length1 * length1 - along * along));
+	const MVector vMidFree = input.root + vAxis * along + vNormal * height;
+	const MVector vEndFree = input.root + vAxis * base;
+
+	// 6. Pin pulls the elbow onto the pole and the wrist onto the handle. It wins over stretch and soft.
+	TwoBoneIkResult result;
+	result.mid = vMidFree + (input.pole - vMidFree) * input.pin;
+	result.end = vEndFree + (input.handle - vEndFree) * input.pin;
+	result.normal = vNormal;
+	return result;
+}
+
+MMatrix MathUtils::blendMatrices(const MMatrix& a, const MMatrix& b, double t)
+{
+	if (t <= 0.0)
+	{
+		return a;
+	}
+	if (t >= 1.0)
+	{
+		return b;
+	}
+
+	double scaleA[3];
+	double scaleB[3];
+	const MQuaternion qRotation = slerpShortArc(decomposeScaleRotation(a, scaleA), decomposeScaleRotation(b, scaleB), t);
+	const MMatrix mRotation = qRotation.asMatrix();
+
+	double mData[4][4];
+	for (int row = 0; row < 3; ++row)
+	{
+		const double scale = scaleA[row] + (scaleB[row] - scaleA[row]) * t;
+		for (int column = 0; column < 3; ++column)
+		{
+			mData[row][column] = mRotation[row][column] * scale;
+		}
+		mData[row][3] = 0.0;
+	}
+	for (int column = 0; column < 3; ++column)
+	{
+		mData[3][column] = a[3][column] + (b[3][column] - a[3][column]) * t;
+	}
+	mData[3][3] = 1.0;
 	return MMatrix(mData);
 }
 
