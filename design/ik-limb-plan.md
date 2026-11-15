@@ -1,6 +1,6 @@
 # IK limb: design plan and build steps
 
-**Status:** draft for sign-off, revised 2026-11-15 with the author's requirements and two answers (below). Nothing here is built, and the module has not passed the gate (D12) until the author signs off section 2. Written from the code, `decisions.md` (D1 to D46), `inverse-solve.md` and `module-directions.md`. Where those disagree, section 9 lists it.
+**Status:** draft for sign-off, revised 2026-11-15 with the author's requirements, four answers and a soft IK design (below). Nothing here is built, and the module has not passed the gate (D12) until the author signs off section 2. Written from the code, `decisions.md` (D1 to D46), `inverse-solve.md` and `module-directions.md`. Where those disagree, section 9 lists it.
 
 The IK limb is the next module (author, 2026-11-10). It is IK/FK only. It is **not** a bendy limb: no twist, no bend bow, no ribbon. Section 7.4 says how those can be built on top later.
 
@@ -15,7 +15,10 @@ The IK limb is the next module (author, 2026-11-10). It is IK/FK only. It is **n
 
 Answers to the two design questions this raised:
 
-- **No-pop (requirement 5): independent values and a matched switch.** FK controls hold absolute joint values, and IK controls hold IK values. A command writes the inactive side from the live joints with the module's closed-form inverse, then sets the blend (section 7.2). Setting `ikFkBlend` directly with `setAttr` does no match, like setting a `space` enum directly (D27). Rejected: FK stored as offsets on the IK result (FK values wouldn't be absolute, so FK poses and animation wouldn't transfer, and FK-to-IK would still pop).
+- **No-pop (requirement 5): independent values, matched values published by the node, and a command that copies them.** FK controls hold absolute joint values, and IK controls hold IK values. Every evaluation the node can also compute the control values each side would need to reproduce the current pose (the module's closed-form inverse, section 4.1), so FK is always matched to IK and the other way round, as data. `setRigIkFkBlend` writes them to the controls and sets the blend (section 7.2). Setting `ikFkBlend` directly with `setAttr` does no match, like setting a `space` enum directly (D27).
+- **Why the blend alone doesn't match** (author asked, 2026-11-15). A blend interpolates the two chains' *poses*. It never changes the *values* stored on the inactive side's controls, and `compute()` can't write plugs. So when the blend flips from 1 to 0 the joints jump to whatever the stale FK values describe, by exactly the difference between the two poses. For the controls to follow the active side inside `compute()`, their values would have to mean *offsets from the other chain's pose*. That works for one direction (FK as a layer on IK), and then FK values aren't absolute joint rotations: an arm waving in FK while the body moves would drag against a world-space IK handle, and FK poses and animation stop transferring (D42). In the other direction it makes the two chains depend on each other, a cycle inside the node. Rejected for those reasons.
+- **Confirmed (author, 2026-11-15):** the settings control exists, controls hide by blend as in decision 6, and **every limb defaults to IK (`ikFkBlend` 1)**, with no template key.
+- **Soft IK** is designed in section 4.2a and can ship in v1 or later without changing any name, slot or template key.
 - **Pole spaces (requirement 6): one module-owned `space` enum on the pole control, with the IK handle in it.** `rigConstraint` can't take this module's own `ik` socket as a driver, because D17 counts that as a cycle and the evaluation graph would cycle (D36). Rejected: a `poleFollow` slider next to a constraint enum, and relaxing D17 to per-slot dependencies.
 
 ## 1. Gate (D12)
@@ -33,14 +36,16 @@ Each has a recommendation. Changing one after the module ships changes a templat
 | # | Question | Recommendation | Why it matters |
 |---|---|---|---|
 | 1 | Where do the IK handle, pole and settings controls get their markup and rest? | **Three marker joints in the skeleton**, selected in `moduleArgs` like Aim's `target` and `up`, marked `export: false`, `skin: false`. Rejected: derived usages with a computed pole position. | Follows Aim (D15: markup says what a joint is, the template picks joints), puts the pole where the rigger put it, invents no names. Cost: three non-export joints per limb. |
-| 2 | Where do `ikFkBlend` and `stretch` live? | **A dedicated `settings` control**, channel-only, always visible. Rejected: on the IK handle. **Not yet confirmed: the requirements list no settings control.** | The IK handle is hidden in FK, so the switch would be hidden with it (priority 1, D10). The module only needs the two channels connected from some control, so the choice changes slot 5 and one marker joint and nothing else. |
+| 2 | Where do `ikFkBlend`, `stretch` and `soft` live? | **Answered:** a dedicated `settings` control, channel-only, always visible. | The IK handle is hidden in FK, so the switch would be hidden with it (priority 1, D10). |
 | 3 | Pole spaces. | **Answered:** a module-owned `space` enum on the pole control, labels `Parent` and `Ik` (section 4.4). `Parent` is whatever the `pole` child plug's `parentStructure` socket is, `layout.end` by default. A template constraint on `pole` is a read-phase error. | Gives requirement 6 with one enum. Limit: one external space (the child plug's parent), not a list. More spaces later means more labels (append-only, D34) and extra child plugs, and `moduleArgs` keys with a `moduleVersion` step. |
-| 4 | What is the blend's default? | **0 (FK), no template key.** | A default is a template key, and a new key later is a `moduleVersion` step (D33). If legs should default to IK, add `"defaultBlend"` now. |
+| 4 | What is the blend's default? | **Answered: 1 (IK) for every limb, no template key.** | Default equals rest (D34), so a built rig, `zeroRigControls` and the contract's rest pose are all in IK, with the FK lower and end controls hidden. FK pose cases set `ikFkBlend` to 0. |
 | 5 | FK controls: which channels are keyable? | **All of FkChain's** (translate, rotate, scale), so FK can reproduce a stretched or pinned IK pose when the matched switch writes it. | Locking FK translate would leave stretch and pin unreproducible in FK, and the switch would pop. |
-| 6 | Hide controls by blend? | **Yes in v1.** FK lower and end visible when blend < 1, IK handle and pole when blend > 0. The FK **start** control and the settings control are always visible (the start control moves the IK chain too). | Nothing surprising for the animator. Cost: two scalar outputs on the node (section 3.4). |
+| 6 | Hide controls by blend? | **Yes in v1, confirmed.** FK lower and end visible when blend < 1, IK handle and pole when blend > 0. The FK **start** control and the settings control are always visible (the start control moves the IK chain too). | Nothing surprising for the animator. Cost: two scalar outputs on the node (section 3.4). |
 | 7 | Scope of v1. | Two-bone limb, IK/FK blend, pole, `stretch`, `pin`, pole spaces, matched switch, spaces on `start`, `ik` and `settings` through `rigConstraint`. **Not in v1:** twist joints, bend bow, ribbon, soft IK, reverse foot, spline IK. | Each is its own gate. Section 7.4 keeps them open. |
 | 8 | Names. | Module type `IkLimb`, node `ikLimbModule`, MTypeId `0x00218F` (checked free 2026-11-15), channels `ikFkBlend`, `stretch`, `pin`, and `space` on the pole. | Names are public API. They follow D34: camelCase, no side or module in them, 0 at the first-named end. |
 | 9 | New commands. | **Two:** `setRigIkFkBlend` and `setRigPoleSpace` (section 7.2). | The matched switch needs scene access and undo, so it is a C++ command like `setRigConstraintSpace`. |
+| 10 | Soft IK in v1? | **Yes, if you agree.** One channel, one attribute and one formula (section 4.2a). The author said it can wait. | Adding it later is a new channel on the settings control of every existing rig, which means a rebuild (D33) and a new golden snapshot, but no template key and no rename. The solver is written for it either way (`computeTwoBoneIk` takes the soft distance). |
+| 11 | Matched values as node outputs. | **Yes.** Two output arrays, `fkMatchLocal` and `ikMatchLocal`, computed only when something pulls them. | Gives "always matched" as data (answer to requirement 5) and lets `setRigIkFkBlend` read plugs instead of needing a live single-module solve. Cost: two more output attributes with `attributeAffects`, no playback cost (section 4.1). |
 
 ## 3. Interface
 
@@ -100,10 +105,10 @@ One slot index is shared by `controlInputData`, `controlOPM`, `jointOPM`, `outpu
 | FK upper (start), lower, end | translate, rotate, scale, as FkChain | none |
 | `ik` | translate, rotate, `space` when constrained | scale |
 | `pole` | translate, `pin`, `space` (the module's own: `Parent`, `Ik`) | rotate, scale |
-| `settings` | `ikFkBlend`, `stretch`, `space` when constrained | translate, rotate, scale |
+| `settings` | `ikFkBlend`, `stretch`, `soft`, `space` when constrained | translate, rotate, scale |
 
-- `ikFkBlend`: double 0 to 1, default 0, 0 is FK. `stretch`: double 0 to 1, default 0 (0 clamps at full reach, 1 stretches). `pin`: double 0 to 1, default 0 (0 free, 1 the elbow sits on the pole). The pole's `space`: enum `Parent` (0), `Ik` (1), default 0, append-only labels.
-- All four are `mirrorCopy`, declared through `RigPoseScene::setMirrorMode` before `addAttribute`. Defaults equal rests (D34). `ModuleContract` runs `getRigControlChannels` on every control, so a channel with no mirror category fails.
+- `ikFkBlend`: double 0 to 1, **default 1**, 0 is FK and 1 is IK. `stretch`: double 0 to 1, default 0 (0 clamps at full reach, 1 stretches). `soft`: double 0 to 1, default 0 (0 is a hard stop at full reach, section 4.2a). `pin`: double 0 to 1, default 0 (0 free, 1 the elbow sits on the pole). The pole's `space`: enum `Parent` (0), `Ik` (1), default 0, append-only labels.
+- Every channel is `mirrorCopy`, declared through `RigPoseScene::setMirrorMode` before `addAttribute`. Defaults equal rests (D34). `ModuleContract` runs `getRigControlChannels` on every control, so a channel with no mirror category fails.
 - The three new names go in `docs/controls.md` the first time (D34 naming rule). `space` on the pole is the same concept and the same name as the constraint's.
 - Channel names are constants in `RigAttr` (`IkFkBlend`, `Stretch`, `Pin`), used for the control attribute and the module input attribute (D7).
 
@@ -111,10 +116,11 @@ One slot index is shared by `controlInputData`, `controlOPM`, `jointOPM`, `outpu
 
 New on the node. None are arrays: a limb has one of each.
 
-- Inputs: `ikFkBlend`, `stretch`, `pin` (doubles) and `poleSpace` (short), each connected from the owning control's attribute in `createModule`, in the same modifier.
+- Inputs: `ikFkBlend`, `stretch`, `soft`, `pin` (doubles) and `poleSpace` (short), each connected from the owning control's attribute in `createModule`, in the same modifier.
 - Stored at build: `ikRestOffset` (a matrix array of 3, section 4.3), `restBendNormal` (a vector, the plane fallback in 4.2), `limbLengths` (the two rest bone lengths). Same pattern as `aimRestOffset`.
 - Outputs: the shared `controlOPM`, `jointOPM`, `outputSocketMatrix`, plus `fkVisible` and `ikVisible` (doubles, not writable, not storable), connected to the controls' `visibility` in `createModule`.
-- `declareStandardAffects()` covers the shared inputs. Every new attribute gets `attributeAffects` to every output it changes: `ikFkBlend` to every output, `stretch`, `pin`, `ikRestOffset`, `restBendNormal` and `limbLengths` to `jointOPM` and `outputSocketMatrix`, `poleSpace` to the pole's `controlOPM` and everything the pole feeds, and `ikFkBlend` to `fkVisible` and `ikVisible`. Missing `attributeAffects` is the common silent bug (CLAUDE.md).
+- Match outputs: `fkMatchLocal` (matrix array, slots 0 to 2) and `ikMatchLocal` (matrix array, slots 3 and 4). Not writable, not storable, connected to nothing. Maya computes an output only when someone pulls it, so they cost nothing during playback. `compute()` has a separate branch for them (section 4.1).
+- `declareStandardAffects()` covers the shared inputs. Every new attribute gets `attributeAffects` to every output it changes: `ikFkBlend` to every output, `stretch`, `soft`, `pin`, `ikRestOffset`, `restBendNormal` and `limbLengths` to `jointOPM` and `outputSocketMatrix`, every input to `fkMatchLocal` and `ikMatchLocal`, `poleSpace` to the pole's `controlOPM` and everything the pole feeds, and `ikFkBlend` to `fkVisible` and `ikVisible`. Missing `attributeAffects` is the common silent bug (CLAUDE.md).
 - `compute()` reads plugs through the module's own `MObject` attributes, never by name (D36).
 
 ## 4. Evaluation
@@ -138,6 +144,10 @@ Outputs        : jointOPM[i] = socket[i] = jointWorld[i] for i in 0..2
                  jointOPM[3..5] = socket[3..5] = the marker controls' own worlds
                  controlOPM[i] = control i's rest carried by its own parent delta (excludes the local)
                  fkVisible, ikVisible = see decision 6
+Match outputs  (a separate compute branch, pulled only by tools, never during playback):
+                 fkMatchLocal[0..2], ikMatchLocal[3..4] = IkLimbNode::inverse run on the blended
+                 jointWorld[0..2] above with this evaluation's parent deltas. They are the control
+                 local matrices that would reproduce the current pose on each side.
 ```
 
 The IK root takes the start control's **translation** only. Its rotation turns the FK upper joint and does nothing to the IK chain, because the IK plane comes from the pole. Say this in `docs/modules.md`.
@@ -149,8 +159,8 @@ Blend at exactly 0 returns the FK worlds and at exactly 1 the IK worlds, with no
 `MathUtils::computeTwoBoneIk` in `maya/shared/Utilities.h`, next to `computeAimMatrix`. It is shareable (a leg, a ribbon module or a future module can call it), so it goes in the shared layer when written (CLAUDE.md, "Look before you write", step 6). It takes `rootPos`, `handlePos`, `polePos`, `L1`, `L2`, `stretch`, `pin` and the rest bend normal, and returns the three positions and the plane normal.
 
 1. Reach `d = |handle - root|`, axis `a = normalize(handle - root)`.
-2. Stretch scale `s = lerp(1, max(1, d / (L1 + L2)), stretch)`. Bone lengths `L1s = L1*s` and `L2s = L2*s`.
-3. Clamp `d` to `[|L1s - L2s| + eps, L1s + L2s]`, call it `dc`. A handle past full reach with `stretch = 0` leaves the end at full reach on the line to the handle, like any native IK.
+2. Soft reach `de = softReach(d)` (section 4.2a). With `soft = 0` it is `min(d, L1 + L2)`.
+3. Stretch scale `s = lerp(1, d / de, stretch)` (never below 1, since `de <= d`). Bone lengths `L1s = L1*s` and `L2s = L2*s`. Base distance `dc = de * s`, which is `lerp(de, d, stretch)`, clamped to `[|L1s - L2s| + eps, L1s + L2s]`. With `soft = 0` this is the plain rule: a handle past full reach with `stretch = 0` leaves the end at full reach on the line to the handle, like any native IK, and with `stretch = 1` the end reaches the handle.
 4. Plane normal `n = normalize(pole - root - a * dot(pole - root, a))`. If its length is below 1e-4 (pole on the line), use `restBendNormal` projected perpendicular to `a`, then any perpendicular. The solver is **stateless** (D36), so a pole crossing the line flips the limb the way a native IK does. Say so in `docs/modules.md`.
 5. Law of cosines: `x = (dc^2 + L1s^2 - L2s^2) / (2 dc)`, `h = sqrt(max(0, L1s^2 - x^2))`. `midFree = root + a*x + n*h`, `endFree = root + a*dc`.
 6. **Pin:** `mid = lerp(midFree, polePos, pin)` and `end = lerp(endFree, handlePos, pin)`. At `pin = 1` the elbow sits on the pole control and the wrist on the handle, so both bones lengthen or shorten to fit. Pin wins over stretch. The pole lies in the plane of root, handle and pole, so the plane is unchanged.
@@ -160,6 +170,24 @@ Hand-worked checks for pose cases: `L1 = 3`, `L2 = 4`, root `(0,0,0)`.
 - Handle `(0,5,0)`, pole toward `+X`: `mid = (2.4, 1.8, 0)`.
 - Handle `(10,0,0)`: stretch 0 gives end `(7,0,0)` and mid `(3,0,0)`. Stretch 1 gives end `(10,0,0)` and mid `(30/7,0,0)`.
 - Handle `(5,0,0)`, pole at `(2,3,0)`: pin 1 gives mid `(2,3,0)` and end `(5,0,0)`. Pin 0.5 gives mid `(1.9, 2.7, 0)`.
+
+### 4.2a Soft IK (reserved in v1's solver, a channel on the settings control)
+
+Soft IK eases the reach as the handle nears full length, so the elbow doesn't snap straight. The usual function is an exponential. With `L = L1 + L2`, a softness distance `ds` and `da = L - ds`:
+
+```
+d <= da :  de = d
+d >  da :  de = da + ds * (1 - exp(-(d - da) / ds))
+```
+
+- **Why it works.** At `d = da` the value and the slope (`exp(0) = 1`) both match the linear part, so there is no kink. As `d` grows, `de` approaches `L` and never reaches it. The end of the chain slows smoothly instead of locking.
+- **Units.** The channel `soft` is 0 to 1 and `ds = soft * L`, so it scales with the rig. `ds` under a small epsilon means a hard stop (`de = min(d, L)`), which also avoids dividing by zero.
+- **With stretch.** `s = lerp(1, d / de, stretch)` (section 4.2) scales the bones so the end still reaches the handle with the same softened bend. With `stretch = 0` the end stops short of the handle by `d - de`, which is the point of soft IK. The end joint's rotation still comes from the handle.
+- **With pin.** Pin blends the positions at the end (step 6), so pin 1 ignores soft. That is the intended override.
+- **Hand-worked check** for pose cases: `L1 = 3`, `L2 = 4`, `soft = 1/7` so `ds = 1`, `da = 6`. `d = 6` gives `de = 6`. `d = 7` gives `de = 6 + (1 - e^-1) = 6.632121`. `d = 8` gives `de = 6 + (1 - e^-2) = 6.864665`. With `stretch = 1` at `d = 7`: `s = 7 / 6.632121 = 1.055470`, bones `3.166410` and `4.221880`, end at `7`.
+- **Why it makes the solve harder, and what doesn't change.** The forward solve is still closed form: `softReach` only remaps `d` before the law of cosines, and `exp` is one call in `compute()`. The plane, the frames, the blend and the pin are untouched. What gets harder is the **inverse** (section 6, item 10), because the handle's distance has to be recovered from the end joint's, and it blows up near full extension. A second cost is that the end joint no longer sits on the handle, which animators will notice when the handle is pulled far.
+- **Other shapes.** A polynomial or smoothstep ease is possible. The exponential is the standard because it is C1 at `da` and has a closed-form inverse.
+- **Not in the solver's contract:** a minimum-reach (folded) soft zone. Add it only if animators hit it.
 
 ### 4.3 Joint frames and rest offsets
 
@@ -189,7 +217,7 @@ Translation lerps, rotation slerps along the shorter arc, scale lerps. Decompose
 | Handle on the root | `dc` clamps to `\|L1s - L2s\| + eps`, so the limb folds, no NaN. |
 | Pole on the line | Rest bend normal, then any perpendicular (4.2). |
 | Zero-length rest bone | Plan error (section 5). |
-| Blend, stretch, pin outside 0 to 1 | The attributes are clamped (min 0, max 1). |
+| Blend, stretch, soft, pin outside 0 to 1 | The attributes are clamped (min 0, max 1). |
 | Pole `space` set directly | The pole moves, no match. Use `setRigPoleSpace`. |
 
 ## 5. Read-phase validation (`planFromJson`)
@@ -214,8 +242,9 @@ All errors go to `ctx.report` with the JSON path, and every selector is claimed 
 5. **Marker joints** (slots 3 to 5) are `export: false`, so the source skeleton normally lacks them. The IK inverse derives its controls from slots 0 to 2 and ignores `jointWorld[3..5]` unless the source has them.
 6. `socketWorld` returns the forward result for every slot, so the sweep feeds modules below.
 7. **`solved = false`** when any limb joint is missing, with a reason. The driver then takes the controls from the sidecar, then rest.
-8. **Channels from joints:** transforms yes. `ikFkBlend`, `pin`, `space` and `stretch` come from the sidecar, never derived. (`inverse-solve.md` requirement 3 said `stretch` is derivable from the length ratio. It isn't reliably, because below full reach the joints can't tell stretch 0 from 1, and with `pin` the bone lengths mean something else. See section 9.)
+8. **Channels from joints:** transforms yes. `ikFkBlend`, `pin`, `space`, `soft` and `stretch` come from the sidecar, never derived. (`inverse-solve.md` requirement 3 said `stretch` is derivable from the length ratio. It isn't reliably, because below full reach the joints can't tell stretch 0 from 1, and with `pin` the bone lengths mean something else. See section 9.)
 9. **A source whose bone lengths differ from the rest** is reproduced exactly by FK. IK reproduces it only with `stretch` or `pin` on, so the restore warns when IK can't match the joints.
+10. **Soft IK in the inverse.** Given the observed end distance `de` and the `soft` value (from the sidecar, or live in the matched switch), the handle's distance is `d = da - ds * ln(1 - (de - da) / ds)` for `de > da`, and `d = de` otherwise. That is closed form, but it goes to infinity as `de` approaches `L`: a fully extended FK arm has no finite handle. Clamp `de` to `L * (1 - 1e-4)` first, so the handle lands a few `ds` past the wrist (about `7 * ds` for `L = 7`, `ds = 1`) and the wrist error is 1e-4 of the limb. With stretch on, solve for `s` first (`s = d / de` is the one unknown), and with `soft = 0` this reduces to the hard rule. The round-trip tests include a soft case and an extended one.
 
 Both sides are solved from joints at any blend, which is what the matched switch uses.
 
@@ -226,7 +255,7 @@ Both sides are solved from joints at any blend, which is what the matched switch
 Every item keys on control markup and channel name, so a limb is in them from the first build. Each needs a test (section 8, step 11) and a docs line.
 
 - `getRigControls(moduleType=["IkLimb"])`, `getRigControlInfo`, `getRigControlChannels` (the new channels with rests, ranges and mirror modes), `getRigMirrorControl`.
-- `zeroRigControls` (every channel to its rest: FK, blend 0, stretch 0, pin 0, pole space `Parent`), `mirrorRigPose`, `flipRigPose` (copy for all new channels, D34).
+- `zeroRigControls` (every channel to its rest: IK, blend 1, stretch 0, soft 0, pin 0, pole space `Parent`), `mirrorRigPose`, `flipRigPose` (copy for all new channels, D34).
 - `saveRigPose` and `loadRigPose`, `saveRigAnimation` and `loadRigAnimation` (D34, D42), with `mirror` and `offset`. `ikFkBlend`, `stretch` and `pin` are floats on default tangents. `space` keys stepped.
 - Control shape save, load and mirror for the six controls (D26).
 - `createRigConstraint` and `setRigConstraintSpace` on `start`, `ik` and `settings`, and template `constraints` entries.
@@ -240,10 +269,9 @@ Shape choices: the shape type comes from the module's `shapeType`, one for all s
 
 **`setRigIkFkBlend(control | module, blend=1.0)`** (the settings control or the module node; objects by name, never the selection). It matches both sides to the limb's live joints, then sets `ikFkBlend`:
 
-1. Read the limb's three joint worlds as they are now, and each child plug's live parent delta from the scene.
-2. Run `IkLimbNode::inverse` on them. It returns FK locals, the IK handle's local and the pole's local (section 6).
-3. Convert each local to channel values with the driver's matrix-to-channels conversion (euler nearest the current values, the control's own rotate order), and write them through `RigPoseScene`. Locked or driven channels keep their values and warn, as in D27 and D41.
-4. Set `ikFkBlend` to `blend`.
+1. Pull the module's match outputs, `fkMatchLocal` (slots 0 to 2) and `ikMatchLocal` (slots 3 and 4). They hold the control local matrices that reproduce the current pose on each side, computed by `IkLimbNode::inverse` inside the node from the live joints and parent deltas (section 4.1). No scene reads of joints or deltas are needed.
+2. Convert each local to channel values with the driver's matrix-to-channels conversion (euler nearest the current values, the control's own rotate order), and write them through `RigPoseScene`. Locked or driven channels keep their values and warn, as in D27 and D41.
+3. Set `ikFkBlend` to `blend`.
 
 Both sides reproduce the same pose, so the result is the same pose at any new blend, and the switch can't pop in either direction. A pose that IK can't reproduce (see section 6, item 9) warns. The command sets no keys. A keyed switch (key the frame before, switch, key the frame) is a tool in mayadev's pose menu on top of this command, like the keyed space switch D34 lists. Undoable as one step.
 
@@ -252,7 +280,7 @@ Both sides reproduce the same pose, so the result is the same pose at any new bl
 **Shared machinery, not new logic per command:**
 - The driver's matrix-to-channels conversion (in `RigInverse.cpp` today, private to the driver) moves to `RigPoseScene` or a shared helper, so a command can use it. `RigInverse::solve` keeps calling it.
 - D27's match formula is already in `RigConstraintNode::matchSwitchSpace`. Factor the formula (new local from old local, old and new delta, the control's OPM) into one shared function and call it from both. Check `matchSwitchSpace`'s other callers first.
-- A live single-module solve: `RigInverse` gets a function that takes a module node and reads its joint worlds and parent deltas from the scene. It needs no whole-rig sweep, which is why it can't be done by writing a partial JointClip: the sweep would take parent sockets from rest, and the parent deltas would be wrong.
+- No live single-module solve is needed: the node computes the match matrices itself (decision 11). A partial JointClip would be wrong here, because the sweep takes parent sockets from rest and gets the parent deltas wrong.
 
 ### 7.3 Python
 
@@ -270,9 +298,9 @@ Not built, and nothing in v1 closes the door.
 
 Each step ends with the full suite on a local build. Cloud sessions can do the Maya-free parts and docs (CLAUDE.md, "Environments"): steps 1, 2, 3, 11 (fixtures) and 15.
 
-1. **Sign off** section 2 (decisions 1, 2, 4, 5, 6 and 7 are still open). Then add `D47. IK limb` to `design/decisions.md` (the rejected alternatives from section 0 and 2, the consequence), replace "The next module is the IK limb" in "Open items", update `inverse-solve.md`'s status line, and promote this page to `design/ik-limb.md`.
+1. **Sign off** section 2 (decisions 1, 5, 7 and 10 are still open). Then add `D47. IK limb` to `design/decisions.md` (the rejected alternatives from section 0 and 2, the consequence), replace "The next module is the IK limb" in "Open items", update `inverse-solve.md`'s status line, and promote this page to `design/ik-limb.md`.
 2. **Hand-worked pose cases first** (`tests/maya/fixtures/poses/ikLimb/*.json`) and validation cases (`fixtures/validation/`), before any code, from the numbers in 4.2. Add the skeletons (`fixtures/skeletons/ik_limb.json`, `ik_limb_mirror.json`: a bent limb, the pole on the bend side, three non-export marker joints) and templates.
-3. **Constants.** `core/Constants.h`: `RigAttr::IkFkBlend`, `Stretch`, `Pin`, `PoleSpace`, `IkRestOffset`, `RestBendNormal`, `LimbLengths`, `FkVisible`, `IkVisible`, and `PlugAndSocketNames::Ik`, `Pole`, `Settings`.
+3. **Constants.** `core/Constants.h`: `RigAttr::IkFkBlend`, `Stretch`, `Soft`, `Pin`, `PoleSpace`, `FkMatchLocal`, `IkMatchLocal`, `IkRestOffset`, `RestBendNormal`, `LimbLengths`, `FkVisible`, `IkVisible`, and `PlugAndSocketNames::Ik`, `Pole`, `Settings`.
 4. **`core/` validation.** `ModulePlugInfo::allowsConstraint`, the constraint check in `RigTemplateValidation`, and its validation case.
 5. **Shared math.** `MathUtils::computeTwoBoneIk` and `MathUtils::blendMatrices` in `maya/shared/Utilities.h/.cpp`. Callers: none yet.
 6. **Shared custom channels.** The first module with them. One shared helper that adds a keyable double (or enum) channel to a control with a default, a range and a mirror mode, connects it to a module attribute, and queues the locks and hides for the other channels. Look at the `space` enum in `Constraints.cpp` and at `DagUtils::queueLockAndHideTransform` first and extend them: give `queueLockAndHideTransform` an optional list of channels to keep instead of writing a second version. State in the summary what was reused and what is new.
@@ -282,7 +310,7 @@ Each step ends with the full suite on a local build. Cloud sessions can do the M
 10. **Rotate order and locks.** The build locks rotate order on every control (D40). Locks and hides per section 3.3.
 11. **Tests (tier 4, `modules/test_ik_limb.py`; commands in tier 5).**
     - `IkLimbContract(ModuleContract, RigTestCase)` with `JOINT_OWNERS` for all six joints, `MIRROR_TEMPLATE` and `MIRROR_SKELETON`. It gives the build, rest, drive, no-inherit, undo/redo, one-solve, mirrored channels and **inverse round trip** tests.
-    - `add_pose_cases(IkLimbPoses, "ikLimb")`: rest; handle moved; pole moved to either side; the start control translated in IK (the chain follows); unreachable with and without stretch; pin 0.5 and 1; blend 0, 0.5 and 1; pole `Ik` space with a handle move; a rotated parent; a mirrored limb.
+    - `add_pose_cases(IkLimbPoses, "ikLimb")`: rest; handle moved; pole moved to either side; the start control translated in IK (the chain follows); unreachable with and without stretch; pin 0.5 and 1; blend 0, 0.5 and 1 (the default is 1, so FK cases set `ikFkBlend` to 0 and a rest case at the default is IK); soft IK at the four distances in 4.2a, with and without stretch; pole `Ik` space with a handle move; a rotated parent; a mirrored limb.
     - Behaviour tests: blend 0 is exactly FK and 1 exactly IK. Blend 0.5 is the lerp and slerp of the two. The hand follows the handle's rotation. Visibility by blend, with the start control always visible. Sockets `index_*` follow the blended joints, and a child module's controls stay visible at blend 1. A pole on the line takes the fallback plane. A constraint on `pole` fails validation. `start`, `ik` and `settings` take `rigConstraint` spaces.
     - Command tests (`commands/test_ik_limb_cmds.py`): `setRigIkFkBlend` from FK to IK and back leaves every joint where it was, at rest, posed in each mode, with stretch and with pin, with a space switch on `ik`; a warning when IK can't match; locked channels warn; undo and redo; scopes and every error. `setRigPoleSpace` keeps the pole's world matrix in both directions and undoes.
     - Inverse tests: the round trip at blends 0, 0.5 and 1, a missing joint, a sidecar carrying `ikFkBlend`, a stretched source.
@@ -313,15 +341,17 @@ Each step ends with the full suite on a local build. Cloud sessions can do the M
 - **`docs/architecture.md` recipe** lists four pieces for a module and says nothing about custom channels, hidden controls, marker joints or module-owned enums. Update it with this module.
 - **Visibility inheritance.** D1 turns transforms off in the DAG and leaves visibility inherited. Hiding FK controls by blend would hide anything DAG-parented under them. Section 3.2 avoids it with null socket transforms. The contract test must check this.
 - **`hasControl` is also a build check.** `RigModule.cpp` requires a plan's `hasControl` to equal whether the built plug has a control, so `allowsConstraint` is a separate field and `hasControl` stays true for `pole`.
+- **The match outputs must equal what the command writes.** `fkMatchLocal` and `ikMatchLocal` come from the same `inverse` the restore uses (D41, P3), so a test sets the controls from them and checks the joints don't move, at blends 0, 0.5 and 1, posed, stretched, pinned and soft.
+- **Soft IK near full extension.** The forward solve is smooth. The inverse is ill-conditioned there (section 6, item 10), so the matched switch from an extended FK arm puts the handle a few `ds` past the wrist.
 - **Compute cost.** Three blended joints plus an IK solve cost more than a chain solve. D36's `rigControlNode` premium dominates, but run `bench` before assuming anything.
 
 ## 10. Maintenance surface added
 
 - One module node, its args struct and its inverse, one registry row.
-- Four channel names (`ikFkBlend`, `stretch`, `pin`, and `space` on the pole with two labels), four child plug names, two socket families, three marker-joint markups per limb.
+- Five channel names (`ikFkBlend`, `stretch`, `soft`, `pin`, and `space` on the pole with two labels), four child plug names, two socket families, three marker-joint markups per limb.
 - Two commands (`setRigIkFkBlend`, `setRigPoleSpace`).
 - Constants in `RigAttr` and `PlugAndSocketNames`, and `ModulePlugInfo::allowsConstraint`.
-- `MathUtils::computeTwoBoneIk` and `blendMatrices`, the shared custom-channel helper, the shared match formula, the shared matrix-to-channels conversion and a live single-module inverse.
+- `MathUtils::computeTwoBoneIk` and `blendMatrices`, the shared custom-channel helper, the shared match formula, the shared matrix-to-channels conversion and two match output arrays on the node.
 - One golden snapshot, a pose case folder, two test files and fixtures, and a block in the performance rig.
 
 Complexity stated (CLAUDE.md, "Complexity checks"): a new attribute set on a module (the first custom channels, the first scalar inputs, the first module-owned enum), a visibility output, three marker joints per limb, a new plug flag in `core/`, and two commands. Rejected as simpler: an IK-only two-bone solve with no blend (the problem is the switch), and a `poleFollow` slider (two controls for one idea, which the author declined).
