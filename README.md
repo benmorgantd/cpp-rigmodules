@@ -128,6 +128,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [design/tool-registry.md](design/tool-registry.md) | Proposal for mayadev's tool registry: fixes, readable ids, function calls, checked and versioned files |
 | [design/active-rig-panel.md](design/active-rig-panel.md) | The active rig panel (D50, built in mayadev except its out-of-date line): rig picker, control selection by module and side, pose tools and space switching, as a view over `RigPanelSession` |
 | [design/library-browser.md](design/library-browser.md) | Design for the library browser (D51, decided): list, apply, save, rename and delete poses and animations, as a searchable view over `LibrarySession`. The RigModules side (file metadata, two commands, `loadRigPose` mirror) and the mayadev side (the session and the window) are built. Publish to Approved and thumbnails are not |
+| [design/two-bone-ik.md](design/two-bone-ik.md) | Design for the two-bone IK limb (D52, decided, not built): controls, channels, matched IK/FK switch, module-owned spaces, inverse and build phases |
 | [design/mayadev-ui.md](design/mayadev-ui.md) | Proposal for mayadev's user interfaces: thin Qt views over headless view-models, a startup registration pass between layers, questions through a `Prompter`, layer tests |
 
 [docs/README.md](docs/README.md) explains how the documentation is organized and kept current.

@@ -1,6 +1,6 @@
 # Module directions from production experience
 
-**Status:** proposals (D46, Leaning). Nothing here is built, and no module below has passed the gate (D12). The IK limb stays the next module (author, 2026-11-10). This page records where the author's production experience points the modules after it, so the reasoning is not lost. It names no people or projects.
+**Status:** proposals (D46, Leaning). Nothing here is built, and no module below has passed the gate (D12). The IK limb stays the next module (author, 2026-11-10), designed as D52 (`two-bone-ik.md`, 2026-11-15) and not built. This page records where the author's production experience points the modules after it, so the reasoning is not lost. It names no people or projects.
 
 ## 1. Where the experience comes from
 
