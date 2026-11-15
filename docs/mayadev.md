@@ -45,13 +45,13 @@ A rename, a removed flag or a changed return shape in anything in the table brea
 | `saveRigPose`, `saveRigAnimation`, `saveRigControlShapes`, `saveRigSkinWeights` and `write_fbx` write exactly the path given, and the folder exists | mayadev makes the folders before it calls, and versions the old file first |
 | Commands take forward slashes | mayadev converts Windows paths with `.replace("\\", "/")` |
 | `loadRigSkinWeights` matches by the `meshId` in the file | The weight handler loads a folder, skipping files whose mesh isn't in the scene |
-| `animateRigFromJointClip(sidecar=)` takes the ControlAnim saved with the clip | An export folder holds `<name>.fbx` beside `<name>.anim.json` ([`library.md`](library.md)) |
+| `animateRigFromJointClip(sidecar=)` takes the ControlAnim saved with the clip | An export folder holds `<name>.fbx` beside `<name>.controlanim.json` ([`library.md`](library.md)) |
 
 ## Known mismatches
 
 Found reading mayadev's code on 2026-11-14. The code wins, so these are flagged for the author, not changed.
 
-- **ControlAnim file name.** [`library.md`](library.md) and [`design/control-library.md`](../design/control-library.md) put ControlAnims in `controlanims/` as `<name>.anim.json`. mayadev's `ControlAnimHandler` writes `controlanims/<name>.json`. It uses `.anim.json` only for the ControlAnim beside an exported clip. Undecided which side moves.
+- **Library file names (decided 2026-11-14, D51).** [`library.md`](library.md) names ControlAnims `<name>.controlanim.json` and ControlPoses `<name>.controlpose.json`, in `controlanims/`, `controlposes/` and the ControlAnim copy in an export folder. mayadev's `ControlDataHandler.file_path` still writes `<name>.json` in both folders, and `CONTROL_ANIM_SUFFIX` in `bmaya.maya.assethandlers` is `.anim.json`. The change is mayadev's, and old files keep loading because the commands take any path.
 - **`mayadev.mod`** is described by [`design/mayadev-integration.md`](../design/mayadev-integration.md) as existing, but is not in the mayadev repo.
 - The list of mayadev issues in that document is dated: see its "Status on 2026-11-14".
 

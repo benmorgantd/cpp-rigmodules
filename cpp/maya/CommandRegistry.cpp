@@ -4,6 +4,7 @@
 #include "maya/commands/CreateRigCmd.h"
 #include "maya/commands/JointMarkupCmd.h"
 #include "maya/commands/RigControlCmds.h"
+#include "maya/commands/RigDataFileCmds.h"
 #include "maya/commands/RigInfoCmd.h"
 #include "maya/commands/RigInverseCmds.h"
 #include "maya/commands/RigKeyCmds.h"
@@ -33,6 +34,8 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ SaveRigPoseCmd::aCommandString, SaveRigPoseCmd::creator, SaveRigPoseCmd::newSyntax },
 		{ LoadRigPoseCmd::aCommandString, LoadRigPoseCmd::creator, LoadRigPoseCmd::newSyntax },
 		{ GetRigInfoCmd::aCommandString, GetRigInfoCmd::creator, GetRigInfoCmd::newSyntax },
+		{ GetRigDataFileInfoCmd::aCommandString, GetRigDataFileInfoCmd::creator, GetRigDataFileInfoCmd::newSyntax },
+		{ SetRigDataFileMetaCmd::aCommandString, SetRigDataFileMetaCmd::creator, SetRigDataFileMetaCmd::newSyntax },
 		{ SetRigMeshIdCmd::aCommandString, SetRigMeshIdCmd::creator, SetRigMeshIdCmd::newSyntax },
 		{ SaveRigSkinWeightsCmd::aCommandString, SaveRigSkinWeightsCmd::creator, SaveRigSkinWeightsCmd::newSyntax },
 		{ LoadRigSkinWeightsCmd::aCommandString, LoadRigSkinWeightsCmd::creator, LoadRigSkinWeightsCmd::newSyntax },

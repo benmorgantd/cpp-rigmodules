@@ -4,10 +4,22 @@
 
 #include <cstddef>
 
+namespace
+{
+	// Version 2 added the library metadata (D51). An older ControlAnim has none.
+	void addMeta(nlohmann::json& data)
+	{
+		if (data.is_object() && !data.contains(ControlAnimKey::Meta))
+		{
+			data[ControlAnimKey::Meta] = nlohmann::json::object();
+		}
+	}
+}
+
 const UpdateTable& controlAnimUpdateTable()
 {
-	// Add a step here, and nowhere else, when the ControlAnim file changes shape or meaning.
-	static const UpdateTable table{ 1, {} };
+	// Add a step here, and nowhere else, when the ControlAnim file changes shape or meaning. Step 0 takes version 1 to 2.
+	static const UpdateTable table{ 1, { &addMeta } };
 	return table;
 }
 
@@ -16,6 +28,7 @@ std::string serializeControlAnim(const ControlAnim& anim)
 	// ordered_json keeps formatVersion first.
 	nlohmann::ordered_json file;
 	file[ControlAnimKey::FormatVersion] = controlAnimUpdateTable().currentVersion();
+	file[ControlAnimKey::Meta] = libraryMetaToJson(anim.meta);
 	file[ControlAnimKey::FrameRate] = anim.frameRate;
 	file[ControlAnimKey::StartFrame] = anim.startFrame;
 	file[ControlAnimKey::EndFrame] = anim.endFrame;
@@ -38,10 +51,11 @@ void deserializeControlAnim(const std::string& text, ControlAnim& outAnim, Valid
 	}
 
 	const std::size_t errorCount = report.errors.size();
+	// meta is optional here because a version 1 file lacks it. The check after the update requires it.
 	RigTemplateValidation::checkKeys(
 		file,
 		{ ControlAnimKey::FormatVersion, ControlAnimKey::FrameRate, ControlAnimKey::StartFrame, ControlAnimKey::EndFrame, ControlAnimKey::Controls },
-		{},
+		{ ControlAnimKey::Meta },
 		where,
 		report);
 	if (report.errors.size() != errorCount)
@@ -61,7 +75,24 @@ void deserializeControlAnim(const std::string& text, ControlAnim& outAnim, Valid
 		return;
 	}
 
+	RigTemplateValidation::checkKeys(
+		file,
+		{ ControlAnimKey::FormatVersion, ControlAnimKey::Meta, ControlAnimKey::FrameRate, ControlAnimKey::StartFrame, ControlAnimKey::EndFrame, ControlAnimKey::Controls },
+		{},
+		where,
+		report);
+	if (report.errors.size() != errorCount)
+	{
+		return;
+	}
+
 	ControlAnim anim;
+	parseLibraryMeta(file.at(ControlAnimKey::Meta), where + "." + ControlAnimKey::Meta, anim.meta, report);
+	if (report.errors.size() != errorCount)
+	{
+		return;
+	}
+
 	const nlohmann::json& frameRate = file.at(ControlAnimKey::FrameRate);
 	if (!frameRate.is_number() || frameRate.get<double>() <= 0.0)
 	{

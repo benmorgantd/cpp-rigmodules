@@ -761,3 +761,104 @@ MStatus RigPoseScene::setRigPose(const RigControlScope& scope, const PoseMap& po
 	}
 	return MStatus::kSuccess;
 }
+
+MStatus RigPoseScene::mirrorPoseData(const RigControlScope& scope, const PoseMap& pose, PoseMap& outMirrored)
+{
+	outMirrored.clear();
+	MObjectArray oControls;
+	MStatus status = RigTraversal::getRigControls(scope.oRigRoot, RigControlFilter(), oControls);
+	if (!status)
+	{
+		return status;
+	}
+
+	std::set<std::pair<std::string, std::string>> usedEntries;
+	for (unsigned int i = 0; i < oControls.length(); ++i)
+	{
+		ControlMarkup markup;
+		status = RigTraversal::getControlMarkup(oControls[i], markup);
+		if (!status)
+		{
+			return status;
+		}
+		const auto itSide = pose.find(markup.side);
+		if (itSide == pose.end() || itSide->second.find(markup.usage) == itSide->second.end())
+		{
+			continue;
+		}
+		usedEntries.emplace(markup.side, markup.usage);
+
+		// A Center control is its own mirror and flips by its axis. The others move to their mirror control.
+		ControlMarkup target = markup;
+		int flipAxis = -1;
+		if (markup.side == SideNames::Center)
+		{
+			status = getFlipAxis(oControls[i], flipAxis);
+			if (!status)
+			{
+				return status;
+			}
+			if (flipAxis < 0)
+			{
+				MGlobal::displayWarning(DagUtils::getPartialPathName(oControls[i])
+					+ " has no rest axis along world X, so its values can't be mirrored. They keep their values.");
+			}
+		}
+		else
+		{
+			MObject oMirror;
+			status = RigTraversal::findMirrorControl(oControls[i], oMirror);
+			if (!status)
+			{
+				return status;
+			}
+			if (oMirror.isNull())
+			{
+				MGlobal::displayWarning(DagUtils::getPartialPathName(oControls[i]) + " has no mirror control, so its values are skipped.");
+				continue;
+			}
+			status = RigTraversal::getControlMarkup(oMirror, target);
+			if (!status)
+			{
+				return status;
+			}
+		}
+
+		std::vector<Channel> channels;
+		status = getControlChannels(oControls[i], channels);
+		if (!status)
+		{
+			return status;
+		}
+		PoseChannels mirrored;
+		for (const auto& [name, value] : itSide->second.at(markup.usage))
+		{
+			const auto itChannel = std::find_if(channels.begin(), channels.end(), [&name](const Channel& channel)
+			{
+				return channel.info.name == name;
+			});
+			// A channel the control lacks is copied, and the write warns about it.
+			const bool isNegated = itChannel != channels.end() && (markup.side == SideNames::Center
+				? flipAxis >= 0 && isNegatedByFlip(*itChannel, flipAxis)
+				: itChannel->info.negate);
+			mirrored.emplace_back(name, isNegated ? -value : value);
+		}
+		outMirrored[target.side][target.usage] = mirrored;
+	}
+
+	if (scope.isWholeRig)
+	{
+		for (const auto& [side, usages] : pose)
+		{
+			for (const auto& entry : usages)
+			{
+				if (usedEntries.count({ side, entry.first }) == 0)
+				{
+					MGlobal::displayWarning(MString("The pose file has a control (") + side.c_str() + ", " + entry.first.c_str()
+						+ ") that the rig lacks, so it is skipped.");
+				}
+			}
+		}
+	}
+	return MStatus::kSuccess;
+}

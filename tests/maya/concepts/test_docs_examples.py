@@ -362,3 +362,37 @@ class AnimationSidecarDocExample(RigTestCase):
         self.assertEqual(cmds.keyframe(layout + ".translateX", query=True, timeChange=True), [1, 3])
         self.assertEqual(cmds.keyframe(layout + ".translateX", query=True, valueChange=True), [0, 1.0])
         self.assertEqual(cmds.keyframe(rig_name("upperArm_l_ctrl_l") + ".space", query=True, valueChange=True), [0])
+
+
+class LibraryMetaDocExample(RigTestCase):
+    """The meta object in docs/library.md is accepted by the save commands, and getRigDataFileInfo's entry has the keys
+    docs/commands.md lists."""
+
+    def meta_text(self):
+        with open(os.path.join(config.REPO_DIR, "docs", "library.md"), encoding="utf-8") as handle:
+            section = handle.read().split("## File meta", 1)[1]
+        return re.search(r"```json\s*\n(.*?)```", section, re.S).group(1)
+
+    def documented_info_keys(self):
+        with open(COMMANDS_DOC, encoding="utf-8") as handle:
+            section = handle.read().split("## getRigDataFileInfo", 1)[1].split("## setRigDataFileMeta", 1)[0]
+        table = section.split("Each entry has:", 1)[1].split("\n\n", 2)[1]
+        return {key for line in table.splitlines()[2:] for key in re.findall(r"`(\w+)`", line.split("|")[1])}
+
+    def test_the_documented_meta_saves_and_reads_back(self):
+        cmds.currentUnit(time="film")
+        self.build_standard("mirror_arms", "mirror_arms")
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        meta = json.loads(self.meta_text())
+        pose = os.path.join(config.WORK_DIR, "doc_meta_pose.json").replace("\\", "/")
+        anim = os.path.join(config.WORK_DIR, "doc_meta_anim.json").replace("\\", "/")
+        cmds.setKeyframe(rig_name("upperArm_l_ctrl_l") + ".rotateZ", time=1, value=0)
+        cmds.saveRigPose(root, file=pose, meta=self.meta_text())
+        cmds.saveRigAnimation(root, file=anim, startFrame=1, endFrame=1, meta=self.meta_text())
+        entries = json.loads(cmds.getRigDataFileInfo(root, file=[pose, anim]))
+        for entry in entries:
+            self.assertEqual({key: entry["meta"][key] for key in meta}, meta)
+            self.assertEqual(set(entry["meta"]) - set(meta), {"assetId", "variant", "pluginVersion", "created"})
+        self.assertEqual({key for entry in entries for key in entry} - {"file"}, self.documented_info_keys() - {"file"})
+        cmds.setRigDataFileMeta(file=pose, meta=json.dumps({"tags": ["hands"], "status": "review"}))
+        self.assertEqual(json.loads(cmds.getRigDataFileInfo(root, file=[pose]))[0]["meta"]["status"], "review")

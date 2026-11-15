@@ -73,6 +73,24 @@ rigmodules.pose.key_controls(["hero:upperArm_l_ctrl_l"], time=12)
 - **`key_rig(rig_root, time=None)`**: every control in the rig.
 - **`key_modules(rig_root, modules, time=None)`**: every control of the named module nodes. A node that isn't one of the rig's modules raises `RuntimeError`.
 
+## rigmodules.library
+
+Pose files and ControlAnim files, read and edited without loading them onto a rig ([library.md](library.md#file-meta)). The meta is a plain `dict` keyed as in the file, so a new meta field needs no change here.
+
+```python
+import rigmodules.library
+found = rigmodules.library.get_data_file_info("hero:rigRootModule1", ["C:/lib/fist.controlpose.json", "C:/lib/walk.controlanim.json"])
+found[0].meta["tags"], found[1].end_frame, found[1].unmatched_controls
+rigmodules.library.set_data_file_meta("C:/lib/fist.controlpose.json", {"tags": ["hands"], "status": "review"})
+```
+
+| Function | Returns |
+|---|---|
+| `get_data_file_info(rig_root, files)` | A `DataFileInfo` per file, in the order given, from one [`getRigDataFileInfo`](commands.md#getrigdatafileinfo) call. A missing or invalid file has `error` set and does not stop the others. Raises `RuntimeError` when `rig_root` isn't a rig root |
+| `set_data_file_meta(file, meta)` | Nothing. [`setRigDataFileMeta`](commands.md#setrigdatafilemeta) with the dict as JSON. Raises `RuntimeError`, leaving the file as it was, for a bad value, an unknown key or a rig field |
+
+`DataFileInfo` is a frozen dataclass: `file`, `error` (`""` when the file was read), `kind` (`"pose"` or `"animation"`), `format_version`, `meta`, `frame_rate`, `start_frame` and `end_frame` (animations only), `control_count`, `channel_count` and `unmatched_controls` (a tuple of `(side, usage)`).
+
 ## rigmodules.template
 
 ```python

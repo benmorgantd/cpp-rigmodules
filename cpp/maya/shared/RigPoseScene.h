@@ -84,4 +84,11 @@ public:
 	// so does a channel it lacks. A control or channel the pose has and the rig lacks is skipped with a warning (a
 	// control outside a selection scope is not one). outChangedNames lists the controls that changed.
 	static MStatus setRigPose(const RigControlScope& scope, const PoseMap& pose, MDGModifier& dgMod, MStringArray& outChangedNames);
+
+	// The pose as it goes onto the other side (D51), as data, with no scene write: each entry moves to its mirror
+	// control, and a channel the mirror negates (a Center control's by its flip axis, any other by its mirror mode) has its
+	// value negated. It is a flip: both sides' entries move, so a pose of one side only lands on the other. An entry
+	// whose control has no mirror, or that the rig lacks, is skipped with a warning. The same rules as flipRigPose and
+	// RigKeyScene::mirrorRigKeys, so the three agree. The mapping uses the whole rig, and setRigPose then writes to the scope.
+	static MStatus mirrorPoseData(const RigControlScope& scope, const PoseMap& pose, PoseMap& outMirrored);
 };

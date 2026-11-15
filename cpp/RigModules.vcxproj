@@ -146,6 +146,8 @@
     <ClCompile Include="core\AssetId.cpp" />
     <ClCompile Include="core\ControlChannels.cpp" />
     <ClCompile Include="core\ControlMarkup.cpp" />
+    <ClCompile Include="core\LibraryFile.cpp" />
+    <ClCompile Include="core\LibraryMeta.cpp" />
     <ClCompile Include="core\ControlShapeFile.cpp" />
     <ClCompile Include="core\ControlShapeLibrary.cpp" />
     <ClCompile Include="core\ControlShapes.cpp" />
@@ -169,6 +171,7 @@
     <ClCompile Include="maya\commands\CreateRigCmd.cpp" />
     <ClCompile Include="maya\commands\JointMarkupCmd.cpp" />
     <ClCompile Include="maya\commands\RigControlCmds.cpp" />
+    <ClCompile Include="maya\commands\RigDataFileCmds.cpp" />
     <ClCompile Include="maya\commands\RigInfoCmd.cpp" />
     <ClCompile Include="maya\commands\RigKeyCmds.cpp" />
     <ClCompile Include="maya\commands\RigInverseCmds.cpp" />
@@ -189,6 +192,7 @@
     <ClCompile Include="maya\shared\RigInverse.cpp" />
     <ClCompile Include="maya\shared\RigModule.cpp" />
     <ClCompile Include="maya\shared\RigPoseScene.cpp" />
+    <ClCompile Include="maya\shared\RigDataFileScene.cpp" />
     <ClCompile Include="maya\shared\RigTraversal.cpp" />
     <ClCompile Include="maya\shared\Side.cpp" />
     <ClCompile Include="maya\shared\SelectionSetScene.cpp" />
@@ -200,6 +204,8 @@
     <ClInclude Include="core\Constants.h" />
     <ClInclude Include="core\ControlChannels.h" />
     <ClInclude Include="core\ControlMarkup.h" />
+    <ClInclude Include="core\LibraryFile.h" />
+    <ClInclude Include="core\LibraryMeta.h" />
     <ClInclude Include="core\ControlShapeFile.h" />
     <ClInclude Include="core\ControlShapeLibrary.h" />
     <ClInclude Include="core\ControlShapes.h" />
@@ -224,6 +230,7 @@
     <ClInclude Include="maya\commands\CreateRigCmd.h" />
     <ClInclude Include="maya\commands\JointMarkupCmd.h" />
     <ClInclude Include="maya\commands\RigControlCmds.h" />
+    <ClInclude Include="maya\commands\RigDataFileCmds.h" />
     <ClInclude Include="maya\commands\RigInfoCmd.h" />
     <ClInclude Include="maya\commands\RigKeyCmds.h" />
     <ClInclude Include="maya\commands\RigInverseCmds.h" />
@@ -245,6 +252,7 @@
     <ClInclude Include="maya\shared\RigInverse.h" />
     <ClInclude Include="maya\shared\RigModule.h" />
     <ClInclude Include="maya\shared\RigPoseScene.h" />
+    <ClInclude Include="maya\shared\RigDataFileScene.h" />
     <ClInclude Include="maya\shared\RigTraversal.h" />
     <ClInclude Include="maya\shared\Side.h" />
     <ClInclude Include="maya\shared\SelectionSetScene.h" />

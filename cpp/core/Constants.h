@@ -64,7 +64,46 @@ namespace ControlShapeFileKey
 namespace PoseFileKey
 {
 	inline constexpr const char* FormatVersion{ "formatVersion" };
+	inline constexpr const char* Meta{ "meta" };
 	inline constexpr const char* Controls{ "controls" };
+}
+
+// Keys of the `meta` object in a pose file and a ControlAnim file, see LibraryMeta.h (D51). Public API: saved library
+// files and the library browser's search depend on them. The first block is filled from the rig when a file is saved,
+// and the rest comes from the caller.
+namespace LibraryMetaKey
+{
+	inline constexpr const char* AssetId{ "assetId" };
+	inline constexpr const char* Variant{ "variant" };
+	inline constexpr const char* PluginVersion{ "pluginVersion" };
+	inline constexpr const char* Created{ "created" };
+
+	inline constexpr const char* Template{ "template" };
+	inline constexpr const char* SkeletonId{ "skeletonId" };
+	inline constexpr const char* Author{ "author" };
+	inline constexpr const char* Description{ "description" };
+	inline constexpr const char* Category{ "category" };
+	inline constexpr const char* Status{ "status" };
+	inline constexpr const char* Tags{ "tags" };
+	inline constexpr const char* RigRegions{ "rigRegions" };
+}
+
+// Keys of one file in getRigDataFileInfo's JSON result, see LibraryFile.h (D51). Public API: the library browser reads them.
+namespace DataFileInfoKey
+{
+	inline constexpr const char* File{ "file" };
+	inline constexpr const char* Error{ "error" };
+	inline constexpr const char* Kind{ "kind" };
+	inline constexpr const char* FormatVersion{ "formatVersion" };
+	inline constexpr const char* Meta{ "meta" };
+	inline constexpr const char* FrameRate{ "frameRate" };
+	inline constexpr const char* StartFrame{ "startFrame" };
+	inline constexpr const char* EndFrame{ "endFrame" };
+	inline constexpr const char* ControlCount{ "controlCount" };
+	inline constexpr const char* ChannelCount{ "channelCount" };
+	inline constexpr const char* UnmatchedControls{ "unmatchedControls" };
+	inline constexpr const char* KindPose{ "pose" };
+	inline constexpr const char* KindAnimation{ "animation" };
 }
 
 // Keys in a JointClip file, see JointClipFile.h. Public API: the Python capture writes them.
@@ -91,6 +130,7 @@ namespace ControlAnimKey
 	inline constexpr const char* FrameRate{ "frameRate" };
 	inline constexpr const char* StartFrame{ "startFrame" };
 	inline constexpr const char* EndFrame{ "endFrame" };
+	inline constexpr const char* Meta{ "meta" };
 	inline constexpr const char* Controls{ "controls" };
 	inline constexpr const char* Weighted{ "weighted" };
 	inline constexpr const char* PreInfinity{ "preInfinity" };

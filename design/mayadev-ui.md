@@ -322,7 +322,7 @@ Each phase is reviewable on its own and leaves every menu tool working.
 
 **Phase 3: the panels the pipeline needs, on this base**
 
-The active rig panel, and the pose and animation library browser (`control-library.md`) with `ListModel` over a library view-model in `bmaya.maya`. Each is a separate design when its time comes. This document only fixes the pattern they follow. The active rig panel's design is `active-rig-panel.md` (D50, decided, not built). It does not need `ListModel`: the library browser is its first user.
+The active rig panel, and the pose and animation library browser (`control-library.md`) with `ListModel` over a library view-model in `bmaya.maya`. Each is a separate design when its time comes. This document only fixes the pattern they follow. The active rig panel's design is `active-rig-panel.md` (D50, built on mayadev branch `ui-phase1`, except its out-of-date line). It does not need `ListModel`: the library browser is its first user. The browser's design is `library-browser.md` (D51, proposed, not built).
 
 ## 6. Documentation impact (mayadev)
 

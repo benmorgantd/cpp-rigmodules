@@ -3,18 +3,31 @@
 #include "FormatUpdate.h"
 #include "JointMarkup.h"
 
+namespace
+{
+	// Version 2 added the library metadata (D51). An older pose has none.
+	void addMeta(nlohmann::json& data)
+	{
+		if (data.is_object() && !data.contains(PoseFileKey::Meta))
+		{
+			data[PoseFileKey::Meta] = nlohmann::json::object();
+		}
+	}
+}
+
 const UpdateTable& poseUpdateTable()
 {
-	// Add a step here, and nowhere else, when the pose file changes shape or meaning.
-	static const UpdateTable table{ 1, {} };
+	// Add a step here, and nowhere else, when the pose file changes shape or meaning. Step 0 takes version 1 to 2.
+	static const UpdateTable table{ 1, { &addMeta } };
 	return table;
 }
 
-std::string serializePose(const PoseMap& pose)
+std::string serializePose(const PoseMap& pose, const LibraryMeta& meta)
 {
 	// ordered_json keeps formatVersion first and each control's channels in channel box order.
 	nlohmann::ordered_json file;
 	file[PoseFileKey::FormatVersion] = poseUpdateTable().currentVersion();
+	file[PoseFileKey::Meta] = libraryMetaToJson(meta);
 	nlohmann::ordered_json controls = nlohmann::ordered_json::object();
 	for (const auto& [side, usages] : pose)
 	{
@@ -93,7 +106,7 @@ namespace
 	}
 }
 
-void deserializePose(const std::string& text, PoseMap& outPose, ValidationReport& report)
+void deserializePose(const std::string& text, PoseMap& outPose, ValidationReport& report, LibraryMeta* pMeta)
 {
 	const std::string where = "pose file";
 	nlohmann::json file;
@@ -108,7 +121,8 @@ void deserializePose(const std::string& text, PoseMap& outPose, ValidationReport
 	}
 
 	const std::size_t errorCount = report.errors.size();
-	RigTemplateValidation::checkKeys(file, { PoseFileKey::FormatVersion, PoseFileKey::Controls }, {}, where, report);
+	// meta is optional here because a version 1 file lacks it. The check after the update requires it.
+	RigTemplateValidation::checkKeys(file, { PoseFileKey::FormatVersion, PoseFileKey::Controls }, { PoseFileKey::Meta }, where, report);
 	if (report.errors.size() != errorCount)
 	{
 		return;
@@ -126,5 +140,17 @@ void deserializePose(const std::string& text, PoseMap& outPose, ValidationReport
 		return;
 	}
 
+	RigTemplateValidation::checkKeys(file, { PoseFileKey::FormatVersion, PoseFileKey::Meta, PoseFileKey::Controls }, {}, where, report);
+	if (report.errors.size() != errorCount)
+	{
+		return;
+	}
+
+	LibraryMeta meta;
+	parseLibraryMeta(file.at(PoseFileKey::Meta), where + "." + PoseFileKey::Meta, meta, report);
+	if (pMeta != nullptr)
+	{
+		*pMeta = meta;
+	}
 	deserializePoseControls(file.at(PoseFileKey::Controls), where + "." + PoseFileKey::Controls, outPose, report);
 }

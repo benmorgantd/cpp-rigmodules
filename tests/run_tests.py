@@ -80,6 +80,7 @@ TIERS = [
         "commands.test_inverse_solve",     # the inverse solve: round trips through every module, constraint and the sidecar (D41)
         "commands.test_rig_key_cmds",      # getRigKeys and setRigKeys, and animateRigFromJointClip's keys (D34, D41)
         "commands.test_rig_animation_cmds",  # saveRigAnimation, loadRigAnimation and the keys payload's tangents (D42)
+        "commands.test_rig_data_files",     # library meta in both file formats, getRigDataFileInfo, setRigDataFileMeta, mirror on load (D51)
     ]),
     # Animation, then import/export tiers go here, after constraints.
     ("known bugs", False, [                # expected failures, never block anything

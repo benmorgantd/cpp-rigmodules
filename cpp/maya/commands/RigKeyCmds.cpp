@@ -1,6 +1,7 @@
 #include "maya/commands/RigKeyCmds.h"
 #include "core/ControlAnimFile.h"
 #include "core/RigKeys.h"
+#include "maya/shared/RigDataFileScene.h"
 #include "maya/shared/RigKeyScene.h"
 #include "maya/shared/Utilities.h"
 
@@ -22,6 +23,7 @@ namespace
 	constexpr const char* kEndFrameFlag{ "-endFrame" };
 	constexpr const char* kOffsetFlag{ "-offset" };
 	constexpr const char* kMirrorFlag{ "-mirror" };
+	constexpr const char* kMetaFlag{ "-meta" };
 }
 
 // getRigKeys -------------------------------------------------------------------------------------
@@ -154,6 +156,7 @@ MSyntax SaveRigAnimationCmd::newSyntax()
 	CHECK_MSTATUS(syntax.addFlag("-f", kFileFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-sf", kStartFrameFlag, MSyntax::kDouble));
 	CHECK_MSTATUS(syntax.addFlag("-ef", kEndFrameFlag, MSyntax::kDouble));
+	CHECK_MSTATUS(syntax.addFlag("-mt", kMetaFlag, MSyntax::kString));
 	return syntax;
 }
 
@@ -220,6 +223,12 @@ MStatus SaveRigAnimationCmd::doIt(const MArgList& args)
 		}
 	}
 	anim.controls = keys;
+
+	status = RigDataFileScene::readSaveMeta(argData, kMetaFlag, aCommandString, scope.oRigRoot, anim.meta);
+	if (!status)
+	{
+		return status;
+	}
 
 	status = CommandUtils::writeTextFile(path, "ControlAnim", serializeControlAnim(anim));
 	if (!status)

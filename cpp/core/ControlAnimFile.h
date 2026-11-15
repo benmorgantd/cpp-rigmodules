@@ -6,7 +6,8 @@
 // same template (D25, D34). The `controls` object is the keys payload of RigKeys.h, written with every channel an
 // object and every key four values.
 // {
-//     "formatVersion": 1,
+//     "formatVersion": 2,
+//     "meta": { "tags": ["walk"], "category": "Locomotion" },
 //     "frameRate": 30.0,
 //     "startFrame": 1,
 //     "endFrame": 60,
@@ -19,8 +20,10 @@
 // }
 // Frames are in the scene's UI time unit and values in its UI units, like cmds.keyframe. startFrame and endFrame are
 // the range the animation was saved over, and every key lies inside it. A pose that must be an animation (an engine
-// wants two frames) is a ControlAnim over two frames with the same values on both.
+// wants two frames) is a ControlAnim over two frames with the same values on both. `meta` is the library metadata
+// (LibraryMeta.h, D51), an empty object when there is none. Version 1 files have no meta and load with an empty one.
 
+#include "LibraryMeta.h"
 #include "RigKeys.h"
 #include "RigTemplateValidation.h"
 
@@ -35,6 +38,7 @@ struct ControlAnim
 	double frameRate = 30.0;
 	double startFrame = 1.0;
 	double endFrame = 1.0;
+	LibraryMeta meta;
 	RigKeys controls;
 };
 

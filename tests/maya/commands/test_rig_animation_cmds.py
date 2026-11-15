@@ -283,7 +283,7 @@ class SaveAndLoad(AnimTestCase):
         self.key_mixed_curve()
         cmds.saveRigAnimation(rig_root(), file=self.path(), startFrame=1, endFrame=20)
         data = self.read()
-        self.assertEqual((data["formatVersion"], data["frameRate"], data["startFrame"], data["endFrame"]), (1, 24.0, 1, 20))
+        self.assertEqual((data["formatVersion"], data["frameRate"], data["startFrame"], data["endFrame"]), (2, 24.0, 1, 20))
         saved = data["controls"]["Left"]["upperArm"]["rotateZ"]
         self.assertEqual([[k[0], round(k[1], 4), k[2], k[3]] for k in saved["keys"]],
                          [[1, 0, "auto", "auto"], [10, 90, "clamped", "linear"], [20, 45, "auto", "step"]])
@@ -322,7 +322,7 @@ class SaveAndLoad(AnimTestCase):
         cmds.saveRigAnimation(rig_root(), file=self.path(), startFrame=1, endFrame=20)
         with open(self.path(), encoding="utf-8") as handle:
             text = handle.read()
-        self.assertTrue(text.startswith('{\n    "formatVersion": 1,'))
+        self.assertTrue(text.startswith('{\n    "formatVersion": 2,'))
 
     def test_a_pose_is_an_animation_over_one_frame(self):
         cmds.setAttr(ARM_L + ".rotateZ", 33)

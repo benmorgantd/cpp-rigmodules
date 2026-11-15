@@ -42,9 +42,9 @@ The asset's file model (D29, `asset-model.md`) gets folders by role. The model i
 
 | Folder | Holds | Files |
 |---|---|---|
-| `controlposes/` | ControlPoses | `<name>.json`, the `PoseFile` format unchanged |
-| `controlanims/` | ControlAnims | `<name>.anim.json` |
-| `exports/<name>/` | One engine export per folder (section 6) | `<name>.fbx`, `<name>.animproperties.json`, `<name>.anim.json` |
+| `controlposes/` | ControlPoses | `<name>.controlpose.json` (names changed 2026-11-14, D51: it was `<name>.json`), the `PoseFile` format, version 2 with `meta` |
+| `controlanims/` | ControlAnims | `<name>.controlanim.json` (it was `<name>.anim.json` here and `<name>.json` in mayadev's handler) |
+| `exports/<name>/` | One engine export per folder (section 6) | `<name>.fbx`, `<name>.animproperties.json`, `<name>.controlanim.json` |
 | `sources/` | Skeleton data brought in for a remap: mocap, an engine export, another rig's clip | `<name>.fbx`, and `<name>.bonemap.json` when the skeleton has no markup (section 12) |
 
 `controlposes/` and `controlanims/` never hold joint files. An export folder is a bundle: its files describe one thing and travel together, so the rule is one folder per purpose, with its own folder per entry where an entry has several files.
@@ -109,7 +109,7 @@ An export of one animation is a folder, and the animation is described twice, fo
 exports/walk/
     walk.fbx              joints: the export skeleton, baked, for the engine (capture_joint_clip, then write_fbx)
     walk.animproperties.json   engine properties, read by the engine importer
-    walk.anim.json        the ControlAnim the export was made from
+    walk.controlanim.json the ControlAnim the export was made from
 ```
 
 - **The FBX is the engine's file.** The engine imports it against its skeleton asset. Bones bind by name, and the engine's skeleton asset comes from the skeleton export (below). Nothing in the engine path reads `walk.anim.json`.
@@ -128,7 +128,7 @@ Three things travel to the engine, and each has one owner and one place in the a
 | Animation | A ControlAnim, baked by `capture_joint_clip` | `exports/<name>/<name>.fbx` | An AnimSequence on that Skeleton, bound by bone name |
 | Properties | Authored in mayadev | `exports/<name>/<name>.animproperties.json` | Loop, root motion, notifies, curves |
 
-The ControlAnim copy (`<name>.anim.json`) sits in the export folder but isn't engine data: it makes the export reopenable on the rig.
+The ControlAnim copy (`<name>.controlanim.json`) sits in the export folder but isn't engine data: it makes the export reopenable on the rig.
 
 **The pairing key is the skeleton.** An animation FBX is valid for a skeleton asset when its joint names and hierarchy match the skeleton's. The bone map's `skeletonId` is the stable name for that skeleton, and an export folder carries no copy of it: the clip is made on the asset's skeleton, so its names are the skeleton's. A check that compares an animation FBX's joints to the skeleton export's, and refuses a mismatch with the names that differ, is `rigmodules.jointclip.check_skeleton_match` (built 2026-11-12, in the adapter, not the engine). It compares joint names and parents and ignores rests, so an animation made on other proportions passes. A caller runs it before it hands an animation FBX on; `write_fbx` itself still checks the clip alone.
 

@@ -42,6 +42,12 @@
     <ClCompile Include="core\ControlChannels.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\LibraryFile.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\LibraryMeta.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\ControlMarkup.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -100,6 +106,9 @@
       <Filter>maya\commands</Filter>
     </ClCompile>
     <ClCompile Include="maya\commands\RigControlCmds.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\commands\RigDataFileCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
     <ClCompile Include="maya\commands\RigInfoCmd.cpp">
@@ -162,6 +171,9 @@
     <ClCompile Include="maya\shared\RigPoseScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
+    <ClCompile Include="maya\shared\RigDataFileScene.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
     <ClCompile Include="maya\shared\RigTraversal.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
@@ -198,6 +210,12 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\ControlChannels.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\LibraryFile.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\LibraryMeta.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\ControlMarkup.h">
@@ -263,6 +281,9 @@
     <ClInclude Include="maya\commands\RigControlCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
+    <ClInclude Include="maya\commands\RigDataFileCmds.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
     <ClInclude Include="maya\commands\RigInfoCmd.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
@@ -324,6 +345,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigPoseScene.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\RigDataFileScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigTraversal.h">

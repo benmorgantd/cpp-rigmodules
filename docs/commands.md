@@ -399,15 +399,21 @@ Objects: the rig root node, or one or more controls of one rig. Returns the cont
 Writes the channel values of controls to a pose file.
 
 ```python
-cmds.saveRigPose("hero:rigRootModule1", file="C:/poses/idle.json")
-cmds.saveRigPose("hero:upperArm_l_ctrl_l", "hero:lowerArm_l_ctrl_l", file="C:/poses/arm.json")
+cmds.saveRigPose("hero:rigRootModule1", file="C:/poses/idle.controlpose.json")
+cmds.saveRigPose("hero:upperArm_l_ctrl_l", "hero:lowerArm_l_ctrl_l", file="C:/poses/arm.controlpose.json")
+cmds.saveRigPose("hero:rigRootModule1", file="C:/poses/fist.controlpose.json", meta=json.dumps({"tags": ["hands", "fist"], "status": "scratch"}))
 # Returns the controls saved
 ```
 
-Objects: the rig root node (every control), or one or more controls of one rig. Flag: `file` (required, the path).
+Objects: the rig root node (every control), or one or more controls of one rig. Flags:
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | Where to write the file. Required. An existing file is replaced. |
+| `meta` | string | A JSON object with the caller's part of the file's [meta](library.md#file-meta): `tags`, `description`, `category`, `rigRegions`, `status`, `author`, `template` and `skeletonId`. Optional. The fields the rig fills (`assetId`, `variant`, `pluginVersion`, `created`) can't be set. A bad value or an unknown key is an error and nothing is written. |
 
 - The file is keyed by control markup (`side`, `usage`) and channel name, never by node name, so a pose survives renames and rebuilds. Values are in the scene's UI units. An enum stores its index and a bool stores 0 or 1.
-- The file carries a `formatVersion` (1). Its shape: `{"formatVersion": 1, "controls": {"Left": {"upperArm": {"translateX": 0.0, "rotateY": 12.5}}}}`.
+- The file carries a `formatVersion` (2). Its shape: `{"formatVersion": 2, "meta": {}, "controls": {"Left": {"upperArm": {"translateX": 0.0, "rotateY": 12.5}}}}`. The saved `meta` always holds the four fields the rig fills. A version 1 file, which has no meta, still loads.
 - Changes no scene data and isn't undoable.
 
 ## loadRigPose
@@ -415,12 +421,18 @@ Objects: the rig root node (every control), or one or more controls of one rig. 
 Applies a pose file to controls.
 
 ```python
-cmds.loadRigPose("hero:rigRootModule1", file="C:/poses/idle.json")
-cmds.loadRigPose("hero:upperArm_l_ctrl_l", file="C:/poses/idle.json")   # only this control
+cmds.loadRigPose("hero:rigRootModule1", file="C:/poses/idle.controlpose.json")
+cmds.loadRigPose("hero:upperArm_l_ctrl_l", file="C:/poses/idle.controlpose.json")   # only this control
+cmds.loadRigPose("hero:rigRootModule1", file="C:/poses/idle.controlpose.json", mirror=True)   # the pose on the other side
 # Returns the controls that changed
 ```
 
-Objects: the rig root node, or one or more controls of one rig. Flag: `file` (required).
+Objects: the rig root node, or one or more controls of one rig. Flags:
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The pose file. Required. |
+| `mirror` | bool | Default `False`. `True` mirrors the file's data before it is written, so the rig is written once: each entry goes to its mirror control, with a channel negated where the mirror says (the rules of [`flipRigPose`](#fliprigpose)). It is a flip: a pose saved from one side lands on the other. An entry whose control has no mirror is skipped with a warning. With controls, only those controls are written. |
 
 - Controls match the file by markup. A control the file lacks keeps its values, and so does a channel it lacks. With the rig root, a control or channel the file has and the rig lacks is skipped with a warning. With controls, the rest of the file is ignored without one.
 - The whole file is checked before anything is applied (bad JSON, an unknown side, a value that isn't a number, a `formatVersion` this build doesn't read), so a bad file changes nothing. An older `formatVersion` is updated on load.
@@ -495,8 +507,8 @@ Objects: the rig root node, or one or more controls of one rig. Flag: `keys` (re
 Writes the keys of a rig's controls as a ControlAnim file, the animator's own library format ([library.md](library.md)).
 
 ```python
-cmds.saveRigAnimation("hero:rigRootModule1", file="C:/anims/walk.anim.json", startFrame=1, endFrame=48)
-cmds.saveRigAnimation("hero:upperArm_l_ctrl_l", file="C:/anims/wave.anim.json")   # only this control, over the playback range
+cmds.saveRigAnimation("hero:rigRootModule1", file="C:/anims/walk.controlanim.json", startFrame=1, endFrame=48)
+cmds.saveRigAnimation("hero:upperArm_l_ctrl_l", file="C:/anims/wave.controlanim.json")   # only this control, over the playback range
 # Returns the controls it read
 ```
 
@@ -507,6 +519,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 | `file` | string | Where to write the file. Required. An existing file is replaced. |
 | `startFrame` | float | First frame to save. Default: the playback range's start. |
 | `endFrame` | float | Last frame to save. Default: the playback range's end. |
+| `meta` | string | A JSON object with the caller's part of the file's [meta](library.md#file-meta), as for [`saveRigPose`](#saverigpose). Optional. |
 
 - Only keys from `startFrame` to `endFrame` go in. A channel with no key in the range is left out, and so is a control with none.
 - The file holds the keys with their tangents and each curve's flags ([keys format](#keys-format)), the range, and the scene's frame rate. Its format is in [library.md](library.md#controlanim-files).
@@ -518,8 +531,8 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 Keys a rig's controls from a ControlAnim file.
 
 ```python
-cmds.loadRigAnimation("hero:rigRootModule1", file="C:/anims/walk.anim.json")
-cmds.loadRigAnimation("hero:rigRootModule1", file="C:/anims/walk.anim.json", offset=100, mirror=True)
+cmds.loadRigAnimation("hero:rigRootModule1", file="C:/anims/walk.controlanim.json")
+cmds.loadRigAnimation("hero:rigRootModule1", file="C:/anims/walk.controlanim.json", offset=100, mirror=True)
 # Returns the controls keyed
 ```
 
@@ -535,12 +548,63 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 - The file is checked whole before anything is written. A file that fails validation, one with a newer `formatVersion` than this build reads, and one whose frame rate isn't the scene's change nothing. A resample is not built.
 - **Mirror** is a flip. Left keys go onto the Right control of the same usage and the Right keys onto Left. A channel the mirror negates (a custom channel declared `mirrorNegate`, [D34](../design/decisions.md)) has its values negated and its fixed tangent angles with it, and the other tangent types recompute from the negated keys and come out mirrored. A Center control reflects through its flip axis, as [`flipRigPose`](#fliprigpose) does. Frames, weights, curve flags and tangent types don't change. With controls as the objects, only those controls are keyed: the keys that mirror onto them.
 
+## getRigDataFileInfo
+
+Reads what pose files and ControlAnim files hold, without loading them onto the rig: their kind, [meta](library.md#file-meta), size and how well they fit the rig. It is what a library browser lists and searches.
+
+```python
+import json
+found = json.loads(cmds.getRigDataFileInfo("hero:rigRootModule1", file=["C:/lib/fist.controlpose.json", "C:/lib/walk.controlanim.json"]))
+found[1]["kind"], found[1]["startFrame"], found[1]["endFrame"]   # ('animation', 1, 48)
+# Returns JSON text: a list with one object per file, in the order given
+```
+
+Object: the rig root node. Flag: `file`, one use per file (a multi-use flag).
+
+Each entry has:
+
+| Key | Meaning |
+|---|---|
+| `file` | The path as given |
+| `kind` | `pose` or `animation` |
+| `formatVersion` | The version stored in the file, before any update |
+| `meta` | The file's meta object (`{}` when there is none) |
+| `frameRate`, `startFrame`, `endFrame` | Animations only |
+| `controlCount`, `channelCount` | The controls and the channels the file holds |
+| `unmatchedControls` | The `[side, usage]` of every file control the rig has no control for. A file that fits the rig has `[]` |
+
+- A file that can't be read, or fails validation (an older version is updated first), gives `{"file": ..., "error": ...}` and the other files still answer. A listing survives a broken file.
+- A file with a `frameRate` key is an animation, and any other is a pose.
+- Changes nothing and isn't undoable. It fails when the object isn't a rig root.
+
+`rigmodules.library.get_data_file_info(rig_root, files)` wraps it ([python.md](python.md#rigmoduleslibrary)).
+
+## setRigDataFileMeta
+
+Edits the [meta](library.md#file-meta) of a pose file or a ControlAnim file and nothing else.
+
+```python
+cmds.setRigDataFileMeta(file="C:/lib/fist.controlpose.json", meta=json.dumps({"tags": ["hands"], "status": "review"}))
+cmds.setRigDataFileMeta(file="C:/lib/fist.controlpose.json", meta=json.dumps({"description": ""}))   # clears the description
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The file to edit. Required. |
+| `meta` | string | A JSON object. Each key it has replaces that field, and an empty string or empty list clears it. The others stay. Required. |
+
+- The fields the rig fills (`assetId`, `variant`, `pluginVersion`, `created`) can't be set. A value of the wrong shape, an unknown key, and a file that fails validation are errors, and the file is left as it was.
+- The file is read in full and written again at the current format version, so an older file is brought forward. Controls, keys and everything else in it are unchanged.
+- Edits a file, so it isn't undoable and doesn't version or check the file out: the caller does that first, as for a save.
+
+`rigmodules.library.set_data_file_meta(file, meta)` wraps it ([python.md](python.md#rigmoduleslibrary)).
+
 ## poseRigFromJointPose
 
 Sets a rig's control values from a joint pose, by solving each module's controls from the joints ([how it solves](#how-the-joints-become-control-values)). The design is in [`design/inverse-solve.md`](../design/inverse-solve.md).
 
 ```python
-cmds.poseRigFromJointPose("hero:rigRootModule1", jointPose="C:/tmp/idle.jointclip.json", sidecar="C:/poses/idle.rigdata.json", mode="match")
+cmds.poseRigFromJointPose("hero:rigRootModule1", jointPose="C:/tmp/idle.jointclip.json", sidecar="C:/poses/idle.controlpose.json", mode="match")
 cmds.poseRigFromJointPose("hero:upperArm_l_ctrl_l", jointPose="C:/tmp/idle.jointclip.json")   # only this control
 # Returns the controls that changed
 ```
@@ -572,7 +636,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 Keys a rig's controls from an animated joint clip, by the solve of [`poseRigFromJointPose`](#how-the-joints-become-control-values) on every frame.
 
 ```python
-cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.jointclip.json", sidecar="C:/export/walk/walk.anim.json", startFrame=1, endFrame=60)
+cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.jointclip.json", sidecar="C:/export/walk/walk.controlanim.json", startFrame=1, endFrame=60)
 # Returns the controls keyed
 ```
 
@@ -598,7 +662,8 @@ The ControlAnim file for `sidecar` is the one `saveRigAnimation` writes ([format
 
 ```json
 {
-    "formatVersion": 1,
+    "formatVersion": 2,
+    "meta": {},
     "frameRate": 24.0,
     "startFrame": 1,
     "endFrame": 3,

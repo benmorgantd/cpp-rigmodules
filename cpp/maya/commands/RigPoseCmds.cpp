@@ -1,6 +1,7 @@
 #include "maya/commands/RigPoseCmds.h"
 #include "core/Constants.h"
 #include "core/PoseFile.h"
+#include "maya/shared/RigDataFileScene.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/Utilities.h"
 
@@ -15,6 +16,8 @@ namespace
 	// Code reads flags by long name only. Short names appear only in newSyntax() (D14).
 	constexpr const char* kLeftToRightFlag{ "-leftToRight" };
 	constexpr const char* kFileFlag{ "-file" };
+	constexpr const char* kMetaFlag{ "-meta" };
+	constexpr const char* kMirrorFlag{ "-mirror" };
 
 	// The syntax of a command that takes a control scope, with the pose file flag.
 	MSyntax fileScopeSyntax()
@@ -212,7 +215,9 @@ bool SaveRigPoseCmd::isUndoable() const
 
 MSyntax SaveRigPoseCmd::newSyntax()
 {
-	return fileScopeSyntax();
+	MSyntax syntax = fileScopeSyntax();
+	CHECK_MSTATUS(syntax.addFlag("-mt", kMetaFlag, MSyntax::kString));
+	return syntax;
 }
 
 MStatus SaveRigPoseCmd::doIt(const MArgList& args)
@@ -239,7 +244,14 @@ MStatus SaveRigPoseCmd::doIt(const MArgList& args)
 		return status;
 	}
 
-	status = CommandUtils::writeTextFile(path, "pose", serializePose(pose));
+	LibraryMeta meta;
+	status = RigDataFileScene::readSaveMeta(argData, kMetaFlag, aCommandString, scope.oRigRoot, meta);
+	if (!status)
+	{
+		return status;
+	}
+
+	status = CommandUtils::writeTextFile(path, "pose", serializePose(pose, meta));
 	if (!status)
 	{
 		return status;
@@ -264,7 +276,9 @@ bool LoadRigPoseCmd::isUndoable() const
 
 MSyntax LoadRigPoseCmd::newSyntax()
 {
-	return fileScopeSyntax();
+	MSyntax syntax = fileScopeSyntax();
+	CHECK_MSTATUS(syntax.addFlag("-m", kMirrorFlag, MSyntax::kBoolean));
+	return syntax;
 }
 
 MStatus LoadRigPoseCmd::doIt(const MArgList& args)
@@ -283,6 +297,12 @@ MStatus LoadRigPoseCmd::doIt(const MArgList& args)
 		return status;
 	}
 
+	bool isMirrored = false;
+	if (argData.isFlagSet(kMirrorFlag))
+	{
+		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kMirrorFlag, 0, isMirrored));
+	}
+
 	std::string text;
 	status = CommandUtils::readTextFile(path, "pose", text);
 	if (!status)
@@ -299,6 +319,18 @@ MStatus LoadRigPoseCmd::doIt(const MArgList& args)
 		ReportUtils::displayReport(report);
 		MGlobal::displayError(MString("The pose file failed validation, so nothing was loaded: ") + path);
 		return MStatus::kFailure;
+	}
+
+	// The mirror is made on the file's data, before any write, so the rig is written once (D51).
+	if (isMirrored)
+	{
+		PoseMap mirrored;
+		status = RigPoseScene::mirrorPoseData(scope, pose, mirrored);
+		if (!status)
+		{
+			return status;
+		}
+		pose = mirrored;
 	}
 
 	MStringArray changedNames;
