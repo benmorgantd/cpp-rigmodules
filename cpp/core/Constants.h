@@ -250,6 +250,12 @@ namespace RigAttr
 	inline constexpr const char* Pin{ "pin" };               // pole control
 	inline constexpr const char* Roll{ "roll" };             // IK handle control
 	inline constexpr const char* PoleSpace{ "poleSpace" };   // module input, fed by the pole control's ControlSpace enum
+
+	// TwoBoneIk match outputs (D52 section 4.1), pulled by setRigIkFkBlend: the control locals that reproduce the current
+	// pose on the FK side (slots 0 to 2) and the IK side (slots 3 and 4), and a JSON list of what the match can't do.
+	inline constexpr const char* FkMatchLocal{ "fkMatchLocal" };
+	inline constexpr const char* IkMatchLocal{ "ikMatchLocal" };
+	inline constexpr const char* MatchWarnings{ "matchWarnings" };
 }
 
 // Labels of the pole control's module-owned space enum (D52 section 4.4). Append-only (D34): the index is the value.

@@ -28,6 +28,7 @@ COMMAND_FLAGS = {
     "pruneToMaxInfluences": ["maxInfluences"],
     "poseRigFromJointPose": ["jointPose", "sidecar", "mode"],
     "animateRigFromJointClip": ["jointClip", "sidecar", "mode", "startFrame", "endFrame"],
+    "setRigIkFkBlend": ["blend"],
 }
 
 

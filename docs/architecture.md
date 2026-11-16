@@ -213,6 +213,7 @@ parentDelta      = motion of control i since rest, for control i + 1
 - The control's `matrix` goes in, and `offsetParentMatrix` comes out, so the control's own transform is purely its local channels. That is why animation lives on control channels only (D27, D34).
 - Rests are stored at build time (`controlRestWorld`, `childPlugParentRestMatrix`, `jointRestWorld`) and never change. Skin weight loading binds new influences at `jointRestWorld` (D35).
 - `TwoBoneIkNode::compute` solves the FK chain, the IK handle, the pole (reading the handle's solved world in `Ik` space) and the settings control. It then builds the three IK joints from `MathUtils::computeTwoBoneIk` and a frame per joint times a stored rest offset (`ikRestOffset`), and blends each with its FK joint (`MathUtils::blendMatrices`). The FK chain is solved at every blend, so each control's offset stays current. The IK solve is skipped at blend 0.
+- `TwoBoneIkNode::computeMatch` is the one branch of `compute` that allocates. It runs only when a tool pulls `fkMatchLocal`, `ikMatchLocal` or `matchWarnings` (never in playback), evaluates the limb as usual and runs `TwoBoneIkNode::inverse` on the blended joints, so the match is what a restore of the same pose gives ([The inverse solve](#the-inverse-solve)). `readEval` reads the settings at every blend for it.
 - `compute` is kept free of allocations and string lookups. One solve per evaluation writes every output array and marks them clean. Performance goals and the measuring tools are in D36 and [`../tests/README.md`](../tests/README.md#performance-scenes).
 
 ## Commands
@@ -234,6 +235,7 @@ Every command is an `MPxCommand` with the same shape (D14):
 | `RigPoseCmds` | `zeroRigControls`, `mirrorRigPose`, `flipRigPose`, `saveRigPose`, `loadRigPose` | `RigPoseScene`, and `RigDataFileScene` for a save's meta |
 | `RigKeyCmds` | `getRigKeys`, `setRigKeys`, `saveRigAnimation`, `loadRigAnimation` | `RigKeyScene`, and `RigDataFileScene` for a save's meta |
 | `RigInverseCmds` | `poseRigFromJointPose`, `animateRigFromJointClip` | `RigInverse`, then `RigPoseScene` or `RigKeyScene` |
+| `TwoBoneIkCmds` | `setRigIkFkBlend` | The module's match outputs, then `RigPoseScene` |
 | `RigInfoCmd` | `getRigInfo` | `RigTraversal` |
 | `RigDataFileCmds` | `getRigDataFileInfo`, `setRigDataFileMeta` | `LibraryFile` in `core/`, `RigDataFileScene` |
 | `SkinWeightCmds` | `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `pruneToMaxInfluences` | `SkinWeightScene` |
@@ -264,6 +266,8 @@ The reverse of a rig's evaluation: from joint world matrices to control values (
 - **`TwoBoneIkNode::inverse`** reuses the node's own pieces so the two directions can't drift: `computeRest` for the stored rest data, `evaluate` (the forward evaluation `compute()` also calls) for the sockets it returns, `computeLimbFrames`' end frame to read the handle's rotation back, and `MathUtils::computeTwoBoneIkInverse` next to `computeTwoBoneIk`, which share `solveTwoBoneIkBones` (soft reach, stretch and the bones' triangle). It allocates, which is fine outside evaluation.
 - **`RigInverse::solve` is the driver.** It reads the rig's rests once, orders modules parents first, and sweeps them in memory for each JointPose, using `RigConstraintNode::computeDelta` for space switches. A ControlPose sidecar fills what the joints cannot give. It reads no posed scene state and writes nothing.
 - **The command applies the result**: values through `RigPoseScene`, keys through `RigKeyScene`.
+- **Matrix to channels** is `RigPoseScene::fitLocalToChannels` (with `getControlRotation`): a local matrix to a control's translate, rotate and scale values, the euler nearest the previous rotation in the control's rotate order, with shear and locked or driven channels reported to the caller. `RigInverse` and `setRigIkFkBlend` both call it, so a restore and a matched switch write the same values.
+- **The matched switch** (`setRigIkFkBlend`, D52) is the second caller of a module's inverse: the node runs it on the live joints instead of a JointClip, and the command writes what comes out with the blend, as a pose, through `RigPoseScene::setRigPose`.
 
 ## Python package
 

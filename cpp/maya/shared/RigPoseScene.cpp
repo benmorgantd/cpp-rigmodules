@@ -19,6 +19,8 @@
 #include <maya/MObjectArray.h>
 #include <maya/MObjectHandle.h>
 #include <maya/MPxTransform.h>
+#include <maya/MTransformationMatrix.h>
+#include <maya/MVector.h>
 
 namespace
 {
@@ -608,6 +610,66 @@ bool RigPoseScene::isNegatedByFlip(const Channel& channel, int flipAxis)
 		: index < 3 ? index == flipAxis
 		: index < 6 ? index - 3 != flipAxis
 		: false;
+}
+
+MEulerRotation RigPoseScene::getControlRotation(const MObject& oControl)
+{
+	const auto order = static_cast<MEulerRotation::RotationOrder>(MPlug(oControl, MPxTransform::rotateOrder).asShort());
+	return MEulerRotation(
+		MPlug(oControl, MPxTransform::rotateX).asMAngle().asRadians(),
+		MPlug(oControl, MPxTransform::rotateY).asMAngle().asRadians(),
+		MPlug(oControl, MPxTransform::rotateZ).asMAngle().asRadians(),
+		order);
+}
+
+RigPoseScene::LocalFit RigPoseScene::fitLocalToChannels(
+	const MObject& oControl,
+	const std::vector<Channel>& channels,
+	const MMatrix& mLocal,
+	MEulerRotation& inOutRotation,
+	std::vector<double>& values)
+{
+	// Shear the channels can't hold, and the tolerance for a left-out channel to still be the matrix's value.
+	constexpr double kShearTolerance{ 1e-6 };
+	constexpr double kKeptTolerance{ 1e-5 };
+
+	const MTransformationMatrix matrix(mLocal);
+	const MVector translation = matrix.getTranslation(MSpace::kTransform);
+	double scale[3];
+	double shear[3];
+	matrix.getScale(scale, MSpace::kTransform);
+	matrix.getShear(shear, MSpace::kTransform);
+	MEulerRotation rotation = matrix.eulerRotation();
+	rotation.reorderIt(inOutRotation.order);
+	rotation.setToClosestSolution(inOutRotation);
+	inOutRotation = rotation;
+
+	LocalFit fit;
+	fit.hasShear = std::abs(shear[0]) > kShearTolerance || std::abs(shear[1]) > kShearTolerance || std::abs(shear[2]) > kShearTolerance;
+
+	const double derived[9] =
+	{
+		translation.x, translation.y, translation.z,
+		rotation.x, rotation.y, rotation.z,
+		scale[0], scale[1], scale[2]
+	};
+	for (int t = 0; t < 9; ++t)
+	{
+		const auto it = std::find_if(channels.begin(), channels.end(), [t](const Channel& channel)
+		{
+			return channel.transformIndex == t;
+		});
+		if (it == channels.end())
+		{
+			fit.leavesChannels = fit.leavesChannels
+				|| std::abs(MPlug(oControl, kDefaultTransformValues[t].attr).asDouble() - derived[t]) > kKeptTolerance;
+			continue;
+		}
+		const std::size_t i = static_cast<std::size_t>(it - channels.begin());
+		values[i] = derived[t];
+		fit.written.push_back(i);
+	}
+	return fit;
 }
 
 MStatus RigPoseScene::zeroRigControls(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames)

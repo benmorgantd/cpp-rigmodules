@@ -749,7 +749,7 @@ The second panel of phase 3 (D49, D50). It lists ControlPoses and ControlAnims f
 - **Consequence:** no node, attribute or name change in RigModules, no D36 impact. Two commands, one flag on each of three commands, and a format version. Thumbnails and a grid view are phase 5.
 
 ### D52. Two-bone IK: a `TwoBoneIk` limb with a matched IK/FK switch and module-owned spaces
-**Status:** Decided (author, 2026-11-15: three rounds of answers). Phases 1 to 5 built 2026-11-15 (the forward module and the inverse). The matched switch, `setRigControlSpace` and perf rig are not. Design and build phases: `two-bone-ik.md`.
+**Status:** Decided (author, 2026-11-15: three rounds of answers). Phases 1 to 6 built 2026-11-15 (the forward module, the inverse and the matched switch `setRigIkFkBlend`). `setRigControlSpace` and the perf rig are not. Design and build phases: `two-bone-ik.md`.
 The IK limb (2026-11-10) is a two-bone limb: exactly three joints, for arms and legs. One-bone IK is `Aim`, and three or more bones or spline IK would be their own modules.
 - **Controls:** an FK chain whose start control also moves the IK root (translation only, its rotation does nothing to the IK chain), an IK handle, a pole and a channel-only settings control. The handle, pole and settings take their markup and rest from three non-export marker joints, selected in `moduleArgs` like Aim's `target` and `up`.
 - **Channels:** `ikFkBlend` (default 1, IK, for every limb), `stretch`, `soft` and `pin` (0 to 1), `roll` on the handle (`mirrorNegate`), and a module-owned `space` on the pole (`Parent`, `Ik`). Soft IK is in v1. FK controls keep translate, rotate and scale so FK can reproduce a stretched or pinned pose. Controls hide by blend.

@@ -177,6 +177,7 @@
     <ClCompile Include="maya\commands\RigInverseCmds.cpp" />
     <ClCompile Include="maya\commands\RigPoseCmds.cpp" />
     <ClCompile Include="maya\commands\SkinWeightCmds.cpp" />
+    <ClCompile Include="maya\commands\TwoBoneIkCmds.cpp" />
     <ClCompile Include="maya\modules\AimModule.cpp" />
     <ClCompile Include="maya\modules\FkChain.cpp" />
     <ClCompile Include="maya\modules\LayoutModule.cpp" />
@@ -237,6 +238,7 @@
     <ClInclude Include="maya\commands\RigInverseCmds.h" />
     <ClInclude Include="maya\commands\RigPoseCmds.h" />
     <ClInclude Include="maya\commands\SkinWeightCmds.h" />
+    <ClInclude Include="maya\commands\TwoBoneIkCmds.h" />
     <ClInclude Include="maya\modules\AimModule.h" />
     <ClInclude Include="maya\modules\FkChain.h" />
     <ClInclude Include="maya\modules\LayoutModule.h" />

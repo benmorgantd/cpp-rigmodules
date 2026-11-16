@@ -172,6 +172,28 @@ The command changes the control's translate, rotate and scale so it keeps its wo
 
 Undo restores both the enum and the control's values.
 
+## setRigIkFkBlend
+
+Switches a [TwoBoneIk](modules.md#twoboneik) limb between IK and FK without a pop. It first writes the control values that reproduce the limb's current pose on both sides, then sets `ikFkBlend`.
+
+```python
+cmds.setRigIkFkBlend("hero:armSettings_l_ctrl_l", blend=0)    # to FK
+cmds.setRigIkFkBlend("hero:arm_l", blend=1)                   # to IK (the default)
+# Returns the controls that changed
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `blend` | float | The `ikFkBlend` to set, from 0 (FK) to 1 (IK). Default 1. |
+
+Object: one of the limb's six controls, or its module node. A joint is not accepted.
+
+- **What it writes.** The FK start, lower and end controls from the limb's three joints, and the IK handle and pole from the same joints, each in the control's own rotate order and as the euler nearest its current rotation. Both sides are written every time, so the side you switch away from is also current. The values are the ones [`poseRigFromJointPose`](#poserigfromjointpose) writes for the same pose (the module's [inverse](modules.md#restoring-a-limb-from-joints)), and the limb's `stretch`, `soft`, `pin`, `roll` and pole `space` are the scene's current ones.
+- **No pop at blend 0 and 1.** The joints are where they were after the switch, in either direction, with a space switch on the IK handle, the pole in `Ik` space, and stretch, soft, pin and roll set.
+- **Warnings.** A pose IK can't make (bone lengths other than the rig's with `stretch` and `pin` off, or a limb past its reach) warns: IK is as near as the limb gets, and FK matches exactly. A current `ikFkBlend` between 0 and 1 warns that the IK side is approximate. A locked or driven channel keeps its value and warns when that value isn't the match's. A locked or driven `ikFkBlend` is left alone and warned about.
+- Sets values and keys nothing: a keyed switch is a tool built on this command. Undoable as one step. Everything is checked before anything is written.
+- Setting `ikFkBlend` directly, by `setAttr`, a loaded pose or a key, does no match, so it pops.
+
 ## getRigControls
 
 Returns a rig's controls, found through the rig's connections. Filter by module type and control markup (see [controls.md](controls.md#control-markup)).

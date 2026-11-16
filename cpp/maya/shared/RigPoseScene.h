@@ -4,12 +4,15 @@
 #include "core/PoseFile.h"
 #include "maya/shared/RigTraversal.h"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
 #include <maya/MDagModifier.h>
 #include <maya/MDGModifier.h>
+#include <maya/MEulerRotation.h>
 #include <maya/MFnAttribute.h>
+#include <maya/MMatrix.h>
 #include <maya/MObject.h>
 #include <maya/MPlug.h>
 #include <maya/MStatus.h>
@@ -85,6 +88,29 @@ public:
 
 	// The control's channels in channel box order.
 	static MStatus getControlChannels(const MObject& oControl, std::vector<Channel>& outChannels);
+
+	// A control's current rotation in its own rotate order (the order carries to fitLocalToChannels).
+	static MEulerRotation getControlRotation(const MObject& oControl);
+
+	// What fitLocalToChannels did.
+	struct LocalFit
+	{
+		std::vector<std::size_t> written;   // indices into the channels it gave a value
+		bool hasShear = false;              // the matrix has shear, which the channels can't hold
+		bool leavesChannels = false;        // a transform channel is locked or driven and its kept value differs from the matrix
+	};
+
+	// The control's transform channel values that reproduce a local matrix, written into values (internal units, by
+	// channel index). The rotation is the euler nearest inOutRotation in its rotate order, and becomes the new
+	// inOutRotation, so a run of frames doesn't flip. A transform channel the control lacks (locked or driven) keeps its
+	// current value on oControl, and counts as left out only when that value isn't the matrix's. Shared by the restore
+	// (RigInverse) and the matched IK/FK switch.
+	static LocalFit fitLocalToChannels(
+		const MObject& oControl,
+		const std::vector<Channel>& channels,
+		const MMatrix& mLocal,
+		MEulerRotation& inOutRotation,
+		std::vector<double>& values);
 
 	// Every channel of every control in the scope goes to its rest. outChangedNames lists the controls that moved.
 	static MStatus zeroRigControls(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames);

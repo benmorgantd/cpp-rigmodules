@@ -10,6 +10,7 @@
 #include "maya/commands/RigKeyCmds.h"
 #include "maya/commands/RigPoseCmds.h"
 #include "maya/commands/SkinWeightCmds.h"
+#include "maya/commands/TwoBoneIkCmds.h"
 
 const std::vector<CommandDescriptor>& CommandRegistry::all()
 {
@@ -45,7 +46,8 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ GetRigKeysCmd::aCommandString, GetRigKeysCmd::creator, GetRigKeysCmd::newSyntax },
 		{ SetRigKeysCmd::aCommandString, SetRigKeysCmd::creator, SetRigKeysCmd::newSyntax },
 		{ SaveRigAnimationCmd::aCommandString, SaveRigAnimationCmd::creator, SaveRigAnimationCmd::newSyntax },
-		{ LoadRigAnimationCmd::aCommandString, LoadRigAnimationCmd::creator, LoadRigAnimationCmd::newSyntax }
+		{ LoadRigAnimationCmd::aCommandString, LoadRigAnimationCmd::creator, LoadRigAnimationCmd::newSyntax },
+		{ SetRigIkFkBlendCmd::aCommandString, SetRigIkFkBlendCmd::creator, SetRigIkFkBlendCmd::newSyntax }
 	};
 	return descriptors;
 }

@@ -13,7 +13,7 @@ Control data is what an animator edits, and it is the primary library: a rig bui
 
 A **pose** is one frame and an **animation** is many, in each kind. A ControlPose is channel values with no time and no keys ([`saveRigPose`](commands.md#saverigpose)). A pose that has to be an animation is a ControlAnim over one frame, and a one-pose JointClip written with `write_fbx` is a one-frame animation ([python.md](python.md#fbx-files)).
 
-A TwoBoneIk limb's channels (`ikFkBlend`, `stretch`, `soft`, `pin`, `roll`, and the pole's `space`) are in poses and animation like any other, by control markup and channel name, and `roll` negates when a pose or animation is mirrored. A raw change to `ikFkBlend` or the pole's `space`, whether by `setAttr`, a loaded pose or a key, doesn't match the other side's controls, so it can pop.
+A TwoBoneIk limb's channels (`ikFkBlend`, `stretch`, `soft`, `pin`, `roll`, and the pole's `space`) are in poses and animation like any other, by control markup and channel name, and `roll` negates when a pose or animation is mirrored. A raw change to `ikFkBlend` or the pole's `space`, whether by `setAttr`, a loaded pose or a key, doesn't match the other side's controls, so it can pop. [`setRigIkFkBlend`](commands.md#setrigikfkblend) is the switch that matches `ikFkBlend`. A pose or animation that holds `ikFkBlend` holds the controls of both sides, so it needs no match when it loads.
 
 ## Folders
 

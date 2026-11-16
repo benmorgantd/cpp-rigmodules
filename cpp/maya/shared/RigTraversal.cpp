@@ -45,27 +45,6 @@ namespace
 		return false;
 	}
 
-	// The rig module a joint, control or module node leads to, or a null object for any other node. The rig root
-	// leads to none. Reports nothing: a control left unconnected is caught later, by the caller's walk.
-	MObject getNodeModule(const MObject& oNode)
-	{
-		const MTypeId typeId = MFnDependencyNode(oNode).typeId();
-		if (isRigModuleNode(typeId))
-		{
-			return oNode;
-		}
-		if (typeId == RigControlNode::id)
-		{
-			const MPlug pSource = MPlug(oNode, RigControlNode::aRigModule).source();
-			return pSource.isNull() ? MObject::kNullObj : pSource.node();
-		}
-		if (oNode.hasFn(MFn::kJoint))
-		{
-			return RigTraversal::getJointModule(oNode);
-		}
-		return MObject::kNullObj;
-	}
-
 	// The rig root a module belongs to. Reports a module that has none.
 	MStatus getModuleRigRoot(const MObject& oModule, MObject& oOutRigRoot)
 	{
@@ -87,6 +66,25 @@ MObject RigTraversal::getJointModule(const MObject& oJoint)
 		return MObject::kNullObj;
 	}
 	return pSource.node();
+}
+
+MObject RigTraversal::getNodeModule(const MObject& oNode)
+{
+	const MTypeId typeId = MFnDependencyNode(oNode).typeId();
+	if (isRigModuleNode(typeId))
+	{
+		return oNode;
+	}
+	if (typeId == RigControlNode::id)
+	{
+		const MPlug pSource = MPlug(oNode, RigControlNode::aRigModule).source();
+		return pSource.isNull() ? MObject::kNullObj : pSource.node();
+	}
+	if (oNode.hasFn(MFn::kJoint))
+	{
+		return getJointModule(oNode);
+	}
+	return MObject::kNullObj;
 }
 
 MObject RigTraversal::findModuleRigRoot(const MObject& oModule)

@@ -20,7 +20,6 @@
 #include <utility>
 #include <vector>
 
-#include <maya/MAngle.h>
 #include <maya/MEulerRotation.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
@@ -28,7 +27,6 @@
 #include <maya/MObjectArray.h>
 #include <maya/MPlug.h>
 #include <maya/MPlugArray.h>
-#include <maya/MPxTransform.h>
 #include <maya/MTransformationMatrix.h>
 #include <maya/MUuid.h>
 #include <maya/MVector.h>
@@ -38,7 +36,6 @@ namespace
 	// A rig joint and its source joint that sit further apart than this at rest (centimeters) make the source a
 	// different skeleton, and `match` can't reproduce its pose (inverse-solve.md section 5).
 	constexpr double kRestTolerance{ 1e-2 };
-	constexpr double kShearTolerance{ 1e-6 };
 
 	// kDefaultTransformValues order: translate 0-2, rotate 3-5, scale 6-8.
 	constexpr int kTransformChannelCount{ 9 };
@@ -195,46 +192,17 @@ namespace
 		std::vector<char>& isDerived,
 		std::set<std::string>& warnings)
 	{
-		const MTransformationMatrix matrix(mLocal);
-		const MVector translation = matrix.getTranslation(MSpace::kTransform);
-		double scale[3];
-		double shear[3];
-		matrix.getScale(scale, MSpace::kTransform);
-		matrix.getShear(shear, MSpace::kTransform);
-		MEulerRotation rotation = matrix.eulerRotation();
-		rotation.reorderIt(control.rotateOrder);
-		rotation.setToClosestSolution(control.previousRotation);
-		control.previousRotation = rotation;
-
-		if (std::abs(shear[0]) > kShearTolerance || std::abs(shear[1]) > kShearTolerance || std::abs(shear[2]) > kShearTolerance)
+		const RigPoseScene::LocalFit fit = RigPoseScene::fitLocalToChannels(control.oControl, control.channels, mLocal, control.previousRotation, values);
+		for (const std::size_t i : fit.written)
 		{
-			warnings.insert(control.label + ": the source joint has shear, which the control's channels can't hold. Position and rotation match, the shape may not.");
-		}
-
-		const double derived[kTransformChannelCount] =
-		{
-			translation.x, translation.y, translation.z,
-			rotation.x, rotation.y, rotation.z,
-			scale[0], scale[1], scale[2]
-		};
-		int missingChannels = 0;
-		for (int t = 0; t < kTransformChannelCount; ++t)
-		{
-			const auto it = std::find_if(control.channels.begin(), control.channels.end(), [t](const RigPoseScene::Channel& channel)
-			{
-				return channel.transformIndex == t;
-			});
-			if (it == control.channels.end())
-			{
-				++missingChannels;
-				continue;
-			}
-			const std::size_t i = static_cast<std::size_t>(it - control.channels.begin());
-			values[i] = derived[t];
 			written[i] = 1;
 			isDerived[i] = 1;
 		}
-		if (missingChannels > 0)
+		if (fit.hasShear)
+		{
+			warnings.insert(control.label + ": the source joint has shear, which the control's channels can't hold. Position and rotation match, the shape may not.");
+		}
+		if (fit.leavesChannels)
 		{
 			warnings.insert(control.label + ": locked or driven channels kept their values, so the control may not match its joint.");
 		}
@@ -335,12 +303,8 @@ namespace
 			{
 				control.current.push_back(RigPoseScene::getChannelValue(channel));
 			}
-			control.rotateOrder = static_cast<MEulerRotation::RotationOrder>(MPlug(control.oControl, MPxTransform::rotateOrder).asShort());
-			control.previousRotation = MEulerRotation(
-				MPlug(control.oControl, MPxTransform::rotateX).asMAngle().asRadians(),
-				MPlug(control.oControl, MPxTransform::rotateY).asMAngle().asRadians(),
-				MPlug(control.oControl, MPxTransform::rotateZ).asMAngle().asRadians(),
-				control.rotateOrder);
+			control.previousRotation = RigPoseScene::getControlRotation(control.oControl);
+			control.rotateOrder = control.previousRotation.order;
 			for (std::size_t i = 0; i < control.channels.size(); ++i)
 			{
 				if (control.channels[i].info.name == RigAttr::ControlSpace)

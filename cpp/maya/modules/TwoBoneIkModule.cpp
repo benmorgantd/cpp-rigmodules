@@ -1,5 +1,6 @@
 #include "maya/modules/TwoBoneIkModule.h"
 #include "core/Constants.h"
+#include "core/JsonUtils.h"
 #include "core/RigJsonStructs.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigModule.h"
@@ -21,6 +22,8 @@
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnNumericAttribute.h>
+#include <maya/MFnStringData.h>
+#include <maya/MFnTypedAttribute.h>
 #include <maya/MFnUnitAttribute.h>
 #include <maya/MGlobal.h>
 #include <maya/MMatrix.h>
@@ -43,6 +46,9 @@ MObject TwoBoneIkNode::aRestPlaneAngle;
 MObject TwoBoneIkNode::aLimbLengths;
 MObject TwoBoneIkNode::aFkVisible;
 MObject TwoBoneIkNode::aIkVisible;
+MObject TwoBoneIkNode::aFkMatchLocal;
+MObject TwoBoneIkNode::aIkMatchLocal;
+MObject TwoBoneIkNode::aMatchWarnings;
 
 namespace
 {
@@ -222,6 +228,7 @@ MStatus TwoBoneIkNode::initialize()
 	MStatus status;
 	MFnNumericAttribute nAttr;
 	MFnMatrixAttribute mAttr;
+	MFnTypedAttribute tAttr;
 	MFnUnitAttribute uAttr;
 
 	status = initializeSharedAttributes();
@@ -296,6 +303,28 @@ MStatus TwoBoneIkNode::initialize()
 		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(*pAttr));
 	}
 
+	// Match outputs. Maya computes an output only when something pulls it, and nothing is connected to these.
+	for (MObject* pAttr : { &aFkMatchLocal, &aIkMatchLocal })
+	{
+		const char* name = pAttr == &aFkMatchLocal ? RigAttr::FkMatchLocal : RigAttr::IkMatchLocal;
+		*pAttr = mAttr.create(name, name, MFnMatrixAttribute::kDouble, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setArray(true));
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setWritable(false));
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(false));
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setUsesArrayDataBuilder(true));
+		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(*pAttr));
+	}
+	{
+		MFnStringData fnEmptyList;
+		const MObject oEmptyList = fnEmptyList.create("[]");
+		aMatchWarnings = tAttr.create(RigAttr::MatchWarnings, RigAttr::MatchWarnings, MFnData::kString, oEmptyList, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(tAttr.setWritable(false));
+		CHECK_MSTATUS_AND_RETURN_IT(tAttr.setStorable(false));
+		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aMatchWarnings));
+	}
+
 	// AFFECTS RELATIONSHIPS
 	declareStandardAffects();
 	// Every setting changes the solved joints and the sockets that carry them. The pole's space also moves the pole control.
@@ -307,12 +336,20 @@ MStatus TwoBoneIkNode::initialize()
 	attributeAffects(aPoleSpace, aControlOPM);
 	attributeAffects(aIkFkBlend, aFkVisible);
 	attributeAffects(aIkFkBlend, aIkVisible);
+	// The match outputs read everything the pose does: the controls, the child plugs' parents and every setting.
+	for (const MObject& oInput : { aControlMatrix, aControlRestWorld, aChildPlugParentMatrix, aChildPlugParentRestMatrix,
+		aIkFkBlend, aStretch, aSoft, aPin, aRoll, aPoleSpace, aIkRestOffset, aRestBendNormal, aRestPlaneAngle, aLimbLengths })
+	{
+		attributeAffects(oInput, aFkMatchLocal);
+		attributeAffects(oInput, aIkMatchLocal);
+		attributeAffects(oInput, aMatchWarnings);
+	}
 
 	return MStatus::kSuccess;
 }
 
-// Reads the limb's plugs and evaluates it once. compute() writes every output array from this one evaluation.
-MStatus TwoBoneIkNode::solve(MDataBlock& data, TwoBoneIkSolveResult& outResult)
+// Reads the limb's plugs. compute() writes every output array from one evaluation of this.
+MStatus TwoBoneIkNode::readEval(MDataBlock& data, TwoBoneIkEval& eval)
 {
 	MStatus status;
 
@@ -321,7 +358,6 @@ MStatus TwoBoneIkNode::solve(MDataBlock& data, TwoBoneIkSolveResult& outResult)
 	MArrayDataHandle hChildPlugs = data.inputArrayValue(aChildPlugs, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	TwoBoneIkEval eval;
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
 	{
 		status = readControlInput(hControlInputData, slot, eval.mLocal[slot], eval.mRest[slot]);
@@ -336,13 +372,14 @@ MStatus TwoBoneIkNode::solve(MDataBlock& data, TwoBoneIkSolveResult& outResult)
 		eval.mPoleParentDelta = readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Pole);
 	}
 
+	// The settings are read at every blend: the match outputs run the inverse at blend 0 too, with these values.
 	eval.blend = data.inputValue(aIkFkBlend).asDouble();
+	eval.stretch = data.inputValue(aStretch).asDouble();
+	eval.soft = data.inputValue(aSoft).asDouble();
+	eval.pin = data.inputValue(aPin).asDouble();
+	eval.rollRadians = data.inputValue(aRoll).asAngle().asRadians();
 	if (eval.blend > 0.0)
 	{
-		eval.stretch = data.inputValue(aStretch).asDouble();
-		eval.soft = data.inputValue(aSoft).asDouble();
-		eval.pin = data.inputValue(aPin).asDouble();
-		eval.rollRadians = data.inputValue(aRoll).asAngle().asRadians();
 		const double2& lengths = data.inputValue(aLimbLengths).asDouble2();
 		eval.rest.length1 = lengths[0];
 		eval.rest.length2 = lengths[1];
@@ -359,7 +396,6 @@ MStatus TwoBoneIkNode::solve(MDataBlock& data, TwoBoneIkSolveResult& outResult)
 		}
 	}
 
-	evaluate(eval, outResult);
 	return MStatus::kSuccess;
 }
 
@@ -440,15 +476,22 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 		return MStatus::kSuccess;
 	}
 
+	if (oOutputAttr == aFkMatchLocal || oOutputAttr == aIkMatchLocal || oOutputAttr == aMatchWarnings)
+	{
+		return computeMatch(plug, data);
+	}
+
 	if (oOutputAttr != aControlOPM && oOutputAttr != aJointOPM && oOutputAttr != aOutputSocketMatrix)
 	{
 		return MStatus::kUnknownParameter;
 	}
 
 	MStatus status;
-	TwoBoneIkSolveResult result;
-	status = solve(data, result);
+	TwoBoneIkEval eval;
+	status = readEval(data, eval);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+	TwoBoneIkSolveResult result;
+	evaluate(eval, result);
 
 	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -470,6 +513,70 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 	commitOutput(data, oNode, aControlOPM, hControlOPM);
 	commitOutput(data, oNode, aJointOPM, hJointOPM);
 	commitOutput(data, oNode, aOutputSocketMatrix, hSocket);
+	data.setClean(plug);
+	return MStatus::kSuccess;
+}
+
+// The one branch of compute() that allocates (the inverse's vectors and warnings), against D36's rule. It runs only when a
+// tool pulls a match output: playback never does, and bench (D52 phase 8) checks that. The inverse is the restore's, run
+// on the joints this evaluation solved, so what a match command writes is what a restore of the same pose would.
+MStatus TwoBoneIkNode::computeMatch(const MPlug& plug, MDataBlock& data)
+{
+	MStatus status;
+	TwoBoneIkEval eval;
+	status = readEval(data, eval);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	TwoBoneIkSolveResult pose;
+	evaluate(eval, pose);
+
+	ModuleInverseContext context;
+	ModuleInverseInput input;
+	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
+	{
+		context.controlRestWorld.push_back(eval.mRest[slot]);
+		input.fallbackLocal.push_back(eval.mLocal[slot]);
+		if (slot < TwoBoneIkSlot::LimbCount)
+		{
+			input.jointWorld.push_back(pose.mJointWorld[slot]);
+		}
+		else
+		{
+			input.jointWorld.emplace_back();
+		}
+	}
+	// The inverse reads the start, IK handle, pole (in Parent space) and settings deltas, and no other.
+	input.parentDelta.assign(TwoBoneIkSlot::Count, MMatrix::identity);
+	input.parentDelta[TwoBoneIkSlot::Upper] = eval.mUpperDelta;
+	input.parentDelta[TwoBoneIkSlot::Ik] = eval.mIkDelta;
+	input.parentDelta[TwoBoneIkSlot::Pole] = eval.mPoleParentDelta;
+	input.parentDelta[TwoBoneIkSlot::Settings] = eval.mSettingsDelta;
+	input.channels =
+	{
+		eval.soft, eval.stretch, eval.pin, eval.rollRadians,
+		eval.poleFollowsIk ? 1.0 : 0.0,
+		eval.blend
+	};
+	const ModuleInverseResult result = inverse(context, input);
+
+	MArrayDataHandle hFkMatch = data.outputArrayValue(aFkMatchLocal, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MArrayDataHandle hIkMatch = data.outputArrayValue(aIkMatchLocal, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Settings && slot < result.controlLocal.size(); ++slot)
+	{
+		if (!result.controlLocal[slot].has_value())
+		{
+			continue;
+		}
+		writeOutputMatrix(slot < TwoBoneIkSlot::LimbCount ? hFkMatch : hIkMatch, slot, *result.controlLocal[slot]);
+	}
+
+	data.outputValue(aMatchWarnings).setString(JsonUtils::writeJsonString(result.warnings).c_str());
+
+	const MObject oNode = plug.node();
+	commitOutput(data, oNode, aFkMatchLocal, hFkMatch);
+	commitOutput(data, oNode, aIkMatchLocal, hIkMatch);
+	data.setClean(MPlug(oNode, aMatchWarnings));
 	data.setClean(plug);
 	return MStatus::kSuccess;
 }

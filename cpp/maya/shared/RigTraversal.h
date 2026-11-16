@@ -49,6 +49,10 @@ public:
 	// True for a node getOwningRigRoot accepts. Reports nothing, so tools can test every selected node quietly.
 	static bool isRigNode(const MObject& oNode);
 
+	// The rig module a module, control or rig-driven joint leads to, or a null object for any other node (a rig root
+	// leads to none). Reports nothing.
+	static MObject getNodeModule(const MObject& oNode);
+
 	// The rig root a module is connected to, through module.rigRoot <- rigRoot.rigModules, or a null object for a
 	// module that has none. Reports nothing.
 	static MObject findModuleRigRoot(const MObject& oModule);

@@ -126,7 +126,7 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 | Settings | `ikFkBlend`, `stretch`, `soft` | translate, rotate, scale |
 
 - **`ikFkBlend`** (0 to 1, default 1): 0 is FK and 1 is IK, so **every limb is in IK when built**. Between, each joint's translation and scale lerp and its rotation slerps. At exactly 0 and 1 the result is exactly FK or IK. The FK lower and end controls show below 1, and the IK handle and pole show above 0. The start control and the settings control are always visible.
-- **Switching with `setAttr` pops.** The two chains hold their own control values, so setting `ikFkBlend` directly shows whatever the other side's controls say. A command that matches the controls first is planned (D52), the same way setting a `space` directly doesn't match.
+- **Switch with [`setRigIkFkBlend`](commands.md#setrigikfkblend).** The two chains hold their own control values, so the command first writes the controls of both sides to match the current pose, then sets `ikFkBlend`. Switching with `setAttr` pops: it shows whatever the other side's controls say, the same way setting a `space` directly doesn't match.
 - **The FK start control** moves the whole chain. Its rotation turns the FK upper joint and **does nothing to the IK chain**: the IK root takes the start control's translation only, and the IK plane comes from the pole.
 - **`stretch`** (0 to 1, default 0): 0 stops the end at full reach, on the line to the handle, like any native IK. 1 stretches both bones so the end reaches the handle.
 - **`soft`** (0 to 1, default 0): eases the reach as the handle nears full length, so the elbow doesn't snap straight. It is a fraction of the limb's reach: 0 is a hard stop, and 0.1 starts easing in the last tenth of the reach. With `stretch` off, the end stops a little short of a far handle, which is the point of soft IK.
@@ -147,6 +147,10 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 - **The IK side is exact at blend 0 and blend 1** for any pose the limb can make: bone lengths as built, or `stretch` or `pin` on. Between 0 and 1 the joints are a mix of both chains and IK matches them only approximately, so the restore warns. The FK controls reproduce the joints at any blend. A source with other bone lengths and `stretch` and `pin` off warns too: IK stops at the reach and FK still matches.
 - A handle pulled past full reach with `stretch` off comes back at the wrist, because every handle from there on gives the same pose.
 - The marker joints (`ik`, `pole`, `settings`) are not read. The settings control comes from the sidecar.
+
+### Switching IK and FK
+
+[`setRigIkFkBlend`](commands.md#setrigikfkblend) runs the same inverse on the limb's live joints. The module publishes its result on three outputs that only a tool pulls, so playback never pays for them: `fkMatchLocal` (the FK start, lower and end controls' local matrices), `ikMatchLocal` (the IK handle's and the pole's) and `matchWarnings` (a JSON list of what the match can't do). The command turns each matrix into channel values and writes them with the blend. The same rules apply as to a restore: exact at blend 0 and 1, approximate for the IK side in between, and the FK side is exact at any blend.
 - A limb joint the source lacks leaves all the limb's controls to the sidecar, or rest.
 
 **The settings control** follows the parent of the `start` child plug (the chest for an arm, the pelvis for a leg), whatever space the arm is in. A constraint on `start` doesn't carry it.

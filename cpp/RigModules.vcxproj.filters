@@ -120,6 +120,9 @@
     <ClCompile Include="maya\commands\RigInverseCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
+    <ClCompile Include="maya\commands\TwoBoneIkCmds.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
     <ClCompile Include="maya\commands\RigPoseCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
@@ -294,6 +297,9 @@
       <Filter>maya\commands</Filter>
     </ClInclude>
     <ClInclude Include="maya\commands\RigInverseCmds.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\commands\TwoBoneIkCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
     <ClInclude Include="maya\commands\RigPoseCmds.h">

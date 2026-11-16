@@ -104,6 +104,13 @@ public:
 	static MObject aFkVisible;
 	static MObject aIkVisible;
 
+	// Match outputs (D52 section 4.1), pulled only by setRigIkFkBlend, never during playback: the control locals that
+	// reproduce the current pose on each side, by slot (fkMatchLocal 0 to 2, ikMatchLocal 3 and 4), and what the match
+	// can't do, a JSON list of messages (JsonUtils). Not writable, not storable, connected to nothing.
+	static MObject aFkMatchLocal;
+	static MObject aIkMatchLocal;
+	static MObject aMatchWarnings;
+
 public:
 	static RigModuleBuildResult createModule(
 		const MString& moduleName,
@@ -147,7 +154,11 @@ private:
 		TwoBoneIkRest rest;          // not read at blend 0
 	};
 
-	static MStatus solve(MDataBlock& data, TwoBoneIkSolveResult& outResult);
+	// Reads the limb's plugs. The channels are read at every blend (the match outputs need them at 0); the IK rest data
+	// only above blend 0, where evaluate() uses it.
+	static MStatus readEval(MDataBlock& data, TwoBoneIkEval& outEval);
 	// The forward evaluation, shared by compute() and the inverse so the sockets a restore returns are compute()'s.
 	static void evaluate(const TwoBoneIkEval& eval, TwoBoneIkSolveResult& outResult);
+	// The match outputs' branch of compute(): the inverse run on the current evaluation. Allocates.
+	static MStatus computeMatch(const MPlug& plug, MDataBlock& data);
 };
