@@ -246,7 +246,7 @@ MStatus TwoBoneIkNode::initialize()
 	{
 		{ aIkFkBlend, RigAttr::IkFkBlend, 1.0 },
 		{ aStretch, RigAttr::Stretch, 0.0 },
-		{ aSoft, RigAttr::Soft, 0.15 },
+		{ aSoft, RigAttr::Soft, 0.0 },
 		{ aPin, RigAttr::Pin, 0.0 }
 	};
 	for (const ClampedInput& input : clampedInputs)
