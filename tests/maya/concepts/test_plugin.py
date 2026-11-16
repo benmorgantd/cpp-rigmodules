@@ -19,6 +19,7 @@ COMMAND_FLAGS = {
     "saveRigControlShapes": ["file"],
     "loadRigControlShapes": ["file"],
     "getRigControlSpace": [],
+    "setRigControlSpace": ["space", "label"],
     "getRigMirrorControl": [],
     "mirrorRigControlShapes": ["leftToRight"],
     "getRigInfo": [],

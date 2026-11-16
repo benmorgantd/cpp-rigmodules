@@ -8,9 +8,7 @@
 #include <cmath>
 #include <unordered_map>
 
-#include <maya/MAngle.h>
 #include <maya/MArrayDataHandle.h>
-#include <maya/MEulerRotation.h>
 #include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnEnumAttribute.h>
@@ -26,78 +24,6 @@
 
 namespace
 {
-	constexpr double kShearTolerance{ 1e-6 };
-
-	// The control hangs from its child plug delta (OPM = rest * delta, inheritsTransform off). When that delta changes
-	// from mOldDelta to mNewDelta, rewrite the control's translate, rotate and scale so its world matrix stays the same:
-	//   L' * rest * D_new == L * rest * D_old, with rest = OPM * D_old^-1
-	//   L' = L * OPM * D_new^-1 * D_old * OPM^-1
-	// Reads the live OPM, so the caller needs neither the module nor the control's index (D27).
-	MStatus matchControlToNewDelta(const MObject& oControl, const MMatrix& mOldDelta, const MMatrix& mNewDelta, MDagModifier& dagMod)
-	{
-		if (mOldDelta.isEquivalent(mNewDelta))
-		{
-			return MStatus::kSuccess;
-		}
-
-		const MMatrix mLocal = DagUtils::getMatrixFromPlug(MPlug(oControl, MPxTransform::matrix));
-		const MMatrix mOPM = DagUtils::getMatrixFromPlug(MPlug(oControl, MPxTransform::offsetParentMatrix));
-		const MMatrix mNewLocal = mLocal * mOPM * mNewDelta.inverse() * mOldDelta * mOPM.inverse();
-
-		const MTransformationMatrix tNewLocal(mNewLocal);
-		const MVector vTranslate = tNewLocal.getTranslation(MSpace::kTransform);
-		double scale[3];
-		double shear[3];
-		tNewLocal.getScale(scale, MSpace::kTransform);
-		tNewLocal.getShear(shear, MSpace::kTransform);
-
-		// Keep the control's rotate order, and the euler closest to its current values so curves don't flip.
-		MFnDependencyNode fnControl(oControl);
-		const short rotateOrder = MPlug(oControl, MPxTransform::rotateOrder).asShort();
-		MEulerRotation eCurrent(
-			MPlug(oControl, MPxTransform::rotateX).asMAngle().asRadians(),
-			MPlug(oControl, MPxTransform::rotateY).asMAngle().asRadians(),
-			MPlug(oControl, MPxTransform::rotateZ).asMAngle().asRadians(),
-			static_cast<MEulerRotation::RotationOrder>(rotateOrder));
-		MEulerRotation eNew = tNewLocal.eulerRotation();
-		eNew.reorderIt(static_cast<MEulerRotation::RotationOrder>(rotateOrder));
-		eNew.setToClosestSolution(eCurrent);
-
-		// Same order as kDefaultTransformValues: translate, rotate, scale.
-		const double values[9] =
-		{
-			vTranslate.x, vTranslate.y, vTranslate.z,
-			eNew.x, eNew.y, eNew.z,
-			scale[0], scale[1], scale[2]
-		};
-
-		MString skipped;
-		for (unsigned int i = 0; i < 9; ++i)
-		{
-			MPlug pChannel(oControl, kDefaultTransformValues[i].attr);
-			if (!DagUtils::isChannelWritable(pChannel))
-			{
-				skipped += MString(" ") + pChannel.partialName(false, false, false, false, false, true);
-				continue;
-			}
-			const bool isRotate = i >= 3 && i < 6;
-			MStatus status = isRotate
-				? dagMod.newPlugValueMAngle(pChannel, MAngle(values[i], MAngle::kRadians))
-				: dagMod.newPlugValueDouble(pChannel, values[i]);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-		}
-
-		if (skipped.length() > 0)
-		{
-			MGlobal::displayWarning(fnControl.name() + ": locked or driven channels kept their values, so the control moves:" + skipped);
-		}
-		if (std::abs(shear[0]) > kShearTolerance || std::abs(shear[1]) > kShearTolerance || std::abs(shear[2]) > kShearTolerance)
-		{
-			MGlobal::displayWarning(fnControl.name() + ": the new space needs shear, which the control's channels can't hold. Position and rotation match, the shape may not.");
-		}
-		return MStatus::kSuccess;
-	}
-
 	constexpr int kParentType{ ConstraintTypes::indexOf(ConstraintTypes::Parent) };
 	constexpr int kOrientType{ ConstraintTypes::indexOf(ConstraintTypes::Orient) };
 }
@@ -431,7 +357,7 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 
 	// On a posed rig the control would move to its new parent. Keep it in place through its own values (D27).
 	// At rest both deltas are identity and this writes nothing.
-	status = matchControlToNewDelta(args.oControl, mCurrentDelta, mInitialDriverDelta, dagMod);
+	status = RigPoseScene::matchControlToNewDelta(args.oControl, mCurrentDelta, mInitialDriverDelta, dagMod);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	MPlug pActiveDriver(oConstraint, aActiveDriver);
@@ -577,7 +503,7 @@ MStatus RigConstraintNode::buildFromTemplate(
 // ------------------------------------------------------------------
 // Reading a control's space switch
 // ------------------------------------------------------------------
-bool RigConstraintNode::getControlSpace(const MObject& oControl, ControlSpace& outSpace)
+bool RigConstraintNode::getControlSpace(const MObject& oControl, ControlSpace& outSpace, MObject* pOutConstraint)
 {
 	MStatus status;
 	MFnDependencyNode fnControl(oControl);
@@ -598,7 +524,12 @@ bool RigConstraintNode::getControlSpace(const MObject& oControl, ControlSpace& o
 			continue;
 		}
 
+		if (pOutConstraint)
+		{
+			*pOutConstraint = oConstraint;
+		}
 		outSpace.constraint = MFnDependencyNode(oConstraint).name().asChar();
+		outSpace.module.clear();
 		outSpace.labels.clear();
 		MPlug pDrivers(oConstraint, aDrivers);
 		for (unsigned int e = 0; e < pDrivers.numElements(); ++e)
@@ -657,7 +588,7 @@ MStatus RigConstraintNode::matchSwitchSpace(const MObject& oConstraint, unsigned
 	MPlug pSource = pActive.source();
 	if (!pSource.isNull())
 	{
-		status = matchControlToNewDelta(pSource.node(), mOld, mNewDelta, dagMod);
+		status = RigPoseScene::matchControlToNewDelta(pSource.node(), mOld, mNewDelta, dagMod);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		dagMod.newPlugValueShort(pSource, static_cast<short>(newDriver));
 	}

@@ -128,6 +128,9 @@ public:
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
 	// The scalar channels the inverse reads, in TwoBoneIkInverseChannel order.
 	static std::vector<ModuleInverseChannel> inverseChannels();
+	// The pole's space deltas (ModuleSpaceDeltaFn): Parent is the pole child plug's parent motion, Ik is the IK handle's
+	// motion since rest. Slot Pole only.
+	static MStatus spaceDelta(const MObject& oModule, unsigned int slot, unsigned int label, MMatrix& outDelta);
 
 private:
 	struct TwoBoneIkSolveResult

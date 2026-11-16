@@ -80,7 +80,7 @@ TIERS = [
         "commands.test_joint_clip_fbx",    # FBX joint files, bone maps and the skeleton export (D42)
         "commands.test_inverse_solve",     # the inverse solve: round trips through every module, constraint and the sidecar (D41)
         "commands.test_two_bone_ik_inverse",  # the TwoBoneIk inverse: handle, pole, pin, roll, soft, stretch, blend, hand-worked (D52)
-        "commands.test_two_bone_ik_cmds",  # setRigIkFkBlend, the matched IK/FK switch: hand-worked values, no pop either way, warnings, undo (D52)
+        "commands.test_two_bone_ik_cmds",  # setRigIkFkBlend, the matched IK/FK switch, and the pole's module-owned space switch: hand-worked values, no pop either way, warnings, undo (D52)
         "commands.test_rig_key_cmds",      # getRigKeys and setRigKeys, and animateRigFromJointClip's keys (D34, D41)
         "commands.test_rig_animation_cmds",  # saveRigAnimation, loadRigAnimation and the keys payload's tangents (D42)
         "commands.test_rig_data_files",     # library meta in both file formats, getRigDataFileInfo, setRigDataFileMeta, mirror on load (D51)

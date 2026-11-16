@@ -28,6 +28,7 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ GetRigControlChannelsCmd::aCommandString, GetRigControlChannelsCmd::creator, GetRigControlChannelsCmd::newSyntax },
 		{ GetRigControlInfoCmd::aCommandString, GetRigControlInfoCmd::creator, GetRigControlInfoCmd::newSyntax },
 		{ GetRigControlSpaceCmd::aCommandString, GetRigControlSpaceCmd::creator, GetRigControlSpaceCmd::newSyntax },
+		{ SetRigControlSpaceCmd::aCommandString, SetRigControlSpaceCmd::creator, SetRigControlSpaceCmd::newSyntax },
 		{ MirrorRigControlShapesCmd::aCommandString, MirrorRigControlShapesCmd::creator, MirrorRigControlShapesCmd::newSyntax },
 		{ ZeroRigControlsCmd::aCommandString, ZeroRigControlsCmd::creator, ZeroRigControlsCmd::newSyntax },
 		{ MirrorRigPoseCmd::aCommandString, MirrorRigPoseCmd::creator, MirrorRigPoseCmd::newSyntax },

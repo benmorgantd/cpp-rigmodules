@@ -93,7 +93,8 @@ public:
 
 	// The space switch of a rig control: its constraint, the drivers' labels and the driver its `space` enum is on.
 	// Returns false for a control that has no space switch (no `space` enum, as with a single driver). Read only.
-	static bool getControlSpace(const MObject& oControl, ControlSpace& outSpace);
+	// pOutConstraint, when given, receives the constraint node.
+	static bool getControlSpace(const MObject& oControl, ControlSpace& outSpace, MObject* pOutConstraint = nullptr);
 
 	// Switch space without a jump: sets the control's translate, rotate and scale so it keeps its world matrix
 	// under the new driver, then sets the enum. Sets no keys.

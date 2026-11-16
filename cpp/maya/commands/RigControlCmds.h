@@ -1,6 +1,7 @@
 #pragma once
 
 #include <maya/MArgList.h>
+#include <maya/MDagModifier.h>
 #include <maya/MDGModifier.h>
 #include <maya/MPxCommand.h>
 #include <maya/MSyntax.h>
@@ -95,8 +96,10 @@ public:
 };
 
 // cmds.getRigControlSpace("rig:arm_ctrl_l")
-//   -> a JSON object {"constraint": ..., "labels": [...], "current": n}, keys in ControlSpaceKey (D50), or an empty
-//   string for a control with no space switch. Exactly one control, by name. Query only, so not undoable.
+//   -> a JSON object {"constraint": ..., "module": ..., "labels": [...], "current": n}, keys in ControlSpaceKey (D50,
+//   D52), or an empty string for a control with no space switch. A constraint space names the constraint and a
+//   module-owned space (the TwoBoneIk pole's) names the module, the other being empty. Exactly one control, by name.
+//   Query only, so not undoable.
 class GetRigControlSpaceCmd : public MPxCommand
 {
 public:
@@ -106,6 +109,25 @@ public:
 	static void* creator();
 	static MSyntax newSyntax();
 	static const char* aCommandString;
+};
+
+// cmds.setRigControlSpace("rig:arm_ctrl_l", space=1) or cmds.setRigControlSpace("rig:arm_ctrl_l", label="Chest")
+//   Switches the control to that space, either kind, and keeps its world matrix (D27, D52). Exactly one of space (the
+//   index in getRigControlSpace's labels) or label. Undoable. A locked or driven channel keeps its value and warns.
+class SetRigControlSpaceCmd : public MPxCommand
+{
+public:
+	MStatus doIt(const MArgList& args) override;
+	MStatus redoIt() override;
+	MStatus undoIt() override;
+	bool isUndoable() const override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const char* aCommandString;
+
+private:
+	MDagModifier fDagMod;
 };
 
 // cmds.mirrorRigControlShapes("rig:rigRoot", leftToRight=True)

@@ -51,11 +51,14 @@ class RigControl:
 
 @dataclasses.dataclass(frozen=True)
 class ControlSpace:
-    """A control's space switch (D19, D50). Built from getRigControlSpace's JSON result."""
+    """A control's space switch (D19, D50, D52). Built from getRigControlSpace's JSON result. A constraint space has a
+    `constraint` and an empty `module`. A module-owned space (the TwoBoneIk pole's) has a `module` and an empty
+    `constraint`. Switch either kind with setRigControlSpace on the control."""
 
-    constraint: str        # the rigConstraint node: the argument of setRigConstraintSpace
-    labels: tuple[str, ...]  # the driver labels, in driver order. The `space` enum lists the same names
+    constraint: str        # the rigConstraint node of a constraint space, "" for a module-owned one
+    labels: tuple[str, ...]  # the space labels, in order. The `space` enum lists the same names
     current: int           # the index in labels that the control is in now
+    module: str = ""       # the module node of a module-owned space, "" for a constraint space
 
 
 RIG_ROOT_TYPE = "rigRootModule"
@@ -111,7 +114,7 @@ def find_control_space(control: str) -> ControlSpace | None:
     if not text:
         return None
     data = json.loads(text)
-    return ControlSpace(constraint=data["constraint"], labels=tuple(data["labels"]), current=data["current"])
+    return ControlSpace(constraint=data["constraint"], labels=tuple(data["labels"]), current=data["current"], module=data["module"])
 
 
 def get_rig_controls(

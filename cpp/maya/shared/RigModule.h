@@ -103,6 +103,11 @@ struct ModulePlan
 	std::function<RigModuleBuildResult(MObject& oRigRoot, MDagModifier& dagMod)> build;
 };
 
+// The delta a module-owned space (D52 section 4.4) gives the control at `slot` for the space with index `label`, as the
+// module's plugs stand now: the motion the control's offset parent matrix carries (D27's D_old and D_new). Reads the
+// scene, so run it before queuing changes. Reports and fails for a slot with no space or a label out of range.
+using ModuleSpaceDeltaFn = MStatus(*)(const MObject& oModule, unsigned int slot, unsigned int label, MMatrix& outDelta);
+
 // Aliases so the descriptor reads cleanly. These match what registerNode expects.
 using NodeCreatorFn = void* (*)();
 using NodeInitializeFn = MStatus(*)();
@@ -127,6 +132,8 @@ struct ModuleDescriptor
 	bool isRigModule;          // Connects to a rig root's rigModules. Its moduleType is a getRigControls filter value.
 	// The scalar channels the module's inverse reads (D41 amendment). Empty for a module whose controls are all transforms.
 	std::vector<ModuleInverseChannel> inverseChannels;
+	// Set only by a module with a module-owned space: setRigControlSpace uses it to keep the control in place (D52).
+	ModuleSpaceDeltaFn spaceDelta = nullptr;
 };
 
 // Result of solving one control step. Shared by every module that carries controls.

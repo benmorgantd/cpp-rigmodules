@@ -161,7 +161,7 @@ cmds.setRigConstraintSpace("hero:arm_ctrl_l_space", space=0)
 | `space` | int | Driver index to switch to |
 | `label` | string | Driver label to switch to |
 
-Give exactly one of `space` or `label`. Object: the constraint node.
+Give exactly one of `space` or `label`. Object: the constraint node. To switch from the control instead, for either kind of space, use [`setRigControlSpace`](#setrigcontrolspace).
 
 The command changes the control's translate, rotate and scale so it keeps its world position and orientation in the new space, then sets the control's `space` enum. Nothing is stored on the constraint, so every space gives the rest pose when the controls are zeroed, and a pose is just the control values plus the enum.
 
@@ -329,24 +329,51 @@ Objects: one or more rig controls. Returns a JSON object keyed by control name. 
 
 ## getRigControlSpace
 
-Reports a control's space switch: the constraint that holds its drivers, the drivers' labels and the space it is in now. It is how a tool finds the constraint to hand to [`setRigConstraintSpace`](#setrigconstraintspace) from a control.
+Reports a control's space switch: who owns it, the space labels and the space the control is in now. It reports both kinds of space: a [constraint](#createrigconstraint) space (a `rigConstraint` holds the drivers) and a [module-owned](controls.md#channels) space (the [TwoBoneIk](modules.md#twoboneik) pole's `Parent` and `Ik`). Switch either kind with [`setRigControlSpace`](#setrigcontrolspace).
 
 ```python
 import json
 text = cmds.getRigControlSpace("hero:arm_ctrl_l")
 json.loads(text)
-# {"constraint": "hero:arm_ctrl_l_space", "labels": ["World", "Chest"], "current": 1}
+# {"constraint": "hero:arm_ctrl_l_space", "module": "", "labels": ["World", "Chest"], "current": 1}
+text = cmds.getRigControlSpace("hero:armPole_l_ctrl_l")
+json.loads(text)
+# {"constraint": "", "module": "hero:arm_l", "labels": ["Parent", "Ik"], "current": 0}
 ```
 
 Object: exactly one rig control. Returns a JSON string, or an empty string for a control that has no space switch. A control built with a single driver has none: the `space` enum exists only for two or more drivers. From Python, [`rigmodules.query.find_control_space`](python.md#rigmodulesquery) wraps it.
 
 | Key | Meaning |
 |---|---|
-| `constraint` | The `rigConstraint` node. Pass it to `setRigConstraintSpace`. |
-| `labels` | The driver labels in driver order, which is the order of the `space` enum. |
+| `constraint` | The `rigConstraint` node of a constraint space, which `setRigConstraintSpace` takes. Empty for a module-owned space. |
+| `module` | The module node of a module-owned space. Empty for a constraint space. |
+| `labels` | The space labels in order, which is the order of the `space` enum. For a constraint, the drivers' labels in driver order. |
 | `current` | The index into `labels` that the control is in now. |
 
 - Not undoable: it changes nothing.
+
+## setRigControlSpace
+
+Switches a control to another space and keeps the control where it is in the world. One command for both kinds of space: a [constraint](#createrigconstraint) space and a module-owned space (the [TwoBoneIk](modules.md#twoboneik) pole's `Parent` and `Ik`). It names the control, so a tool needs no constraint or module name: [`getRigControlSpace`](#getrigcontrolspace) lists the labels.
+
+```python
+cmds.setRigControlSpace("hero:arm_ctrl_l", label="Chest")
+cmds.setRigControlSpace("hero:armPole_l_ctrl_l", space=1)    # the pole follows the IK handle
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `space` | int | The index into `getRigControlSpace`'s `labels`. |
+| `label` | string | The label to switch to. |
+
+Object: exactly one rig control, by name. Give exactly one of `space` or `label`.
+
+- **Keeps the control's world matrix.** The control's translate, rotate and scale are rewritten by the same formula as [`setRigConstraintSpace`](#setrigconstraintspace) (D27). For a constraint space the command does exactly what `setRigConstraintSpace` does. For a module-owned space it reads the delta of the space the control is in now and of the new one from the module.
+- **The current space is the control's `space` enum**, so a space set by hand, or keyed, switches from where it is.
+- A locked or driven channel keeps its value and warns, and the control moves. Sets no keys: key the changed channels and the enum yourself on an animated control.
+- A control with no space switch, a bad index, an unknown label, both or neither of `space` and `label` are errors, and nothing changes.
+- Setting the `space` enum directly (`setAttr`, a key, a loaded pose) does no match, so the control moves.
+- Undoable as one step. [`setRigConstraintSpace`](#setrigconstraintspace) stays for scripts that already hold the constraint.
 
 ## getRigControlChannels
 

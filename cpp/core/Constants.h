@@ -299,6 +299,7 @@ namespace ControlChannelKey
 namespace ControlSpaceKey
 {
 	inline constexpr const char* Constraint{ "constraint" };
+	inline constexpr const char* Module{ "module" };
 	inline constexpr const char* Labels{ "labels" };
 	inline constexpr const char* Current{ "current" };
 }

@@ -112,6 +112,13 @@ public:
 		MEulerRotation& inOutRotation,
 		std::vector<double>& values);
 
+	// The control hangs from its child plug delta (OPM = rest * delta, inheritsTransform off). When that delta changes
+	// from mOldDelta to mNewDelta, queues the control's translate, rotate and scale so its world matrix stays the same
+	// (D27): L' = L * OPM * D_new^-1 * D_old * OPM^-1. Reads the live OPM and local, so the caller needs neither the module
+	// nor the control's index. A locked or driven channel keeps its value and warns. The one home of the formula, shared by
+	// the constraint's space switch and by module-owned spaces (setRigControlSpace).
+	static MStatus matchControlToNewDelta(const MObject& oControl, const MMatrix& mOldDelta, const MMatrix& mNewDelta, MDagModifier& dagMod);
+
 	// Every channel of every control in the scope goes to its rest. outChangedNames lists the controls that moved.
 	static MStatus zeroRigControls(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames);
 

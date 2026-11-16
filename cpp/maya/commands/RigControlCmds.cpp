@@ -4,12 +4,14 @@
 #include "core/ControlMarkup.h"
 #include "core/ControlShapeFile.h"
 #include "core/RigControlFilter.h"
-#include "maya/nodes/Constraints.h"
+#include "core/StringUtils.h"
 #include "maya/shared/ControlShapeScene.h"
+#include "maya/shared/ControlSpaceScene.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -26,6 +28,8 @@ namespace
 	constexpr const char* kUsageFlag{ "-usage" };
 	constexpr const char* kFileFlag{ "-file" };
 	constexpr const char* kLeftToRightFlag{ "-leftToRight" };
+	constexpr const char* kSpaceFlag{ "-space" };
+	constexpr const char* kLabelFlag{ "-label" };
 }
 
 // getRigControls ---------------------------------------------------------------------------------
@@ -450,8 +454,111 @@ MStatus GetRigControlSpaceCmd::doIt(const MArgList& args)
 	}
 
 	ControlSpace space;
-	setResult(RigConstraintNode::getControlSpace(oControl, space) ? MString(serializeControlSpace(space).c_str()) : MString(""));
+	setResult(ControlSpaceScene::getControlSpace(oControl, space) ? MString(serializeControlSpace(space).c_str()) : MString(""));
 	return MStatus::kSuccess;
+}
+
+// setRigControlSpace -----------------------------------------------------------------------------
+const char* SetRigControlSpaceCmd::aCommandString = "setRigControlSpace";
+
+void* SetRigControlSpaceCmd::creator()
+{
+	return new SetRigControlSpaceCmd();
+}
+
+bool SetRigControlSpaceCmd::isUndoable() const
+{
+	return true;
+}
+
+MSyntax SetRigControlSpaceCmd::newSyntax()
+{
+	MSyntax syntax;
+	CHECK_MSTATUS(syntax.addFlag("-s", kSpaceFlag, MSyntax::kLong));
+	CHECK_MSTATUS(syntax.addFlag("-l", kLabelFlag, MSyntax::kString));
+	syntax.setObjectType(MSyntax::kStringObjects, 1, 1);
+	syntax.useSelectionAsDefault(false);
+	return syntax;
+}
+
+MStatus SetRigControlSpaceCmd::doIt(const MArgList& args)
+{
+	MStatus status;
+	MArgDatabase argData(syntax(), args, &status);
+	if (!status)
+	{
+		MGlobal::displayError(MString("Error parsing ") + aCommandString + " arguments.");
+		return status;
+	}
+
+	MString controlName;
+	status = CommandUtils::readSingleObject(argData, aCommandString, "control name", controlName);
+	if (!status)
+	{
+		return status;
+	}
+	const bool hasSpace = argData.isFlagSet(kSpaceFlag);
+	const bool hasLabel = argData.isFlagSet(kLabelFlag);
+	if (hasSpace == hasLabel)
+	{
+		MGlobal::displayError(MString(aCommandString) + " needs exactly one of " + kSpaceFlag + " or " + kLabelFlag + ".");
+		return MStatus::kFailure;
+	}
+
+	MObject oControl;
+	status = RigTraversal::getRigControl(controlName, oControl);
+	if (!status)
+	{
+		return status;
+	}
+	ControlSpace space;
+	if (!ControlSpaceScene::getControlSpace(oControl, space))
+	{
+		MGlobal::displayError(controlName + " has no space switch.");
+		return MStatus::kFailure;
+	}
+
+	// The labels are in space order, so a label's position is its enum value.
+	unsigned int newSpace = 0;
+	if (hasSpace)
+	{
+		int index = -1;
+		status = argData.getFlagArgument(kSpaceFlag, 0, index);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		if (index < 0 || index >= static_cast<int>(space.labels.size()))
+		{
+			MGlobal::displayError(controlName + " has " + static_cast<unsigned int>(space.labels.size()) + " spaces ("
+				+ StringUtils::joinNames(space.labels).c_str() + "), so " + kSpaceFlag + " " + index + " is not one.");
+			return MStatus::kFailure;
+		}
+		newSpace = static_cast<unsigned int>(index);
+	}
+	else
+	{
+		MString label;
+		status = argData.getFlagArgument(kLabelFlag, 0, label);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		const auto it = std::find(space.labels.begin(), space.labels.end(), std::string(label.asChar()));
+		if (it == space.labels.end())
+		{
+			MGlobal::displayError(controlName + " has no space labelled '" + label + "' (has: "
+				+ StringUtils::joinNames(space.labels).c_str() + ").");
+			return MStatus::kFailure;
+		}
+		newSpace = static_cast<unsigned int>(it - space.labels.begin());
+	}
+
+	return ControlSpaceScene::setControlSpace(oControl, newSpace, fDagMod);
+}
+
+MStatus SetRigControlSpaceCmd::redoIt()
+{
+	return fDagMod.doIt();
+}
+
+MStatus SetRigControlSpaceCmd::undoIt()
+{
+	return fDagMod.undoIt();
 }
 
 // mirrorRigControlShapes -------------------------------------------------------------------------

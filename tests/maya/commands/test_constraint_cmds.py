@@ -266,6 +266,108 @@ class SpaceSwitchRejected(ConstraintTestCase):
         self.assertMayaError(lambda: cmds.setRigConstraintSpace(space=0))
 
 
+class SetRigControlSpace(ConstraintTestCase):
+    """setRigControlSpace on a constrained control (D52): it matches as setRigConstraintSpace does, by control."""
+
+    def setUp(self):
+        super().setUp()
+        self.con = self.create(label=["World", "Arm"])
+
+    def test_by_index_and_by_label(self):
+        cmds.setRigControlSpace(CONTROL, space=1)
+        self.assertEqual(cmds.getAttr(self.con + ".activeDriver"), 1)
+        self.assertEqual(cmds.getAttr(CONTROL + ".space"), 1)
+        cmds.setRigControlSpace(CONTROL, label="World")
+        self.assertEqual(cmds.getAttr(CONTROL + ".space"), 0)
+        cmds.setRigControlSpace(CONTROL, label="Arm")
+        self.assertEqual(cmds.getAttr(CONTROL + ".space"), 1)
+
+    def test_a_posed_rig_keeps_the_control_where_it_was(self):
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        before = world_matrix(CONTROL)
+        cmds.setRigControlSpace(CONTROL, label="Arm")
+        self.assertWorldMatrix(CONTROL, before, "moved when its space was switched by control")
+        cmds.setRigControlSpace(CONTROL, label="World")
+        self.assertWorldMatrix(CONTROL, before, "moved when its space was switched back")
+
+    def test_it_writes_what_setRigConstraintSpace_writes(self):
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        cmds.setAttr(CONTROL + ".translate", 0.5, 1, 0)
+        cmds.setRigControlSpace(CONTROL, label="Arm")
+        by_control = {a: cmds.getAttr(CONTROL + "." + a) for a in ("translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ")}
+        cmds.undo()
+        cmds.setRigConstraintSpace(self.con, label="Arm")
+        for attribute, value in by_control.items():
+            self.assertAlmostEqual(cmds.getAttr(CONTROL + "." + attribute), value, places=5, msg=attribute)
+
+    def test_undo_and_redo(self):
+        cmds.undoInfo(state=True, infinity=True)
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        before = world_matrix(CONTROL)
+        cmds.setRigControlSpace(CONTROL, space=1)
+        after = cmds.getAttr(CONTROL + ".translate")[0]
+        self.assertNotEqual(after, (0.0, 0.0, 0.0))
+        cmds.undo()
+        self.assertEqual(cmds.getAttr(CONTROL + ".space"), 0)
+        self.assertEqual(cmds.getAttr(CONTROL + ".translate")[0], (0.0, 0.0, 0.0))
+        cmds.redo()
+        self.assertEqual(cmds.getAttr(CONTROL + ".space"), 1)
+        self.assertEqual(cmds.getAttr(CONTROL + ".translate")[0], after)
+        self.assertWorldMatrix(CONTROL, before, "moved after redo")
+
+    def test_a_locked_channel_keeps_its_value(self):
+        cmds.setAttr(CONTROL + ".translateX", lock=True)
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        cmds.setRigControlSpace(CONTROL, label="Arm")
+        self.assertEqual(cmds.getAttr(CONTROL + ".translateX"), 0.0)
+        self.assertNotEqual(cmds.getAttr(CONTROL + ".translateY"), 0.0)
+
+    def test_it_sets_no_keys(self):
+        cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
+        cmds.setRigControlSpace(CONTROL, label="Arm")
+        self.assertFalse(cmds.keyframe(CONTROL, query=True, keyframeCount=True))
+
+    def test_both_space_and_label(self):
+        self.assertMayaError(lambda: cmds.setRigControlSpace(CONTROL, space=0, label="World"), "exactly one")
+
+    def test_neither_space_nor_label(self):
+        self.assertMayaError(lambda: cmds.setRigControlSpace(CONTROL), "exactly one")
+
+    def test_unknown_label_names_the_ones_it_has(self):
+        self.assertMayaError(lambda: cmds.setRigControlSpace(CONTROL, label="Nope"), "Nope", "World, Arm")
+
+    def test_index_past_the_last_space(self):
+        self.assertMayaError(lambda: cmds.setRigControlSpace(CONTROL, space=2), "2 spaces")
+
+    def test_negative_index(self):
+        self.assertMayaError(lambda: cmds.setRigControlSpace(CONTROL, space=-1), "2 spaces")
+
+    def test_a_control_with_no_space_switch(self):
+        self.assertMayaError(lambda: cmds.setRigControlSpace(OTHER_CONTROL, space=0), "no space switch")
+
+    def test_a_single_driver_constraint_has_no_space_switch(self):
+        self.create(OTHER_CONTROL, driver=["layout.end"])
+        self.assertMayaError(lambda: cmds.setRigControlSpace(OTHER_CONTROL, space=0), "no space switch")
+
+    def test_the_node_must_be_a_rig_control(self):
+        self.assertMayaError(lambda: cmds.setRigControlSpace(rig_name("fkchain_1"), space=0), "Not a rig control")
+        self.assertMayaError(lambda: cmds.setRigControlSpace("missing", space=0), "Not a rig control")
+
+    def test_no_object_is_an_error(self):
+        with self.assertRaises((RuntimeError, TypeError)):
+            cmds.setRigControlSpace(space=0)
+
+    def test_it_never_reads_the_selection(self):
+        cmds.select(CONTROL)
+        with self.assertRaises((RuntimeError, TypeError)):
+            cmds.setRigControlSpace(space=1)
+
+    def test_a_failed_call_changes_nothing(self):
+        with self.assertRaises(RuntimeError):
+            cmds.setRigControlSpace(CONTROL, space=5)
+        self.assertEqual(cmds.getAttr(CONTROL + ".space"), 0)
+
+
 class CommandIdResolution(RigTestCase):
     """D19: driver ids and constraint names resolve in the constrained control's namespace."""
 
@@ -330,7 +432,7 @@ class GetRigControlSpace(ConstraintTestCase):
     def test_reports_the_constraint_the_labels_and_the_current_space(self):
         con = self.create(label=["World", "Arm"], initial=1)
         found = json.loads(cmds.getRigControlSpace(CONTROL))
-        self.assertEqual(found, {"constraint": con.lstrip(":"), "labels": ["World", "Arm"], "current": 1})
+        self.assertEqual(found, {"constraint": con.lstrip(":"), "module": "", "labels": ["World", "Arm"], "current": 1})
 
     def test_labels_default_to_the_driver_ids(self):
         self.create()

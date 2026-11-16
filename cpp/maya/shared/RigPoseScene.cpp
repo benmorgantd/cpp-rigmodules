@@ -672,6 +672,43 @@ RigPoseScene::LocalFit RigPoseScene::fitLocalToChannels(
 	return fit;
 }
 
+MStatus RigPoseScene::matchControlToNewDelta(const MObject& oControl, const MMatrix& mOldDelta, const MMatrix& mNewDelta, MDagModifier& dagMod)
+{
+	if (mOldDelta.isEquivalent(mNewDelta))
+	{
+		return MStatus::kSuccess;
+	}
+
+	const MMatrix mLocal = DagUtils::getMatrixFromPlug(MPlug(oControl, MPxTransform::matrix));
+	const MMatrix mOPM = DagUtils::getMatrixFromPlug(MPlug(oControl, MPxTransform::offsetParentMatrix));
+	const MMatrix mNewLocal = mLocal * mOPM * mNewDelta.inverse() * mOldDelta * mOPM.inverse();
+
+	std::vector<Channel> channels;
+	MStatus status = getControlChannels(oControl, channels);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	std::vector<double> values(channels.size(), 0.0);
+	MEulerRotation rotation = getControlRotation(oControl);
+	const LocalFit fit = fitLocalToChannels(oControl, channels, mNewLocal, rotation, values);
+	for (const std::size_t i : fit.written)
+	{
+		bool changed = false;
+		status = setValue(channels[i], values[i], dagMod, changed);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+
+	const MString name = MFnDependencyNode(oControl).name();
+	if (fit.leavesChannels)
+	{
+		MGlobal::displayWarning(name + ": locked or driven channels kept their values, so the control moves.");
+	}
+	if (fit.hasShear)
+	{
+		MGlobal::displayWarning(name + ": the new space needs shear, which the control's channels can't hold. Position and rotation match, the shape may not.");
+	}
+	return MStatus::kSuccess;
+}
+
 MStatus RigPoseScene::zeroRigControls(const RigControlScope& scope, MDGModifier& dgMod, MStringArray& outChangedNames)
 {
 	MObjectArray oControls;

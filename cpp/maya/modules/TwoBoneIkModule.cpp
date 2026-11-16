@@ -595,6 +595,37 @@ std::vector<ModuleInverseChannel> TwoBoneIkNode::inverseChannels()
 	};
 }
 
+// Reads the same two deltas evaluate() hands the pole (section 4.4), from the plugs: the child plug's parent motion for
+// Parent, and the IK handle's world socket against its rest for Ik. The handle doesn't depend on the pole, so pulling its
+// socket is no cycle.
+MStatus TwoBoneIkNode::spaceDelta(const MObject& oModule, unsigned int slot, unsigned int label, MMatrix& outDelta)
+{
+	constexpr unsigned int kParentSpace{ 0 };
+	constexpr unsigned int kIkSpace{ 1 };
+
+	if (slot != TwoBoneIkSlot::Pole || label > kIkSpace)
+	{
+		MGlobal::displayError(MString("TwoBoneIk has no space ") + label + " on control slot " + slot + ".");
+		return MStatus::kInvalidParameter;
+	}
+
+	MStatus status;
+	if (label == kParentSpace)
+	{
+		MPlug pParentMatrix;
+		MPlug pParentRest;
+		status = getChildPlugMatrixPlugs(oModule, TwoBoneIkSlot::Pole, pParentMatrix, pParentRest);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		outDelta = MathUtils::computeDeltaFromRest(DagUtils::getMatrixFromPlug(pParentRest), DagUtils::getMatrixFromPlug(pParentMatrix));
+		return MStatus::kSuccess;
+	}
+
+	const MPlug pIkWorld = getSocketMatrixPlug(oModule, TwoBoneIkSlot::Ik, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	outDelta = MathUtils::computeDeltaFromRest(getControlRestWorld(oModule, TwoBoneIkSlot::Ik), DagUtils::getMatrixFromPlug(pIkWorld));
+	return MStatus::kSuccess;
+}
+
 // Allocates (the contract's vectors, the warnings), which is fine for a restore. compute() never calls it (D52 section 6).
 ModuleInverseResult TwoBoneIkNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput& input)
 {

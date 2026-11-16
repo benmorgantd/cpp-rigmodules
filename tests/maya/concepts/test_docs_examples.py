@@ -80,8 +80,14 @@ class ReadmeQuickStart(RigTestCase):
         """The example under '## getRigControlSpace' in docs/commands.md."""
         cmds.createRigConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
         self.assertEqual(json.loads(cmds.getRigControlSpace(ARM_CTRL)),
-                         {"constraint": "hero:arm_ctrl_l_space", "labels": ["World", "Chest"], "current": 1})
+                         {"constraint": "hero:arm_ctrl_l_space", "module": "", "labels": ["World", "Chest"], "current": 1})
         self.assertEqual(cmds.getRigControlSpace(SPINE3_CTRL), "")
+
+    def test_set_rig_control_space_example(self):
+        """The first example under '## setRigControlSpace' in docs/commands.md."""
+        cmds.createRigConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"])
+        cmds.setRigControlSpace(ARM_CTRL, label="Chest")
+        self.assertEqual(json.loads(cmds.getRigControlSpace(ARM_CTRL))["current"], 1)
 
 
 def templates_doc_orient_constraint():

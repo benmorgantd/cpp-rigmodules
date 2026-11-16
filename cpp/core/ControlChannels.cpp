@@ -38,6 +38,7 @@ std::string serializeControlSpace(const ControlSpace& space)
 {
 	nlohmann::json result;
 	result[ControlSpaceKey::Constraint] = space.constraint;
+	result[ControlSpaceKey::Module] = space.module;
 	result[ControlSpaceKey::Labels] = space.labels;
 	result[ControlSpaceKey::Current] = space.current;
 	return result.dump();

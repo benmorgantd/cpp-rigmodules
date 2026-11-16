@@ -53,7 +53,7 @@ Paths are relative to `cpp/`. Include lines use the same paths (`"maya/shared/Ri
 | Role | Files |
 |---|---|
 | Module layer | `RigModule` (base classes, plan and build types), `ModuleInverse` (the inverse's types) |
-| Scene access | `JointMarkupScene`, `ControlShapeScene`, `SkinWeightScene`, `DisplayLayerScene`, `SelectionSetScene` |
+| Scene access | `JointMarkupScene`, `ControlShapeScene`, `ControlSpaceScene` (a control's space of either kind: the constraint's or a module's), `SkinWeightScene`, `DisplayLayerScene`, `SelectionSetScene` |
 | Animation interface | `RigPoseScene` (channels and poses, and the data-first pose mirror), `RigKeyScene` (keys), `RigInverse` (the solve's driver), `RigDataFileScene` (the rig's part of a file's meta, and how well a file fits a rig) |
 | Walking a rig | `RigTraversal` |
 | Utilities | `Utilities` (`MathUtils`, `TimeUtils`, `DagUtils`, `MeshUtils`, `MelUtils`, `CommandUtils`, `ReportUtils`, `ProfilerUtils`, `ActiveSelection`, `DagPlugAndSocketUtils`, `ScopedRigNamespace`), `Side`, `Colors` |
@@ -231,7 +231,7 @@ Every command is an `MPxCommand` with the same shape (D14):
 | `CreateRigCmd` | `createRigFromTemplate` | `RigRootNode::createRig` |
 | `ConstraintCmds` | `createRigConstraint`, `setRigConstraintSpace` | `RigConstraintNode` |
 | `JointMarkupCmd` | `rigJointMarkup` | `JointMarkupScene` |
-| `RigControlCmds` | `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `getRigMirrorControl`, `saveRigControlShapes`, `loadRigControlShapes`, `mirrorRigControlShapes` | `RigTraversal`, `RigPoseScene`, `ControlShapeScene` |
+| `RigControlCmds` | `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `setRigControlSpace`, `getRigMirrorControl`, `saveRigControlShapes`, `loadRigControlShapes`, `mirrorRigControlShapes` | `RigTraversal`, `RigPoseScene`, `ControlShapeScene`, `ControlSpaceScene` |
 | `RigPoseCmds` | `zeroRigControls`, `mirrorRigPose`, `flipRigPose`, `saveRigPose`, `loadRigPose` | `RigPoseScene`, and `RigDataFileScene` for a save's meta |
 | `RigKeyCmds` | `getRigKeys`, `setRigKeys`, `saveRigAnimation`, `loadRigAnimation` | `RigKeyScene`, and `RigDataFileScene` for a save's meta |
 | `RigInverseCmds` | `poseRigFromJointPose`, `animateRigFromJointClip` | `RigInverse`, then `RigPoseScene` or `RigKeyScene` |
@@ -307,6 +307,13 @@ The reverse of a rig's evaluation: from joint world matrices to control values (
 2. Add it with `RigPoseScene::addEnumChannel` through the build's `MDagModifier`: it sets keyable and storable, declares the mirror mode (copy or negate, D34) and adds the attribute, so undo and redo replay it. A double or angle channel gets a sibling function when its first caller needs one. The default is the channel's rest.
 3. A control that keeps a transform channel keyable passes it in `DagUtils::queueLockAndHideTransform`'s `keepChannels`.
 4. `getRigControlChannels` fails on a channel with no mirror mode, so `ModuleContract` catches a missed one. The golden snapshots record the channels.
+
+**A module-owned space** (a `space` enum on a control that the module reads itself, D52 section 4.4; the TwoBoneIk pole is the first)
+
+1. Add the enum as a channel (the recipe above), with static labels, append-only (D34). Wire it to a module input attribute in `createModule`, and give that input an `attributeAffects` to every output the space changes.
+2. Give the module a `spaceDelta` (`ModuleSpaceDeltaFn` in `RigModule.h`) and put it in its `ModuleDescriptor` row: for a control slot and a label index it returns the delta the control's offset parent matrix carries in that space, read from the module's plugs (D27's `D_old` and `D_new`). Read what `compute()` reads, and keep the two in step: `evaluate` and `spaceDelta` must agree on what each label means.
+3. Nothing else: `ControlSpaceScene` finds the space by the enum's connection into a module whose descriptor has a `spaceDelta`, so `getRigControlSpace` reports it and `setRigControlSpace` switches it through `RigPoseScene::matchControlToNewDelta`, the one home of D27's formula that the constraint's switch also calls.
+4. Tests: the switch keeps the control's world matrix in both directions with the driver of the other space moved, undoes, and every error.
 
 **A change to saved data**: raise the format's version and add an update step. Never change the meaning of an existing version.
 

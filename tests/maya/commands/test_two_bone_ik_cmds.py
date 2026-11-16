@@ -6,9 +6,11 @@ and 4, the pole at height 5 on the elbow's side) and never read off the rig. The
 command exists for: the limb's joints are where they were after a switch, in either direction.
 """
 import copy
+import json
 
 from maya import cmds
 
+import rigmodules.query
 from commands.test_inverse_solve import SolveTestCase
 from commands.test_two_bone_ik_inverse import CapturedWarnings
 from rigtest import fixtures
@@ -366,6 +368,184 @@ class TwoBoneIkSwitch(SwitchTestCase):
         self.assertEqual(self.control_values(MATCHED + (SETTINGS,)), before)
 
 
+class TwoBoneIkPoleSpace(SwitchTestCase):
+    """setRigControlSpace and getRigControlSpace on the pole's module-owned space (D52 phase 7).
+
+    The basic limb: the pole's rest is (2.5,5,0), the handle's (5,0,0), and both hang from layout.end. A control's world
+    translate is its rest plus its parent's motion plus its own translate, so the cases are worked by hand.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard("twoboneik_basic", "twoboneik_basic")
+
+    def space(self, control=POLE):
+        return cmds.getRigControlSpace(rig_name(control))
+
+    # ---- getRigControlSpace -------------------------------------------------------------------------
+
+    def test_the_pole_reports_the_module_its_labels_and_the_current_space(self):
+        found = json.loads(self.space())
+        self.assertEqual(found, {"constraint": "", "module": rig_name(MODULE).lstrip(":"), "labels": ["Parent", "Ik"], "current": 0})
+        cmds.setAttr(rig_name(POLE + ".space"), 1)
+        self.assertEqual(json.loads(self.space())["current"], 1)
+
+    def test_controls_with_no_space_report_an_empty_string(self):
+        for control in (UPPER, LOWER, END, HANDLE, SETTINGS):
+            with self.subTest(control=control):
+                self.assertEqual(self.space(control), "")
+
+    def test_the_query_package_reads_the_module(self):
+        found = rigmodules.query.find_control_space(rig_name(POLE))
+        self.assertEqual(found.module, rig_name(MODULE).lstrip(":"))
+        self.assertEqual(found.constraint, "")
+        self.assertEqual(found.labels, ("Parent", "Ik"))
+        self.assertEqual(found.current, 0)
+
+    # ---- the switch keeps the pole where it is ------------------------------------------------------
+
+    def test_parent_to_ik_with_the_handle_moved(self):
+        # Parent: the pole's delta is the identity. Ik: the handle moved (-1,-3,0), a pure translation. In translation
+        # L' = L + D_old - D_new, so the pole's local goes from (0,0,0) to (1,3,0), and 1+2.5-1 = 2.5, 3+5-3 = 5 keeps its world.
+        self.set_plugs({HANDLE + ".translateX": -1, HANDLE + ".translateY": -3})
+        cmds.setRigControlSpace(rig_name(POLE), label="Ik")
+        self.assertEqual(cmds.getAttr(rig_name(POLE + ".space")), 1)
+        self.assertValues(rig_name(POLE), {"translateX": 1, "translateY": 3, "translateZ": 0}, places=4)
+        self.assertWorldTranslation(rig_name(POLE), [2.5, 5, 0], 1e-4)
+
+    def test_and_back_again(self):
+        self.set_plugs({HANDLE + ".translateX": -1, HANDLE + ".translateY": -3})
+        cmds.setRigControlSpace(rig_name(POLE), space=1)
+        cmds.setRigControlSpace(rig_name(POLE), space=0)
+        self.assertEqual(cmds.getAttr(rig_name(POLE + ".space")), 0)
+        self.assertValues(rig_name(POLE), {"translateX": 0, "translateY": 0, "translateZ": 0}, places=4)
+        self.assertWorldTranslation(rig_name(POLE), [2.5, 5, 0], 1e-4)
+
+    def test_the_pole_then_follows_the_handle(self):
+        cmds.setRigControlSpace(rig_name(POLE), space=1)
+        self.set_plugs({HANDLE + ".translateX": 2, HANDLE + ".translateY": 1})
+        self.assertWorldTranslation(rig_name(POLE), [4.5, 6, 0], 1e-4)
+
+    def test_parent_space_that_moved(self):
+        # layout.end moves (0,0,3) and carries both the pole and the handle. The handle also moved (-1,-3,0) in its own
+        # space. D_old = T(0,0,3), D_new = T(-1,-3,3): the local becomes (1,3,0) and the world stays (2.5,5,3).
+        self.set_plugs({LAYOUT_CONTROL + ".translateZ": 3, HANDLE + ".translateX": -1, HANDLE + ".translateY": -3})
+        self.assertWorldTranslation(rig_name(POLE), [2.5, 5, 3], 1e-4)
+        cmds.setRigControlSpace(rig_name(POLE), label="Ik")
+        self.assertValues(rig_name(POLE), {"translateX": 1, "translateY": 3, "translateZ": 0}, places=4)
+        self.assertWorldTranslation(rig_name(POLE), [2.5, 5, 3], 1e-4)
+        cmds.setRigControlSpace(rig_name(POLE), label="Parent")
+        self.assertValues(rig_name(POLE), {"translateX": 0, "translateY": 0, "translateZ": 0}, places=4)
+        self.assertWorldTranslation(rig_name(POLE), [2.5, 5, 3], 1e-4)
+
+    def test_a_turned_handle_carries_the_pole_around_itself(self):
+        # The handle turns 90 about Z at its own origin (5,0,0). Switch to Ik: the pole stays at (2.5,5,0), now attached to
+        # the handle at offset (-2.5,5). Turning the handle back rotates that offset by -90, (x,y) -> (y,-x) = (5,2.5), so
+        # the pole ends at (5,0)+(5,2.5) = (10,2.5,0).
+        self.set_plugs({HANDLE + ".rotateZ": 90})
+        cmds.setRigControlSpace(rig_name(POLE), label="Ik")
+        self.assertWorldTranslation(rig_name(POLE), [2.5, 5, 0], 1e-4)
+        self.set_plugs({HANDLE + ".rotateZ": 0})
+        self.assertWorldTranslation(rig_name(POLE), [10, 2.5, 0], 1e-4)
+
+    def test_switching_to_the_current_space_changes_nothing(self):
+        self.set_plugs({HANDLE + ".translateX": -1})
+        cmds.setRigControlSpace(rig_name(POLE), space=0)
+        self.assertValues(rig_name(POLE), {"translateX": 0, "translateY": 0, "translateZ": 0})
+
+    def test_the_current_space_is_read_from_the_control(self):
+        # Set by hand, the pole pops (no match): in Ik space with the handle at (-1,-3,0) it sits at (2.5-1, 5-3) = (1.5,2).
+        # The command then switches from the space the control is in now, not from a stored one: Ik to Parent takes the
+        # local from (0,0,0) to (-1,-3,0) and the world stays (1.5,2,0).
+        self.set_plugs({HANDLE + ".translateX": -1, HANDLE + ".translateY": -3, POLE + ".space": 1})
+        self.assertWorldTranslation(rig_name(POLE), [1.5, 2, 0], 1e-4)
+        cmds.setRigControlSpace(rig_name(POLE), space=0)
+        self.assertValues(rig_name(POLE), {"translateX": -1, "translateY": -3}, places=4)
+        self.assertWorldTranslation(rig_name(POLE), [1.5, 2, 0], 1e-4)
+
+    def test_a_locked_channel_keeps_its_value_and_warns(self):
+        self.set_plugs({HANDLE + ".translateX": -1, HANDLE + ".translateY": -3})
+        cmds.setAttr(rig_name(POLE + ".translateX"), lock=True)
+        with CapturedWarnings() as warnings:
+            cmds.setRigControlSpace(rig_name(POLE), space=1)
+        self.assertTrue(warnings.contain("locked or driven"), warnings.messages)
+        self.assertValues(rig_name(POLE), {"translateX": 0, "translateY": 3}, places=4)
+
+    def test_the_switch_does_not_move_the_joints(self):
+        self.set_plugs({HANDLE + ".translateX": -1, HANDLE + ".translateY": -3})
+        before = self.limb()
+        cmds.setRigControlSpace(rig_name(POLE), space=1)
+        self.assertJointsAt(before)
+
+    def test_undo_and_redo(self):
+        cmds.undoInfo(state=True, infinity=True)
+        self.set_plugs({HANDLE + ".translateX": -1, HANDLE + ".translateY": -3})
+        cmds.setRigControlSpace(rig_name(POLE), space=1)
+        cmds.undo()
+        self.assertEqual(cmds.getAttr(rig_name(POLE + ".space")), 0)
+        self.assertValues(rig_name(POLE), {"translateX": 0, "translateY": 0})
+        self.assertWorldTranslation(rig_name(POLE), [2.5, 5, 0], 1e-4)
+        cmds.redo()
+        self.assertEqual(cmds.getAttr(rig_name(POLE + ".space")), 1)
+        self.assertValues(rig_name(POLE), {"translateX": 1, "translateY": 3}, places=4)
+        self.assertWorldTranslation(rig_name(POLE), [2.5, 5, 0], 1e-4)
+
+    def test_it_sets_no_keys(self):
+        self.set_plugs({HANDLE + ".translateX": -1})
+        cmds.setRigControlSpace(rig_name(POLE), space=1)
+        self.assertFalse(cmds.listConnections(rig_name(POLE), type="animCurve"))
+
+    # ---- the matched IK/FK switch with the pole in Ik space -----------------------------------------
+
+    def test_the_ik_fk_switch_leaves_the_pole_and_joints_where_they_were(self):
+        # The handle is at world (4,-3,0) (translate (-1,-3,0)), so the limb's axis from the root is (0.8,-0.6) and the mid
+        # joint is (2.88,0.84,0) (test_ik_to_fk_writes_the_fk_rotations). The switch puts the pole on the observed side at
+        # its rest height 5 from the axis: the nearest point on the axis is 1.8 * (0.8,-0.6) = (1.44,-1.08), the side is
+        # (0.6,0.8), so the pole is (1.44+3, -1.08+4) = (4.44,2.92,0). In Ik space its local is that minus its rest and the
+        # handle's motion: (4.44-2.5+1, 2.92-5+3) = (2.94,0.92,0). Posed there, the match must leave it there.
+        cmds.setRigControlSpace(rig_name(POLE), space=1)
+        self.set_plugs({HANDLE + ".translateX": -1, HANDLE + ".translateY": -3, POLE + ".translateX": 2.94, POLE + ".translateY": 0.92})
+        self.assertWorldTranslation(rig_name(POLE), [4.44, 2.92, 0], 1e-4)
+        before = self.limb()
+        for blend in (0, 1):
+            with self.subTest(blend=blend):
+                self.switch(blend)
+                self.assertJointsAt(before)
+                self.assertEqual(cmds.getAttr(rig_name(POLE + ".space")), 1)
+                self.assertWorldTranslation(rig_name(POLE), [4.44, 2.92, 0], 1e-3)
+                self.assertWorldTranslation(rig_name(HANDLE), [4, -3, 0], 1e-3)
+
+    # ---- errors -------------------------------------------------------------------------------------
+
+    def test_a_bad_index(self):
+        self.assertMayaError(lambda: cmds.setRigControlSpace(rig_name(POLE), space=2), "2 spaces", "Parent, Ik")
+        self.assertMayaError(lambda: cmds.setRigControlSpace(rig_name(POLE), space=-1), "2 spaces")
+
+    def test_a_bad_label(self):
+        self.assertMayaError(lambda: cmds.setRigControlSpace(rig_name(POLE), label="World"), "World", "Parent, Ik")
+
+    def test_both_or_neither(self):
+        self.assertMayaError(lambda: cmds.setRigControlSpace(rig_name(POLE), space=1, label="Ik"), "exactly one")
+        self.assertMayaError(lambda: cmds.setRigControlSpace(rig_name(POLE)), "exactly one")
+
+    def test_a_control_with_no_space(self):
+        for control in (UPPER, HANDLE, SETTINGS):
+            with self.subTest(control=control):
+                self.assertMayaError(lambda: cmds.setRigControlSpace(rig_name(control), space=0), "no space switch")
+
+    def test_no_object_and_a_missing_node(self):
+        with self.assertRaises((RuntimeError, TypeError)):
+            cmds.setRigControlSpace(space=0)
+        self.assertMayaError(lambda: cmds.setRigControlSpace("noSuchNode", space=0), "Not a rig control")
+
+    def test_a_failed_call_changes_nothing(self):
+        before = self.control_values(MATCHED)
+        with self.assertRaises(RuntimeError):
+            cmds.setRigControlSpace(rig_name(POLE), space=9)
+        self.assertEqual(self.control_values(MATCHED), before)
+        self.assertEqual(cmds.getAttr(rig_name(POLE + ".space")), 0)
+
+
 class TwoBoneIkSwitchSpaces(SwitchTestCase):
     """The space switches on the IK handle (a rigConstraint) and the pole (the module's own)."""
 
@@ -392,6 +572,27 @@ class TwoBoneIkSwitchSpaces(SwitchTestCase):
         self.set_plugs({LAYOUT_CONTROL + ".translateX": 1.5, HANDLE + ".space": 1, POLE + ".space": 1})
         self.assertSwitchKeepsJoints(0.0, {UPPER + ".rotateZ": 20, LOWER + ".rotateZ": 35})
         self.assertSwitchKeepsJoints(1.0, {HANDLE + ".translateY": 1, HANDLE + ".translateX": -1})
+
+    def test_the_handles_constraint_space_reports_the_constraint(self):
+        found = json.loads(cmds.getRigControlSpace(rig_name(HANDLE)))
+        self.assertEqual(found, {"constraint": rig_name("arm_ik_space").lstrip(":"), "module": "", "labels": ["Chest", "Hips"], "current": 0})
+
+    def test_the_handle_switches_by_control_and_keeps_its_world(self):
+        self.set_plugs({LAYOUT_CONTROL + ".translateZ": 3})
+        before = cmds.xform(rig_name(HANDLE), query=True, worldSpace=True, matrix=True)
+        cmds.setRigControlSpace(rig_name(HANDLE), label="Hips")
+        self.assertEqual(cmds.getAttr(rig_name(HANDLE + ".space")), 1)
+        after = cmds.xform(rig_name(HANDLE), query=True, worldSpace=True, matrix=True)
+        for a, b in zip(before, after):
+            self.assertAlmostEqual(a, b, places=4)
+
+    def test_the_pole_in_ik_space_follows_a_handle_in_a_constraint_space(self):
+        # Hips stays at rest while the chest moves (0,0,3). The handle in Hips space stays, and the pole in Ik space follows
+        # the handle, so it stays at (2.5,5,0).
+        self.set_plugs({HANDLE + ".space": 1})
+        cmds.setRigControlSpace(rig_name(POLE), space=1)
+        self.set_plugs({LAYOUT_CONTROL + ".translateZ": 3})
+        self.assertWorldTranslation(rig_name(POLE), [2.5, 5, 0], 1e-4)
 
 
 class TwoBoneIkSwitchMirror(SwitchTestCase):
