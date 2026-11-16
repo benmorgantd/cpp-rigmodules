@@ -27,6 +27,8 @@ COMMAND_FLAGS = {
     "saveRigSkinWeights": ["file"],
     "loadRigSkinWeights": ["file"],
     "pruneToMaxInfluences": ["maxInfluences"],
+    "saveRigSkeleton": ["file"],
+    "loadRigSkeleton": ["file", "namespace"],
     "poseRigFromJointPose": ["jointPose", "sidecar", "mode"],
     "animateRigFromJointClip": ["jointClip", "sidecar", "mode", "startFrame", "endFrame"],
     "setRigIkFkBlend": ["blend"],

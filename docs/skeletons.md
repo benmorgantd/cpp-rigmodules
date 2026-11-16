@@ -2,7 +2,9 @@
 
 A skeleton file describes a skeleton's marked joints and carries its **skeleton hash**. Two skeletons are the same when their hashes match. A rig, its looks (meshes and skin weights) and its animation are made against one skeleton, so the hash is how a tool tells whether they still belong together (D54, `design/rigs-and-looks.md`).
 
-`saveRigSkeleton` writes the file. The rig build stamps the same hash on the rig root (`skeletonHash`, from the joints it was given), and it goes into weight files and the `meta` of poses and animations ([commands.md](commands.md#createrigfromtemplate)). Nothing reads the file back yet, and nothing checks a file against the rig's hash: that comes with the look swap.
+The file is the only stored form of a skeleton. There is no Maya scene beside it: `saveRigSkeleton` writes the file from joints, and `loadRigSkeleton` creates the joints from the file.
+
+The rig build stamps the same hash on the rig root (`skeletonHash`, from the joints it was given), and it goes into weight files and the `meta` of poses and animations ([commands.md](commands.md#createrigfromtemplate)). Nothing checks a file against the rig's hash yet: that comes with the look swap.
 
 ## What makes two skeletons the same
 
@@ -28,7 +30,25 @@ cmds.saveRigSkeleton(*joints, file="C:/assets/hero/skeletons/body/skeleton.json"
 # Returns "159c28565ab750f5", the skeleton hash
 ```
 
-The joints should be at rest: the file records them as they are. The full command reference is in [commands.md](commands.md#saverigskeleton).
+The joints should be at rest: the file records them as they are. Every joint of the skeleton must be marked, because the file holds marked joints only and an unmarked joint would be lost. The full command reference is in [commands.md](commands.md#saverigskeleton).
+
+## Loading
+
+```python
+joints = cmds.loadRigSkeleton(file="C:/assets/hero/skeletons/body/skeleton.json", namespace="hero_body")
+# Returns ["hero_body:a_jnt", "hero_body:b_jnt", "hero_body:c_jnt"]
+```
+
+The joints are created at rest, parented and marked, in the namespace. Saving them again writes the same file and the same hash, and a rig built on them stamps that hash. The full command reference is in [commands.md](commands.md#loadrigskeleton).
+
+A load gives back what the file holds and nothing else:
+
+- **The rest goes into `translate`, `jointOrient`, `scale` and `shear`, and `rotate` is zero.** A skeleton saved with values on `rotate` comes back with them in `jointOrient`: the same rest and the same hash.
+- **`segmentScaleCompensate` is off,** so a joint's local matrix is exactly its `restLocal`.
+- **A group between two joints is gone.** It was folded into the child's rest when the file was saved.
+- **Nothing else comes back:** joint radius, draw style, colour, labels, preferred angles, limits and custom attributes are not in the file.
+
+The stored `skeletonHash` is not trusted. The hash is recomputed from the joints, and a file whose stored value differs (a hand edit, a merge) loads with a warning. The next save writes the right one.
 
 ## File format
 

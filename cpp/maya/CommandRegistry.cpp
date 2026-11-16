@@ -44,6 +44,7 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ LoadRigSkinWeightsCmd::aCommandString, LoadRigSkinWeightsCmd::creator, LoadRigSkinWeightsCmd::newSyntax },
 		{ PruneToMaxInfluencesCmd::aCommandString, PruneToMaxInfluencesCmd::creator, PruneToMaxInfluencesCmd::newSyntax },
 		{ SaveRigSkeletonCmd::aCommandString, SaveRigSkeletonCmd::creator, SaveRigSkeletonCmd::newSyntax },
+		{ LoadRigSkeletonCmd::aCommandString, LoadRigSkeletonCmd::creator, LoadRigSkeletonCmd::newSyntax },
 		{ PoseRigFromJointPoseCmd::aCommandString, PoseRigFromJointPoseCmd::creator, PoseRigFromJointPoseCmd::newSyntax },
 		{ AnimateRigFromJointClipCmd::aCommandString, AnimateRigFromJointClipCmd::creator, AnimateRigFromJointClipCmd::newSyntax },
 		{ GetRigKeysCmd::aCommandString, GetRigKeysCmd::creator, GetRigKeysCmd::newSyntax },

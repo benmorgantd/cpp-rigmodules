@@ -29,8 +29,8 @@ What the author meant by a variant is closer to a **look**: the meshes, textures
 characters/hero/                          the asset: asset.json
   asset.json
   skeletons/
-    body/   hero_body_skeleton.ma, skeleton.json, exports/
-    face/   hero_face_skeleton.ma, skeleton.json, exports/
+    body/   skeleton.json, exports/
+    face/   skeleton.json, exports/
   rigs/
     body/        rig.json, template.json, shapes.json, postops.py, hero_body_rig.ma, publish/, controlposes/, controlanims/
     body_cine/   the cinematic copy: rig.json (skeleton "body", source rig "body"), its own template
@@ -45,12 +45,13 @@ characters/hero/                          the asset: asset.json
 - **`rig.json`** names its skeleton, its parent rig when it is an attachment, and its source rig when it is a copy (section 3.2). It's a new small file because the template can't hold the skeleton: templates are shared between assets (D29).
 - **The template's `rigName` stays** and must equal the rig's folder name (author, 2026-11-16), as the template handler checks it against the variant today.
 - **`look.json`** names the skeletons its meshes bind to. Each mesh binds to exactly one skeleton, as one skeletal mesh has one Skeleton in Unreal. A look can still carry meshes for several skeletons of the asset (a body mesh on `body`, a head mesh on `face`).
-- **`skeleton.json`** is the skeleton's description and hash (section 5). The skeleton save writes it next to the `.ma`, so it changes only when someone deliberately changes the skeleton, which D29's source-control rule requires.
+- **`skeleton.json` is the skeleton** (author, 2026-11-16, amending the first plan): its joints and its hash (section 5), and its only stored form. There is no skeleton `.ma`. Saving a skeleton serializes the joints (`saveRigSkeleton`) and loading one creates them from the file (`loadRigSkeleton`). It changes only when someone deliberately saves the skeleton, which D29's source-control rule requires. Rejected: a `.ma` with `skeleton.json` beside it, two formats for one thing that can disagree. What a load can't give back (radius, draw style, labels, groups between joints) is listed in `docs/skeletons.md`.
 - **Control poses and animation move under the rig.** They are keyed by control markup, and markup is unique per rig (D25), not per asset. Face poses and body poses become separate libraries, which matches how animators use them.
 - **Skeleton exports sit with their skeleton,** `skeletons/{skeleton}/exports/` (author, 2026-11-16): an animation FBX is skeleton data, and it targets one skeleton. `control-library.md` (D42) still shows `exports/` at the asset root and needs updating when this is built. `sources/` stays at the asset root.
 - **Publishes are per rig and per look.** A rig publish and a look publish are separate builds with separate ids, and an animation scene imports one of each.
 - **The default look is named `default`.**
-- **File names keep the role suffix** (D29 amendment, 2026-11-11): `{name}_{skeleton}_skeleton.ma`, `{name}_{rig}_rig.ma`, `{name}_{look}_model.ma`.
+- **File names keep the role suffix** (D29 amendment, 2026-11-11): `{name}_{rig}_rig.ma`, `{name}_{look}_model.ma`. A skeleton is always `skeleton.json`.
+- **A model file is only meshes** (author, 2026-11-16): no joints, no skinCluster, no history. Saving a model strips the skinning and exports the meshes with their history cleared. A look is its model plus its weight files.
 
 ### 3.1 Sharing a skeleton between assets
 
@@ -88,15 +89,16 @@ Asset id tokens and skeleton, rig and look names are lowercase letters, digits a
 
 ### 4.1 Swapping a look
 
-A look file holds its meshes skinned to a copy of the skeleton. Swapping:
+A look is its model file, which is only meshes, and its weight files (author, 2026-11-16, amending the first plan). Swapping:
 
-1. Import the new look into the rig's namespace.
-2. Check its weights' `skeletonHash` against the rig root's. A mismatch is an error naming the joints that differ (from the two `skeleton.json` files).
-3. Match each of the look's joints to the rig's joint by joint markup, never by name.
-4. Move each `skinCluster.matrix[i]` input to the rig's joint. `bindPreMatrix` is kept, so nothing rebinds.
-5. Delete the look's joints and the previous look's nodes, then update the `lookRoot`.
+1. Check the new look's weight files' `skeletonHash` against the rig root's. A mismatch is an error naming the joints that differ (from the two `skeleton.json` files).
+2. Import the new look's meshes into the rig's namespace.
+3. Load its weights onto the rig's joints. `loadRigSkinWeights` matches influences by joint markup, never by name, and binds at the joints' rest, so a posed rig doesn't matter.
+4. Delete the previous look's nodes, then update the `lookRoot`.
 
-There is no bake and no rebind, and the controls are never touched, so the animation in the scene survives a swap.
+There is no bake, and the controls are never touched, so the animation in the scene survives a swap.
+
+Rejected: a look file whose meshes are skinned to a copy of the skeleton, with the swap moving each `skinCluster.matrix[i]` input to the rig's joint (the first plan). It saved a bind, but a model file with joints in it is a second place a skeleton is stored.
 
 The swap also reconnects anything else the rig drives on the look. For the face this is the parameters node's outputs into the look's blend shapes (section 7.3).
 
@@ -204,7 +206,7 @@ Each skeleton, rig and look would be its own small asset that names the others b
 ### RigModules
 
 - `core/AssetId`: lowercase only. Template validation: lowercase `rigName`. `RigTemplates/Human.json` renamed.
-- New `core/SkeletonFile` (description and hash), a Maya helper that reads joints into it, and `saveRigSkeleton` to write `skeleton.json`. Built 2026-11-16 (phase 2).
+- New `core/SkeletonFile` (description and hash), a Maya helper that reads joints into it, and `saveRigSkeleton` to write `skeleton.json`. Built 2026-11-16 (phase 2). Its reader, `SkeletonScene::createSkeleton` and `loadRigSkeleton` were built 2026-11-16 with phase 4, when `skeleton.json` became the only skeleton format.
 - Rig root: `assetId` and `skeletonHash` attributes (in `RigAttr`), set by the build. The read phase rejects a namespace that already holds a rig, replacing the `rigName`-per-namespace check.
 - `assetRootModule` removed (`AssetRoot.h/.cpp`, its `MTypeId`, `RigTraversal::getAssetRoot`, the `assetRoot` connection). `getRigInfo`'s asset root key goes. Its id 0x00219 is not reused.
 - `getRigInfo`: the `variant` key becomes `rig`, adding `skeletonHash` (`RigAttr::Variant` goes). `rigmodules.query.RigInfo.variant` becomes `rig`. This is public API for mayadev.

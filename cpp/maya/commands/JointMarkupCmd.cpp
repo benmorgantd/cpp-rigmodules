@@ -8,7 +8,6 @@
 #include <string>
 
 #include <maya/MFnDependencyNode.h>
-#include <maya/MFnTypedAttribute.h>
 #include <maya/MGlobal.h>
 #include <maya/MPlug.h>
 #include <maya/MStringArray.h>
@@ -256,17 +255,11 @@ MStatus JointMarkupCmd::doCreate(const MArgDatabase& argData, const MObjectArray
 		return status;
 	}
 
-	// One attribute object per joint: a dynamic attribute MObject belongs to the node it is added to.
 	MObjectArray oMarkupAttrs;
 	for (unsigned int i = 0; i < oJoints.length(); ++i)
 	{
-		MFnTypedAttribute fnTypedAttr;
-		MObject oMarkupAttr = fnTypedAttr.create(RigAttr::JointMarkup, RigAttr::JointMarkup, MFnData::kString, MObject::kNullObj, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		fnTypedAttr.setStorable(true);
-		fnTypedAttr.setKeyable(false);
-
-		status = fDGMod.addAttribute(oJoints[i], oMarkupAttr);
+		MObject oMarkupAttr;
+		status = JointMarkupScene::queueAddMarkupAttribute(oJoints[i], fDGMod, oMarkupAttr);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		oMarkupAttrs.append(oMarkupAttr);
 	}

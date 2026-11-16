@@ -469,3 +469,14 @@ class SkeletonDocExamples(RigTestCase):
         self.assertEqual(documented.strip(), saved.strip(), "the doc should show the file's exact layout")
         for doc, heading in ((SKELETONS_DOC, "## Saving"), (COMMANDS_DOC, "## saveRigSkeleton")):
             self.assertIn('Returns "%s"' % result, doc_code_block(doc, heading, "python"))
+
+    def test_load_example_returns_the_documented_joints(self):
+        # The documented file, loaded as both pages show, gives the joints they quote.
+        path = os.path.join(config.WORK_DIR, "doc_skeleton_load.json").replace("\\", "/")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(doc_code_block(SKELETONS_DOC, "## File format", "json"))
+        joints = cmds.loadRigSkeleton(file=path, namespace="hero_body")
+        self.assertEqual(joints, ["hero_body:a_jnt", "hero_body:b_jnt", "hero_body:c_jnt"])
+        for doc, heading in ((SKELETONS_DOC, "## Loading"), (COMMANDS_DOC, "## loadRigSkeleton")):
+            self.assertIn("Returns %s" % json.dumps(joints), doc_code_block(doc, heading, "python"))
+        self.assertWorldTranslation("hero_body:c_jnt", [0, 4, 0])

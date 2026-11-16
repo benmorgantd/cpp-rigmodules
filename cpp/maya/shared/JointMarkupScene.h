@@ -5,6 +5,7 @@
 #include <string>
 
 #include <maya/MDagPathArray.h>
+#include <maya/MDGModifier.h>
 #include <maya/MMatrix.h>
 #include <maya/MObject.h>
 #include <maya/MStatus.h>
@@ -35,6 +36,10 @@ public:
 
 	// outHasMarkup is false, with success, when the joint has no markup attribute.
 	static MStatus readMarkup(const MObject& oJoint, bool& outHasMarkup, JointMarkup& outMarkup);
+
+	// Queues adding the rigMarkup attribute to a joint that has none. The attribute must exist before its plug takes
+	// a value, so the caller runs dgMod.doIt() and then queues newPlugValueString on MPlug(oJoint, oOutMarkupAttr).
+	static MStatus queueAddMarkupAttribute(const MObject& oJoint, MDGModifier& dgMod, MObject& oOutMarkupAttr);
 
 	// Resolves a module's selector to its joint and rest world matrix, and claims the joint for that module.
 	// Read-only, so module plan steps call it before anything is queued. Also fails if something already

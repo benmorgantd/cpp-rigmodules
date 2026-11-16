@@ -827,3 +827,24 @@ Objects: one or more joints, by name. The selection is not read.
 - Every joint must carry markup, marker joints (`export: false`) included, and no two may share a `[side, usage]`. Otherwise the errors are listed and nothing is written.
 - Errors, writing nothing: no joints named, a name that isn't a joint, no `file`.
 - Not undoable: it writes a file and changes nothing in the scene.
+
+## loadRigSkeleton
+
+Creates the joints of a skeleton file, at rest, parented and marked, and returns them in the file's order (what a load gives back is in [skeletons.md](skeletons.md#loading)).
+
+```python
+cmds.loadRigSkeleton(file="C:/assets/hero/skeletons/body/skeleton.json", namespace="hero_body")
+# Returns ["hero_body:a_jnt", "hero_body:b_jnt", "hero_body:c_jnt"]
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The skeleton file to read. Required. |
+| `namespace` | string | The namespace the joints go into, made if it doesn't exist. Colons at its ends are dropped. The current namespace when left out. |
+
+Objects: none.
+
+- The whole file is checked before anything is created. Every problem is listed, and nothing is created: bad JSON, a missing or unknown key, a `formatVersion` this build doesn't read, a joint with invalid markup, name, `rotateOrder` or `restLocal`, two joints with one `[side, usage]`, a `parent` that names no joint in the file, parents that form a loop.
+- A node in the namespace that already has a joint's name is an error, and nothing is created: Maya would rename the joint, and the name is part of the skeleton.
+- A stored `skeletonHash` that doesn't match the joints is a warning, not an error.
+- Undoable. Undo removes the joints. A namespace the command made stays, empty.

@@ -5,6 +5,7 @@
 
 #include <maya/MDagPath.h>
 #include <maya/MFnDependencyNode.h>
+#include <maya/MFnTypedAttribute.h>
 #include <maya/MGlobal.h>
 #include <maya/MItDag.h>
 #include <maya/MPlug.h>
@@ -132,4 +133,17 @@ MStatus JointMarkupScene::claimJoint(
 
 	mOutRestWorld = jointPath.inclusiveMatrix(&status);
 	return status;
+}
+
+MStatus JointMarkupScene::queueAddMarkupAttribute(const MObject& oJoint, MDGModifier& dgMod, MObject& oOutMarkupAttr)
+{
+	MStatus status;
+	// One attribute object per joint: a dynamic attribute MObject belongs to the node it is added to.
+	MFnTypedAttribute fnTypedAttr;
+	oOutMarkupAttr = fnTypedAttr.create(RigAttr::JointMarkup, RigAttr::JointMarkup, MFnData::kString, MObject::kNullObj, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	fnTypedAttr.setStorable(true);
+	fnTypedAttr.setKeyable(false);
+
+	return dgMod.addAttribute(oJoint, oOutMarkupAttr);
 }

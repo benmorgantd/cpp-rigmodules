@@ -16,6 +16,9 @@
 // written exactly. parent is the nearest ancestor among the skeleton's joints, so groups between joints fold into
 // restLocal.
 
+// The file is the skeleton's only stored form (D54, author 2026-11-16): there is no scene file beside it, so loading
+// a skeleton is deserializeSkeleton and creating its joints.
+
 #include "JointMarkup.h"
 
 #include <array>
@@ -23,9 +26,14 @@
 #include <string>
 #include <vector>
 
+struct UpdateTable;
+struct ValidationReport;
+
+// The skeleton file's version steps (D33). None yet: the format is version 1.
+const UpdateTable& skeletonUpdateTable();
+
 namespace SkeletonFileFormat
 {
-	inline constexpr int CurrentVersion{ 1 };
 	// Rest matrix values are rounded to this step before hashing (author, 2026-11-16), so float noise from a save,
 	// or a joint moved back to where it was, gives back the same hash.
 	inline constexpr double RestGrid{ 1e-4 };
@@ -57,3 +65,18 @@ std::uint64_t skeletonHash(const Skeleton& skeleton);
 
 // The file text above, with the joints sorted and the hash filled in.
 std::string serializeSkeleton(const Skeleton& skeleton);
+
+// Every problem goes into report: bad JSON, a missing or unknown key, an unknown formatVersion, a joint whose markup,
+// name, rotateOrder or restLocal is invalid, two joints with one (side, usage), a parent that names no joint in the
+// file, and parents that form a loop. outSkeleton's joints come back sorted. The caller creates nothing when report
+// has errors.
+// The stored skeletonHash is not trusted: the hash is always recomputed from the joints. A stored value that differs
+// (a hand edit, a merge) is a warning naming both, and the next save writes the right one.
+void deserializeSkeleton(const std::string& text, Skeleton& outSkeleton, ValidationReport& report);
+
+// The joints' indices ordered so every parent comes before its children, for creating them. skeleton must have
+// passed deserializeSkeleton's checks (every parent present, no loop).
+std::vector<std::size_t> skeletonParentsFirst(const Skeleton& skeleton);
+
+// The index of the joint with this (side, usage), or -1.
+int findSkeletonJoint(const Skeleton& skeleton, const JointSelector& selector);
