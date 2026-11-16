@@ -2,7 +2,7 @@
 
 A skeleton file describes a skeleton's marked joints and carries its **skeleton hash**. Two skeletons are the same when their hashes match. A rig, its looks (meshes and skin weights) and its animation are made against one skeleton, so the hash is how a tool tells whether they still belong together (D54, `design/rigs-and-looks.md`).
 
-`saveRigSkeleton` writes the file. Nothing reads it back yet: stamping the hash on a built rig and checking files against it come later.
+`saveRigSkeleton` writes the file. The rig build stamps the same hash on the rig root (`skeletonHash`, from the joints it was given), and it goes into weight files and the `meta` of poses and animations ([commands.md](commands.md#createrigfromtemplate)). Nothing reads the file back yet, and nothing checks a file against the rig's hash: that comes with the look swap.
 
 ## What makes two skeletons the same
 

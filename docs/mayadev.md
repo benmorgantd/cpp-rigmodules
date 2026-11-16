@@ -11,7 +11,7 @@ The boundary is decided (D24, [`design/mayadev-integration.md`](../design/mayade
 | Area | RigModules names | mayadev code that calls them |
 |---|---|---|
 | Rig build | `createRigFromTemplate` (`template`, `asset`, `namespace`) | `bmaya.maya.assettools.build_rig` |
-| Which rig, which asset | `rigmodules.query`: `get_rig_info`, `find_rig_info`, `get_rigs`, `RigInfo` (`rig_root`, `asset_id`, `variant`, `namespace`), `get_rig_controls`, `find_control`, `RIG_CONTROL_TYPE`. `rigmodules.template.get_rig_name` | `activerig`, `assettools`, `posetools`, `assethandlers` |
+| Which rig, which asset | `rigmodules.query`: `get_rig_info`, `find_rig_info`, `get_rigs`, `RigInfo` (`rig_root`, `asset_id`, `rig_name`, `skeleton_hash`, `namespace`), `get_rig_controls`, `find_control`, `RIG_CONTROL_TYPE`. `rigmodules.template.get_rig_name` | `activerig`, `assettools`, `posetools`, `assethandlers` |
 | Joint markup | `rigJointMarkup` (query and remove) | `assettools.print_joint_markup_interactive` and `remove_joint_markup_interactive` |
 | Controls and shapes | `getRigControls`, `getRigMirrorControl`, `saveRigControlShapes`, `loadRigControlShapes`, `mirrorRigControlShapes` | `assettools` (including the Mirror Shapes tools), `posetools` (Select All and Select Mirror Controls), `assethandlers.RigShapesHandler` |
 | Spaces | `rigmodules.query.find_control_space` (`ControlSpace`: `constraint`, `module`, `labels`, `current`), `setRigControlSpace` (D52: either kind of space, by control) | `maya.rigpanel.RigPanelSession.refresh_space` and `set_space` |
@@ -43,7 +43,7 @@ A rename, a removed flag or a changed return shape in anything in the table brea
 
 | Expectation | Where it matters |
 |---|---|
-| A built rig names its own `assetId` and variant (`rigName`) | `rigmodules.query.RigInfo`. Every mayadev tool finds an asset folder through it |
+| A built rig names its own `assetId`, `rigName` and `skeletonHash`, and a namespace holds one rig | `rigmodules.query.RigInfo`. Every mayadev tool finds an asset folder through it |
 | `saveRigPose`, `saveRigAnimation`, `saveRigControlShapes`, `saveRigSkinWeights` and `write_fbx` write exactly the path given, and the folder exists | mayadev makes the folders before it calls, and versions the old file first |
 | Commands take forward slashes | mayadev converts Windows paths with `.replace("\\", "/")` |
 | `loadRigSkinWeights` matches by the `meshId` in the file | The weight handler loads a folder, skipping files whose mesh isn't in the scene |
@@ -56,6 +56,11 @@ Found reading mayadev's code on 2026-11-14. The code wins, so these are flagged 
 - **Library file names (decided 2026-11-14, D51, built in mayadev 2026-11-14).** [`library.md`](library.md) names ControlAnims `<name>.controlanim.json` and ControlPoses `<name>.controlpose.json`. mayadev's `ControlDataHandler` and `CONTROL_ANIM_SUFFIX` write those names now, list a legacy `<name>.json` and load it, and its Save Pose and Save Animation tools write to the user's own library (`<projects root>\user\<login>\animlibrary\<asset id>\...`), not the asset's folders. This is on mayadev's branch `ui-phase1` until it merges.
 - **The reserved `user` folder.** mayadev's `assetid.check` refuses an asset id whose first token is `user` (the top-level folder of the projects root that holds each user's library), and its registry skips that folder. `core/AssetId` here has no such rule, so `createRigFromTemplate(asset="user\\x")` is accepted and mayadev then can't open the asset. Not changed here: it needs a decision on whether the plugin should know a mayadev folder name.
 - **Lowercase asset ids and rig names (D54, built here 2026-11-16).** `core/AssetId` rejects an uppercase token, and a template's `rigName` must be lowercase letters, digits and `_` (the default from `rigTemplateName` is snake_case). mayadev's `bmaya.core.asset.assetid` still accepts `[A-Za-z0-9_]` and compares with `casefold`, so New Asset can make `Characters\Hero`, which `createRigFromTemplate` then refuses. New Variant reads `rigName` through `rigmodules.template.get_rig_name`, so a template with `"rigName": "Human"` can still be copied in and then fails to build. Proposed for mayadev: `_TOKEN` becomes `[a-z0-9_]+`, the `casefold` comparisons become exact, and its tests and fixtures use lowercase ids. The author's test asset at `test\character\biped\variants\human\template.json` still has `"rigName": "Human"`, so `tools/perf/perf_scenes.py human` fails until that line is lowercased.
+- **Rigs and looks, phase 3 (D54, built here 2026-11-16).** These break mayadev on `main` until it follows. Proposed edits, not made:
+  - `RigInfo.variant` is now `rig_name`, and `asset_root` is gone: `bmaya/maya/assettools.py` (lines 126, 157 to 161, 177, 178, 194, 195, 205, 286, 287, 303), `bmaya/maya_ui/rigpanel.py` (151, 158), `tests/asset/test_maya_asset_tools.py` (161).
+  - Library `meta`: `skeletonId` is now `skeleton` (the caller's) and the rig fills `skeletonHash`. `variant` is now `rigName`. Pose and ControlAnim files are format version 3 and a version 2 file loads with the new names. Call sites: `assettools.py` (206, which passes `skeletonId`, now refused as an unknown key), `bmaya/core/asset/library.py` (373), `bmaya/maya_ui/librarybrowser.py` (440), and the tests `test_maya_asset_handlers.py` (303), `test_maya_asset_tools.py` (238), `test_maya_library_session.py` (155), `test_asset_library.py` (312).
+  - The default namespace is `{asset name}_{rigName}`: `build_rig` without `namespace` now builds `hero` with a `game` template into `hero_game`, not `hero`. `test_maya_asset_tools.py` (161) expects `"hero"`.
+  - A namespace holds one rig, so a second variant can no longer be built into the asset's namespace.
 - **`mayadev.mod`** is described by [`design/mayadev-integration.md`](../design/mayadev-integration.md) as existing, but is not in the mayadev repo.
 - The list of mayadev issues in that document is dated: see its "Status on 2026-11-14".
 

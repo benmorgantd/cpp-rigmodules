@@ -4,7 +4,7 @@
 // A pose file: the channel values of a rig's controls, keyed by control markup and channel name, never by node name, so
 // a pose survives renames and rebuilds (D25, D34).
 // {
-//     "formatVersion": 2,
+//     "formatVersion": 3,
 //     "meta": { "tags": ["hands"], "created": "2026-11-14T10:22:00Z" },
 //     "controls": {
 //         "Left": { "upperArm": { "translateX": 0.0, "rotateY": 12.5, "ikFkBlend": 1.0 } }
@@ -12,7 +12,7 @@
 // }
 // Values are in the scene's UI units, like cmds.getAttr. An enum stores its index (labels are append-only) and a bool
 // stores 0 or 1. `meta` is the library metadata (LibraryMeta.h, D51), an empty object when there is none. Version 1
-// files have no meta and load with an empty one.
+// files have no meta and load with an empty one. Version 2 named rigName `variant` and skeleton `skeletonId` (D54).
 
 #include "LibraryMeta.h"
 #include "RigTemplateValidation.h"

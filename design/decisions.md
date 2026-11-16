@@ -366,7 +366,7 @@ A constraint's `type` is `Parent`, `Orient` or `Point`. The driver gives only it
 ## Assets
 
 ### D29. The asset owns its namespace, its rig variants and its files
-**Status:** Decided (2026-11-08). The scene side is built and run in mayapy 2026. The file model, versions, registry and handlers are built on mayadev branch `asset-model` (not merged), as described in `asset-model.md`.
+**Status:** Decided (2026-11-08). The scene side is built and run in mayapy 2026. The file model, versions, registry and handlers are built on mayadev branch `asset-model` (not merged), as described in `asset-model.md`. **Amended by D54 (built 2026-11-16):** the scene side below is replaced. A namespace holds one rig, its default is `{asset name}_{rigName}`, and the rig root stores `assetId` itself: `assetRootModule` is removed.
 
 An asset is the top-level container for a character, prop, vehicle, vfx element or environment piece. In a scene, one `assetRootModule` per flat namespace owns every rig variant built into that namespace. On disk, the asset is a folder under `RIGGING_PROJECT_DIR` holding an `asset.json`, and its backslash-separated id is that folder's relative path. Full design: `asset-model.md`.
 
@@ -431,7 +431,7 @@ The author considered starting a new pipeline repo, because most of mayadev chan
 - **Consequence:** `getRigInfo`'s keys, `RigInfoKey::Namespace`, and the `rigmodules.query` and `rigmodules.template` names are public API for mayadev. The template authoring UI validates through RigModules `python/`, never with its own copy of the template rules (D24).
 
 ### D54. An asset holds skeletons, rigs and looks; a look replaces the variant
-**Status:** Decided (author, 2026-11-16). Not built. Full plan and phases: `rigs-and-looks.md`. Replaces D29's variants. `asset-model.md` describes what is built until phase 4.
+**Status:** Decided (author, 2026-11-16). Phases 2 and 3 built (2026-11-16), the rest not. Full plan and phases: `rigs-and-looks.md`. Replaces D29's variants. `asset-model.md` describes what is built until phase 4.
 
 A variant was a rig, so every outfit was its own rig. The author meant a look: meshes, textures, shaders and weights over one rig. An asset folder now holds `skeletons/{skeleton}/`, `rigs/{rig}/` (each naming its skeleton) and `looks/{look}/` (naming the skeletons its meshes bind to). A skeleton can have many rigs, and any rig of a skeleton can wear any of its looks.
 
@@ -459,6 +459,13 @@ A variant was a rig, so every outfit was its own rig. The author meant a look: m
   - The markup's `export` and `skin` flags are in the hash, since they are part of the markup and the weights depend on `skin`.
   - Rest is local to the parent, so an edit names the joint that changed and not everything below it. The parent is the nearest ancestor among the saved joints, so a group between joints folds into the child's rest.
   - No reader, update table or load command yet: nothing reads the file until the look swap (phase 5). The rig build's `skeletonHash` stamp is phase 3.
+- **Built (phase 3, 2026-11-16):** the scene side.
+  - A namespace holds one rig: the read phase fails when the namespace already holds any rig root. The default namespace is `{asset name}_{rigName}`, resolved in the read phase after the template is read (`RigBuildInputs::rigNamespace` is optional, and `createRig` returns the namespace it used for the command's redo).
+  - The rig root stores `assetId` and `skeletonHash`. `assetRootModule`, `RigTraversal::getAssetRoot` and the `assetRoot` connection are gone, and the id 0x00219 is retired. Old scenes with an asset root are not migrated (author, 2026-11-16), since no rigs need to survive.
+  - The stamp is `skeletonHash` of `SkeletonScene::readSkeleton` on the build's input joints, read before the build moves them, so it equals what `saveRigSkeleton` returns for the same joints. `readSkeleton` repeats `collectMarkedJoints`' checks, which keeps one home for the hash. Rejected: hashing from the `MarkedJointSet`, a second reader of the joints.
+  - `getRigInfo` drops `assetRoot` and adds `skeletonHash`. Its key was already `rigName`, so it stays. `RigInfo.variant` is `rig_name` (author, 2026-11-16, matching the key, over the plan's `rig`), `asset_root` goes and `skeleton_hash` is added.
+  - Library `meta` (D51), format version 3 for poses and ControlAnims: `variant` is `rigName` and the caller's `skeletonId` is `skeleton`, with the rig filling `skeletonHash`. One update step, `renameVersion2MetaKeys` in `core/LibraryMeta`, serves both formats.
+  - Weight files (D35), format version 2, with an update table: `skeletonHash` next to `topologyHash`, from the rig root that drives the influences (`RigTraversal::findSharedRigRoot`). `""` with a warning when they belong to no rig, an error when they belong to two. Rejected: hashing the influences themselves, which would differ from the rig's hash whenever a marked joint isn't an influence. A load records the hash and doesn't check it (author, 2026-11-16): the check comes with the look swap.
 - **Rejected:** one asset per skeleton, rig and look, named by id (option B). It made the hero about eight asset folders and still ended in large look folders. Also rejected: a master list of an asset's looks, which brings back D29's shared-file edit. Listing unsynced looks asks source control instead.
 - **Consequence:** `assetRootModule` and `getRigInfo`'s asset root key go. `getRigInfo`'s `variant` key, `RigInfo.variant`, the pose and animation `meta` field `variant` and the `skeletonId` field change name, so mayadev call sites and saved library files need an update step. Attachments (an attach node, cross-rig constraint drivers) and the face parameters node go through the gate later.
 

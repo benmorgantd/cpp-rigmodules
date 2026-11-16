@@ -18,12 +18,12 @@ The `.mod` doesn't add the plugin to `MAYA_PLUG_IN_PATH`. Load the `.mll` by pat
 ```python
 import rigmodules.query
 
-info = rigmodules.query.get_rig_info("hero:arm_ctrl_l")      # a control, module, rig root or driven joint
+info = rigmodules.query.get_rig_info("hero_body:arm_ctrl_l")      # a control, module, rig root or driven joint
 info.asset_id      # "shooter\\main\\characters\\hero"
-info.variant       # "game"
-info.rig_root      # "hero:rigRootModule1"
+info.rig_name      # "body"
+info.rig_root      # "hero_body:rigRootModule1"
 
-rigmodules.query.get_rigs("hero")    # every rig built into the hero namespace
+rigmodules.query.get_rigs("hero_body")    # the rig built into the hero_body namespace (a namespace holds one rig)
 ```
 
 | Function | Returns |
@@ -52,9 +52,9 @@ rigmodules.query.get_rigs("hero")    # every rig built into the hero namespace
 | Field | Value |
 |---|---|
 | `rig_root` | The rig root node |
-| `asset_root` | The asset root node that owns the rig's namespace |
 | `asset_id` | The asset id the rig was built for |
-| `variant` | The rig root's `rigName` |
+| `rig_name` | The rig root's `rigName` |
+| `skeleton_hash` | The rig root's `skeletonHash`: the hash of its input joints at build (D54) |
 | `namespace` | The namespace the rig was built into, without a leading `:` |
 | `rig_version` | The template's `rigVersion` |
 | `plugin_version` | The RigModules version that built the rig |
@@ -67,9 +67,9 @@ Keying a rig's controls. The pose commands set values and key nothing, so keying
 ```python
 import rigmodules.pose
 
-rigmodules.pose.key_rig("hero:rigRootModule1")                                  # every control
-rigmodules.pose.key_modules("hero:rigRootModule1", ["hero:arm_l", "hero:arm_r"])   # these modules' controls
-rigmodules.pose.key_controls(["hero:upperArm_l_ctrl_l"], time=12)
+rigmodules.pose.key_rig("hero_body:rigRootModule1")                                  # every control
+rigmodules.pose.key_modules("hero_body:rigRootModule1", ["hero_body:arm_l", "hero_body:arm_r"])   # these modules' controls
+rigmodules.pose.key_controls(["hero_body:upperArm_l_ctrl_l"], time=12)
 ```
 
 - **`key_controls(controls, time=None)`**: the named controls.
@@ -82,7 +82,7 @@ Pose files and ControlAnim files, read and edited without loading them onto a ri
 
 ```python
 import rigmodules.library
-found = rigmodules.library.get_data_file_info("hero:rigRootModule1", ["C:/lib/fist.controlpose.json", "C:/lib/walk.controlanim.json"])
+found = rigmodules.library.get_data_file_info("hero_body:rigRootModule1", ["C:/lib/fist.controlpose.json", "C:/lib/walk.controlanim.json"])
 found[0].meta["tags"], found[1].end_frame, found[1].unmatched_controls
 rigmodules.library.set_data_file_meta("C:/lib/fist.controlpose.json", {"tags": ["hands"], "status": "review"})
 ```
@@ -104,7 +104,7 @@ rigmodules.template.get_rig_name(r"C:\rigs\Human.json")    # "human"
 
 | Function | Returns |
 |---|---|
-| `get_rig_name(path)` | The template's `rigName`, which names the variant of every rig built from it. Raises `ValueError` when the file isn't JSON or has no `rigName`. It reads the key only: it doesn't apply the build's snake_case default or check the lowercase rule |
+| `get_rig_name(path)` | The template's `rigName`, which names every rig built from it and its folder in the asset, and makes the default namespace `{asset name}_{rigName}`. Raises `ValueError` when the file isn't JSON or has no `rigName`. It reads the key only: it doesn't apply the build's snake_case default or check the lowercase rule |
 
 It reads the file without checking the rest of it. Template validation runs when the rig is built ([templates.md](templates.md)).
 
@@ -115,9 +115,9 @@ A rig's display layers ([`createRigFromTemplate`](commands.md#createrigfromtempl
 ```python
 import rigmodules.displaylayers
 
-nodes = cmds.file(path, i=True, namespace="hero", returnNewNodes=True)
-rigmodules.displaylayers.add_meshes("hero:rigRootModule1", nodes)
-layer = rigmodules.displaylayers.get_layer("hero:rigRootModule1", "control")   # "hero:controlsLayer"
+nodes = cmds.file(path, i=True, namespace="hero_body", returnNewNodes=True)
+rigmodules.displaylayers.add_meshes("hero_body:rigRootModule1", nodes)
+layer = rigmodules.displaylayers.get_layer("hero_body:rigRootModule1", "control")   # "hero_body:controlsLayer"
 ```
 
 | Function | Meaning |
@@ -132,9 +132,9 @@ A rig's groups ([`createRigFromTemplate`](commands.md#createrigfromtemplate)). T
 ```python
 import rigmodules.groups
 
-nodes = cmds.file(path, i=True, namespace="hero", returnNewNodes=True)
-rigmodules.groups.parent_meshes("hero:rigRootModule1", nodes)
-group = rigmodules.groups.get_group("hero:rigRootModule1", "all")   # "|hero:rig_all"
+nodes = cmds.file(path, i=True, namespace="hero_body", returnNewNodes=True)
+rigmodules.groups.parent_meshes("hero_body:rigRootModule1", nodes)
+group = rigmodules.groups.get_group("hero_body:rigRootModule1", "all")   # "|hero_body:rig_all"
 ```
 
 | Function | Meaning |
@@ -149,9 +149,9 @@ A rig's selection sets ([`createRigFromTemplate`](commands.md#createrigfromtempl
 ```python
 import rigmodules.selection
 
-rigmodules.selection.select_skin_joints("hero:rigRootModule1", module="arm_l")          # the left arm's skin joints
-rigmodules.selection.get_skin_joints("hero:rigRootModule1", side="Right", usage="hand")
-joints = rigmodules.selection.get_missing_influences("hero:rigRootModule1", "hero:body_geo")   # for a first bind
+rigmodules.selection.select_skin_joints("hero_body:rigRootModule1", module="arm_l")          # the left arm's skin joints
+rigmodules.selection.get_skin_joints("hero_body:rigRootModule1", side="Right", usage="hand")
+joints = rigmodules.selection.get_missing_influences("hero_body:rigRootModule1", "hero_body:body_geo")   # for a first bind
 ```
 
 | Function | Returns |
@@ -171,9 +171,9 @@ Helpers for tools that save or load the weights of many meshes at once. The comm
 ```python
 import rigmodules.skinweights
 
-for mesh in rigmodules.skinweights.get_skinned_meshes("hero"):
+for mesh in rigmodules.skinweights.get_skinned_meshes("hero_body"):
     cmds.saveRigSkinWeights(mesh, file=f"C:/weights/{mesh.split(':')[-1]}.json")
-meshes = rigmodules.skinweights.get_meshes("hero")          # {meshId: mesh}
+meshes = rigmodules.skinweights.get_meshes("hero_body")     # {meshId: mesh}
 mesh = meshes[rigmodules.skinweights.read_file_mesh_id("C:/weights/body_geo.json")]
 ```
 
@@ -194,7 +194,7 @@ Joint animation as a file the plugin reads (D41). A JointClip file is JSON: a so
 import rigmodules.jointclip
 
 # Samples the active rig's export joints over frames 1 to 48 and writes the file. The same frame twice is a JointPose.
-joints = rigmodules.jointclip.capture_joint_clip("hero:rigRootModule1", 1, 48, "C:/anims/walk.json")
+joints = rigmodules.jointclip.capture_joint_clip("hero_body:rigRootModule1", 1, 48, "C:/anims/walk.json")
 ```
 
 | Function | Does |
@@ -247,10 +247,10 @@ FBX is the joint file for mocap and the engine (D42). `write_fbx` and `read_fbx`
 ```python
 import rigmodules.jointclip
 
-rigmodules.jointclip.capture_joint_clip("hero:rigRootModule1", 1, 48, "C:/tmp/walk.json")
+rigmodules.jointclip.capture_joint_clip("hero_body:rigRootModule1", 1, 48, "C:/tmp/walk.json")
 rigmodules.jointclip.write_fbx("C:/tmp/walk.json", "C:/export/walk/walk.fbx")
 rigmodules.jointclip.read_fbx("C:/export/walk/walk.fbx", "C:/tmp/walk.json")
-cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.json")
+cmds.animateRigFromJointClip("hero_body:rigRootModule1", jointClip="C:/tmp/walk.json")
 ```
 
 ### Bone maps

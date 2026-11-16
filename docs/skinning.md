@@ -3,10 +3,10 @@
 Skin weights are saved to one file per mesh and loaded back onto the same mesh, even after joints are renamed or the rig is rebuilt. The commands are `setRigMeshId`, `saveRigSkinWeights` and `loadRigSkinWeights` ([commands.md](commands.md#setrigmeshid)).
 
 ```python
-cmds.setRigMeshId("hero:body_geo")      # once per mesh
-cmds.saveRigSkinWeights("hero:body_geo", file="C:/assets/hero/weights/body_geo.json")
+cmds.setRigMeshId("hero_body:body_geo")      # once per mesh
+cmds.saveRigSkinWeights("hero_body:body_geo", file="C:/assets/hero/weights/body_geo.json")
 # ... rebuild the rig, re-import the mesh ...
-cmds.loadRigSkinWeights("hero:body_geo", file="C:/assets/hero/weights/body_geo.json")
+cmds.loadRigSkinWeights("hero_body:body_geo", file="C:/assets/hero/weights/body_geo.json")
 ```
 
 ## What a file matches on
@@ -46,12 +46,13 @@ The file is laid out so that version control shows only what changed:
 
 ```json
 {
-    "formatVersion": 1,
+    "formatVersion": 2,
     "meshId": "C214154A-43E0-A9E2-3CAA-22B52F9603E1",
     "meshName": "box_geo",
     "vertexCount": 8,
     "faceCount": 6,
     "topologyHash": "97334e59ca3cfcab",
+    "skeletonHash": "",
     "skinMethod": "Linear",
     "influences": [
         ["Center", "a"],
@@ -74,11 +75,12 @@ This is a 2-unit-tall cube standing on the origin, skinned to joints marked `[Ce
 
 | Key | Meaning |
 |---|---|
-| `formatVersion` | `1` |
+| `formatVersion` | `2`. A version 1 file has no `skeletonHash` and loads as one with `""` |
 | `meshId` | The mesh's `meshId` |
 | `meshName` | The mesh's name without namespace, for people reading the file. Loading never matches on it. |
 | `vertexCount`, `faceCount` | The mesh's counts |
 | `topologyHash` | 16 lowercase hex digits: 64-bit FNV-1a over the vertex count, the face count, each face's vertex count and each face's vertex indices, each as 4 little-endian bytes |
+| `skeletonHash` | The `skeletonHash` of the rig root that drives the influences, at save: the skeleton the weights were made on (D54). `""` when the influences belong to no rig, as in this example. Recorded only: a load doesn't compare it with the rig's yet |
 | `skinMethod` | `Linear`, `DualQuaternion` or `WeightBlended` |
 | `influences` | `[side, usage]` per influence, sorted by side, then usage. A weight's influence index points into this list. |
 | `weights` | One list per vertex of influence index and weight pairs, in index order. Zero weights are left out. Each vertex must sum to 1. |

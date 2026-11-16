@@ -151,7 +151,9 @@ class SaveAndLoad(SkinWeightTestCase):
         self.bind()
         self.assertEqual(cmds.saveRigSkinWeights(self.box, file=self.path), 2)
         data = self.read_file()
-        self.assertEqual(data["formatVersion"], 1)
+        self.assertEqual(data["formatVersion"], 2)
+        # The skel joints belong to no rig, so the file knows no skeleton (D54).
+        self.assertEqual(data["skeletonHash"], "")
         self.assertEqual(data["meshId"], mesh_id)
         self.assertEqual(data["meshName"], "box_geo")
         self.assertEqual((data["vertexCount"], data["faceCount"]), (8, 6))
@@ -358,7 +360,11 @@ class LoadErrors(SkinWeightTestCase):
 
     def test_unsupported_format_version(self):
         set_mesh_id(self.box, FIXTURE_ID)
-        self.assertNotLoaded(self.write_fixture_with(formatVersion=2), "formatVersion", "unsupported")
+        self.assertNotLoaded(self.write_fixture_with(formatVersion=3), "formatVersion", "not supported")
+
+    def test_bad_skeleton_hash(self):
+        set_mesh_id(self.box, FIXTURE_ID)
+        self.assertNotLoaded(self.write_fixture_with(formatVersion=2, skeletonHash="xyz"), "skeletonHash")
 
     def test_unknown_key(self):
         set_mesh_id(self.box, FIXTURE_ID)
@@ -525,3 +531,24 @@ class BindAtRest(RigTestCase):
 
         cmds.setAttr(rig_name("a_ctrl_c") + ".rotateZ", 0)
         self.assertEqual([round(v, 4) for v in world_point(self.box, 3)], [0.5, 2, 0.5])
+
+    def test_save_stamps_the_rig_skeleton_hash(self):
+        # The fixture is version 1, with no skeletonHash: it loads through the update step (D33, D54).
+        cmds.loadRigSkinWeights(self.box, file=FIXTURE_PATH)
+        path = os.path.join(config.WORK_DIR, "rig_box_weights.json")
+        cmds.saveRigSkinWeights(self.box, file=path)
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+        rig_root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        self.assertEqual(data["formatVersion"], 2)
+        self.assertEqual(data["skeletonHash"], cmds.getAttr(rig_root + ".skeletonHash"))
+        self.assertRegex(data["skeletonHash"], r"^[0-9a-f]{16}$")
+
+    def test_save_fails_for_influences_of_two_rigs(self):
+        self.build("fkchain_three", self.make_skeleton("fk_three", namespace="skel2"), namespace="other")
+        cmds.skinCluster(rig_name("a_jnt"), "other:b_jnt", self.box, toSelectedBones=True)
+        path = os.path.join(config.WORK_DIR, "rig_box_weights.json")
+        if os.path.exists(path):
+            os.remove(path)
+        self.assertMayaError(lambda: cmds.saveRigSkinWeights(self.box, file=path), "other:", "weights were not saved")
+        self.assertFalse(os.path.exists(path))

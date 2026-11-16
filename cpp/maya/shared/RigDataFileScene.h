@@ -14,8 +14,8 @@
 class RigDataFileScene
 {
 public:
-	// Sets the four meta fields a rig fills (LibraryMetaKey): the asset id, the variant (the rig root's rigName), the
-	// plugin version stamp of the rig, and the time now. The other fields are left as they are.
+	// Sets the five meta fields a rig fills (LibraryMetaKey): the asset id, rigName and skeletonHash of the rig root
+	// (D54), its plugin version stamp, and the time now. The other fields are left as they are.
 	static MStatus fillRigMeta(const MObject& oRigRoot, LibraryMeta& meta);
 
 	// The meta for a file being saved: the caller's JSON object from the flag, if it is set (applyCallerMeta), then the

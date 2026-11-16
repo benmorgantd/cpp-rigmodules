@@ -1,5 +1,5 @@
 """getRigInfo and its Python wrapper rigmodules.query.get_rig_info (D29, D30): from any rig node to its rig
-root, asset root, asset id, variant, namespace and version stamps."""
+root, asset id, rig name, skeleton hash, namespace and version stamps (D54)."""
 import json
 
 from maya import cmds
@@ -18,17 +18,19 @@ class GetRigInfo(RigTestCase):
         super().setUp()
         self.build_standard(TEMPLATE, SKELETON)
         self.rig_root = cmds.ls(type="rigRootModule")[0]
-        self.asset_root = cmds.ls(type="assetRootModule")[0]
 
     def info(self, node):
         return json.loads(cmds.getRigInfo(node))
 
     def test_rig_root_reports_its_rig_and_asset(self):
         info = self.info(self.rig_root)
+        self.assertEqual(set(info), {"rigRoot", "assetId", "rigName", "skeletonHash", "namespace", "rigVersion",
+                                     "pluginVersion", "publishVersion"})
         self.assertEqual(info["rigRoot"], self.rig_root)
-        self.assertEqual(info["assetRoot"], self.asset_root)
         self.assertEqual(info["assetId"], config.ASSET_ID)
         self.assertEqual(info["rigName"], "fktest")
+        self.assertEqual(info["skeletonHash"], cmds.getAttr(self.rig_root + ".skeletonHash"))
+        self.assertRegex(info["skeletonHash"], r"^[0-9a-f]{16}$")
         self.assertEqual(info["namespace"], config.RIG_NAMESPACE)
         self.assertEqual(info["rigVersion"], 1)
         self.assertEqual(info["pluginVersion"], cmds.getAttr(self.rig_root + ".pluginVersion"))
@@ -55,18 +57,14 @@ class GetRigInfo(RigTestCase):
     def test_other_nodes_give_an_empty_result_without_an_error(self):
         cmds.select(clear=True)
         loose_joint = cmds.joint(name="loose_jnt")
-        for node in (loose_joint, self.asset_root, cmds.polyCube()[0]):
+        for node in (loose_joint, cmds.createNode("network"), cmds.polyCube()[0]):
             self.assertEqual(cmds.getRigInfo(node), "", node)
 
     def test_missing_node(self):
         self.assertMayaError(lambda: cmds.getRigInfo("no_such_node"), "Node not found")
 
-    def test_rig_root_without_asset_root(self):
-        cmds.disconnectAttr(self.asset_root + ".children", self.rig_root + ".assetRoot")
-        self.assertMayaError(lambda: cmds.getRigInfo(self.rig_root), "is not connected to an asset root")
-
     def test_takes_exactly_one_node(self):
-        self.assertMayaError(lambda: cmds.getRigInfo(self.rig_root, self.asset_root))
+        self.assertMayaError(lambda: cmds.getRigInfo(self.rig_root, rig_name("layout")))
 
 
 class PythonQuery(RigTestCase):
@@ -77,9 +75,9 @@ class PythonQuery(RigTestCase):
         info = rigmodules.query.get_rig_info(rig_name("layout_0_ctrl_c"))
         self.assertEqual(info, rigmodules.query.RigInfo(
             rig_root=rig_root,
-            asset_root=cmds.ls(type="assetRootModule")[0],
             asset_id=config.ASSET_ID,
-            variant="fktest",
+            rig_name="fktest",
+            skeleton_hash=cmds.getAttr(rig_root + ".skeletonHash"),
             namespace=config.RIG_NAMESPACE,
             rig_version=1,
             plugin_version=cmds.getAttr(rig_root + ".pluginVersion"),
@@ -88,7 +86,7 @@ class PythonQuery(RigTestCase):
 
     def test_get_rigs_lists_every_rig_or_one_namespace(self):
         self.build_standard(TEMPLATE, SKELETON)
-        self.build_standard(TEMPLATE, SKELETON, namespace="other")
+        self.build(TEMPLATE, self.make_skeleton(SKELETON, namespace="skel2"), namespace="other")
         rigs = rigmodules.query.get_rigs()
         self.assertEqual([info.namespace for info in rigs], ["other", config.RIG_NAMESPACE])
         self.assertEqual(rigmodules.query.get_rigs("other"), rigs[:1])

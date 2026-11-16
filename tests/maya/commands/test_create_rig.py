@@ -1,5 +1,7 @@
 """createRigFromTemplate: arguments, namespaces, assets and joint handling (D18, D29). Template content is in
 concepts/test_template_validation.py, undo in concepts/test_undo_redo.py."""
+import os
+
 from maya import cmds
 
 import rigmodules.displaylayers
@@ -96,17 +98,19 @@ class Arguments(RigTestCase):
 
 class Namespaces(RigTestCase):
 
-    def test_default_namespace_is_the_asset_name(self):
+    def test_default_namespace_is_asset_name_and_rig_name(self):
+        # D54: always "{asset name}_{rigName}", so a second rig of the asset never moves the first one's namespace.
         joints = self.make_skeleton(SKELETON)
-        self.build(TEMPLATE, joints, asset="shooter\\main\\characters\\hero")
-        self.assertExists(":hero:layout")
-        self.assertExists(":hero:fkchain1_ctrl_c")
+        self.build(TEMPLATE, joints, namespace=None, asset="shooter\\main\\characters\\hero")
+        self.assertExists(":hero_fktest:layout")
+        self.assertExists(":hero_fktest:fkchain1_ctrl_c")
+        self.assertFalse(cmds.namespace(exists=":hero"))
 
-    def test_namespace_flag_overrides_the_asset_name(self):
+    def test_namespace_flag_overrides_the_default(self):
         joints = self.make_skeleton(SKELETON)
         self.build(TEMPLATE, joints, asset="shooter\\main\\characters\\hero", namespace="hero_damaged")
         self.assertExists(":hero_damaged:layout")
-        self.assertFalse(cmds.namespace(exists=":hero"))
+        self.assertFalse(cmds.namespace(exists=":hero_fktest"))
 
     def test_joints_move_into_rig_namespace_with_names_unchanged(self):
         self.build_standard(TEMPLATE, SKELETON)
@@ -154,7 +158,7 @@ class Namespaces(RigTestCase):
     def test_second_build_into_same_namespace_fails(self):
         self.build_standard(TEMPLATE, SKELETON)
         joints = self.make_skeleton(SKELETON, namespace="skel2")
-        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "already exists", "Nothing was built")
+        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "already holds the rig", "Nothing was built")
         self.assertEqual(len(cmds.ls(type="rigRootModule")), 1)
 
     def test_same_short_name_from_two_namespaces_fails(self):
@@ -173,75 +177,66 @@ class Namespaces(RigTestCase):
         self.assertEqual(cmds.listConnections("other:fkchain1_jnt.offsetParentMatrix") or [], [])
 
 
-class AssetRoots(RigTestCase):
-    """The asset owns the rig namespace: one asset root per namespace, shared by every rig variant (D29)."""
+class RigNamespaces(RigTestCase):
+    """A namespace holds one rig, and the rig root carries the asset id (D54, which merged the asset root into it)."""
 
     TEMPLATE_RIG_NAME = "fktest"   # fixtures/templates/layout_rig.json
 
-    def make_asset_root(self, asset_id, name="asset"):
-        if not cmds.namespace(exists=":rig"):
-            cmds.namespace(add=":rig")
-        node = cmds.createNode("assetRootModule", name=rig_name(name))
-        cmds.setAttr(node + ".assetId", asset_id, type="string")
-        return node
-
-    def rig_roots_of(self, asset_root):
-        return cmds.listConnections(asset_root + ".children", source=False, type="rigRootModule") or []
-
-    def test_new_asset_root_takes_the_asset_flag(self):
+    def test_rig_root_takes_the_asset_flag(self):
         self.build_standard(TEMPLATE, SKELETON)
-        asset_roots = cmds.ls(type="assetRootModule")
-        self.assertEqual(len(asset_roots), 1)
-        self.assertEqual(cmds.getAttr(asset_roots[0] + ".assetId"), config.ASSET_ID)
-        self.assertEqual(len(self.rig_roots_of(asset_roots[0])), 1)
+        (rig_root,) = cmds.ls(type="rigRootModule")
+        self.assertEqual(cmds.getAttr(rig_root + ".assetId"), config.ASSET_ID)
 
-    def test_existing_asset_root_is_reused(self):
-        asset_root = self.make_asset_root(config.ASSET_ID)
-        self.build_standard(TEMPLATE, SKELETON)
-        self.assertEqual(cmds.ls(type="assetRootModule"), [asset_root.lstrip(":")])
-        self.assertEqual(len(self.rig_roots_of(asset_root)), 1)
-
-    def test_asset_root_id_compares_exactly(self):
-        # Ids are lowercase (D54), so an asset root holding an uppercase id set by hand is another asset.
-        self.make_asset_root(config.ASSET_ID.upper())
-        joints = self.make_skeleton(SKELETON)
-        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "owns the namespace", "Nothing was built")
-        self.assertEqual(cmds.ls(type="rigRootModule"), [])
-
-    def test_undo_keeps_the_existing_asset_root(self):
-        asset_root = self.make_asset_root(config.ASSET_ID)
+    def test_default_namespace_undo_and_redo(self):
+        # The command resolves the default in its read phase and redoes into it.
         cmds.undoInfo(state=True, infinity=True)
-        self.build_standard(TEMPLATE, SKELETON)
+        self.build(TEMPLATE, self.make_skeleton(SKELETON), namespace=None)
+        self.assertEqual(len(cmds.ls("rig_%s:*" % self.TEMPLATE_RIG_NAME, type="rigRootModule")), 1)
         cmds.undo()
-        self.assertExists(asset_root)
         self.assertEqual(cmds.ls(type="rigRootModule"), [])
+        cmds.redo()
+        self.assertEqual(len(cmds.ls("rig_%s:*" % self.TEMPLATE_RIG_NAME, type="rigRootModule")), 1)
 
-    def test_asset_root_with_another_id_fails(self):
-        self.make_asset_root("other\\asset")
+    def test_any_rig_root_takes_the_namespace(self):
+        # Another asset and another rig name: the namespace is still taken.
+        cmds.namespace(add=":" + config.RIG_NAMESPACE)
+        other = cmds.createNode("rigRootModule", name=rig_name("other_rig_root"))
+        cmds.setAttr(other + ".assetId", "other\\asset", type="string")
         joints = self.make_skeleton(SKELETON)
-        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "other\\asset", "owns the namespace", "Nothing was built")
-        self.assertEqual(cmds.ls(type="rigRootModule"), [])
-
-    def test_two_asset_roots_in_the_namespace_fail(self):
-        self.make_asset_root(config.ASSET_ID, name="asset_a")
-        self.make_asset_root(config.ASSET_ID, name="asset_b")
-        joints = self.make_skeleton(SKELETON)
-        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "2 asset roots", "Nothing was built")
-        self.assertEqual(cmds.ls(type="rigRootModule"), [])
-
-    def test_variant_already_built_for_the_asset_fails(self):
-        asset_root = self.make_asset_root(config.ASSET_ID)
-        rig_root = cmds.createNode("rigRootModule", name=rig_name("other_rig_root"))
-        cmds.setAttr(rig_root + ".rigName", self.TEMPLATE_RIG_NAME, type="string")
-        cmds.connectAttr(asset_root + ".children", rig_root + ".assetRoot")
-        joints = self.make_skeleton(SKELETON)
-        self.assertMayaError(lambda: self.build(TEMPLATE, joints), self.TEMPLATE_RIG_NAME, "already built", "Nothing was built")
+        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "other_rig_root", "already holds the rig", "Nothing was built")
         self.assertEqual(cmds.ls(type="rigRootModule"), ["rig:other_rig_root"])
 
-    def test_other_namespace_gets_its_own_asset_root(self):
-        self.make_asset_root("other\\asset")
-        self.build_standard(TEMPLATE, SKELETON, namespace="hero")
-        self.assertEqual(len(cmds.ls(type="assetRootModule")), 2)
+    def test_another_namespace_takes_a_second_rig(self):
+        self.build_standard(TEMPLATE, SKELETON)
+        self.build(TEMPLATE, self.make_skeleton(SKELETON, namespace="skel2"), namespace="hero")
+        self.assertEqual(len(cmds.ls(type="rigRootModule")), 2)
+
+    def test_asset_root_node_type_is_gone(self):
+        self.assertNotIn("assetRootModule", cmds.allNodeTypes())
+
+
+class SkeletonHashStamp(RigTestCase):
+    """The build stamps its input joints' skeletonHash on the rig root (D54). saveRigSkeleton is the reference."""
+
+    def test_stamp_matches_save_rig_skeleton_on_the_same_joints(self):
+        joints = self.make_skeleton(SKELETON)
+        path = os.path.join(config.WORK_DIR, "stamp_skeleton.json")
+        expected = cmds.saveRigSkeleton(*joints, file=path)
+        self.build(TEMPLATE, joints)
+        (rig_root,) = cmds.ls(type="rigRootModule")
+        self.assertEqual(cmds.getAttr(rig_root + ".skeletonHash"), expected)
+        # The joints moved into the rig namespace keep their names and rests, so the built rig hashes the same.
+        self.assertEqual(cmds.saveRigSkeleton(*cmds.ls(rig_name("*"), type="joint"), file=path), expected)
+
+    def test_stamp_changes_with_the_skeleton(self):
+        joints = self.make_skeleton(SKELETON)
+        path = os.path.join(config.WORK_DIR, "stamp_skeleton.json")
+        before = cmds.saveRigSkeleton(*joints, file=path)
+        cmds.setAttr(joints[-1] + ".translateX", 1.0)
+        self.build(TEMPLATE, joints)
+        stamp = cmds.getAttr(cmds.ls(type="rigRootModule")[0] + ".skeletonHash")
+        self.assertRegex(stamp, r"^[0-9a-f]{16}$")
+        self.assertNotEqual(stamp, before)
 
 
 class RigNames(RigTestCase):

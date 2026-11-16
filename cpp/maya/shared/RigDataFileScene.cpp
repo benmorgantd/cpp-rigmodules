@@ -1,7 +1,6 @@
 #include "maya/shared/RigDataFileScene.h"
 #include "core/ControlMarkup.h"
 #include "core/RigControlFilter.h"
-#include "maya/nodes/AssetRoot.h"
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
@@ -14,15 +13,9 @@
 
 MStatus RigDataFileScene::fillRigMeta(const MObject& oRigRoot, LibraryMeta& meta)
 {
-	MObject oAssetRoot;
-	MStatus status = RigTraversal::getAssetRoot(oRigRoot, oAssetRoot);
-	if (!status)
-	{
-		return status;
-	}
-
-	meta.assetId = MPlug(oAssetRoot, AssetRootNode::aAssetId).asString().asChar();
-	meta.variant = MPlug(oRigRoot, RigRootNode::aRigName).asString().asChar();
+	meta.assetId = MPlug(oRigRoot, RigRootNode::aAssetId).asString().asChar();
+	meta.rigName = MPlug(oRigRoot, RigRootNode::aRigName).asString().asChar();
+	meta.skeletonHash = MPlug(oRigRoot, RigRootNode::aSkeletonHash).asString().asChar();
 	meta.pluginVersion = MPlug(oRigRoot, RigRootNode::aPluginVersion).asString().asChar();
 	meta.created = utcTimestampNow();
 	return MStatus::kSuccess;

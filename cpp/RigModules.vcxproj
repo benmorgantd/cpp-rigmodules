@@ -185,7 +185,6 @@
     <ClCompile Include="maya\modules\FkChainModule.cpp" />
     <ClCompile Include="maya\modules\LayoutModule.cpp" />
     <ClCompile Include="maya\modules\TwoBoneIkModule.cpp" />
-    <ClCompile Include="maya\nodes\AssetRoot.cpp" />
     <ClCompile Include="maya\nodes\Constraints.cpp" />
     <ClCompile Include="maya\nodes\RigControlNode.cpp" />
     <ClCompile Include="maya\nodes\RigRoot.cpp" />
@@ -251,7 +250,6 @@
     <ClInclude Include="maya\modules\FkChainModule.h" />
     <ClInclude Include="maya\modules\LayoutModule.h" />
     <ClInclude Include="maya\modules\TwoBoneIkModule.h" />
-    <ClInclude Include="maya\nodes\AssetRoot.h" />
     <ClInclude Include="maya\nodes\Constraints.h" />
     <ClInclude Include="maya\nodes\RigControlNode.h" />
     <ClInclude Include="maya\nodes\RigRoot.h" />

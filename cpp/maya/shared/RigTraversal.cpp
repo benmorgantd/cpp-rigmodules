@@ -238,15 +238,32 @@ bool RigTraversal::isRigNode(const MObject& oNode)
 	return MFnDependencyNode(oNode).typeId() == RigRootNode::id || !getNodeModule(oNode).isNull();
 }
 
-MStatus RigTraversal::getAssetRoot(const MObject& oRigRoot, MObject& oOutAssetRoot)
+MStatus RigTraversal::findSharedRigRoot(const MObjectArray& oNodes, MObject& oOutRigRoot)
 {
-	const MPlug pSource = MPlug(oRigRoot, RigRootNode::aAssetRoot).source();
-	if (pSource.isNull())
+	oOutRigRoot = MObject::kNullObj;
+	for (unsigned int i = 0; i < oNodes.length(); ++i)
 	{
-		MGlobal::displayError(MFnDependencyNode(oRigRoot).name() + " is not connected to an asset root.");
-		return MStatus::kFailure;
+		if (!isRigNode(oNodes[i]))
+		{
+			continue;
+		}
+		MObject oRigRoot;
+		MStatus status = getOwningRigRoot(oNodes[i], oRigRoot);
+		if (!status)
+		{
+			return status;
+		}
+		if (oOutRigRoot.isNull())
+		{
+			oOutRigRoot = oRigRoot;
+		}
+		else if (oRigRoot != oOutRigRoot)
+		{
+			MGlobal::displayError(MFnDependencyNode(oNodes[i]).name() + " belongs to the rig " + MFnDependencyNode(oRigRoot).name()
+				+ ", but other nodes belong to " + MFnDependencyNode(oOutRigRoot).name() + ".");
+			return MStatus::kFailure;
+		}
 	}
-	oOutAssetRoot = pSource.node();
 	return MStatus::kSuccess;
 }
 

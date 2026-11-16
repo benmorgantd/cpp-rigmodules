@@ -16,7 +16,7 @@ class FileProblems(RigTestCase):
     def build_path(self, path):
         from maya import cmds
         joints = self.make_skeleton("layout_rig")
-        return lambda: cmds.createRigFromTemplate(*joints, template=path, asset=config.ASSET_ID)
+        return lambda: cmds.createRigFromTemplate(*joints, template=path, asset=config.ASSET_ID, namespace=config.RIG_NAMESPACE)
 
     def test_malformed_json_reports_the_file(self):
         path = self.write_raw("malformed.json", '{"assetId": "x", ')

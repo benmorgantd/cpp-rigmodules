@@ -19,10 +19,10 @@ ARM_R = rig_name("upperArm_r_ctrl_r")
 CHEST = rig_name("chest_ctrl_c")
 
 CALLER_META = {
-    "template": "Human", "skeletonId": "Biped", "author": "bmorgan", "description": "Clenched right hand",
+    "template": "Human", "skeleton": "body", "author": "bmorgan", "description": "Clenched right hand",
     "category": "Expressions", "status": "scratch", "tags": ["hands", "fist"], "rigRegions": ["hands"],
 }
-RIG_FIELDS = {"assetId", "variant", "pluginVersion", "created"}
+RIG_FIELDS = {"assetId", "rigName", "skeletonHash", "pluginVersion", "created"}
 
 
 def rig_root():
@@ -85,14 +85,15 @@ class SaveMeta(DataFileTestCase):
     def test_a_save_without_the_flag_holds_exactly_the_fields_the_rig_fills(self):
         for path in (self.save_pose(), self.save_anim()):
             data = self.read(path)
-            self.assertEqual(data["formatVersion"], 2)
+            self.assertEqual(data["formatVersion"], 3)
             self.assertEqual(set(data["meta"]), RIG_FIELDS)
 
     def test_the_rig_fields_come_from_the_rig(self):
         info = rigmodules.query.get_rig_info(rig_root())
         meta = self.read(self.save_pose())["meta"]
         self.assertEqual(meta["assetId"], info.asset_id)
-        self.assertEqual(meta["variant"], json.loads(cmds.getRigInfo(rig_root()))["rigName"])
+        self.assertEqual(meta["rigName"], info.rig_name)
+        self.assertEqual(meta["skeletonHash"], info.skeleton_hash)
         self.assertEqual(meta["pluginVersion"], info.plugin_version)
         self.assertRegex(meta["created"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
 
@@ -148,6 +149,29 @@ class OlderAndBadFiles(DataFileTestCase):
         self.assertEqual((pose["formatVersion"], pose["meta"]), (1, {}))
         self.assertEqual((anim["formatVersion"], anim["meta"]), (1, {}))
 
+    def test_a_version_2_meta_is_renamed(self):
+        # D54: variant became rigName and skeletonId became skeleton. A version 2 file has no skeletonHash.
+        old_meta = {"assetId": "tests\\rig", "variant": "body", "skeletonId": "biped", "tags": ["a"]}
+        new_meta = {"assetId": "tests\\rig", "rigName": "body", "skeleton": "biped", "tags": ["a"]}
+        pose = self.write("p.json", dict(self.POSE_V1, formatVersion=2, meta=old_meta))
+        anim = self.write("a.json", dict(self.ANIM_V1, formatVersion=2, meta=old_meta))
+        for info in self.info(pose, anim):
+            self.assertEqual((info["formatVersion"], info["meta"]), (2, new_meta))
+        cmds.loadRigPose(rig_root(), file=pose)
+        self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+        cmds.loadRigAnimation(rig_root(), file=anim)
+        self.assertEqual(cmds.keyframe(ARM_L + ".rotateZ", query=True, valueChange=True), [0, 90])
+
+    def test_a_version_2_meta_is_written_at_version_3(self):
+        path = self.write("p.json", dict(self.POSE_V1, formatVersion=2, meta={"variant": "body", "skeletonId": "biped"}))
+        cmds.setRigDataFileMeta(file=path, meta='{"tags": ["a"]}')
+        data = self.read(path)
+        self.assertEqual((data["formatVersion"], data["meta"]), (3, {"rigName": "body", "skeleton": "biped", "tags": ["a"]}))
+
+    def test_a_version_3_file_with_a_version_2_key_is_refused(self):
+        pose = dict(self.POSE_V1, formatVersion=3, meta={"variant": "body"})
+        self.assertMayaError(lambda: cmds.loadRigPose(rig_root(), file=self.write("p.json", pose)), "failed validation")
+
     def test_a_version_2_file_without_meta_is_refused(self):
         pose = dict(self.POSE_V1, formatVersion=2)
         self.assertMayaError(lambda: cmds.loadRigPose(rig_root(), file=self.write("p.json", pose)), "failed validation")
@@ -171,7 +195,7 @@ class GetRigDataFileInfo(DataFileTestCase):
         path = self.save_pose(meta=json.dumps(CALLER_META))
         [info] = self.info(path)
         self.assertEqual(info["file"], path)
-        self.assertEqual((info["kind"], info["formatVersion"]), ("pose", 2))
+        self.assertEqual((info["kind"], info["formatVersion"]), ("pose", 3))
         self.assertEqual(info["meta"]["tags"], ["hands", "fist"])
         self.assertEqual(info["meta"]["assetId"], rigmodules.query.get_rig_info(rig_root()).asset_id)
         data = self.read(path)["controls"]
@@ -264,7 +288,7 @@ class SetRigDataFileMeta(DataFileTestCase):
         path = self.write("old.json", OlderAndBadFiles.POSE_V1)
         cmds.setRigDataFileMeta(file=path, meta='{"tags": ["a"]}')
         data = self.read(path)
-        self.assertEqual((data["formatVersion"], data["meta"]), (2, {"tags": ["a"]}))
+        self.assertEqual((data["formatVersion"], data["meta"]), (3, {"tags": ["a"]}))
         self.assertEqual(data["controls"], OlderAndBadFiles.POSE_V1["controls"])
 
     def test_a_field_the_rig_fills_is_refused_and_the_file_is_unchanged(self):

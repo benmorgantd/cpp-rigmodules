@@ -74,12 +74,17 @@ namespace PoseFileKey
 namespace LibraryMetaKey
 {
 	inline constexpr const char* AssetId{ "assetId" };
-	inline constexpr const char* Variant{ "variant" };
+	inline constexpr const char* RigName{ "rigName" };
+	inline constexpr const char* SkeletonHash{ "skeletonHash" };
 	inline constexpr const char* PluginVersion{ "pluginVersion" };
 	inline constexpr const char* Created{ "created" };
 
 	inline constexpr const char* Template{ "template" };
-	inline constexpr const char* SkeletonId{ "skeletonId" };
+	inline constexpr const char* Skeleton{ "skeleton" };
+
+	// Version 2 names, renamed by the version 3 update step (D54). Read only by that step.
+	inline constexpr const char* V2Variant{ "variant" };
+	inline constexpr const char* V2SkeletonId{ "skeletonId" };
 	inline constexpr const char* Author{ "author" };
 	inline constexpr const char* Description{ "description" };
 	inline constexpr const char* Category{ "category" };
@@ -147,6 +152,7 @@ namespace SkinWeightFileKey
 	inline constexpr const char* VertexCount{ "vertexCount" };
 	inline constexpr const char* FaceCount{ "faceCount" };
 	inline constexpr const char* TopologyHash{ "topologyHash" };
+	inline constexpr const char* SkeletonHash{ "skeletonHash" };   // version 2 (D54)
 	inline constexpr const char* SkinMethod{ "skinMethod" };
 	inline constexpr const char* Influences{ "influences" };
 	inline constexpr const char* Weights{ "weights" };
@@ -201,13 +207,12 @@ namespace RotateOrders
 // we should continue to reference their static attributes.
 namespace RigAttr
 {
-	// AssetRoot layer
-	inline constexpr const char* AssetId{ "assetId" };
-	inline constexpr const char* AssetRoot{ "assetRoot" };
-	inline constexpr const char* Children{ "children" };
-
 	// RigRoot layer
+	// The asset the rig belongs to (D29). On the rig root since D54 merged the asset root into it.
+	inline constexpr const char* AssetId{ "assetId" };
 	inline constexpr const char* RigName{ "rigName" };
+	// The skeleton's hash (D54): skeletonHash of the build's input joints at rest, as Hash64::format text.
+	inline constexpr const char* SkeletonHash{ "skeletonHash" };
 	inline constexpr const char* RigVersion{ "rigVersion" };
 	// Import stamps (D29): the plugin that built the rig, and the asset publish it came from (0 until published).
 	// Tools compare them with the current plugin and the asset registry's latest publish.
@@ -286,8 +291,8 @@ namespace PoleSpaceLabels
 }
 
 // Keys of getRigInfo's JSON result. Public API: mayadev reads them through the rigmodules Python package.
-// The attribute values reuse their RigAttr names (rigName, assetId, ...). The node names reuse
-// RigAttr::RigRoot and RigAttr::AssetRoot. Only the namespace has no attribute of its own.
+// The attribute values reuse their RigAttr names (rigName, assetId, skeletonHash, ...). The rig root's node name
+// reuses RigAttr::RigRoot. Only the namespace has no attribute of its own.
 namespace RigInfoKey
 {
 	inline constexpr const char* Namespace{ "namespace" };

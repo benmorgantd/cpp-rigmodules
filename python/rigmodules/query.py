@@ -15,10 +15,10 @@ class RigInfo:
     """What a rig node belongs to (D29). Built from getRigInfo's JSON result."""
 
     rig_root: str          # the rigRootModule node
-    asset_root: str        # the assetRootModule node that owns the rig's namespace
     asset_id: str          # "shooter\\main\\characters\\hero"
-    variant: str           # the rig root's rigName
-    namespace: str         # the namespace the rig was built into, without a leading ":"
+    rig_name: str          # the rig root's rigName: the rig's folder name in the asset (D54)
+    skeleton_hash: str     # the rig root's skeletonHash: its input joints' hash at build, 16 hex digits (D54)
+    namespace: str         # the namespace the rig was built into, without a leading ":". It holds only this rig
     rig_version: int       # the template's rigVersion
     plugin_version: str    # the RigModules version that built the rig
     publish_version: str   # the publish id the rig came from, "" until published
@@ -88,16 +88,16 @@ def get_rigs(namespace: str | None = None) -> list[RigInfo]:
 def find_rig_info(node: str) -> RigInfo | None:
     """The rig that a rig root, rig module, rig control or rig-driven joint belongs to, or None for any other
     node. Reports nothing for those, so it suits a selection callback. Raises RuntimeError for a missing node
-    or a broken rig, such as a rig root with no asset root."""
+    or a broken rig, such as a rig module with no rig root."""
     text = cmds.getRigInfo(node)
     if not text:
         return None
     data = json.loads(text)
     return RigInfo(
         rig_root=data["rigRoot"],
-        asset_root=data["assetRoot"],
         asset_id=data["assetId"],
-        variant=data["rigName"],
+        rig_name=data["rigName"],
+        skeleton_hash=data["skeletonHash"],
         namespace=data["namespace"],
         rig_version=data["rigVersion"],
         plugin_version=data["pluginVersion"],

@@ -16,9 +16,10 @@ from rigtest.case import RigTestCase, rig_name
 README = os.path.join(config.REPO_DIR, "README.md")
 TEMPLATES_DOC = os.path.join(config.REPO_DIR, "docs", "templates.md")
 
-# The README builds with asset="shooter\\characters\\hero", so the rig lands in the asset's namespace, hero.
+# The README builds with asset="shooter\\characters\\hero" and no namespace, so its rig "body" lands in the
+# default namespace "{asset name}_{rigName}" (D54).
 DOC_ASSET = "shooter\\characters\\hero"
-DOC_NAMESPACE = "hero"
+DOC_NAMESPACE = "hero_body"
 
 SPINE3_CTRL = rig_name("spine3_ctrl_c", DOC_NAMESPACE)
 ARM_CTRL = rig_name("arm_ctrl_l", DOC_NAMESPACE)
@@ -45,7 +46,7 @@ class ReadmeQuickStart(RigTestCase):
 
     def setUp(self):
         super().setUp()
-        self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET)
+        self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET, namespace=None)
 
     def rotate_spine3_z(self, degrees):
         cmds.setAttr(SPINE3_CTRL + ".rotateZ", degrees)
@@ -62,7 +63,7 @@ class ReadmeQuickStart(RigTestCase):
 
     def test_space_switch(self):
         con = cmds.createRigConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"])
-        self.assertEqual(con.lstrip(":"), "hero:arm_ctrl_l_space")
+        self.assertEqual(con.lstrip(":"), "hero_body:arm_ctrl_l_space")
         self.assertEqual(cmds.attributeQuery("space", node=ARM_CTRL, listEnum=True), ["World:Chest"])
 
         # World is the first driver, so it starts active and the spine no longer carries the arm.
@@ -80,7 +81,7 @@ class ReadmeQuickStart(RigTestCase):
         """The example under '## getRigControlSpace' in docs/commands.md."""
         cmds.createRigConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
         self.assertEqual(json.loads(cmds.getRigControlSpace(ARM_CTRL)),
-                         {"constraint": "hero:arm_ctrl_l_space", "module": "", "labels": ["World", "Chest"], "current": 1})
+                         {"constraint": "hero_body:arm_ctrl_l_space", "module": "", "labels": ["World", "Chest"], "current": 1})
         self.assertEqual(cmds.getRigControlSpace(SPINE3_CTRL), "")
 
     def test_set_rig_control_space_example(self):
@@ -114,13 +115,13 @@ class OrientConstraintExamples(RigTestCase):
     def test_template_example(self):
         template = readme_quick_start_template()
         template["constraints"] = [templates_doc_orient_constraint()]
-        self.build(template, self.make_skeleton("readme_quick_start"), asset=DOC_ASSET)
-        self.assertEqual(cmds.getAttr("hero:arm_space.constraintType", asString=True), "Orient")
+        self.build(template, self.make_skeleton("readme_quick_start"), asset=DOC_ASSET, namespace=None)
+        self.assertEqual(cmds.getAttr("hero_body:arm_space.constraintType", asString=True), "Orient")
         self.assertPivotFollowsChestRotationDoesNot()
 
     def test_command_example(self):
-        self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET)
-        cmds.createRigConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], type="Orient")
+        self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET, namespace=None)
+        cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], type="Orient")
         self.assertPivotFollowsChestRotationDoesNot()
 
 
@@ -143,8 +144,8 @@ class ControlDocExamples(RigTestCase):
 
     def setUp(self):
         super().setUp()
-        self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET)
-        self.root = "hero:rigRootModule1"   # the name the docs examples use
+        self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET, namespace=None)
+        self.root = "hero_body:rigRootModule1"   # the name the docs examples use
 
     def test_get_rig_controls_examples(self):
         self.assertEqual(len(cmds.getRigControls(self.root)), 7)
@@ -398,7 +399,7 @@ class LibraryMetaDocExample(RigTestCase):
         entries = json.loads(cmds.getRigDataFileInfo(root, file=[pose, anim]))
         for entry in entries:
             self.assertEqual({key: entry["meta"][key] for key in meta}, meta)
-            self.assertEqual(set(entry["meta"]) - set(meta), {"assetId", "variant", "pluginVersion", "created"})
+            self.assertEqual(set(entry["meta"]) - set(meta), {"assetId", "rigName", "skeletonHash", "pluginVersion", "created"})
         self.assertEqual({key for entry in entries for key in entry} - {"file"}, self.documented_info_keys() - {"file"})
         cmds.setRigDataFileMeta(file=pose, meta=json.dumps({"tags": ["hands"], "status": "review"}))
         self.assertEqual(json.loads(cmds.getRigDataFileInfo(root, file=[pose]))[0]["meta"]["status"], "review")

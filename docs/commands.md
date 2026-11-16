@@ -58,7 +58,7 @@ cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="sh
 |---|---|---|
 | `template` | string | Path to the template. Required. |
 | `asset` | string | The asset the rig belongs to: its folder path below the projects root, `\` between folders (`shooter\characters\hero`), any depth. Each folder name is lowercase letters, digits and `_`: uppercase is an error, not converted (D54). Required. Templates name no asset, so one template builds many assets. |
-| `namespace` | string | The rig's namespace. Defaults to the asset's last folder name (`hero`). `":"` is the root, nested paths such as `char:rig` work, and an existing namespace is reused. |
+| `namespace` | string | The rig's namespace. Defaults to the asset's last folder name and the template's `rigName`, `{asset name}_{rigName}` (`hero_body`), with no special case for an asset with one rig (D54). `":"` is the root, nested paths such as `char:rig` work, and an existing namespace with no rig in it is reused. |
 | `checkMirrorPositions` | bool | Default `False`. With `True`, a mirrored module ([templates.md](templates.md#mirroring)) fails the build when one of its joints is more than 0.001 from its source joint reflected across X = 0. |
 
 Objects: one or more joint names, with their namespace (`skel:arm_jnt`).
@@ -70,7 +70,7 @@ After a successful build the selection is cleared.
 
 Every node created goes in the rig namespace. The input joints are moved there too, with their names unchanged. A joint already in that namespace stays where it is. Joint and module names must be free in the rig namespace, so `skel:a` and `other:a` cannot both be passed.
 
-The asset owns the rig namespace. The namespace holds one `assetRootModule`, which stores `asset` in its `assetId` attribute. Every rig built into the namespace connects to it, one per rig variant (`rigName`). The build reuses the namespace's asset root if there is one, and creates it otherwise. The build fails, building nothing, when the namespace holds more than one asset root, when the asset root's `assetId` differs from `asset`, or when a rig with the template's `rigName` is already connected to it.
+A namespace holds one rig (D54), so the display layers, groups and selection sets below, named per namespace, are that rig's own. The build fails, building nothing, when the namespace already holds a rig root, whatever its asset or `rigName`: pass `namespace` to build a second instance. The rig root stores `asset` in its `assetId` attribute.
 
 The build makes three display layers in the rig namespace: `jointsLayer` (the joints passed in), `meshesLayer` (empty) and `controlsLayer` (every control, with `hideOnPlayback` on so controls aren't drawn while the timeline plays). A layer of the same name already in the namespace is deleted first, and a node that was in another layer moves into the rig's layer. Each layer connects to its own message attribute on the rig root, so tools find them without reading names:
 
@@ -80,7 +80,7 @@ The build makes three display layers in the rig namespace: `jointsLayer` (the jo
 | `meshDisplayLayer` | `meshesLayer` |
 | `controlDisplayLayer` | `controlsLayer` |
 
-Meshes are not inputs of the build: the model is imported after it, so `meshesLayer` starts empty and the tool that imports the model fills it with the imported meshes ([`rigmodules.displaylayers.add_meshes`](python.md#rigmodulesdisplaylayers)). A second rig variant built into the same namespace replaces the first variant's layers.
+Meshes are not inputs of the build: the model is imported after it, so `meshesLayer` starts empty and the tool that imports the model fills it with the imported meshes ([`rigmodules.displaylayers.add_meshes`](python.md#rigmodulesdisplaylayers)). A layer left in the namespace by a deleted rig is replaced.
 
 The build also makes two groups in the rig namespace. `rig_all` is the parent of the rig's topmost joints and topmost controls, and `mesh_grp` is an empty group under it. The tool that imports the model parents the imported transforms to `mesh_grp` ([`rigmodules.groups.parent_meshes`](python.md#rigmodulesgroups)). Both groups have translate, rotate and scale locked and hidden, and only `visibility` is keyable. Each connects to a message attribute on the rig root:
 
@@ -108,20 +108,22 @@ The rig root records what built it, so tools can find out-of-date rigs in a scen
 
 | Attribute | Meaning |
 |---|---|
-| `rigName` | The rig variant, from the template |
+| `assetId` | The `asset` flag |
+| `rigName` | The rig, from the template: its folder name in the asset |
+| `skeletonHash` | The hash of the input joints as they were handed in, the same one [`saveRigSkeleton`](#saverigskeleton) returns for them (D54). Looks, weight files and library files that carry it can be matched to the skeleton |
 | `rigVersion` | The template's `rigVersion` |
 | `pluginVersion` | The RigModules plugin version that ran the build |
 | `publishVersion` | The id of the asset publish the rig came from, for example `20261108T142012Z_bmorgan` (UTC time and user). A build leaves it empty, and the publish step sets it |
 
-Undo removes the rig and moves the joints back, but leaves the (empty) rig namespace and an asset root that existed before the build.
+Undo removes the rig and moves the joints back, but leaves the (empty) rig namespace.
 
 ## createRigConstraint
 
 Adds a space switch to a rig control after the build. Templates can declare the same thing in `constraints` ([templates.md](templates.md#constraints)).
 
 ```python
-cmds.createRigConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
-# Returns the constraint node: 'hero:arm_ctrl_l_space'
+cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
+# Returns the constraint node: 'hero_body:arm_ctrl_l_space'
 ```
 
 | Flag | Type | Meaning |
@@ -136,7 +138,7 @@ Object: the control, which must be the control of a module's child plug.
 
 ```python
 # The arm keeps the world's rotation, and its shoulder pivot follows the chest.
-cmds.createRigConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], type="Orient")
+cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], type="Orient")
 ```
 
 - **Driver modules** without a namespace are looked up in the control's namespace, whatever the current namespace is. A driver that names a namespace (`other:layout.end`) is used as given.
@@ -152,8 +154,8 @@ cmds.createRigConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], 
 Switches a constraint to another driver without moving the control at that frame.
 
 ```python
-cmds.setRigConstraintSpace("hero:arm_ctrl_l_space", label="World")
-cmds.setRigConstraintSpace("hero:arm_ctrl_l_space", space=0)
+cmds.setRigConstraintSpace("hero_body:arm_ctrl_l_space", label="World")
+cmds.setRigConstraintSpace("hero_body:arm_ctrl_l_space", space=0)
 ```
 
 | Flag | Type | Meaning |
@@ -177,8 +179,8 @@ Undo restores both the enum and the control's values.
 Switches a [TwoBoneIk](modules.md#twoboneik) limb between IK and FK without a pop. It first writes the control values that reproduce the limb's current pose on both sides, then sets `ikFkBlend`.
 
 ```python
-cmds.setRigIkFkBlend("hero:armSettings_l_ctrl_l", blend=0)    # to FK
-cmds.setRigIkFkBlend("hero:arm_l", blend=1)                   # to IK (the default)
+cmds.setRigIkFkBlend("hero_body:armSettings_l_ctrl_l", blend=0)    # to FK
+cmds.setRigIkFkBlend("hero_body:arm_l", blend=1)                   # to IK (the default)
 # Returns the controls that changed
 ```
 
@@ -199,9 +201,9 @@ Object: one of the limb's six controls, or its module node. A joint is not accep
 Returns a rig's controls, found through the rig's connections. Filter by module type and control markup (see [controls.md](controls.md#control-markup)).
 
 ```python
-cmds.getRigControls("hero:rigRootModule1")                                # every control
-cmds.getRigControls("hero:rigRootModule1", moduleType="FkChain", side="Left")
-cmds.getRigControls("hero:rigRootModule1", usage=["spine1", "spine2"])
+cmds.getRigControls("hero_body:rigRootModule1")                                # every control
+cmds.getRigControls("hero_body:rigRootModule1", moduleType="FkChain", side="Left")
+cmds.getRigControls("hero_body:rigRootModule1", usage=["spine1", "spine2"])
 ```
 
 | Flag | Type | Meaning |
@@ -222,7 +224,7 @@ Object: the rig root node (type `rigRootModule`).
 Writes every control's shape to a shape file (format in [controls.md](controls.md#shape-file)).
 
 ```python
-cmds.saveRigControlShapes("hero:rigRootModule1", file="C:/assets/hero/shapes.json")
+cmds.saveRigControlShapes("hero_body:rigRootModule1", file="C:/assets/hero/shapes.json")
 ```
 
 | Flag | Type | Meaning |
@@ -236,7 +238,7 @@ Object: the rig root node. Returns the names of the controls saved. Not undoable
 Sets control shapes from a shape file, matching controls by markup.
 
 ```python
-cmds.loadRigControlShapes("hero:rigRootModule1", file="C:/assets/hero/shapes.json")
+cmds.loadRigControlShapes("hero_body:rigRootModule1", file="C:/assets/hero/shapes.json")
 ```
 
 | Flag | Type | Meaning |
@@ -254,8 +256,8 @@ Object: the rig root node. Returns the names of the controls changed.
 Returns the control on the other side of the same rig: the control with the same `usage` and the swapped `side` in its markup ([controls.md](controls.md#control-markup)).
 
 ```python
-cmds.getRigMirrorControl("hero:upperArm_l_ctrl_l")
-# Returns 'hero:upperArm_r_ctrl_r'
+cmds.getRigMirrorControl("hero_body:upperArm_l_ctrl_l")
+# Returns 'hero_body:upperArm_r_ctrl_r'
 ```
 
 Object: one control.
@@ -266,12 +268,13 @@ Object: one control.
 
 ## getRigInfo
 
-Returns what a rig node belongs to, as JSON text: its rig root and asset root, the asset id, the variant, the namespace and the rig root's version stamps. Python tools use it through `rigmodules.query` ([python.md](python.md)).
+Returns what a rig node belongs to, as JSON text: its rig root, the asset id, the rig name, the skeleton hash, the namespace and the rig root's version stamps. Python tools use it through `rigmodules.query` ([python.md](python.md)).
 
 ```python
-cmds.getRigInfo("hero:arm_ctrl_l")
-# Returns '{"assetId":"shooter\\main\\characters\\hero","assetRoot":"hero:assetRootModule1","namespace":"hero",
-#           "pluginVersion":"0.1","publishVersion":"","rigName":"game","rigRoot":"hero:rigRootModule1","rigVersion":1}'
+cmds.getRigInfo("hero_body:arm_ctrl_l")
+# Returns '{"assetId":"shooter\\main\\characters\\hero","namespace":"hero_body","pluginVersion":"0.1",
+#           "publishVersion":"","rigName":"body","rigRoot":"hero_body:rigRootModule1","rigVersion":1,
+#           "skeletonHash":"3f2a9c0b7d4e1f68"}'
 ```
 
 Object: one rig root, rig module, rig control, or joint driven by a rig. A joint belongs to the rig whose module drives its `offsetParentMatrix`.
@@ -279,16 +282,16 @@ Object: one rig root, rig module, rig control, or joint driven by a rig. A joint
 | Key | Value |
 |---|---|
 | `rigRoot` | The rig root node |
-| `assetRoot` | The asset root node that owns the rig's namespace |
-| `assetId` | The asset root's `assetId` |
-| `rigName` | The rig root's `rigName`: the variant |
+| `assetId` | The rig root's `assetId` |
+| `rigName` | The rig root's `rigName` |
+| `skeletonHash` | The rig root's `skeletonHash` |
 | `namespace` | The namespace the rig root is in, without a leading `:` |
 | `rigVersion` | The template's `rigVersion` |
 | `pluginVersion` | The RigModules version that built the rig |
 | `publishVersion` | The publish the rig came from, `""` until published |
 
-- Any other node (an unrigged joint, an asset root, a mesh) returns `""`, with no error, so a selection callback can ask about anything.
-- A missing node is an error. So is a broken rig, such as a rig root with no asset root.
+- Any other node (an unrigged joint, a mesh) returns `""`, with no error, so a selection callback can ask about anything.
+- A missing node is an error. So is a broken rig, such as a control whose module has no rig root.
 - Not undoable: it changes nothing.
 
 ## mirrorRigControlShapes
@@ -296,8 +299,8 @@ Object: one rig root, rig module, rig control, or joint driven by a rig. A joint
 Mirrors control shapes from one side of a rig to the other.
 
 ```python
-cmds.mirrorRigControlShapes("hero:rigRootModule1")                    # Left onto Right
-cmds.mirrorRigControlShapes("hero:rigRootModule1", leftToRight=False) # Right onto Left
+cmds.mirrorRigControlShapes("hero_body:rigRootModule1")                    # Left onto Right
+cmds.mirrorRigControlShapes("hero_body:rigRootModule1", leftToRight=False) # Right onto Left
 ```
 
 | Flag | Type | Meaning |
@@ -317,9 +320,9 @@ Reports what each control is: its module, its markup and its mirror.
 
 ```python
 import json
-data = json.loads(cmds.getRigControlInfo("hero:upperArm_l_ctrl_l", "hero:chest_ctrl_c"))
-data["hero:upperArm_l_ctrl_l"]
-# {"moduleType": "FkChain", "module": "hero:arm_l", "side": "Left", "usage": "upperArm", "mirror": "hero:upperArm_r_ctrl_r"}
+data = json.loads(cmds.getRigControlInfo("hero_body:upperArm_l_ctrl_l", "hero_body:chest_ctrl_c"))
+data["hero_body:upperArm_l_ctrl_l"]
+# {"moduleType": "FkChain", "module": "hero_body:arm_l", "side": "Left", "usage": "upperArm", "mirror": "hero_body:upperArm_r_ctrl_r"}
 ```
 
 Objects: one or more rig controls. Returns a JSON object keyed by control name. From Python, [`rigmodules.query.get_control`](python.md#rigmodulesquery) and `get_rig_controls` wrap it.
@@ -333,12 +336,12 @@ Reports a control's space switch: who owns it, the space labels and the space th
 
 ```python
 import json
-text = cmds.getRigControlSpace("hero:arm_ctrl_l")
+text = cmds.getRigControlSpace("hero_body:arm_ctrl_l")
 json.loads(text)
-# {"constraint": "hero:arm_ctrl_l_space", "module": "", "labels": ["World", "Chest"], "current": 1}
-text = cmds.getRigControlSpace("hero:armPole_l_ctrl_l")
+# {"constraint": "hero_body:arm_ctrl_l_space", "module": "", "labels": ["World", "Chest"], "current": 1}
+text = cmds.getRigControlSpace("hero_body:armPole_l_ctrl_l")
 json.loads(text)
-# {"constraint": "", "module": "hero:arm_l", "labels": ["Parent", "Ik"], "current": 0}
+# {"constraint": "", "module": "hero_body:arm_l", "labels": ["Parent", "Ik"], "current": 0}
 ```
 
 Object: exactly one rig control. Returns a JSON string, or an empty string for a control that has no space switch. A control built with a single driver has none: the `space` enum exists only for two or more drivers. From Python, [`rigmodules.query.find_control_space`](python.md#rigmodulesquery) wraps it.
@@ -357,8 +360,8 @@ Object: exactly one rig control. Returns a JSON string, or an empty string for a
 Switches a control to another space and keeps the control where it is in the world. One command for both kinds of space: a [constraint](#createrigconstraint) space and a module-owned space (the [TwoBoneIk](modules.md#twoboneik) pole's `Parent` and `Ik`). It names the control, so a tool needs no constraint or module name: [`getRigControlSpace`](#getrigcontrolspace) lists the labels.
 
 ```python
-cmds.setRigControlSpace("hero:arm_ctrl_l", label="Chest")
-cmds.setRigControlSpace("hero:armPole_l_ctrl_l", space=1)    # the pole follows the IK handle
+cmds.setRigControlSpace("hero_body:arm_ctrl_l", label="Chest")
+cmds.setRigControlSpace("hero_body:armPole_l_ctrl_l", space=1)    # the pole follows the IK handle
 ```
 
 | Flag | Type | Meaning |
@@ -381,8 +384,8 @@ Reports a control's animation interface: the channels an animator keys and a pos
 
 ```python
 import json
-data = json.loads(cmds.getRigControlChannels("hero:upperArm_l_ctrl_l", "hero:chest_ctrl_c"))
-data["hero:chest_ctrl_c"][0]
+data = json.loads(cmds.getRigControlChannels("hero_body:upperArm_l_ctrl_l", "hero_body:chest_ctrl_c"))
+data["hero_body:chest_ctrl_c"][0]
 # {"name": "translateX", "type": "doubleLinear", "rest": 0.0, "min": None, "max": None, "mirror": "copy"}
 ```
 
@@ -399,8 +402,8 @@ Objects: one or more rig controls. Returns a JSON object keyed by control name, 
 Puts a rig's controls back to their build pose.
 
 ```python
-cmds.zeroRigControls("hero:rigRootModule1")                           # every control
-cmds.zeroRigControls("hero:upperArm_l_ctrl_l", "hero:chest_ctrl_c")   # these two
+cmds.zeroRigControls("hero_body:rigRootModule1")                           # every control
+cmds.zeroRigControls("hero_body:upperArm_l_ctrl_l", "hero_body:chest_ctrl_c")   # these two
 # Returns the controls that moved
 ```
 
@@ -411,9 +414,9 @@ Objects: the rig root node (every control in the rig), or one or more controls o
 Copies the pose from one side of a rig to the other.
 
 ```python
-cmds.mirrorRigPose("hero:rigRootModule1")                    # Left onto Right
-cmds.mirrorRigPose("hero:rigRootModule1", leftToRight=False) # Right onto Left
-cmds.mirrorRigPose("hero:upperArm_l_ctrl_l", "hero:lowerArm_l_ctrl_l")   # these controls onto their mirrors
+cmds.mirrorRigPose("hero_body:rigRootModule1")                    # Left onto Right
+cmds.mirrorRigPose("hero_body:rigRootModule1", leftToRight=False) # Right onto Left
+cmds.mirrorRigPose("hero_body:upperArm_l_ctrl_l", "hero_body:lowerArm_l_ctrl_l")   # these controls onto their mirrors
 ```
 
 | Flag | Type | Meaning |
@@ -433,8 +436,8 @@ Objects: the rig root node, or one or more controls of one rig. Returns the cont
 Swaps the pose between the two sides, and reflects the Center controls.
 
 ```python
-cmds.flipRigPose("hero:rigRootModule1")
-cmds.flipRigPose("hero:upperArm_l_ctrl_l", "hero:chest_ctrl_c")   # this pair, and this Center control
+cmds.flipRigPose("hero_body:rigRootModule1")
+cmds.flipRigPose("hero_body:upperArm_l_ctrl_l", "hero_body:chest_ctrl_c")   # this pair, and this Center control
 ```
 
 Objects: the rig root node, or one or more controls of one rig. Returns the controls changed.
@@ -448,9 +451,9 @@ Objects: the rig root node, or one or more controls of one rig. Returns the cont
 Writes the channel values of controls to a pose file.
 
 ```python
-cmds.saveRigPose("hero:rigRootModule1", file="C:/poses/idle.controlpose.json")
-cmds.saveRigPose("hero:upperArm_l_ctrl_l", "hero:lowerArm_l_ctrl_l", file="C:/poses/arm.controlpose.json")
-cmds.saveRigPose("hero:rigRootModule1", file="C:/poses/fist.controlpose.json", meta=json.dumps({"tags": ["hands", "fist"], "status": "scratch"}))
+cmds.saveRigPose("hero_body:rigRootModule1", file="C:/poses/idle.controlpose.json")
+cmds.saveRigPose("hero_body:upperArm_l_ctrl_l", "hero_body:lowerArm_l_ctrl_l", file="C:/poses/arm.controlpose.json")
+cmds.saveRigPose("hero_body:rigRootModule1", file="C:/poses/fist.controlpose.json", meta=json.dumps({"tags": ["hands", "fist"], "status": "scratch"}))
 # Returns the controls saved
 ```
 
@@ -459,10 +462,10 @@ Objects: the rig root node (every control), or one or more controls of one rig. 
 | Flag | Type | Meaning |
 |---|---|---|
 | `file` | string | Where to write the file. Required. An existing file is replaced. |
-| `meta` | string | A JSON object with the caller's part of the file's [meta](library.md#file-meta): `tags`, `description`, `category`, `rigRegions`, `status`, `author`, `template` and `skeletonId`. Optional. The fields the rig fills (`assetId`, `variant`, `pluginVersion`, `created`) can't be set. A bad value or an unknown key is an error and nothing is written. |
+| `meta` | string | A JSON object with the caller's part of the file's [meta](library.md#file-meta): `tags`, `description`, `category`, `rigRegions`, `status`, `author`, `template` and `skeleton`. Optional. The fields the rig fills (`assetId`, `rigName`, `skeletonHash`, `pluginVersion`, `created`) can't be set. A bad value or an unknown key is an error and nothing is written. |
 
 - The file is keyed by control markup (`side`, `usage`) and channel name, never by node name, so a pose survives renames and rebuilds. Values are in the scene's UI units. An enum stores its index and a bool stores 0 or 1.
-- The file carries a `formatVersion` (2). Its shape: `{"formatVersion": 2, "meta": {}, "controls": {"Left": {"upperArm": {"translateX": 0.0, "rotateY": 12.5}}}}`. The saved `meta` always holds the four fields the rig fills. A version 1 file, which has no meta, still loads.
+- The file carries a `formatVersion` (3). Its shape: `{"formatVersion": 3, "meta": {}, "controls": {"Left": {"upperArm": {"translateX": 0.0, "rotateY": 12.5}}}}`. The saved `meta` always holds the five fields the rig fills. A version 1 file, which has no meta, still loads, and a version 2 file's `variant` and `skeletonId` are read as `rigName` and `skeleton`.
 - Changes no scene data and isn't undoable.
 
 ## loadRigPose
@@ -470,9 +473,9 @@ Objects: the rig root node (every control), or one or more controls of one rig. 
 Applies a pose file to controls.
 
 ```python
-cmds.loadRigPose("hero:rigRootModule1", file="C:/poses/idle.controlpose.json")
-cmds.loadRigPose("hero:upperArm_l_ctrl_l", file="C:/poses/idle.controlpose.json")   # only this control
-cmds.loadRigPose("hero:rigRootModule1", file="C:/poses/idle.controlpose.json", mirror=True)   # the pose on the other side
+cmds.loadRigPose("hero_body:rigRootModule1", file="C:/poses/idle.controlpose.json")
+cmds.loadRigPose("hero_body:upperArm_l_ctrl_l", file="C:/poses/idle.controlpose.json")   # only this control
+cmds.loadRigPose("hero_body:rigRootModule1", file="C:/poses/idle.controlpose.json", mirror=True)   # the pose on the other side
 # Returns the controls that changed
 ```
 
@@ -494,9 +497,9 @@ Reads the keys of a rig's controls.
 ```python
 import json
 
-keys = json.loads(cmds.getRigKeys("hero:rigRootModule1"))
+keys = json.loads(cmds.getRigKeys("hero_body:rigRootModule1"))
 # {"Left": {"upperArm": {"rotateZ": [[1.0, 0.0], [10.0, 90.0]]}}}
-cmds.getRigKeys("hero:upperArm_l_ctrl_l")   # only this control
+cmds.getRigKeys("hero_body:upperArm_l_ctrl_l")   # only this control
 ```
 
 Objects: the rig root node (every control), or one or more controls of one rig. Returns one JSON string.
@@ -513,7 +516,7 @@ Adds keys to a rig's controls, every key of the call at once.
 import json
 
 keys = {"Left": {"upperArm": {"rotateZ": [[1, 0], [10, 90], [20, 45]]}}}
-cmds.setRigKeys("hero:rigRootModule1", keys=json.dumps(keys))
+cmds.setRigKeys("hero_body:rigRootModule1", keys=json.dumps(keys))
 # Returns the controls keyed
 ```
 
@@ -556,8 +559,8 @@ Objects: the rig root node, or one or more controls of one rig. Flag: `keys` (re
 Writes the keys of a rig's controls as a ControlAnim file, the animator's own library format ([library.md](library.md)).
 
 ```python
-cmds.saveRigAnimation("hero:rigRootModule1", file="C:/anims/walk.controlanim.json", startFrame=1, endFrame=48)
-cmds.saveRigAnimation("hero:upperArm_l_ctrl_l", file="C:/anims/wave.controlanim.json")   # only this control, over the playback range
+cmds.saveRigAnimation("hero_body:rigRootModule1", file="C:/anims/walk.controlanim.json", startFrame=1, endFrame=48)
+cmds.saveRigAnimation("hero_body:upperArm_l_ctrl_l", file="C:/anims/wave.controlanim.json")   # only this control, over the playback range
 # Returns the controls it read
 ```
 
@@ -580,8 +583,8 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 Keys a rig's controls from a ControlAnim file.
 
 ```python
-cmds.loadRigAnimation("hero:rigRootModule1", file="C:/anims/walk.controlanim.json")
-cmds.loadRigAnimation("hero:rigRootModule1", file="C:/anims/walk.controlanim.json", offset=100, mirror=True)
+cmds.loadRigAnimation("hero_body:rigRootModule1", file="C:/anims/walk.controlanim.json")
+cmds.loadRigAnimation("hero_body:rigRootModule1", file="C:/anims/walk.controlanim.json", offset=100, mirror=True)
 # Returns the controls keyed
 ```
 
@@ -603,7 +606,7 @@ Reads what pose files and ControlAnim files hold, without loading them onto the 
 
 ```python
 import json
-found = json.loads(cmds.getRigDataFileInfo("hero:rigRootModule1", file=["C:/lib/fist.controlpose.json", "C:/lib/walk.controlanim.json"]))
+found = json.loads(cmds.getRigDataFileInfo("hero_body:rigRootModule1", file=["C:/lib/fist.controlpose.json", "C:/lib/walk.controlanim.json"]))
 found[1]["kind"], found[1]["startFrame"], found[1]["endFrame"]   # ('animation', 1, 48)
 # Returns JSON text: a list with one object per file, in the order given
 ```
@@ -642,7 +645,7 @@ cmds.setRigDataFileMeta(file="C:/lib/fist.controlpose.json", meta=json.dumps({"d
 | `file` | string | The file to edit. Required. |
 | `meta` | string | A JSON object. Each key it has replaces that field, and an empty string or empty list clears it. The others stay. Required. |
 
-- The fields the rig fills (`assetId`, `variant`, `pluginVersion`, `created`) can't be set. A value of the wrong shape, an unknown key, and a file that fails validation are errors, and the file is left as it was.
+- The fields the rig fills (`assetId`, `rigName`, `skeletonHash`, `pluginVersion`, `created`) can't be set. A value of the wrong shape, an unknown key, and a file that fails validation are errors, and the file is left as it was.
 - The file is read in full and written again at the current format version, so an older file is brought forward. Controls, keys and everything else in it are unchanged.
 - Edits a file, so it isn't undoable and doesn't version or check the file out: the caller does that first, as for a save.
 
@@ -653,8 +656,8 @@ cmds.setRigDataFileMeta(file="C:/lib/fist.controlpose.json", meta=json.dumps({"d
 Sets a rig's control values from a joint pose, by solving each module's controls from the joints ([how it solves](#how-the-joints-become-control-values)). The design is in [`design/inverse-solve.md`](../design/inverse-solve.md).
 
 ```python
-cmds.poseRigFromJointPose("hero:rigRootModule1", jointPose="C:/tmp/idle.jointclip.json", sidecar="C:/poses/idle.controlpose.json", mode="match")
-cmds.poseRigFromJointPose("hero:upperArm_l_ctrl_l", jointPose="C:/tmp/idle.jointclip.json")   # only this control
+cmds.poseRigFromJointPose("hero_body:rigRootModule1", jointPose="C:/tmp/idle.jointclip.json", sidecar="C:/poses/idle.controlpose.json", mode="match")
+cmds.poseRigFromJointPose("hero_body:upperArm_l_ctrl_l", jointPose="C:/tmp/idle.jointclip.json")   # only this control
 # Returns the controls that changed
 ```
 
@@ -685,7 +688,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 Keys a rig's controls from an animated joint clip, by the solve of [`poseRigFromJointPose`](#how-the-joints-become-control-values) on every frame.
 
 ```python
-cmds.animateRigFromJointClip("hero:rigRootModule1", jointClip="C:/tmp/walk.jointclip.json", sidecar="C:/export/walk/walk.controlanim.json", startFrame=1, endFrame=60)
+cmds.animateRigFromJointClip("hero_body:rigRootModule1", jointClip="C:/tmp/walk.jointclip.json", sidecar="C:/export/walk/walk.controlanim.json", startFrame=1, endFrame=60)
 # Returns the controls keyed
 ```
 
@@ -711,7 +714,7 @@ The ControlAnim file for `sidecar` is the one `saveRigAnimation` writes ([format
 
 ```json
 {
-    "formatVersion": 2,
+    "formatVersion": 3,
     "meta": {},
     "frameRate": 24.0,
     "startFrame": 1,
@@ -728,10 +731,10 @@ The ControlAnim file for `sidecar` is the one `saveRigAnimation` writes ([format
 Gives meshes a `meshId`, the GUID a skin weight file is matched to ([skinning.md](skinning.md)).
 
 ```python
-cmds.setRigMeshId("hero:body_geo")
+cmds.setRigMeshId("hero_body:body_geo")
 # Returns ['C214154A-43E0-A9E2-3CAA-22B52F9603E1']
 cmds.setRigMeshId()                                   # every selected mesh
-cmds.setRigMeshId("hero:body_geo_copy", newId=True)   # replace a duplicate's copied id
+cmds.setRigMeshId("hero_body:body_geo_copy", newId=True)   # replace a duplicate's copied id
 ```
 
 | Flag | Type | Meaning |
@@ -749,7 +752,7 @@ Objects: meshes, by transform or shape name. With none named, every selected mes
 Writes a mesh's skin weights to a weight file (format in [skinning.md](skinning.md#file-format)).
 
 ```python
-cmds.saveRigSkinWeights("hero:body_geo", file="C:/assets/hero/weights/body_geo.json")
+cmds.saveRigSkinWeights("hero_body:body_geo", file="C:/assets/hero/weights/body_geo.json")
 # Returns 42, the number of influences saved
 ```
 
@@ -761,6 +764,7 @@ Object: one mesh, by transform or shape name.
 
 - Errors, writing nothing: the mesh has no `meshId`, or shares it with another mesh in its namespace; it has no skinCluster; an influence has no joint markup, is marked `skin: false`, or shares its markup with another influence; a vertex's weights don't sum to 1 (the error lists the vertices).
 - Saves the weights exactly, with no rounding, pruning or normalizing ([skinning.md](skinning.md#weights-are-never-changed)).
+- Records the skeleton: the `skeletonHash` of the rig root that drives the influences (D54). Influences of two rigs are an error. Influences that belong to no rig save an empty hash, with a warning.
 - Not undoable: it writes a file and changes nothing in the scene.
 
 ## loadRigSkinWeights
@@ -768,8 +772,8 @@ Object: one mesh, by transform or shape name.
 Sets a mesh's skin weights from a weight file, matching influences by joint markup ([skinning.md](skinning.md#loading)).
 
 ```python
-cmds.loadRigSkinWeights("hero:body_geo", file="C:/assets/hero/weights/body_geo.json")
-# Returns 'hero:skinCluster1'
+cmds.loadRigSkinWeights("hero_body:body_geo", file="C:/assets/hero/weights/body_geo.json")
+# Returns 'hero_body:skinCluster1'
 ```
 
 | Flag | Type | Meaning |
@@ -778,7 +782,7 @@ cmds.loadRigSkinWeights("hero:body_geo", file="C:/assets/hero/weights/body_geo.j
 
 Object: one mesh, by transform or shape name. Returns the skinCluster's name.
 
-- The whole file is validated first, including that every vertex's weights sum to 1, then checked against the mesh: its `meshId`, vertex and face counts and topology hash, and one marked joint in the mesh's namespace per influence. Any error is reported and nothing changes.
+- The whole file is validated first, including that every vertex's weights sum to 1, then checked against the mesh: its `meshId`, vertex and face counts and topology hash, and one marked joint in the mesh's namespace per influence. Any error is reported and nothing changes. The file's `skeletonHash` is read but not compared with the rig's yet: that check comes with the look swap (D54 phase 5).
 - Updates the mesh's skinCluster in place, or creates one. Sets exactly the file's weights. New influences bind at their joint's rest.
 - Undoable, as one step.
 
@@ -787,7 +791,7 @@ Object: one mesh, by transform or shape name. Returns the skinCluster's name.
 Limits every vertex to at most `maxInfluences` influences.
 
 ```python
-cmds.pruneToMaxInfluences("hero:body_geo", maxInfluences=4)
+cmds.pruneToMaxInfluences("hero_body:body_geo", maxInfluences=4)
 # Returns 1204, the number of vertices changed
 cmds.pruneToMaxInfluences(maxInfluences=4)   # every selected mesh
 ```

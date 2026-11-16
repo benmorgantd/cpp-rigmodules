@@ -55,8 +55,10 @@ class RigTestCase(unittest.TestCase):
         cmds.select(clear=True)
         return created
 
-    def build(self, template, joints, namespace=None, label="template", asset=config.ASSET_ID):
-        """Runs createRigFromTemplate. template is a fixture name, a 'RigTemplates/..' path or a dict."""
+    def build(self, template, joints, namespace=config.RIG_NAMESPACE, label="template", asset=config.ASSET_ID):
+        """Runs createRigFromTemplate. template is a fixture name, a 'RigTemplates/..' path or a dict. Every test
+        builds into RIG_NAMESPACE unless it passes another. None leaves the flag out, for the default
+        "{asset name}_{rigName}" (D54)."""
         if isinstance(template, dict):
             path = fixtures.write_template(template, label)
         else:
@@ -66,7 +68,7 @@ class RigTestCase(unittest.TestCase):
             kwargs["namespace"] = namespace
         return cmds.createRigFromTemplate(*joints, **kwargs)
 
-    def build_standard(self, template, skeleton, namespace=None):
+    def build_standard(self, template, skeleton, namespace=config.RIG_NAMESPACE):
         """The common case: build skeleton in 'skel', then the template into the rig namespace."""
         joints = self.make_skeleton(skeleton)
         self.build(template, joints, namespace=namespace)

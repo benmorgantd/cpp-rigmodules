@@ -3,9 +3,9 @@
 // Maya-free core: no Maya headers in this file or its .cpp.
 // One mesh's skin weights, keyed by joint markup, with the mesh id and topology they belong to (D35).
 // {
-//     "formatVersion": 1,
+//     "formatVersion": 2,
 //     "meshId": "...", "meshName": "body_geo",
-//     "vertexCount": 8, "faceCount": 6, "topologyHash": "16 hex digits",
+//     "vertexCount": 8, "faceCount": 6, "topologyHash": "16 hex digits", "skeletonHash": "16 hex digits",
 //     "skinMethod": "Linear",
 //     "influences": [["Center", "spine_1"], ["Left", "upperArm"]],
 //     "weights": [
@@ -27,9 +27,13 @@
 #include <utility>
 #include <vector>
 
+struct UpdateTable;
+
+// The weight file's version steps (D33). Version 2 added skeletonHash (D54).
+const UpdateTable& skinWeightUpdateTable();
+
 namespace SkinWeightFileFormat
 {
-	inline constexpr int CurrentVersion{ 1 };
 	// How far a vertex's weights may sum from 1 and still count as normalized. Save and load fail on any vertex
 	// further off rather than normalizing it, because neither may change a weight.
 	inline constexpr double NormalizeTolerance{ 1e-5 };
@@ -42,6 +46,9 @@ struct SkinWeights
 	unsigned int vertexCount = 0;
 	unsigned int faceCount = 0;
 	std::uint64_t topologyHash = 0;
+	// The skeleton the weights were made on (D54): the rig root's skeletonHash text, "" when the influences belong to
+	// no rig or the file is version 1. Recorded only: a load doesn't check it yet.
+	std::string skeletonHash;
 	std::string skinMethod;
 	std::vector<JointSelector> influences;
 	// One entry per vertex: (influence index, weight) pairs, with no zero weights.

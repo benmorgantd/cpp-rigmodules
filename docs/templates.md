@@ -47,7 +47,7 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 | `rigTemplateName` | yes | Non-empty string |
 | `rigAuthor` | yes | String |
 | `rigModules` | yes | Array of modules (below) |
-| `rigName` | no | Names the rig root, and is the rig variant (`game`, `cine`). Lowercase letters, digits and `_`, because it names a folder in the asset: `Human` is an error, not converted. Defaults to `rigTemplateName` in snake_case (`HumanRigTest` becomes `human_rig_test`). Unique among the rigs built into one namespace |
+| `rigName` | no | Names the rig: its folder in the asset (`body`, `face`, `cine`), and with the asset's name the default namespace, `{asset name}_{rigName}` (D54). Lowercase letters, digits and `_`, because it names a folder in the asset: `Human` is an error, not converted. Defaults to `rigTemplateName` in snake_case (`HumanRigTest` becomes `human_rig_test`). A namespace holds one rig, whatever its name |
 | `constraints` | no | Array of constraints (below) |
 
 ## Modules

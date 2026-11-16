@@ -1,20 +1,23 @@
 // Internal dependencies
 #include "maya/nodes/RigRoot.h"
+#include "core/AssetId.h"
 #include "core/Constants.h"
+#include "core/Hash64.h"
 #include "core/RigControlFilter.h"
 #include "core/RigJsonStructs.h"
 #include "core/RigTemplateValidation.h"
 #include "core/SelectionSets.h"
+#include "core/SkeletonFile.h"
 #include "core/StringUtils.h"
 #include "core/TemplateMirror.h"
 #include "maya/modules/LayoutModule.h"
-#include "maya/nodes/AssetRoot.h"
 #include "maya/nodes/Constraints.h"
 #include "maya/shared/DisplayLayerScene.h"
 #include "maya/shared/JointMarkupScene.h"
 #include "maya/shared/RigModule.h"
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/SelectionSetScene.h"
+#include "maya/shared/SkeletonScene.h"
 #include "maya/shared/Utilities.h"
 
 // Standard dependencies
@@ -39,7 +42,6 @@
 #include <maya/MNamespace.h>
 #include <maya/MObjectArray.h>
 #include <maya/MPlug.h>
-#include <maya/MPlugArray.h>
 #include <maya/MString.h>
 #include <maya/MTypeId.h>
 
@@ -47,13 +49,14 @@
 MTypeId RigRootNode::id(0x00218);
 
 // Static member definitions
+MObject RigRootNode::aAssetId;
 MObject RigRootNode::aRigName;
+MObject RigRootNode::aSkeletonHash;
 MObject RigRootNode::aRigVersion;
 MObject RigRootNode::aPluginVersion;
 MObject RigRootNode::aPublishVersion;
 MObject RigRootNode::aRigModules;
 MObject RigRootNode::aRigTemplateName;
-MObject RigRootNode::aAssetRoot;
 MObject RigRootNode::aChildren;
 MObject RigRootNode::aConstraints;
 MObject RigRootNode::aJointDisplayLayer;
@@ -85,9 +88,19 @@ MStatus RigRootNode::initialize()
     MFnEnumAttribute eAttr;
 	MStatus status;
 
+	// The asset the rig belongs to (D29). It lived on a separate asset root node until D54 made a namespace hold one rig.
+	aAssetId = tAttr.create(RigAttr::AssetId, RigAttr::AssetId, MFnData::kString, MObject::kNullObj, &status);
+	tAttr.setStorable(true);
+	addAttribute(aAssetId);
+
 	aRigName = tAttr.create(RigAttr::RigName, RigAttr::RigName, MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	addAttribute(aRigName);
+
+	// The input joints' skeletonHash at build (D54), so looks, weights and library files can be matched to the skeleton.
+	aSkeletonHash = tAttr.create(RigAttr::SkeletonHash, RigAttr::SkeletonHash, MFnData::kString, MObject::kNullObj, &status);
+	tAttr.setStorable(true);
+	addAttribute(aSkeletonHash);
 
 	// TODO: replace with constants references.
 	aRigVersion = nAttr.create(RigAttr::RigVersion, RigAttr::RigVersion, MFnNumericData::kLong, 0, &status);
@@ -111,9 +124,6 @@ MStatus RigRootNode::initialize()
 	// Message attributes can't be storable since they don't contain data
 	aRigModules = msgAttr.create("rigModules", "rigModules", &status);
 	addAttribute(aRigModules);
-
-	aAssetRoot = msgAttr.create("assetRoot", "assetRoot", &status);
-	addAttribute(aAssetRoot);
 
 	aChildren = msgAttr.create("children", "cildren", &status);
 	addAttribute(aChildren);
@@ -155,21 +165,26 @@ MStatus RigRootNode::compute(const MPlug& plug, MDataBlock& data)
 
 // Public shared methods
 MObject RigRootNode::createRigRoot(
+    const MString& assetId,
     const MString& name,
+    const MString& skeletonHash,
     int version,
     const MString& templateName,
-    MObject oAssetRoot,
     MDagModifier& dagMod)
 {
-    // 1. Create the DG node (using a variable string for node type)
     MObject oRigRoot = dagMod.MDGModifier::createNode(RigRootNode::id);
 
-    // 2. Set string and numeric attributes
+    MPlug pAssetId(oRigRoot, RigRootNode::aAssetId);
+    dagMod.newPlugValueString(pAssetId, assetId);
+
     if (!name.isEmpty())
     {
         MPlug pRigName(oRigRoot, RigRootNode::aRigName);
         dagMod.newPlugValueString(pRigName, name);
     }
+
+    MPlug pSkeletonHash(oRigRoot, RigRootNode::aSkeletonHash);
+    dagMod.newPlugValueString(pSkeletonHash, skeletonHash);
 
     MPlug pRigVersion(oRigRoot, RigRootNode::aRigVersion);
     dagMod.newPlugValueInt(pRigVersion, version);
@@ -181,22 +196,6 @@ MObject RigRootNode::createRigRoot(
     {
         MPlug pTemplate(oRigRoot, RigRootNode::aRigTemplateName);
         dagMod.newPlugValueString(pTemplate, templateName);
-    }
-
-    // 3. Wire network plug: RigRootNode.assetRoot -> AssetRootNode
-    if (!oAssetRoot.isNull())
-    {
-        MPlug pAssetRootPlug(oRigRoot, RigRootNode::aAssetRoot);
-        MPlug pRigRootPlug(oAssetRoot, AssetRootNode::aChildren);
-
-        if (!pAssetRootPlug.isNull() && !pRigRootPlug.isNull())
-        { 
-            dagMod.connect(pRigRootPlug, pAssetRootPlug);
-        }
-        else
-        {
-            MGlobal::displayError("Failed to wire rig root to asset root.");
-        }
     }
 
     return oRigRoot;
@@ -251,14 +250,14 @@ namespace
 		}
 	}
 
-	// The asset owns the namespace, so the rig namespace holds at most one asset root, shared by every rig variant
-	// built into it (D29). Returns the existing one, or a null MObject when the build should create it.
-	MObject findAssetRoot(const RigBuildInputs& inputs, const RigRootData& rigData, ValidationReport& report)
+	// A namespace holds one rig (D54), so its display layers, selection sets and groups, named per namespace, are the
+	// rig's own. Fails when the namespace already holds a rig root, whatever its asset or rig name.
+	void checkNamespaceFree(const MString& rigNamespace, ValidationReport& report)
 	{
-		const MString absoluteNamespace = MString(":") + inputs.rigNamespace;
+		const MString absoluteNamespace = MString(":") + rigNamespace;
 		if (!MNamespace::namespaceExists(absoluteNamespace))
 		{
-			return MObject::kNullObj;
+			return;
 		}
 
 		MStatus status;
@@ -266,54 +265,18 @@ namespace
 		if (!status)
 		{
 			report.addError(absoluteNamespace.asChar(), "could not list the namespace's nodes: " + std::string(status.errorString().asChar()));
-			return MObject::kNullObj;
+			return;
 		}
 
-		std::vector<MObject> assetRoots;
 		for (unsigned int i = 0; i < namespaceNodes.length(); ++i)
 		{
-			if (MFnDependencyNode(namespaceNodes[i]).typeId() == AssetRootNode::id)
+			const MFnDependencyNode fnNode(namespaceNodes[i]);
+			if (fnNode.typeId() == RigRootNode::id)
 			{
-				assetRoots.push_back(namespaceNodes[i]);
+				report.addError(absoluteNamespace.asChar(), std::string("already holds the rig ") + fnNode.name().asChar()
+					+ ". A namespace holds one rig: pass another namespace");
 			}
 		}
-		if (assetRoots.empty())
-		{
-			return MObject::kNullObj;
-		}
-		if (assetRoots.size() > 1)
-		{
-			report.addError(absoluteNamespace.asChar(), "holds " + std::to_string(assetRoots.size())
-				+ " asset roots. A namespace belongs to one asset");
-			return MObject::kNullObj;
-		}
-
-		MObject oAssetRoot = assetRoots[0];
-		const MFnDependencyNode fnAssetRoot(oAssetRoot);
-		const std::string existingId = MPlug(oAssetRoot, AssetRootNode::aAssetId).asString().asChar();
-		// Ids are lowercase (D54), so they compare exactly.
-		if (existingId != inputs.assetId)
-		{
-			report.addError(RigAttr::AssetId, "'" + inputs.assetId + "' does not match '" + existingId + "' on "
-				+ fnAssetRoot.name().asChar() + ", which owns the namespace");
-		}
-
-		MPlugArray pRigRoots;
-		MPlug(oAssetRoot, AssetRootNode::aChildren).connectedTo(pRigRoots, false, true);
-		for (unsigned int i = 0; i < pRigRoots.length(); ++i)
-		{
-			MObject oRigRoot = pRigRoots[i].node();
-			if (MFnDependencyNode(oRigRoot).typeId() != RigRootNode::id)
-			{
-				continue;
-			}
-			if (MPlug(oRigRoot, RigRootNode::aRigName).asString() == rigData.rigName.c_str())
-			{
-				report.addError(TemplateKey::RigName, "'" + rigData.rigName + "' is already built for this asset by "
-					+ MFnDependencyNode(oRigRoot).name().asChar());
-			}
-		}
-		return oAssetRoot;
 	}
 
 	// Write phase. Keeps each joint's name and changes only its namespace. Names were checked free in the read phase.
@@ -348,11 +311,13 @@ namespace
 		return plan;
 	}
 
-	// Read phase. Reads the scene, never writes it. Fills plans (layout first) as far as validation gets.
+	// Read phase. Reads the scene, never writes it. Fills plans (layout first) as far as validation gets, the namespace
+	// the rig goes into (the default needs the template's rigName) and the input joints' skeleton hash.
 	void planRig(
 		const RigBuildInputs& inputs,
 		RigRootData& rigData,
-		MObject& oExistingAssetRoot,
+		MString& outRigNamespace,
+		MString& outSkeletonHash,
 		std::vector<ModulePlan>& plans,
 		ValidationReport& report)
 	{
@@ -364,9 +329,12 @@ namespace
 		// Mirrors first, so every check below and the build see them as ordinary entries (D28).
 		TemplateMirror::expandMirrors(rigData, report);
 		RigTemplateValidation::validateHeader(rigData, report);
-		oExistingAssetRoot = findAssetRoot(inputs, rigData, report);
+		outRigNamespace = inputs.rigNamespace.has_value()
+			? *inputs.rigNamespace
+			: MString((AssetId::name(inputs.assetId) + "_" + rigData.rigName).c_str());
+		checkNamespaceFree(outRigNamespace, report);
 		RigTemplateValidation::validateModuleNames(rigData.rigModules, report);
-		checkTargetNamesFree(inputs.rigNamespace, rigData.rigModules, inputs.joints, report);
+		checkTargetNamesFree(outRigNamespace, rigData.rigModules, inputs.joints, report);
 
 		// Module plans claim joints from this set, so bad markup stops here instead of surfacing as missing joints.
 		const std::size_t errorCountBeforeMarkup = report.errors.size();
@@ -376,6 +344,16 @@ namespace
 		{
 			return;
 		}
+
+		// Read before the build moves anything, so the stamp is the skeleton as it was handed in. readSkeleton repeats
+		// collectMarkedJoints' checks, which have passed, so the hash has one home and one reader (D54).
+		Skeleton skeleton;
+		SkeletonScene::readSkeleton(inputs.joints, skeleton, report);
+		if (report.errors.size() > errorCountBeforeMarkup)
+		{
+			return;
+		}
+		outSkeletonHash = Hash64::format(skeletonHash(skeleton)).c_str();
 
 		plans.push_back(makeLayoutPlan());
 		for (ModulePlan& plan : RigModuleNodeBase::planModules(rigData.rigModules, markedJoints, inputs.checkMirrorPositions, report))
@@ -458,6 +436,7 @@ namespace
 	// goes on its own message attribute of the rig root.
 	MStatus queueDisplayLayers(
 		const RigBuildInputs& inputs,
+		const MString& rigNamespace,
 		const MObject& oRigRoot,
 		MDagModifier& dagMod)
 	{
@@ -466,13 +445,13 @@ namespace
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		std::vector<DisplayLayerSpec> specs(3);
-		specs[0].name = DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::JointLayer);
+		specs[0].name = DagUtils::getAbsoluteName(rigNamespace, RigNaming::JointLayer);
 		for (unsigned int i = 0; i < inputs.joints.length(); ++i)
 		{
 			specs[0].members.append(inputs.joints[i].node());
 		}
-		specs[1].name = DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::MeshLayer);
-		specs[2].name = DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::ControlLayer);
+		specs[1].name = DagUtils::getAbsoluteName(rigNamespace, RigNaming::MeshLayer);
+		specs[2].name = DagUtils::getAbsoluteName(rigNamespace, RigNaming::ControlLayer);
 		specs[2].members = oControls;
 		// Not drawing the controls during playback is the cheapest way to skip their custom draw override (D37).
 		specs[2].hideOnPlayback = true;
@@ -496,6 +475,7 @@ namespace
 	// RigRoot.selectionSets. SelectionSets::planSets lays them out, and this turns its indices into scene nodes.
 	MStatus queueSelectionSets(
 		const RigBuildInputs& inputs,
+		const MString& rigNamespace,
 		const MObject& oRigRoot,
 		MDagModifier& dagMod)
 	{
@@ -557,7 +537,7 @@ namespace
 			for (const SelectionSets::Set& set : SelectionSets::planSets(group.kind, group.items))
 			{
 				SelectionSetSpec spec;
-				spec.name = DagUtils::getAbsoluteName(inputs.rigNamespace, set.name.c_str());
+				spec.name = DagUtils::getAbsoluteName(rigNamespace, set.name.c_str());
 				spec.markup = set.markup.c_str();
 				for (const std::size_t item : set.items)
 				{
@@ -609,17 +589,18 @@ namespace
 	// them under an identity group changes no result.
 	MStatus queueRigGroups(
 		const RigBuildInputs& inputs,
+		const MString& rigNamespace,
 		const MObject& oRigRoot,
 		MDagModifier& dagMod)
 	{
 		MStatus status;
 		MObject oAll = dagMod.createNode("transform", MObject::kNullObj, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
-		status = dagMod.renameNode(oAll, DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::AllGroup));
+		status = dagMod.renameNode(oAll, DagUtils::getAbsoluteName(rigNamespace, RigNaming::AllGroup));
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		MObject oMeshGroup = dagMod.createNode("transform", oAll, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
-		status = dagMod.renameNode(oMeshGroup, DagUtils::getAbsoluteName(inputs.rigNamespace, RigNaming::MeshGroup));
+		status = dagMod.renameNode(oMeshGroup, DagUtils::getAbsoluteName(rigNamespace, RigNaming::MeshGroup));
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
 		// Joints and controls are measured apart: a joint is topmost among the input joints, a control among the controls.
@@ -668,23 +649,20 @@ namespace
 	// attribute to controls that must exist by then.
 	MStatus buildRig(
 		const RigBuildInputs& inputs,
+		const MString& rigNamespace,
+		const MString& skeletonHashText,
 		const RigRootData& rigData,
-		MObject oAssetRoot,
 		const std::vector<ModulePlan>& plans,
 		MDagModifier& dagMod)
 	{
 		MStatus status;
 
-		if (oAssetRoot.isNull())
-		{
-			oAssetRoot = AssetRootNode::createAssetRoot(inputs.assetId.c_str(), dagMod);
-		}
-
 		MObject oRigRoot = RigRootNode::createRigRoot(
+			inputs.assetId.c_str(),
 			rigData.rigName.c_str(),
+			skeletonHashText,
 			rigData.rigVersion,
 			rigData.rigTemplateName.c_str(),
-			oAssetRoot,
 			dagMod
 		);
 
@@ -702,7 +680,7 @@ namespace
 			return status;
 		}
 
-		status = queueJointMoves(inputs.joints, inputs.rigNamespace, dagMod);
+		status = queueJointMoves(inputs.joints, rigNamespace, dagMod);
 		if (!status)
 		{
 			MGlobal::displayError("Failed queueing the input joint moves into the rig namespace.");
@@ -717,7 +695,7 @@ namespace
 			return status;
 		}
 
-		status = queueDisplayLayers(inputs, oRigRoot, dagMod);
+		status = queueDisplayLayers(inputs, rigNamespace, oRigRoot, dagMod);
 		if (!status)
 		{
 			MGlobal::displayError("Failed building the rig's display layers.");
@@ -725,7 +703,7 @@ namespace
 			return status;
 		}
 
-		status = queueSelectionSets(inputs, oRigRoot, dagMod);
+		status = queueSelectionSets(inputs, rigNamespace, oRigRoot, dagMod);
 		if (!status)
 		{
 			MGlobal::displayError("Failed building the rig's selection sets.");
@@ -741,7 +719,7 @@ namespace
 			return status;
 		}
 
-		status = queueRigGroups(inputs, oRigRoot, dagMod);
+		status = queueRigGroups(inputs, rigNamespace, oRigRoot, dagMod);
 		if (!status)
 		{
 			MGlobal::displayError("Failed building the rig's groups.");
@@ -764,14 +742,15 @@ namespace
 	}
 }
 
-MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMod)
+MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMod, MString& outRigNamespace)
 {
 	// Read phase: nothing touches the scene until the whole template validates, so a bad template leaves nothing behind.
 	RigRootData rigData;
-	MObject oAssetRoot;
+	MString rigNamespace;
+	MString skeletonHashText;
 	std::vector<ModulePlan> plans;
 	ValidationReport report;
-	planRig(inputs, rigData, oAssetRoot, plans, report);
+	planRig(inputs, rigData, rigNamespace, skeletonHashText, plans, report);
 
 	ReportUtils::displayReport(report);
 	if (report.hasErrors())
@@ -782,7 +761,7 @@ MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMo
 	}
 
 	// Write phase.
-	const ScopedRigNamespace rigNamespaceScope(inputs.rigNamespace);
+	const ScopedRigNamespace rigNamespaceScope(rigNamespace);
 	MStatus status = rigNamespaceScope.status();
 	if (!status)
 	{
@@ -791,7 +770,7 @@ MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMo
 
 	try
 	{
-		status = buildRig(inputs, rigData, oAssetRoot, plans, dagMod);
+		status = buildRig(inputs, rigNamespace, skeletonHashText, rigData, plans, dagMod);
 	}
 	catch (const std::exception& e)
 	{
@@ -802,6 +781,7 @@ MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMo
 
 	if (status)
 	{
+		outRigNamespace = rigNamespace;
 		MGlobal::displayInfo("Rig successfully created from template: " + inputs.templatePath);
 	}
 	return status;

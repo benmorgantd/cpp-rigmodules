@@ -1,7 +1,6 @@
 #include "maya/commands/RigInfoCmd.h"
 #include "core/Constants.h"
 #include "core/JsonUtils.h"
-#include "maya/nodes/AssetRoot.h"
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
@@ -71,20 +70,13 @@ MStatus GetRigInfoCmd::doIt(const MArgList& args)
 	{
 		return status;
 	}
-	MObject oAssetRoot;
-	status = RigTraversal::getAssetRoot(oRigRoot, oAssetRoot);
-	if (!status)
-	{
-		return status;
-	}
-
-	// Rig and asset roots are DG nodes, so their names are unique without a DAG path.
+	// The rig root is a DG node, so its name is unique without a DAG path.
 	const MFnDependencyNode fnRigRoot(oRigRoot);
 	nlohmann::json info;
 	info[RigAttr::RigRoot] = fnRigRoot.name().asChar();
-	info[RigAttr::AssetRoot] = MFnDependencyNode(oAssetRoot).name().asChar();
-	info[RigAttr::AssetId] = MPlug(oAssetRoot, AssetRootNode::aAssetId).asString().asChar();
+	info[RigAttr::AssetId] = MPlug(oRigRoot, RigRootNode::aAssetId).asString().asChar();
 	info[RigAttr::RigName] = MPlug(oRigRoot, RigRootNode::aRigName).asString().asChar();
+	info[RigAttr::SkeletonHash] = MPlug(oRigRoot, RigRootNode::aSkeletonHash).asString().asChar();
 	info[RigAttr::RigVersion] = MPlug(oRigRoot, RigRootNode::aRigVersion).asInt();
 	info[RigAttr::PluginVersion] = MPlug(oRigRoot, RigRootNode::aPluginVersion).asString().asChar();
 	info[RigAttr::PublishVersion] = MPlug(oRigRoot, RigRootNode::aPublishVersion).asString().asChar();

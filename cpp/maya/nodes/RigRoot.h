@@ -1,6 +1,7 @@
 #pragma once
 #include "maya/shared/RigModule.h"
 
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -17,9 +18,10 @@ struct RigBuildInputs
 	MString templatePath;
 	// The asset the rig belongs to (D29). Checked by the command. Templates carry no asset, so one template serves many.
 	std::string assetId;
-	// The rig's final namespace, without leading or trailing ':'. Empty is the root namespace.
-	// Every node the build creates goes here, and every input joint is moved here.
-	MString rigNamespace;
+	// The rig's final namespace, without leading or trailing ':'. Empty is the root namespace. Unset means the default,
+	// "{asset name}_{rigName}" (D54), which needs the template, so createRig resolves it in its read phase.
+	// Every node the build creates goes here, and every input joint is moved here. A namespace holds one rig.
+	std::optional<MString> rigNamespace;
 	// Every joint must carry markup. Names may be in any namespace.
 	MDagPathArray joints;
 	// Fail a mirrored module whose joint is more than 0.001 from its reflected source joint (D28).
@@ -44,13 +46,14 @@ public:
 	static MTypeId id;
 
 	// Attribute handles. All node attributes have to be defined here.
+	static MObject aAssetId;
 	static MObject aRigName;
+	static MObject aSkeletonHash;
 	static MObject aRigVersion;
 	static MObject aPluginVersion;
 	static MObject aPublishVersion;
 	static MObject aRigModules;
 	static MObject aRigTemplateName;
-	static MObject aAssetRoot;
 	static MObject aChildren;
 	static MObject aConstraints;
 	static MObject aJointDisplayLayer;
@@ -61,10 +64,12 @@ public:
 	static MObject aMeshGroup;
 public:
 	static MObject createRigRoot(
+		const MString& assetId,
 		const MString& name,
+		const MString& skeletonHash,
 		int version,
 		const MString& templateName,
-		MObject oAssetRoot,
 		MDagModifier& dagMod);
-	static MStatus createRig(const RigBuildInputs& inputs, MDagModifier& dagMod);
+	// outRigNamespace is the namespace the rig was built into, inputs.rigNamespace or the default, for the command's redo.
+	static MStatus createRig(const RigBuildInputs& inputs, MDagModifier& dagMod, MString& outRigNamespace);
 };

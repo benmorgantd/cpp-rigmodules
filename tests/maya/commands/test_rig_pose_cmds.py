@@ -462,7 +462,7 @@ class PoseFiles(PoseTestCase):
         self.assertIn("rig:chest_ctrl_c", saved)
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
-        self.assertEqual(data["formatVersion"], 2)
+        self.assertEqual(data["formatVersion"], 3)
         self.assertEqual(data["controls"]["Left"]["upperArm"]["rotateY"], 20)
         self.assertEqual(data["controls"]["Left"]["upperArm"]["translateZ"], 1.5)
         self.assertEqual(data["controls"]["Center"]["chest"]["translateX"], 2)

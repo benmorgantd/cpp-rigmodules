@@ -2,7 +2,7 @@
 
 **Status:** decided 2026-11-08 (D29 in `decisions.md`). The scene side is built in RigModules (see "Built in RigModules"). The file model, local versions, registry, publishes, source-control adapter and handlers are built on mayadev branch `asset-model` (see "Built in mayadev"), not yet merged. Its user guide is mayadev's `py/scripts/docs/guides/Asset Layout.md`.
 
-**Planned change (D54, decided 2026-11-16, not built):** variants are to be replaced by skeletons, rigs and looks in the asset folder, with lowercase names and one rig per namespace. See `rigs-and-looks.md`. Until phase 4 of that plan is built, this page describes what is built.
+**Planned change (D54, decided 2026-11-16, not built):** variants are to be replaced by skeletons, rigs and looks in the asset folder, with lowercase names and one rig per namespace. See `rigs-and-looks.md`. Until phase 4 of that plan is built, this page describes what is built. Phase 3, the scene side, is built (2026-11-16): the scene structure below is already the D54 one, and the file model is still the variant one.
 
 An asset is the top-level container for one thing in the game: a character, prop, vehicle, weapon, vfx element or environment piece. It owns its files on disk, its rig variants, and the namespace it lives under in a Maya scene. This page covers the asset id, the scene structure, the file model, and how tools answer questions about assets without opening Maya, all under Perforce without shared files that everyone has to check out.
 
@@ -30,10 +30,10 @@ The file model has one implementation, in Python, with the layout stored as data
 ## Scene structure
 
 - **The build takes the asset as a flag:** `cmds.createRigFromTemplate(*joints, template=path, asset="shooter\\main\\characters\\hero")`. Templates don't name an asset, so one template (a shared biped) builds many assets. Each asset's own `template` file type can still hold its own copy.
-- **The asset owns the namespace,** and it is flat: one namespace per asset instance in a scene. Everything goes in it: the asset root, every rig root and module, the controls and the joints.
-- **The default namespace is the id's last token** (`hero`). `namespace` overrides it, for example a second instance, or `hero_damaged` when the rigger wants the namespace to hint at the variant. Nothing reads the variant from the namespace.
-- **One `assetRootModule` per namespace.** It stores the id in `assetId`. Rig roots connect to it through `assetRoot.children → rigRoot.assetRoot`.
-- **Variants share the namespace.** The variant name is the rig root's `rigName`, from the template's `rigName`.
+- **A namespace holds one rig** (D54, built 2026-11-16), and it is flat. Everything goes in it: the rig root and every module, the controls and the joints. A build into a namespace that already holds a rig root fails.
+- **The default namespace is `{asset name}_{rigName}`** (`hero_body`), with no special case for an asset with one rig. `namespace` overrides it, for a second instance. Nothing reads the rig from the namespace.
+- **The rig root stores the id in `assetId`.** The separate `assetRootModule` node (D29) was merged into it, because with one rig per namespace it was one-to-one with the rig root. Its type id 0x00219 is retired. A scene saved with one is not migrated: rebuild it.
+- **The rig name is the rig root's `rigName`,** from the template's `rigName`.
 - **Variants share one skeleton.** A variant may add joints, never remove them (a cinematic rig adding face or cloth joints). Meshes, weights, textures and shaders are per variant.
 - **Files are imported into a unique namespace, never referenced.** Animation files keep working as long as they're baked, or as long as RigModules gives the rig an update path. The version stamps are what make that path findable.
 
@@ -43,7 +43,9 @@ Each rig root records what built it:
 
 | Attribute | Set by | Meaning |
 |---|---|---|
-| `rigName` | build | The variant |
+| `assetId` | build | The asset id, from the `asset` flag |
+| `rigName` | build | The rig, from the template |
+| `skeletonHash` | build | The input joints' skeleton hash at build (D54, `rigs-and-looks.md` section 5) |
 | `rigVersion` | build | The template's `rigVersion` |
 | `pluginVersion` | build | The RigModules plugin version that ran the build |
 | `publishVersion` | publish step (mayadev) | The id of the publish the rig came from (`20261108T142012Z_bmorgan`). Empty until published |

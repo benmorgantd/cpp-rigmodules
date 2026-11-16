@@ -32,10 +32,11 @@ Sparse keys with tangents, on the channels of a rig's controls, written by [`sav
 
 ```json
 {
-    "formatVersion": 2,
+    "formatVersion": 3,
     "meta": {
         "assetId": "shooter\\main\\characters\\hero",
-        "variant": "game",
+        "rigName": "body",
+        "skeletonHash": "3f2a9c0b7d4e1f68",
         "pluginVersion": "0.1",
         "created": "2026-11-14T10:22:00Z",
         "tags": ["walk"],
@@ -75,11 +76,12 @@ Every pose file and ControlAnim file has a `meta` object that says where the fil
 | Field | Type | Filled by |
 |---|---|---|
 | `assetId` | string | The rig, when the file is saved: the asset the rig was built for |
-| `variant` | string | The rig: its `rigName` |
+| `rigName` | string | The rig: its `rigName`, the rig's folder in the asset |
+| `skeletonHash` | string | The rig: its `skeletonHash`, the skeleton it was built on (D54) |
 | `pluginVersion` | string | The rig: the RigModules version that built it |
 | `created` | string | The save: the time in UTC, `2026-11-14T10:22:00Z` |
 | `template` | string | The caller: the template the rig was built from, for example `Human` |
-| `skeletonId` | string | The caller: the skeleton asset the data goes with |
+| `skeleton` | string | The caller: the name of the skeleton the data goes with, for example `body` |
 | `author` | string | The caller |
 | `description` | string | The caller |
 | `category` | string | The caller: free text, for example `Expressions` |
@@ -97,7 +99,7 @@ The caller's part goes in through the `meta` flag of [`saveRigPose`](commands.md
     "status": "scratch",
     "author": "bmorgan",
     "template": "Human",
-    "skeletonId": "Biped",
+    "skeleton": "body",
     "description": "Clenched right hand"
 }
 ```
@@ -106,6 +108,7 @@ The caller's part goes in through the `meta` flag of [`saveRigPose`](commands.md
 - The fields the rig fills can't be set by a caller. An unknown key is an error.
 - [`getRigDataFileInfo`](commands.md#getrigdatafileinfo) reads the meta of many files in one call, with each file's kind, size and how well it fits a rig, and `rigmodules.library.get_data_file_info` wraps it ([python.md](python.md#rigmoduleslibrary)).
 - A file saved before the meta existed (formatVersion 1) loads as before and has an empty meta.
+- In a formatVersion 2 file, `rigName` was `variant` and `skeleton` was `skeletonId`. It loads with the new names, and has no `skeletonHash`, so it matches no skeleton until it is saved again from a rig (D54).
 
 ## Moving data between rigs and the engine
 

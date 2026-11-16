@@ -12,7 +12,7 @@ Contents: [Layers](#layers) · [Source map](#source-map) · [Plugin startup](#pl
  Commands (cpp/maya/commands)    parse flags, delegate, report
         |
  Nodes and scene code            cpp/maya/modules   module nodes (Layout, FkChain, Aim, TwoBoneIk)
- (cpp/maya)                      cpp/maya/nodes     rig root, asset root, constraint, control
+ (cpp/maya)                      cpp/maya/nodes     rig root, constraint, control
                                  cpp/maya/shared    module base, scene helpers, traversal, utilities
         |  includes
  Core (cpp/core)                 no Maya headers: template structs, validation, markup,
@@ -45,7 +45,7 @@ Paths are relative to `cpp/`. Include lines use the same paths (`"maya/shared/Ri
 |---|---|---|
 | `maya/` | `PluginMain.cpp`, `ModuleRegistry`, `CommandRegistry` | Plugin entry, and the only files that include every module or command header. |
 | `modules/` | `LayoutModule`, `FkChainModule`, `AimModule`, `TwoBoneIkModule` | One file pair per module node. FkChainModule is the reference. |
-| `nodes/` | `RigRoot`, `AssetRoot`, `Constraints`, `RigControlNode` | The rig root (it also runs the build), the asset root, the constraint node, and the control transform with its VP2 draw override. |
+| `nodes/` | `RigRoot`, `Constraints`, `RigControlNode` | The rig root (it also runs the build), the constraint node, and the control transform with its VP2 draw override. |
 | `commands/` | one file pair per command, or per closely related set | Flag parsing and delegation. See [Commands](#commands). |
 | `shared/` | see below | Code used by more than one of the folders above. |
 
@@ -95,13 +95,12 @@ Node ids are listed in `CLAUDE.md`. Check that list before picking an id for a n
 ## A rig in the scene
 
 ```
-assetRootModule
-  .children --> rigRootModule            asset root, one per asset (D29)
-                  .rigModules[] --> layoutModule, fkChainModule, aimModule, twoBoneIkModule ...
-                  .constraints[] --> rigConstraint ...
-                  .jointDisplayLayer, .meshDisplayLayer, .controlDisplayLayer  (D38)
-                  .selectionSets[]                                              (D39)
-                  .allGroup --> rig_all, .meshGroup --> mesh_grp                (D43)
+rigRootModule                one per namespace (D54): assetId, rigName, skeletonHash, version stamps
+  .rigModules[] --> layoutModule, fkChainModule, aimModule, twoBoneIkModule ...
+  .constraints[] --> rigConstraint ...
+  .jointDisplayLayer, .meshDisplayLayer, .controlDisplayLayer  (D38)
+  .selectionSets[]                                              (D39)
+  .allGroup --> rig_all, .meshGroup --> mesh_grp                (D43)
 
 module node
   .controlInputData[i]   .controlLocalMatrix  <-- control.matrix
@@ -182,7 +181,7 @@ Then add one row to `ModuleRegistry.cpp`.
 
 1. `loadRigTemplate` runs the template's update steps, checks keys, then parses.
 2. `TemplateMirror::expandMirrors` adds the other side's copy of every mirrored module and constraint, so every later step sees ordinary entries.
-3. Header, module name and target-name checks. Every input joint's markup is collected into a `MarkedJointSet`.
+3. Header checks, then the namespace: the `namespace` flag, or `{asset name}_{rigName}` from the template (D54). The namespace must hold no rig root yet. Module name and target-name checks. Every input joint's markup is collected into a `MarkedJointSet`, and `SkeletonScene::readSkeleton` hashes the joints as they were handed in, for the rig root's `skeletonHash`.
 4. `RigModuleNodeBase::planModules` runs each module's `plan` step. A plan resolves `[side, usage]` selectors to joints through `claimJoint`, reads rest matrices, and returns a `ModulePlan`: a name, a `ModuleInterface` (controls, child plugs, sockets) and a `build` closure.
 5. `validateConnections` and `validateControlMarkup` check every `parentStructure` and constraint against the plans' interfaces. Joints marked for export that no module drives produce a warning.
 
@@ -190,7 +189,7 @@ Every problem goes into one `ValidationReport` with its JSON path, and `createRi
 
 **Write phase** (`buildRig`): runs only on a clean report, inside a `ScopedRigNamespace`, through one `MDagModifier` so undo and redo replay it.
 
-1. Asset root (if none exists for the asset), rig root.
+1. The rig root, with `assetId`, `rigName`, `skeletonHash` and the version stamps.
 2. **Pass 1**: `buildModules` calls every plan's `build` closure, layout first, and checks each result against the plan's interface.
 3. **Pass 2**: `parentModuleControls` connects every child plug to its `parentStructure` socket, or to `layout.end`. It reparents controls in the DAG for organization and connects the socket matrix to the child plug's `parentMatrix`.
 4. Moves the input joints into the rig namespace, then the first `doIt`.

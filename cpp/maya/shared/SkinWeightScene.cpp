@@ -19,6 +19,7 @@
 #include <maya/MItDag.h>
 #include <maya/MMatrix.h>
 #include <maya/MNamespace.h>
+#include <maya/MObjectArray.h>
 #include <maya/MPlug.h>
 #include <maya/MUuid.h>
 
@@ -218,6 +219,29 @@ MStatus SkinWeightScene::readSkinWeights(const MDagPath& mesh, SkinWeights& outW
 	{
 		MGlobal::displayError(meshName + "'s weights were not saved.");
 		return MStatus::kFailure;
+	}
+
+	// The skeleton the weights belong to is the rig's, so a look swap can match the file to a rig by its stamp (D54).
+	MObjectArray oInfluences;
+	for (unsigned int i = 0; i < influences.length(); ++i)
+	{
+		oInfluences.append(influences[i].node());
+	}
+	MObject oRigRoot;
+	status = RigTraversal::findSharedRigRoot(oInfluences, oRigRoot);
+	if (!status)
+	{
+		MGlobal::displayError(meshName + "'s weights were not saved.");
+		return status;
+	}
+	if (oRigRoot.isNull())
+	{
+		outWeights.skeletonHash.clear();
+		MGlobal::displayWarning(meshName + "'s influences belong to no rig, so its weight file records no skeleton hash.");
+	}
+	else
+	{
+		outWeights.skeletonHash = MFnDependencyNode(oRigRoot).findPlug(RigAttr::SkeletonHash, false).asString().asChar();
 	}
 
 	status = readTopology(shape, outWeights.vertexCount, outWeights.faceCount, outWeights.topologyHash);

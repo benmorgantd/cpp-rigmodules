@@ -1,5 +1,6 @@
 #include "SkinWeightFile.h"
 #include "Constants.h"
+#include "FormatUpdate.h"
 #include "Hash64.h"
 
 #include <algorithm>
@@ -11,6 +12,15 @@
 
 namespace
 {
+	// Version 2 added the skeleton's hash (D54). An older file doesn't know its skeleton, which "" says.
+	void addSkeletonHash(nlohmann::json& data)
+	{
+		if (data.is_object() && !data.contains(SkinWeightFileKey::SkeletonHash))
+		{
+			data[SkinWeightFileKey::SkeletonHash] = "";
+		}
+	}
+
 	bool isCount(const nlohmann::json& value)
 	{
 		return value.is_number_unsigned() || (value.is_number_integer() && value.get<long long>() >= 0);
@@ -148,6 +158,13 @@ std::string describeUnnormalizedVertices(const SkinWeights& weights, const std::
 // Written by hand instead of json::dump(4), which puts every number on its own line. Here a vertex is one line.
 // Numbers go through std::to_chars, the shortest text that reads back as the same double, which is also much faster
 // than a json value per number. Keys and strings go through json::dump, so escaping matches the parser.
+const UpdateTable& skinWeightUpdateTable()
+{
+	// Add a step here, and nowhere else, when the weight file changes shape or meaning. Step 0 takes version 1 to 2.
+	static const UpdateTable table{ 1, { &addSkeletonHash } };
+	return table;
+}
+
 std::string serializeSkinWeights(const SkinWeights& weights)
 {
 	const auto quoted = [](const std::string& text)
@@ -166,12 +183,13 @@ std::string serializeSkinWeights(const SkinWeights& weights)
 	};
 
 	std::string out = "{\n";
-	out += key(SkinWeightFileKey::FormatVersion) + std::to_string(SkinWeightFileFormat::CurrentVersion) + ",\n";
+	out += key(SkinWeightFileKey::FormatVersion) + std::to_string(skinWeightUpdateTable().currentVersion()) + ",\n";
 	out += key(SkinWeightFileKey::MeshId) + quoted(weights.meshId) + ",\n";
 	out += key(SkinWeightFileKey::MeshName) + quoted(weights.meshName) + ",\n";
 	out += key(SkinWeightFileKey::VertexCount) + std::to_string(weights.vertexCount) + ",\n";
 	out += key(SkinWeightFileKey::FaceCount) + std::to_string(weights.faceCount) + ",\n";
 	out += key(SkinWeightFileKey::TopologyHash) + quoted(Hash64::format(weights.topologyHash)) + ",\n";
+	out += key(SkinWeightFileKey::SkeletonHash) + quoted(weights.skeletonHash) + ",\n";
 	out += key(SkinWeightFileKey::SkinMethod) + quoted(weights.skinMethod) + ",\n";
 
 	out += key(SkinWeightFileKey::Influences) + "[";
@@ -232,6 +250,28 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 		return;
 	}
 
+	const auto path = [&where](const char* key)
+	{
+		return where + "." + key;
+	};
+
+	// The update steps run before the key check, so the check sees the current shape.
+	if (!file.is_object() || !file.contains(SkinWeightFileKey::FormatVersion))
+	{
+		report.addError(where, std::string("must be a JSON object with ") + SkinWeightFileKey::FormatVersion);
+		return;
+	}
+	const nlohmann::json& version = file.at(SkinWeightFileKey::FormatVersion);
+	if (!version.is_number_integer())
+	{
+		report.addError(path(SkinWeightFileKey::FormatVersion), "must be a whole number, not " + version.dump());
+		return;
+	}
+	if (!FormatUpdate::runUpdates(skinWeightUpdateTable(), version.get<int>(), file, path(SkinWeightFileKey::FormatVersion), report))
+	{
+		return;
+	}
+
 	const std::size_t errorCount = report.errors.size();
 	RigTemplateValidation::checkKeys(file,
 		{
@@ -241,6 +281,7 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 			SkinWeightFileKey::VertexCount,
 			SkinWeightFileKey::FaceCount,
 			SkinWeightFileKey::TopologyHash,
+			SkinWeightFileKey::SkeletonHash,
 			SkinWeightFileKey::SkinMethod,
 			SkinWeightFileKey::Influences,
 			SkinWeightFileKey::Weights
@@ -248,18 +289,6 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 		{ SkinWeightFileKey::BlendWeights }, where, report);
 	if (report.errors.size() != errorCount)
 	{
-		return;
-	}
-
-	const auto path = [&where](const char* key)
-	{
-		return where + "." + key;
-	};
-
-	const nlohmann::json& version = file.at(SkinWeightFileKey::FormatVersion);
-	if (!version.is_number_integer() || version.get<int>() != SkinWeightFileFormat::CurrentVersion)
-	{
-		report.addError(path(SkinWeightFileKey::FormatVersion), "unsupported version " + version.dump());
 		return;
 	}
 
@@ -289,6 +318,14 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 	if (!hash.is_string() || !Hash64::parse(hash.get<std::string>(), parsedHash))
 	{
 		report.addError(path(SkinWeightFileKey::TopologyHash), "must be 16 lowercase hex digits");
+	}
+	// Recorded, not checked: the check against the rig comes with the look swap (D54 phase 5).
+	const nlohmann::json& skeletonHash = file.at(SkinWeightFileKey::SkeletonHash);
+	std::uint64_t parsedSkeletonHash = 0;
+	if (!skeletonHash.is_string()
+		|| (!skeletonHash.get<std::string>().empty() && !Hash64::parse(skeletonHash.get<std::string>(), parsedSkeletonHash)))
+	{
+		report.addError(path(SkinWeightFileKey::SkeletonHash), "must be \"\" or 16 lowercase hex digits");
 	}
 
 	const nlohmann::json& skinMethod = file.at(SkinWeightFileKey::SkinMethod);
@@ -399,6 +436,7 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 	outWeights.vertexCount = parsedVertexCount;
 	outWeights.faceCount = faceCount.get<unsigned int>();
 	outWeights.topologyHash = parsedHash;
+	outWeights.skeletonHash = skeletonHash.get<std::string>();
 	outWeights.skinMethod = skinMethod.get<std::string>();
 	outWeights.influences = std::move(parsedInfluences);
 	outWeights.weights = std::move(parsedWeights);

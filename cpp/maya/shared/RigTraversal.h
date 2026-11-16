@@ -49,6 +49,10 @@ public:
 	// True for a node getOwningRigRoot accepts. Reports nothing, so tools can test every selected node quietly.
 	static bool isRigNode(const MObject& oNode);
 
+	// The one rig root that the rig nodes among oNodes belong to, or a null object when none is a rig node (nodes
+	// outside every rig are skipped). Fails, naming both, when they belong to two rigs.
+	static MStatus findSharedRigRoot(const MObjectArray& oNodes, MObject& oOutRigRoot);
+
 	// The rig module a module, control or rig-driven joint leads to, or a null object for any other node (a rig root
 	// leads to none). Reports nothing.
 	static MObject getNodeModule(const MObject& oNode);
@@ -56,9 +60,6 @@ public:
 	// The rig root a module is connected to, through module.rigRoot <- rigRoot.rigModules, or a null object for a
 	// module that has none. Reports nothing.
 	static MObject findModuleRigRoot(const MObject& oModule);
-
-	// The asset root a rig root belongs to, through rigRoot.assetRoot <- assetRoot.children (D29). Fails if there is none.
-	static MStatus getAssetRoot(const MObject& oRigRoot, MObject& oOutAssetRoot);
 
 	// Every module connected to the rig root, layout included, sorted by node name so results are stable.
 	static MStatus getRigModules(const MObject& oRigRoot, MObjectArray& oOutModules);

@@ -4,6 +4,7 @@
 #include <array>
 #include <ctime>
 #include <set>
+#include <utility>
 
 namespace
 {
@@ -25,11 +26,12 @@ namespace
 	const StringField kStringFields[] =
 	{
 		{ LibraryMetaKey::AssetId, &LibraryMeta::assetId, true },
-		{ LibraryMetaKey::Variant, &LibraryMeta::variant, true },
+		{ LibraryMetaKey::RigName, &LibraryMeta::rigName, true },
+		{ LibraryMetaKey::SkeletonHash, &LibraryMeta::skeletonHash, true },
 		{ LibraryMetaKey::PluginVersion, &LibraryMeta::pluginVersion, true },
 		{ LibraryMetaKey::Created, &LibraryMeta::created, true },
 		{ LibraryMetaKey::Template, &LibraryMeta::templateName, false },
-		{ LibraryMetaKey::SkeletonId, &LibraryMeta::skeletonId, false },
+		{ LibraryMetaKey::Skeleton, &LibraryMeta::skeleton, false },
 		{ LibraryMetaKey::Author, &LibraryMeta::author, false },
 		{ LibraryMetaKey::Description, &LibraryMeta::description, false },
 		{ LibraryMetaKey::Category, &LibraryMeta::category, false },
@@ -165,6 +167,34 @@ void applyCallerMeta(const std::string& jsonText, LibraryMeta& meta, ValidationR
 	if (report.errors.size() == errorCount)
 	{
 		meta = edited;
+	}
+}
+
+void renameVersion2MetaKeys(nlohmann::json& file)
+{
+	if (!file.is_object())
+	{
+		return;
+	}
+	const auto itMeta = file.find(PoseFileKey::Meta);
+	if (itMeta == file.end() || !itMeta->is_object())
+	{
+		return;
+	}
+
+	const std::pair<const char*, const char*> renames[] =
+	{
+		{ LibraryMetaKey::V2Variant, LibraryMetaKey::RigName },
+		{ LibraryMetaKey::V2SkeletonId, LibraryMetaKey::Skeleton },
+	};
+	for (const auto& [oldKey, newKey] : renames)
+	{
+		const auto it = itMeta->find(oldKey);
+		if (it != itMeta->end() && !itMeta->contains(newKey))
+		{
+			(*itMeta)[newKey] = *it;
+			itMeta->erase(oldKey);
+		}
 	}
 }
 

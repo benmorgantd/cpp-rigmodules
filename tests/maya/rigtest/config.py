@@ -14,9 +14,10 @@ UPDATE_GOLDEN = False
 # Namespaces every test uses unless it is testing namespaces.
 SKELETON_NAMESPACE = "skel"
 RIG_NAMESPACE = "rig"
-# Asset every build uses unless it is testing assets. Its last token is the default namespace, RIG_NAMESPACE.
+# Asset every build uses unless it is testing assets. Builds pass RIG_NAMESPACE, because the default namespace,
+# "{asset name}_{rigName}" (D54), changes with each template.
 ASSET_ID = "tests\\rig"
 
 # Every node type the plugin registers that a build creates.
-RIG_NODE_TYPES = ["assetRootModule", "rigRootModule", "layoutModule", "fkChainModule", "aimModule",
+RIG_NODE_TYPES = ["rigRootModule","layoutModule", "fkChainModule", "aimModule",
                   "twoBoneIkModule", "rigConstraint", "rigControlNode"]

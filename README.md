@@ -45,6 +45,7 @@ This builds a three-joint spine with a one-joint arm hanging off its last joint.
 {
   "rigVersion": 1,
   "rigTemplateName": "SpineArm",
+  "rigName": "body",
   "rigAuthor": "you",
   "rigModules": [
     {
@@ -82,13 +83,13 @@ joints = ["skel:spine1_jnt", "skel:spine2_jnt", "skel:spine3_jnt", "skel:arm_jnt
 cmds.createRigFromTemplate(*joints, template=r"C:\path\to\spine_arm.json", asset="shooter\\characters\\hero")
 ```
 
-`asset` is the asset's folder path below the projects root. The template names no asset, so one template can build many assets. The rig and its input joints end up in a namespace named after the asset, `hero`. The `namespace` flag changes that, and `:` means the root. Joint names are kept. Controls are named from their joint and their module's side, so `skel:arm_jnt` in a `Left` module gives `hero:arm_ctrl_l`.
+`asset` is the asset's folder path below the projects root. The template names no asset, so one template can build many assets. The rig and its input joints end up in a namespace named after the asset and the template's `rigName`, `hero_body`. A namespace holds one rig. The `namespace` flag changes it, and `:` means the root. Joint names are kept. Controls are named from their joint and their module's side, so `skel:arm_jnt` in a `Left` module gives `hero_body:arm_ctrl_l`.
 
 Give the arm a space switch between the world and the chest. The first driver starts active, so the arm now stays in world space when the spine moves. Switch it back to following the chest:
 
 ```python
-cmds.createRigConstraint("hero:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"])
-cmds.setRigConstraintSpace("hero:arm_ctrl_l_space", label="Chest")
+cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"])
+cmds.setRigConstraintSpace("hero_body:arm_ctrl_l_space", label="Chest")
 ```
 
 Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`](RigTemplates/LayoutRig.json) is a larger example that does that and uses all three modules.
@@ -120,7 +121,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/mayadev.md](docs/mayadev.md) | The mayadev pipeline repo as a consumer: what it calls and how to check its call sites before changing a name |
 | [tests/README.md](tests/README.md) | Running and writing tests |
 | [design/decisions.md](design/decisions.md) | Why the system is built the way it is (decision log) |
-| [design/asset-model.md](design/asset-model.md) | Asset id, namespaces, rig variants and the file model |
+| [design/asset-model.md](design/asset-model.md) | Asset id, namespaces and the file model (rigs and looks replace variants: [design/rigs-and-looks.md](design/rigs-and-looks.md)) |
 | [design/inverse-solve.md](design/inverse-solve.md) | Restoring controls from joints |
 | [design/control-library.md](design/control-library.md) | The pose and animation library design |
 | [design/engine-rig.md](design/engine-rig.md) | Running the rig in Unreal (speculative, not decided) |
@@ -156,7 +157,7 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | `cpp/maya/` | Plugin entry (`PluginMain.cpp`) and the registries every node and command is added to |
 | `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim, TwoBoneIk |
 | `cpp/maya/commands/` | The Maya commands, one file per command or related set: building, constraints, joint markup, controls and shapes, poses, keys and animation files, restoring from joints, rig info, skin weights. The list is in [docs/commands.md](docs/commands.md) |
-| `cpp/maya/nodes/` | Other nodes: rig and asset roots (the root also runs the build), the constraint node, the control node |
+| `cpp/maya/nodes/` | Other nodes: the rig root (it also runs the build), the constraint node, the control node |
 | `cpp/maya/shared/` | Code used across those folders: the module base, utilities, rig traversal, and the scene sides of joint markup, shapes, skin weights, display layers, selection sets, poses, keys and the inverse solve |
 | `cpp/include/` | Vendored third-party headers (nlohmann json) |
 | `python/rigmodules/` | The Python package that wraps the commands for pipeline tools |

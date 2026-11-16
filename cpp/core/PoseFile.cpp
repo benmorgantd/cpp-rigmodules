@@ -18,7 +18,7 @@ namespace
 const UpdateTable& poseUpdateTable()
 {
 	// Add a step here, and nowhere else, when the pose file changes shape or meaning. Step 0 takes version 1 to 2.
-	static const UpdateTable table{ 1, { &addMeta } };
+	static const UpdateTable table{ 1, { &addMeta, &renameVersion2MetaKeys } };
 	return table;
 }
 

@@ -54,15 +54,15 @@ namespace
 			return MStatus::kFailure;
 		}
 
-		// The asset owns the namespace, so it defaults to the asset's name.
-		MString rigNamespace(AssetId::name(inputs.assetId).c_str());
+		// Unset, the namespace defaults to "{asset name}_{rigName}" (D54), which createRig resolves once it has read the template.
 		if (argData.isFlagSet(kNamespaceFlag))
 		{
+			MString rigNamespace;
 			status = argData.getFlagArgument(kNamespaceFlag, 0, rigNamespace);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
+			// Leading and trailing colons are dropped so ":rig", "rig:" and "rig" all mean the same namespace, and ":" is the root.
+			inputs.rigNamespace = MString(StringUtils::trim(rigNamespace.asChar(), ':').c_str());
 		}
-		// Leading and trailing colons are dropped so ":rig", "rig:" and "rig" all mean the same namespace, and ":" is the root.
-		inputs.rigNamespace = StringUtils::trim(rigNamespace.asChar(), ':').c_str();
 
 		if (argData.isFlagSet(kCheckMirrorPositionsFlag))
 		{
@@ -123,13 +123,12 @@ MStatus CreateRigCmd::doIt(const MArgList& args)
 		return status;
 	}
 
-	status = RigRootNode::createRig(inputs, fDagMod);
+	status = RigRootNode::createRig(inputs, fDagMod, fRigNamespace);
 	if (!status)
 	{
 		return status;
 	}
 
-	fRigNamespace = inputs.rigNamespace;
 	return redoIt();
 }
 
