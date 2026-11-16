@@ -30,6 +30,7 @@
 #include <maya/MObject.h>
 #include <maya/MPlug.h>
 #include <maya/MPoint.h>
+#include <maya/MProfiler.h>
 #include <maya/MTypeId.h>
 #include <maya/MVector.h>
 
@@ -517,11 +518,18 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kSuccess;
 }
 
+namespace
+{
+	// Profiler event name, in ProfilerUtils' category. A profile of playback with no such event shows the match branch never ran.
+	constexpr const char* ProfileComputeMatch{ "twoBoneIk computeMatch" };
+}
+
 // The one branch of compute() that allocates (the inverse's vectors and warnings), against D36's rule. It runs only when a
 // tool pulls a match output: playback never does, and bench (D52 phase 8) checks that. The inverse is the restore's, run
 // on the joints this evaluation solved, so what a match command writes is what a restore of the same pose would.
 MStatus TwoBoneIkNode::computeMatch(const MPlug& plug, MDataBlock& data)
 {
+	MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorC_L2, ProfileComputeMatch);
 	MStatus status;
 	TwoBoneIkEval eval;
 	status = readEval(data, eval);

@@ -276,3 +276,44 @@ class TwoBoneIkBehaviour(RigTestCase):
         self.assertAlmostEqual(attr("armSettings_r_ctrl_r", "stretch"), 0.4, places=6)
         self.assertAlmostEqual(attr("armPole_r_ctrl_r", "pin"), 0.25, places=6)
         self.assertAlmostEqual(attr(left, "roll"), 0, places=6)
+
+    # ---- playback ------------------------------------------------------------------------------
+
+    def test_playback_never_pulls_the_match_outputs(self):
+        """The match outputs allocate in compute(), so only setRigIkFkBlend may pull them (D36, D52 phase 8). Maya's profiler
+        records computeMatch's scope: a keyed playback range must leave it out, while the same recording sees the module's
+        other outputs (so it is recording) and sees computeMatch once a match output is pulled (so the scope fires)."""
+        import maya.OpenMaya
+        self.build_standard("twoboneik_basic", "twoboneik_basic")
+        cmds.evaluationManager(mode="off")   # plain DG: only what is pulled evaluates
+        module = rig_name("arm_1")
+        for frame, blend, handle in ((1, 1.0, 0.0), (6, 0.5, 2.0), (12, 0.0, -2.0), (18, 1.0, 3.0)):
+            cmds.setKeyframe(rig_name(SETTINGS) + ".ikFkBlend", time=frame, value=blend)
+            cmds.setKeyframe(rig_name(HANDLE) + ".translateX", time=frame, value=handle)
+
+        def recorded_events(action):
+            cmds.profiler(reset=True)
+            cmds.profiler(sampling=True)
+            try:
+                action()
+            finally:
+                cmds.profiler(sampling=False)
+            profiler = maya.OpenMaya.MProfiler
+            return [(profiler.getEventName(i), profiler.getDescription(i)) for i in range(profiler.getEventCount())]
+
+        def play():
+            for frame in range(1, 19):
+                cmds.currentTime(frame)
+                for joint in LIMB_JOINTS:
+                    cmds.getAttr(rig_name(joint) + ".worldMatrix[0]")
+
+        def pull_match():
+            cmds.setAttr(rig_name(HANDLE) + ".translateY", 0.5)
+            cmds.getAttr(module + ".fkMatchLocal[0]")
+
+        playback = recorded_events(play)
+        self.assertTrue(any(name.endswith("arm_1") and description == "jointOPM" for name, description in playback),
+                        "the profiler did not record the module's evaluation")
+        self.assertFalse(any("computeMatch" in name for name, _ in playback), "playback pulled a match output")
+        pulled = recorded_events(pull_match)
+        self.assertTrue(any("computeMatch" in name for name, _ in pulled), "computeMatch left no profiler event")

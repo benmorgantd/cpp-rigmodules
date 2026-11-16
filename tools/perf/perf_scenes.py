@@ -4,6 +4,7 @@ Run it with mayapy (set nothing else up: it loads a copy of the plugin and the p
 
     mayapy tools/perf/perf_scenes.py human   [--count 50] [--frames 96]
     mayapy tools/perf/perf_scenes.py complex [--count 50]
+    mayapy tools/perf/perf_scenes.py floor   [--count 50]                  (the complex scene with no rig layer: D36's native floor)
     mayapy tools/perf/perf_scenes.py bench   SCENE.mb [--passes 3]        (evaluation only, no viewport)
     mayapy tools/perf/perf_scenes.py gui     SCENE.mb [--seconds 6]       (real playback in a Maya window)
     mayapy tools/perf/perf_scenes.py profile SCENE.mb [--frames 20]       (where playback time goes, in a Maya window)
@@ -11,8 +12,12 @@ Run it with mayapy (set nothing else up: it loads a copy of the plugin and the p
 
 human    imports the asset's skeleton `--count` times, builds the asset's template on each, and keys every
          control on every frame through a cycle of load, mirror, flip and zero poses.
-complex  generates a 200 joint skeleton and a template with 51 constraints (Parent, Orient and Point) and Aim modules, builds
-         it `--count` times, and keys a -90 to 90 range of motion on every control's rotate X, Y and Z.
+complex  generates a 272 joint skeleton and a template with 75 constraints (Parent, Orient and Point), Aim modules and
+         TwoBoneIk limbs, builds it `--count` times, and keys a -90 to 90 range of motion on every control's rotate X, Y
+         and Z, plus the limbs' handles, poles, roll and settings (blend, stretch, soft, pin) through every branch.
+
+floor    builds the same controls, joints, hierarchy and keys as `complex` with native transforms and joints only, so
+         `bench` on complex_xN.mb and on floor_xN.mb gives the 1.5 times ratio of D36 (run both in one session).
 
 Timing, on this machine: the scenes take about a minute each to build. `bench` takes about 3 minutes on the
 complex scene with parallel only, and about 10 minutes with --all-modes (serial and DG are slow there). `gui`
@@ -55,8 +60,8 @@ ROM_AXES = ("rotateX", "rotateY", "rotateZ")
 #
 # One entry per chain, written for the Left side. A Left chain is built on both sides (Right is the
 # reflection across X = 0) and gets "mirror": true in the template, so the template stays half the size.
-# Aim sets (aim, target and up joints) are listed apart. 50 Center joints + 2 x 75 side joints = 200 joints.
-# 7 Center + 2 x 22 side constraints = 51.
+# Aim sets (aim, target and up joints) and limbs (three limb joints and three marker joints) are listed apart.
+# 50 Center joints + 2 x 111 side joints = 272 joints. 7 Center + 2 x 34 side constraints = 75.
 #
 # Every module type and constraint type the plugin has appears here many times. A new module or constraint
 # type adds a block of instances to this rig in the same change (CLAUDE.md, "Gate for new modules").
@@ -109,6 +114,29 @@ def chain_specs():
     return specs
 
 
+def limb_specs():
+    """TwoBoneIk limbs, written for the Left side and built on both. `at`: (chain base, joint index) the limb's root is
+    placed from and parented to (a Left chain's joint is matched by side, a Center one is shared). `upper` and `lower`
+    are the bone vectors, `ik`, `pole` and `settings` the marker joints' offsets from the end, the mid and the root joint.
+    The pole sits on the bend side. `constraints`: the spaces on the start and the IK handle, as for a chain."""
+    layout = ("layout", "end", "World")
+    arm_start = ("Parent", [("clavicle", "end", "Clavicle"), ("spine", "end", "Chest"), layout])
+    leg_start = ("Orient", [("spine", "start", "Hips"), layout])
+    ik_space = ("Parent", [("spine", "end", "Chest"), ("spine", "start", "Hips"), layout])
+    limbs = []
+    for k, base in enumerate(["limbA", "limbB", "limbC"]):
+        limbs.append({"base": base, "at": ("clavicle", 0), "parent": ("clavicle", "end"),
+                      "offset": (0.3, 0.3 + 0.35 * k, 0.5 - 0.5 * k), "upper": (1.6, -0.2, -0.5), "lower": (1.6, -0.2, 0.5),
+                      "ik": (0, 0, 0), "pole": (0, 0, -1.5), "settings": (0, 1.2, 0),
+                      "constraints": {"start": arm_start, "ik": ik_space}})
+    for k, base in enumerate(["limbD", "limbE", "limbF"]):
+        limbs.append({"base": base, "at": ("spine", 0), "parent": ("spine", "start"),
+                      "offset": (0.3 + 0.25 * k, -0.4, 0.3 - 0.3 * k), "upper": (0.05, -1.5, 0.45), "lower": (0.0, -1.5, -0.45),
+                      "ik": (0, 0, 0), "pole": (0, 0, 1.5), "settings": (0.6, 0, 0),
+                      "constraints": {"start": leg_start, "ik": ik_space}})
+    return limbs
+
+
 def aim_specs():
     """Aim modules, written for the Left side. Offsets are from the parent joint. The aim joint has no
     control, so each set has two controls (target and up) and a constraint on the target."""
@@ -135,7 +163,8 @@ def joint_name(base, index, side):
 
 
 def aim_joint(base, role, side):
-    """Name of an aim set's joint, role being aim, target or up. Without its side suffix it is the usage."""
+    """Name of an aim set's or a limb's marker joint, role being aim, target and up, or ik, pole and settings. Without
+    its side suffix it is the usage."""
     return "%s%s_%s" % (base, role.capitalize(), side_suffix(side))
 
 
@@ -149,6 +178,16 @@ def _sides(spec):
 
 def _flip(vector, side):
     return (-vector[0], vector[1], vector[2]) if side == "Right" else tuple(vector)
+
+
+def _add(a, b):
+    return (a[0] + b[0], a[1] + b[1], a[2] + b[2])
+
+
+def _secondary(step):
+    """The secondary axis hint for a bone: Z up along a mostly vertical bone, else Y up."""
+    length = math.sqrt(sum(c * c for c in step))
+    return "zup" if abs(step[1]) / length > 0.7 else "yup"
 
 
 def joint_layout():
@@ -171,8 +210,7 @@ def joint_layout():
                 offset = _flip(spec["offset"], side)
                 origin = (anchor[0] + offset[0], anchor[1] + offset[1], anchor[2] + offset[2])
             step = _flip(spec["step"], side)
-            length = math.sqrt(sum(c * c for c in step))
-            secondary = "zup" if abs(step[1]) / length > 0.7 else "yup"
+            secondary = _secondary(step)
             chain_positions = []
             chain_names = []
             previous = parent_joint
@@ -197,7 +235,47 @@ def joint_layout():
                 joints.append({"name": name, "parent": parent, "side": side, "usage": name[:-2],
                                "chain": module_name(aim["base"], side), "aim_next": False, "secondary": "yup",
                                "position": (anchor[0] + offset[0], anchor[1] + offset[1], anchor[2] + offset[2])})
+    for limb in limb_specs():
+        at_base, at_index = limb["at"]
+        for side in ("Left", "Right"):
+            at_side = side if spec_side[at_base] == "Left" else "Center"
+            parent = names[(at_base, at_side)][at_index]
+            root = _add(positions[(at_base, at_side)][at_index], _flip(limb["offset"], side))
+            upper, lower = _flip(limb["upper"], side), _flip(limb["lower"], side)
+            mid = _add(root, upper)
+            end = _add(mid, lower)
+            chain = module_name(limb["base"], side)
+            previous = parent
+            for i, (position, step) in enumerate([(root, upper), (mid, lower), (end, None)]):
+                name = joint_name(limb["base"], i, side)
+                joints.append({"name": name, "parent": previous, "position": position, "side": side,
+                               "usage": usage_name(limb["base"], i), "chain": chain, "aim_next": step is not None,
+                               "secondary": _secondary(step) if step else "yup"})
+                previous = name
+            # The marker joints are the module's own: hung from the limb's parent, never exported or skinned.
+            for role, anchor in (("ik", end), ("pole", mid), ("settings", root)):
+                name = aim_joint(limb["base"], role, side)
+                joints.append({"name": name, "parent": parent, "side": side, "usage": name[:-2], "chain": chain,
+                               "aim_next": False, "secondary": "yup", "marker": True,
+                               "position": _add(anchor, _flip(limb[role], side))})
     return joints
+
+
+def _constraint_entry(name, constraint_type, target, drivers, side, side_of):
+    """A template constraint. drivers: [(module base, socket, label), ...], the first at weight 1."""
+    entry = {"name": name, "type": constraint_type, "target": target, "drivers": []}
+    for index, (driver_base, socket, label) in enumerate(drivers):
+        if driver_base == "layout":
+            socket_id = "layout.end"
+        else:
+            socket_id = "%s.%s" % (module_name(driver_base, side_of[driver_base]), socket)
+        driver = {"socket": socket_id, "label": label}
+        if index == 0:
+            driver["weight"] = 1.0
+        entry["drivers"].append(driver)
+    if side == "Left":
+        entry["mirror"] = True
+    return entry
 
 
 def build_template():
@@ -222,24 +300,8 @@ def build_template():
         modules.append(module)
         if spec["constraint"] is not None:
             constraint_type, drivers = spec["constraint"]
-            entry = {
-                "name": "%s_space%s" % (spec["base"], "_l" if side == "Left" else ""),
-                "type": constraint_type,
-                "target": "%s.start" % name,
-                "drivers": [],
-            }
-            for index, (driver_base, socket, label) in enumerate(drivers):
-                if driver_base == "layout":
-                    socket_id = "layout.end"
-                else:
-                    socket_id = "%s.%s" % (module_name(driver_base, side_of[driver_base]), socket)
-                driver = {"socket": socket_id, "label": label}
-                if index == 0:
-                    driver["weight"] = 1.0
-                entry["drivers"].append(driver)
-            if side == "Left":
-                entry["mirror"] = True
-            constraints.append(entry)
+            constraints.append(_constraint_entry("%s_space%s" % (spec["base"], "_l" if side == "Left" else ""),
+                                                 constraint_type, "%s.start" % name, drivers, side, side_of))
     for aim in aim_specs():
         name = module_name(aim["base"], "Left")
         modules.append({
@@ -258,11 +320,31 @@ def build_template():
                         {"socket": "layout.end", "label": "World"}],
             "mirror": True,
         })
+    for limb in limb_specs():
+        name = module_name(limb["base"], "Left")
+        parent_base, parent_socket = limb["parent"]
+        modules.append({
+            "moduleType": "TwoBoneIk",
+            "name": name,
+            "side": "Left",
+            "shapeType": "Box",
+            "mirror": True,
+            "moduleArgs": {
+                "joints": [["Left", usage_name(limb["base"], i)] for i in range(3)],
+                **{role: ["Left", aim_joint(limb["base"], role, "Left")[:-2]] for role in ("ik", "pole", "settings")},
+            },
+            # The pole can't name the module's own socket (D17): it hangs from the layout, and its Ik space is switched later.
+            "parentStructure": {"start": "%s.%s" % (module_name(parent_base, side_of[parent_base]), parent_socket),
+                                "ik": "layout.end", "pole": "layout.end"},
+        })
+        for plug, (constraint_type, drivers) in limb["constraints"].items():
+            constraints.append(_constraint_entry("%s_%s_space_l" % (limb["base"], plug), constraint_type,
+                                                 "%s.%s" % (name, plug), drivers, "Left", side_of))
     return {
         "formatVersion": 1,
-        "rigName": "Complex200",
+        "rigName": "Complex272",
         "rigVersion": 1,
-        "rigTemplateName": "Complex200",
+        "rigTemplateName": "Complex272",
         "rigAuthor": "perf_scenes.py",
         "rigModules": modules,
         "constraints": constraints,
@@ -304,7 +386,8 @@ def build_skeleton(joints):
         else:
             cmds.joint(joint["name"], edit=True, orientJoint="none", zeroScaleOrient=True)
     for joint in joints:
-        cmds.rigJointMarkup(joint["name"], usage=joint["usage"], side=joint["side"], export=True, skin=True)
+        exported = not joint.get("marker", False)
+        cmds.rigJointMarkup(joint["name"], usage=joint["usage"], side=joint["side"], export=exported, skin=exported)
 
 
 def import_skeleton(skeleton_file, namespace):
@@ -314,10 +397,27 @@ def import_skeleton(skeleton_file, namespace):
 
 
 class RigInstance(object):
-    def __init__(self, namespace, rig_root, controls):
+    def __init__(self, namespace, rig_root, controls, limbs=()):
         self.namespace = namespace
         self.rig_root = rig_root
         self.controls = controls   # every control except the layout's, which place the instance
+        self.limbs = list(limbs)   # one dict per TwoBoneIk limb: its six controls by role (LIMB_ROLES)
+
+
+LIMB_ROLES = ("start", "lower", "end", "ik", "pole", "settings")
+
+
+def find_limbs(controls):
+    """The TwoBoneIk limbs among rigmodules.query controls: one dict of control names by role per module. The three
+    limb joints' usages end in 1, 2 and 3 and the markers' in Ik, Pole and Settings (usage_name and aim_joint)."""
+    by_module = {}
+    for control in controls:
+        if control.module_type != "TwoBoneIk":
+            continue
+        for role, suffix in zip(LIMB_ROLES, ("1", "2", "3", "Ik", "Pole", "Settings")):
+            if control.usage.endswith(suffix):
+                by_module.setdefault(control.module, {})[role] = control.node
+    return list(by_module.values())
 
 
 def build_instances(skeleton_file, template_file, asset_id, prefix, count, spacing):
@@ -336,7 +436,8 @@ def build_instances(skeleton_file, template_file, asset_id, prefix, count, spaci
         layout_control = [c.node for c in controls if c.module_type == "Layout" and c.usage == "layout_0"][0]
         cmds.setAttr(layout_control + ".translateX", (index % columns) * spacing)
         cmds.setAttr(layout_control + ".translateZ", (index // columns) * spacing)
-        instances.append(RigInstance(namespace, rig_root, [c.node for c in controls if c.module_type != "Layout"]))
+        instances.append(RigInstance(namespace, rig_root, [c.node for c in controls if c.module_type != "Layout"],
+                                     find_limbs(controls)))
         if (index + 1) % 10 == 0:
             print("built %d/%d rigs (%.0f s)" % (index + 1, count, time.time() - started))
     return instances
@@ -404,19 +505,60 @@ def make_human(args):
 
 # ---- the complex scene -------------------------------------------------------------------------------
 
+def _key_curve(plugs, keys):
+    from maya import cmds
+    for frame, value in keys:
+        cmds.setKeyframe(plugs, time=frame, value=value)
+
+
 def key_rom(instances, segment=ROM_SEGMENT_FRAMES, degrees=ROM_DEGREES):
     """Rotate X, then Y, then Z, on every control at once: 0 to -degrees to +degrees to 0 over `segment` frames
-    each. Returns the last frame."""
-    from maya import cmds
+    each. A limb's pole and settings control have no rotation, so they are left out here, and key_limbs moves the
+    limbs through their own channels. Returns the last frame."""
     for axis_index, axis in enumerate(ROM_AXES):
         start = 1 + axis_index * segment
         keys = [(start, 0.0), (start + segment * 0.25, -degrees), (start + segment * 0.75, degrees),
                 (start + segment, 0.0)]
         for instance in instances:
-            plugs = ["%s.%s" % (control, axis) for control in instance.controls]
-            for frame, value in keys:
-                cmds.setKeyframe(plugs, time=frame, value=value)
-    return 1 + len(ROM_AXES) * segment
+            fixed = {limb[role] for limb in instance.limbs for role in ("pole", "settings")}
+            _key_curve(["%s.%s" % (control, axis) for control in instance.controls if control not in fixed], keys)
+    last = 1 + len(ROM_AXES) * segment
+    key_limbs(instances, last)
+    return last
+
+
+# A limb's channels over the whole range, as fractions of it: (fraction, value). The blend walks IK (1), a blend (0.5)
+# and FK (0), the only value that skips the IK solve. Stretch, soft and pin each get a stretch of frames in IK and in the
+# blend, and the handle goes well past full reach, so the soft zone, the stretch and the clamp all run.
+LIMB_CURVES = {
+    ("settings", "ikFkBlend"): [(0, 1), (0.30, 1), (0.40, 0.5), (0.55, 0.5), (0.65, 0), (0.80, 0), (0.90, 1), (1, 1)],
+    ("settings", "stretch"): [(0, 0), (0.10, 0), (0.25, 1), (0.55, 1), (0.65, 0), (1, 0)],
+    ("settings", "soft"): [(0, 0), (0.10, 0.4), (0.40, 0.4), (0.50, 0), (1, 0)],
+    ("pole", "pin"): [(0, 0), (0.30, 0), (0.42, 1), (0.50, 0), (0.90, 0), (0.95, 1), (1, 0)],
+    ("ik", "roll"): [(0, 0), (0.25, 60), (0.5, -60), (0.75, 30), (1, 0)],
+    ("ik", "translateX"): [(0, 0), (0.25, 2.5), (0.5, -2.0), (0.75, 1.0), (1, 0)],
+    ("ik", "translateY"): [(0, 0), (0.25, -1.5), (0.5, 1.5), (0.75, -1.0), (1, 0)],
+    ("ik", "translateZ"): [(0, 0), (0.25, 1.0), (0.5, -1.5), (0.75, 1.5), (1, 0)],
+    ("pole", "translateX"): [(0, 0), (0.25, 1.0), (0.5, -1.0), (0.75, 0.5), (1, 0)],
+    ("pole", "translateY"): [(0, 0), (0.25, -1.5), (0.5, 1.5), (0.75, -0.5), (1, 0)],
+    ("pole", "translateZ"): [(0, 0), (0.25, 2.0), (0.5, -2.0), (0.75, 1.0), (1, 0)],
+    ("start", "translateY"): [(0, 0), (0.5, 0.5), (1, 0)],
+}
+# The pole's space is an enum, so it steps: Parent, then Ik, then Parent.
+LIMB_SPACE_KEYS = [(0, 0), (0.5, 1), (0.8, 0)]
+
+
+def key_limbs(instances, last):
+    """Keys every limb's channels (LIMB_CURVES and the pole's space) from frame 1 to `last`."""
+    from maya import cmds
+    span = last - 1
+    for instance in instances:
+        for limb in instance.limbs:
+            for (role, channel), keys in LIMB_CURVES.items():
+                _key_curve(["%s.%s" % (limb[role], channel)], [(1 + round(f * span), v) for f, v in keys])
+            plug = "%s.%s" % (limb["pole"], "space")
+            for f, value in LIMB_SPACE_KEYS:
+                cmds.setKeyframe(plug, time=1 + round(f * span), value=value, outTangentType="step")
 
 
 def make_complex(args):
@@ -426,8 +568,8 @@ def make_complex(args):
     template = build_template()
     constraints = built_constraint_count(template)
     joints = joint_layout()
-    assert len(joints) == 200, len(joints)
-    assert constraints >= 48, constraints
+    assert len(joints) == 272, len(joints)
+    assert constraints == 75, constraints
     template_file = os.path.join(out, "complex_template.json").replace("\\", "/")
     with open(template_file, "w", encoding="utf-8") as handle:
         json.dump(template, handle, indent=2)
@@ -442,6 +584,63 @@ def make_complex(args):
     last = key_rom(instances)
     print("%d instances, %d controls each, ROM to frame %d" % (len(instances), len(instances[0].controls), last))
     save_scene(os.path.join(out, "complex_x%d.mb" % args.count), 1, last)
+    mayalaunch.finish_standalone(0)
+
+
+# ---- the native floor --------------------------------------------------------------------------------
+
+def build_floor_instance(joints, namespace):
+    """One instance of the complex rig with no rig layer: a native transform for every control and a native joint,
+    in the skeleton's hierarchy, for every joint, each driven 1:1 by its control's world matrix through
+    offsetParentMatrix. Custom attributes stand in for the limbs' channels, so key_rom keys the same curves it keys on
+    the rig. The aim joints have no control, as in the rig. Returns a RigInstance."""
+    from maya import cmds
+    limb_chains = {module_name(limb["base"], side) for limb in limb_specs() for side in ("Left", "Right")}
+    aim_usages = {aim["base"] + "Aim" for aim in aim_specs()}
+    controls = []
+    limbs = {}
+    for joint in joints:
+        name = "%s:%s" % (namespace, joint["name"])
+        parent = "%s:%s" % (namespace, joint["parent"]) if joint["parent"] else None
+        cmds.createNode("joint", name=name, **({"parent": parent} if parent else {}))
+        cmds.setAttr(name + ".inheritsTransform", 0)
+        cmds.setAttr(name + ".translate", *joint["position"])
+        if joint["usage"] in aim_usages:
+            continue   # an aim joint has no control (it keeps its own position)
+        control = cmds.createNode("transform", name=name + "_ctrl")
+        cmds.setAttr(control + ".inheritsTransform", 0)
+        cmds.setAttr(control + ".translate", *joint["position"])
+        cmds.connectAttr(control + ".worldMatrix[0]", name + ".offsetParentMatrix")
+        cmds.setAttr(name + ".translate", 0, 0, 0)
+        controls.append(control)
+        if joint["chain"] in limb_chains:
+            for role, suffix in zip(LIMB_ROLES, ("1", "2", "3", "Ik", "Pole", "Settings")):
+                if joint["usage"].endswith(suffix):
+                    limbs.setdefault(joint["chain"], {})[role] = control
+    for limb in limbs.values():
+        for role, attributes in (("settings", ("ikFkBlend", "stretch", "soft")), ("ik", ("roll",)), ("pole", ("pin",))):
+            for attribute in attributes:
+                cmds.addAttr(limb[role], longName=attribute, attributeType="double", keyable=True)
+        cmds.addAttr(limb["pole"], longName="space", attributeType="enum", enumName="Parent:Ik", keyable=True)
+    return RigInstance(namespace, None, controls, limbs.values())
+
+
+def make_floor(args):
+    """The native floor of the complex scene (D36): the same controls, joints, hierarchy and keys with no rig layer, so
+    `bench` on it and on complex_xN.mb gives the 1.5 times ratio. Run `bench` on both in the same session."""
+    from maya import cmds
+    os.makedirs(args.out, exist_ok=True)
+    joints = joint_layout()
+    start_maya(args.plugin)
+    instances = []
+    started = time.time()
+    for index in range(args.count):
+        instances.append(build_floor_instance(joints, "fl%03d" % (index + 1)))
+        if (index + 1) % 10 == 0:
+            print("built %d/%d floor rigs (%.0f s)" % (index + 1, args.count, time.time() - started))
+    last = key_rom(instances)
+    print("%d floor instances, %d controls each, ROM to frame %d" % (len(instances), len(instances[0].controls), last))
+    save_scene(os.path.join(args.out, "floor_x%d.mb" % args.count), 1, last)
     mayalaunch.finish_standalone(0)
 
 
@@ -534,10 +733,10 @@ def profile_gui(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("human", "complex", "bench", "gui", "profile", "check"):
+    for name in ("human", "complex", "floor", "bench", "gui", "profile", "check"):
         p = sub.add_parser(name)
         p.add_argument("--plugin", default=DEFAULT_PLUGIN)
-        if name in ("human", "complex"):
+        if name in ("human", "complex", "floor"):
             p.add_argument("--count", type=int, default=50)
             p.add_argument("--out", default=DEFAULT_OUT)
         if name == "human":
@@ -557,7 +756,7 @@ def main():
             p.add_argument("--maya-dir", default=None, help="Maya install folder (default: MAYA_LOCATION or Maya 2026)")
             p.add_argument("--timeout", type=int, default=900)
     args = parser.parse_args()
-    {"human": make_human, "complex": make_complex, "bench": bench_eval, "gui": bench_gui,
+    {"human": make_human, "complex": make_complex, "floor": make_floor, "bench": bench_eval, "gui": bench_gui,
      "profile": profile_gui, "check": run_check}[args.command](args)
 
 
