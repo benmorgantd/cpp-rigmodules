@@ -1,7 +1,7 @@
 // This is the only file that includes every module header
 #include "maya/ModuleRegistry.h"
 #include "maya/modules/AimModule.h"
-#include "maya/modules/FkChain.h"
+#include "maya/modules/FkChainModule.h"
 #include "maya/modules/LayoutModule.h"
 #include "maya/modules/TwoBoneIkModule.h"
 #include "maya/nodes/AssetRoot.h"
@@ -35,9 +35,9 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
             {}, nullptr, LayoutModuleNode::inverse, true   // built implicitly by RigRootNode::createRig, not from JSON
         },
         {
-            "fkChainModule", "FkChain", FkChainNode::id,
-            FkChainNode::creator, FkChainNode::initialize,
-            {}, FkChainNode::planFromJson, FkChainNode::inverse, true
+            "fkChainModule", "FkChain", FkChainModuleNode::id,
+            FkChainModuleNode::creator, FkChainModuleNode::initialize,
+            {}, FkChainModuleNode::planFromJson, FkChainModuleNode::inverse, true
         },
         {
             "aimModule", "Aim", AimModuleNode::id,

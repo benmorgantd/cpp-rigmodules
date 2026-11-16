@@ -644,7 +644,7 @@ After the display layers, `createRig` replaces the rig namespace's selection set
 ### D40. A module owns its controls' rotate orders, and the build locks them
 **Status:** Decided (author, 2026-11-11). Built; see the build and suite result in the change summary.
 `createRigControl` takes the rotate order as a required argument, so every module states it. After the first `doIt`, `createRig` locks `rotateOrder` on every control (`queueRotateOrderLocks`, MEL queued on the modifier so undo and redo replay it). FkChain uses XYZ, and Aim and Layout pass XYZ explicitly, which is what they already had.
-- **Why XYZ for FkChain (+X down the bone, +Z bend):** the middle axis of the order is the one that gimbal locks at 90 degrees (checked in mayapy 2026 for all six orders). Y, the side swing, is the axis that rarely goes far, so it goes in the middle. In XYZ, Z is also the outer axis, so the bend curve stays in parent space, and X, the twist, turns about the bone. The author suggested ZXY, which puts the twist in the middle: a forearm or shoulder twist near 90 degrees would lock. A one-line change in `FkChain.cpp` if the author prefers another order.
+- **Why XYZ for FkChain (+X down the bone, +Z bend):** the middle axis of the order is the one that gimbal locks at 90 degrees (checked in mayapy 2026 for all six orders). Y, the side swing, is the axis that rarely goes far, so it goes in the middle. In XYZ, Z is also the outer axis, so the bend curve stays in parent space, and X, the twist, turns about the bone. The author suggested ZXY, which puts the twist in the middle: a forearm or shoulder twist near 90 degrees would lock. A one-line change in `FkChainModule.cpp` if the author prefers another order.
 - **Lock in one place, not in each module:** a module can't lock its own plug while its node is still queued in the modifier. One pass after the build covers every module, and a new module only has to pick its order.
 - **Consequence:** a new module must choose a rotate order for its controls. Animators and tools can't change it by `setAttr`, so Maya's rotate order switching and `Constraints.cpp`'s read of it see a fixed value. A different order for an existing rig is a module change and a rebuild. Saved poses are in euler values, so changing an existing module's order later changes what they mean: treat it as a format break (D33).
 
@@ -794,6 +794,16 @@ The IK limb (2026-11-10) is a two-bone limb: exactly three joints, for arms and 
 - **Phase 4 settled:** the internal `settings` plug is `ModulePlugInfo::followsPlug` (pass 2 reads the followed plug's `parentStructure` entry), `createModule` runs the modifier twice to add and wire the channels (as `createConstraint` does), and the FK chain is solved at every blend so each control's offset stays current. Details in `two-bone-ik.md` section 8.
 - **Phase 7 settled:** `ModuleDescriptor::spaceDelta` is a free function pointer like `inverse`, `(module, slot, label) -> delta`, and `TwoBoneIkNode::spaceDelta` reads the same two deltas `evaluate` gives the pole from the module's plugs (the child plug's parent motion, and the `ik` socket against its rest), so the command runs no solve. D27's formula has one home, `RigPoseScene::matchControlToNewDelta`, now built on `fitLocalToChannels` (the constraint's switch calls it too): a locked or driven channel warns only when its kept value differs from the match's, where it used to warn for every locked channel. A new `ControlSpaceScene` finds a control's space of either kind, so the two commands stay thin. `D_old` is the control's current enum value, not a stored one. `ControlSpace.module` is appended with a default in Python, so a caller that builds the dataclass by position keeps working.
 - **Consequence:** one module node (`twoBoneIkModule`, `0x00218F`), six channel names, two commands (`setRigIkFkBlend`, `setRigControlSpace`), a `module` key on `getRigControlSpace`, `ModulePlugInfo::allowsConstraint`, a descriptor hook, and a mayadev rig panel edit. Built in eight phases, one commit each, with a `bench` run on the perf rig (D36).
+
+### D53. Module source files and classes end in `Module`: `FkChainModule`
+
+**Status:** Decided (author, 2026-11-15).
+
+Layout, Aim and TwoBoneIk already had `<Name>Module.h/.cpp` and `<Name>ModuleNode`; FkChain alone was `FkChain.h/.cpp` and `FkChainNode`. It is now `FkChainModule.h/.cpp` and `FkChainModuleNode`, and every future module file follows the pattern.
+
+- **Not renamed:** the template `moduleType` (`FkChain`, `Aim`, ...) and the node type name (`fkChainModule`). Both are public: saved templates and rigs depend on them, and none of them carries the suffix in `moduleType`.
+
+- **Impact:** none on saved rigs, poses, animation or templates. Only C++ names and paths changed.
 
 ## Open items
 

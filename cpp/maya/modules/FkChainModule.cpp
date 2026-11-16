@@ -1,4 +1,4 @@
-#include "maya/modules/FkChain.h"
+#include "maya/modules/FkChainModule.h"
 #include "core/RigJsonStructs.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigModule.h"
@@ -20,24 +20,24 @@
 #include <maya/MPlug.h>
 
 // ------------------------------------------------------------------
-// FkChainNode Implementation
+// FkChainModuleNode Implementation
 // ------------------------------------------------------------------
 
-MTypeId FkChainNode::id(0x00218B);
+MTypeId FkChainModuleNode::id(0x00218B);
 
-FkChainNode::FkChainNode()
+FkChainModuleNode::FkChainModuleNode()
 {
 }
-FkChainNode::~FkChainNode()
+FkChainModuleNode::~FkChainModuleNode()
 {
 }
 
-void* FkChainNode::creator()
+void* FkChainModuleNode::creator()
 {
-	return new FkChainNode();
+	return new FkChainModuleNode();
 }
 
-MStatus FkChainNode::initialize()
+MStatus FkChainModuleNode::initialize()
 {
 	MStatus status;
 	status = initializeSharedAttributes();
@@ -50,7 +50,7 @@ MStatus FkChainNode::initialize()
 	return MStatus::kSuccess;
 }
 
-MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
+MStatus FkChainModuleNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	const MObject oOutputAttr = plug.attribute();
 
@@ -63,7 +63,7 @@ MStatus FkChainNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kUnknownParameter;
 }
 
-ModuleInverseResult FkChainNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput& input)
+ModuleInverseResult FkChainModuleNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput& input)
 {
 	return ModuleInverse::solveChain(context, input, true);
 }
@@ -71,7 +71,7 @@ ModuleInverseResult FkChainNode::inverse(const ModuleInverseContext& context, co
 // Joints run down +X and bend about Z, so the middle axis (the one that gimbal locks at 90 degrees) should be
 // Y, the side swing that rarely goes far. In XYZ, Z is also the parent-space axis, so the bend curve stays
 // clean, and X, the twist, turns about the bone itself. ZXY would put the twist in the middle (D40).
-RigModuleBuildResult FkChainNode::createModule(
+RigModuleBuildResult FkChainModuleNode::createModule(
 	const MString& moduleName,
 	const Side& side,
 	const ShapeType& shapeType,
@@ -84,16 +84,16 @@ RigModuleBuildResult FkChainNode::createModule(
 	RigModuleBuildResult result;
 
 	// Instantiate module node in DG
-	MObject oFkChainModule = dagMod.MDGModifier::createNode(FkChainNode::id);
+	MObject oFkChainModule = dagMod.MDGModifier::createNode(FkChainModuleNode::id);
 	dagMod.renameNode(oFkChainModule, moduleName);
 
-	MPlug pSide(oFkChainModule, FkChainNode::aSide);
+	MPlug pSide(oFkChainModule, FkChainModuleNode::aSide);
 	dagMod.newPlugValueShort(pSide, getShortFromSide(side));
 	result.moduleNode = oFkChainModule;
 
 	MFnDependencyNode moduleFn(oFkChainModule);
-	MPlug pControlInputData(oFkChainModule, FkChainNode::aControlInputData);
-	MPlug pControlMessage(oFkChainModule, FkChainNode::aControlMessage);
+	MPlug pControlInputData(oFkChainModule, FkChainModuleNode::aControlInputData);
+	MPlug pControlMessage(oFkChainModule, FkChainModuleNode::aControlMessage);
 
 	MObject oPreviousControl;
 	unsigned int numJoints = oJoints.length();
@@ -103,7 +103,7 @@ RigModuleBuildResult FkChainNode::createModule(
 		MObject oJoint = oJoints[i];
 		MMatrix mJointRestWorld = mJointWorldRests[i];
 
-		MStatus jointStatus = FkChainNode::wireJoint(oFkChainModule, oJoint, i, mJointRestWorld, dagMod);
+		MStatus jointStatus = FkChainModuleNode::wireJoint(oFkChainModule, oJoint, i, mJointRestWorld, dagMod);
 		if (!jointStatus)
 		{
 			result.status = jointStatus;
@@ -156,12 +156,12 @@ RigModuleBuildResult FkChainNode::createModule(
 	}
 
 	// Tie this module's reparent logic to the result callback called during creation.
-	result.dagParentCallback = FkChainNode::reparentChildPlugToSocket;
+	result.dagParentCallback = FkChainModuleNode::reparentChildPlugToSocket;
 	result.status = MS::kSuccess;
 	return result;
 }
 
-std::vector<std::string> FkChainNode::socketNamesAt(unsigned int index, unsigned int count)
+std::vector<std::string> FkChainModuleNode::socketNamesAt(unsigned int index, unsigned int count)
 {
 	std::vector<std::string> names{ PlugAndSocketNames::Index + std::to_string(index) };
 	if (index == 0)
@@ -175,7 +175,7 @@ std::vector<std::string> FkChainNode::socketNamesAt(unsigned int index, unsigned
 	return names;
 }
 
-ModuleInterface FkChainNode::makeInterface(unsigned int count)
+ModuleInterface FkChainModuleNode::makeInterface(unsigned int count)
 {
 	ModuleInterface moduleInterface;
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Start, true });
@@ -187,7 +187,7 @@ ModuleInterface FkChainNode::makeInterface(unsigned int count)
 	return moduleInterface;
 }
 
-bool FkChainNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
+bool FkChainModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	FkModuleArgs fkArgs;
 	if (!readModuleArgs(args, { FkModuleArgs::JointsKey }, ctx, fkArgs))
@@ -232,7 +232,7 @@ bool FkChainNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Mod
 	const ShapeType shapeType = getShapeTypeFromString(ctx.moduleData.shapeType);
 	outPlan.build = [moduleName, side, shapeType, oJoints, mWorldMatrices, controlMarkups](MObject& oRigRoot, MDagModifier& dagMod)
 	{
-		return FkChainNode::createModule(moduleName, side, shapeType, oJoints, mWorldMatrices, controlMarkups, oRigRoot, dagMod);
+		return FkChainModuleNode::createModule(moduleName, side, shapeType, oJoints, mWorldMatrices, controlMarkups, oRigRoot, dagMod);
 	};
 	return true;
 }

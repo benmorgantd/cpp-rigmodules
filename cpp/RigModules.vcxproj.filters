@@ -141,7 +141,7 @@
     <ClCompile Include="maya\modules\AimModule.cpp">
       <Filter>maya\modules</Filter>
     </ClCompile>
-    <ClCompile Include="maya\modules\FkChain.cpp">
+    <ClCompile Include="maya\modules\FkChainModule.cpp">
       <Filter>maya\modules</Filter>
     </ClCompile>
     <ClCompile Include="maya\modules\LayoutModule.cpp">
@@ -335,7 +335,7 @@
     <ClInclude Include="maya\modules\AimModule.h">
       <Filter>maya\modules</Filter>
     </ClInclude>
-    <ClInclude Include="maya\modules\FkChain.h">
+    <ClInclude Include="maya\modules\FkChainModule.h">
       <Filter>maya\modules</Filter>
     </ClInclude>
     <ClInclude Include="maya\modules\LayoutModule.h">

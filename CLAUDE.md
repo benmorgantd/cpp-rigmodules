@@ -151,7 +151,7 @@ RigTemplates/        example template
 | `PluginMain.cpp` | Plugin entry. Loops over `ModuleRegistry` and `CommandRegistry`, and registers `rigControlNode` plus its VP2 draw override. |
 | `ModuleRegistry.cpp/.h` | The only file that includes every module header. Holds each node's type name, JSON `moduleType`, `MTypeId` and `planFromJson`. Add new nodes here. |
 | `CommandRegistry.cpp/.h` | The only file that includes every command header. Add new commands here. |
-| `modules/LayoutModule`, `modules/FkChain`, `modules/AimModule`, `modules/TwoBoneIkModule` | Module nodes. FkChain is the reference pattern. `TwoBoneIkModule` (D52) holds `TwoBoneIkSlot` (six slots: three FK limb controls, the IK handle, the pole, the settings control), the solve and blend in `compute`, `createModule` (which runs the modifier mid-build to add and wire the channels, as `createConstraint` does) and `planFromJson`. `compute` and the inverse share `evaluate`, and the inverse (D52 phase 5) gives the FK controls from the joints and the IK handle and pole through `MathUtils::computeTwoBoneIkInverse`. `computeMatch` (phase 6) runs that inverse on the live joints for the match outputs `fkMatchLocal`, `ikMatchLocal` and `matchWarnings`, pulled only by `setRigIkFkBlend`; it allocates, which playback never pays for. `spaceDelta` (phase 7) gives the pole's `Parent` and `Ik` space deltas from the module's plugs, for `setRigControlSpace`. |
+| `modules/LayoutModule`, `modules/FkChainModule`, `modules/AimModule`, `modules/TwoBoneIkModule` | Module nodes. FkChainModule is the reference pattern. `TwoBoneIkModule` (D52) holds `TwoBoneIkSlot` (six slots: three FK limb controls, the IK handle, the pole, the settings control), the solve and blend in `compute`, `createModule` (which runs the modifier mid-build to add and wire the channels, as `createConstraint` does) and `planFromJson`. `compute` and the inverse share `evaluate`, and the inverse (D52 phase 5) gives the FK controls from the joints and the IK handle and pole through `MathUtils::computeTwoBoneIkInverse`. `computeMatch` (phase 6) runs that inverse on the live joints for the match outputs `fkMatchLocal`, `ikMatchLocal` and `matchWarnings`, pulled only by `setRigIkFkBlend`; it allocates, which playback never pays for. `spaceDelta` (phase 7) gives the pole's `Parent` and `Ik` space deltas from the module's plugs, for `setRigControlSpace`. |
 | `commands/CreateRigCmd.h/.cpp` | `createRigFromTemplate`. Reads flags (`asset`, `namespace` defaulting to the asset's name, `checkMirrorPositions`) into `RigBuildInputs`, then calls `RigRootNode::createRig`. |
 | `commands/ConstraintCmds.h/.cpp` | `createRigConstraint` (`type` Parent, Orient or Point) and `setRigConstraintSpace`. They call `RigConstraintNode`'s static helpers. |
 | `commands/JointMarkupCmd.h/.cpp` | `rigJointMarkup`. The reference command shape (D14). |
@@ -281,6 +281,7 @@ if (status != MS::kSuccess)
 | `MPlug` | `p` prefix | `pMyPlug` |
 | `MFn*` function sets | `fn` prefix | `fnMyMfn` |
 | Module attributes | `a` prefix | `aMyAttributeName` |
+| Module files and classes | `<Name>Module.h/.cpp`, class `<Name>ModuleNode` (D53). The template `moduleType` stays `<Name>`. | `AimModule.cpp`, `AimModuleNode`, `"Aim"` |
 
 ### Command flags
 

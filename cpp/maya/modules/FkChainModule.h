@@ -15,11 +15,11 @@
 #include <maya/MString.h>
 #include <maya/MTypeId.h>
 
-class FkChainNode : public RigModuleWithJointsNode<FkChainNode>
+class FkChainModuleNode : public RigModuleWithJointsNode<FkChainModuleNode>
 {
 public:
-	FkChainNode();
-	virtual ~FkChainNode() override;
+	FkChainModuleNode();
+	virtual ~FkChainModuleNode() override;
 
 	static void* creator();
 	static MStatus initialize();

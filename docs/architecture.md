@@ -44,7 +44,7 @@ Paths are relative to `cpp/`. Include lines use the same paths (`"maya/shared/Ri
 | Folder | Files | What they hold |
 |---|---|---|
 | `maya/` | `PluginMain.cpp`, `ModuleRegistry`, `CommandRegistry` | Plugin entry, and the only files that include every module or command header. |
-| `modules/` | `LayoutModule`, `FkChain`, `AimModule`, `TwoBoneIkModule` | One file pair per module node. FkChain is the reference. |
+| `modules/` | `LayoutModule`, `FkChainModule`, `AimModule`, `TwoBoneIkModule` | One file pair per module node. FkChainModule is the reference. |
 | `nodes/` | `RigRoot`, `AssetRoot`, `Constraints`, `RigControlNode` | The rig root (it also runs the build), the asset root, the constraint node, and the control transform with its VP2 draw override. |
 | `commands/` | one file pair per command, or per closely related set | Flag parsing and delegation. See [Commands](#commands). |
 | `shared/` | see below | Code used by more than one of the folders above. |
@@ -140,7 +140,7 @@ MPxNode
 | Module | Base | Joints | Controls | Child plugs | Sockets |
 |---|---|---|---|---|---|
 | `LayoutModuleNode` | WithControls | none | 3 | none | `index_0`..`index_2`, `end` |
-| `FkChainNode` | WithJoints | n | n | `start` | `index_<n>`, `start`, `end` |
+| `FkChainModuleNode` | WithJoints | n | n | `start` | `index_<n>`, `start`, `end` |
 | `AimModuleNode` | WithJoints | 1 | 2 (target, up) | `aim`, `target`, `up` | `aim`, `target`, `up` |
 | `TwoBoneIkNode` | WithJoints | 6 (three limb, three marker) | 6 | `start`, `ik`, `pole`, `settings` (internal) | `index_0`..`index_2` (with `start`, `end`), `ik`, `pole`, `settings` |
 
