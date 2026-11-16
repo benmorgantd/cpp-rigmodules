@@ -61,8 +61,21 @@ class ControlSpace:
     module: str = ""       # the module node of a module-owned space, "" for a constraint space
 
 
+@dataclasses.dataclass(frozen=True)
+class IkFkLimb:
+    """A TwoBoneIk limb (D52): the module, its six controls in slot order, the settings control that holds
+    `ikFkBlend`, and the blend now (0 is FK, 1 is IK, between is a blend). Pass `module` to `cmds.setRigIkFkBlend`."""
+
+    module: str                  # the twoBoneIkModule node
+    controls: tuple[str, ...]    # the limb's controls, in the module's control order
+    settings: str                # the settings control: its channels are ikFkBlend, stretch and soft
+    blend: float                 # the settings control's ikFkBlend
+
+
 RIG_ROOT_TYPE = "rigRootModule"
 RIG_CONTROL_TYPE = "rigControlNode"
+TWO_BONE_IK_TYPE = "TwoBoneIk"
+IK_FK_BLEND_CHANNEL = "ikFkBlend"
 
 
 def get_rigs(namespace: str | None = None) -> list[RigInfo]:
@@ -142,6 +155,20 @@ def get_control(node: str) -> RigControl:
     """The RigControl for a rig control. Raises RuntimeError when the node isn't one."""
     (control,) = _get_controls_info([node]).values()
     return control
+
+
+def find_ik_fk_limb(control: str) -> IkFkLimb | None:
+    """The TwoBoneIk limb a rig control belongs to, or None for a control of any other module. Raises
+    RuntimeError for a node that isn't a rig control. The settings control is the limb control that has an
+    ikFkBlend channel, so no control name or usage is parsed."""
+    found = get_control(control)
+    if found.module_type != TWO_BONE_IK_TYPE:
+        return None
+    rig_root = get_rig_info(control).rig_root
+    controls = [other.node for other in get_rig_controls(rig_root, module_type=TWO_BONE_IK_TYPE) if other.module == found.module]
+    channels = get_channels(controls)
+    (settings,) = (name for name in controls if any(channel.name == IK_FK_BLEND_CHANNEL for channel in channels[name]))
+    return IkFkLimb(found.module, tuple(controls), settings, cmds.getAttr(f"{settings}.{IK_FK_BLEND_CHANNEL}"))
 
 
 def get_channels(controls: list[str]) -> dict[str, list[ControlChannel]]:

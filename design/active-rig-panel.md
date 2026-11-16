@@ -301,3 +301,11 @@ RigModules `32d631b` adds `getRigControlSpace`, and mayadev `4792de8` (branch `u
 | 4 | A `QButtonGroup` of the labels | A row of checkable buttons in a three-column grid, rebuilt on each change | The same grid as the group buttons, and an exclusive group adds nothing when the panel rebuilds the buttons from the session each time |
 
 Cost on the selection path while the panel shows: one `cmds.ls(selection=True, type="rigControlNode")`, and one command call only when exactly one control is selected.
+
+## 15. The IK/FK section as built (2026-11-15, D52 phase 8, mayadev)
+
+- **Query (RigModules):** `rigmodules.query.find_ik_fk_limb(control)` returns an `IkFkLimb` (`module`, `controls`, `settings`, `blend`) or `None`. The settings control is the limb control with an `ikFkBlend` channel, so no name or usage is parsed.
+- **Session:** `limb` (a `LimbState` with `mode` `IK`, `FK` or `Blend`), `limb_changed`, `refresh_limb` and `set_ik_fk(mode, key=False)`. The selection names a limb when it is one to six rig controls of one TwoBoneIk module, so a limb's group button shows it. A larger selection is not read, so select all costs no query. `set_ik_fk` opens one undo chunk, keys all six controls (the settings control and its blend included) on the previous frame when asked, calls `setRigIkFkBlend`, and keys again. `ikFkBlend` is a double, so a sub-frame between the two keys shows a blend.
+- **View:** an IK/FK section, an `IK` and an `FK` button with the current mode pressed, the limb's name and mode, and a Key box. A refused switch is logged and the buttons show the current mode.
+- **Checked:** the group button selects the hidden controls (FK lower and end at blend 1, the handle and pole at blend 0). `zero` puts a limb in IK, since IK is its rest. `mirror` copies the blend and `flip` swaps it. The pole's `Parent` and `Ik` space switch, with Key and one undo, works through the panel. The docked panel was checked in a GUI Maya (`tests/gui/rigpanel`, a limb rig added).
+- **Not built (proposals):** a match-without-switching button, a blend slider, viewport toggles, a stepped tangent on the keyed blend.

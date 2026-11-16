@@ -319,7 +319,7 @@ The switch doesn't pop in either direction **at blend 0 and 1**. A pose IK can't
 
 ### 7.3 Python
 
-`rigmodules.query` already reads the new controls and channels. `ControlSpace` gains `module` (phase 7). No wrapper for the commands: they are `cmds`. mayadev's rig panel gets the module-owned space switch and an IK/FK switch button later (D24: mayadev depends on RigModules, and mayadev edits need the author's go-ahead).
+`rigmodules.query` already reads the new controls and channels. `ControlSpace` gains `module` (phase 7). No wrapper for the commands: they are `cmds`. mayadev's rig panel has the module-owned space switch (mayadev `ef58522`) and, since 2026-11-15, an IK/FK section: `rigmodules.query.find_ik_fk_limb(control)` returns an `IkFkLimb` (`module`, `controls`, `settings`, `blend`) for a control of a TwoBoneIk limb, found by the `ikFkBlend` channel and not by name. The panel's `set_ik_fk(mode, key=False)` calls `setRigIkFkBlend`, and with Key keys all six controls before and after in one undo chunk. A match-without-switching button, a blend slider and viewport toggles are proposals only.
 
 ### 7.4 Later: bendy limb, ribbon, twist, bend bow
 

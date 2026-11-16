@@ -402,6 +402,31 @@ class TwoBoneIkPoleSpace(SwitchTestCase):
         self.assertEqual(found.labels, ("Parent", "Ik"))
         self.assertEqual(found.current, 0)
 
+    # ---- find_ik_fk_limb ----------------------------------------------------------------------------
+
+    def test_every_control_of_the_limb_finds_the_same_limb(self):
+        module = rig_name(MODULE).lstrip(":")
+        every = tuple(rig_name(name).lstrip(":") for name in (UPPER, LOWER, END, HANDLE, POLE, SETTINGS))
+        for control in every:
+            with self.subTest(control=control):
+                limb = rigmodules.query.find_ik_fk_limb(control)
+                self.assertEqual(limb.module, module)
+                self.assertEqual(set(limb.controls), set(every))
+                self.assertEqual(len(limb.controls), 6)
+                self.assertEqual(limb.settings, rig_name(SETTINGS).lstrip(":"))
+                self.assertEqual(limb.blend, 1.0)
+
+    def test_the_limb_reads_the_blend_now(self):
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0.25)
+        self.assertEqual(rigmodules.query.find_ik_fk_limb(rig_name(HANDLE)).blend, 0.25)
+
+    def test_a_control_of_another_module_has_no_limb(self):
+        self.assertIsNone(rigmodules.query.find_ik_fk_limb(rig_name(LAYOUT_CONTROL)))
+
+    def test_a_node_that_is_not_a_rig_control_raises(self):
+        with self.assertRaises(RuntimeError):
+            rigmodules.query.find_ik_fk_limb(rig_name("upperArm_jnt"))
+
     # ---- the switch keeps the pole where it is ------------------------------------------------------
 
     def test_parent_to_ik_with_the_handle_moved(self):
