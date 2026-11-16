@@ -50,13 +50,10 @@ struct SkinWeights
 	std::vector<double> blendWeights;
 };
 
-// 64-bit FNV-1a over the vertex count, the face count, each face's vertex count and each face's vertex indices
-// in order, each fed as 4 little-endian bytes. Vertex order and connection order change it; point positions and
-// UVs don't, so a sculpt keeps its weights. A fixed algorithm, unlike std::hash, so every build gets the same value.
+// Fnv1a64 (Hash64.h) over the vertex count, the face count, each face's vertex count and each face's vertex indices
+// in order, each fed with addUInt32. Vertex order and connection order change it; point positions and UVs don't, so a
+// sculpt keeps its weights. Files store it as Hash64::format text.
 std::uint64_t topologyHash(unsigned int vertexCount, const std::vector<int>& polygonCounts, const std::vector<int>& polygonConnects);
-
-// "0123456789abcdef": 16 lowercase hex digits. JSON numbers can't hold 64 bits safely, so files store this text.
-std::string formatTopologyHash(std::uint64_t hash);
 
 // Sorts influences by (side, usage), renumbers every weight's influence index to match, and orders each vertex's
 // pairs by index. Values are untouched.

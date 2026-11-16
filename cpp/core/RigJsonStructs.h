@@ -55,7 +55,7 @@ struct RigModuleData
 struct RigRootData
 {
     std::string rigTemplateName;
-    std::string rigName;          // Optional key, defaults to rigTemplateName. Not in the macro below, which requires every field.
+    std::string rigName;          // Optional key, defaults to rigTemplateName in snake_case. Not in the macro below, which requires every field.
     int rigVersion = -1;
     std::string rigAuthor;
     std::vector<RigModuleData> rigModules; // 1D Flat List of modules

@@ -176,6 +176,26 @@ namespace SkinMethods
 	}
 }
 
+// Keys in a skeleton file, see SkeletonFile.h (D54). Public API: skeleton files and the hashes stamped from them
+// depend on them. A joint's markup flags reuse JointMarkupKey::Export and JointMarkupKey::Skin.
+namespace SkeletonFileKey
+{
+	inline constexpr const char* FormatVersion{ "formatVersion" };
+	inline constexpr const char* SkeletonHash{ "skeletonHash" };
+	inline constexpr const char* Joints{ "joints" };
+	inline constexpr const char* Markup{ "markup" };
+	inline constexpr const char* Name{ "name" };
+	inline constexpr const char* Parent{ "parent" };
+	inline constexpr const char* RotateOrder{ "rotateOrder" };
+	inline constexpr const char* RestLocal{ "restLocal" };
+}
+
+// A transform's rotateOrder, in Maya's enum order. Skeleton files store the names.
+namespace RotateOrders
+{
+	inline constexpr std::array<const char*, 6> All{ "xyz", "yzx", "zxy", "xzy", "yxz", "zyx" };
+}
+
 // Compute stays on the statics. Only construction and tool code uses the name lookups.
 // This is used in situations where we are sharing construction code. Within the modules themselves 
 // we should continue to reference their static attributes.

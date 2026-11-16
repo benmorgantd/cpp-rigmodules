@@ -231,6 +231,10 @@ public:
 	// The string argument of a required file flag. Reports "<command> needs <flag>." when it is missing or empty.
 	static MStatus readFilePath(const MArgDatabase& argData, const char* flag, const char* commandName, MString& outPath);
 
+	// The joints the command's string objects name, in order. Reports "<command> needs at least one joint name." for
+	// none, and the first name that isn't a joint.
+	static MStatus readJoints(const MArgDatabase& argData, const char* commandName, MDagPathArray& outJoints);
+
 	// The mesh transforms of the command's string objects, or with none named, of every selected mesh (D35: only
 	// commands that document it read the selection). Selected nodes that aren't meshes are skipped; a named one that
 	// isn't a mesh is an error, and so is an empty result.

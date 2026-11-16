@@ -447,3 +447,24 @@ class TwoBoneIkDocExamples(RigTestCase):
         self.assertExists(rig_name("arm_ik_space_r"))
         for control in ("handIk_l_ctrl_l", "handIk_r_ctrl_r"):
             self.assertEqual(cmds.attributeQuery("space", node=rig_name(control), listEnum=True)[0], "World:Hips")
+
+
+SKELETONS_DOC = os.path.join(config.REPO_DIR, "docs", "skeletons.md")
+COMMANDS_DOC = os.path.join(config.REPO_DIR, "docs", "commands.md")
+
+
+class SkeletonDocExamples(RigTestCase):
+    """The skeleton file in docs/skeletons.md is what saveRigSkeleton writes for the chain it describes, the
+    fk_three_parented fixture, and the hash both pages quote is that file's hash (D54)."""
+
+    def test_file_example_is_what_a_save_writes(self):
+        joints = self.make_skeleton("fk_three_parented")
+        path = os.path.join(config.WORK_DIR, "doc_skeleton.json").replace("\\", "/")
+        result = cmds.saveRigSkeleton(*joints, file=path)
+        with open(path, encoding="utf-8") as handle:
+            saved = handle.read()
+        documented = doc_code_block(SKELETONS_DOC, "## File format", "json")
+        self.assertEqual(json.loads(documented), json.loads(saved))
+        self.assertEqual(documented.strip(), saved.strip(), "the doc should show the file's exact layout")
+        for doc, heading in ((SKELETONS_DOC, "## Saving"), (COMMANDS_DOC, "## saveRigSkeleton")):
+            self.assertIn('Returns "%s"' % result, doc_code_block(doc, heading, "python"))

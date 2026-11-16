@@ -2,6 +2,8 @@
 
 **Status:** decided 2026-11-08 (D29 in `decisions.md`). The scene side is built in RigModules (see "Built in RigModules"). The file model, local versions, registry, publishes, source-control adapter and handlers are built on mayadev branch `asset-model` (see "Built in mayadev"), not yet merged. Its user guide is mayadev's `py/scripts/docs/guides/Asset Layout.md`.
 
+**Planned change (D54, decided 2026-11-16, not built):** variants are to be replaced by skeletons, rigs and looks in the asset folder, with lowercase names and one rig per namespace. See `rigs-and-looks.md`. Until phase 4 of that plan is built, this page describes what is built.
+
 An asset is the top-level container for one thing in the game: a character, prop, vehicle, weapon, vfx element or environment piece. It owns its files on disk, its rig variants, and the namespace it lives under in a Maya scene. This page covers the asset id, the scene structure, the file model, and how tools answer questions about assets without opening Maya, all under Perforce without shared files that everyone has to check out.
 
 ## Split between the repos (D24 stands)
@@ -20,8 +22,7 @@ The file model has one implementation, in Python, with the layout stored as data
 - Backslash-separated (it was `|` until 2026-11-12, D29): `shooter\main\characters\hero`.
 - The id is the asset folder's path relative to `RIGGING_PROJECT_DIR`, with `\` replaced by `|`. Depth varies, because assets end up everywhere.
 - A folder is an asset when it holds an `asset.json`, which keeps variable depth unambiguous. Assets never nest: no asset folder sits inside another.
-- Each token is letters, digits and `_`, and none is empty.
-- Ids compare case-insensitively and are stored as authored. Two assets whose ids differ only in case are an error, because Windows paths ignore case and Perforce and engines don't.
+- Each token is lowercase letters, digits and `_`, and none is empty. Uppercase is rejected, not converted (D54, built in RigModules 2026-11-16), so ids compare exactly and no two ids differ only in case: Windows paths ignore case, and Perforce and engines don't. Until then ids compared case-insensitively and were stored as authored. mayadev's `assetid` still does, so it accepts ids the plugin rejects (`docs/mayadev.md`).
 - The id is relative to the projects root, so it means the same asset in every workspace and every branch.
 
 `RIGGING_PROJECT_DIR` is the projects root. The first levels under it are the game and its project (`<game>\<project>\characters\<name>`). The file model doesn't hard-code those levels: it finds the project from the nearest `project.json` above the asset.

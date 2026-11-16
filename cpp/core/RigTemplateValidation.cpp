@@ -1,4 +1,5 @@
 #include "RigTemplateValidation.h"
+#include "AssetId.h"
 #include "Constants.h"
 #include "JointMarkup.h"
 #include "StringUtils.h"
@@ -541,6 +542,11 @@ namespace RigTemplateValidation
 		if (rigData.rigTemplateName.empty())
 		{
 			report.addError(TemplateKey::RigTemplateName, "is empty");
+		}
+		if (!AssetId::isValidName(rigData.rigName))
+		{
+			// The rig name becomes a folder in the asset (D54). A default from rigTemplateName is already snake_case.
+			report.addError(TemplateKey::RigName, "'" + rigData.rigName + "' must be lowercase letters, digits and '_'");
 		}
 
 		if (rigData.rigVersion < 1)

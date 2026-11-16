@@ -1,5 +1,6 @@
 #include "maya/shared/SkinWeightScene.h"
 #include "core/Constants.h"
+#include "core/Hash64.h"
 #include "core/SkinWeightTable.h"
 #include "maya/shared/JointMarkupScene.h"
 #include "maya/shared/RigTraversal.h"
@@ -320,8 +321,8 @@ MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights
 	if (vertexCount != weights.vertexCount || faceCount != weights.faceCount || hash != weights.topologyHash)
 	{
 		const std::string saved = std::to_string(weights.vertexCount) + " vertices and " + std::to_string(weights.faceCount)
-			+ " faces (" + formatTopologyHash(weights.topologyHash) + ")";
-		const std::string scene = std::to_string(vertexCount) + " and " + std::to_string(faceCount) + " (" + formatTopologyHash(hash) + ")";
+			+ " faces (" + Hash64::format(weights.topologyHash) + ")";
+		const std::string scene = std::to_string(vertexCount) + " and " + std::to_string(faceCount) + " (" + Hash64::format(hash) + ")";
 		MGlobal::displayError(MString("The topology changed: the file has ") + saved.c_str() + ", " + meshName + " has " + scene.c_str() + ".");
 		return fail();
 	}

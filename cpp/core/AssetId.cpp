@@ -1,32 +1,41 @@
 #include "AssetId.h"
 
-#include <cctype>
-
 namespace AssetId
 {
-	bool isValid(const std::string& assetId)
+	bool isValidName(const std::string& name)
 	{
-		bool tokenEmpty = true;
-		for (char c : assetId)
+		if (name.empty())
 		{
-			if (c == '\\')
-			{
-				if (tokenEmpty)
-				{
-					return false;
-				}
-				tokenEmpty = true;
-			}
-			else if (std::isalnum(static_cast<unsigned char>(c)) || c == '_')
-			{
-				tokenEmpty = false;
-			}
-			else
+			return false;
+		}
+		for (char c : name)
+		{
+			const bool valid = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+			if (!valid)
 			{
 				return false;
 			}
 		}
-		return !tokenEmpty;
+		return true;
+	}
+
+	bool isValid(const std::string& assetId)
+	{
+		std::size_t tokenStart = 0;
+		while (true)
+		{
+			const std::size_t separator = assetId.find('\\', tokenStart);
+			const std::size_t tokenEnd = separator == std::string::npos ? assetId.size() : separator;
+			if (!isValidName(assetId.substr(tokenStart, tokenEnd - tokenStart)))
+			{
+				return false;
+			}
+			if (separator == std::string::npos)
+			{
+				return true;
+			}
+			tokenStart = separator + 1;
+		}
 	}
 
 	std::string name(const std::string& assetId)

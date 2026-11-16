@@ -99,12 +99,12 @@ rigmodules.library.set_data_file_meta("C:/lib/fist.controlpose.json", {"tags": [
 ```python
 import rigmodules.template
 
-rigmodules.template.get_rig_name(r"C:\rigs\Human.json")    # "Human"
+rigmodules.template.get_rig_name(r"C:\rigs\Human.json")    # "human"
 ```
 
 | Function | Returns |
 |---|---|
-| `get_rig_name(path)` | The template's `rigName`, which names the variant of every rig built from it. Raises `ValueError` when the file isn't JSON or has no `rigName` |
+| `get_rig_name(path)` | The template's `rigName`, which names the variant of every rig built from it. Raises `ValueError` when the file isn't JSON or has no `rigName`. It reads the key only: it doesn't apply the build's snake_case default or check the lowercase rule |
 
 It reads the file without checking the rest of it. Template validation runs when the rig is built ([templates.md](templates.md)).
 

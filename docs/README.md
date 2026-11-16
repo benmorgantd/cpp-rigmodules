@@ -23,6 +23,7 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 | [`modules.md`](modules.md) | Every module: `moduleType`, `moduleArgs`, joints, controls, child plugs, sockets, behaviour |
 | [`controls.md`](controls.md) | What every control carries: markup, shapes and the axis convention, the shape file format, mirroring shapes |
 | [`skinning.md`](skinning.md) | Skin weight files: what they match on (joint markup, `meshId`, topology), how loading works, the file format |
+| [`skeletons.md`](skeletons.md) | Skeleton files: what makes two skeletons the same, the skeleton hash, the file format |
 | [`library.md`](library.md) | The pose and animation library: control data vs skeleton data, the folders, the ControlAnim file, the paths to the engine |
 | [`architecture.md`](architecture.md) | The code: layers, source map, plugin startup, the module node layers, the two-phase build, evaluation, the command shape, file format versioning, the inverse solve, and recipes for adding a module, command or format |
 | [`python.md`](python.md) | The `rigmodules` Python package: installing it with `RigModules.mod`, and every function |
@@ -41,6 +42,7 @@ A change updates its owning page **in the same change** when it touches anything
 - A module, its `moduleArgs`, child plugs, sockets, controls or behaviour → `modules.md` and the README modules table
 - Control markup, a shape, or the shape file format → `controls.md`
 - The weight file format, `meshId`, or how weights load → `skinning.md`
+- The skeleton file format or what the skeleton hash covers → `skeletons.md`
 - A function in the `rigmodules` Python package, or `RigModules.mod` → `python.md`
 - The pose or animation library: its folders, the ControlAnim file or how data reaches the engine → `library.md`
 - Build steps, requirements, or the repo layout → `README.md`

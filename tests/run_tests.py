@@ -47,6 +47,7 @@ TIERS = [
     ]),
     ("read only", True, [                  # commands and checks that never build a rig
         "commands.test_joint_markup_cmd",
+        "commands.test_skeleton_cmds",      # saveRigSkeleton and the skeleton hash, no rig (D54)
         "concepts.test_control_shapes",     # rigControlNode shapes and bounds, no rig
         "concepts.test_template_loading",
         "concepts.test_template_validation",

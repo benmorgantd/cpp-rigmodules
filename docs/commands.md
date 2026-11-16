@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId` and `pruneToMaxInfluences` when no mesh is named.
-- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `getRigMirrorControl`, `getRigKeys` and `getRigInfo`, and `saveRigControlShapes` and `saveRigSkinWeights` (they write a file and change nothing in the scene).
+- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `getRigMirrorControl`, `getRigKeys` and `getRigInfo`, and `saveRigControlShapes`, `saveRigSkinWeights` and `saveRigSkeleton` (they write a file and change nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -57,7 +57,7 @@ cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="sh
 | Flag | Type | Meaning |
 |---|---|---|
 | `template` | string | Path to the template. Required. |
-| `asset` | string | The asset the rig belongs to: its folder path below the projects root, `\` between folders (`shooter\characters\hero`), any depth. Each folder name is letters, digits and `_`. Compared without case. Required. Templates name no asset, so one template builds many assets. |
+| `asset` | string | The asset the rig belongs to: its folder path below the projects root, `\` between folders (`shooter\characters\hero`), any depth. Each folder name is lowercase letters, digits and `_`: uppercase is an error, not converted (D54). Required. Templates name no asset, so one template builds many assets. |
 | `namespace` | string | The rig's namespace. Defaults to the asset's last folder name (`hero`). `":"` is the root, nested paths such as `char:rig` work, and an existing namespace is reused. |
 | `checkMirrorPositions` | bool | Default `False`. With `True`, a mirrored module ([templates.md](templates.md#mirroring)) fails the build when one of its joints is more than 0.001 from its source joint reflected across X = 0. |
 
@@ -70,7 +70,7 @@ After a successful build the selection is cleared.
 
 Every node created goes in the rig namespace. The input joints are moved there too, with their names unchanged. A joint already in that namespace stays where it is. Joint and module names must be free in the rig namespace, so `skel:a` and `other:a` cannot both be passed.
 
-The asset owns the rig namespace. The namespace holds one `assetRootModule`, which stores `asset` in its `assetId` attribute. Every rig built into the namespace connects to it, one per rig variant (`rigName`). The build reuses the namespace's asset root if there is one, and creates it otherwise. The build fails, building nothing, when the namespace holds more than one asset root, when the asset root's `assetId` differs from `asset` (ignoring case), or when a rig with the template's `rigName` is already connected to it.
+The asset owns the rig namespace. The namespace holds one `assetRootModule`, which stores `asset` in its `assetId` attribute. Every rig built into the namespace connects to it, one per rig variant (`rigName`). The build reuses the namespace's asset root if there is one, and creates it otherwise. The build fails, building nothing, when the namespace holds more than one asset root, when the asset root's `assetId` differs from `asset`, or when a rig with the template's `rigName` is already connected to it.
 
 The build makes three display layers in the rig namespace: `jointsLayer` (the joints passed in), `meshesLayer` (empty) and `controlsLayer` (every control, with `hideOnPlayback` on so controls aren't drawn while the timeline plays). A layer of the same name already in the namespace is deleted first, and a node that was in another layer moves into the rig's layer. Each layer connects to its own message attribute on the rig root, so tools find them without reading names:
 
@@ -804,3 +804,22 @@ Objects: meshes with a skinCluster, by transform or shape name. With none named,
 - A named node that isn't a mesh, a mesh without a skinCluster, or a missing `maxInfluences` is an error, and nothing changes.
 - Undoable, as one step. Undo restores every weight exactly.
 
+## saveRigSkeleton
+
+Writes a skeleton file with the joints' markup, names, parents, rotate orders and rest matrices, and returns the skeleton hash (format and hash rules in [skeletons.md](skeletons.md)).
+
+```python
+cmds.saveRigSkeleton(*cmds.ls("skel:*", type="joint"), file="C:/assets/hero/skeletons/body/skeleton.json")
+# Returns "159c28565ab750f5", the skeleton hash
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The file to write. Required. Overwritten if it exists. |
+
+Objects: one or more joints, by name. The selection is not read.
+
+- Records the joints as they are now, so they should be at rest.
+- Every joint must carry markup, marker joints (`export: false`) included, and no two may share a `[side, usage]`. Otherwise the errors are listed and nothing is written.
+- Errors, writing nothing: no joints named, a name that isn't a joint, no `file`.
+- Not undoable: it writes a file and changes nothing in the scene.

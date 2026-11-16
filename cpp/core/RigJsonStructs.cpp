@@ -1,6 +1,7 @@
 #include "RigJsonStructs.h"
 #include "FormatUpdate.h"
 #include "RigTemplateValidation.h"
+#include "StringUtils.h"
 
 #include <fstream>
 
@@ -80,7 +81,8 @@ bool loadRigTemplate(const std::string& filePath, RigRootData& rigData, Validati
     try
     {
         rigData = jsonData.get<RigRootData>();
-        rigData.rigName = jsonData.value(TemplateKey::RigName, rigData.rigTemplateName);
+        // The rig name is a folder name (D54), so the default turns the free-form template name into one.
+        rigData.rigName = jsonData.value(TemplateKey::RigName, StringUtils::toSnakeCase(rigData.rigTemplateName));
 
         if (jsonData.contains(TemplateKey::Constraints))
         {

@@ -1,55 +1,16 @@
 #include "SkinWeightFile.h"
 #include "Constants.h"
+#include "Hash64.h"
 
 #include <algorithm>
 #include <charconv>
 #include <cmath>
-#include <cstdio>
 #include <numeric>
 #include <set>
 #include <tuple>
 
 namespace
 {
-	constexpr std::uint64_t kFnvOffsetBasis{ 14695981039346656037ull };
-	constexpr std::uint64_t kFnvPrime{ 1099511628211ull };
-
-	void hashUInt32(std::uint64_t& hash, std::uint32_t value)
-	{
-		for (int byte = 0; byte < 4; ++byte)
-		{
-			hash ^= (value >> (8 * byte)) & 0xffu;
-			hash *= kFnvPrime;
-		}
-	}
-
-	bool parseHex64(const std::string& text, std::uint64_t& outValue)
-	{
-		if (text.size() != 16)
-		{
-			return false;
-		}
-		outValue = 0;
-		for (const char c : text)
-		{
-			std::uint64_t digit = 0;
-			if (c >= '0' && c <= '9')
-			{
-				digit = static_cast<std::uint64_t>(c - '0');
-			}
-			else if (c >= 'a' && c <= 'f')
-			{
-				digit = static_cast<std::uint64_t>(c - 'a' + 10);
-			}
-			else
-			{
-				return false;
-			}
-			outValue = (outValue << 4) | digit;
-		}
-		return true;
-	}
-
 	bool isCount(const nlohmann::json& value)
 	{
 		return value.is_number_unsigned() || (value.is_number_integer() && value.get<long long>() >= 0);
@@ -105,25 +66,18 @@ namespace
 
 std::uint64_t topologyHash(unsigned int vertexCount, const std::vector<int>& polygonCounts, const std::vector<int>& polygonConnects)
 {
-	std::uint64_t hash = kFnvOffsetBasis;
-	hashUInt32(hash, vertexCount);
-	hashUInt32(hash, static_cast<std::uint32_t>(polygonCounts.size()));
+	Fnv1a64 hash;
+	hash.addUInt32(vertexCount);
+	hash.addUInt32(static_cast<std::uint32_t>(polygonCounts.size()));
 	for (const int count : polygonCounts)
 	{
-		hashUInt32(hash, static_cast<std::uint32_t>(count));
+		hash.addUInt32(static_cast<std::uint32_t>(count));
 	}
 	for (const int vertex : polygonConnects)
 	{
-		hashUInt32(hash, static_cast<std::uint32_t>(vertex));
+		hash.addUInt32(static_cast<std::uint32_t>(vertex));
 	}
-	return hash;
-}
-
-std::string formatTopologyHash(std::uint64_t hash)
-{
-	char text[17];
-	std::snprintf(text, sizeof(text), "%016llx", static_cast<unsigned long long>(hash));
-	return text;
+	return hash.value();
 }
 
 void sortSkinInfluences(SkinWeights& weights)
@@ -217,7 +171,7 @@ std::string serializeSkinWeights(const SkinWeights& weights)
 	out += key(SkinWeightFileKey::MeshName) + quoted(weights.meshName) + ",\n";
 	out += key(SkinWeightFileKey::VertexCount) + std::to_string(weights.vertexCount) + ",\n";
 	out += key(SkinWeightFileKey::FaceCount) + std::to_string(weights.faceCount) + ",\n";
-	out += key(SkinWeightFileKey::TopologyHash) + quoted(formatTopologyHash(weights.topologyHash)) + ",\n";
+	out += key(SkinWeightFileKey::TopologyHash) + quoted(Hash64::format(weights.topologyHash)) + ",\n";
 	out += key(SkinWeightFileKey::SkinMethod) + quoted(weights.skinMethod) + ",\n";
 
 	out += key(SkinWeightFileKey::Influences) + "[";
@@ -332,7 +286,7 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 
 	const nlohmann::json& hash = file.at(SkinWeightFileKey::TopologyHash);
 	std::uint64_t parsedHash = 0;
-	if (!hash.is_string() || !parseHex64(hash.get<std::string>(), parsedHash))
+	if (!hash.is_string() || !Hash64::parse(hash.get<std::string>(), parsedHash))
 	{
 		report.addError(path(SkinWeightFileKey::TopologyHash), "must be 16 lowercase hex digits");
 	}

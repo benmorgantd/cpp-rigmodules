@@ -113,6 +113,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/modules.md](docs/modules.md) | Each module's joints, controls, child plugs and sockets |
 | [docs/controls.md](docs/controls.md) | Control markup, shapes, the shape file, and mirroring shapes |
 | [docs/skinning.md](docs/skinning.md) | Skin weight files, the mesh id, and loading weights onto a rebuilt rig |
+| [docs/skeletons.md](docs/skeletons.md) | Skeleton files and the skeleton hash: when two skeletons are the same |
 | [docs/library.md](docs/library.md) | The pose and animation library: ControlPose and ControlAnim files, FBX, the folders |
 | [docs/python.md](docs/python.md) | The `rigmodules` Python package and `RigModules.mod` |
 | [docs/architecture.md](docs/architecture.md) | The code: layers, source map, the build, module nodes, evaluation, and how to add a module, command or format |

@@ -492,8 +492,8 @@ def make_human(args):
     out = args.out
     os.makedirs(out, exist_ok=True)
     skeleton = os.path.join(args.asset_dir, "skeleton", "biped_skeleton.ma")
-    template = os.path.join(args.asset_dir, "variants", "Human", "template.json")
-    pose_file = os.path.join(args.asset_dir, "variants", "Human", "poses", "star_pose1.json")
+    template = os.path.join(args.asset_dir, "variants", "human", "template.json")
+    pose_file = os.path.join(args.asset_dir, "variants", "human", "poses", "star_pose1.json")
     start_maya(args.plugin)
     instances = build_instances(skeleton.replace("\\", "/"), template.replace("\\", "/"), HUMAN_ASSET_ID, "biped",
                                 args.count, 5.0)

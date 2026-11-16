@@ -47,7 +47,7 @@ def weights(mesh, influences):
 
 
 def topology_hash(mesh):
-    """64-bit FNV-1a over the topology, written independently of the C++ in core/SkinWeightFile.cpp."""
+    """64-bit FNV-1a over the topology, written independently of the C++ in core/SkinWeightFile.cpp and core/Hash64.cpp."""
     selection = om.MSelectionList()
     selection.add(mesh)
     fn_mesh = om.MFnMesh(selection.getDagPath(0))

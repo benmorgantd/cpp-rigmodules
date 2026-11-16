@@ -8,10 +8,8 @@
 #include <string>
 
 #include <maya/MArgDatabase.h>
-#include <maya/MDagPath.h>
 #include <maya/MGlobal.h>
 #include <maya/MString.h>
-#include <maya/MStringArray.h>
 #include <maya/MSyntax.h>
 
 namespace
@@ -52,7 +50,7 @@ namespace
 		inputs.assetId = assetId.asChar();
 		if (!AssetId::isValid(inputs.assetId))
 		{
-			MGlobal::displayError("Asset id '" + assetId + "' must be '\\'-separated folder names of letters, digits and '_'.");
+			MGlobal::displayError("Asset id '" + assetId + "' must be '\\'-separated folder names of lowercase letters, digits and '_'.");
 			return MStatus::kFailure;
 		}
 
@@ -72,26 +70,7 @@ namespace
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 
-		MStringArray jointNames;
-		status = argData.getObjects(jointNames);
-		if (!status || jointNames.length() == 0)
-		{
-			MGlobal::displayError("createRigFromTemplate needs at least one joint name.");
-			return MStatus::kFailure;
-		}
-
-		for (unsigned int i = 0; i < jointNames.length(); ++i)
-		{
-			MDagPath jointPath;
-			status = DagUtils::getDagPathFromName(jointNames[i], jointPath, DagUtils::NodeKind::kJoint);
-			if (!status)
-			{
-				return status;   // helper already reported which joint failed
-			}
-			inputs.joints.append(jointPath);
-		}
-
-		return MStatus::kSuccess;
+		return CommandUtils::readJoints(argData, "createRigFromTemplate", inputs.joints);
 	}
 }
 

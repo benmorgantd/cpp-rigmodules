@@ -291,7 +291,8 @@ namespace
 		MObject oAssetRoot = assetRoots[0];
 		const MFnDependencyNode fnAssetRoot(oAssetRoot);
 		const std::string existingId = MPlug(oAssetRoot, AssetRootNode::aAssetId).asString().asChar();
-		if (!StringUtils::equalsIgnoreCase(existingId, inputs.assetId))
+		// Ids are lowercase (D54), so they compare exactly.
+		if (existingId != inputs.assetId)
 		{
 			report.addError(RigAttr::AssetId, "'" + inputs.assetId + "' does not match '" + existingId + "' on "
 				+ fnAssetRoot.name().asChar() + ", which owns the namespace");

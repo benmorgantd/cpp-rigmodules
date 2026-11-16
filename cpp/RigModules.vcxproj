@@ -160,6 +160,8 @@
     <ClCompile Include="core\PoseFile.cpp" />
     <ClCompile Include="core\RigJsonStructs.cpp" />
     <ClCompile Include="core\RigTemplateValidation.cpp" />
+    <ClCompile Include="core\Hash64.cpp" />
+    <ClCompile Include="core\SkeletonFile.cpp" />
     <ClCompile Include="core\SkinWeightFile.cpp" />
     <ClCompile Include="core\SelectionSets.cpp" />
     <ClCompile Include="core\SkinWeightTable.cpp" />
@@ -176,6 +178,7 @@
     <ClCompile Include="maya\commands\RigKeyCmds.cpp" />
     <ClCompile Include="maya\commands\RigInverseCmds.cpp" />
     <ClCompile Include="maya\commands\RigPoseCmds.cpp" />
+    <ClCompile Include="maya\commands\SkeletonCmds.cpp" />
     <ClCompile Include="maya\commands\SkinWeightCmds.cpp" />
     <ClCompile Include="maya\commands\TwoBoneIkCmds.cpp" />
     <ClCompile Include="maya\modules\AimModule.cpp" />
@@ -199,6 +202,7 @@
     <ClCompile Include="maya\shared\RigTraversal.cpp" />
     <ClCompile Include="maya\shared\Side.cpp" />
     <ClCompile Include="maya\shared\SelectionSetScene.cpp" />
+    <ClCompile Include="maya\shared\SkeletonScene.cpp" />
     <ClCompile Include="maya\shared\SkinWeightScene.cpp" />
     <ClCompile Include="maya\shared\Utilities.cpp" />
   </ItemGroup>
@@ -222,6 +226,8 @@
     <ClInclude Include="core\PoseFile.h" />
     <ClInclude Include="core\RigJsonStructs.h" />
     <ClInclude Include="core\RigTemplateValidation.h" />
+    <ClInclude Include="core\Hash64.h" />
+    <ClInclude Include="core\SkeletonFile.h" />
     <ClInclude Include="core\SkinWeightFile.h" />
     <ClInclude Include="core\SelectionSets.h" />
     <ClInclude Include="core\SkinWeightTable.h" />
@@ -238,6 +244,7 @@
     <ClInclude Include="maya\commands\RigKeyCmds.h" />
     <ClInclude Include="maya\commands\RigInverseCmds.h" />
     <ClInclude Include="maya\commands\RigPoseCmds.h" />
+    <ClInclude Include="maya\commands\SkeletonCmds.h" />
     <ClInclude Include="maya\commands\SkinWeightCmds.h" />
     <ClInclude Include="maya\commands\TwoBoneIkCmds.h" />
     <ClInclude Include="maya\modules\AimModule.h" />
@@ -262,6 +269,7 @@
     <ClInclude Include="maya\shared\RigTraversal.h" />
     <ClInclude Include="maya\shared\Side.h" />
     <ClInclude Include="maya\shared\SelectionSetScene.h" />
+    <ClInclude Include="maya\shared\SkeletonScene.h" />
     <ClInclude Include="maya\shared\SkinWeightScene.h" />
     <ClInclude Include="maya\shared\Utilities.h" />
   </ItemGroup>

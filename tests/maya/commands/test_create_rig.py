@@ -36,7 +36,9 @@ class Arguments(RigTestCase):
 
     def test_invalid_asset_id_fails(self):
         joints = self.make_skeleton(SKELETON)
-        for asset_id in ["", "shooter\\\\hero", "shooter\\main chars\\hero", "shooter/hero", "shooter|hero", "hero\\"]:
+        # Uppercase is rejected, not lowercased, so no two ids differ only in case (D54).
+        for asset_id in ["", "shooter\\\\hero", "shooter\\main chars\\hero", "shooter/hero", "shooter|hero", "hero\\",
+                         "Shooter\\hero", "shooter\\Hero", "\\hero"]:
             self.assertMayaError(lambda: self.build(TEMPLATE, joints, asset=asset_id), "Asset id")
         self.assertNothingBuilt()
 
@@ -193,11 +195,18 @@ class AssetRoots(RigTestCase):
         self.assertEqual(cmds.getAttr(asset_roots[0] + ".assetId"), config.ASSET_ID)
         self.assertEqual(len(self.rig_roots_of(asset_roots[0])), 1)
 
-    def test_existing_asset_root_is_reused_ignoring_case(self):
-        asset_root = self.make_asset_root(config.ASSET_ID.upper())
+    def test_existing_asset_root_is_reused(self):
+        asset_root = self.make_asset_root(config.ASSET_ID)
         self.build_standard(TEMPLATE, SKELETON)
         self.assertEqual(cmds.ls(type="assetRootModule"), [asset_root.lstrip(":")])
         self.assertEqual(len(self.rig_roots_of(asset_root)), 1)
+
+    def test_asset_root_id_compares_exactly(self):
+        # Ids are lowercase (D54), so an asset root holding an uppercase id set by hand is another asset.
+        self.make_asset_root(config.ASSET_ID.upper())
+        joints = self.make_skeleton(SKELETON)
+        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "owns the namespace", "Nothing was built")
+        self.assertEqual(cmds.ls(type="rigRootModule"), [])
 
     def test_undo_keeps_the_existing_asset_root(self):
         asset_root = self.make_asset_root(config.ASSET_ID)
@@ -233,6 +242,63 @@ class AssetRoots(RigTestCase):
         self.make_asset_root("other\\asset")
         self.build_standard(TEMPLATE, SKELETON, namespace="hero")
         self.assertEqual(len(cmds.ls(type="assetRootModule")), 2)
+
+
+class RigNames(RigTestCase):
+    """The rig name becomes a folder in the asset, so it is lowercase (D54). Without a rigName key it is the
+    rigTemplateName in snake_case."""
+
+    def built_rig_name(self, template):
+        self.build(template, self.make_skeleton(SKELETON))
+        return cmds.getAttr(cmds.ls(type="rigRootModule")[0] + ".rigName")
+
+    def template_without_rig_name(self, template_name):
+        template = fixtures.load_template(TEMPLATE)
+        template.pop("rigName", None)
+        template["rigTemplateName"] = template_name
+        return template
+
+    def test_default_is_the_template_name_in_snake_case(self):
+        cases = [
+            ("HumanRigTest", "human_rig_test"),
+            ("FkChainThree", "fk_chain_three"),
+            ("TwoBoneIkBasic", "two_bone_ik_basic"),
+            ("XMLRig", "xml_rig"),
+            ("Arm2Leg", "arm2_leg"),
+            ("My Rig-v2", "my_rig_v2"),
+            ("already_snake", "already_snake"),
+        ]
+        for template_name, expected in cases:
+            with self.subTest(template_name):
+                cmds.file(new=True, force=True)
+                self.assertEqual(self.built_rig_name(self.template_without_rig_name(template_name)), expected)
+
+    def test_explicit_rig_name_is_kept(self):
+        self.assertEqual(self.built_rig_name(TEMPLATE), "fktest")
+
+    def test_uppercase_rig_name_fails(self):
+        # An explicit rigName is checked, never converted.
+        template = fixtures.load_template(TEMPLATE)
+        template["rigName"] = "Human"
+        joints = self.make_skeleton(SKELETON)
+        self.assertMayaError(lambda: self.build(template, joints), "rigName", "'Human'", "lowercase", "Nothing was built")
+        self.assertNothingBuilt()
+
+    def test_rig_name_with_other_characters_fails(self):
+        for rig_name_value in ["game rig", "game-rig", ""]:
+            with self.subTest(rig_name_value):
+                template = fixtures.load_template(TEMPLATE)
+                template["rigName"] = rig_name_value
+                joints = self.make_skeleton(SKELETON)
+                self.assertMayaError(lambda: self.build(template, joints), "rigName", "lowercase")
+                self.assertNothingBuilt()
+                cmds.file(new=True, force=True)
+
+    def test_template_name_with_no_letters_fails(self):
+        template = self.template_without_rig_name("!!")
+        joints = self.make_skeleton(SKELETON)
+        self.assertMayaError(lambda: self.build(template, joints), "rigName", "lowercase")
+        self.assertNothingBuilt()
 
 
 class VersionStamps(RigTestCase):

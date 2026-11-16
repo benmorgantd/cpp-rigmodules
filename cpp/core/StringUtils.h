@@ -53,20 +53,38 @@ public:
 		return text.substr(first, text.find_last_not_of(ch) - first + 1);
 	}
 
-	// ASCII only, which is all an asset id may contain.
-	static bool equalsIgnoreCase(const std::string& a, const std::string& b)
+	// Lowercase words joined by '_': "HumanRigTest" is "human_rig_test", "XMLParser" is "xml_parser", "My Rig" is
+	// "my_rig". A word starts at an uppercase letter after a lowercase letter or digit, or at the last capital of a
+	// run followed by a lowercase letter. Anything not an ASCII letter or digit separates words.
+	static std::string toSnakeCase(const std::string& text)
 	{
-		if (a.size() != b.size())
+		std::string result;
+		for (size_t i = 0; i < text.size(); ++i)
 		{
-			return false;
-		}
-		for (size_t i = 0; i < a.size(); ++i)
-		{
-			if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[i])))
+			const unsigned char c = static_cast<unsigned char>(text[i]);
+			if (!std::isalnum(c))
 			{
-				return false;
+				if (!result.empty() && result.back() != '_')
+				{
+					result += '_';
+				}
+				continue;
 			}
+			if (std::isupper(c) && !result.empty() && result.back() != '_')
+			{
+				const unsigned char previous = static_cast<unsigned char>(text[i - 1]);
+				const bool nextIsLower = i + 1 < text.size() && std::islower(static_cast<unsigned char>(text[i + 1]));
+				if (std::islower(previous) || std::isdigit(previous) || (std::isupper(previous) && nextIsLower))
+				{
+					result += '_';
+				}
+			}
+			result += static_cast<char>(std::tolower(c));
 		}
-		return true;
+		if (!result.empty() && result.back() == '_')
+		{
+			result.pop_back();
+		}
+		return result;
 	}
 };

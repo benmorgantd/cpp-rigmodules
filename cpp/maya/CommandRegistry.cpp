@@ -9,6 +9,7 @@
 #include "maya/commands/RigInverseCmds.h"
 #include "maya/commands/RigKeyCmds.h"
 #include "maya/commands/RigPoseCmds.h"
+#include "maya/commands/SkeletonCmds.h"
 #include "maya/commands/SkinWeightCmds.h"
 #include "maya/commands/TwoBoneIkCmds.h"
 
@@ -42,6 +43,7 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ SaveRigSkinWeightsCmd::aCommandString, SaveRigSkinWeightsCmd::creator, SaveRigSkinWeightsCmd::newSyntax },
 		{ LoadRigSkinWeightsCmd::aCommandString, LoadRigSkinWeightsCmd::creator, LoadRigSkinWeightsCmd::newSyntax },
 		{ PruneToMaxInfluencesCmd::aCommandString, PruneToMaxInfluencesCmd::creator, PruneToMaxInfluencesCmd::newSyntax },
+		{ SaveRigSkeletonCmd::aCommandString, SaveRigSkeletonCmd::creator, SaveRigSkeletonCmd::newSyntax },
 		{ PoseRigFromJointPoseCmd::aCommandString, PoseRigFromJointPoseCmd::creator, PoseRigFromJointPoseCmd::newSyntax },
 		{ AnimateRigFromJointClipCmd::aCommandString, AnimateRigFromJointClipCmd::creator, AnimateRigFromJointClipCmd::newSyntax },
 		{ GetRigKeysCmd::aCommandString, GetRigKeysCmd::creator, GetRigKeysCmd::newSyntax },

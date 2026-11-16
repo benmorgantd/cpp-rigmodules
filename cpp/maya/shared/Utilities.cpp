@@ -822,6 +822,28 @@ MStatus CommandUtils::readFilePath(const MArgDatabase& argData, const char* flag
 	return MStatus::kSuccess;
 }
 
+MStatus CommandUtils::readJoints(const MArgDatabase& argData, const char* commandName, MDagPathArray& outJoints)
+{
+	MStringArray jointNames;
+	MStatus status = argData.getObjects(jointNames);
+	if (!status || jointNames.length() == 0)
+	{
+		MGlobal::displayError(MString(commandName) + " needs at least one joint name.");
+		return MStatus::kFailure;
+	}
+	for (unsigned int i = 0; i < jointNames.length(); ++i)
+	{
+		MDagPath jointPath;
+		status = DagUtils::getDagPathFromName(jointNames[i], jointPath, DagUtils::NodeKind::kJoint);
+		if (!status)
+		{
+			return status;   // the helper reported which name failed
+		}
+		outJoints.append(jointPath);
+	}
+	return MStatus::kSuccess;
+}
+
 MStatus CommandUtils::readMeshesOrSelection(const MArgDatabase& argData, const char* commandName, MDagPathArray& outMeshes)
 {
 	MStringArray objects;

@@ -430,6 +430,38 @@ The author considered starting a new pipeline repo, because most of mayadev chan
 - **Not built:** the template authoring UI (it needs a module interface query command first, D24). Building a second variant into a namespace. (Importing the variant's model and loading its weights in Build Rig was built 2026-11-09, D35.)
 - **Consequence:** `getRigInfo`'s keys, `RigInfoKey::Namespace`, and the `rigmodules.query` and `rigmodules.template` names are public API for mayadev. The template authoring UI validates through RigModules `python/`, never with its own copy of the template rules (D24).
 
+### D54. An asset holds skeletons, rigs and looks; a look replaces the variant
+**Status:** Decided (author, 2026-11-16). Not built. Full plan and phases: `rigs-and-looks.md`. Replaces D29's variants. `asset-model.md` describes what is built until phase 4.
+
+A variant was a rig, so every outfit was its own rig. The author meant a look: meshes, textures, shaders and weights over one rig. An asset folder now holds `skeletons/{skeleton}/`, `rigs/{rig}/` (each naming its skeleton) and `looks/{look}/` (naming the skeletons its meshes bind to). A skeleton can have many rigs, and any rig of a skeleton can wear any of its looks.
+
+- **Settled (author, 2026-11-16):**
+  - The word is "look", not "variant", because the meaning changed. The default look is `default`.
+  - Asset id tokens and skeleton, rig and look names are lowercase only. Uppercase is rejected, which replaces D29's "compare case-insensitively, store as authored".
+  - One rig per namespace (`hero_body:`, `hero_face:`). Many rigs per asset (body, face, props).
+  - The skeleton stays outside the rig, because a skeleton can have many rigs (a cinematic copy).
+  - Skeleton identity is an automatic, deterministic hash of joint markup, parents and quantized rest transforms. Rejected: a user-updated version, which never got updated and changed on almost every edit.
+  - Looks are whole bodies. Accessories are attachments. Rejected: parts-based looks, which were slow to aggregate and didn't fit together.
+  - A look swap re-points the look's skinCluster inputs to the rig's joints by markup, with no bake or rebind.
+  - Looks are chosen in the library browser. Assets, skeletons and rigs get a separate asset browser for riggers and modelers.
+  - Identical-skeleton characters (NPCs) share one skeleton and its rigs, with no copied skeleton files. Their looks can live in look-only assets.
+- **Answers to the plan's questions (author, 2026-11-16):**
+  - Joint names are in the hash (the engine matches bones by name). Rest matrices are rounded to 1e-4.
+  - The default namespace is always `{asset name}_{rig}`. Rejected: the asset name alone for a one-rig asset, a special case that renames the namespace when a second rig arrives.
+  - The asset root merges into the rig root, which stores `assetId`. `assetRootModule` is removed.
+  - An asset can hold many skeletons (`hero` holds body and face).
+  - The template's `rigName` stays and must equal the rig folder name.
+  - Skeleton exports live in `skeletons/{skeleton}/exports/`.
+  - A copied rig names its `source` in `rig.json`, and the library browser lists the source's poses and animations. Saves go to the copy.
+- **Built (phase 2, part 1, 2026-11-16):** `AssetId::isValidName` is the one lowercase name rule, and `AssetId::isValid` applies it per token. The template's `rigName` must pass it. Without the key it defaults to `rigTemplateName` in snake_case (`StringUtils::toSnakeCase`: `HumanRigTest` is `human_rig_test`), chosen by the author over requiring the key or deferring the rule. An explicit `rigName` is checked, never converted. The asset root's id compares exactly, and `StringUtils::equalsIgnoreCase` is gone. `RigTemplates/Human.json` is `human`. mayadev's `assetid` still accepts uppercase (proposed edit in `docs/mayadev.md`).
+- **Built (phase 2, part 2, 2026-11-16):** `core/SkeletonFile` (the file and `skeletonHash`), `core/Hash64` (`Fnv1a64`, now shared with the weight file's `topologyHash`, whose values don't change), `maya/shared/SkeletonScene` and `cmds.saveRigSkeleton(*joints, file=path)`, which returns the hash. User page: `docs/skeletons.md`.
+  - **Every marked joint counts** (author, 2026-11-16), marker joints (`export: false`) included, because the hash answers whether a rig and its looks belong together, and the rig is built on its markers. Rejected: export joints only, the engine's view.
+  - The markup's `export` and `skin` flags are in the hash, since they are part of the markup and the weights depend on `skin`.
+  - Rest is local to the parent, so an edit names the joint that changed and not everything below it. The parent is the nearest ancestor among the saved joints, so a group between joints folds into the child's rest.
+  - No reader, update table or load command yet: nothing reads the file until the look swap (phase 5). The rig build's `skeletonHash` stamp is phase 3.
+- **Rejected:** one asset per skeleton, rig and look, named by id (option B). It made the hero about eight asset folders and still ended in large look folders. Also rejected: a master list of an asset's looks, which brings back D29's shared-file edit. Listing unsynced looks asks source control instead.
+- **Consequence:** `assetRootModule` and `getRigInfo`'s asset root key go. `getRigInfo`'s `variant` key, `RigInfo.variant`, the pose and animation `meta` field `variant` and the `skeletonId` field change name, so mayadev call sites and saved library files need an update step. Attachments (an attach node, cross-rig constraint drivers) and the face parameters node go through the gate later.
+
 ---
 
 ## Shots, versions and component data
