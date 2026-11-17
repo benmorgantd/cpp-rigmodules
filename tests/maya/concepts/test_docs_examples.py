@@ -197,6 +197,34 @@ class SkinningDocExample(RigTestCase):
         self.assertEqual((round(bottom, 6), round(top, 6)), (1.0, 0.75))
 
 
+class LooksDocExample(RigTestCase):
+    """The setRigLook example in docs/looks.md and docs/commands.md, with the names it gives: a rig in hero_body, a mesh
+    and its weight file made from the rig, and the call as documented."""
+
+    def test_set_rig_look_example(self):
+        self.build_standard("fkchain_three", "fk_three", namespace=DOC_NAMESPACE)
+        rig_root = cmds.ls(type="rigRootModule")[0]
+        self.assertEqual(rig_root, "hero_body:rigRootModule1")
+        body = cmds.polyCube(name=":hero_body:body_geo", height=2, constructionHistory=False)[0]
+        cmds.addAttr(body, longName="meshId", dataType="string")
+        cmds.setAttr(body + ".meshId", "doc-body", type="string")
+        cmds.skinCluster(rig_name("a_jnt", DOC_NAMESPACE), rig_name("b_jnt", DOC_NAMESPACE), body, toSelectedBones=True)
+        path = os.path.join(config.WORK_DIR, "body_geo.json").replace("\\", "/")
+        cmds.saveRigSkinWeights(body, file=path)
+        cmds.delete(body)
+        body = cmds.polyCube(name=":hero_body:body_geo", height=2, constructionHistory=False)[0]
+        cmds.addAttr(body, longName="meshId", dataType="string")
+        cmds.setAttr(body + ".meshId", "doc-body", type="string")
+
+        result = cmds.setRigLook("hero_body:rigRootModule1",
+                                 mesh=["hero_body:body_geo"],
+                                 file=[path],
+                                 asset="shooter\\characters\\hero", look="red")
+        self.assertEqual(result, "hero_body:lookRoot")
+        info = json.loads(cmds.getRigInfo(rig_root))
+        self.assertEqual(info["look"], {"assetId": "shooter\\characters\\hero", "name": "red", "publishVersion": ""})
+
+
 def templates_doc_mirroring_template():
     """The first ```json block under '## Mirroring' in docs/templates.md."""
     with open(TEMPLATES_DOC, encoding="utf-8") as handle:

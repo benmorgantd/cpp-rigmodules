@@ -22,6 +22,7 @@ info = rigmodules.query.get_rig_info("hero_body:arm_ctrl_l")      # a control, m
 info.asset_id      # "shooter\\main\\characters\\hero"
 info.rig_name      # "body"
 info.rig_root      # "hero_body:rigRootModule1"
+info.look          # None, or a LookInfo(asset_id, name, publish_version) once setRigLook has applied a look
 
 rigmodules.query.get_rigs("hero_body")    # the rig built into the hero_body namespace (a namespace holds one rig)
 ```

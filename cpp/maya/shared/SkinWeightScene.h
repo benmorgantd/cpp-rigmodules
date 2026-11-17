@@ -38,10 +38,13 @@ public:
 // doesn't list are removed, missing ones are added, and every weight is set. A mesh without one gets a new one.
 // New influences bind at their joint's rest (RigTraversal::getJointRestWorld), so loading on a posed rig binds the
 // build pose.
+// The file's skeletonHash is checked against the rig the influences belong to (D54): a mismatch fails the load, unless
+// ignoreSkeletonHash is set, which makes it a warning. A file with no hash, or joints in no rig, can't be checked: the
+// first warns and the second says nothing.
 class SkinWeightLoad
 {
 public:
-	MStatus prepare(const MDagPath& mesh, const SkinWeights& weights);
+	MStatus prepare(const MDagPath& mesh, const SkinWeights& weights, bool ignoreSkeletonHash = false);
 	MStatus apply();
 	MStatus undo();
 	MString skinClusterName() const;

@@ -45,7 +45,8 @@ public:
 };
 
 // cmds.loadRigSkinWeights("hero:body_geo", file="C:/assets/hero/weights/body_geo.json") -> the skinCluster's name
-//   Undoable. A file that fails validation or doesn't match the mesh changes nothing.
+//   Undoable. A file that fails validation or doesn't match the mesh changes nothing. A file whose skeletonHash is not
+//   the rig's fails too, unless ignoreSkeletonHash=True makes that a warning (D54).
 class LoadRigSkinWeightsCmd : public MPxCommand
 {
 public:

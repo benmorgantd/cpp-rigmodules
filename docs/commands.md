@@ -268,7 +268,7 @@ Object: one control.
 
 ## getRigInfo
 
-Returns what a rig node belongs to, as JSON text: its rig root, the asset id, the rig name, the skeleton hash, the namespace and the rig root's version stamps. Python tools use it through `rigmodules.query` ([python.md](python.md)).
+Returns what a rig node belongs to, as JSON text: its rig root, the asset id, the rig name, the skeleton hash, the namespace, the rig root's version stamps and the look it wears. Python tools use it through `rigmodules.query` ([python.md](python.md)).
 
 ```python
 cmds.getRigInfo("hero_body:arm_ctrl_l")
@@ -289,6 +289,7 @@ Object: one rig root, rig module, rig control, or joint driven by a rig. A joint
 | `rigVersion` | The template's `rigVersion` |
 | `pluginVersion` | The RigModules version that built the rig |
 | `publishVersion` | The publish the rig came from, `""` until published |
+| `look` | `null` until `setRigLook` has applied one, then `{"assetId", "name", "publishVersion"}` (D54) |
 
 - Any other node (an unrigged joint, a mesh) returns `""`, with no error, so a selection callback can ask about anything.
 - A missing node is an error. So is a broken rig, such as a control whose module has no rig root.
@@ -779,12 +780,43 @@ cmds.loadRigSkinWeights("hero_body:body_geo", file="C:/assets/hero/weights/body_
 | Flag | Type | Meaning |
 |---|---|---|
 | `file` | string | The file to read. Required. |
+| `ignoreSkeletonHash` | bool | Load a file made for another skeleton, with a warning, instead of failing. Default false |
 
 Object: one mesh, by transform or shape name. Returns the skinCluster's name.
 
-- The whole file is validated first, including that every vertex's weights sum to 1, then checked against the mesh: its `meshId`, vertex and face counts and topology hash, and one marked joint in the mesh's namespace per influence. Any error is reported and nothing changes. The file's `skeletonHash` is read but not compared with the rig's yet: that check comes with the look swap (D54 phase 5).
+- The whole file is validated first, including that every vertex's weights sum to 1, then checked against the mesh: its `meshId`, vertex and face counts and topology hash, and one marked joint in the mesh's namespace per influence. Any error is reported and nothing changes. The file's `skeletonHash` is compared with the rig the influences belong to (D54): a different one fails the load, a file with none loads with a warning, and joints in no rig are not checked.
 - Updates the mesh's skinCluster in place, or creates one. Sets exactly the file's weights. New influences bind at their joint's rest.
 - Undoable, as one step.
+
+## setRigLook
+
+Puts a rig in a look: loads the look's weights onto its meshes, deletes the previous look's meshes, and records the look on the rig's `lookRoot` ([looks.md](looks.md)).
+
+```python
+cmds.setRigLook("hero_body:rigRootModule1",
+                mesh=["hero_body:body_geo"],
+                file=["C:/assets/hero/looks/red/weights/body_geo.json"],
+                asset="shooter\\characters\\hero", look="red")
+# Returns 'hero_body:lookRoot'
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `mesh` | string, multi-use | A mesh of the look, already imported into the rig's namespace. Required, one use per mesh |
+| `file` | string, multi-use | A weight file, one for each mesh, in any order: each goes to the mesh with its `meshId`. Required |
+| `asset` | string | The look's asset id. Required |
+| `look` | string | The look's name, a lowercase name ([templates.md](templates.md)). Required |
+| `publishVersion` | string | The publish the look came from. Default `""` |
+| `skeleton` | string | The look's `skeleton.json`. When its hash is not the rig's the command fails before reading any weights |
+| `rigSkeleton` | string | The rig's `skeleton.json`. With `skeleton`, the error names every joint that differs |
+| `ignoreSkeletonHash` | bool | A weight file with another skeleton's hash loads with a warning. Default false |
+
+Object: one rig root. Returns the `lookRoot`'s name.
+
+- Every file is read and checked against its mesh and the rig before anything changes, so any error leaves the scene as it was. That includes a mesh outside the rig's namespace, a mesh whose `meshId` no file has, a file whose `skeletonHash` is not the rig's, and a `look` or `asset` that isn't a valid name.
+- Deletes only the previous look's meshes (the `lookRoot`'s members) and their history, never any other mesh. Names each new mesh after its file's `meshName`.
+- The controls and the animation are not touched.
+- Undoable, as one step: undo brings the previous look and its weights back and removes the `lookRoot` if this was the first look.
 
 ## pruneToMaxInfluences
 

@@ -115,6 +115,60 @@ int findSkeletonJoint(const Skeleton& skeleton, const JointSelector& selector)
 	return -1;
 }
 
+std::vector<std::string> describeSkeletonDifferences(const Skeleton& rig, const Skeleton& look)
+{
+	std::vector<std::string> lines;
+	const auto describeJoint = [](const SkeletonJoint& joint)
+	{
+		return formatJointSelector({ joint.markup.side, joint.markup.usage });
+	};
+
+	for (const SkeletonJoint& rigJoint : rig.joints)
+	{
+		const std::string who = describeJoint(rigJoint) + ": ";
+		const int index = findSkeletonJoint(look, { rigJoint.markup.side, rigJoint.markup.usage });
+		if (index < 0)
+		{
+			lines.push_back(who + "the rig has it, the look's skeleton does not");
+			continue;
+		}
+		const SkeletonJoint& lookJoint = look.joints[static_cast<std::size_t>(index)];
+		if (rigJoint.name != lookJoint.name)
+		{
+			lines.push_back(who + "named '" + rigJoint.name + "' in the rig and '" + lookJoint.name + "' in the look");
+		}
+		if (rigJoint.hasParent != lookJoint.hasParent
+			|| (rigJoint.hasParent && (rigJoint.parent.side != lookJoint.parent.side || rigJoint.parent.usage != lookJoint.parent.usage)))
+		{
+			lines.push_back(who + "a different parent");
+		}
+		if (rigJoint.rotateOrder != lookJoint.rotateOrder)
+		{
+			lines.push_back(who + "a different rotate order");
+		}
+		if (rigJoint.markup.isExported != lookJoint.markup.isExported || rigJoint.markup.isSkinned != lookJoint.markup.isSkinned)
+		{
+			lines.push_back(who + "a different export or skin flag");
+		}
+		for (std::size_t i = 0; i < rigJoint.restLocal.size(); ++i)
+		{
+			if (std::llround(rigJoint.restLocal[i] / SkeletonFileFormat::RestGrid) != std::llround(lookJoint.restLocal[i] / SkeletonFileFormat::RestGrid))
+			{
+				lines.push_back(who + "a different rest transform");
+				break;
+			}
+		}
+	}
+	for (const SkeletonJoint& lookJoint : look.joints)
+	{
+		if (findSkeletonJoint(rig, { lookJoint.markup.side, lookJoint.markup.usage }) < 0)
+		{
+			lines.push_back(describeJoint(lookJoint) + ": the look's skeleton has it, the rig does not");
+		}
+	}
+	return lines;
+}
+
 std::vector<std::size_t> skeletonParentsFirst(const Skeleton& skeleton)
 {
 	const std::size_t count = skeleton.joints.size();

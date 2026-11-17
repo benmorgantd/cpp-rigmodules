@@ -65,6 +65,7 @@ MObject RigRootNode::aControlDisplayLayer;
 MObject RigRootNode::aSelectionSets;
 MObject RigRootNode::aAllGroup;
 MObject RigRootNode::aMeshGroup;
+MObject RigRootNode::aLook;
 
 // Boilerplate constructor, destructor, and creator
 RigRootNode::RigRootNode()
@@ -150,6 +151,10 @@ MStatus RigRootNode::initialize()
 
 	aMeshGroup = msgAttr.create(RigAttr::MeshGroup, RigAttr::MeshGroup, &status);
 	addAttribute(aMeshGroup);
+
+	// The look the rig wears (D54): connects to a lookRoot node's rigRoot. None until a look is applied.
+	aLook = msgAttr.create(RigAttr::Look, RigAttr::Look, &status);
+	addAttribute(aLook);
 
 	// In the case of this node, there are no attribute affect relationships.
 

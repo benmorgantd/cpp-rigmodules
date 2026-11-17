@@ -80,3 +80,8 @@ std::vector<std::size_t> skeletonParentsFirst(const Skeleton& skeleton);
 
 // The index of the joint with this (side, usage), or -1.
 int findSkeletonJoint(const Skeleton& skeleton, const JointSelector& selector);
+
+// What differs between two skeletons, one line per joint and difference, for the message of a failed look swap
+// (D54): a joint only one has, a different name, parent or rotate order, and a rest that differs on the hash's grid.
+// Empty exactly when skeletonHash is equal. Lines read "<side> <usage>: ...", rig first and look second.
+std::vector<std::string> describeSkeletonDifferences(const Skeleton& rig, const Skeleton& look);

@@ -8,7 +8,7 @@ from maya import cmds, mel
 from rigtest.case import RigTestCase
 
 NODE_TYPES = ["rigRootModule","layoutModule", "fkChainModule", "aimModule",
-              "twoBoneIkModule", "rigConstraint", "rigControlNode"]
+              "twoBoneIkModule", "rigConstraint", "lookRoot", "rigControlNode"]
 
 COMMAND_FLAGS = {
     "createRigFromTemplate": ["template", "namespace", "checkMirrorPositions"],
@@ -25,7 +25,8 @@ COMMAND_FLAGS = {
     "getRigInfo": [],
     "setRigMeshId": ["newId"],
     "saveRigSkinWeights": ["file"],
-    "loadRigSkinWeights": ["file"],
+    "loadRigSkinWeights": ["file", "ignoreSkeletonHash"],
+    "setRigLook": ["mesh", "file", "asset", "look", "publishVersion", "skeleton", "rigSkeleton", "ignoreSkeletonHash"],
     "pruneToMaxInfluences": ["maxInfluences"],
     "saveRigSkeleton": ["file"],
     "loadRigSkeleton": ["file", "namespace"],

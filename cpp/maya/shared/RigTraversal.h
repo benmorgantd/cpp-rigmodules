@@ -61,6 +61,13 @@ public:
 	// module that has none. Reports nothing.
 	static MObject findModuleRigRoot(const MObject& oModule);
 
+	// The rig's lookRoot node (D54), through rigRoot.look -> lookRoot.rigRoot, or a null object for a rig with none.
+	// Reports nothing.
+	static MObject findLookRoot(const MObject& oRigRoot);
+
+	// The nodes a lookRoot holds as its look's members, in connection order. Reports nothing.
+	static MObjectArray getLookMembers(const MObject& oLookRoot);
+
 	// Every module connected to the rig root, layout included, sorted by node name so results are stable.
 	static MStatus getRigModules(const MObject& oRigRoot, MObjectArray& oOutModules);
 

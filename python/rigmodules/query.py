@@ -11,6 +11,15 @@ import rigmodules._namespace
 
 
 @dataclasses.dataclass(frozen=True)
+class LookInfo:
+    """The look a rig wears (D54), from its lookRoot node. Built from the "look" object of getRigInfo's JSON result."""
+
+    asset_id: str          # the look's own asset, which may differ from the rig's
+    name: str              # the look's folder name in its asset
+    publish_version: str   # the publish id the look came from, "" for an unpublished one
+
+
+@dataclasses.dataclass(frozen=True)
 class RigInfo:
     """What a rig node belongs to (D29). Built from getRigInfo's JSON result."""
 
@@ -22,6 +31,7 @@ class RigInfo:
     rig_version: int       # the template's rigVersion
     plugin_version: str    # the RigModules version that built the rig
     publish_version: str   # the publish id the rig came from, "" until published
+    look: LookInfo | None = None   # the look the rig wears, None until setRigLook has applied one (D54)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -93,6 +103,7 @@ def find_rig_info(node: str) -> RigInfo | None:
     if not text:
         return None
     data = json.loads(text)
+    look = data.get("look")
     return RigInfo(
         rig_root=data["rigRoot"],
         asset_id=data["assetId"],
@@ -102,6 +113,7 @@ def find_rig_info(node: str) -> RigInfo | None:
         rig_version=data["rigVersion"],
         plugin_version=data["pluginVersion"],
         publish_version=data["publishVersion"],
+        look=LookInfo(asset_id=look["assetId"], name=look["name"], publish_version=look["publishVersion"]) if look else None,
     )
 
 

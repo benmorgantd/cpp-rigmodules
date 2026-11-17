@@ -40,6 +40,7 @@ The file is laid out so that version control shows only what changed:
 - **A mesh without one gets a new skinCluster** with the file's influences.
 - **New influences bind at rest.** For a joint a rig module drives, that is the pose the rig was built in, whatever the rig's current pose, so loading onto a posed rig gives the same result as loading at rest. For a joint with no rig, the skeleton's current pose is its rest.
 - The file's `skinMethod` is set on the skinCluster.
+- **The skeleton is checked** (D54). A file whose `skeletonHash` is not the hash of the rig that drives the influences fails, because it was made for another skeleton. `ignoreSkeletonHash=True` loads it with a warning. A file with no hash can't be checked and loads with a warning, and joints no rig drives are not checked. [`setRigLook`](looks.md) loads a look's files this way.
 - The whole file and the match are checked first. Any error is reported and nothing changes. The load is one undo step.
 
 ## File format
@@ -80,7 +81,7 @@ This is a 2-unit-tall cube standing on the origin, skinned to joints marked `[Ce
 | `meshName` | The mesh's name without namespace, for people reading the file. Loading never matches on it. |
 | `vertexCount`, `faceCount` | The mesh's counts |
 | `topologyHash` | 16 lowercase hex digits: 64-bit FNV-1a over the vertex count, the face count, each face's vertex count and each face's vertex indices, each as 4 little-endian bytes |
-| `skeletonHash` | The `skeletonHash` of the rig root that drives the influences, at save: the skeleton the weights were made on (D54). `""` when the influences belong to no rig, as in this example. Recorded only: a load doesn't compare it with the rig's yet |
+| `skeletonHash` | The `skeletonHash` of the rig root that drives the influences, at save: the skeleton the weights were made on (D54). `""` when the influences belong to no rig, as in this example. A load compares it with the rig the influences belong to (see Loading) |
 | `skinMethod` | `Linear`, `DualQuaternion` or `WeightBlended` |
 | `influences` | `[side, usage]` per influence, sorted by side, then usage. A weight's influence index points into this list. |
 | `weights` | One list per vertex of influence index and weight pairs, in index order. Zero weights are left out. Each vertex must sum to 1. |

@@ -175,6 +175,7 @@
     <ClCompile Include="maya\commands\RigControlCmds.cpp" />
     <ClCompile Include="maya\commands\RigDataFileCmds.cpp" />
     <ClCompile Include="maya\commands\RigInfoCmd.cpp" />
+    <ClCompile Include="maya\commands\RigLookCmd.cpp" />
     <ClCompile Include="maya\commands\RigKeyCmds.cpp" />
     <ClCompile Include="maya\commands\RigInverseCmds.cpp" />
     <ClCompile Include="maya\commands\RigPoseCmds.cpp" />
@@ -187,6 +188,7 @@
     <ClCompile Include="maya\modules\TwoBoneIkModule.cpp" />
     <ClCompile Include="maya\nodes\Constraints.cpp" />
     <ClCompile Include="maya\nodes\RigControlNode.cpp" />
+    <ClCompile Include="maya\nodes\LookRoot.cpp" />
     <ClCompile Include="maya\nodes\RigRoot.cpp" />
     <ClCompile Include="maya\shared\ControlShapeScene.cpp" />
     <ClCompile Include="maya\shared\ControlSpaceScene.cpp" />
@@ -202,6 +204,7 @@
     <ClCompile Include="maya\shared\Side.cpp" />
     <ClCompile Include="maya\shared\SelectionSetScene.cpp" />
     <ClCompile Include="maya\shared\SkeletonScene.cpp" />
+    <ClCompile Include="maya\shared\LookScene.cpp" />
     <ClCompile Include="maya\shared\SkinWeightScene.cpp" />
     <ClCompile Include="maya\shared\Utilities.cpp" />
   </ItemGroup>
@@ -239,6 +242,7 @@
     <ClInclude Include="maya\commands\JointMarkupCmd.h" />
     <ClInclude Include="maya\commands\RigControlCmds.h" />
     <ClInclude Include="maya\commands\RigDataFileCmds.h" />
+    <ClInclude Include="maya\commands\RigLookCmd.h" />
     <ClInclude Include="maya\commands\RigInfoCmd.h" />
     <ClInclude Include="maya\commands\RigKeyCmds.h" />
     <ClInclude Include="maya\commands\RigInverseCmds.h" />
@@ -252,6 +256,7 @@
     <ClInclude Include="maya\modules\TwoBoneIkModule.h" />
     <ClInclude Include="maya\nodes\Constraints.h" />
     <ClInclude Include="maya\nodes\RigControlNode.h" />
+    <ClInclude Include="maya\nodes\LookRoot.h" />
     <ClInclude Include="maya\nodes\RigRoot.h" />
     <ClInclude Include="maya\shared\Colors.h" />
     <ClInclude Include="maya\shared\ControlShapeScene.h" />
@@ -268,6 +273,7 @@
     <ClInclude Include="maya\shared\Side.h" />
     <ClInclude Include="maya\shared\SelectionSetScene.h" />
     <ClInclude Include="maya\shared\SkeletonScene.h" />
+    <ClInclude Include="maya\shared\LookScene.h" />
     <ClInclude Include="maya\shared\SkinWeightScene.h" />
     <ClInclude Include="maya\shared\Utilities.h" />
   </ItemGroup>

@@ -1,6 +1,7 @@
 #include "maya/commands/RigInfoCmd.h"
 #include "core/Constants.h"
 #include "core/JsonUtils.h"
+#include "maya/nodes/LookRoot.h"
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
@@ -81,6 +82,21 @@ MStatus GetRigInfoCmd::doIt(const MArgList& args)
 	info[RigAttr::PluginVersion] = MPlug(oRigRoot, RigRootNode::aPluginVersion).asString().asChar();
 	info[RigAttr::PublishVersion] = MPlug(oRigRoot, RigRootNode::aPublishVersion).asString().asChar();
 	info[RigInfoKey::Namespace] = fnRigRoot.parentNamespace().asChar();
+
+	// The look the rig wears (D54), null for a rig that has had none applied.
+	const MObject oLookRoot = RigTraversal::findLookRoot(oRigRoot);
+	if (oLookRoot.isNull())
+	{
+		info[RigInfoKey::Look] = nullptr;
+	}
+	else
+	{
+		nlohmann::json look;
+		look[RigInfoKey::LookAssetId] = MPlug(oLookRoot, LookRootNode::aAssetId).asString().asChar();
+		look[RigInfoKey::LookName] = MPlug(oLookRoot, LookRootNode::aLookName).asString().asChar();
+		look[RigInfoKey::LookPublishVersion] = MPlug(oLookRoot, LookRootNode::aPublishVersion).asString().asChar();
+		info[RigInfoKey::Look] = look;
+	}
 
 	setResult(MString(JsonUtils::writeJsonString(info).c_str()));
 	return MStatus::kSuccess;

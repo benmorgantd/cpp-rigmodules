@@ -62,6 +62,7 @@ public:
 	static MObject aSelectionSets;
 	static MObject aAllGroup;
 	static MObject aMeshGroup;
+	static MObject aLook;
 public:
 	static MObject createRigRoot(
 		const MString& assetId,

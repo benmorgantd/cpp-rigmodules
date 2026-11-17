@@ -2,6 +2,7 @@
 #include "core/Constants.h"
 #include "core/TemplateMirror.h"
 #include "maya/ModuleRegistry.h"
+#include "maya/nodes/LookRoot.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/Utilities.h"
@@ -93,6 +94,28 @@ MObject RigTraversal::findModuleRigRoot(const MObject& oModule)
 	const MPlug pRigRoot = MFnDependencyNode(oModule).findPlug(RigAttr::RigRoot, false, &status);
 	const MPlug pSource = status ? pRigRoot.source() : MPlug();
 	return pSource.isNull() ? MObject::kNullObj : pSource.node();
+}
+
+MObject RigTraversal::findLookRoot(const MObject& oRigRoot)
+{
+	MPlugArray destinations;
+	MPlug(oRigRoot, RigRootNode::aLook).destinations(destinations);
+	return destinations.length() == 0 ? MObject::kNullObj : destinations[0].node();
+}
+
+MObjectArray RigTraversal::getLookMembers(const MObject& oLookRoot)
+{
+	MObjectArray oMembers;
+	const MPlug pMembers(oLookRoot, LookRootNode::aMembers);
+	for (unsigned int i = 0; i < pMembers.numElements(); ++i)
+	{
+		const MPlug pSource = pMembers.elementByPhysicalIndex(i).source();
+		if (!pSource.isNull())
+		{
+			oMembers.append(pSource.node());
+		}
+	}
+	return oMembers;
 }
 
 MStatus RigTraversal::getRigRoot(const MString& name, MObject& oOutRigRoot)

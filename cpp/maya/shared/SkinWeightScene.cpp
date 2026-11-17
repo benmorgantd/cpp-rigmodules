@@ -304,7 +304,7 @@ MStatus SkinWeightScene::readSkinWeights(const MDagPath& mesh, SkinWeights& outW
 	return MStatus::kSuccess;
 }
 
-MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights)
+MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights, bool ignoreSkeletonHash)
 {
 	MStatus status;
 	fMesh = mesh;
@@ -376,6 +376,39 @@ MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights
 	if (hasErrors)
 	{
 		return fail();
+	}
+
+	// A file made for another skeleton would deform wrongly, so it is reported before anything changes (D54).
+	MObjectArray oInfluences;
+	for (unsigned int i = 0; i < fInfluences.length(); ++i)
+	{
+		oInfluences.append(fInfluences[i].node());
+	}
+	MObject oRigRoot;
+	status = RigTraversal::findSharedRigRoot(oInfluences, oRigRoot);
+	if (!status)
+	{
+		return fail();
+	}
+	if (!oRigRoot.isNull())
+	{
+		const MFnDependencyNode fnRigRoot(oRigRoot);
+		const std::string rigHash = fnRigRoot.findPlug(RigAttr::SkeletonHash, false).asString().asChar();
+		if (weights.skeletonHash.empty())
+		{
+			MGlobal::displayWarning(meshName + ": the weight file records no skeleton hash, so it can't be checked against " + fnRigRoot.name() + ".");
+		}
+		else if (weights.skeletonHash != rigHash)
+		{
+			const MString text = MString("The weight file is for skeleton ") + weights.skeletonHash.c_str() + ", and " + fnRigRoot.name() + " has "
+				+ rigHash.c_str() + ".";
+			if (!ignoreSkeletonHash)
+			{
+				MGlobal::displayError(text + " Pass ignoreSkeletonHash=True to load it anyway.");
+				return fail();
+			}
+			MGlobal::displayWarning(text + " Loading it anyway.");
+		}
 	}
 
 	// Queue the influence changes. MEL, because the API can't create a skinCluster or edit its influence list.

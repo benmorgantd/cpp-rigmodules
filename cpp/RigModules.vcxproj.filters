@@ -117,6 +117,9 @@
     <ClCompile Include="maya\commands\RigDataFileCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
+    <ClCompile Include="maya\commands\RigLookCmd.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
     <ClCompile Include="maya\commands\RigInfoCmd.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
@@ -154,6 +157,9 @@
       <Filter>maya\nodes</Filter>
     </ClCompile>
     <ClCompile Include="maya\nodes\RigControlNode.cpp">
+      <Filter>maya\nodes</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\nodes\LookRoot.cpp">
       <Filter>maya\nodes</Filter>
     </ClCompile>
     <ClCompile Include="maya\nodes\RigRoot.cpp">
@@ -199,6 +205,9 @@
       <Filter>maya\shared</Filter>
     </ClCompile>
     <ClCompile Include="maya\shared\SkeletonScene.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\LookScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
     <ClCompile Include="maya\shared\SkinWeightScene.cpp">
@@ -308,6 +317,9 @@
     <ClInclude Include="maya\commands\RigDataFileCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
+    <ClInclude Include="maya\commands\RigLookCmd.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
     <ClInclude Include="maya\commands\RigInfoCmd.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
@@ -345,6 +357,9 @@
       <Filter>maya\nodes</Filter>
     </ClInclude>
     <ClInclude Include="maya\nodes\RigControlNode.h">
+      <Filter>maya\nodes</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\nodes\LookRoot.h">
       <Filter>maya\nodes</Filter>
     </ClInclude>
     <ClInclude Include="maya\nodes\RigRoot.h">
@@ -393,6 +408,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\SkeletonScene.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\LookScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\SkinWeightScene.h">

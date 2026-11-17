@@ -54,7 +54,7 @@ Paths are relative to `cpp/`. Include lines use the same paths (`"maya/shared/Ri
 | Role | Files |
 |---|---|
 | Module layer | `RigModule` (base classes, plan and build types), `ModuleInverse` (the inverse's types) |
-| Scene access | `JointMarkupScene`, `ControlShapeScene`, `ControlSpaceScene` (a control's space of either kind: the constraint's or a module's), `SkinWeightScene`, `SkeletonScene` (joints into a `Skeleton`, and a `Skeleton` into joints), `DisplayLayerScene`, `SelectionSetScene` |
+| Scene access | `JointMarkupScene`, `ControlShapeScene`, `ControlSpaceScene` (a control's space of either kind: the constraint's or a module's), `SkinWeightScene`, `SkeletonScene` (joints into a `Skeleton`, and a `Skeleton` into joints), `LookScene` (`LookSwap`: the undoable look swap, and the skeleton check), `DisplayLayerScene`, `SelectionSetScene` |
 | Animation interface | `RigPoseScene` (channels and poses, and the data-first pose mirror), `RigKeyScene` (keys), `RigInverse` (the solve's driver), `RigDataFileScene` (the rig's part of a file's meta, and how well a file fits a rig) |
 | Walking a rig | `RigTraversal` |
 | Utilities | `Utilities` (`MathUtils`, `TimeUtils`, `DagUtils`, `MeshUtils`, `MelUtils`, `CommandUtils`, `ReportUtils`, `ProfilerUtils`, `ActiveSelection`, `DagPlugAndSocketUtils`, `ScopedRigNamespace`), `Side`, `Colors` |
@@ -121,6 +121,7 @@ The pieces:
 - **Joint**: a Maya joint carrying `rigMarkup` (side, usage, export, skin). A module drives it through `offsetParentMatrix`. `inheritsTransform` is off for controls and joints, so DAG parenting organizes the outliner and never drives a result (D1).
 - **Socket and child plug**: a socket is a world-space matrix output a module publishes (`start`, `end`, `index_<n>`). A child plug is a module's input for attaching to a socket. The template's `parentStructure` maps child plug to socket (D4).
 - **Constraint** (`rigConstraint`, `maya/nodes/Constraints`): one node type for Parent, Orient and Point (D31). It sits between a parent socket and a child plug and outputs the delta the child plug sees, switched by the control's `space` attribute. `computeDelta` is shared with the inverse solve.
+- **Look** (`lookRoot`, `maya/nodes/LookRoot`): the record of the look a rig wears (D54), connected from the rig root's `look`. It has no inputs or `compute`, and holds the look's meshes as members so a swap deletes only those ([looks.md](looks.md)).
 - **Layout**: every rig has a `layout` module with three root controls. Child plugs a template does not parent attach to `layout.end`.
 
 ## Module nodes
@@ -237,6 +238,7 @@ Every command is an `MPxCommand` with the same shape (D14):
 | `RigInverseCmds` | `poseRigFromJointPose`, `animateRigFromJointClip` | `RigInverse`, then `RigPoseScene` or `RigKeyScene` |
 | `TwoBoneIkCmds` | `setRigIkFkBlend` | The module's match outputs, then `RigPoseScene` |
 | `RigInfoCmd` | `getRigInfo` | `RigTraversal` |
+| `RigLookCmd` | `setRigLook` | `LookScene` |
 | `RigDataFileCmds` | `getRigDataFileInfo`, `setRigDataFileMeta` | `LibraryFile` in `core/`, `RigDataFileScene` |
 | `SkinWeightCmds` | `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `pruneToMaxInfluences` | `SkinWeightScene` |
 | `SkeletonCmds` | `saveRigSkeleton`, `loadRigSkeleton` | `SkeletonScene` and `SkeletonFile` in `core/` |

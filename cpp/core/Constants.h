@@ -263,6 +263,13 @@ namespace RigAttr
 	inline constexpr const char* SelectionSets{ "selectionSets" };
 	inline constexpr const char* SetMarkup{ "setMarkup" };
 
+	// The look a rig wears (D54). The rig root's `look` message connects to the lookRoot node's `rigRoot`. The lookRoot
+	// holds the look's asset id (AssetId), its name, its publishVersion (PublishVersion) and one `lookMembers` message per
+	// node the look brought in, so a swap deletes exactly those.
+	inline constexpr const char* Look{ "look" };
+	inline constexpr const char* LookName{ "lookName" };
+	inline constexpr const char* LookMembers{ "lookMembers" };
+
 	// Constraints
 	inline constexpr const char* Constraints{ "constraints" };      // RigRoot message array
 	inline constexpr const char* ControlSpace{ "space" };           // dynamic enum on a constrained control
@@ -296,6 +303,11 @@ namespace PoleSpaceLabels
 namespace RigInfoKey
 {
 	inline constexpr const char* Namespace{ "namespace" };
+	// The look the rig wears: null, or an object with the keys below (D54). The look's own asset id may differ from the rig's.
+	inline constexpr const char* Look{ "look" };
+	inline constexpr const char* LookAssetId{ "assetId" };
+	inline constexpr const char* LookName{ "name" };
+	inline constexpr const char* LookPublishVersion{ "publishVersion" };
 }
 
 // How a control channel's value goes to the other side in a mirror (D34). Public API: the categories are stored
@@ -462,6 +474,8 @@ namespace RigNaming
 {
 	// Reserved module name for the implicit layout module. Templates address it as "layout.end".
 	inline constexpr const char* LayoutModule{ "layout" };
+	// The lookRoot node of a rig (D54), created in the rig namespace.
+	inline constexpr const char* LookRoot{ "lookRoot" };
 	inline constexpr const char* JointSuffix{ "_jnt" };
 	inline constexpr const char* ControlSuffix{ "_ctrl" };
 	inline constexpr const char* LeftSuffix{ "_l" };

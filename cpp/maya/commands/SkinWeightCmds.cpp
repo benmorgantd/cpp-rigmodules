@@ -16,6 +16,7 @@ namespace
 	// Not "-new": Maya rejects a three-letter long name, and the flag silently never registers.
 	constexpr const char* kNewIdFlag{ "-newId" };
 	constexpr const char* kMaxInfluencesFlag{ "-maxInfluences" };
+	constexpr const char* kIgnoreSkeletonHashFlag{ "-ignoreSkeletonHash" };
 
 	// The one mesh the save and load commands take, plus their file.
 	MStatus readMeshAndFile(const MArgList& args, const MSyntax& syntax, const char* commandName, MDagPath& outMesh, MString& outPath)
@@ -186,7 +187,9 @@ bool LoadRigSkinWeightsCmd::isUndoable() const
 
 MSyntax LoadRigSkinWeightsCmd::newSyntax()
 {
-	return meshAndFileSyntax();
+	MSyntax syntax = meshAndFileSyntax();
+	CHECK_MSTATUS(syntax.addFlag("-ish", kIgnoreSkeletonHashFlag, MSyntax::kBoolean));
+	return syntax;
 }
 
 MStatus LoadRigSkinWeightsCmd::doIt(const MArgList& args)
@@ -217,7 +220,15 @@ MStatus LoadRigSkinWeightsCmd::doIt(const MArgList& args)
 		return MStatus::kFailure;
 	}
 
-	status = fLoad.prepare(mesh, weights);
+	bool ignoreSkeletonHash = false;
+	MArgDatabase argData(syntax(), args, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (argData.isFlagSet(kIgnoreSkeletonHashFlag))
+	{
+		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kIgnoreSkeletonHashFlag, 0, ignoreSkeletonHash));
+	}
+
+	status = fLoad.prepare(mesh, weights, ignoreSkeletonHash);
 	if (!status)
 	{
 		return status;

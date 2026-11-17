@@ -342,7 +342,7 @@ def build_template():
                                                  "%s.%s" % (name, plug), drivers, "Left", side_of))
     return {
         "formatVersion": 1,
-        "rigName": "Complex272",
+        "rigName": "complex272",
         "rigVersion": 1,
         "rigTemplateName": "Complex272",
         "rigAuthor": "perf_scenes.py",
