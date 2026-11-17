@@ -430,6 +430,16 @@ The author considered starting a new pipeline repo, because most of mayadev chan
 - **Not built:** the template authoring UI (it needs a module interface query command first, D24). Building a second variant into a namespace. (Importing the variant's model and loading its weights in Build Rig was built 2026-11-09, D35.)
 - **Consequence:** `getRigInfo`'s keys, `RigInfoKey::Namespace`, and the `rigmodules.query` and `rigmodules.template` names are public API for mayadev. The template authoring UI validates through RigModules `python/`, never with its own copy of the template rules (D24).
 
+### D56. Ribbon module: a virtual ribbon with ik controls, tweakers and stateless twist
+**Status:** Leaning (author, 2026-11-17, two rounds of answers). Design draft: `ribbon.md`. Branch `ribbon-module-planning`. Nothing built.
+
+A virtual (no curve, no mesh) parameterized ribbon for tails, spines and limb segments: n bind joints already distributed, j control joints (start, end, interior ones that ride the curve), a layered set of nonlinear deformers (twist, bow, sine) held on the first control, scale with a three-point volume profile, and an inverse in v1.
+- **Why:** the handoff sketch's driver placement through `offsetParentMatrix` was a module output feeding its own controls (D17, D52), and its accumulated twist state made output depend on frame order (D36). Reading each interior control's local matrix removes the cycle without a node pair, and the branch-picking twist, `secondary + wrap(extracted - secondary)`, reaches past 180 degrees with no state and no keyed twist channel.
+- **Decided:** a control layer stack (optional FK, IK, hidden tweakers as the bind joints' parents), `fkStyle` as a template key, start and end driven by another module's sockets or self-contained (an arm is two ribbons), `uniformSpacing` dropped (rest spacing kept), rest up vector from the start joint's rest axis, `volumePreserve` with start, mid and end weights, inverse in v1 with the tweakers as the exact residual.
+- **Round three (2026-11-17):** reference space is the first child plug's parent, channels live on the first IK control, FK controls are a real chain read through their local matrices, v1 layers are twist, bow and one sine behind a per-layer function, `lambda` clamped for the volume exponent only, driven start and end visible and with no space match. See `ribbon.md` section 9.
+- **Open:** none. Not signed off for implementation.
+- **Consequence:** none built. No names are reserved.
+
 ### D55. An attachment follows another rig through `parent:` ids, with no attach node
 **Status:** Decided and built (author, 2026-11-17). Design: `attachments.md`. User docs: `docs/attachments.md`. Phase 7 of D54.
 
