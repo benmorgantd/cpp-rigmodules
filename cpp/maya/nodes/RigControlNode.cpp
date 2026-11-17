@@ -188,7 +188,7 @@ MStatus RigControlNode::initialize()
 	mAttr.setStorable(true);
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aShapeTransform));
 
-	aFilled = nAttr.create(RigControlNodeAttr::Filled, RigControlNodeAttr::Filled, MFnNumericData::kBoolean, true, &status);
+	aFilled = nAttr.create(RigControlNodeAttr::Filled, RigControlNodeAttr::Filled, MFnNumericData::kBoolean, false, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	nAttr.setKeyable(false);
 	nAttr.setWritable(true);
