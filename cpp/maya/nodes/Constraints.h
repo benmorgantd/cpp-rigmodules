@@ -84,10 +84,12 @@ public:
 	// Two-stage build. Runs dagMod.doIt() twice, so it must run after the controls exist in the scene.
 	static MStatus createConstraint(const ConstraintBuildArgs& args, MDagModifier& dagMod, MObject& oOutConstraint);
 
-	// Template path. Resolves names through the build results of the earlier passes.
+	// Template path. Resolves names through the build results of the earlier passes. A "parent:module.socket"
+	// driver resolves in parentNamespace, the rig this one is attached to (D55).
 	static MStatus buildFromTemplate(
 		const std::vector<RigConstraintData>& constraints,
 		const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,
+		const MString& parentNamespace,
 		const MObject& oRigRoot,
 		MDagModifier& dagMod);
 

@@ -140,6 +140,16 @@ namespace
 		return LookupResult::Failed;
 	}
 
+	void checkParentSocketForm(const std::string& identifier, const std::string& where, ValidationReport& report)
+	{
+		std::string moduleName;
+		std::string socketName;
+		if (!StringUtils::splitIdentifier(RigTemplateValidation::stripParentPrefix(identifier), moduleName, socketName))
+		{
+			report.addError(where, "'" + identifier + "' must be '" + ParentRigId::Prefix + "module.socket'");
+		}
+	}
+
 	class CycleFinder
 	{
 	public:
@@ -236,6 +246,13 @@ namespace
 			{
 				report.addError(entryPath, "child plug '" + plugName + "' is internal: it follows the parent of '" + pPlugInfo->followsPlug
 					+ "', so it takes no parentStructure entry");
+				continue;
+			}
+
+			// A parent rig's socket can only be checked against that rig's scene, which the attach step does (D55).
+			if (RigTemplateValidation::isParentSocketId(socketIdentifier))
+			{
+				checkParentSocketForm(socketIdentifier, entryPath, report);
 				continue;
 			}
 
@@ -367,10 +384,16 @@ namespace
 					++bestCount;
 				}
 
+				const std::string socketPath = driverPath + "." + TemplateKey::DriverSocket;
+				if (RigTemplateValidation::isParentSocketId(driver.socket))
+				{
+					checkParentSocketForm(driver.socket, socketPath, report);
+					continue;
+				}
+
 				std::string driverModule;
 				std::string socketName;
 				const ModuleInterface* pDriverInterface = nullptr;
-				const std::string socketPath = driverPath + "." + TemplateKey::DriverSocket;
 				if (lookupModule(driver.socket, declaredModules, interfaces, "module.socket",
 					socketPath, report, driverModule, socketName, pDriverInterface) != LookupResult::Found)
 				{
@@ -623,6 +646,51 @@ namespace RigTemplateValidation
 		validateConstraints(rigData.rigConstraints, declaredModules, interfaces, graph, report);
 
 		CycleFinder(graph, report).run();
+	}
+
+	bool isParentSocketId(const std::string& identifier)
+	{
+		return StringUtils::startsWith(identifier, ParentRigId::Prefix);
+	}
+
+	std::string stripParentPrefix(const std::string& identifier)
+	{
+		return isParentSocketId(identifier) ? identifier.substr(std::string(ParentRigId::Prefix).size()) : identifier;
+	}
+
+	bool isDrivenByParent(const RigConstraintData& constraint)
+	{
+		return !constraint.drivers.empty() && std::all_of(constraint.drivers.begin(), constraint.drivers.end(),
+			[](const RigConstraintDriverData& driver)
+			{
+				return isParentSocketId(driver.socket);
+			});
+	}
+
+	std::vector<std::string> parentSocketIds(const RigRootData& rigData)
+	{
+		std::set<std::string> ids;
+		for (const RigModuleData& module : rigData.rigModules)
+		{
+			for (const auto& [plugName, socketIdentifier] : module.parentStructure)
+			{
+				if (isParentSocketId(socketIdentifier))
+				{
+					ids.insert(stripParentPrefix(socketIdentifier));
+				}
+			}
+		}
+		for (const RigConstraintData& constraint : rigData.rigConstraints)
+		{
+			for (const RigConstraintDriverData& driver : constraint.drivers)
+			{
+				if (isParentSocketId(driver.socket))
+				{
+					ids.insert(stripParentPrefix(driver.socket));
+				}
+			}
+		}
+		return std::vector<std::string>(ids.begin(), ids.end());
 	}
 
 	void validateControlMarkup(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report)

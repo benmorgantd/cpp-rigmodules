@@ -82,6 +82,7 @@ Each key is one of this module's child plugs. Each value is a socket id, `module
 - A bare socket name (`"end"`) is an error. Write `layout.end`.
 - Child plugs that are not listed attach to `layout.end`, as do all child plugs of a module with no `parentStructure`.
 - A module cannot parent to itself, directly or through a loop of modules.
+- `parent:module.socket` names a socket of the rig this one is attached to, in a `parentStructure` value or a constraint driver. See [attachments.md](attachments.md).
 
 ## Constraints
 

@@ -20,6 +20,7 @@ namespace
 	constexpr const char* kAssetFlag{ "-asset" };
 	constexpr const char* kNamespaceFlag{ "-namespace" };
 	constexpr const char* kCheckMirrorPositionsFlag{ "-checkMirrorPositions" };
+	constexpr const char* kParentRigFlag{ "-parentRig" };
 
 	// Resolves every joint name before createRig runs, so a bad name fails before the read phase.
 	MStatus readBuildInputs(const MArgDatabase& argData, RigBuildInputs& inputs)
@@ -70,6 +71,20 @@ namespace
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 
+		// The rig this one attaches to (D55). The root's own type is checked in the read phase, with the sockets.
+		if (argData.isFlagSet(kParentRigFlag))
+		{
+			MString parentRig;
+			status = argData.getFlagArgument(kParentRigFlag, 0, parentRig);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			status = DagUtils::getMObjectFromName(parentRig, inputs.oParentRigRoot);
+			if (!status)
+			{
+				MGlobal::displayError("parentRig not found: " + parentRig);
+				return status;
+			}
+		}
+
 		return CommandUtils::readJoints(argData, "createRigFromTemplate", inputs.joints);
 	}
 }
@@ -101,6 +116,7 @@ MSyntax CreateRigCmd::newSyntax()
 	CHECK_MSTATUS(syntax.addFlag("-as", kAssetFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-ns", kNamespaceFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-cmp", kCheckMirrorPositionsFlag, MSyntax::kBoolean));
+	CHECK_MSTATUS(syntax.addFlag("-pr", kParentRigFlag, MSyntax::kString));
 	syntax.setObjectType(MSyntax::kStringObjects, 1);
 	syntax.useSelectionAsDefault(false);
 	return syntax;

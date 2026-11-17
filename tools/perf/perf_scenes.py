@@ -351,6 +351,52 @@ def build_template():
     }
 
 
+# ---- the attachment rig (D55) ------------------------------------------------------------------------
+#
+# `complex --attachments N` builds N attachments onto every complex rig. One attachment is 4 chains of 4 joints that
+# each follow a socket of the body (a parent: id in parentStructure) and 2 single-joint modules whose control is driven by
+# a body socket through a constraint (the hidden, locked kind). Run `bench` on the scene made with 0 and with N
+# attachments to get what they cost: the floor has no attachments, so the 1.5 times check (D36) stays on 0.
+
+ATTACHMENT_CHAINS = [("fxa", "neck.end"), ("fxb", "spine.end"), ("fxc", "neck.index_1"), ("fxd", "arm_l.end")]
+ATTACHMENT_DRIVEN = [("drva", "spine.index_4"), ("drvb", "neck.index_2")]
+ATTACHMENT_CHAIN_JOINTS = 4
+
+
+def attachment_joints():
+    """The attachment skeleton: every chain's joints, then the driven modules' single joints. Same dict keys as
+    joint_layout, so build_skeleton makes it."""
+    joints = []
+    for k, (base, _) in enumerate(ATTACHMENT_CHAINS):
+        previous = None
+        for i in range(ATTACHMENT_CHAIN_JOINTS):
+            name = joint_name(base, i, "Center")
+            joints.append({"name": name, "parent": previous, "position": (0.3 * k, 10.0 + 0.4 * i, 0.5), "side": "Center",
+                           "usage": usage_name(base, i), "chain": base, "aim_next": i < ATTACHMENT_CHAIN_JOINTS - 1,
+                           "secondary": "zup"})
+            previous = name
+    for k, (base, _) in enumerate(ATTACHMENT_DRIVEN):
+        joints.append({"name": joint_name(base, 0, "Center"), "parent": None, "position": (-0.5 - 0.3 * k, 10.0, 0.5),
+                       "side": "Center", "usage": usage_name(base, 0), "chain": base, "aim_next": False, "secondary": "yup"})
+    return joints
+
+
+def attachment_template():
+    modules = []
+    constraints = []
+    for base, socket in ATTACHMENT_CHAINS:
+        modules.append({"moduleType": "FkChain", "name": base, "side": "Center",
+                        "moduleArgs": {"joints": [["Center", usage_name(base, i)] for i in range(ATTACHMENT_CHAIN_JOINTS)]},
+                        "parentStructure": {"start": "parent:" + socket}})
+    for base, socket in ATTACHMENT_DRIVEN:
+        modules.append({"moduleType": "FkChain", "name": base, "side": "Center",
+                        "moduleArgs": {"joints": [["Center", usage_name(base, 0)]]}})
+        constraints.append({"name": base + "_follow", "type": "Parent", "target": base + ".start",
+                            "drivers": [{"socket": "parent:" + socket, "label": "Body", "weight": 1.0}]})
+    return {"formatVersion": 1, "rigName": "attachment", "rigVersion": 1, "rigTemplateName": "ComplexAttachment",
+            "rigAuthor": "perf_scenes.py", "rigModules": modules, "constraints": constraints}
+
+
 def built_constraint_count(template):
     return sum(2 if entry.get("mirror") else 1 for entry in template["constraints"])
 
@@ -424,8 +470,9 @@ def find_limbs(controls):
     return list(by_module.values())
 
 
-def build_instances(skeleton_file, template_file, asset_id, prefix, count, spacing):
-    """Imports the skeleton and builds the rig, `count` times, on a square grid `spacing` apart."""
+def build_instances(skeleton_file, template_file, asset_id, prefix, count, spacing, attachment_files=None, attachments=0):
+    """Imports the skeleton and builds the rig, `count` times, on a square grid `spacing` apart. attachment_files is
+    the attachment's (skeleton file, template file): `attachments` of them are built onto each rig (D55)."""
     from maya import cmds
     import rigmodules.query
     columns = int(math.ceil(math.sqrt(count)))
@@ -440,6 +487,11 @@ def build_instances(skeleton_file, template_file, asset_id, prefix, count, spaci
         layout_control = [c.node for c in controls if c.module_type == "Layout" and c.usage == "layout_0"][0]
         cmds.setAttr(layout_control + ".translateX", (index % columns) * spacing)
         cmds.setAttr(layout_control + ".translateZ", (index // columns) * spacing)
+        for number in range(attachments):
+            attachment_namespace = "%s_at%d" % (namespace, number + 1)
+            attachment_joints_built = import_skeleton(attachment_files[0], attachment_namespace)
+            cmds.createRigFromTemplate(*attachment_joints_built, template=attachment_files[1], asset=asset_id,
+                                       namespace=attachment_namespace, parentRig=rig_root)
         instances.append(RigInstance(namespace, rig_root, [c.node for c in controls if c.module_type != "Layout"],
                                      find_limbs(controls)))
         if (index + 1) % 10 == 0:
@@ -585,10 +637,24 @@ def make_complex(args):
     cmds.file(save=True, type="mayaAscii")
     print("skeleton: %d joints, template: %d modules, %d constraints" % (len(joints), len(template["rigModules"]), constraints))
     cmds.file(new=True, force=True)
-    instances = build_instances(skeleton_file, template_file, COMPLEX_ASSET_ID, "cx", args.count, 14.0)
+    attachment_files = None
+    if args.attachments:
+        build_skeleton(attachment_joints())
+        attachment_skeleton = os.path.join(out, "complex_attachment_skeleton.ma").replace("\\", "/")
+        cmds.file(rename=attachment_skeleton)
+        cmds.file(save=True, type="mayaAscii")
+        cmds.file(new=True, force=True)
+        attachment_template_file = os.path.join(out, "complex_attachment_template.json").replace("\\", "/")
+        with open(attachment_template_file, "w", encoding="utf-8") as handle:
+            json.dump(attachment_template(), handle, indent=2)
+        attachment_files = (attachment_skeleton, attachment_template_file)
+    instances = build_instances(skeleton_file, template_file, COMPLEX_ASSET_ID, "cx", args.count, 14.0,
+                                attachment_files, args.attachments)
     last = key_rom(instances)
-    print("%d instances, %d controls each, ROM to frame %d" % (len(instances), len(instances[0].controls), last))
-    save_scene(os.path.join(out, "complex_x%d.mb" % args.count), 1, last)
+    print("%d instances, %d controls each, %d attachments each, ROM to frame %d" % (
+        len(instances), len(instances[0].controls), args.attachments, last))
+    suffix = "_at%d" % args.attachments if args.attachments else ""
+    save_scene(os.path.join(out, "complex_x%d%s.mb" % (args.count, suffix)), 1, last)
     mayalaunch.finish_standalone(0)
 
 
@@ -744,6 +810,8 @@ def main():
         if name in ("human", "complex", "floor"):
             p.add_argument("--count", type=int, default=50)
             p.add_argument("--out", default=DEFAULT_OUT)
+        if name == "complex":
+            p.add_argument("--attachments", type=int, default=0, help="attachment rigs built onto each rig (D55)")
         if name == "human":
             p.add_argument("--frames", type=int, default=96)
             p.add_argument("--asset-dir", default=DEFAULT_ASSET_DIR)

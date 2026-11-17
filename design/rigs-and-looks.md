@@ -148,6 +148,8 @@ An attachment is a rig with its own skeleton that follows another rig, such as a
 
 ### 7.1 The attach node (needs its own design through the gate)
 
+**Superseded 2026-11-17 (D55).** The design went through the gate and needs no node: a `parent:module.socket` id in the template and a `parentRig` build flag cover it. See `attachments.md`. The captured requirements below are what that design answered.
+
 Requirements captured so far (author, 2026-11-16):
 
 - An attachment follows a hierarchy, not one socket. A head attaches from the chest up: its skeleton follows the body's chest, clavicle, neck and head controls.
@@ -159,6 +161,8 @@ Requirements captured so far (author, 2026-11-16):
 It is a new node type, so it goes through the gate: design, a `ModuleContract`-style test, many instances in the perf rig, and `bench`.
 
 ### 7.2 `rigConstraint` across rigs
+
+Built with 7.1 (D55): a driver `parent:module.socket` resolves in the parent rig. A prop's space switch between two rigs that are not parent and attachment is not covered.
 
 Props move between hand, hip and world, which is a space switch across two rigs, and that will be very common. A constraint driver today names `module.socket` inside one rig. The change is a driver that names a socket on another rig. Designed with section 7.1.
 
@@ -212,7 +216,7 @@ Each skeleton, rig and look would be its own small asset that names the others b
 - `getRigInfo`: the `variant` key becomes `rig`, adding `skeletonHash` (`RigAttr::Variant` goes). `rigmodules.query.RigInfo.variant` becomes `rig`. This is public API for mayadev.
 - Pose and ControlAnim `meta` (D51): `variant` becomes `rig`, and `skeletonId` becomes `skeleton` plus `skeletonHash`, filled by the rig. Format version 3 for both, with an update step (D33).
 - Weight files (D35): a `skeletonHash`, format version bump with an update step.
-- New: the `lookRoot` node and the swap command. The attach node and cross-rig constraint drivers come later, through the gate.
+- New: the `lookRoot` node and the swap command. Attachments (no attach node) are D55.
 - Docs: `asset-model.md` rewritten, D29 amended, `commands.md`, `python.md`, `library.md`, `skinning.md`, `mayadev.md`.
 
 ### mayadev (proposed edits, the author's go-ahead needed)
@@ -235,6 +239,6 @@ Each phase is one change with its tests and docs.
 4. **mayadev file model and tools.** The layout, `Asset`, the registry and publishes, then New Rig, New Look, Build Rig and Save Rig.
 5. **Looks in the scene.** The `lookRoot` node, the swap command, and the library browser's Looks kind. Done 2026-11-17, as D54's built note describes.
 6. **Source-control listing** of unsynced looks. Done 2026-11-17 in mayadev: `SourceControl.list_folders` and `sync`, `Asset.all_looks()` and `sync_look`, `assettools.list_rig_looks`, and `apply_look` syncing first. No RigModules change. The Perforce adapter (when a project uses Perforce) and the library window's Looks tab are not built.
-7. **Attachments.** The attach node and cross-rig constraint drivers, designed through the gate, then the mayadev build-and-attach tool.
+7. **Attachments.** Built here 2026-11-17 as D55 with no attach node: `parent:` ids and `parentRig` (`attachments.md`). The mayadev side (`rig.json` parent reference, build-and-attach) is not built.
 8. **Asset browser** (mayadev design first).
 9. **The parameters node,** with the face module (D46).

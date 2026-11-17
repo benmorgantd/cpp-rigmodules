@@ -1,0 +1,15 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "AttachFace",
+  "rigModules": [
+    { "moduleType": "FkChain", "name": "face_chain", "shapeType": "Box", "side": "Center",
+      "moduleArgs": { "joints": [ ["Center", "f_a"], ["Center", "f_b"] ] },
+      "parentStructure": { "start": "parent:fkchain_1.end" } },
+    { "moduleType": "FkChain", "name": "neck_copy", "shapeType": "Box", "side": "Center",
+      "moduleArgs": { "joints": [ ["Center", "n"] ] } }
+  ],
+  "constraints": [
+    { "name": "neck_follow", "target": "neck_copy.start",
+      "drivers": [ { "socket": "parent:fkchain_1.index_1", "label": "Body" } ] }
+  ]
+}

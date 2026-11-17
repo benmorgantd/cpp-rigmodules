@@ -42,6 +42,11 @@ public:
 		return text.size() >= suffix.size() && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
 	}
 
+	static bool startsWith(const std::string& text, const std::string& prefix)
+	{
+		return text.compare(0, prefix.size(), prefix) == 0;
+	}
+
 	// text without any leading or trailing ch: trim(":rig:", ':') is "rig".
 	static std::string trim(const std::string& text, char ch)
 	{

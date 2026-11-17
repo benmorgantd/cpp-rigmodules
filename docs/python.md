@@ -60,6 +60,7 @@ rigmodules.query.get_rigs("hero_body")    # the rig built into the hero_body nam
 | `rig_version` | The template's `rigVersion` |
 | `plugin_version` | The RigModules version that built the rig |
 | `publish_version` | The publish the rig came from, `""` until published |
+| `parent_rig_root` | The rig root an attachment follows, `None` for a rig that is not attached ([attachments.md](attachments.md), D55) |
 
 ## rigmodules.pose
 

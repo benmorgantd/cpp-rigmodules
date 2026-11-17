@@ -430,6 +430,15 @@ The author considered starting a new pipeline repo, because most of mayadev chan
 - **Not built:** the template authoring UI (it needs a module interface query command first, D24). Building a second variant into a namespace. (Importing the variant's model and loading its weights in Build Rig was built 2026-11-09, D35.)
 - **Consequence:** `getRigInfo`'s keys, `RigInfoKey::Namespace`, and the `rigmodules.query` and `rigmodules.template` names are public API for mayadev. The template authoring UI validates through RigModules `python/`, never with its own copy of the template rules (D24).
 
+### D55. An attachment follows another rig through `parent:` ids, with no attach node
+**Status:** Decided and built (author, 2026-11-17). Design: `attachments.md`. User docs: `docs/attachments.md`. Phase 7 of D54.
+
+A face, cape or prop is a rig of its own that follows another rig. Its template names sockets of the parent rig as `parent:module.socket`, in a `parentStructure` value or a constraint driver, and `createRigFromTemplate(..., parentRig=rigRoot)` resolves them in the parent's namespace. A control driven only by `parent:` sockets is hidden, locked and left at rest. The rig root records the parent (`parentRig`, from the parent's `attachments`), `getRigInfo` returns `parentRigRoot`, and the read phase lists every missing socket at once (D17).
+
+- **Why:** the plan (D54, section 7) expected an attach node holding a child-plug-to-socket mapping. A constraint driver already resolved `namespace:module.socket` (D31), so the only gap was the parenting pass and the validation, which knew one rig. Extending them adds no node, no `MTypeId` and no `compute`, so the 20-rig frame time (D36, already under target) is not spent. The template lists what it needs, so there is no separate mapping file to keep in step.
+- **Rejected:** a new attach node (a node type, evaluation cost, a contract test, nothing it would do that the connections don't); constraints alone (one constraint per control, no whole-hierarchy follow); controls omitted from the attachment when attached (it could not be detached, and its control set would change with its parent, which breaks pose and animation names); a separate attach file (a format, a version step and a second place for names).
+- **Consequence:** the follow is written at build time, so detaching or changing the body is a rebuild. A look that spans a rig and its attachment is applied with one `setRigLook` per rig, by the tool. The mayadev side (`rig.json` parent reference, build-and-attach) is not built. Public names added: the `parent:` prefix, `parentRig` (flag and rig root attribute), `attachments` (rig root array), `parentRigRoot` (`getRigInfo`), `RigInfo.parent_rig_root`. Measured: 20 complex rigs at 25.9 fps alone and 25.6 fps with 80 attachments (D36's target is 30).
+
 ### D54. An asset holds skeletons, rigs and looks; a look replaces the variant
 **Status:** Decided (author, 2026-11-16). Phases 2, 3 and 4 built (2026-11-16), the rest not. Full plan and phases: `rigs-and-looks.md`. Replaces D29's variants. `asset-model.md` describes what is built until phase 4.
 

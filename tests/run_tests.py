@@ -70,6 +70,7 @@ TIERS = [
         "commands.test_rig_info",           # getRigInfo and the rigmodules Python query
         "commands.test_skin_weight_cmds",   # weight files; binding at rest needs a built rig (D35)
         "commands.test_rig_look",           # setRigLook and the lookRoot (D54)
+        "commands.test_attachment",         # parentRig and "parent:" ids: a rig that follows another rig (D55)
     ]),
     ("constraints", True, [
         "commands.test_constraint_cmds",

@@ -32,6 +32,7 @@ class RigInfo:
     plugin_version: str    # the RigModules version that built the rig
     publish_version: str   # the publish id the rig came from, "" until published
     look: LookInfo | None = None   # the look the rig wears, None until setRigLook has applied one (D54)
+    parent_rig_root: str | None = None   # the rig root an attachment follows, None for a rig that is not attached (D55)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -114,6 +115,7 @@ def find_rig_info(node: str) -> RigInfo | None:
         plugin_version=data["pluginVersion"],
         publish_version=data["publishVersion"],
         look=LookInfo(asset_id=look["assetId"], name=look["name"], publish_version=look["publishVersion"]) if look else None,
+        parent_rig_root=data.get("parentRigRoot"),
     )
 
 

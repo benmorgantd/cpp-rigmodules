@@ -50,6 +50,21 @@ namespace
 	// unknown names stay as they are, and a malformed id is left for validateConnections to report.
 	std::string mirrorIdentifier(const std::string& identifier, const ModuleSides& moduleSides, const std::string& where, ValidationReport& report)
 	{
+		// A parent rig's module is not in this template, so only its name's side suffix says which side it is (D55).
+		// A Center module (no suffix) stays as it is.
+		if (RigTemplateValidation::isParentSocketId(identifier))
+		{
+			const std::string parentId = RigTemplateValidation::stripParentPrefix(identifier);
+			std::string parentModule;
+			std::string parentMember;
+			if (!StringUtils::splitIdentifier(parentId, parentModule, parentMember))
+			{
+				return identifier;
+			}
+			const std::string swapped = TemplateMirror::swapSideSuffix(parentModule);
+			return swapped.empty() ? identifier : std::string(ParentRigId::Prefix) + swapped + "." + parentMember;
+		}
+
 		std::string moduleName;
 		std::string memberName;
 		if (!StringUtils::splitIdentifier(identifier, moduleName, memberName))

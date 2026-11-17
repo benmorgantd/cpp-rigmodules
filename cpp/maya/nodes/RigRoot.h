@@ -26,6 +26,9 @@ struct RigBuildInputs
 	MDagPathArray joints;
 	// Fail a mirrored module whose joint is more than 0.001 from its reflected source joint (D28).
 	bool checkMirrorPositions = false;
+	// The rig root this rig is attached to (D55), or null. A template with "parent:" ids needs one, and one without
+	// them refuses it. The "parent:module.socket" ids resolve in its namespace.
+	MObject oParentRigRoot;
 };
 
 class RigRootNode : public MPxNode
@@ -63,6 +66,8 @@ public:
 	static MObject aAllGroup;
 	static MObject aMeshGroup;
 	static MObject aLook;
+	static MObject aParentRig;     // from the parent's attachments (D55)
+	static MObject aAttachments;   // to each attached rig's parentRig
 public:
 	static MObject createRigRoot(
 		const MString& assetId,

@@ -59,6 +59,7 @@ cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="sh
 | `template` | string | Path to the template. Required. |
 | `asset` | string | The asset the rig belongs to: its folder path below the projects root, `\` between folders (`shooter\characters\hero`), any depth. Each folder name is lowercase letters, digits and `_`: uppercase is an error, not converted (D54). Required. Templates name no asset, so one template builds many assets. |
 | `namespace` | string | The rig's namespace. Defaults to the asset's last folder name and the template's `rigName`, `{asset name}_{rigName}` (`hero_body`), with no special case for an asset with one rig (D54). `":"` is the root, nested paths such as `char:rig` work, and an existing namespace with no rig in it is reused. |
+| `parentRig` | string | The rig root this rig is attached to ([attachments.md](attachments.md)). A template with `parent:module.socket` ids needs it, and a template without them refuses it. It must be a rig root in another namespace, and every socket the template takes from it must exist, or the read phase fails and lists them all. Optional. |
 | `checkMirrorPositions` | bool | Default `False`. With `True`, a mirrored module ([templates.md](templates.md#mirroring)) fails the build when one of its joints is more than 0.001 from its source joint reflected across X = 0. |
 
 Objects: one or more joint names, with their namespace (`skel:arm_jnt`).
@@ -290,6 +291,7 @@ Object: one rig root, rig module, rig control, or joint driven by a rig. A joint
 | `pluginVersion` | The RigModules version that built the rig |
 | `publishVersion` | The publish the rig came from, `""` until published |
 | `look` | `null` until `setRigLook` has applied one, then `{"assetId", "name", "publishVersion"}` (D54) |
+| `parentRigRoot` | `null`, or the rig root an attachment follows, as the node name ([attachments.md](attachments.md), D55) |
 
 - Any other node (an unrigged joint, a mesh) returns `""`, with no error, so a selection callback can ask about anything.
 - A missing node is an error. So is a broken rig, such as a control whose module has no rig root.

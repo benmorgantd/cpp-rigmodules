@@ -1,5 +1,6 @@
 #include "maya/nodes/Constraints.h"
 #include "core/Constants.h"
+#include "core/RigTemplateValidation.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/RigTraversal.h"
@@ -211,28 +212,12 @@ MStatus RigConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 // A module name that already carries a namespace ("other:layout") is used as given.
 MStatus RigConstraintNode::resolveSocket(const std::string& socketId, const MString& rigNamespace, ConstraintDriverInfo& outDriver)
 {
-	std::string moduleName, socketName;
-	if (!StringUtils::splitIdentifier(socketId, moduleName, socketName))
-	{
-		MGlobal::displayError(MString("Driver must be 'module.socket': ") + socketId.c_str());
-		return MStatus::kFailure;
-	}
-
-	MString moduleNodeName(moduleName.c_str());
-	if (moduleName.find(':') == std::string::npos)
-	{
-		moduleNodeName = rigNamespace + ":" + moduleNodeName;
-	}
-
 	MObject oModule;
-	MStatus status = RigModuleNodeBase::findModuleByName(moduleNodeName, oModule);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
 	RigModuleSocketInfo socketInfo;
-	status = RigModuleNodeBase::resolveSocket(oModule, socketName.c_str(), socketInfo);
-	if (!status)
+	std::string error;
+	if (!RigModuleNodeBase::findSocketById(rigNamespace, socketId, oModule, socketInfo, error))
 	{
-		MGlobal::displayError(MString("Socket '") + socketName.c_str() + "' not found on module '" + moduleName.c_str() + "'.");
+		MGlobal::displayError(MString("Driver ") + socketId.c_str() + ": " + error.c_str());
 		return MStatus::kFailure;
 	}
 
@@ -418,6 +403,7 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 MStatus RigConstraintNode::buildFromTemplate(
 	const std::vector<RigConstraintData>& constraints,
 	const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,
+	const MString& parentNamespace,
 	const MObject& oRigRoot,
 	MDagModifier& dagMod)
 {
@@ -466,20 +452,30 @@ MStatus RigConstraintNode::buildFromTemplate(
 		{
 			const RigConstraintDriverData& driverData = constraintData.drivers[i];
 
-			const RigModuleBuildResult* pDriverModule = nullptr;
-			const RigModuleSocketInfo* pSocket = nullptr;
-			if (!RigModuleNodeBase::lookupParentSocket(rigModuleMap, driverData.socket, pDriverModule, pSocket))
-			{
-				MGlobal::displayError(MString("Driver must be an existing 'module.socket': ") + driverData.socket.c_str());
-				driversValid = false;
-				break;
-			}
-
 			ConstraintDriverInfo driver;
-			driver.oModule = pDriverModule->moduleNode;
-			driver.socketIndex = pSocket->outputIndex;
-			driver.mRestWorld = pSocket->mRestWorld;
 			driver.label = driverData.label;
+			if (RigTemplateValidation::isParentSocketId(driverData.socket))
+			{
+				if (!resolveSocket(RigTemplateValidation::stripParentPrefix(driverData.socket), parentNamespace, driver))
+				{
+					driversValid = false;
+					break;
+				}
+			}
+			else
+			{
+				const RigModuleBuildResult* pDriverModule = nullptr;
+				const RigModuleSocketInfo* pSocket = nullptr;
+				if (!RigModuleNodeBase::lookupParentSocket(rigModuleMap, driverData.socket, pDriverModule, pSocket))
+				{
+					MGlobal::displayError(MString("Driver must be an existing 'module.socket': ") + driverData.socket.c_str());
+					driversValid = false;
+					break;
+				}
+				driver.oModule = pDriverModule->moduleNode;
+				driver.socketIndex = pSocket->outputIndex;
+				driver.mRestWorld = pSocket->mRestWorld;
+			}
 			args.drivers.push_back(driver);
 
 			if (driverData.weight > bestWeight)

@@ -42,6 +42,25 @@ def readme_quick_start_template():
     return json.loads(match.group(1))
 
 
+ATTACHMENTS_DOC = os.path.join(config.REPO_DIR, "docs", "attachments.md")
+
+
+class AttachmentsDoc(RigTestCase):
+    """The two template snippets in docs/attachments.md are the entries of the attach_face fixture, which
+    commands/test_attachment.py builds and checks."""
+
+    def doc_blocks(self):
+        with open(ATTACHMENTS_DOC, encoding="utf-8") as handle:
+            return [json.loads(block) for block in re.findall(r"```json\s*\n(.*?)```", handle.read(), re.S)]
+
+    def test_snippets_match_the_tested_fixture(self):
+        from rigtest import fixtures
+        template = fixtures.read_json(fixtures.template_path("attach_face"))
+        module, constraint = self.doc_blocks()
+        self.assertEqual(module, template["rigModules"][0])
+        self.assertEqual(constraint, template["constraints"][0])
+
+
 class ReadmeQuickStart(RigTestCase):
 
     def setUp(self):

@@ -12,6 +12,7 @@
 #include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
 #include <maya/MPlug.h>
+#include <maya/MPlugArray.h>
 
 const char* GetRigInfoCmd::aCommandString = "getRigInfo";
 
@@ -96,6 +97,16 @@ MStatus GetRigInfoCmd::doIt(const MArgList& args)
 		look[RigInfoKey::LookName] = MPlug(oLookRoot, LookRootNode::aLookName).asString().asChar();
 		look[RigInfoKey::LookPublishVersion] = MPlug(oLookRoot, LookRootNode::aPublishVersion).asString().asChar();
 		info[RigInfoKey::Look] = look;
+	}
+
+	// The rig an attachment follows (D55), null for a rig that is not attached.
+	const MPlug pParentRig(oRigRoot, RigRootNode::aParentRig);
+	MPlugArray parentSources;
+	pParentRig.connectedTo(parentSources, true, false);
+	info[RigInfoKey::ParentRigRoot] = nullptr;
+	if (parentSources.length() > 0)
+	{
+		info[RigInfoKey::ParentRigRoot] = MFnDependencyNode(parentSources[0].node()).name().asChar();
 	}
 
 	setResult(MString(JsonUtils::writeJsonString(info).c_str()));

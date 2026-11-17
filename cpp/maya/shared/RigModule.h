@@ -58,6 +58,10 @@ struct RigModuleDagReparentArgs
 	MObject oParentTargetModuleNode;
 
 	MDagModifier& dagMod;
+
+	// False for a socket of another rig (D55): the attachment's controls stay under its own rig root, and only the
+	// matrix connection crosses.
+	bool reparentDag = true;
 };
 
 // this has to come before the node because the node uses it
@@ -200,6 +204,12 @@ public:
 	// Fills the same structs pass 1 produces, so scene-built and template-built paths converge.
 	static MStatus resolveSocket(const MObject& oModule, const MString& socketName, RigModuleSocketInfo& outInfo);
 	static MStatus resolveChildPlug(const MObject& oModule, const MString& plugName, RigModuleChildPlugInfo& outInfo);
+	// "module.socket" in a rig's namespace, as a constraint driver or a parent: id names it. A module name that already
+	// carries a namespace ("other:layout") is used as given. Reports nothing: outError says why it failed, so a read
+	// phase can list every problem (D55).
+	static MStatus findSocketById(
+		const MString& rigNamespace, const std::string& socketId,
+		MObject& oOutModule, RigModuleSocketInfo& outInfo, std::string& outError);
 	// Control -> owning module and index, requiring that index to be a named child plug.
 	static MStatus resolveControlChildPlug(const MObject& oControl, MObject& oOutModule, unsigned int& outPlugIndex);
 };
@@ -662,7 +672,11 @@ MStatus RigModuleWithControlsNode<Derived>::reparentChildPlugToSocket(const RigM
 
 	const bool childHasControl = !args.childPlug.oTransform.isNull();
 	const bool socketHasControl = !args.parentSocket.oTransform.isNull();
-	if (childHasControl && socketHasControl)
+	if (!args.reparentDag)
+	{
+		// Only the matrix connection below.
+	}
+	else if (childHasControl && socketHasControl)
 	{
 		status = args.dagMod.reparentNode(args.childPlug.oTransform, args.parentSocket.oTransform);
 		CHECK_MSTATUS_AND_RETURN_IT(status);

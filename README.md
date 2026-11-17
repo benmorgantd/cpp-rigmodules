@@ -115,6 +115,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/controls.md](docs/controls.md) | Control markup, shapes, the shape file, and mirroring shapes |
 | [docs/looks.md](docs/looks.md) | Looks: swapping a rig's meshes and weights with `setRigLook` |
 | [docs/skinning.md](docs/skinning.md) | Skin weight files, the mesh id, and loading weights onto a rebuilt rig |
+| [docs/attachments.md](docs/attachments.md) | Attachments: a rig that follows another rig, with `parent:` ids and `parentRig` |
 | [docs/skeletons.md](docs/skeletons.md) | Skeleton files and the skeleton hash: when two skeletons are the same |
 | [docs/library.md](docs/library.md) | The pose and animation library: ControlPose and ControlAnim files, FBX, the folders |
 | [docs/python.md](docs/python.md) | The `rigmodules` Python package and `RigModules.mod` |

@@ -25,7 +25,7 @@ class GetRigInfo(RigTestCase):
     def test_rig_root_reports_its_rig_and_asset(self):
         info = self.info(self.rig_root)
         self.assertEqual(set(info), {"rigRoot", "assetId", "rigName", "skeletonHash", "namespace", "rigVersion",
-                                     "pluginVersion", "publishVersion", "look"})
+                                     "pluginVersion", "publishVersion", "look", "parentRigRoot"})
         self.assertEqual(info["rigRoot"], self.rig_root)
         self.assertEqual(info["assetId"], config.ASSET_ID)
         self.assertEqual(info["rigName"], "fktest")
@@ -36,6 +36,7 @@ class GetRigInfo(RigTestCase):
         self.assertEqual(info["pluginVersion"], cmds.getAttr(self.rig_root + ".pluginVersion"))
         self.assertEqual(info["publishVersion"], "")
         self.assertIsNone(info["look"])
+        self.assertIsNone(info["parentRigRoot"])
 
     def test_every_control_and_module_reports_the_same_rig(self):
         expected = self.info(self.rig_root)

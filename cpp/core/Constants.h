@@ -267,6 +267,10 @@ namespace RigAttr
 	// holds the look's asset id (AssetId), its name, its publishVersion (PublishVersion) and one `lookMembers` message per
 	// node the look brought in, so a swap deletes exactly those.
 	inline constexpr const char* Look{ "look" };
+
+	// The rig an attachment follows (D55): this rig root's `parentRig` message connects from the parent's `attachments` array.
+	inline constexpr const char* ParentRig{ "parentRig" };
+	inline constexpr const char* Attachments{ "attachments" };
 	inline constexpr const char* LookName{ "lookName" };
 	inline constexpr const char* LookMembers{ "lookMembers" };
 
@@ -308,6 +312,8 @@ namespace RigInfoKey
 	inline constexpr const char* LookAssetId{ "assetId" };
 	inline constexpr const char* LookName{ "name" };
 	inline constexpr const char* LookPublishVersion{ "publishVersion" };
+	// The rig root the rig is attached to (D55): null, or its node name.
+	inline constexpr const char* ParentRigRoot{ "parentRigRoot" };
 }
 
 // How a control channel's value goes to the other side in a mirror (D34). Public API: the categories are stored
@@ -389,6 +395,13 @@ namespace TemplateKey
 	inline constexpr const char* DriverSocket{ "socket" };
 	inline constexpr const char* DriverLabel{ "label" };
 	inline constexpr const char* DriverWeight{ "weight" };
+}
+
+// An attachment's template names sockets of the rig it follows with this prefix, in a parentStructure value or a
+// constraint driver: "parent:head.end" (D55). Public API: every attachment template depends on it.
+namespace ParentRigId
+{
+	inline constexpr const char* Prefix{ "parent:" };
 }
 
 // The driver gives only its own component; the rest comes from the child plug's parentStructure parent (D31).

@@ -457,6 +457,38 @@ MStatus RigModuleNodeBase::resolveSocket(const MObject& oModule, const MString& 
 	return MStatus::kSuccess;
 }
 
+MStatus RigModuleNodeBase::findSocketById(
+	const MString& rigNamespace, const std::string& socketId,
+	MObject& oOutModule, RigModuleSocketInfo& outInfo, std::string& outError)
+{
+	std::string moduleName, socketName;
+	if (!StringUtils::splitIdentifier(socketId, moduleName, socketName))
+	{
+		outError = "'" + socketId + "' must be 'module.socket'";
+		return MStatus::kFailure;
+	}
+
+	MString moduleNodeName(moduleName.c_str());
+	if (moduleName.find(':') == std::string::npos)
+	{
+		moduleNodeName = rigNamespace + ":" + moduleNodeName;
+	}
+
+	if (!DagUtils::getMObjectFromName(moduleNodeName, oOutModule) || !isRigModule(oOutModule))
+	{
+		oOutModule = MObject::kNullObj;
+		outError = std::string("no module '") + moduleNodeName.asChar() + "'";
+		return MStatus::kFailure;
+	}
+
+	if (!resolveSocket(oOutModule, socketName.c_str(), outInfo))
+	{
+		outError = "no socket '" + socketName + "' on module '" + moduleName + "'";
+		return MStatus::kFailure;
+	}
+	return MStatus::kSuccess;
+}
+
 // Child plug index == control index on every current module. That assumption now lives only here.
 MStatus RigModuleNodeBase::resolveChildPlug(const MObject& oModule, const MString& plugName, RigModuleChildPlugInfo& outInfo)
 {

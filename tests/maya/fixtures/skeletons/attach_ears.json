@@ -1,0 +1,6 @@
+{
+  "joints": [
+    { "name": "ear_l_jnt", "side": "Left", "usage": "ear", "translate": [1, 6, 0] },
+    { "name": "ear_r_jnt", "side": "Right", "usage": "ear", "translate": [-1, 6, 0] }
+  ]
+}

@@ -101,6 +101,7 @@ rigRootModule                one per namespace (D54): assetId, rigName, skeleton
   .jointDisplayLayer, .meshDisplayLayer, .controlDisplayLayer  (D38)
   .selectionSets[]                                              (D39)
   .allGroup --> rig_all, .meshGroup --> mesh_grp                (D43)
+  .parentRig <-- the parent's .attachments[]                    (D55, an attachment only)
 
 module node
   .controlInputData[i]   .controlLocalMatrix  <-- control.matrix
@@ -182,7 +183,7 @@ Then add one row to `ModuleRegistry.cpp`.
 
 1. `loadRigTemplate` runs the template's update steps, checks keys, then parses.
 2. `TemplateMirror::expandMirrors` adds the other side's copy of every mirrored module and constraint, so every later step sees ordinary entries.
-3. Header checks, then the namespace: the `namespace` flag, or `{asset name}_{rigName}` from the template (D54). The namespace must hold no rig root yet. Module name and target-name checks. Every input joint's markup is collected into a `MarkedJointSet`, and `SkeletonScene::readSkeleton` hashes the joints as they were handed in, for the rig root's `skeletonHash`.
+3. Header checks, then the namespace: the `namespace` flag, or `{asset name}_{rigName}` from the template (D54). The namespace must hold no rig root yet. `checkParentRig` pairs the template's `parent:` ids (`RigTemplateValidation::parentSocketIds`) with the `parentRig` flag and looks every socket up in the parent's namespace with `RigModuleNodeBase::findSocketById`, reporting each miss (D55). Module name and target-name checks. Every input joint's markup is collected into a `MarkedJointSet`, and `SkeletonScene::readSkeleton` hashes the joints as they were handed in, for the rig root's `skeletonHash`.
 4. `RigModuleNodeBase::planModules` runs each module's `plan` step. A plan resolves `[side, usage]` selectors to joints through `claimJoint`, reads rest matrices, and returns a `ModulePlan`: a name, a `ModuleInterface` (controls, child plugs, sockets) and a `build` closure.
 5. `validateConnections` and `validateControlMarkup` check every `parentStructure` and constraint against the plans' interfaces. Joints marked for export that no module drives produce a warning.
 
@@ -192,9 +193,9 @@ Every problem goes into one `ValidationReport` with its JSON path, and `createRi
 
 1. The rig root, with `assetId`, `rigName`, `skeletonHash` and the version stamps.
 2. **Pass 1**: `buildModules` calls every plan's `build` closure, layout first, and checks each result against the plan's interface.
-3. **Pass 2**: `parentModuleControls` connects every child plug to its `parentStructure` socket, or to `layout.end`. It reparents controls in the DAG for organization and connects the socket matrix to the child plug's `parentMatrix`.
+3. **Pass 2**: `parentModuleControls` connects every child plug to its `parentStructure` socket, or to `layout.end`. It reparents controls in the DAG for organization and connects the socket matrix to the child plug's `parentMatrix`. A `parent:` entry resolves in the parent rig's namespace through `findSocketById`, connects the matrix across, and skips the DAG reparent (`RigModuleDagReparentArgs::reparentDag`).
 4. Moves the input joints into the rig namespace, then the first `doIt`.
-5. After it: display layers (`DisplayLayerScene`, D38), selection sets (`SelectionSetScene`, planned by `core/SelectionSets`, D39), rotate-order locks (D40), then the template's constraints (`RigConstraintNode::buildFromTemplate`). Constraints come late because they add an enum attribute to controls that must exist by then.
+5. After it: display layers (`DisplayLayerScene`, D38), selection sets (`SelectionSetScene`, planned by `core/SelectionSets`, D39), rotate-order locks (D40), then the template's constraints (`RigConstraintNode::buildFromTemplate`, which resolves a `parent:` driver in the parent rig). Constraints come late because they add an enum attribute to controls that must exist by then. Last, `queueDrivenControlLocks` hides and locks each control whose constraint has only `parent:` drivers, and `queueParentRigLink` connects the parent's `attachments` to the new rig root's `parentRig` (D55).
 
 A failure after the first `doIt` calls `undoIt` before returning.
 

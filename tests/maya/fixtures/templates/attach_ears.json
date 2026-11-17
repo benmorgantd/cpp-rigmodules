@@ -1,0 +1,9 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "AttachEars",
+  "rigModules": [
+    { "moduleType": "FkChain", "name": "ear_l", "shapeType": "Box", "side": "Left", "mirror": true,
+      "moduleArgs": { "joints": [ ["Left", "ear"] ] },
+      "parentStructure": { "start": "parent:arm_l.end" } }
+  ]
+}

@@ -66,6 +66,8 @@ MObject RigRootNode::aSelectionSets;
 MObject RigRootNode::aAllGroup;
 MObject RigRootNode::aMeshGroup;
 MObject RigRootNode::aLook;
+MObject RigRootNode::aParentRig;
+MObject RigRootNode::aAttachments;
 
 // Boilerplate constructor, destructor, and creator
 RigRootNode::RigRootNode()
@@ -155,6 +157,15 @@ MStatus RigRootNode::initialize()
 	// The look the rig wears (D54): connects to a lookRoot node's rigRoot. None until a look is applied.
 	aLook = msgAttr.create(RigAttr::Look, RigAttr::Look, &status);
 	addAttribute(aLook);
+
+	// The rig an attachment follows (D55). Only a record for tools: the follow itself is socket matrices connected
+	// across the two rigs, so these two add nothing to evaluation.
+	aParentRig = msgAttr.create(RigAttr::ParentRig, RigAttr::ParentRig, &status);
+	addAttribute(aParentRig);
+
+	aAttachments = msgAttr.create(RigAttr::Attachments, RigAttr::Attachments, &status);
+	msgAttr.setArray(true);
+	addAttribute(aAttachments);
 
 	// In the case of this node, there are no attribute affect relationships.
 
@@ -284,6 +295,60 @@ namespace
 		}
 	}
 
+	// Read phase. A template with "parent:" ids is an attachment and needs the rig it follows, and a rig that is not
+	// an attachment refuses one. Every socket the template takes is looked up in the parent's namespace and every
+	// missing one is reported, so one attempt lists them all (D55). outParentNamespace is the parent's, ":" form
+	// aside, empty when there is no parent.
+	void checkParentRig(
+		const RigBuildInputs& inputs,
+		const RigRootData& rigData,
+		const MString& rigNamespace,
+		MString& outParentNamespace,
+		ValidationReport& report)
+	{
+		const std::vector<std::string> socketIds = RigTemplateValidation::parentSocketIds(rigData);
+		if (inputs.oParentRigRoot.isNull())
+		{
+			if (!socketIds.empty())
+			{
+				report.addError(ParentRigId::Prefix, "the template takes sockets from a parent rig (" + StringUtils::joinNames(socketIds)
+					+ "), so it needs a parentRig");
+			}
+			return;
+		}
+		if (socketIds.empty())
+		{
+			report.addError(RigAttr::ParentRig, std::string("the template has no '") + ParentRigId::Prefix + "' ids, so it does not attach to a rig");
+			return;
+		}
+
+		const MFnDependencyNode fnParent(inputs.oParentRigRoot);
+		if (fnParent.typeId() != RigRootNode::id)
+		{
+			report.addError(RigAttr::ParentRig, std::string(fnParent.name().asChar()) + " is not a rig root");
+			return;
+		}
+
+		const MString absoluteParentNamespace = DagUtils::getAbsoluteNamespace(inputs.oParentRigRoot);
+		if (absoluteParentNamespace == MString(":") + rigNamespace)
+		{
+			report.addError(RigAttr::ParentRig, "the parent rig is in the namespace this rig builds into. An attachment is its own rig, in its own namespace");
+			return;
+		}
+		outParentNamespace = absoluteParentNamespace == ":" ? MString() : absoluteParentNamespace;
+
+		for (const std::string& socketId : socketIds)
+		{
+			MObject oModule;
+			RigModuleSocketInfo socketInfo;
+			std::string error;
+			if (!RigModuleNodeBase::findSocketById(outParentNamespace, socketId, oModule, socketInfo, error))
+			{
+				report.addError(std::string(ParentRigId::Prefix) + socketId, error + " in the parent rig " + fnParent.name().asChar());
+			}
+		}
+	}
+
 	// Write phase. Keeps each joint's name and changes only its namespace. Names were checked free in the read phase.
 	MStatus queueJointMoves(const MDagPathArray& joints, const MString& rigNamespace, MDagModifier& dagMod)
 	{
@@ -322,6 +387,7 @@ namespace
 		const RigBuildInputs& inputs,
 		RigRootData& rigData,
 		MString& outRigNamespace,
+		MString& outParentNamespace,
 		MString& outSkeletonHash,
 		std::vector<ModulePlan>& plans,
 		ValidationReport& report)
@@ -338,6 +404,7 @@ namespace
 			? *inputs.rigNamespace
 			: MString((AssetId::name(inputs.assetId) + "_" + rigData.rigName).c_str());
 		checkNamespaceFree(outRigNamespace, report);
+		checkParentRig(inputs, rigData, outRigNamespace, outParentNamespace, report);
 		RigTemplateValidation::validateModuleNames(rigData.rigModules, report);
 		checkTargetNamesFree(outRigNamespace, rigData.rigModules, inputs.joints, report);
 
@@ -382,7 +449,13 @@ namespace
 
 	// Pass 2. Every child plug gets a parent: its parentStructure entry, or layout.end when the template does not list it.
 	// The template was validated, so a failed lookup here means a module built something its plan did not declare.
-	MStatus parentModuleControls(const RigModuleMap& rigModuleMap, const std::vector<RigModuleData>& modules, MDagModifier& dagMod)
+	// A "parent:" entry takes a socket of the rig this one is attached to (D55): the matrix connects across, and the DAG
+	// is left alone.
+	MStatus parentModuleControls(
+		const RigModuleMap& rigModuleMap,
+		const std::vector<RigModuleData>& modules,
+		const MString& parentNamespace,
+		MDagModifier& dagMod)
 	{
 		const std::string defaultSocket = std::string(RigNaming::LayoutModule) + "." + PlugAndSocketNames::End;
 
@@ -403,7 +476,22 @@ namespace
 
 				const RigModuleBuildResult* pParentModule = nullptr;
 				const RigModuleSocketInfo* pSocket = nullptr;
-				if (!RigModuleNodeBase::lookupParentSocket(rigModuleMap, socketIdentifier, pParentModule, pSocket))
+				const bool isCrossRig = RigTemplateValidation::isParentSocketId(socketIdentifier);
+				MObject oParentRigModule;
+				RigModuleSocketInfo parentRigSocket;
+				bool found = false;
+				if (isCrossRig)
+				{
+					std::string error;
+					found = RigModuleNodeBase::findSocketById(
+						parentNamespace, RigTemplateValidation::stripParentPrefix(socketIdentifier), oParentRigModule, parentRigSocket, error);
+					pSocket = &parentRigSocket;
+				}
+				else
+				{
+					found = RigModuleNodeBase::lookupParentSocket(rigModuleMap, socketIdentifier, pParentModule, pSocket);
+				}
+				if (!found)
 				{
 					MGlobal::displayError(MString("Socket '") + socketIdentifier.c_str() + "' not found for child plug '"
 						+ moduleData.name.c_str() + "." + plugName.c_str() + "'.");
@@ -421,8 +509,9 @@ namespace
 					childPlugInfo,
 					*pSocket,
 					pModule->moduleNode,
-					pParentModule->moduleNode,
-					dagMod
+					isCrossRig ? oParentRigModule : pParentModule->moduleNode,
+					dagMod,
+					!isCrossRig
 				};
 
 				MStatus status = pModule->dagParentCallback(args);
@@ -650,12 +739,60 @@ namespace
 		return dagMod.doIt();
 	}
 
+	// Write phase, after the first doIt. Records the parent rig: its attachments array to this rig root's parentRig.
+	MStatus queueParentRigLink(const RigBuildInputs& inputs, const MObject& oRigRoot, MDagModifier& dagMod)
+	{
+		if (inputs.oParentRigRoot.isNull())
+		{
+			return MStatus::kSuccess;
+		}
+
+		MPlug pAttachments(inputs.oParentRigRoot, RigRootNode::aAttachments);
+		MPlug pSlot = pAttachments.elementByLogicalIndex(pAttachments.evaluateNumElements());
+		MStatus status = dagMod.connect(pSlot, MPlug(oRigRoot, RigRootNode::aParentRig));
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		return dagMod.doIt();
+	}
+
+	// Write phase, after the constraints. A control the parent rig drives alone is hidden, locked and left at its rest
+	// values (a new control is already there), so keys left on it can't surprise an animator later (D55).
+	MStatus queueDrivenControlLocks(
+		const std::vector<RigConstraintData>& constraints,
+		const RigModuleMap& rigModuleMap,
+		MDagModifier& dagMod)
+	{
+		bool queued = false;
+		for (const RigConstraintData& constraint : constraints)
+		{
+			if (!RigTemplateValidation::isDrivenByParent(constraint))
+			{
+				continue;
+			}
+
+			const RigModuleBuildResult* pModule = nullptr;
+			const RigModuleChildPlugInfo* pChildPlug = nullptr;
+			if (!RigModuleNodeBase::lookupChildPlug(rigModuleMap, constraint.target, pModule, pChildPlug) || pChildPlug->oTransform.isNull())
+			{
+				MGlobal::displayError(MString("Constraint target has no control to lock: ") + constraint.target.c_str());
+				return MStatus::kFailure;
+			}
+
+			MStatus status = DagUtils::queueLockAndHideTransform(pChildPlug->oTransform, dagMod);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			status = DagUtils::queueHideAndLockVisibility(pChildPlug->oTransform, dagMod);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			queued = true;
+		}
+		return queued ? dagMod.doIt() : MStatus::kSuccess;
+	}
+
 	// Write phase. Runs only on a clean report. Constraints come after the first doIt because they add an enum
 	// attribute to controls that must exist by then.
 	MStatus buildRig(
 		const RigBuildInputs& inputs,
 		const MString& rigNamespace,
 		const MString& skeletonHashText,
+		const MString& parentNamespace,
 		const RigRootData& rigData,
 		const std::vector<ModulePlan>& plans,
 		MDagModifier& dagMod)
@@ -679,7 +816,7 @@ namespace
 			return status;
 		}
 
-		status = parentModuleControls(rigModuleMap, rigData.rigModules, dagMod);
+		status = parentModuleControls(rigModuleMap, rigData.rigModules, parentNamespace, dagMod);
 		if (!status)
 		{
 			return status;
@@ -734,13 +871,29 @@ namespace
 
 		if (!rigData.rigConstraints.empty())
 		{
-			status = RigConstraintNode::buildFromTemplate(rigData.rigConstraints, rigModuleMap, oRigRoot, dagMod);
+			status = RigConstraintNode::buildFromTemplate(rigData.rigConstraints, rigModuleMap, parentNamespace, oRigRoot, dagMod);
 			if (!status)
 			{
 				MGlobal::displayError("Failed building rig constraints.");
 				dagMod.undoIt();
 				return status;
 			}
+
+			status = queueDrivenControlLocks(rigData.rigConstraints, rigModuleMap, dagMod);
+			if (!status)
+			{
+				MGlobal::displayError("Failed locking the controls the parent rig drives.");
+				dagMod.undoIt();
+				return status;
+			}
+		}
+
+		status = queueParentRigLink(inputs, oRigRoot, dagMod);
+		if (!status)
+		{
+			MGlobal::displayError("Failed recording the parent rig.");
+			dagMod.undoIt();
+			return status;
 		}
 
 		return MStatus::kSuccess;
@@ -752,10 +905,11 @@ MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMo
 	// Read phase: nothing touches the scene until the whole template validates, so a bad template leaves nothing behind.
 	RigRootData rigData;
 	MString rigNamespace;
+	MString parentNamespace;
 	MString skeletonHashText;
 	std::vector<ModulePlan> plans;
 	ValidationReport report;
-	planRig(inputs, rigData, rigNamespace, skeletonHashText, plans, report);
+	planRig(inputs, rigData, rigNamespace, parentNamespace, skeletonHashText, plans, report);
 
 	ReportUtils::displayReport(report);
 	if (report.hasErrors())
@@ -775,7 +929,7 @@ MStatus RigRootNode::createRig(const RigBuildInputs& inputs, MDagModifier& dagMo
 
 	try
 	{
-		status = buildRig(inputs, rigNamespace, skeletonHashText, rigData, plans, dagMod);
+		status = buildRig(inputs, rigNamespace, skeletonHashText, parentNamespace, rigData, plans, dagMod);
 	}
 	catch (const std::exception& e)
 	{

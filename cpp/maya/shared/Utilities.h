@@ -183,6 +183,9 @@ public:
 	// visibility alone. MEL on the modifier, so undo and redo replay it (D40). keepChannels names channels ("rx", "ty")
 	// that stay as they are, for a control whose rotate must stay keyable.
 	static MStatus queueLockAndHideTransform(const MObject& oTransform, MDagModifier& dagMod, const std::vector<std::string>& keepChannels = {});
+
+	// Queues turning a transform's visibility off, then locking it and taking it out of the channel box. Same rules.
+	static MStatus queueHideAndLockVisibility(const MObject& oTransform, MDagModifier& dagMod);
 };
 
 class MeshUtils

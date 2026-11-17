@@ -707,6 +707,18 @@ MStatus DagUtils::queueLockAndHideTransform(const MObject& oTransform, MDagModif
 	return MStatus::kSuccess;
 }
 
+MStatus DagUtils::queueHideAndLockVisibility(const MObject& oTransform, MDagModifier& dagMod)
+{
+	MStatus status;
+	const MFnDagNode fnTransform(oTransform, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	const MString plug = MelUtils::quoted(fnTransform.fullPathName() + ".visibility");
+	status = dagMod.commandToExecute(MString("setAttr ") + plug + " 0");
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	return dagMod.commandToExecute(MString("setAttr -lock true -keyable false -channelBox false ") + plug);
+}
+
 // ---------------------------------
 // Mesh, MEL and command utilities
 // ---------------------------------

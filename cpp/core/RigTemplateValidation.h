@@ -91,6 +91,20 @@ namespace RigTemplateValidation
 	// A module missing from interfaces failed its own plan step. References to it are skipped, since that error is already reported.
 	void validateConnections(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report);
 
+	// True for a "parent:module.socket" id, a socket of the rig this one is attached to (D55).
+	bool isParentSocketId(const std::string& identifier);
+
+	// "parent:head.end" -> "head.end". Any other id comes back unchanged.
+	std::string stripParentPrefix(const std::string& identifier);
+
+	// True when every driver of the constraint is a parent socket: the body drives the control, so an attached rig
+	// hides, locks and zeroes it (D55).
+	bool isDrivenByParent(const RigConstraintData& constraint);
+
+	// Every distinct "module.socket" the template takes from its parent rig (parentStructure values and constraint
+	// drivers), sorted, without the prefix. Empty for a template that is not an attachment.
+	std::vector<std::string> parentSocketIds(const RigRootData& rigData);
+
 	// (side, usage) must be unique across every control in the rig, because shape files and pose data key on it.
 	// Joint markup is already unique, so this only fails when a joint's usage matches a layout control's (layout_N).
 	void validateControlMarkup(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report);
