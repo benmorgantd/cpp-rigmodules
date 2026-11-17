@@ -1,6 +1,6 @@
 # Rigs and looks, phase 4: the mayadev file model and tools
 
-**Status:** Signed off by the author, 2026-11-16, with section 10.3's four points and the model-file rule in section 10. Being built. Phase 4 of D54 (`rigs-and-looks.md`, section 11). When it is built, this folds into `asset-model.md` and `rigs-and-looks.md`, and this file and `rigs-and-looks-phase4-handoff.md` are deleted.
+**Status:** Signed off by the author, 2026-11-16, with section 10.3's four points and the model-file rule in section 10. Built 2026-11-16 (RigModules `ad45564`, mayadev branch `rigs-and-looks-phase4`). As built: Save Model writes meshes at the top level of the file without their parent groups (they are rig nodes in a rig scene); `rig.json` has no attachment parent key; `build_rig` looks for looks in the rig's own asset only. Phase 4 of D54 (`rigs-and-looks.md`, section 11). When it is built, this folds into `asset-model.md` and `rigs-and-looks.md`, and this file and `rigs-and-looks-phase4-handoff.md` are deleted.
 
 Most of it is mayadev code. RigModules gains the skeleton file's reader and `loadRigSkeleton` (section 10), because `skeleton.json` becomes the only skeleton format, plus docs and `tools/perf/perf_scenes.py`.
 

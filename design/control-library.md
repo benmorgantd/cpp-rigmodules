@@ -38,7 +38,7 @@ Terms to stop using: "pose file" for the sidecar, "sidecar" for control data sto
 
 ## 3. Folders: one folder, one data type
 
-The asset's file model (D29, `asset-model.md`) gets folders by role. The model is still planned for a mayadev branch, so the names are cheap to change.
+The asset's file model (D29, `asset-model.md`) gets folders by role. The D54 layout (built 2026-11-16) puts `controlposes/` and `controlanims/` under their rig (`rigs/{rig}/`), because control markup is unique per rig, and `exports/` under its skeleton (`skeletons/{skeleton}/exports/`), because an animation FBX is skeleton data. `sources/` stays at the asset root. The folder names below are relative to those.
 
 | Folder | Holds | Files |
 |---|---|---|

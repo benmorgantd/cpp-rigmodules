@@ -391,7 +391,11 @@ def build_skeleton(joints):
 
 
 def import_skeleton(skeleton_file, namespace):
+    """The joints of a skeleton file in a namespace. A skeleton.json (the asset's only skeleton format, D54) is
+    created by loadRigSkeleton, any other file is a scene and is imported."""
     from maya import cmds
+    if skeleton_file.endswith(".json"):
+        return cmds.loadRigSkeleton(file=skeleton_file, namespace=namespace)
     cmds.file(skeleton_file, i=True, namespace=namespace, ignoreVersion=True)
     return cmds.ls(namespace + ":*", type="joint")
 
@@ -491,9 +495,10 @@ def make_human(args):
     from maya import cmds
     out = args.out
     os.makedirs(out, exist_ok=True)
-    skeleton = os.path.join(args.asset_dir, "skeleton", "biped_skeleton.ma")
-    template = os.path.join(args.asset_dir, "variants", "human", "template.json")
-    pose_file = os.path.join(args.asset_dir, "variants", "human", "poses", "star_pose1.json")
+    # The asset layout of D54: the skeleton is its skeleton.json, and the rig's files are in rigs/human.
+    skeleton = os.path.join(args.asset_dir, "skeletons", "default", "skeleton.json")
+    template = os.path.join(args.asset_dir, "rigs", "human", "template.json")
+    pose_file = os.path.join(args.asset_dir, "rigs", "human", "poses", "star_pose1.json")
     start_maya(args.plugin)
     instances = build_instances(skeleton.replace("\\", "/"), template.replace("\\", "/"), HUMAN_ASSET_ID, "biped",
                                 args.count, 5.0)

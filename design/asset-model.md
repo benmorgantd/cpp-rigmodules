@@ -1,8 +1,8 @@
 # Asset model
 
-**Status:** decided 2026-11-08 (D29 in `decisions.md`). The scene side is built in RigModules (see "Built in RigModules"). The file model, local versions, registry, publishes, source-control adapter and handlers are built on mayadev branch `asset-model` (see "Built in mayadev"), not yet merged. Its user guide is mayadev's `py/scripts/docs/guides/Asset Layout.md`.
+**Status:** decided 2026-11-08 (D29 in `decisions.md`), amended by D54 (2026-11-16). The scene side is built in RigModules (see "Built in RigModules"). The file model, local versions, registry, publishes, source-control adapter and handlers are built in mayadev (see "Built in mayadev"). Its user guide is mayadev's `docs/assets.md`.
 
-**Planned change (D54, decided 2026-11-16, not built):** variants are to be replaced by skeletons, rigs and looks in the asset folder, with lowercase names and one rig per namespace. See `rigs-and-looks.md`. Until phase 4 of that plan is built, this page describes what is built. Phase 3, the scene side, is built (2026-11-16): the scene structure below is already the D54 one, and the file model is still the variant one.
+**The file model is the D54 one (built on mayadev branch `rigs-and-looks-phase4`, 2026-11-16):** an asset holds skeletons, rigs and looks, replacing D29's variants. See `rigs-and-looks.md` for the reasons and `rigs-and-looks-phase4.md` for the phase 4 design. Where a section below still says "variant", it describes the old model and is kept for its history in "Built in mayadev (2026-11-08)".
 
 An asset is the top-level container for one thing in the game: a character, prop, vehicle, weapon, vfx element or environment piece. It owns its files on disk, its rig variants, and the namespace it lives under in a Maya scene. This page covers the asset id, the scene structure, the file model, and how tools answer questions about assets without opening Maya, all under Perforce without shared files that everyone has to check out.
 
@@ -86,18 +86,16 @@ The out-of-date check runs in mayadev. For each rig root in a scene, it compares
 ```json
 {
   "assetType": "Character",
-  "formatVersion": 1,
-  "skeleton": "shooter\\main\\skeletons\\biped"
+  "formatVersion": 2
 }
 ```
 
 | Key | Meaning |
 |---|---|
-| `formatVersion` | Version of this file's schema |
+| `formatVersion` | Version of this file's schema. Version 1 also named a `skeleton`, and is updated by dropping it |
 | `assetType` | One of the project's asset types (`project.json`) |
-| `skeleton` | Optional. The id of the asset whose skeleton this asset uses. Left out, the asset owns its skeleton |
 
-It holds only what a person decides about the asset. The id is not stored, because it is the folder's path, so a copied or moved folder can't carry a stale id. Variants and publishes are found on disk.
+It holds only what a person decides about the asset. The id is not stored, because it is the folder's path, so a copied or moved folder can't carry a stale id. Skeletons, rigs, looks and publishes are found on disk. What a rig is built on and what a look binds to is in each one's own small file, `rig.json` and `look.json`: a template is shared between assets, so it can't hold its skeleton, and one file per rig and look means adding one edits nothing shared.
 
 ### `project.json`, one per project folder
 
@@ -113,15 +111,15 @@ The asset types replace the template's old `rigType` and the asset root's old `a
 
 ### Registry, in memory
 
-The registry indexes every asset in the project: its type, its skeleton (its own id unless `asset.json` names another), its variants and each variant's latest publish. It answers:
+The registry indexes every asset in the project: its type, its skeletons, each rig (its skeleton, its source, its latest publish) and each look (its skeletons, its latest publish). It answers:
 
 - every asset of a type
-- every asset that uses skeleton X, which is the set whose poses and animations can be shared, and the set to batch-update when X changes
-- the latest publish of an asset's variant, for the out-of-date check
+- every asset with a rig or look on skeleton X (an asset and a name), which is the set to batch-update when X changes
+- the latest publish of a rig or a look, for the out-of-date check
 
-It is built by scanning the workspace and is never written anywhere. `Registry.of(project)` gives one index per project per session, scanned on first use. `refresh()` rescans. The scan stops at each asset folder, so texture and weight folders are never walked, and it skips folders with their own `project.json`. Nesting is checked when an asset is created, because the scan doesn't look inside assets. `errors` lists ids that differ only in case and unreadable `asset.json` files.
+It is built by scanning the workspace and is never written anywhere. `Registry.of(project)` gives one index per project per session, scanned on first use. `refresh()` rescans. The scan stops at each asset folder, so texture and weight folders are never walked, and it skips folders with their own `project.json`. Nesting is checked when an asset is created, because the scan doesn't look inside assets. `errors` lists folders whose path is not a valid id (ids are lowercase only) and unreadable `asset.json` files.
 
-**Skeleton sharing** replaces the old studio practice of matching assets by skeleton file path. A skeleton is its own asset (`assetType: "Skeleton"`), and characters name it. Assets with the same resolved skeleton id can share poses and animations. A variant's added joints don't break sharing, because they only add. Changing a shared skeleton still means batch updating its dependents (load the new skeleton, reanimate the rig, delete the old skeleton, re-export). The registry provides the list. The batch job itself is out of scope here.
+**Skeleton sharing** (D54): a rig or a look names a skeleton by two fields, the asset that holds it and its name, so NPCs and crowds share one skeleton with no copied file. A look-only asset holds `looks/` and nothing else. The skeleton's hash (`skeletonHash`) verifies the sharing and detects copies. Changing a shared skeleton still means batch updating its dependents, and the registry provides the list. The batch job itself is out of scope here.
 
 ## File model
 
@@ -131,30 +129,35 @@ Where a file lives is kept apart from how it is saved and loaded.
 
 ```json
 "fileTypes": {
-  "skeleton": { "path": "skeleton/{name}_skeleton.ma" },
-  "model":    { "path": "variants/{variant}/model/{name}_{variant}_model.ma" },
-  "textures": { "path": "variants/{variant}/textures", "folder": true },
-  "shaders":  { "path": "variants/{variant}/shaders", "folder": true },
-  "template": { "path": "variants/{variant}/template.json" },
-  "shapes":   { "path": "variants/{variant}/shapes.json" },
-  "weights":  { "path": "variants/{variant}/weights", "folder": true },
-  "postops":  { "path": "variants/{variant}/postops.py" },
-  "rig":      { "path": "variants/{variant}/{name}_{variant}_rig.ma" },
-  "publish":  { "path": "variants/{variant}/publish", "folder": true },
-  "poses":    { "path": "poses", "folder": true },
-  "anims":    { "path": "anims", "folder": true }
+  "skeleton":     { "path": "skeletons/{skeleton}/skeleton.json" },
+  "exports":      { "path": "skeletons/{skeleton}/exports", "folder": true },
+  "riginfo":      { "path": "rigs/{rig}/rig.json" },
+  "template":     { "path": "rigs/{rig}/template.json" },
+  "shapes":       { "path": "rigs/{rig}/shapes.json" },
+  "postops":      { "path": "rigs/{rig}/postops.py" },
+  "rig":          { "path": "rigs/{rig}/{name}_{rig}_rig.ma" },
+  "rigpublish":   { "path": "rigs/{rig}/publish", "folder": true },
+  "controlposes": { "path": "rigs/{rig}/controlposes", "folder": true },
+  "controlanims": { "path": "rigs/{rig}/controlanims", "folder": true },
+  "lookinfo":     { "path": "looks/{look}/look.json" },
+  "model":        { "path": "looks/{look}/model/{name}_{look}_model.ma" },
+  "textures":     { "path": "looks/{look}/textures", "folder": true },
+  "shaders":      { "path": "looks/{look}/shaders", "folder": true },
+  "weights":      { "path": "looks/{look}/weights", "folder": true },
+  "lookpublish":  { "path": "looks/{look}/publish", "folder": true },
+  "sources":      { "path": "sources", "folder": true }
 }
 ```
 
-Paths are relative to the asset folder. The tokens are `{name}` (the id's last token) and `{variant}`. Every Maya scene ends with its file type (`_skeleton`, `_model`, `_rig`), so a scene's role reads from its name alone (author, 2026-11-11). The rig was `{name}_{variant}.ma` until then. The skeleton, poses and animations belong to the asset, because variants share the skeleton. Everything that can differ between variants lives under `variants/{variant}/`. A variant is a folder there that holds the `template` file. Sharing poses and animations across assets goes through the registry's skeleton query.
+Paths are relative to the asset folder. The tokens are `{name}` (the id's last token) and at most one owner: `{skeleton}`, `{rig}` or `{look}`. Project format 3 (D54): a format 2 project updates itself, replacing only the default paths it finds. **A skeleton is its `skeleton.json` and nothing else** (author, 2026-11-16): saving serializes joints and loading creates them (`saveRigSkeleton`, `loadRigSkeleton`). **A model file is only meshes**: no joints, no skinCluster, no history, so a look is its model plus its weight files. Scenes keep the role suffix (`_rig`, `_model`). Poses and animations are a rig's, because control markup is unique per rig. Animation clips are skeleton data, so they sit with their skeleton. Sharing across assets goes through the registry's skeleton query.
 
 ### Publishes
 
-Each publish is a new folder under the variant's `publish` folder, named by its id: the UTC time and the user, `20261108T142012Z_bmorgan`. It holds a `publish.json` (its id, user and whatever the publish step records: plugin version, template `rigVersion`, inputs), the built rig and copies of its inputs. Ids sort in time order, so the latest publish is the last folder. A folder is never edited after it is made. A publish is separate from a local version: it is the build output other files import, and its id is what `publishVersion` stores.
+Each rig and each look has its own `publish` folder, and each publish is a new folder in it, named by its id: the UTC time and the user, `20261108T142012Z_bmorgan`. It holds a `publish.json` (its id, user and whatever the publish step records: plugin version, template `rigVersion`, inputs), the built rig and copies of its inputs. Ids sort in time order, so the latest publish is the last folder. A folder is never edited after it is made. A publish is separate from a local version: it is the build output other files import, and its id is what `publishVersion` stores.
 
 ### Local versions
 
-Without Perforce, and between submits with it, a local copy is the only undo for a save. Before a save overwrites a file, the old file is copied to the versions root, mirroring its place under the projects root: `<versions root>\shooter\main\characters\hero\variants\game\shapes.v007.json`. A folder file type copies the whole folder (`weights.v003\`). The next number is the highest existing number plus one, so a deleted copy's number is never reused.
+Without Perforce, and between submits with it, a local copy is the only undo for a save. Before a save overwrites a file, the old file is copied to the versions root, mirroring its place under the projects root: `<versions root>\shooter\main\characters\hero\rigs\game\shapes.v007.json`. A folder file type copies the whole folder (`weights.v003\`). The next number is the highest existing number plus one, so a deleted copy's number is never reused.
 
 The versions root is `%LOCALAPPDATA%\bmaya\versions`, private to the machine and never submitted. `BMAYA_VERSIONS_DIR` overrides it, for example to keep the copies on the same synced drive as the files. It replaces mayadev's whole-asset `.Versions/` snapshot, which numbered by counting folder entries.
 
