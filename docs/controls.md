@@ -39,7 +39,7 @@ A control's shape is set by these attributes:
 |---|---|
 | `shapeType` | The shape (list below). Templates set it per module with `shapeType`. |
 | `shapeTransform` | Matrix from shape space to the control's object space: scale, rotate and offset the shape without moving the control |
-| `filled` | On by default. Fills the shape at 0.75 of the wire's alpha, with the wire drawn on top. Every shape can be filled. |
+| `filled` | Off by default. When on, fills the shape at 0.75 of the wire's alpha, with the wire drawn on top. Every shape can be filled. |
 | `xray` | On by default. Draws the control in front of meshes and other geometry. Not saved in the shape file. |
 | `wireframeColor`, `wireframeAlpha` | Color. The build sets the color from the module's side. `wireframeAlpha` (0 to 1) is saved in the shape file, the color is not. |
 

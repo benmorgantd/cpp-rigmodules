@@ -58,9 +58,9 @@ class ControlMarkup(RigControlTestCase):
 
 class ControlDisplayDefaults(RigControlTestCase):
 
-    def test_new_controls_are_filled_and_xray(self):
+    def test_new_controls_are_wire_only_and_xray(self):
         for control in ("a_ctrl_c", "c_ctrl_l"):
-            self.assertTrue(cmds.getAttr(rig_name(control) + ".filled"))
+            self.assertFalse(cmds.getAttr(rig_name(control) + ".filled"))
             self.assertTrue(cmds.getAttr(rig_name(control) + ".xray"))
 
 
