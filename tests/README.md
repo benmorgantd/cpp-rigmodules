@@ -209,7 +209,7 @@ It starts Maya with a window (`maya.exe -command`, through `mayalaunch`, which s
 
 ```powershell
 mayapy tools\perf\perf_scenes.py human                      # 50 instances of the Human asset, a pose cycle keyed every frame
-mayapy tools\perf\perf_scenes.py complex                    # 50 instances of a generated 354 joint, 81 constraint rig with FkChain, Aim, TwoBoneIk (12 limbs) and Ribbon (7) modules, with a -90 to 90 range of motion and the limbs' blend, stretch, soft, pin and pole space keyed
+mayapy tools\perf\perf_scenes.py complex                    # 50 instances of a generated 296 joint, 81 constraint rig (348 controls, 58 of them with no joint, D57) with FkChain, Aim, TwoBoneIk (12 limbs) and Ribbon (7) modules, with a -90 to 90 range of motion and the limbs' blend, stretch, soft, pin and pole space keyed
 mayapy tools\perf\perf_scenes.py complex --count 20 --attachments 4   # the same with 4 attachment rigs (D55) built onto each rig, saved as complex_x20_at4.mb: bench it beside complex_x20 for what attachments cost (the floor has none, so the 1.5 times check stays on 0)
 mayapy tools\perf\perf_scenes.py floor                      # the same scene with native transforms and joints only: bench it beside complex for the 1.5 times check
 mayapy tools\perf\perf_scenes.py bench tools\perf\out\complex_x50.mb   # evaluation only: no viewport, parallel (--all-modes adds serial and DG)

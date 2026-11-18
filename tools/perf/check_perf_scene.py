@@ -1,4 +1,4 @@
-"""Checks the complex performance rig (tools/perf/perf_scenes.py): a generated 354 joint skeleton, a template with
+"""Checks the complex performance rig (tools/perf/perf_scenes.py): a generated 296 joint skeleton, a template with
 81 constraints, Aim modules, TwoBoneIk limbs and Ribbons, and a range of motion. They keep the benchmark's rig valid when the plugin changes,
 so a slow result is never a broken build.
 
@@ -27,7 +27,7 @@ class ComplexTemplateData(RigTestCase):
 
     def test_counts(self):
         template = perf_scenes.build_template()
-        self.assertEqual(len(perf_scenes.joint_layout()), 354)      # 272 for the chains, aim sets and limbs, and 82 for the ribbons
+        self.assertEqual(len(perf_scenes.joint_layout()), 296)      # 236 for the chains, aim sets and limbs, and 60 for the ribbons
         self.assertEqual(len(template["rigModules"]), 40)           # 8 Center chains, 19 Left chains, 3 Aim modules, 6 limbs, 1 Center and 3 Left ribbons
         self.assertEqual(perf_scenes.built_constraint_count(template), 81)   # 7 Center, 37 mirrored (22 + 12 limb spaces + 3 arm ribbon swings)
 
@@ -39,14 +39,45 @@ class ComplexTemplateData(RigTestCase):
         types = {entry["type"] for entry in perf_scenes.build_template()["constraints"]}
         self.assertEqual(types, {"Parent", "Orient", "Point", "Swing"})
 
-    def test_limbs_are_twelve_with_six_joints_each(self):
+    def test_limbs_are_twelve_with_three_joints_each(self):
         limbs = perf_scenes.limb_specs()
         self.assertEqual(len(limbs), 6)   # Left, each built on both sides
-        markers = [j for j in perf_scenes.joint_layout() if j.get("marker")]
-        self.assertEqual(len(markers), 36 + 2 * 3 * 3 + 4)   # ik, pole and settings of 12 limbs, 3 control joints of 6 arm ribbons and 4 of the tail
+        usages = {j["usage"] for j in perf_scenes.joint_layout()}
+        self.assertEqual({u for u in usages if u.endswith(("Aim", "Target", "Up"))}, {"%s%s" % (a["base"], r) for a in perf_scenes.aim_specs() for r in ("Aim", "Target", "Up")})   # the marker joints left are Aim's
         for limb in limbs:
-            pole = [m for m in perf_scenes.build_template()["rigModules"] if m["name"] == "%s_l" % limb["base"]][0]
-            self.assertNotIn("%s_l." % limb["base"], pole["parentStructure"]["pole"])   # D17: not the module's own socket
+            module = [m for m in perf_scenes.build_template()["rigModules"] if m["name"] == "%s_l" % limb["base"]][0]
+            self.assertNotIn("%s_l." % limb["base"], module["parentStructure"]["pole"])   # D17: not the module's own socket
+            self.assertEqual(module["moduleVersion"], 2)
+            self.assertEqual(module["moduleArgs"]["controlName"], limb["base"])
+            self.assertEqual(set(module["moduleArgs"]), {"joints", "controlName", "poleOffset", "settingsOffset"})
+
+    def test_limb_offsets_come_from_the_specs(self):
+        # The arm limbA: bones (1.6, -0.2, -0.5) and (1.6, -0.2, 0.5), settings spec (0, 1.2, 0) from the root, so
+        # (0, 1.2, 0) - (3.2, -0.4, 0) = (-3.2, 1.6, 0) from the end joint. The pole offset is the spec's.
+        module = [m for m in perf_scenes.build_template()["rigModules"] if m["name"] == "limbA_l"][0]
+        self.assertEqual(module["moduleArgs"]["poleOffset"], [0, 0, -1.5])
+        for actual, expected in zip(module["moduleArgs"]["settingsOffset"], [-3.2, 1.6, 0.0]):
+            self.assertAlmostEqual(actual, expected, places=6)
+
+    def test_ribbons_have_no_control_joints(self):
+        for module in perf_scenes.build_template()["rigModules"]:
+            if module["moduleType"] != "Ribbon":
+                continue
+            self.assertEqual(module["moduleVersion"], 2)
+            self.assertNotIn("controls", module["moduleArgs"])
+        counts = {s["base"]: s["controls"] for s in perf_scenes.ribbon_specs()}
+        self.assertEqual(counts, {"rbnTail": 4, "rbnArmA": 3, "rbnArmB": 3, "rbnArmC": 3})
+        self.assertFalse([j["name"] for j in perf_scenes.joint_layout() if "Ctl" in j["name"]])
+
+    def test_derived_controls_are_the_ones_without_joints(self):
+        derived = perf_scenes.derived_controls()
+        self.assertEqual(len(derived), 12 * 3 + (4 + 2 * 3 * 3))   # 12 limbs x (ik, pole, settings), the tail's 4 and 6 arm ribbons' 3
+        # Left limbA: root (0.3+..) is the clavicle's first joint plus offset; the ik control sits on the end joint.
+        end = [j for j in perf_scenes.joint_layout() if j["name"] == "limbA3_l"][0]["position"]
+        ik = [d for d in derived if d["chain"] == "limbA_l" and d["role"] == "ik"][0]
+        self.assertEqual(ik["position"], end)
+        # 12 limbs + 22 ribbon controls + 290 joint controls = 348 controls, as the rig has
+        self.assertEqual(len(derived) + len(perf_scenes.joint_layout()) - 6, 348)
 
     def test_markup_is_unique(self):
         pairs = [(j["side"], j["usage"]) for j in perf_scenes.joint_layout()]
@@ -98,7 +129,7 @@ class ComplexRig(RigTestCase):
                 self.assertAlmostEqual(a, e, places=3, msg=joint["name"])
 
     def test_builds_every_control_and_constraint(self):
-        # 354 joints, less the 6 aim joints, which have no control
+        # 296 joints, less the 6 aim joints (no control), plus the 58 controls with no joint (12 limbs x 3, the ribbons' 22)
         self.assertEqual(len(self.instances[0].controls), 348)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="rigConstraint")), 81)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="aimModule")), 6)

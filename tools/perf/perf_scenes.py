@@ -12,7 +12,7 @@ Run it with mayapy (set nothing else up: it loads a copy of the plugin and the p
 
 human    imports the asset's skeleton `--count` times, builds the asset's template on each, and keys every
          control on every frame through a cycle of load, mirror, flip and zero poses.
-complex  generates a 354 joint skeleton and a template with 81 constraints (Parent, Orient, Point and Swing), Aim modules,
+complex  generates a 296 joint skeleton and a template with 81 constraints (Parent, Orient, Point and Swing), Aim modules,
          TwoBoneIk limbs and Ribbons, builds it `--count` times, and keys a -90 to 90 range of motion on every control's rotate X, Y
          and Z, plus the limbs' handles, poles, roll and settings (blend, stretch, soft, pin) through every branch.
 
@@ -60,8 +60,9 @@ ROM_AXES = ("rotateX", "rotateY", "rotateZ")
 #
 # One entry per chain, written for the Left side. A Left chain is built on both sides (Right is the
 # reflection across X = 0) and gets "mirror": true in the template, so the template stays half the size.
-# Aim sets (aim, target and up joints) and limbs (three limb joints and three marker joints) are listed apart.
-# 66 Center joints + 2 x 144 side joints = 354 joints (the 272 of the chains, aim sets and limbs, and the 82 of the ribbons).
+# Aim sets (aim, target and up joints) and limbs (three limb joints) are listed apart. A limb's ik, pole and settings controls
+# and a ribbon's ik controls have no joint (D57): derived_controls() lists them.
+# 62 Center joints + 2 x 117 side joints = 296 joints (the 236 of the chains, aim sets and limbs, and the 60 of the ribbons).
 # 7 Center + 2 x 37 side constraints = 81 (the 37 include the 3 arm ribbons' Swing starts).
 #
 # Every module type and constraint type the plugin has appears here many times. A new module or constraint
@@ -118,8 +119,8 @@ def chain_specs():
 def limb_specs():
     """TwoBoneIk limbs, written for the Left side and built on both. `at`: (chain base, joint index) the limb's root is
     placed from and parented to (a Left chain's joint is matched by side, a Center one is shared). `upper` and `lower`
-    are the bone vectors, `ik`, `pole` and `settings` the marker joints' offsets from the end, the mid and the root joint.
-    The pole sits on the bend side. `constraints`: the spaces on the start and the IK handle, as for a chain."""
+    are the bone vectors, `pole` and `settings` the pole's offset from the mid joint and the settings control's from the root
+    joint (the handle sits at the end joint, D57). The pole sits on the bend side. `constraints`: the spaces on the start and the IK handle, as for a chain."""
     layout = ("layout", "end", "World")
     arm_start = ("Parent", [("clavicle", "end", "Clavicle"), ("spine", "end", "Chest"), layout])
     leg_start = ("Orient", [("spine", "start", "Hips"), layout])
@@ -128,21 +129,21 @@ def limb_specs():
     for k, base in enumerate(["limbA", "limbB", "limbC"]):
         limbs.append({"base": base, "at": ("clavicle", 0), "parent": ("clavicle", "end"),
                       "offset": (0.3, 0.3 + 0.35 * k, 0.5 - 0.5 * k), "upper": (1.6, -0.2, -0.5), "lower": (1.6, -0.2, 0.5),
-                      "ik": (0, 0, 0), "pole": (0, 0, -1.5), "settings": (0, 1.2, 0),
+                      "pole": (0, 0, -1.5), "settings": (0, 1.2, 0),
                       "constraints": {"start": arm_start, "ik": ik_space}})
     for k, base in enumerate(["limbD", "limbE", "limbF"]):
         limbs.append({"base": base, "at": ("spine", 0), "parent": ("spine", "start"),
                       "offset": (0.3 + 0.25 * k, -0.4, 0.3 - 0.3 * k), "upper": (0.05, -1.5, 0.45), "lower": (0.0, -1.5, -0.45),
-                      "ik": (0, 0, 0), "pole": (0, 0, 1.5), "settings": (0.6, 0, 0),
+                      "pole": (0, 0, 1.5), "settings": (0.6, 0, 0),
                       "constraints": {"start": leg_start, "ik": ik_space}})
     return limbs
 
 
 def ribbon_specs():
     """Ribbon modules (D56): a tail and three limb segments, each a straight run of `bind` bind joints with `controls`
-    control joints along it (marker joints, never exported or skinned). `at`: (chain base, joint index) the run starts from
+    ik controls along it (no joints, D57). `at`: (chain base, joint index) the run starts from
     and hangs from, `offset` the start's offset from that joint, `run` the whole run's vector. The Left ones are built on
-    both sides. The control joints are a chain of their own, so each points down the run."""
+    both sides."""
     return [
         {"base": "rbnTail", "side": "Center", "at": ("spine", 0), "parent": ("spine", "start"),
          "offset": (0, -0.3, -0.4), "run": (0, -0.1, -5.5), "controls": 4, "bind": 12},
@@ -181,8 +182,7 @@ def joint_name(base, index, side):
 
 
 def aim_joint(base, role, side):
-    """Name of an aim set's or a limb's marker joint, role being aim, target and up, or ik, pole and settings. Without
-    its side suffix it is the usage."""
+    """Name of an aim set's marker joint, role being aim, target and up. Without its side suffix it is the usage."""
     return "%s%s_%s" % (base, role.capitalize(), side_suffix(side))
 
 
@@ -270,12 +270,6 @@ def joint_layout():
                                "usage": usage_name(limb["base"], i), "chain": chain, "aim_next": step is not None,
                                "secondary": _secondary(step) if step else "yup"})
                 previous = name
-            # The marker joints are the module's own: hung from the limb's parent, never exported or skinned.
-            for role, anchor in (("ik", end), ("pole", mid), ("settings", root)):
-                name = aim_joint(limb["base"], role, side)
-                joints.append({"name": name, "parent": parent, "side": side, "usage": name[:-2], "chain": chain,
-                               "aim_next": False, "secondary": "yup", "marker": True,
-                               "position": _add(anchor, _flip(limb[role], side))})
     for ribbon in ribbon_specs():
         at_base, at_index = ribbon["at"]
         for side in _sides(ribbon):
@@ -285,20 +279,50 @@ def joint_layout():
             run = _flip(ribbon["run"], side)
             chain = module_name(ribbon["base"], side)
             secondary = _secondary(run)
-            # The control joints first, then the bind joints: each a chain hung from the ribbon's parent joint.
-            for base, count, marker in ((ribbon["base"] + "Ctl", ribbon["controls"], True), (ribbon["base"], ribbon["bind"], False)):
-                previous = parent
-                for i in range(count):
-                    fraction = i / (count - 1)
-                    position = _add(origin, (run[0] * fraction, run[1] * fraction, run[2] * fraction))
-                    name = joint_name(base, i, side)
-                    joint = {"name": name, "parent": previous, "position": position, "side": side,
-                             "usage": usage_name(base, i), "chain": chain, "aim_next": i < count - 1, "secondary": secondary}
-                    if marker:
-                        joint["marker"] = True
-                    joints.append(joint)
-                    previous = name
+            # The bind joints: a chain hung from the ribbon's parent joint. The ik controls have no joints (D57).
+            previous = parent
+            count = ribbon["bind"]
+            for i in range(count):
+                fraction = i / (count - 1)
+                position = _add(origin, (run[0] * fraction, run[1] * fraction, run[2] * fraction))
+                name = joint_name(ribbon["base"], i, side)
+                joints.append({"name": name, "parent": previous, "position": position, "side": side,
+                               "usage": usage_name(ribbon["base"], i), "chain": chain, "aim_next": i < count - 1,
+                               "secondary": secondary})
+                previous = name
     return joints
+
+
+def derived_controls():
+    """The controls that have no joint (D57): a limb's ik, pole and settings, and a ribbon's ik controls. A list of dicts
+    with chain (the module's name), role (ik, pole, settings, or ikNN) and position. The floor builds a native control for
+    each, so it has the rig's control count. A ribbon's controls are spread evenly along its run here, which is close
+    enough to where the module places them for a cost comparison."""
+    positions = {joint["name"]: joint["position"] for joint in joint_layout()}
+    derived = []
+    for limb in limb_specs():
+        for side in ("Left", "Right"):
+            mid = positions[joint_name(limb["base"], 1, side)]
+            end = positions[joint_name(limb["base"], 2, side)]
+            chain = module_name(limb["base"], side)
+            for role, position in (("ik", end), ("pole", _add(mid, _flip(limb["pole"], side))),
+                                   ("settings", _add(end, _flip(limb_settings_offset(limb), side)))):
+                derived.append({"chain": chain, "role": role, "position": position})
+    for ribbon in ribbon_specs():
+        for side in _sides(ribbon):
+            origin = positions[joint_name(ribbon["base"], 0, side)]
+            run = _flip(ribbon["run"], side)
+            count = ribbon["controls"]
+            for i in range(count):
+                fraction = i / (count - 1)
+                derived.append({"chain": module_name(ribbon["base"], side), "role": "ik%02d" % i,
+                                "position": _add(origin, (run[0] * fraction, run[1] * fraction, run[2] * fraction))})
+    return derived
+
+
+def limb_settings_offset(limb):
+    """The settings control's offset from the end joint, as a Left world vector. The spec gives it from the root joint."""
+    return tuple(limb["settings"][k] - limb["upper"][k] - limb["lower"][k] for k in range(3))
 
 
 def _constraint_entry(name, constraint_type, target, drivers, side, side_of):
@@ -365,13 +389,18 @@ def build_template():
         parent_base, parent_socket = limb["parent"]
         modules.append({
             "moduleType": "TwoBoneIk",
+            "moduleVersion": 2,
             "name": name,
             "side": "Left",
             "shapeType": "Box",
             "mirror": True,
+            # The controls are derived from the limb joints (D57): the handle sits at the end joint, the pole and the settings
+            # control at the offsets below (world vectors for the Left module, negated in X on the Right).
             "moduleArgs": {
                 "joints": [["Left", usage_name(limb["base"], i)] for i in range(3)],
-                **{role: ["Left", aim_joint(limb["base"], role, "Left")[:-2]] for role in ("ik", "pole", "settings")},
+                "controlName": limb["base"],
+                "poleOffset": list(limb["pole"]),
+                "settingsOffset": list(limb_settings_offset(limb)),
             },
             # The pole can't name the module's own socket (D17): it hangs from the layout, and its Ik space is switched later.
             "parentStructure": {"start": "%s.%s" % (module_name(parent_base, side_of[parent_base]), parent_socket),
@@ -385,11 +414,13 @@ def build_template():
         parent_base, parent_socket = ribbon["parent"]
         module = {
             "moduleType": "Ribbon",
+            "moduleVersion": 2,
             "name": module_name(ribbon["base"], side),
             "side": side,
             "shapeType": "Box",
             "moduleArgs": {
-                "controls": [[side, usage_name(ribbon["base"] + "Ctl", i)] for i in range(ribbon["controls"])],
+                "controlCount": ribbon["controls"],
+                "controlName": ribbon["base"],
                 "joints": [[side, usage_name(ribbon["base"], i)] for i in range(ribbon["bind"])],
             },
             # No `end`: it follows the start's parent.
@@ -494,8 +525,7 @@ def build_skeleton(joints):
         else:
             cmds.joint(joint["name"], edit=True, orientJoint="none", zeroScaleOrient=True)
     for joint in joints:
-        exported = not joint.get("marker", False)
-        cmds.rigJointMarkup(joint["name"], usage=joint["usage"], side=joint["side"], export=exported, skin=exported)
+        cmds.rigJointMarkup(joint["name"], usage=joint["usage"], side=joint["side"], export=True, skin=True)
 
 
 def import_skeleton(skeleton_file, namespace):
@@ -521,7 +551,7 @@ LIMB_ROLES = ("start", "lower", "end", "ik", "pole", "settings")
 
 def find_limbs(controls):
     """The TwoBoneIk limbs among rigmodules.query controls: one dict of control names by role per module. The three
-    limb joints' usages end in 1, 2 and 3 and the derived controls' in IK, Pole and Settings (D57, TwoBoneIk's <base>IK, <base>Pole and <base>Settings; the marker joints this generator still writes are dropped by the version 1 update, phase 4 removes them)."""
+    limb joints' usages end in 1, 2 and 3 and the derived controls' in IK, Pole and Settings (D57, TwoBoneIk's <base>IK, <base>Pole and <base>Settings)."""
     by_module = {}
     for control in controls:
         if control.module_type != "TwoBoneIk":
@@ -687,7 +717,7 @@ def make_complex(args):
     template = build_template()
     constraints = built_constraint_count(template)
     joints = joint_layout()
-    assert len(joints) == 354, len(joints)
+    assert len(joints) == 296, len(joints)
     assert constraints == 81, constraints
     template_file = os.path.join(out, "complex_template.json").replace("\\", "/")
     with open(template_file, "w", encoding="utf-8") as handle:
@@ -726,7 +756,8 @@ def build_floor_instance(joints, namespace):
     """One instance of the complex rig with no rig layer: a native transform for every control and a native joint,
     in the skeleton's hierarchy, for every joint, each driven 1:1 by its control's world matrix through
     offsetParentMatrix. Custom attributes stand in for the limbs' channels, so key_rom keys the same curves it keys on
-    the rig. The aim joints have no control, as in the rig. Returns a RigInstance."""
+    the rig. The aim joints have no control, as in the rig. The controls with no joint (derived_controls: the limbs' ik, pole
+    and settings, the ribbons' ik controls) are native transforms with no joint. Returns a RigInstance."""
     from maya import cmds
     limb_chains = {module_name(limb["base"], side) for limb in limb_specs() for side in ("Left", "Right")}
     aim_usages = {aim["base"] + "Aim" for aim in aim_specs()}
@@ -747,9 +778,16 @@ def build_floor_instance(joints, namespace):
         cmds.setAttr(name + ".translate", 0, 0, 0)
         controls.append(control)
         if joint["chain"] in limb_chains:
-            for role, suffix in zip(LIMB_ROLES, ("1", "2", "3", "IK", "Pole", "Settings")):
+            for role, suffix in zip(LIMB_ROLES[:3], ("1", "2", "3")):
                 if joint["usage"].endswith(suffix):
                     limbs.setdefault(joint["chain"], {})[role] = control
+    for derived in derived_controls():
+        control = cmds.createNode("transform", name="%s:%s_%s_ctrl" % (namespace, derived["chain"], derived["role"]))
+        cmds.setAttr(control + ".inheritsTransform", 0)
+        cmds.setAttr(control + ".translate", *derived["position"])
+        controls.append(control)
+        if derived["chain"] in limb_chains:
+            limbs.setdefault(derived["chain"], {})[derived["role"]] = control
     for limb in limbs.values():
         for role, attributes in (("settings", ("ikFkBlend", "stretch", "soft")), ("ik", ("roll",)), ("pole", ("pin",))):
             for attribute in attributes:
