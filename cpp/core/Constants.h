@@ -292,6 +292,35 @@ namespace RigAttr
 	inline constexpr const char* FkMatchLocal{ "fkMatchLocal" };
 	inline constexpr const char* IkMatchLocal{ "ikMatchLocal" };
 	inline constexpr const char* MatchWarnings{ "matchWarnings" };
+
+	// Ribbon channels (D56), all on the first control. Each is the attribute on that control and the input of the same
+	// name on the module. Public API: saved poses and animation key on them.
+	inline constexpr const char* StartTwist{ "startTwist" };                   // the secondary twist angles that pick a branch past 180 degrees
+	inline constexpr const char* EndTwist{ "endTwist" };
+	inline constexpr const char* SineAmplitude{ "sineAmplitude" };
+	inline constexpr const char* SineFrequency{ "sineFrequency" };
+	inline constexpr const char* SinePhase{ "sinePhase" };
+	inline constexpr const char* SineOrient{ "sineOrient" };
+	inline constexpr const char* SineStartFalloff{ "sineStartFalloff" };
+	inline constexpr const char* SineEndFalloff{ "sineEndFalloff" };
+	inline constexpr const char* StartAimBlend{ "startAimBlend" };
+	inline constexpr const char* EndAimBlend{ "endAimBlend" };
+	inline constexpr const char* BendRoundness{ "bendRoundness" };
+	inline constexpr const char* VolumePreserve{ "volumePreserve" };
+	inline constexpr const char* ScaleStart{ "scaleStart" };
+	inline constexpr const char* ScaleMid{ "scaleMid" };
+	inline constexpr const char* ScaleEnd{ "scaleEnd" };
+
+	// Ribbon rest data, stored at build and never changed. The module reads these and the controls' rests: nothing else
+	// describes the rest pose.
+	inline constexpr const char* IkControlCount{ "ikControlCount" };   // how many of the leading slots are ik controls: the rest are tweakers
+	inline constexpr const char* KnotU{ "knotU" };
+	inline constexpr const char* BindU{ "bindU" };
+	inline constexpr const char* RestLength{ "restLength" };
+	inline constexpr const char* RestUp{ "restUp" };
+	inline constexpr const char* RestTangent{ "restTangent" };
+	inline constexpr const char* IkRestOffset{ "ikRestOffset" };
+	inline constexpr const char* BindRestOffset{ "bindRestOffset" };
 }
 
 // Labels of the pole control's module-owned space enum (D52 section 4.4). Append-only (D34): the index is the value.

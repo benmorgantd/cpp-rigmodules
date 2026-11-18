@@ -46,6 +46,8 @@ struct RigModuleChildPlugInfo
 	// The internal plug's source of a parent: the module's own child plug whose parentStructure entry it takes
 	// (ModulePlugInfo::followsPlug). Empty for every plug the template parents.
 	std::string followsPlug;
+	// ModulePlugInfo::defaultsToPlug: the plug whose parentStructure entry this one takes when the template lists none.
+	std::string defaultsToPlug;
 };
 
 // Common struct for the args used when parenting module plugs.

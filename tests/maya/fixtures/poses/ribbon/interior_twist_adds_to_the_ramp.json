@@ -1,0 +1,83 @@
+{
+  "description": "The end turns 90 and the interior control turns 30 of its own. The interior control's total is its own 30 on top of the ramp's 45: 75. The joints between the controls interpolate the totals linearly: u = 0.25 is halfway from 0 to 75 (37.5), u = 0.75 is halfway from 75 to 90 (82.5).",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlC_ctrl_c.rotateX": 90,
+    "tailCtrlB_ctrl_c.rotateX": 30
+  },
+  "expect": {
+    "tailCtrlB_jnt": {
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        75,
+        0,
+        0
+      ]
+    },
+    "tail1_jnt": {
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ]
+    },
+    "tail2_jnt": {
+      "translate": [
+        2,
+        0,
+        0
+      ],
+      "rotate": [
+        37.5,
+        0,
+        0
+      ]
+    },
+    "tail3_jnt": {
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        75,
+        0,
+        0
+      ]
+    },
+    "tail4_jnt": {
+      "translate": [
+        6,
+        0,
+        0
+      ],
+      "rotate": [
+        82.5,
+        0,
+        0
+      ]
+    },
+    "tail5_jnt": {
+      "translate": [
+        8,
+        0,
+        0
+      ],
+      "rotate": [
+        90,
+        0,
+        0
+      ]
+    }
+  }
+}

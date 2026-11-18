@@ -1,0 +1,13 @@
+{
+  "description": "The end control scales Y by 2. Scale interpolates by smoothstep between controls: 1 up to the interior control, then 1 + smoothstep(s) from there, which is 1.5 at s = 0.5 and 2 at the end.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlC_ctrl_c.scaleY": 2
+  },
+  "expect": {
+    "tail3_jnt": {"scale": [1, 1, 1]},
+    "tail4_jnt": {"scale": [1, 1.5, 1]},
+    "tail5_jnt": {"scale": [1, 2, 1]}
+  }
+}

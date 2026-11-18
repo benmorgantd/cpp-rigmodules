@@ -1,0 +1,18 @@
+{
+  "description": "The end control moves 2 up and both aim blends are 1, so both end tangents aim at the other end: the base curve is the straight line (8u, 2u) at constant speed. The interior control rides it to (4,1,0) and the detail curve stays that line. The joints are at (0,0), (2,0.5), (4,1), (6,1.5), (8,2) and every one turns atan2(2,8) = 14.0362 degrees.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlC_ctrl_c.translateY": 2,
+    "tailCtrlA_ctrl_c.startAimBlend": 1,
+    "tailCtrlA_ctrl_c.endAimBlend": 1
+  },
+  "tolerance": 0.001,
+  "expect": {
+    "tail1_jnt": {"translate": [0, 0.0, 0], "rotate": [0, 0, 14.0362]},
+    "tail2_jnt": {"translate": [2, 0.5, 0], "rotate": [0, 0, 14.0362]},
+    "tail3_jnt": {"translate": [4, 1.0, 0], "rotate": [0, 0, 14.0362]},
+    "tail4_jnt": {"translate": [6, 1.5, 0], "rotate": [0, 0, 14.0362]},
+    "tail5_jnt": {"translate": [8, 2.0, 0], "rotate": [0, 0, 14.0362]}
+  }
+}

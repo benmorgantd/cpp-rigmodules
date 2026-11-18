@@ -37,6 +37,9 @@ struct ModulePlugInfo
 	// Not empty for an internal plug: the name of the module's own child plug whose parentStructure parent it takes.
 	// The template can't name a parent for it, so a parentStructure entry for it is an error too.
 	std::string followsPlug;
+	// Not empty for a plug the template may parent but need not: with no parentStructure entry it takes the parent of this
+	// plug of the same module, where any other unlisted plug takes layout.end (Ribbon's end follows its start).
+	std::string defaultsToPlug;
 };
 
 // The child plug and socket names a module will create, known before anything is built.

@@ -12,8 +12,8 @@ Run it with mayapy (set nothing else up: it loads a copy of the plugin and the p
 
 human    imports the asset's skeleton `--count` times, builds the asset's template on each, and keys every
          control on every frame through a cycle of load, mirror, flip and zero poses.
-complex  generates a 272 joint skeleton and a template with 75 constraints (Parent, Orient and Point), Aim modules and
-         TwoBoneIk limbs, builds it `--count` times, and keys a -90 to 90 range of motion on every control's rotate X, Y
+complex  generates a 354 joint skeleton and a template with 75 constraints (Parent, Orient and Point), Aim modules,
+         TwoBoneIk limbs and Ribbons, builds it `--count` times, and keys a -90 to 90 range of motion on every control's rotate X, Y
          and Z, plus the limbs' handles, poles, roll and settings (blend, stretch, soft, pin) through every branch.
 
 floor    builds the same controls, joints, hierarchy and keys as `complex` with native transforms and joints only, so
@@ -61,7 +61,8 @@ ROM_AXES = ("rotateX", "rotateY", "rotateZ")
 # One entry per chain, written for the Left side. A Left chain is built on both sides (Right is the
 # reflection across X = 0) and gets "mirror": true in the template, so the template stays half the size.
 # Aim sets (aim, target and up joints) and limbs (three limb joints and three marker joints) are listed apart.
-# 50 Center joints + 2 x 111 side joints = 272 joints. 7 Center + 2 x 34 side constraints = 75.
+# 66 Center joints + 2 x 144 side joints = 354 joints (the 272 of the chains, aim sets and limbs, and the 82 of the ribbons).
+# 7 Center + 2 x 34 side constraints = 75.
 #
 # Every module type and constraint type the plugin has appears here many times. A new module or constraint
 # type adds a block of instances to this rig in the same change (CLAUDE.md, "Gate for new modules").
@@ -135,6 +136,23 @@ def limb_specs():
                       "ik": (0, 0, 0), "pole": (0, 0, 1.5), "settings": (0.6, 0, 0),
                       "constraints": {"start": leg_start, "ik": ik_space}})
     return limbs
+
+
+def ribbon_specs():
+    """Ribbon modules (D56): a tail and three limb segments, each a straight run of `bind` bind joints with `controls`
+    control joints along it (marker joints, never exported or skinned). `at`: (chain base, joint index) the run starts from
+    and hangs from, `offset` the start's offset from that joint, `run` the whole run's vector. The Left ones are built on
+    both sides. The control joints are a chain of their own, so each points down the run."""
+    return [
+        {"base": "rbnTail", "side": "Center", "at": ("spine", 0), "parent": ("spine", "start"),
+         "offset": (0, -0.3, -0.4), "run": (0, -0.1, -5.5), "controls": 4, "bind": 12},
+        {"base": "rbnArmA", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"),
+         "offset": (0.3, -0.6, 0.6), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8},
+        {"base": "rbnArmB", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"),
+         "offset": (0.3, -0.9, 0.9), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8},
+        {"base": "rbnArmC", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"),
+         "offset": (0.3, -1.2, 1.2), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8},
+    ]
 
 
 def aim_specs():
@@ -258,6 +276,28 @@ def joint_layout():
                 joints.append({"name": name, "parent": parent, "side": side, "usage": name[:-2], "chain": chain,
                                "aim_next": False, "secondary": "yup", "marker": True,
                                "position": _add(anchor, _flip(limb[role], side))})
+    for ribbon in ribbon_specs():
+        at_base, at_index = ribbon["at"]
+        for side in _sides(ribbon):
+            at_side = side if spec_side[at_base] == "Left" else "Center"
+            parent = names[(at_base, at_side)][at_index]
+            origin = _add(positions[(at_base, at_side)][at_index], _flip(ribbon["offset"], side))
+            run = _flip(ribbon["run"], side)
+            chain = module_name(ribbon["base"], side)
+            secondary = _secondary(run)
+            # The control joints first, then the bind joints: each a chain hung from the ribbon's parent joint.
+            for base, count, marker in ((ribbon["base"] + "Ctl", ribbon["controls"], True), (ribbon["base"], ribbon["bind"], False)):
+                previous = parent
+                for i in range(count):
+                    fraction = i / (count - 1)
+                    position = _add(origin, (run[0] * fraction, run[1] * fraction, run[2] * fraction))
+                    name = joint_name(base, i, side)
+                    joint = {"name": name, "parent": previous, "position": position, "side": side,
+                             "usage": usage_name(base, i), "chain": chain, "aim_next": i < count - 1, "secondary": secondary}
+                    if marker:
+                        joint["marker"] = True
+                    joints.append(joint)
+                    previous = name
     return joints
 
 
@@ -340,6 +380,24 @@ def build_template():
         for plug, (constraint_type, drivers) in limb["constraints"].items():
             constraints.append(_constraint_entry("%s_%s_space_l" % (limb["base"], plug), constraint_type,
                                                  "%s.%s" % (name, plug), drivers, "Left", side_of))
+    for ribbon in ribbon_specs():
+        side = ribbon["side"]
+        parent_base, parent_socket = ribbon["parent"]
+        module = {
+            "moduleType": "Ribbon",
+            "name": module_name(ribbon["base"], side),
+            "side": side,
+            "shapeType": "Box",
+            "moduleArgs": {
+                "controls": [[side, usage_name(ribbon["base"] + "Ctl", i)] for i in range(ribbon["controls"])],
+                "joints": [[side, usage_name(ribbon["base"], i)] for i in range(ribbon["bind"])],
+            },
+            # No `end`: it follows the start's parent.
+            "parentStructure": {"start": "%s.%s" % (module_name(parent_base, side_of[parent_base]), parent_socket)},
+        }
+        if side == "Left":
+            module["mirror"] = True
+        modules.append(module)
     return {
         "formatVersion": 1,
         "rigName": "complex272",
@@ -625,7 +683,7 @@ def make_complex(args):
     template = build_template()
     constraints = built_constraint_count(template)
     joints = joint_layout()
-    assert len(joints) == 272, len(joints)
+    assert len(joints) == 354, len(joints)
     assert constraints == 75, constraints
     template_file = os.path.join(out, "complex_template.json").replace("\\", "/")
     with open(template_file, "w", encoding="utf-8") as handle:

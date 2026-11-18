@@ -472,6 +472,10 @@ namespace
 			{
 				// An internal plug takes the parent of the plug it follows (settings follows start), never its own entry.
 				auto it = moduleData.parentStructure.find(childPlugInfo.followsPlug.empty() ? plugName : childPlugInfo.followsPlug);
+				if (it == moduleData.parentStructure.end() && !childPlugInfo.defaultsToPlug.empty())
+				{
+					it = moduleData.parentStructure.find(childPlugInfo.defaultsToPlug);
+				}
 				const std::string& socketIdentifier = it != moduleData.parentStructure.end() ? it->second : defaultSocket;
 
 				const RigModuleBuildResult* pParentModule = nullptr;

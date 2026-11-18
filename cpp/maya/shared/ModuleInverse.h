@@ -16,6 +16,9 @@
 struct ModuleInverseContext
 {
 	std::vector<MMatrix> controlRestWorld;   // by slot. Aim's slot 0 holds the aim joint's rest, there is no control.
+	// How many of the leading slots are one kind of control, from the module's ikControlCount attribute when it has one
+	// (Ribbon: its ik controls, and the slots after them are the tweakers). 0 for a module with a single kind.
+	unsigned int ikControlCount = 0;
 };
 
 // A scalar channel a module's inverse needs and the joints can't give (D41 amendment, D52 section 6): the name of

@@ -1,0 +1,82 @@
+{
+  "description": "The end control turns 90 about its own X, so its total twist is 90 and the start's is 0. The twist ramps linearly along the whole ribbon, and the interior control carries the ramp in its offset parent matrix: 45 at u = 0.5. The joints at u = 0, 0.25, 0.5, 0.75 and 1 turn 0, 22.5, 45, 67.5 and 90. Nothing moves: the curve is the same line.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlC_ctrl_c.rotateX": 90
+  },
+  "expect": {
+    "tailCtrlB_jnt": {
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        45,
+        0,
+        0
+      ]
+    },
+    "tail1_jnt": {
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ]
+    },
+    "tail2_jnt": {
+      "translate": [
+        2,
+        0,
+        0
+      ],
+      "rotate": [
+        22.5,
+        0,
+        0
+      ]
+    },
+    "tail3_jnt": {
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        45,
+        0,
+        0
+      ]
+    },
+    "tail4_jnt": {
+      "translate": [
+        6,
+        0,
+        0
+      ],
+      "rotate": [
+        67.5,
+        0,
+        0
+      ]
+    },
+    "tail5_jnt": {
+      "translate": [
+        8,
+        0,
+        0
+      ],
+      "rotate": [
+        90,
+        0,
+        0
+      ]
+    }
+  }
+}

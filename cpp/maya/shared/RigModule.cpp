@@ -79,7 +79,7 @@ namespace
 		{
 			auto it = result.childPlugs.find(plug.name);
 			plugsMatch = plugsMatch && it != result.childPlugs.end() && plug.hasControl == !it->second.oTransform.isNull()
-				&& plug.followsPlug == it->second.followsPlug;
+				&& plug.followsPlug == it->second.followsPlug && plug.defaultsToPlug == it->second.defaultsToPlug;
 		}
 
 		bool socketsMatch = result.parentSockets.size() == moduleInterface.sockets.size();

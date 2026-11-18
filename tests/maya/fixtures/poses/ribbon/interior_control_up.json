@@ -1,0 +1,71 @@
+{
+  "description": "The interior control moves 2 up. The curve passes through (0,0,0), (4,2,0) and (8,0,0) with every tangent (8,0,0). Each half is a Hermite segment with parameter span h = 0.5, and the joints at u = 0.25 and 0.75 sit at the middle of a segment (t = 0.5), where the point is the average of the segment's ends because the tangent terms cancel: (2,1,0) and (6,1,0). The slope there is dP/du = 3 (P1 - P0) - 0.25 (m0 + m1) with h = 0.5: (12,6,0) - (4,0,0) = (8,6,0), so the joint turns atan2(6,8) = 36.8699 degrees. The second half mirrors it (-36.8699). At the control the slope is the tangent (8,0,0), so no turn.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlB_ctrl_c.translateY": 2
+  },
+  "tolerance": 0.001,
+  "expect": {
+    "tail1_jnt": {
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ]
+    },
+    "tail2_jnt": {
+      "translate": [
+        2,
+        1,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        36.8699
+      ]
+    },
+    "tail3_jnt": {
+      "translate": [
+        4,
+        2,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ]
+    },
+    "tail4_jnt": {
+      "translate": [
+        6,
+        1,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        -36.8699
+      ]
+    },
+    "tail5_jnt": {
+      "translate": [
+        8,
+        0,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ]
+    }
+  }
+}

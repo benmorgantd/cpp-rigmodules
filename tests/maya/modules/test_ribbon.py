@@ -1,0 +1,223 @@
+"""Ribbon module (D56): contract tests, pose cases from fixtures/poses/ribbon, and what only this module does.
+
+The pose cases hold hand-worked numbers (each description has the arithmetic). Nothing here is recorded from the rig.
+"""
+import copy
+import math
+import os
+import tempfile
+
+from maya import cmds
+
+import rigmodules.query
+from rigtest import fixtures
+from rigtest.case import RigTestCase, rig_name
+from rigtest.cases import add_pose_cases
+from rigtest.module_contract import ModuleContract
+
+FIRST = "tailCtrlA_ctrl_c"
+INTERIOR = "tailCtrlB_ctrl_c"
+LAST = "tailCtrlC_ctrl_c"
+BIND_JOINTS = ["tail%d_jnt" % i for i in range(1, 6)]
+TWEAKERS = ["tail%d_ctrl_c" % i for i in range(1, 6)]
+
+CHANNELS = {
+    # name: (rest, mirror)
+    "startTwist": (0.0, "negate"), "endTwist": (0.0, "negate"),
+    "sineAmplitude": (0.0, "copy"), "sineFrequency": (1.0, "copy"), "sinePhase": (0.0, "copy"), "sineOrient": (0.0, "negate"),
+    "sineStartFalloff": (0.2, "copy"), "sineEndFalloff": (0.2, "copy"), "startAimBlend": (0.0, "copy"), "endAimBlend": (0.0, "copy"),
+    "bendRoundness": (1.0, "copy"), "volumePreserve": (0.0, "copy"), "scaleStart": (1.0, "copy"), "scaleMid": (1.0, "copy"),
+    "scaleEnd": (1.0, "copy"),
+}
+
+
+class RibbonContract(ModuleContract, RigTestCase):
+    TEMPLATE = "ribbon_basic"
+    SKELETON = "ribbon_basic"
+    MODULE_TYPE = "ribbonModule"
+    JOINT_OWNERS = dict(
+        [("tailCtrl%s_jnt" % c, "tail_1") for c in "ABC"] + [("tail%d_jnt" % i, "tail_1") for i in range(1, 6)])
+    MIRROR_TEMPLATE = "ribbon_mirror"
+    MIRROR_SKELETON = "ribbon_mirror"
+
+
+class RibbonPoses(RigTestCase):
+    pass
+
+
+add_pose_cases(RibbonPoses, "ribbon")
+
+
+def attr(node, name):
+    return cmds.getAttr("%s.%s" % (rig_name(node), name))
+
+
+def set_attr(node, name, value):
+    cmds.setAttr("%s.%s" % (rig_name(node), name), value)
+
+
+def translation(node):
+    return cmds.xform(rig_name(node), query=True, worldSpace=True, translation=True)
+
+
+def world_matrix(node):
+    return cmds.xform(rig_name(node), query=True, worldSpace=True, matrix=True)
+
+
+class RibbonBehaviour(RigTestCase):
+
+    def test_the_channels_are_on_the_first_control_with_their_rests_and_mirror_modes(self):
+        self.build_standard("ribbon_basic", "ribbon_basic")
+        channels = {c.name: c for c in rigmodules.query.get_control_channels(rig_name(FIRST))}
+        for name, (rest, mirror) in CHANNELS.items():
+            self.assertIn(name, channels, "%s has no %s channel" % (FIRST, name))
+            self.assertAlmostEqual(channels[name].rest, rest, places=6, msg=name)
+            self.assertEqual(channels[name].mirror, mirror, name)
+        for control in [INTERIOR, LAST] + TWEAKERS:
+            extra = set(c.name for c in rigmodules.query.get_control_channels(rig_name(control))) & set(CHANNELS)
+            self.assertEqual(extra, set(), "%s carries ribbon channels: only the first control does" % control)
+
+    def test_the_tweakers_are_hidden_and_still_keyable(self):
+        self.build_standard("ribbon_basic", "ribbon_basic")
+        for tweaker in TWEAKERS:
+            self.assertFalse(attr(tweaker, "visibility"), "%s is not hidden" % tweaker)
+        for control in [FIRST, INTERIOR, LAST]:
+            self.assertTrue(attr(control, "visibility"), "%s is hidden" % control)
+        set_attr("tail3_ctrl_c", "translateY", 1.5)
+        self.assertWorldTranslation(rig_name("tail3_jnt"), [4, 1.5, 0], 1e-6)   # a tweaker's offset rides on the bind frame
+
+    def test_a_tweaker_offset_moves_only_its_joint(self):
+        self.build_standard("ribbon_basic", "ribbon_basic")
+        before = {j: world_matrix(j) for j in BIND_JOINTS}
+        set_attr("tail2_ctrl_c", "translateZ", 2.0)
+        for joint in BIND_JOINTS:
+            moved = world_matrix(joint) != before[joint]
+            self.assertEqual(moved, joint == "tail2_jnt", "%s moved: %s" % (joint, moved))
+
+    def test_the_marker_joints_follow_their_controls(self):
+        self.build_standard("ribbon_basic", "ribbon_basic")
+        set_attr(INTERIOR, "translateY", 2.0)
+        self.assertWorldTranslation(rig_name("tailCtrlB_jnt"), [4, 2, 0], 1e-6)
+
+    def test_an_interior_control_leaves_the_far_end_alone(self):
+        """Locality: the base curve depends on the ends alone, and the detail curve through the controls changes only the
+        segments around a moved one (a segment's tangents come from its neighbours). Positions only: a carried frame
+        rolls along the whole curve."""
+        self.build_standard("ribbon_five", "ribbon_five")
+        before = {i: translation("spine%d_jnt" % i) for i in range(1, 10)}
+        set_attr("spineCtrlB_ctrl_c", "translateY", 2.0)
+        after = {i: translation("spine%d_jnt" % i) for i in range(1, 10)}
+        for i in (1, 7, 8, 9):
+            self.assertEqual(after[i], before[i], "spine%d moved with an interior control far from it" % i)
+        for i in (2, 3, 6):
+            self.assertNotEqual(after[i], before[i], "spine%d should follow the control" % i)
+        self.assertWorldTranslation(rig_name("spine3_jnt"), [2, 2, 0], 1e-6)
+
+    def test_evaluation_is_a_pure_function_of_the_inputs(self):
+        """No state survives an evaluation (4.1): going to a pose, then another, then back, gives the same matrices."""
+        self.build_standard("ribbon_basic", "ribbon_basic")
+        pose_a = {LAST + ".rotateX": 200, FIRST + ".endTwist": 200, INTERIOR + ".translateY": 1.5, FIRST + ".bendRoundness": 0.4}
+        pose_b = {LAST + ".rotateX": -170, FIRST + ".endTwist": -20, INTERIOR + ".translateY": -1.0, FIRST + ".bendRoundness": 1.0,
+                  FIRST + ".sineAmplitude": 0.1}
+        for plug, value in pose_a.items():
+            cmds.setAttr(rig_name(plug), value)
+        first = {j: world_matrix(j) for j in BIND_JOINTS}
+        for plug, value in pose_b.items():
+            cmds.setAttr(rig_name(plug), value)
+        self.assertNotEqual({j: world_matrix(j) for j in BIND_JOINTS}, first)
+        cmds.currentTime(7)
+        cmds.currentTime(1)
+        for plug, value in pose_a.items():
+            cmds.setAttr(rig_name(plug), value)
+        cmds.setAttr(rig_name(FIRST + ".sineAmplitude"), 0)
+        for joint in BIND_JOINTS:
+            self.assertEqual(world_matrix(joint), first[joint], "%s differs after a round trip" % joint)
+
+    def test_the_ribbon_is_the_same_wherever_the_parent_is(self):
+        self.build_standard("ribbon_basic", "ribbon_basic")
+        set_attr(INTERIOR, "translateY", 2.0)
+        before = {j: world_matrix(j) for j in BIND_JOINTS}
+        set_attr("layout_0_ctrl_c", "translateZ", 5.0)
+        for joint in BIND_JOINTS:
+            moved = world_matrix(joint)
+            self.assertAlmostEqual(moved[14], before[joint][14] + 5.0, places=6, msg=joint)
+            for k in range(14):
+                self.assertAlmostEqual(moved[k], before[joint][k], places=6, msg=joint)
+
+    def test_a_saved_and_reopened_scene_evaluates_the_same(self):
+        """A saved scene keeps only the stored rest elements that differ from their default (knot 0, an identity offset), so a
+        reopened ribbon must read a missing element as its default and not fail its compute."""
+        self.build_standard("ribbon_basic", "ribbon_basic")
+        path = os.path.join(tempfile.mkdtemp(), "ribbon_reload.ma")
+        cmds.file(rename=path)
+        cmds.file(save=True, type="mayaAscii")
+        cmds.file(path, open=True, force=True)
+        set_attr(INTERIOR, "translateY", 2.0)
+        self.assertWorldTranslation(rig_name("tail3_jnt"), [4, 2, 0], 1e-6)
+        self.assertWorldTranslation(rig_name("tail2_jnt"), [2, 1, 0], 1e-3)
+
+    def test_the_ends_twist_runs_along_the_whole_chain(self):
+        """The start's twist is carried by the interior control as well, so it reaches the far end of the chain and not just
+        the next control: with 90 on the start, the interior marker turns 45 and the last joint 0."""
+        self.build_standard("ribbon_five", "ribbon_five")
+        set_attr("spineCtrlA_ctrl_c", "rotateX", 90)
+        turns = {}
+        for name in ("spineCtrlB_jnt", "spineCtrlC_jnt", "spineCtrlD_jnt"):
+            m = world_matrix(name)
+            turns[name] = math.degrees(math.atan2(m[6], m[5]))
+        self.assertAlmostEqual(turns["spineCtrlB_jnt"], 67.5, places=3)
+        self.assertAlmostEqual(turns["spineCtrlC_jnt"], 45.0, places=3)
+        self.assertAlmostEqual(turns["spineCtrlD_jnt"], 22.5, places=3)
+
+    # ---- the plan step's checks (D17) ----------------------------------------------------------
+
+    def _build_with(self, edit, skeleton="ribbon_basic"):
+        data = copy.deepcopy(fixtures.load_template("ribbon_basic"))
+        edit(data["rigModules"][0]["moduleArgs"])
+        return self.assertMayaError(lambda: self.build(data, self.make_skeleton(skeleton), label="ribbon_bad"))
+
+    def test_one_control_joint_is_an_error(self):
+        message = self._build_with(lambda args: args.update(controls=[["Center", "tailCtrlA"]]))
+        self.assertIn("control joints", message)
+        self.assertNothingBuilt()
+
+    def test_one_bind_joint_is_an_error(self):
+        message = self._build_with(lambda args: args.update(joints=[["Center", "tail1"]]))
+        self.assertIn("bind joints", message)
+        self.assertNothingBuilt()
+
+    def test_a_joint_cannot_be_a_control_and_a_bind_joint(self):
+        message = self._build_with(lambda args: args.update(joints=[["Center", "tailCtrlA"]] + args["joints"]))
+        self.assertIn("tailCtrlA", message)
+        self.assertNothingBuilt()
+
+    def test_more_than_eight_control_joints_is_an_error(self):
+        message = self._build_with(lambda args: args.update(controls=[["Center", "tailCtrlA"]] * 9))
+        self.assertIn("between 2 and 8", message)
+        self.assertNothingBuilt()
+
+    # ---- the end driven by another module's socket (section 3.4) -------------------------------
+
+    def test_the_end_follows_its_own_parent(self):
+        """The start and end child plugs carry their controls separately: with the start on layout_0 and the end on layout_2,
+        lifting layout_2 lifts the end, and the interior control, which rides the base curve between them, rises half as far."""
+        data = copy.deepcopy(fixtures.load_template("ribbon_basic"))
+        data["rigModules"][0]["parentStructure"] = {"start": "layout.index_0", "end": "layout.index_2"}
+        self.build(data, self.make_skeleton("ribbon_basic"), label="ribbon_driven_end")
+        set_attr("layout_2_ctrl_c", "translateY", 3.0)
+        self.assertWorldTranslation(rig_name("tail1_jnt"), [0, 0, 0], 1e-6)
+        self.assertWorldTranslation(rig_name("tail5_jnt"), [8, 3, 0], 1e-6)
+        self.assertWorldTranslation(rig_name("tail3_jnt"), [4, 1.5, 0], 1e-6)   # the base curve at u = 0.5 is the average of its ends
+        self.assertWorldTranslation(rig_name("tailCtrlC_jnt"), [8, 3, 0], 1e-6)
+
+    def test_an_unlisted_end_follows_the_start_parent(self):
+        """With no entry for `end` it takes start's parent, not layout.end: lifting the start's parent lifts the whole ribbon,
+        and lifting the layout's end control (where `end` would otherwise hang) does nothing to it."""
+        data = copy.deepcopy(fixtures.load_template("ribbon_basic"))
+        data["rigModules"][0]["parentStructure"] = {"start": "layout.index_0"}
+        self.build(data, self.make_skeleton("ribbon_basic"), label="ribbon_end_follows_start")
+        set_attr("layout_2_ctrl_c", "translateY", 3.0)
+        self.assertWorldTranslation(rig_name("tail5_jnt"), [8, 0, 0], 1e-6)
+        set_attr("layout_0_ctrl_c", "translateZ", 5.0)
+        for joint, x in zip(BIND_JOINTS, (0, 2, 4, 6, 8)):
+            self.assertWorldTranslation(rig_name(joint), [x, 0, 5], 1e-6)

@@ -171,3 +171,77 @@ cmds.setAttr("rig:handIk_l_ctrl_l.translateY", 3)               # the hand follo
 cmds.setAttr("rig:armSettings_l_ctrl_l.stretch", 1)             # and reaches it even when it is far
 cmds.setAttr("rig:armPole_l_ctrl_l.space", 1)                   # the pole now follows the handle
 ```
+
+## Ribbon
+
+A bendy, stretchy run of bind joints driven by a few controls: a tail, a spine, or a twist-distributed limb segment. A few **control joints** (a start, an end and up to six between) shape a virtual curve, and every **bind joint** rides it, so one move bends, stretches and twists many joints smoothly. There is no curve node and no mesh: the node evaluates the curve itself. [FkChain](#fkchain) is one control per joint, [Aim](#aim) points one joint and [TwoBoneIk](#twoboneik) is two bones with no bend of its own, so none of them covers this.
+
+```json
+{
+  "moduleType": "Ribbon",
+  "name": "tail_1",
+  "side": "Center",
+  "moduleArgs": {
+    "controls": [["Center", "tailCtrlA"], ["Center", "tailCtrlB"], ["Center", "tailCtrlC"]],
+    "joints": [["Center", "tail1"], ["Center", "tail2"], ["Center", "tail3"], ["Center", "tail4"], ["Center", "tail5"]]
+  }
+}
+```
+
+| `moduleArgs` key | Required | Value |
+|---|---|---|
+| `controls` | yes | 2 to 8 selectors for the **control joints**, root to tip: the start, the interior ones and the end |
+| `joints` | yes | 2 to 64 selectors for the **bind joints**, root to tip, already spaced the way the ribbon should hold them at rest |
+
+The control joints are **marker joints**: mark them `export: false, skin: false`, as for Aim's target and up. Joints must point down the chain (+X toward the tip, +Y up), the way an FK chain's do. Every joint belongs to this module alone, and a joint can't be both a control joint and a bind joint.
+
+| | |
+|---|---|
+| Node type | `ribbonModule` |
+| Controls | One **ik control** per control joint and one hidden **tweaker** per bind joint, named from their joints with their joints' markup. Control shapes come from the module's `shapeType`. |
+| Child plugs | `start` (the start control's parent) and `end` (the end control's parent) |
+| Sockets | `index_0` to `index_<j-1>` for the ik controls (`j` is the count of control joints), with `start` the same socket as `index_0` and `end` the last. The tweakers have none. |
+
+**How it moves.**
+
+- The **start and end controls** place the ends. Their own X axes set the curve's tangents there, so turning an end bends the ribbon, and `startAimBlend` and `endAimBlend` blend each tangent toward the other end.
+- An **interior ik control** floats on the curve between the ends and holds an offset from it. At rest it is where it was built. Moving it bends the curve through the new position, and only the segments around it change.
+- A **tweaker** sits on the finished curve at its bind joint's place and holds the animator's last offset. It is hidden, and still keyable. What a tweaker is given reaches that one joint and no other.
+- The ribbon is solved at rest and carried by the start's parent, so moving the parent moves the whole ribbon without changing its shape. The `end` child plug carries the end control with its own parent: drive it from another module's socket (a chest for a spine) and the ribbon runs between the two.
+- **Twist** is stateless. Each end's roll is read from its own rotation about X, wrapped to half a turn either side. The two ends' rolls ramp evenly along the whole ribbon (by the parameter `u`, 0 at the start to 1 at the end), and every interior control carries that ramp in its own frame, so a roll on the start reaches the far end of the chain and not only the next control. An interior control's own roll about X adds to the ramp at its place, and the joints between controls follow the controls' totals evenly. To roll past 180 degrees, key `startTwist` or `endTwist` near the total you want: the result lands on the turn of the rotation closest to it. With the channel at 0 the roll is the plain wrapped angle. Nothing is remembered between frames, so scrubbing and baking agree.
+- **Scale** interpolates smoothly between the controls' scales. `volumePreserve` scales the cross-section by the length ratio to the power of -0.5, with the ratio clamped between 0.25 and 4, weighted along the ribbon by `scaleStart`, `scaleMid` and `scaleEnd`.
+- A bind joint's place along the ribbon is its **parameter**: its share of the rest distance along the control joints' polyline. It is not an arc length, so a very uneven stretch spaces joints by that share and not by distance.
+
+**Channels** are all on the **first control**, with the control's own translate, rotate and scale. Names are public ([controls.md](controls.md#channels)); each channel's default is its rest.
+
+| Channel | Default | Range | What it does | Mirror |
+|---|---|---|---|---|
+| `startTwist`, `endTwist` | 0 | angle | The secondary twist angle that picks the turn for a roll past 180 degrees | negate |
+| `sineAmplitude` | 0 | -5 to 5 | A sine wave along the ribbon, as a fraction of the rest length | copy |
+| `sineFrequency` | 1 | 0 to 20 | Cycles along the whole ribbon | copy |
+| `sinePhase` | 0 | -20 to 20 | Cycles | copy |
+| `sineOrient` | 0 | angle | The wave's direction around the ribbon: 0 is up, a quarter turn is sideways | negate |
+| `sineStartFalloff`, `sineEndFalloff` | 0.2 | 0 to 1 | The share of the ribbon over which the wave fades in and out | copy |
+| `startAimBlend`, `endAimBlend` | 0 | 0 to 1 | 0 lets the end's own X axis set its tangent, 1 aims it at the other end | copy |
+| `bendRoundness` | 1 | 0 to 2 | The size of the end tangents: 0 is straight, about 0.65 to 1 is rounded | copy |
+| `volumePreserve` | 0 | 0 to 1 | How much a stretch squashes the cross-section (and a squash fattens it) | copy |
+| `scaleStart`, `scaleMid`, `scaleEnd` | 1 | 0 to 1 | The weight of `volumePreserve` at the start, the middle and the end | copy |
+
+The sine goes on after the twist.
+
+**Parenting.** `parentStructure` may have `start` and `end`. A `start` you leave out parents to `layout.end`, as everywhere. An `end` you leave out takes **the same parent as `start`**, so a self-contained ribbon (a tail) moves as one with its parent. List `end` to drive the end from another socket. A constraint may target either. Mirroring needs nothing extra: selector sides swap, and `startTwist`, `endTwist` and `sineOrient` are negated by the pose mirror.
+
+**Restoring from joints** ([commands.md](commands.md#how-the-joints-become-control-values)): the ik controls come from their marker joints and each tweaker from its bind joint, so every bind joint present comes back exactly. A control joint the source lacks keeps the value from the sidecar, or rest, and the tweakers carry the difference. The channels above come from the sidecar, and otherwise stay as they are in the scene: a `sineAmplitude` the restore doesn't know about puts the interior controls in the wrong place.
+
+The build fails if there are fewer than 2 or more than 8 control joints, fewer than 2 or more than 64 bind joints, or if two neighbouring control joints sit on each other.
+
+**Not built yet** (design/ribbon.md): `fkStyle`, an FK chain under the ik controls.
+
+```python
+from maya import cmds
+
+cmds.setAttr("rig:tailCtrlB_ctrl_c.translateY", 2)    # the middle of the tail rises, and the joints bend around it
+cmds.setAttr("rig:tailCtrlC_ctrl_c.rotateX", 200)     # the end rolls 200 degrees about its own X, and the roll ramps along the ribbon, so the middle control's frame turns 100
+cmds.setAttr("rig:tailCtrlA_ctrl_c.endTwist", 200)    # and the ribbon follows it past 180
+cmds.setAttr("rig:tailCtrlA_ctrl_c.volumePreserve", 1)  # squash and stretch fatten and thin the joints
+```

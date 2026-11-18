@@ -1,0 +1,67 @@
+{
+  "description": "Public names of a single Ribbon module: three ik controls and five tweakers, its sockets and child plugs, and the channels on the first control (D56)",
+  "template": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "interface": {
+    "modules": {
+      "layout": {
+        "type": "layoutModule",
+        "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
+        "childPlugs": []
+      },
+      "tail_1": {
+        "type": "ribbonModule",
+        "sockets": [["index_0", "start"], ["index_1"], ["index_2", "end"]],
+        "childPlugs": ["start", "end"]
+      }
+    },
+    "controls": {
+      "layout_0_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_0"]
+      },
+      "layout_1_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_1"]
+      },
+      "layout_2_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_2"]
+      },
+      "tail1_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "tail1"]
+      },
+      "tail2_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "tail2"]
+      },
+      "tail3_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "tail3"]
+      },
+      "tail4_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "tail4"]
+      },
+      "tail5_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "tail5"]
+      },
+      "tailCtrlA_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ", "startTwist", "endTwist", "sineAmplitude", "sineFrequency", "sinePhase", "sineOrient", "sineStartFalloff", "sineEndFalloff", "startAimBlend", "endAimBlend", "bendRoundness", "volumePreserve", "scaleStart", "scaleMid", "scaleEnd"],
+        "markup": ["Center", "tailCtrlA"]
+      },
+      "tailCtrlB_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "tailCtrlB"]
+      },
+      "tailCtrlC_ctrl_c": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "tailCtrlC"]
+      }
+    },
+    "joints": ["tail1_jnt", "tail2_jnt", "tail3_jnt", "tail4_jnt", "tail5_jnt", "tailCtrlA_jnt", "tailCtrlB_jnt", "tailCtrlC_jnt"],
+    "constraints": {}
+  }
+}

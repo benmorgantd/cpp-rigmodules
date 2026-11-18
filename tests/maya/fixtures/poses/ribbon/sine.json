@@ -1,0 +1,16 @@
+{
+  "description": "Sine amplitude 0.25 (of the rest length 8, so 2) with the default frequency 1, phase 0 and falloffs 0.2: y = 2 sin(2 pi u) wherever the envelope is 1, which is u from 0.2 to 0.8. Points (2,2), (4,0), (6,-2); the envelope is 0 at both ends so those stay at y = 0 with slope 0. The slope dy/du = 4 pi cos(2 pi u) is 0 at u = 0.25 and 0.75 and -4 pi at 0.5, so the middle joint turns atan2(-4 pi, 8) = -57.5183 degrees.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlA_ctrl_c.sineAmplitude": 0.25
+  },
+  "tolerance": 0.001,
+  "expect": {
+    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [0, 0, 0]},
+    "tail2_jnt": {"translate": [2, 2, 0], "rotate": [0, 0, 0]},
+    "tail3_jnt": {"translate": [4, 0, 0], "rotate": [0, 0, -57.5183]},
+    "tail4_jnt": {"translate": [6, -2, 0], "rotate": [0, 0, 0]},
+    "tail5_jnt": {"translate": [8, 0, 0], "rotate": [0, 0, 0]}
+  }
+}

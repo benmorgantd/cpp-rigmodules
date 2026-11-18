@@ -3,6 +3,7 @@
 #include "maya/modules/AimModule.h"
 #include "maya/modules/FkChainModule.h"
 #include "maya/modules/LayoutModule.h"
+#include "maya/modules/RibbonModule.h"
 #include "maya/modules/TwoBoneIkModule.h"
 #include "maya/nodes/Constraints.h"
 #include "maya/nodes/LookRoot.h"
@@ -43,6 +44,11 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
             "twoBoneIkModule", "TwoBoneIk", TwoBoneIkNode::id,
             TwoBoneIkNode::creator, TwoBoneIkNode::initialize,
             {}, TwoBoneIkNode::planFromJson, TwoBoneIkNode::inverse, true, TwoBoneIkNode::inverseChannels(), TwoBoneIkNode::spaceDelta
+        },
+        {
+            "ribbonModule", "Ribbon", RibbonModuleNode::id,
+            RibbonModuleNode::creator, RibbonModuleNode::initialize,
+            {}, RibbonModuleNode::planFromJson, RibbonModuleNode::inverse, true, RibbonModuleNode::inverseChannels()
         },
         {
             "rigConstraint", "RigConstraint", RigConstraintNode::id,

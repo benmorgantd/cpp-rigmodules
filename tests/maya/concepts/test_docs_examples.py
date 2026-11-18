@@ -5,6 +5,7 @@ builds fails here. The commands mirror the README's Python. The skeleton fixture
 README describes.
 """
 import json
+import math
 import os
 import re
 
@@ -527,3 +528,28 @@ class SkeletonDocExamples(RigTestCase):
         for doc, heading in ((SKELETONS_DOC, "## Loading"), (COMMANDS_DOC, "## loadRigSkeleton")):
             self.assertIn("Returns %s" % json.dumps(joints), doc_code_block(doc, heading, "python"))
         self.assertWorldTranslation("hero_body:c_jnt", [0, 4, 0])
+
+
+class RibbonDocExamples(RigTestCase):
+    """The Ribbon entry and snippet in docs/modules.md (D56)."""
+
+    def build_entry(self):
+        entry = json.loads(doc_code_block(MODULES_DOC, "## Ribbon", "json"))
+        self.build({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [entry]}, self.make_skeleton("ribbon_basic"))
+
+    def test_modules_doc_entry_builds_a_tail_at_rest(self):
+        self.build_entry()
+        self.assertExists(rig_name("tail_1"))
+        self.assertWorldTranslation(rig_name("tail3_jnt"), [4, 0, 0])
+        self.assertWorldTranslation(rig_name("tail5_jnt"), [8, 0, 0])
+
+    def test_modules_doc_snippet(self):
+        self.build_entry()
+        cmds.setAttr("rig:tailCtrlB_ctrl_c.translateY", 2)
+        cmds.setAttr("rig:tailCtrlC_ctrl_c.rotateX", 200)
+        cmds.setAttr("rig:tailCtrlA_ctrl_c.endTwist", 200)
+        cmds.setAttr("rig:tailCtrlA_ctrl_c.volumePreserve", 1)
+        # The end's 200 degree roll ramps along the ribbon, so the middle control's frame is rolled 100 degrees and its 2 units
+        # of local Y point (0, cos 100, sin 100) * 2. The ends don't move.
+        self.assertWorldTranslation(rig_name("tail3_jnt"), [4, 2 * math.cos(math.radians(100)), 2 * math.sin(math.radians(100))])
+        self.assertWorldTranslation(rig_name("tail5_jnt"), [8, 0, 0])

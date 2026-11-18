@@ -161,6 +161,7 @@
     <ClCompile Include="core\RigJsonStructs.cpp" />
     <ClCompile Include="core\RigTemplateValidation.cpp" />
     <ClCompile Include="core\Hash64.cpp" />
+    <ClCompile Include="core\RibbonMath.cpp" />
     <ClCompile Include="core\SkeletonFile.cpp" />
     <ClCompile Include="core\SkinWeightFile.cpp" />
     <ClCompile Include="core\SelectionSets.cpp" />
@@ -185,6 +186,7 @@
     <ClCompile Include="maya\modules\AimModule.cpp" />
     <ClCompile Include="maya\modules\FkChainModule.cpp" />
     <ClCompile Include="maya\modules\LayoutModule.cpp" />
+    <ClCompile Include="maya\modules\RibbonModule.cpp" />
     <ClCompile Include="maya\modules\TwoBoneIkModule.cpp" />
     <ClCompile Include="maya\nodes\Constraints.cpp" />
     <ClCompile Include="maya\nodes\RigControlNode.cpp" />
@@ -229,6 +231,7 @@
     <ClInclude Include="core\RigJsonStructs.h" />
     <ClInclude Include="core\RigTemplateValidation.h" />
     <ClInclude Include="core\Hash64.h" />
+    <ClInclude Include="core\RibbonMath.h" />
     <ClInclude Include="core\SkeletonFile.h" />
     <ClInclude Include="core\SkinWeightFile.h" />
     <ClInclude Include="core\SelectionSets.h" />
@@ -253,6 +256,7 @@
     <ClInclude Include="maya\modules\AimModule.h" />
     <ClInclude Include="maya\modules\FkChainModule.h" />
     <ClInclude Include="maya\modules\LayoutModule.h" />
+    <ClInclude Include="maya\modules\RibbonModule.h" />
     <ClInclude Include="maya\modules\TwoBoneIkModule.h" />
     <ClInclude Include="maya\nodes\Constraints.h" />
     <ClInclude Include="maya\nodes\RigControlNode.h" />

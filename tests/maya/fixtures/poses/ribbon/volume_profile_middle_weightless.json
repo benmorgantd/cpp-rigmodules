@@ -1,0 +1,18 @@
+{
+  "description": "The same stretch with scaleMid 0: the weight is w(u) = 4 (u - 0.5)^2, so the middle joint is unscaled, the ends take the full 0.816497, and u = 0.25 takes 1.5^(-0.5 * 0.25) = 0.950585.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlC_ctrl_c.translateX": 4,
+    "tailCtrlA_ctrl_c.volumePreserve": 1,
+    "tailCtrlA_ctrl_c.scaleMid": 0
+  },
+  "tolerance": 1e-05,
+  "expect": {
+    "tail1_jnt": {"scale": [1, 0.816497, 0.816497]},
+    "tail2_jnt": {"scale": [1, 0.950585, 0.950585]},
+    "tail3_jnt": {"scale": [1, 1, 1]},
+    "tail4_jnt": {"scale": [1, 0.950585, 0.950585]},
+    "tail5_jnt": {"scale": [1, 0.816497, 0.816497]}
+  }
+}

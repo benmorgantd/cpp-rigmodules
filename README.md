@@ -4,7 +4,7 @@ A C++ rigging plugin for Autodesk Maya 2026+. You mark up a skeleton, describe t
 
 The rig it builds is aimed at animation and game export: predictable controls, stable names, and a clean split between controls and export joints.
 
-> **Status:** early development. Four modules exist (Layout, FkChain, Aim, TwoBoneIk). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has the rig queries, display layers and selection sets, skin weight helpers, `rigmodules.pose` (key controls), and JointClip capture with FBX files and bone maps. Beyond building, the plugin has a pose and animation library (poses, keys, animation files, mirror and flip), skin weight files, and a solve that restores control values from joint data.
+> **Status:** early development. Five modules exist (Layout, FkChain, Aim, TwoBoneIk, Ribbon). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has the rig queries, display layers and selection sets, skin weight helpers, `rigmodules.pose` (key controls), and JointClip capture with FBX files and bone maps. Beyond building, the plugin has a pose and animation library (poses, keys, animation files, mirror and flip), skin weight files, and a solve that restores control values from joint data.
 
 ## How it works
 
@@ -102,6 +102,7 @@ Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`
 | FkChain | `FkChain` | `start` | `index_<n>` per joint, plus `start` (first) and `end` (last) |
 | Aim | `Aim` | `aim`, `target`, `up` | `aim`, `target`, `up` |
 | TwoBoneIk | `TwoBoneIk` | `start`, `ik`, `pole` | `index_0`, `index_1`, `index_2` (with `start` and `end`), `ik`, `pole`, `settings` |
+| Ribbon | `Ribbon` | `start`, `end` | `index_0` to `index_<j-1>`, one per ik control (with `start` and `end`) |
 
 Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 
@@ -157,7 +158,7 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | `cpp/` | `RigModules.vcxproj`, and the build output in `cpp/x64/` |
 | `cpp/core/` | Maya-free: template structs, loading, mirroring and validation, format version updates, joint and control markup schemas, control channels, the control shape library, and the file formats (shapes, skin weights, poses, keys, animation, joint clips), selection set layout, JSON and string helpers, shared name constants |
 | `cpp/maya/` | Plugin entry (`PluginMain.cpp`) and the registries every node and command is added to |
-| `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim, TwoBoneIk |
+| `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim, TwoBoneIk, Ribbon |
 | `cpp/maya/commands/` | The Maya commands, one file per command or related set: building, constraints, joint markup, controls and shapes, poses, keys and animation files, restoring from joints, rig info, skin weights. The list is in [docs/commands.md](docs/commands.md) |
 | `cpp/maya/nodes/` | Other nodes: the rig root (it also runs the build), the constraint node, the control node |
 | `cpp/maya/shared/` | Code used across those folders: the module base, utilities, rig traversal, and the scene sides of joint markup, shapes, skin weights, display layers, selection sets, poses, keys and the inverse solve |

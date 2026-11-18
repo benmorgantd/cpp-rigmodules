@@ -600,6 +600,11 @@ namespace
 			{
 				module.context.controlRestWorld[slot] = DagUtils::getMatrixFromPlug(pControlData.elementByLogicalIndex(slot).child(oRestWorld));
 			}
+			const MPlug pIkControlCount = fnModule.findPlug(RigAttr::IkControlCount, false, &status);
+			if (status)
+			{
+				module.context.ikControlCount = static_cast<unsigned int>(pIkControlCount.asInt());
+			}
 
 			status = readJoints(module, slotCount, clipJointByMarkup);
 			CHECK_MSTATUS_AND_RETURN_IT(status);

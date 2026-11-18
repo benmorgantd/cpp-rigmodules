@@ -54,7 +54,7 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 
 | Key | Required | Value |
 |---|---|---|
-| `moduleType` | yes | A module type from [modules.md](modules.md): `FkChain`, `Aim` or `TwoBoneIk` |
+| `moduleType` | yes | A module type from [modules.md](modules.md): `FkChain`, `Aim`, `TwoBoneIk` or `Ribbon` |
 | `name` | yes | The module's id. Unique in the template, a valid Maya node name (no `.`), and not `layout`. The module node gets this name in the rig namespace. |
 | `side` | no | `Center` (default), `Left` or `Right`. Sets the control name suffix (`_c`, `_l`, `_r`). |
 | `shapeType` | no | Control shape for the module's controls: `Box` (default) or any shape in [controls.md](controls.md#shapes) |
@@ -80,7 +80,7 @@ A selector is a `[side, usage]` pair matched against each joint's `rigMarkup` at
 Each key is one of this module's child plugs. Each value is a socket id, `module.socket`, where `module` is another module's `name` or `layout`.
 
 - A bare socket name (`"end"`) is an error. Write `layout.end`.
-- Child plugs that are not listed attach to `layout.end`, as do all child plugs of a module with no `parentStructure`.
+- Child plugs that are not listed attach to `layout.end`, as do all child plugs of a module with no `parentStructure`. The one exception is a [`Ribbon`](modules.md#ribbon)'s `end`, which takes the same parent as its `start` unless it is listed.
 - A module cannot parent to itself, directly or through a loop of modules.
 - `parent:module.socket` names a socket of the rig this one is attached to, in a `parentStructure` value or a constraint driver. See [attachments.md](attachments.md).
 

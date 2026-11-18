@@ -1,0 +1,72 @@
+{
+  "description": "The same stretch (lambda = 1.5) with volumePreserve 0.5: the cross-section scale is 1.5^(-0.5 * 0.5) = 0.903602 on Y and Z.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlC_ctrl_c.translateX": 4,
+    "tailCtrlA_ctrl_c.volumePreserve": 0.5
+  },
+  "tolerance": 1e-05,
+  "expect": {
+    "tail1_jnt": {
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        0.903602,
+        0.903602
+      ]
+    },
+    "tail2_jnt": {
+      "translate": [
+        3,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        0.903602,
+        0.903602
+      ]
+    },
+    "tail3_jnt": {
+      "translate": [
+        6,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        0.903602,
+        0.903602
+      ]
+    },
+    "tail4_jnt": {
+      "translate": [
+        9,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        0.903602,
+        0.903602
+      ]
+    },
+    "tail5_jnt": {
+      "translate": [
+        12,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        0.903602,
+        0.903602
+      ]
+    }
+  }
+}

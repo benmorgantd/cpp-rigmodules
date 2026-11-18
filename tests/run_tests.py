@@ -63,6 +63,7 @@ TIERS = [
         "modules.test_fkchain",
         "modules.test_aim",
         "modules.test_two_bone_ik",         # TwoBoneIk: contract, pose cases, behaviour, the settings and pole channels (D52)
+        "modules.test_ribbon",              # Ribbon: contract, pose cases, behaviour, the plan step checks (D56)
         "concepts.test_sockets",
         "concepts.test_naming",
         "concepts.test_undo_redo",

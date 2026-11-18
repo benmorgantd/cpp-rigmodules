@@ -75,6 +75,9 @@
     <ClCompile Include="core\RigTemplateValidation.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\RibbonMath.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\Hash64.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -148,6 +151,9 @@
       <Filter>maya\modules</Filter>
     </ClCompile>
     <ClCompile Include="maya\modules\LayoutModule.cpp">
+      <Filter>maya\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\modules\RibbonModule.cpp">
       <Filter>maya\modules</Filter>
     </ClCompile>
     <ClCompile Include="maya\modules\TwoBoneIkModule.cpp">
@@ -275,6 +281,9 @@
     <ClInclude Include="core\RigTemplateValidation.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="core\RibbonMath.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\Hash64.h">
       <Filter>core</Filter>
     </ClInclude>
@@ -348,6 +357,9 @@
       <Filter>maya\modules</Filter>
     </ClInclude>
     <ClInclude Include="maya\modules\LayoutModule.h">
+      <Filter>maya\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\modules\RibbonModule.h">
       <Filter>maya\modules</Filter>
     </ClInclude>
     <ClInclude Include="maya\modules\TwoBoneIkModule.h">

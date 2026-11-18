@@ -1,0 +1,82 @@
+{
+  "description": "The start control turns 90 about its own X, so the ramp runs from 90 at u = 0 to 0 at u = 1: 67.5 at the interior control's neighbour u = 0.25, 45 at the interior control, and 22.5 at u = 0.75. The start's twist reaches the far half of the chain, not only the first segment. The joints turn 90, 67.5, 45, 22.5 and 0.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlA_ctrl_c.rotateX": 90
+  },
+  "expect": {
+    "tailCtrlB_jnt": {
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        45,
+        0,
+        0
+      ]
+    },
+    "tail1_jnt": {
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "rotate": [
+        90,
+        0,
+        0
+      ]
+    },
+    "tail2_jnt": {
+      "translate": [
+        2,
+        0,
+        0
+      ],
+      "rotate": [
+        67.5,
+        0,
+        0
+      ]
+    },
+    "tail3_jnt": {
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        45,
+        0,
+        0
+      ]
+    },
+    "tail4_jnt": {
+      "translate": [
+        6,
+        0,
+        0
+      ],
+      "rotate": [
+        22.5,
+        0,
+        0
+      ]
+    },
+    "tail5_jnt": {
+      "translate": [
+        8,
+        0,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ]
+    }
+  }
+}

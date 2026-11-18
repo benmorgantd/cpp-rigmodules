@@ -1,0 +1,13 @@
+{
+  "description": "The same 200 turn with the secondary at 0 lands on the plain wrapped angle -160: the ramp runs from 0 to -160: the joint at u = 0.5 turns -80, the one at u = 0.75 turns -120 and the end -160. The secondary is what picks the other branch.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlC_ctrl_c.rotateX": 200
+  },
+  "expect": {
+    "tail3_jnt": {"translate": [4, 0, 0], "rotate": [-80, 0, 0]},
+    "tail4_jnt": {"translate": [6, 0, 0], "rotate": [-120, 0, 0]},
+    "tail5_jnt": {"translate": [8, 0, 0], "rotate": [-160, 0, 0]}
+  }
+}

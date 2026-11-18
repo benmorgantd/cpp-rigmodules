@@ -1,6 +1,6 @@
 # Ribbon: design draft
 
-**Status:** Leaning, D56 (author answers of 2026-11-17, three rounds). Not signed off, not built. All questions are answered (section 9). Branch: `ribbon-module-planning`. Per the working style, no implementation starts until the author signs off on this page.
+**Status:** D56. Built in part on 2026-11-17: phases 1, 2, 3 and 5 and the docs. Not built: `fkStyle` and phase 6 (the perf rig and `bench`). Section 14 lists what the build did differently from this page. Branch: `ribbon-module-planning`.
 
 Sources: the author's note, the Claude-written handoff `maya_c_ik_ribbon_node_handoff.md` (a source of math, not of design: it conflicts with this repo in several places, section 10) and the author's answers.
 
@@ -60,9 +60,9 @@ The ribbon can be all self-contained, or its start and end controls can be **dri
 2. **Frame per control** at `u_j` (or from the FK control). Parallel transport of the up vector along the base curve, no 180 degree flip.
 3. **Detail curve** through `frame_j * local_j` for all j. Positions, tangents (finite difference, blended with the control's own X axis) and scale from the control's local matrix.
 4. **Rest up vector.** The ribbon is a plane, so the frame needs a reference up. Take **the start joint's rest Y axis** (Maya X-down, Y-up), projected orthogonal to the rest tangent. No module argument. Parallel transport carries it, so the start's frame is twist-free, and twist is layered on after.
-5. **Nonlinear layers**, in this order, all parameterized from the first control (author, round two):
-   1. **Twist**, start and end, distributed by `u^twistFalloffPower`.
-   2. **Bow**, a displacement perpendicular to the curve, peak at the middle, scaled by `restLength`.
+5. **Twist and layers**, parameterized from the first control (author, round two, revised 2026-11-17):
+   1. **Twist**, start and end: the two ends' total twists ramp linearly in `u` along the whole ribbon (revised: it was `u^twistFalloffPower` between neighbours, so the start's twist stopped at the next control). Every interior control carries the ramp in its offset parent matrix, and its own roll adds on top.
+   2. ~~Bow~~, removed (2026-11-17).
    3. **Sine**, windowed by smoothstep envelopes at both ends, amplitude, frequency, phase, orientation. In v1 (author). The layer stack is sized to add more (Q-d).
 6. **Bind frames** per `u_i`: position, tangent re-orthogonalised after the displacements (central difference), twist applied around the tangent, scale composed. The tweaker's `offsetParentMatrix` takes the result.
 
@@ -91,7 +91,7 @@ Names are public API (D34). None of this is final until sign-off.
 - **Child plugs:** `start` and `end`, which the template can connect to another module's sockets. With no connection the controls stay self-contained.
 - **Sockets:** `start`, `end`, and one per interior control.
 - **Control inputs:** the node takes each IK control's **local matrix**, a plug type new to the module layer.
-- **Channels, all on the first control** (author, round two), defaults equal rest (D34): `startTwist` and `endTwist` (the secondary angles, `mirrorNegate`), `twistFalloffPower`, `bow`, `sineAmplitude`, `sineFrequency`, `sinePhase`, `sineOrient` (`mirrorNegate`), `sineStartFalloff`, `sineEndFalloff`, `startAimBlend`, `endAimBlend`, `bendRoundness`, `volumePreserve`, `scaleStart`, `scaleMid`, `scaleEnd`. Names in `RigAttr`. The first control is the start IK control in both modes (section 9, Q-b).
+- **Channels, all on the first control** (author, round two), defaults equal rest (D34): `startTwist` and `endTwist` (the secondary angles, `mirrorNegate`), `sineAmplitude`, `sineFrequency`, `sinePhase`, `sineOrient` (`mirrorNegate`), `sineStartFalloff`, `sineEndFalloff`, `startAimBlend`, `endAimBlend`, `bendRoundness`, `volumePreserve`, `scaleStart`, `scaleMid`, `scaleEnd`. Names in `RigAttr`. The first control is the start IK control in both modes (section 9, Q-b).
 - **Limits** for allocation-free `compute()`: j up to 8, n up to 64, fixed scratch buffers, a fixed sample count for the arc-length table.
 - **Read-phase validation (D17):** joint existence and claimed once, j >= 2, n >= 2, every control and bind joint within the caps, every `fkStyle` control with a matching FK control, and the `start`/`end` child plugs either both connected or neither.
 
@@ -130,7 +130,7 @@ Section 3 and the rest of this page are updated to match where a line below chan
 
 ## 11. Maintenance surface added
 
-One module node and descriptor, one more control kind (tweaker), a template key (`fkStyle`), about 17 channel names, a plug type (a control's local matrix) the module layer didn't have, an inverse, and the heaviest `compute()` in the plugin.
+One module node and descriptor, one more control kind (tweaker), a template key (`fkStyle`), about 15 channel names, a plug type (a control's local matrix) the module layer didn't have, an inverse, and the heaviest `compute()` in the plugin.
 
 ## 12. Verification plan
 
@@ -150,3 +150,25 @@ One module node and descriptor, one more control kind (tweaker), a template key 
 5. The inverse and its pose cases.
 6. The perf rig and `bench`.
 7. Docs.
+
+## 14. As built (2026-11-17)
+
+Built: `core/RibbonMath` (phase 1), `maya/modules/RibbonModule` with controls, tweakers, sockets, child plugs and the 15 channels (phase 2), the twist, sine, scale and volume layers (phase 3), the inverse (phase 5), the perf rig with `bench` (phase 6) and the docs (phase 7). The suite has the contract, hand-worked pose cases, behaviour tests, the plan step's checks and a golden snapshot. Not built: `fkStyle` (phase 4).
+
+**Revised 2026-11-17 (D56):** the ends' twist ramps along the whole chain and the interior controls carry the ramp in their offset parent matrix, `twistFalloffPower` and `bow` are removed (15 channels), and the first build's performance number was a reload bug (see D56).
+
+Where the build differs from the sections above:
+
+- **No new plug type** (sections 3.2, 5 and 11). The module layer already feeds each control's local `matrix` into `controlData[i].controlLocalMatrix`, so the ribbon reads exactly what every module reads. There is no cycle for the same reason: an interior ik control's OPM is a function of the two end controls' locals and the stored offsets, never of its own world.
+- **Reference space** (3.3). The ribbon is solved in the rest world, where the start and end sit at their rests, and the start child plug's parent motion carries the whole result (`world = result * startDelta`). The end control takes its own child plug's motion (`rest * endDelta * startDelta^-1` in the solve), which is what lets another module's socket drive the end. This is the draft's parent-space rule with no per-control inverse.
+- **Parameters** (2). `u` is each control's and bind joint's share of the rest length along the control joints' polyline (a bind joint projects onto the closest chord). There is no arc-length table, so under a very uneven stretch joints keep their parameter shares, not equal distances. The 32-sample table is the parallel-transport frame table only.
+- **Rest up** (4.4). The start joint's rest Y, made perpendicular to the rest tangent, carried to the live start tangent by the shortest arc. The same carried frame table serves the base and detail curves.
+- **Frames at rest are exact by construction.** The interior controls store their rest as an offset in the base curve's frame at their `u` (`ikRestOffset`), and the bind joints store theirs in the detail curve's frame at their `u` (`bindRestOffset`), both computed at build with the default channels. Any rest, curved or not, comes back exactly. The joints must still point down the chain: a rest tangent against the chord makes a looped curve.
+- **Tangents** (4.1, 4.3). The end tangents come from the base curve (the end control's X axis blended toward the aim by `startAimBlend` and `endAimBlend`, scaled by chord times `bendRoundness`). An interior knot's tangent is the finite difference of its neighbours blended half and half with its control's own X axis (`kControlTangentBlend`, not a channel). A two-control ribbon is its base curve.
+- **Twist** (4.1). The ends' totals (through the branch picker) ramp linearly in `u` along the whole ribbon. Each interior control's offset parent matrix is its base-curve frame turned by the ramp at its `u`, and **an interior control's own roll adds to the ramp** (the draft said start and end only). The detail twist at a control is the ramp plus its own roll, and a bind joint between two controls takes the linear blend of their totals. With no interior roll that is the straight ramp, so the start's twist reaches the far end.
+- **Layers** (4.2, Q-d). The sine displaces along the twisted frame, so it turns with the twist. The tangent of a bind frame is the central difference of the displaced curve (the spline extrapolates past its ends so an end stays central).
+- **Volume** (4.2). The length ratio is the sum of the control chords against the rest length, clamped to 0.25 to 4. `volumePreserve` defaults to 0.
+- **Inverse** (7). It needs to know where the ik controls end and the tweakers begin, so `ModuleInverseContext` gained `ikControlCount`, filled by `RigInverse` from the module's `ikControlCount` attribute. The sweep reads marker joints when the clip has them. With a control joint missing, that control keeps its sidecar or rest value, and the tweakers carry the difference.
+- **Names.** The moduleArgs keys are `controls` (the control joints) and `joints` (the bind joints). The node is `ribbonModule`, MTypeId 0x002191.
+
+Checked: the full suite (1151 tests, all passing on the build that holds this change), and `bench` (D56: 50 rigs 107 to 116 ms against a 66 ms floor, 20 rigs 20 to 21 fps). Not checked: viewport drawing of the controls, and `fkStyle`.

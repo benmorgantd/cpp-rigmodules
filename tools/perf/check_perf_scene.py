@@ -1,5 +1,5 @@
-"""Checks the complex performance rig (tools/perf/perf_scenes.py): a generated 272 joint skeleton, a template with
-75 constraints, Aim modules and TwoBoneIk limbs, and a range of motion. They keep the benchmark's rig valid when the plugin changes,
+"""Checks the complex performance rig (tools/perf/perf_scenes.py): a generated 354 joint skeleton, a template with
+75 constraints, Aim modules, TwoBoneIk limbs and Ribbons, and a range of motion. They keep the benchmark's rig valid when the plugin changes,
 so a slow result is never a broken build.
 
 Not part of the suite, so RigTests.cmd never runs it. Run it on demand, after changing the rig generator or
@@ -27,13 +27,13 @@ class ComplexTemplateData(RigTestCase):
 
     def test_counts(self):
         template = perf_scenes.build_template()
-        self.assertEqual(len(perf_scenes.joint_layout()), 272)      # 200 less the limbs' 72: 12 limbs x 6 joints
-        self.assertEqual(len(template["rigModules"]), 36)           # 8 Center chains, 19 Left chains, 3 Aim modules, 6 limbs
+        self.assertEqual(len(perf_scenes.joint_layout()), 354)      # 272 for the chains, aim sets and limbs, and 82 for the ribbons
+        self.assertEqual(len(template["rigModules"]), 40)           # 8 Center chains, 19 Left chains, 3 Aim modules, 6 limbs, 1 Center and 3 Left ribbons
         self.assertEqual(perf_scenes.built_constraint_count(template), 75)   # 7 Center, 34 mirrored (22 + 12 limb spaces)
 
     def test_every_module_type_is_used(self):
         types = {module["moduleType"] for module in perf_scenes.build_template()["rigModules"]}
-        self.assertEqual(types, {"FkChain", "Aim", "TwoBoneIk"})
+        self.assertEqual(types, {"FkChain", "Aim", "TwoBoneIk", "Ribbon"})
 
     def test_every_constraint_type_is_used(self):
         types = {entry["type"] for entry in perf_scenes.build_template()["constraints"]}
@@ -43,7 +43,7 @@ class ComplexTemplateData(RigTestCase):
         limbs = perf_scenes.limb_specs()
         self.assertEqual(len(limbs), 6)   # Left, each built on both sides
         markers = [j for j in perf_scenes.joint_layout() if j.get("marker")]
-        self.assertEqual(len(markers), 36)   # ik, pole and settings, 12 limbs
+        self.assertEqual(len(markers), 36 + 2 * 3 * 3 + 4)   # ik, pole and settings of 12 limbs, 3 control joints of 6 arm ribbons and 4 of the tail
         for limb in limbs:
             pole = [m for m in perf_scenes.build_template()["rigModules"] if m["name"] == "%s_l" % limb["base"]][0]
             self.assertNotIn("%s_l." % limb["base"], pole["parentStructure"]["pole"])   # D17: not the module's own socket
@@ -98,11 +98,12 @@ class ComplexRig(RigTestCase):
                 self.assertAlmostEqual(a, e, places=3, msg=joint["name"])
 
     def test_builds_every_control_and_constraint(self):
-        # 272 joints, less the 6 aim joints, which have no control
-        self.assertEqual(len(self.instances[0].controls), 266)
+        # 354 joints, less the 6 aim joints, which have no control
+        self.assertEqual(len(self.instances[0].controls), 348)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="rigConstraint")), 75)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="aimModule")), 6)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="twoBoneIkModule")), 12)
+        self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="ribbonModule")), 7)
 
     def test_every_limb_is_built_with_six_controls_in_ik(self):
         limbs = self.instances[0].limbs

@@ -8,7 +8,7 @@ from maya import cmds, mel
 from rigtest.case import RigTestCase
 
 NODE_TYPES = ["rigRootModule","layoutModule", "fkChainModule", "aimModule",
-              "twoBoneIkModule", "rigConstraint", "lookRoot", "rigControlNode"]
+              "twoBoneIkModule", "ribbonModule", "rigConstraint", "lookRoot", "rigControlNode"]
 
 COMMAND_FLAGS = {
     "createRigFromTemplate": ["template", "namespace", "checkMirrorPositions"],

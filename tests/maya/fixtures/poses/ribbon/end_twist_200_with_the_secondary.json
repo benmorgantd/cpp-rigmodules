@@ -1,0 +1,47 @@
+{
+  "description": "The end control turns 200 about X, which the swing-twist split reads as -160. With the secondary twist at 200 the branch picker returns 200 + wrap(-160 - 200) = 200 + wrap(-360) = 200, so the ramp is 0 to 200 along the ribbon: 100 at u = 0.5, 150 at u = 0.75 and 200 at the end (the same rotation as -160).",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "set": {
+    "tailCtrlC_ctrl_c.rotateX": 200,
+    "tailCtrlA_ctrl_c.endTwist": 200
+  },
+  "expect": {
+    "tail3_jnt": {
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        100,
+        0,
+        0
+      ]
+    },
+    "tail4_jnt": {
+      "translate": [
+        6,
+        0,
+        0
+      ],
+      "rotate": [
+        150,
+        0,
+        0
+      ]
+    },
+    "tail5_jnt": {
+      "translate": [
+        8,
+        0,
+        0
+      ],
+      "rotate": [
+        200,
+        0,
+        0
+      ]
+    }
+  }
+}
