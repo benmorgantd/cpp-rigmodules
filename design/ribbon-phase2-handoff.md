@@ -31,7 +31,7 @@ It needs its own contract, hand-worked pose cases, a golden for the extra contro
 
 - **No DG cycle check is in the suite.** Add one if a reliable Maya query exists, otherwise say so in the docs.
 - **Viewport.** The ik controls and the hidden tweakers have not been looked at in a GUI Maya (`tests\ViewportGallery.cmd`).
-- **Joint orientation.** The ribbon needs each control joint's +X down the chain. A template whose control joints point elsewhere builds but gives a looped base curve. A read-phase warning in `planFromJson` would catch it.
+- **Joint orientation.** The ribbon needs each control joint's X along the chain. Either direction works since D57 phase 0 (`chainSign`, 2026-11-18). A template whose control joints point across the chain still builds and gives a looped base curve. A read-phase warning in `planFromJson` would catch it, and D57 phase 1 adds that check.
 - **Arc length.** A bind joint's `u` is its share of the control polyline, not an arc length. If animators see uneven spacing under big stretches, the design's arc-length table is the fix. It is cheap now (the math is 5.5 microseconds).
 - **Arm made of two ribbons / an arm with a ribbon on `TwoBoneIk` sockets** (ribbon.md 3.4, 6): the plugs and sockets work (`test_the_end_follows_its_own_parent`), but no test has chained a ribbon to `TwoBoneIk` sockets, and the author's `solomon` arm template (start a child of the shoulder, end point-constrained to the elbow, start orient-constrained to the shoulder's parent so it does not take the shoulder's roll) is not built in a test.
 - **Perf scene.** The perf rig keys only transforms. If a branch on a ribbon channel's value is ever added, key it in `key_ribbons` or the bench will flatter it.

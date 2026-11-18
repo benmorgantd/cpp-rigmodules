@@ -1,0 +1,16 @@
+{
+  "description": "interior_control_up on a chain running down -X with the joints' +X pointing back. The interior control moves 2 up, so the curve is the x-mirror of the +X case: it passes through (0,0,0), (-4,2,0) and (-8,0,0) with every tangent (-8,0,0). The joints at u = 0.25 and 0.75 are at (-2,1,0) and (-6,1,0), where the slope is (-8,6,0) and then (-8,-6,0). A joint's rest forward direction is (-1,0,0) at 180 degrees. (-8,6) is at 143.1301 degrees, so tail2 turns -36.8699 about Z, and (-8,-6) is at 216.8699 degrees, so tail4 turns +36.8699. At the control the slope is the tangent, so no turn.",
+  "skeleton": "ribbon_negx",
+  "template": "ribbon_negx",
+  "set": {
+    "tailCtrlB_ctrl_c.translateY": 2
+  },
+  "tolerance": 0.001,
+  "expect": {
+    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [0, 0, 0]},
+    "tail2_jnt": {"translate": [-2, 1, 0], "rotate": [0, 0, -36.8699]},
+    "tail3_jnt": {"translate": [-4, 2, 0], "rotate": [0, 0, 0]},
+    "tail4_jnt": {"translate": [-6, 1, 0], "rotate": [0, 0, 36.8699]},
+    "tail5_jnt": {"translate": [-8, 0, 0], "rotate": [0, 0, 0]}
+  }
+}

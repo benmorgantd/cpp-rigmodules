@@ -194,7 +194,7 @@ A bendy, stretchy run of bind joints driven by a few controls: a tail, a spine, 
 | `joints` | yes | 2 to 64 selectors for the **bind joints**, root to tip, already spaced the way the ribbon should hold them at rest |
 | `startAimBlend`, `endAimBlend` | no | A number from 0 to 1, default 0: the default, and so the rest, of the channel of the same name (below). Set `startAimBlend` to 1 on a shoulder or thigh so its start aims down the limb on every build. A value outside 0 to 1 fails the build |
 
-The control joints are **marker joints**: mark them `export: false, skin: false`, as for Aim's target and up. Joints must point down the chain (+X toward the tip, +Y up), the way an FK chain's do. Every joint belongs to this module alone, and a joint can't be both a control joint and a bind joint.
+The control joints are **marker joints**: mark them `export: false, skin: false`, as for Aim's target and up. A joint's X axis must run along the chain, either toward the tip (+X down the chain, +Y up, the way an FK chain's do) or back up it (-X down the chain, as on a mirrored limb that keeps the other side's axes). The build reads which from the control joints and every control's twist keeps its sign about its own X. A joint whose X axis runs across the chain builds but gives a looped curve. Every joint belongs to this module alone, and a joint can't be both a control joint and a bind joint.
 
 | | |
 |---|---|

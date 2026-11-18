@@ -162,6 +162,7 @@
     <ClCompile Include="core\RigTemplateValidation.cpp" />
     <ClCompile Include="core\Hash64.cpp" />
     <ClCompile Include="core\RibbonMath.cpp" />
+    <ClCompile Include="core\ControlPlacement.cpp" />
     <ClCompile Include="core\SwingTwist.cpp" />
     <ClCompile Include="core\SkeletonFile.cpp" />
     <ClCompile Include="core\SkinWeightFile.cpp" />
@@ -233,7 +234,9 @@
     <ClInclude Include="core\RigTemplateValidation.h" />
     <ClInclude Include="core\Hash64.h" />
     <ClInclude Include="core\RibbonMath.h" />
+    <ClInclude Include="core\ControlPlacement.h" />
     <ClInclude Include="core\SwingTwist.h" />
+    <ClInclude Include="core\VectorMath.h" />
     <ClInclude Include="core\SkeletonFile.h" />
     <ClInclude Include="core\SkinWeightFile.h" />
     <ClInclude Include="core\SelectionSets.h" />

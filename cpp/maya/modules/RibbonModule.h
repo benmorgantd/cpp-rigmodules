@@ -84,6 +84,7 @@ public:
 	static MObject aKnotU;           // double array, one per ik control
 	static MObject aBindU;           // double array, one per bind joint
 	static MObject aRestLength;
+	static MObject aChainSign;       // +1 or -1: whether the controls' X axes run down the chain (RibbonMath::Setup::chainSign)
 	static MObject aRestUp;
 	static MObject aRestTangent;
 	static MObject aIkRestOffset;    // matrix array, one per ik control (the interior ones are used)

@@ -9,6 +9,8 @@
 // Matrices are row-major with row vectors (Maya's convention): rows 0 to 2 are the X, Y and Z axes, row 3 the origin.
 // Everything is in one space, the "ribbon space" the caller chooses (the rig's rest world, carried by the parent's motion).
 
+#include "VectorMath.h"
+
 namespace RibbonMath
 {
 	// The caps that keep evaluation allocation-free. The plan step rejects a template over them.
@@ -17,17 +19,8 @@ namespace RibbonMath
 	// Frames are carried along the curve at this many steps, and read back by interpolation.
 	inline constexpr int FrameSamples{ 32 };
 
-	struct Vec3
-	{
-		double x{ 0.0 };
-		double y{ 0.0 };
-		double z{ 0.0 };
-	};
-
-	struct Mat4
-	{
-		double m[4][4]{ { 1.0, 0.0, 0.0, 0.0 }, { 0.0, 1.0, 0.0, 0.0 }, { 0.0, 0.0, 1.0, 0.0 }, { 0.0, 0.0, 0.0, 1.0 } };
-	};
+	using VectorMath::Mat4;
+	using VectorMath::Vec3;
 
 	Mat4 multiply(const Mat4& a, const Mat4& b);
 	// The inverse of a rigid matrix (orthonormal axes), which every frame the ribbon builds at rest is.
@@ -64,7 +57,11 @@ namespace RibbonMath
 		double bindU[MaxBindJoints]{};      // each bind joint's parameter: its rest position projected on the control polyline
 		double restLength{ 0.0 };           // the sum of the rest chords between neighbouring controls
 		Vec3 restUp;                        // the start's rest Y axis, made perpendicular to the rest tangent
-		Vec3 restTangent;                   // the start's rest X axis
+		Vec3 restTangent;                   // the start's rest X axis, flipped by chainSign so it runs down the chain
+		// +1 when the controls' X axes run down the chain, -1 when they point back up it, as in a mirrored limb whose joints keep
+		// the other side's axes (D57). Every use of a control's X axis as a direction goes through it, and a twist about that
+		// axis is turned about the chain's forward tangent with its sign flipped.
+		double chainSign{ 1.0 };
 		Mat4 ikOffset[MaxControls];         // an interior control's rest in the base curve's frame at its parameter
 		Mat4 bindOffset[MaxBindJoints];     // a bind joint's rest in the detail curve's frame at its parameter
 	};

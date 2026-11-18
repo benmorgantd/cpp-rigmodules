@@ -78,6 +78,9 @@
     <ClCompile Include="core\RibbonMath.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\ControlPlacement.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\SwingTwist.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -287,7 +290,13 @@
     <ClInclude Include="core\RibbonMath.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="core\ControlPlacement.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\SwingTwist.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\VectorMath.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\Hash64.h">

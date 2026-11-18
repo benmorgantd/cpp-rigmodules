@@ -319,6 +319,7 @@ namespace RigAttr
 	inline constexpr const char* RestLength{ "restLength" };
 	inline constexpr const char* RestUp{ "restUp" };
 	inline constexpr const char* RestTangent{ "restTangent" };
+	inline constexpr const char* ChainSign{ "chainSign" };   // +1 when the controls' X axes run down the chain, -1 when they point back
 	inline constexpr const char* IkRestOffset{ "ikRestOffset" };
 	inline constexpr const char* BindRestOffset{ "bindRestOffset" };
 }

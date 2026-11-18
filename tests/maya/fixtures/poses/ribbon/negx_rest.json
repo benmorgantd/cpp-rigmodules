@@ -1,0 +1,12 @@
+{
+  "description": "A chain that runs down -X while every joint's own +X points back up the chain (the way a mirrored limb is oriented, D57). At rest every bind joint sits where it was built, x = 0, -2, -4, -6, -8, with no rotation and no scale.",
+  "skeleton": "ribbon_negx",
+  "template": "ribbon_negx",
+  "expect": {
+    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
+    "tail2_jnt": {"translate": [-2, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
+    "tail3_jnt": {"translate": [-4, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
+    "tail4_jnt": {"translate": [-6, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
+    "tail5_jnt": {"translate": [-8, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]}
+  }
+}

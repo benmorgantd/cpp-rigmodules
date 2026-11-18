@@ -11,7 +11,6 @@ namespace RibbonMath
 		constexpr double kPi{ 3.14159265358979323846 };
 		// A chord this short has no direction: the rest frame stands in for it (Q-e).
 		constexpr double kMinChord{ 1.0e-4 };
-		constexpr double kTiny{ 1.0e-12 };
 		// The volume exponent clamps the length ratio so an extreme pull can't zero or explode the scale (Q-e).
 		constexpr double kMinLengthRatio{ 0.25 };
 		constexpr double kMaxLengthRatio{ 4.0 };
@@ -21,90 +20,29 @@ namespace RibbonMath
 		// finite difference of its neighbours).
 		constexpr double kControlTangentBlend{ 0.5 };
 
-		Vec3 add(const Vec3& a, const Vec3& b)
-		{
-			return { a.x + b.x, a.y + b.y, a.z + b.z };
-		}
-		Vec3 sub(const Vec3& a, const Vec3& b)
-		{
-			return { a.x - b.x, a.y - b.y, a.z - b.z };
-		}
-		Vec3 scale(const Vec3& a, double s)
-		{
-			return { a.x * s, a.y * s, a.z * s };
-		}
-		double dot(const Vec3& a, const Vec3& b)
-		{
-			return a.x * b.x + a.y * b.y + a.z * b.z;
-		}
-		Vec3 cross(const Vec3& a, const Vec3& b)
-		{
-			return { a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
-		}
-		double length(const Vec3& a)
-		{
-			return std::sqrt(dot(a, a));
-		}
-		Vec3 normalized(const Vec3& a, const Vec3& fallback)
-		{
-			const double len = length(a);
-			return len > kTiny ? scale(a, 1.0 / len) : fallback;
-		}
-		Vec3 lerp(const Vec3& a, const Vec3& b, double t)
-		{
-			return add(scale(a, 1.0 - t), scale(b, t));
-		}
-		Vec3 row(const Mat4& a, int r)
-		{
-			return { a.m[r][0], a.m[r][1], a.m[r][2] };
-		}
-		Vec3 origin(const Mat4& a)
-		{
-			return row(a, 3);
-		}
+		using VectorMath::add;
+		using VectorMath::anyPerpendicular;
+		using VectorMath::cross;
+		using VectorMath::dot;
+		using VectorMath::length;
+		using VectorMath::lerp;
+		using VectorMath::makeFrame;
+		using VectorMath::normalized;
+		using VectorMath::origin;
+		using VectorMath::rotateByArc;
+		using VectorMath::row;
+		using VectorMath::scale;
+		using VectorMath::sub;
+
 		double clamp01(double v)
 		{
 			return std::min(1.0, std::max(0.0, v));
 		}
+
 		double smoothstep(double t)
 		{
 			const double s = clamp01(t);
 			return s * s * (3.0 - 2.0 * s);
-		}
-
-		Mat4 makeFrame(const Vec3& x, const Vec3& y, const Vec3& z, const Vec3& o)
-		{
-			Mat4 result;
-			const Vec3* axes[4]{ &x, &y, &z, &o };
-			for (int r = 0; r < 4; ++r)
-			{
-				result.m[r][0] = axes[r]->x;
-				result.m[r][1] = axes[r]->y;
-				result.m[r][2] = axes[r]->z;
-			}
-			return result;
-		}
-
-		// A vector perpendicular to v, for the cases with no better choice.
-		Vec3 anyPerpendicular(const Vec3& v)
-		{
-			const Vec3 axis = std::fabs(v.x) < 0.9 ? Vec3{ 1.0, 0.0, 0.0 } : Vec3{ 0.0, 1.0, 0.0 };
-			return normalized(cross(v, axis), { 0.0, 1.0, 0.0 });
-		}
-
-		// v turned by the shortest arc that takes unit vector `from` to unit vector `to` (Rodrigues). Antiparallel is
-		// a half turn about v's own perpendicular, so v is kept as it is.
-		Vec3 rotateByArc(const Vec3& v, const Vec3& from, const Vec3& to)
-		{
-			const Vec3 axis = cross(from, to);
-			const double sine = length(axis);
-			const double cosine = dot(from, to);
-			if (sine < 1.0e-9)
-			{
-				return v;
-			}
-			const Vec3 k = scale(axis, 1.0 / sine);
-			return add(add(scale(v, cosine), scale(cross(k, v), sine)), scale(k, dot(k, v) * (1.0 - cosine)));
 		}
 
 		// ---- the spline ----
@@ -227,6 +165,12 @@ namespace RibbonMath
 			FrameTable table;
 		};
 
+		// A control's X axis as a direction down the chain.
+		Vec3 forwardAxis(const Mat4& world, const Setup& setup, const Vec3& fallback)
+		{
+			return normalized(scale(row(world, 0), setup.chainSign), fallback);
+		}
+
 		void makeBase(const Setup& setup, const Params& params, const Mat4& startWorld, const Mat4& endWorld, Base& base)
 		{
 			const Vec3 p0 = origin(startWorld);
@@ -246,8 +190,8 @@ namespace RibbonMath
 			else
 			{
 				const Vec3 aim = scale(chord, 1.0 / chordLength);
-				dir0 = normalized(lerp(normalized(row(startWorld, 0), aim), aim, clamp01(params.startAimBlend)), aim);
-				dir1 = normalized(lerp(normalized(row(endWorld, 0), aim), aim, clamp01(params.endAimBlend)), aim);
+				dir0 = normalized(lerp(forwardAxis(startWorld, setup, aim), aim, clamp01(params.startAimBlend)), aim);
+				dir1 = normalized(lerp(forwardAxis(endWorld, setup, aim), aim, clamp01(params.endAimBlend)), aim);
 			}
 
 			const double handle = chordLength * std::max(0.0, params.bendRoundness);
@@ -277,7 +221,7 @@ namespace RibbonMath
 			makeBase(setup, params, output.controlWorld[0], output.controlWorld[last], base);
 			for (int j = 1; j < last; ++j)
 			{
-				output.controlOPM[j] = multiply(setup.ikOffset[j], frameMatrix(base.spline, base.table, setup.knotU[j], twists.at(setup.knotU[j])));
+				output.controlOPM[j] = multiply(setup.ikOffset[j], frameMatrix(base.spline, base.table, setup.knotU[j], setup.chainSign * twists.at(setup.knotU[j])));
 				output.controlWorld[j] = multiply(input.local[j], output.controlOPM[j]);
 			}
 		}
@@ -388,7 +332,7 @@ namespace RibbonMath
 			{
 				const Vec3 difference = scale(sub(spline.p[j + 1], spline.p[j - 1]), 1.0 / (spline.u[j + 1] - spline.u[j - 1]));
 				const Vec3 differenceDirection = normalized(difference, { 1.0, 0.0, 0.0 });
-				const Vec3 direction = normalized(lerp(differenceDirection, normalized(row(output.controlWorld[j], 0), differenceDirection), kControlTangentBlend), differenceDirection);
+				const Vec3 direction = normalized(lerp(differenceDirection, forwardAxis(output.controlWorld[j], setup, differenceDirection), kControlTangentBlend), differenceDirection);
 				spline.m[j] = scale(direction, length(difference));
 			}
 
@@ -402,14 +346,15 @@ namespace RibbonMath
 			{
 				const Mat4& local = input.local[j];
 				detail.axisScale[j] = { length(row(local, 0)), length(row(local, 1)), length(row(local, 2)) };
-				detail.twist[j] = twists.at(setup.knotU[j]) + extractTwist(local);
+				// Twists are angles about a control's own X. The frame turns about the forward tangent, which is -X when the chain runs back.
+				detail.twist[j] = setup.chainSign * (twists.at(setup.knotU[j]) + extractTwist(local));
 				if (j + 1 < count)
 				{
 					liveLength += length(sub(spline.p[j + 1], spline.p[j]));
 				}
 			}
-			detail.twist[0] = twists.start;
-			detail.twist[count - 1] = twists.end;
+			detail.twist[0] = setup.chainSign * twists.start;
+			detail.twist[count - 1] = setup.chainSign * twists.end;
 			detail.lengthRatio = std::min(kMaxLengthRatio, std::max(kMinLengthRatio, liveLength / setup.restLength));
 		}
 
@@ -540,7 +485,17 @@ namespace RibbonMath
 			}
 		}
 
-		setup.restTangent = normalized(row(controlRest[0], 0), { 1.0, 0.0, 0.0 });
+		// Which way the controls' X axes run against the chain: each one dotted with the chord that leaves it (the last with the one
+		// that arrives).
+		double alignment = 0.0;
+		for (int j = 0; j < controlCount; ++j)
+		{
+			const int chord = std::min(j, controlCount - 2);
+			alignment += dot(row(controlRest[j], 0), sub(origin(controlRest[chord + 1]), origin(controlRest[chord])));
+		}
+		setup.chainSign = alignment < 0.0 ? -1.0 : 1.0;
+
+		setup.restTangent = forwardAxis(controlRest[0], setup, { 1.0, 0.0, 0.0 });
 		const Vec3 y = row(controlRest[0], 1);
 		setup.restUp = normalized(sub(y, scale(setup.restTangent, dot(y, setup.restTangent))), anyPerpendicular(setup.restTangent));
 

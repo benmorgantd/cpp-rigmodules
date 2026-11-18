@@ -1,0 +1,17 @@
+{
+  "description": "start_twist_90 on a chain running down -X. The start control's own X points up the chain (+X), so rotateX 90 turns the control 90 about world +X, and its bind joint must turn with it: the ramp runs from 90 at u = 0 to 0 at u = 1, as turns about world +X of 90, 67.5, 45, 22.5 and 0. A ribbon that applied the angle about the chain's forward direction (-X) would turn the joints the other way, -90 at the start.",
+  "skeleton": "ribbon_negx",
+  "template": "ribbon_negx",
+  "set": {
+    "tailCtrlA_ctrl_c.rotateX": 90
+  },
+  "tolerance": 0.001,
+  "expect": {
+    "tailCtrlB_jnt": {"translate": [-4, 0, 0], "rotate": [45, 0, 0]},
+    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [90, 0, 0]},
+    "tail2_jnt": {"translate": [-2, 0, 0], "rotate": [67.5, 0, 0]},
+    "tail3_jnt": {"translate": [-4, 0, 0], "rotate": [45, 0, 0]},
+    "tail4_jnt": {"translate": [-6, 0, 0], "rotate": [22.5, 0, 0]},
+    "tail5_jnt": {"translate": [-8, 0, 0], "rotate": [0, 0, 0]}
+  }
+}

@@ -36,6 +36,7 @@ MObject RibbonModuleNode::aIkControlCount;
 MObject RibbonModuleNode::aKnotU;
 MObject RibbonModuleNode::aBindU;
 MObject RibbonModuleNode::aRestLength;
+MObject RibbonModuleNode::aChainSign;
 MObject RibbonModuleNode::aRestUp;
 MObject RibbonModuleNode::aRestTangent;
 MObject RibbonModuleNode::aIkRestOffset;
@@ -198,6 +199,11 @@ MStatus RibbonModuleNode::initialize()
 	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aRestLength));
 
+	aChainSign = nAttr.create(RigAttr::ChainSign, RigAttr::ChainSign, MFnNumericData::kDouble, 1.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aChainSign));
+
 	for (const auto& [pAttr, name] : { std::pair<MObject*, const char*>{ &aRestUp, RigAttr::RestUp }, { &aRestTangent, RigAttr::RestTangent } })
 	{
 		*pAttr = nAttr.create(name, name, MFnNumericData::k3Double, 0.0, &status);
@@ -218,7 +224,7 @@ MStatus RibbonModuleNode::initialize()
 	// AFFECTS RELATIONSHIPS
 	declareStandardAffects();
 	std::vector<MObject> settings(aChannels.begin(), aChannels.end());
-	settings.insert(settings.end(), { aIkControlCount, aKnotU, aBindU, aRestLength, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset });
+	settings.insert(settings.end(), { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset });
 	for (const MObject& oInput : settings)
 	{
 		attributeAffects(oInput, aControlOPM);
@@ -300,6 +306,7 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	setup.controlCount = controlCount;
 	setup.bindCount = bindCount;
 	setup.restLength = data.inputValue(aRestLength).asDouble();
+	setup.chainSign = data.inputValue(aChainSign).asDouble();
 	{
 		const MVector vUp = data.inputValue(aRestUp).asVector();
 		const MVector vTangent = data.inputValue(aRestTangent).asVector();
@@ -607,6 +614,7 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 		DagUtils::setMatrixPlug(pOffset, toMMatrix(setup.bindOffset[i]), dagMod);
 	}
 	dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aRestLength), setup.restLength);
+	dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aChainSign), setup.chainSign);
 	for (const auto& [oAttr, vValue] : { std::pair<const MObject&, RibbonMath::Vec3>{ RibbonModuleNode::aRestUp, setup.restUp }, { RibbonModuleNode::aRestTangent, setup.restTangent } })
 	{
 		MPlug pVector(oModule, oAttr);

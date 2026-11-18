@@ -1,0 +1,14 @@
+{
+  "description": "The end control moves 2 up with the aim blends at their default 0, on a chain running down -X with the joints' +X pointing back. The chain's direction is the control's -X, not its +X, so the tangents at both ends must run along -X: the base curve has p0 = (0,0,0), p1 = (-8,2,0), both handles (-8.2462,0,0) (the chord length sqrt(68) = 8.2462 times bendRoundness 1, in the direction of travel). Mirrored in x, this is the same curve as a chain running down +X with the end moved 2 up. The base curve's midpoint is 0.5 (p0 + p1) + 0.125 (m0 - m1) = (-4, 1, 0), so the interior control sits at (-4,1,0) and the joint at the middle of the ribbon is there too. The ends keep their rotation: the tangent at the start is (-1,0,0), the rest direction.",
+  "skeleton": "ribbon_negx",
+  "template": "ribbon_negx",
+  "set": {
+    "tailCtrlC_ctrl_c.translateY": 2
+  },
+  "tolerance": 0.001,
+  "expect": {
+    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [0, 0, 0]},
+    "tail3_jnt": {"translate": [-4, 1, 0]},
+    "tail5_jnt": {"translate": [-8, 2, 0], "rotate": [0, 0, 0]}
+  }
+}

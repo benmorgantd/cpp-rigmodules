@@ -52,6 +52,16 @@ class RibbonAimedContract(ModuleContract, RigTestCase):
     MIRROR_TEMPLATE = False
 
 
+class RibbonNegXContract(ModuleContract, RigTestCase):
+    """The same contract on a chain that runs down -X while the joints' X points back up it (a mirrored limb, D57): the inverse
+    must give back the controls the forward solve was driven with, with the chain sign in play."""
+    TEMPLATE = "ribbon_negx"
+    SKELETON = "ribbon_negx"
+    MODULE_TYPE = "ribbonModule"
+    JOINT_OWNERS = RibbonContract.JOINT_OWNERS
+    MIRROR_TEMPLATE = False
+
+
 class RibbonPoses(RigTestCase):
     pass
 
@@ -123,6 +133,25 @@ class RibbonBehaviour(RigTestCase):
         for i in (2, 3, 6):
             self.assertNotEqual(after[i], before[i], "spine%d should follow the control" % i)
         self.assertWorldTranslation(rig_name("spine3_jnt"), [2, 2, 0], 1e-6)
+
+    def test_a_chain_running_down_minus_x_is_the_x_mirror_of_one_running_down_plus_x(self):
+        """The same moves on both chains give joint positions that are mirrored in x (D57). With the aim blends at their default
+        0 the ends' own X axes set the tangents, so a chain whose joints point back up it only works if the ribbon reads the
+        axes as pointing the other way. The moves: the end up, the interior up and sideways, a roll on the start."""
+        moves = {LAST + ".translateY": 2, INTERIOR + ".translateZ": 1.5, FIRST + ".rotateX": 70, FIRST + ".bendRoundness": 0.7}
+
+        def positions(template, skeleton):
+            cmds.file(new=True, force=True)
+            self.build_standard(template, skeleton)
+            for plug, value in moves.items():
+                cmds.setAttr(rig_name(plug), value)
+            return {j: translation(j) for j in BIND_JOINTS}
+
+        plus = positions("ribbon_basic", "ribbon_basic")
+        minus = positions("ribbon_negx", "ribbon_negx")
+        for joint in BIND_JOINTS:
+            for axis, (a, b) in enumerate(zip(plus[joint], minus[joint])):
+                self.assertAlmostEqual(-a if axis == 0 else a, b, places=4, msg="%s axis %d" % (joint, axis))
 
     def test_evaluation_is_a_pure_function_of_the_inputs(self):
         """No state survives an evaluation (4.1): going to a pose, then another, then back, gives the same matrices."""

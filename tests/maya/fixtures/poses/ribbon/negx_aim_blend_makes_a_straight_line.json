@@ -1,0 +1,18 @@
+{
+  "description": "interior of aim_blend_makes_a_straight_line on a chain running down -X with the joints' +X pointing back. The end control moves 2 up and both aim blends are 1, so the base curve is the straight line (-8u, 2u) and the joints are at (0,0), (-2,0.5), (-4,1), (-6,1.5), (-8,2). Each joint's rest forward direction is (-1,0,0), at 180 degrees. The line's direction (-8,2) is at atan2(2,-8) = 165.9638 degrees, so every joint turns 165.9638 - 180 = -14.0362 about Z.",
+  "skeleton": "ribbon_negx",
+  "template": "ribbon_negx",
+  "set": {
+    "tailCtrlC_ctrl_c.translateY": 2,
+    "tailCtrlA_ctrl_c.startAimBlend": 1,
+    "tailCtrlA_ctrl_c.endAimBlend": 1
+  },
+  "tolerance": 0.001,
+  "expect": {
+    "tail1_jnt": {"translate": [0, 0.0, 0], "rotate": [0, 0, -14.0362]},
+    "tail2_jnt": {"translate": [-2, 0.5, 0], "rotate": [0, 0, -14.0362]},
+    "tail3_jnt": {"translate": [-4, 1.0, 0], "rotate": [0, 0, -14.0362]},
+    "tail4_jnt": {"translate": [-6, 1.5, 0], "rotate": [0, 0, -14.0362]},
+    "tail5_jnt": {"translate": [-8, 2.0, 0], "rotate": [0, 0, -14.0362]}
+  }
+}
