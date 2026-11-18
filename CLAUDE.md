@@ -8,7 +8,7 @@ Goal: excellent, efficient, scalable rig modules for Autodesk Maya 2026+, synthe
 
 The rigmodules PDF (`design/Rigging System Planning.pdf`) holds the author's design instructions, and the repo holds the actual code. The PDF may be slightly out of date. When it disagrees with the code, the code wins. Flag the discrepancy instead of silently picking one.
 
-Design decisions and their history are in `design/decisions.md`. Read it before proposing architectural changes.
+Design decisions and their history are in `design/decisions.md`. Before proposing architectural changes, read its Index (one line per decision) and then the entries for the area you are changing. Do not read the whole file: it is about 200 KB.
 
 Documentation has two homes (D21). `design/` is for people working on the system: why it is built the way it is. `README.md` and `docs/` are for people using it: what it does now. The process is in `docs/README.md`.
 

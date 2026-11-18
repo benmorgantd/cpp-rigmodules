@@ -1,10 +1,76 @@
 # Design decisions: cpp-rigmodules
 
-Running record of design decisions for the Maya C++ rig system. Read this before proposing architectural changes. Update it when a decision is made, changed, or reversed.
+Running record of design decisions for the Maya C++ rig system. Before proposing architectural changes, read the Index below and then the entries it points to for the area you are changing. The file is long, so do not read all of it. Update it when a decision is made, changed, or reversed.
 
 Source: compiled on 2026-11-04 from the Project memory for "Maya Rigging Modules". It records what was decided, and only records a reason where one was stated. Entries marked **Rationale not recorded** need the author to fill in the why. Where this file and the code disagree, the code wins. Flag the difference.
 
 Status key: **Decided** (in use), **Leaning** (direction chosen, not built), **Open** (unresolved).
+
+---
+
+## Index
+
+One line per decision, in number order. Read the entry itself before changing anything it covers. Status is the entry's own **Status:** line. The sections below group the entries by topic, in the order they were written, not by number.
+
+| D | Decision | Status | Section |
+|---|---|---|---|
+| D1 | Nodes are the rig's brain, DAG inheritance is off | Decided | Architecture |
+| D2 | Joints are the main input, JSON is the template | Decided | Architecture |
+| D3 | Module inputs are world-space matrices | Decided | Architecture |
+| D4 | Child plugs and sockets define module attachment | Decided | Architecture |
+| D5 | Two-pass rig build | Decided | Architecture |
+| D6 | DAG parenting works | Decided | Architecture |
+| D7 | Shared attribute names live in `Constants.h` (`RigAttr`) | Decided | Shared code and constants |
+| D8 | Reuse before writing new helpers | Decided | Shared code and constants |
+| D9 | Where node creation names live | Open | Shared code and constants |
+| D10 | Priorities for trade-offs | Decided | Product direction |
+| D11 | Design for future needs before they are built | Decided | Product direction |
+| D12 | New modules are gated | Decided | Product direction |
+| D13 | Maya-free core plus thin plugin layer | Decided | Structure |
+| D14 | Code style and naming | Decided | Conventions |
+| D15 | Joint markup replaces joint names in templates | Decided | Joints |
+| D16 | String attributes on nodes store JSON | Decided | Data storage |
+| D17 | Read-phase validation before any scene change | Decided | Build |
+| D18 | createRigFromTemplate takes its joints by name and owns the rig namespace | Decided | Build |
+| D19 | Commands take the same socket ids as templates | Decided | Build |
+| D20 | mayapy test suite with data-driven expectations | Decided | Testing |
+| D21 | User docs in `docs/`, design docs in `design/` | Decided | Documentation |
+| D22 | `maya/` grouped by role: modules, commands, nodes, shared | Decided | Documentation |
+| D23 | All C++ under `cpp/`, with its project | Decided | Documentation |
+| D24 | mayadev depends on RigModules, never the reverse | Decided | Python and the wider pipeline |
+| D25 | Controls carry markup, and tools find them by traversal | Decided | Controls |
+| D26 | Every control shape is a fillable mesh, with one orientation convention, and per-rig shape files | Decided | Controls |
+| D27 | Space switches match through the control's values, with no stored offsets | Decided | Constraints |
+| D28 | Modules and constraints mirror through the template, by side swap | Decided | Mirroring |
+| D29 | The asset owns its namespace, its rig variants and its files | Decided | Assets |
+| D30 | mayadev stays the pipeline repo, and rigs build anywhere before an asset exists | Decided | Assets |
+| D31 | Orient and Point constraints take one component from the driver, on one `rigConstraint` node | Decided | Constraints |
+| D32 | Shots reference published rigs, which are read only | Decided | Shots, versions and component data |
+| D33 | The release version and format versions are separate, and updates never need a bake | Decided | Shots, versions and component data |
+| D34 | The animation interface is the keyable channels, with rests set by the build | Decided | Shots, versions and component data |
+| D35 | Weight files are keyed by joint markup, mesh id and topology hash | Decided | Shots, versions and component data |
+| D36 | Rigs are optimized for parallel evaluation, and the goal is set against Maya's native floor | Decided | Shots, versions and component data |
+| D37 | Control drawing stays an MPxDrawOverride, with cached bounds and a callback-kept selection set | Decided | Shots, versions and component data |
+| D38 | The build makes three display layers, found by message attributes on the rig root | Decided | Shots, versions and component data |
+| D39 | The build makes selection set hierarchies for controls and skin joints, found by markup | Decided | Shots, versions and component data |
+| D40 | A module owns its controls' rotate orders, and the build locks them | Decided | Shots, versions and component data |
+| D41 | Controls are restored from joints by a module-owned inverse, with USD joint files and a pose-format sidecar | Decided | Shots, versions and component data |
+| D42 | Control data is the primary pose and animation library, and joint data is for remaps and the engine | Decided | Shots, versions and component data |
+| D43 | The build makes `rig_all` over the rig and `mesh_grp` for the model, found by message attributes on the rig root | Decided | Shots, versions and component data |
+| D44 | The art stages before the rig are file types with a status, not a second container | Leaning | Shots, versions and component data |
+| D45 | Face expressions come from blend shapes, and blend shape targets are asset data | Leaning | Shots, versions and component data |
+| D46 | After the IK limb: a pose-driver with a marker spec, then the face module, and overlap only on request | Leaning | Shots, versions and component data |
+| D47 | mayadev menu tools name a function by readable id, and their files are checked and versioned | Decided | Shots, versions and component data |
+| D48 | One launcher starts and ends Maya: `python/mayalaunch`, beside `rigmodules` | Decided | Shots, versions and component data |
+| D49 | mayadev UIs are thin Qt views over headless view-models and workflows | Decided | Shots, versions and component data |
+| D50 | The active rig panel is a launcher over the existing pose tools, with one new query for spaces | Decided | Shots, versions and component data |
+| D51 | The library browser is a searchable view over control data, with sources, masks and file metadata | Decided | Shots, versions and component data |
+| D52 | Two-bone IK: a `TwoBoneIk` limb with a matched IK/FK switch and module-owned spaces | Decided | Shots, versions and component data |
+| D53 | Module source files and classes end in `Module`: `FkChainModule` | Decided | Shots, versions and component data |
+| D54 | An asset holds skeletons, rigs and looks; a look replaces the variant | Decided | Assets |
+| D55 | An attachment follows another rig through `parent:` ids, with no attach node | Decided | Assets |
+| D56 | Ribbon module: a virtual ribbon with ik controls, tweakers and stateless twist | Leaning | Assets |
+| D57 | Control placement is derived from the bind joints, with no control joints in the skeleton | Decided | Assets |
 
 ---
 
@@ -865,39 +931,14 @@ Layout, Aim and TwoBoneIk already had `<Name>Module.h/.cpp` and `<Name>ModuleNod
 
 ## Open items
 
-- **`compute()` review:** done 2026-11-11, no open item. Plug grouping: every module and constraint `compute()` reads its plugs once, by `MObject` attributes resolved at `initialize()`, with no string lookup, allocation or `MGlobal` call, and writes in place into existing output elements. The layout `end` socket to FkChain `start` connection: `connectSocketMatrixToChildPlug` stores the socket's rest on the child plug and connects its live matrix, so the delta is identity at build time. Layout rests are identity, so the delta is the socket's world, and an FkChain on a rotated layout follows rigidly (pose cases `child_chain_rest_on_rotated_socket`, `rotated_parent_carries_child_chain`). Removed five uncalled `RigModuleNodeBase` helpers (`getInputMatrix` x2, `getInputCompoundMatrix`, `setOutputMatrix` x2): two called `MGlobal::displayError` and one built array elements from compute, both against D36. Not changed: `commitOutput` builds a `MPlug` per output per compute (three per module), which is cheap but unmeasured against D36's node overhead; `solveFkChain` assumes dense control indices 0 to n-1, which every module guarantees.
+Checked against the repo on 2026-11-18. Items that were finished are not listed: the `compute()` review (2026-11-11), the pre-module checklist (weight commands, animation interface and tools, version update tables, channel naming, the IK limb: D33, D34, D35, D52), mirroring poses and animation (D34, D51), the selection highlight cost (D37), and the `python/` package and `.mod` files (D24, D30).
+
 - **D9:** where node creation names should live.
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
-- **D24:** the TODOs in `mayadev-integration.md` (the `python/` package, `.mod` files), plus control sets. Asset folders moved to D29.
 - **D29, D30:** the template authoring UI (after a module interface query), building a second variant into a namespace, the publish step, the out-of-date check, and a Perforce adapter when a project uses Perforce.
 - **D29 (potential):** asset GUIDs for references between assets, if renames and moves become common. Not needed now: ids are relative to the projects root, so they survive branching. See "Potential TODO: asset GUIDs" in `asset-model.md`.
-- **D28:** mirroring poses and animation, built on `getRigMirrorControl` with the animation tools.
-- **D26:** the selection highlight still reads the active selection list once per control per `prepareForDraw`, which scales with control count times selection size.
 
-### Before adding more modules
-
-Work that every new module would inherit, so it is cheaper to settle before the module count grows. Checked against the repo on 2026-11-07. The control registry and naming (D15, D25), template validation (D17), space switching (D19, D27), module mirroring (D28), undo, the mayapy suite (D20) and the folder split (D13) are already done. The connect-time jump no longer reproduces: a chain on a rotated socket keeps its rest and follows rigidly (2026-11-07, pose cases `child_chain_rest_on_rotated_socket` and `rotated_parent_carries_child_chain`).
-
-The asset root, asset folders, the `python/` package and the `.mod` files are done (D29, D30). Updated 2026-11-09, in this order:
-
-1. **Weight save and load commands** (D35). Done 2026-11-09.
-2. **Build Rig from Asset… in the menu (mayadev).** Done, works (author, 2026-11-10). A file browser on the project root, filtered to `asset.json`, that builds a variant (the active rig's by default) and then loads its shapes and weights. Shapes and weights save to the active rig's asset with no file browsing, as shapes already do.
-3. **Dev reload tool (mayadev).** Not in the menu yet (2026-11-10). The author has their own unload code to start from. Tear down everything tied to the plugin (the active rig tracker's callbacks, the RigModules menu), start a new scene, unload the plugin, load a fresh copy of the built `.mll` so the build output stays unlocked, then rebuild the menu and tracker. Keeps Maya open across builds.
-4. **Sharing pass** (author, 2026-11-09). A lot of code landed in a few days, and some of it repeats in near-identical forms. Go through `maya/` and move every shareable helper to the shared layer (rule in `CLAUDE.md`, "Look before you write", step 6), merging near-duplicates into one. `Utilities.h` stays one file in `maya/shared/` (author, 2026-11-10; rejected: a `maya/shared/utils/` folder with a file per topic). Known candidates, found 2026-11-09:
-   - Name lookups. Done 2026-11-10 (author's shape): two functions, `DagUtils::getMObjectFromName` (any node, quiet) and `DagUtils::getDagPathFromName` (a DAG node, with an optional `NodeKind` of joint or mesh, reports). They replace `getJointDagPathFromName`, `getJointObjectFromName`, `MeshUtils::getMeshTransformFromName` and the old unchecked `getDagPathFromName`, which had no callers. The messages are now the same for every kind: `No DAG node named <name>` and `<name> is not a joint.` or `... mesh.`.
-   - Two namespace conventions: `DagUtils::getAbsoluteNamespace` gives `":rig"` or `":"`, `ConstraintCmds` builds `":rig"` or `""` for socket ids, and `RigRoot.cpp` has its own `qualifiedName`. One helper for "a node's namespace" and one for "a name in a namespace".
-   - Selector text in messages: `formatJointSelector` (core) gives `[Left, upperArm]`, while `RigModule.cpp` and `JointMarkupIndex` errors still write `side, usage` their own way.
-   - "Exactly one object" argument parsing: `readRigRoot` in `RigControlCmds.cpp` and the mesh reading in `SkinWeightCmds.cpp`.
-   - `readTopology` in `SkinWeightScene.cpp` (a mesh's counts, connects and hash) belongs in `MeshUtils` once a second tool needs a topology check.
-   - Already moved on 2026-11-09, with the weight commands: the required file flag, text file read and write and `displayReport` (from `RigControlCmds`, `SkinWeightCmds` and `RigRoot`), the mesh lookups, reading meshes named or selected, the all-vertices component, MEL quoting, selector formatting, the nearest upstream node, a node's namespace, and the namespace joint scan (now `JointMarkupScene::collectNamespaceJoints`, on `collectMarkedJoints` and `JointMarkupIndex`).
-5. **Animation interface query and animation tools** (D34), planned separately: key all, zero all (go to bind pose), save and load pose, save and load animation, mirror pose and animation, and a keyed space switch (match on the switch frame, key the frame before). Built on `getRigControls` (D25) and `getRigMirrorControl` (D28). A pose is control values plus the `space` enum (D27). Their files carry a `formatVersion`, like the shape file (D26). The contract, the query, zero all and mirror pose come before the next module, the rest after (D34, 2026-11-10).
-6. **Template `formatVersion` and its update table** (D33), before the next module (author, 2026-11-10).
-7. **`moduleVersion` update table and methods** (D33), before the next module (author, 2026-11-10). `moduleVersion` is already a template key, checked against the module's current version, with a comment in `RigModule.h` marking where migration goes. No update step exists yet.
-8. **Channel naming rules** (D32, D34), written before the next module.
-
-**The next module is the IK limb** (author, 2026-11-10). It goes through the gate (D12) after items 5 to 8. Designed and signed off as D52 (2026-11-15), forward module and inverse built (phases 1 to 5): `two-bone-ik.md`.
-
-Design for these now, build them later:
+### Design now, build later
 
 - **Format version callbacks** (D33): the open, import and reference load callbacks that offer an update.
 - **Referenced rigs** (D32): the namespace strip in Save Rig, `getRigInfo` in a referenced file, the alias list and the shot update tool.
