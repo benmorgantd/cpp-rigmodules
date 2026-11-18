@@ -52,4 +52,4 @@ Every weight file records the skeleton it was made on, and the rig records its o
 
 ## Not here yet
 
-The face's blend shape wiring and attachments are later phases of D54. Listing looks that aren't synced is built on the mayadev side (phase 6): `Asset.all_looks()` asks source control for the look folders and `apply_look` syncs one before it calls `setRigLook`, so `setRigLook` always gets files that are on disk. It needs nothing from RigModules.
+The face's blend shape wiring is a later phase of D54. A look can span a rig and its attachment ([attachments.md](attachments.md)): `setRigLook` still works on one rig root, and mayadev's `apply_look` gives each rig the files saved from its own skeleton. Listing looks that aren't synced is built on the mayadev side (phase 6): `Asset.all_looks()` asks source control for the look folders and `apply_look` syncs one before it calls `setRigLook`, so `setRigLook` always gets files that are on disk. It needs nothing from RigModules.

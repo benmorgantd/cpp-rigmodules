@@ -503,6 +503,21 @@ class PythonSkinWeights(SkinWeightTestCase):
         self.write_file(dict(sorted(data.items(), key=lambda item: item[0] != "weights")))   # weights first
         self.assertEqual(self.module.read_file_mesh_id(self.path), mesh_id)
 
+    def test_read_file_skeleton_hash_from_a_saved_file_a_reordered_one_and_a_file_without_one(self):
+        self.save_bound_box()
+        data = self.read_file()
+        data["skeletonHash"] = "0123456789abcdef"
+        self.write_file(data)
+        self.assertEqual(self.module.read_file_skeleton_hash(self.path), "0123456789abcdef")
+        self.write_file(dict(sorted(data.items(), key=lambda item: item[0] != "weights")))   # weights first: the full parse
+        self.assertEqual(self.module.read_file_skeleton_hash(self.path), "0123456789abcdef")
+        del data["skeletonHash"]
+        self.write_file(data)
+        self.assertEqual(self.module.read_file_skeleton_hash(self.path), "", "a file with no hash reads as empty")
+        data["skeletonHash"] = ""
+        self.write_file(data)
+        self.assertEqual(self.module.read_file_skeleton_hash(self.path), "")
+
 
 class BindAtRest(RigTestCase):
     """Built into rig:, so a and b are driven by fkchain_1 and their rest comes from the module."""

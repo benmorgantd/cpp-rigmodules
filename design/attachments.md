@@ -1,6 +1,6 @@
 # Attachments: a rig that follows another rig (D54 phase 7)
 
-Status: signed off by the author and built 2026-11-17 (D55). Read `design/rigs-and-looks.md` section 7 first. This page is the design the gate in `CLAUDE.md` asks for. The user-facing description is `docs/attachments.md`.
+Status: signed off by the author and built 2026-11-17 (D55). The mayadev side (section 3.6) is built on mayadev branch `attachments-phase8` (stacked on `rigs-and-looks-phase5`), not yet committed or merged. Read `design/rigs-and-looks.md` section 7 first. This page is the design the gate in `CLAUDE.md` asks for. The user-facing description is `docs/attachments.md`.
 
 **As built, where it differs from the proposal below:**
 - `RigModuleNodeBase::findSocketById` is the one cross-rig lookup, and `RigConstraintNode::resolveSocket` is now a wrapper over it. The read phase calls it quietly and lists every miss.
@@ -62,9 +62,9 @@ Attaching is build time: the connections are written by `createRigFromTemplate`.
 
 ### 3.6 mayadev (proposed, needs the author's go-ahead)
 
-- `RigRecord` gains `parent` (`asset` and `rig`) with a D33 update step, as `skeleton` and `source` are today.
+- `RigRecord` gains an optional `parent` (`asset` and `rig`). **As built, no D33 update step:** the key is optional and additive, so every old file reads as before and a step would add nothing.
 - `build_rig` builds the parent first and passes its root as `parentRig`.
-- That is the next phase after RigModules.
+- `apply_look` partitions a look that spans several skeletons by the weight file's `skeletonHash`. The design is `attachments-mayadev.md`.
 
 ## 4. Names and public API added
 

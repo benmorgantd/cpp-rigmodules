@@ -60,5 +60,5 @@ The follow is a set of connections written at build time. To attach to a differe
 
 ## Not covered
 
-- A look that spans a rig and its attachment: [`setRigLook`](commands.md#setriglook) works on one rig root, so a tool applies the body's look and the face's look with one call each.
+- A look that spans a rig and its attachment: [`setRigLook`](commands.md#setriglook) works on one rig root, so a tool applies the body's look and the face's look with one call each. mayadev's `apply_look` does this: it hands each rig only the weight files whose `skeletonHash` is the rig's (`rigmodules.skinweights.read_file_skeleton_hash`) and the meshes those files are for ([mayadev.md](mayadev.md)).
 - The export of an attachment's skeleton. It is its own skeleton file and has its own hash ([skeletons.md](skeletons.md)).

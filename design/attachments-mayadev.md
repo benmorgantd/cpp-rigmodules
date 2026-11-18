@@ -1,6 +1,6 @@
 # Attachments in mayadev (D55 follow-up, phase 7b)
 
-Status: approved by the author 2026-11-17, including the trimmed model import per rig for spanning looks (section 5). Not built. The handoff for the build is `attachments-mayadev-handoff.md`. RigModules already builds an attachment (`attachments.md`, `docs/attachments.md`). This page is the mayadev side: the file model, the build tool, and looks that span a rig and its attachment. mayadev code is read from `C:\Users\bmorgan\Documents\dev\maya\mayadev`. Edits there need the author's go-ahead, and go on a mayadev branch stacked on `rigs-and-looks-phase5`.
+Status: approved by the author 2026-11-17, including the trimmed model import per rig for spanning looks (section 5). Built 2026-11-17 on mayadev branch `attachments-phase8`, uncommitted (see "As built" at the end). The handoff for the build was `attachments-mayadev-handoff.md`. RigModules already builds an attachment (`attachments.md`, `docs/attachments.md`). This page is the mayadev side: the file model, the build tool, and looks that span a rig and its attachment. mayadev code is read from `C:\Users\bmorgan\Documents\dev\maya\mayadev`. Edits there need the author's go-ahead, and go on a mayadev branch stacked on `rigs-and-looks-phase5`.
 
 ## 1. What mayadev has to do
 
@@ -68,7 +68,19 @@ The gap is `apply_look`. It imports the whole model into a rig's namespace and p
 
 mayadev: `docs/assets.md` (the `parent` key, the build and the look rules), `docs/rigmodules.md` (`parentRig`, `RigInfo.parent_rig_root`), `docs/tools.md` (New Rig, Build Rig), `docs/status.md`. This repo: `docs/mayadev.md`, `design/attachments.md` (status), `design/rigs-and-looks.md` section 7 and phase 7, and `CLAUDE.md`'s sibling-repo paragraph.
 
-## 9. Not covered
+## 9. As built (2026-11-17)
+
+Everything above is built, with these differences and additions:
+
+- **The partition runs only for a look that names several skeletons.** A look of one skeleton passes every file to `setRigLook` as before, so a mismatched hash on a one-skeleton look still fails in `setRigLook` with its own message and a file with no hash still loads. The design applied the hash filter to every look and treated only a hash-less file as special. Doing it for spanning looks alone keeps every existing look byte-for-byte on the old path.
+- **`rigmodules.skinweights.read_file_skeleton_hash`** is new in RigModules' Python package, next to `read_file_mesh_id` (both read the top of the file, with a full parse as the fallback), because it is a weight file format detail (D24). It returns `""` for a file with none.
+- **`Asset.check_parent`** is public: `new_rig` calls it before it copies the template, so a refused parent writes nothing. `add_rig` calls it too.
+- **`build_rig` builds a missing parent with its own default look** and never with the `look` given for the attachment. A parent found in the scene is left as it is, look included.
+- **A failed look on an attachment leaves both rigs built**, the attachment bare with no look recorded, as a failed look leaves any rig. The error names the rig and its skeleton hash.
+- `New Rig...` always asks "Does the rig attach to a rig?" (none, the asset's rigs, another asset...). The registered tool call is unchanged, so `check_calls` passes as before.
+- Not changed, though the design could have: the registry entry for a rig (`Registry.get`) does not list `parent`.
+
+## 10. Not covered
 
 - A prop's space switch between two rigs that are not parent and attachment (`rigs-and-looks.md` 7.2): RigModules has no such driver yet.
 - A panel for attachments (show the parent, build or detach from the panel).

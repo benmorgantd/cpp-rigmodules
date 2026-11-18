@@ -14,6 +14,7 @@ import maya.cmds as cmds
 import rigmodules._namespace
 
 MESH_ID_ATTR = "meshId"
+SKELETON_HASH_ATTR = "skeletonHash"   # a version 2 file's rig skeleton hash (D54), "" for the file of an unbound save
 
 # saveRigSkinWeights writes "meshId" near the top of the file, so its value can be read without parsing the
 # whole weights list. A hand-edited file that moved it still reads, through the full parse.
@@ -56,13 +57,23 @@ def get_skinned_meshes(namespace: str) -> list[str]:
 
 def read_file_mesh_id(path: str) -> str:
     """The meshId a weight file is for. Raises ValueError when the file has none."""
-    with open(path, encoding="utf-8") as handle:
-        for _ in range(_HEADER_LINES):
-            line = handle.readline().strip()
-            if line.startswith(f'"{MESH_ID_ATTR}"'):
-                return json.loads("{" + line.rstrip(",") + "}")[MESH_ID_ATTR]
-    with open(path, encoding="utf-8") as handle:
-        mesh_id = json.load(handle).get(MESH_ID_ATTR)
+    mesh_id = _read_header_value(path, MESH_ID_ATTR)
     if not mesh_id:
         raise ValueError(f"{path} is not a weight file: it has no {MESH_ID_ATTR}.")
     return mesh_id
+
+
+def read_file_skeleton_hash(path: str) -> str:
+    """The skeleton hash a weight file was saved from (D54), 16 hex digits. "" for a file with none: a version 1 file
+    or one saved off a rig, which loadRigSkinWeights loads onto any skeleton."""
+    return _read_header_value(path, SKELETON_HASH_ATTR) or ""
+
+
+def _read_header_value(path: str, key: str) -> str | None:
+    with open(path, encoding="utf-8") as handle:
+        for _ in range(_HEADER_LINES):
+            line = handle.readline().strip()
+            if line.startswith(f'"{key}"'):
+                return json.loads("{" + line.rstrip(",") + "}")[key]
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle).get(key)

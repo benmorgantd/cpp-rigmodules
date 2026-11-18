@@ -185,8 +185,9 @@ mesh = meshes[rigmodules.skinweights.read_file_mesh_id("C:/weights/body_geo.json
 | `get_meshes(namespace)` | `{meshId: mesh transform}` for the meshes directly in the namespace (`""` for the root) that have a `meshId`. Raises `RuntimeError` when two share one |
 | `get_skinned_meshes(namespace)` | The mesh transforms in the namespace with a skinCluster in their history, sorted |
 | `read_file_mesh_id(path)` | The `meshId` a weight file is for, read from the top of the file. Raises `ValueError` when it has none |
+| `read_file_skeleton_hash(path)` | The `skeletonHash` a weight file was saved from, read from the top of the file: 16 hex digits, or `""` for a file with none (version 1, or saved off a rig). A tool that holds one weights folder for a rig and its attachments uses it to give each rig the files of its own skeleton ([attachments.md](attachments.md)) |
 
-`MESH_ID_ATTR` is the attribute name, `"meshId"`.
+`MESH_ID_ATTR` is the attribute name, `"meshId"`. `SKELETON_HASH_ATTR` is `"skeletonHash"`.
 
 ## rigmodules.jointclip
 
