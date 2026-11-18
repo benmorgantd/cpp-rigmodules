@@ -28,6 +28,7 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 | [`skeletons.md`](skeletons.md) | Skeleton files: what makes two skeletons the same, the skeleton hash, the file format |
 | [`library.md`](library.md) | The pose and animation library: control data vs skeleton data, the folders, the ControlAnim file, the paths to the engine |
 | [`architecture.md`](architecture.md) | The code: layers, source map, plugin startup, the module node layers, the two-phase build, evaluation, the command shape, file format versioning, the inverse solve, and recipes for adding a module, command or format |
+| [`source-map.md`](source-map.md) | Every file in `core/` and `maya/`, the Python package, the `design/` pages and the tools, one row each. Search it before searching the repo |
 | [`python.md`](python.md) | The `rigmodules` Python package: installing it with `RigModules.mod`, and every function |
 | [`mayadev.md`](mayadev.md) | The sibling mayadev repo as a consumer: which commands and `rigmodules` functions it calls, how to find its call sites, what to check before changing a name it uses |
 | [`../tests/README.md`](../tests/README.md) | Running tests, case-file formats, where new tests go |
@@ -49,7 +50,7 @@ A change updates its owning page **in the same change** when it touches anything
 - A function in the `rigmodules` Python package, or `RigModules.mod` → `python.md`
 - The pose or animation library: its folders, the ControlAnim file or how data reaches the engine → `library.md`
 - Build steps, requirements, or the repo layout → `README.md`
-- The code's structure: a new file or folder, a base class, the build phases, a registry, a file format's core files, a new recipe step → `architecture.md`
+- The code's structure: a new file or folder, a base class, the build phases, a registry, a file format's core files, a new recipe step → `architecture.md` and, for a file added or changed, its row in `source-map.md`
 - A command, flag, return shape or `rigmodules` function that mayadev calls, or a new one meant for it → `mayadev.md`, and tell the author to update mayadev's `docs/rigmodules.md`
 - Running or writing tests → `tests/README.md`
 
