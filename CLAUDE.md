@@ -174,6 +174,7 @@ The full procedure (building, mayapy scripts, GUI Maya, crash windows, reading r
 - **Build** (from the repo root): `& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" cpp\RigModules.vcxproj /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal`. Output is `cpp\x64\Release\RigModules.mll`.
 - **Suite:** `cmd /c tests\RigTests.cmd` (pass a filter for part of it). Run it after every build. Both stop at the first failed tier, so fix the earliest failure first.
 - **Never** start Maya or write a `maya.exe -command` string by hand: use `python/mayalaunch` (D48). Set `MAYA_DISABLE_CER=1` for your own mayapy runs and end them with `maya.standalone.uninitialize()` then `os._exit(0)`.
+- **Build speed (D60):** compiles are parallel (`/MP`) and each of `core/` and `maya/` has a precompiled header (`CorePch.h`, `MayaPch.h`), force-included by the project. A full rebuild takes about 20 s. After editing a PCH header expect its folder to recompile.
 - **Copy the .mll** before loading it, because a loaded plugin locks the file.
 - **Line endings:** source files are CRLF. Prefer the Edit tool, since `sed -i` in Git Bash rewrites a file as LF.
 - **Adding tests:** assign every new test file a tier in `TIERS` in `tests/run_tests.py`, follow `tests/README.md`, and write pose expectations by hand, never recorded from the rig.

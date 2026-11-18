@@ -27,6 +27,9 @@
     <ClCompile Include="core\AssetId.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\CorePch.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\JointClipFile.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -106,6 +109,9 @@
       <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="maya\CommandRegistry.cpp">
+      <Filter>maya</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\MayaPch.cpp">
       <Filter>maya</Filter>
     </ClCompile>
     <ClCompile Include="maya\ModuleRegistry.cpp">
@@ -242,6 +248,9 @@
     <ClInclude Include="core\AssetId.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="core\CorePch.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\Constants.h">
       <Filter>core</Filter>
     </ClInclude>
@@ -333,6 +342,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="maya\CommandRegistry.h">
+      <Filter>maya</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\MayaPch.h">
       <Filter>maya</Filter>
     </ClInclude>
     <ClInclude Include="maya\ModuleRegistry.h">

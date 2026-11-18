@@ -9,6 +9,7 @@ When a file is added, renamed or changes what it holds, update its row here in t
 | `StringUtils.h` | Header-only string helpers: `splitIdentifier` for `"module.name"`, `joinNames` (`"a, b, c"` for messages), `endsWith`, `trim` (a namespace's colons), `toSnakeCase` (the default `rigName`), `stripNumberSuffix` and `numberedName` (`spine_00` and `spine`, `spineIK` and `spineIK_02`: derived control names, D57). Included by `maya/shared/Utilities.h`. |
 | `RigJsonStructs.h/.cpp` | Template structs (`RigRootData`, `RigModuleData`, constraint data), `templateUpdateTable` and `loadRigTemplate` (update steps, key checks, then parse). |
 | `FormatUpdate.h/.cpp` | `UpdateTable` and `FormatUpdate::runUpdates`: a saved format's version steps, run in order on raw JSON (D33). Used for the template and, through `ModuleDescriptor::argUpdates`, each module's `moduleArgs`. |
+| `CorePch.h/.cpp` | The precompiled header for `core/` (D60): the standard library and json only, force-included into every `.cpp` by the project. Never add a Maya header. |
 | `ControlChannels.h/.cpp` | `ControlChannel` (name, type, rest, range, mirror mode), `serializeControlChannels` for `getRigControlChannels`, `ControlSpace` (constraint or module, labels, current) with `serializeControlSpace` for `getRigControlSpace` (D50, D52), and `findMirrorAxis` for flipping a Center control (D34). |
 | `RigTemplateValidation.h/.cpp` | `ValidationReport`, `ModuleInterface` (its `ModulePlugInfo`: `hasControl`, `allowsConstraint`, and `followsPlug` for an internal child plug, D52), and the read-phase template checks (D17), and the `parent:` id helpers `isParentSocketId`, `stripParentPrefix`, `isDrivenByParent` and `parentSocketIds` (D55). |
 | `NamingConvention.h/.cpp` | The naming convention (D58), `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>`: `Name`, `Kind`, `parse`, `format`, `isValidBase`, `fromUsage`, `controlName` (a control's name from its joint or usage) and `swapSide`. The one home for the rules: the build, template validation, mirroring and `renameRigNodes` call it. |
@@ -39,6 +40,7 @@ When a file is added, renamed or changes what it holds, update its row here in t
 
 | File | Contents |
 |---|---|
+| `MayaPch.h/.cpp` | The precompiled header for `maya/` (D60): `core/CorePch.h` plus the common Maya headers, force-included into every `.cpp` under `maya/`. |
 | `PluginMain.cpp` | Plugin entry. Loops over `ModuleRegistry` and `CommandRegistry`, and registers `rigControlNode` plus its VP2 draw override. |
 | `ModuleRegistry.cpp/.h` | The only file that includes every module header. Holds each node's type name, JSON `moduleType`, `MTypeId` and `planFromJson`. Add new nodes here. |
 | `CommandRegistry.cpp/.h` | The only file that includes every command header. Add new commands here. |

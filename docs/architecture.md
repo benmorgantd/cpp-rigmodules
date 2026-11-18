@@ -20,7 +20,7 @@ Contents: [Layers](#layers) · [Source map](#source-map) · [Plugin startup](#pl
 ```
 
 - **Dependencies point down only.** `core/` never includes Maya or `maya/` (D13). `tests/maya/concepts/test_source_layout.py` checks this, along with the include rules and brace style.
-- **The plugin is one `.mll`** built from `cpp/RigModules.vcxproj`. `core/` is a folder, not yet a separate library.
+- **The plugin is one `.mll`** built from `cpp/RigModules.vcxproj`. `core/` is a folder, not yet a separate library. Compiles run in parallel, and each folder has a precompiled header, `core/CorePch.h` and `maya/MayaPch.h`, force-included into every `.cpp` by the project (D60). A full rebuild takes about 20 s. A new `.cpp` in either folder picks the header up from a wildcard in the project, so it needs no setting.
 - **Logic goes as low as it can.** If it needs no Maya header it goes in `core/`. The plugin layer is adapters between Maya and the core.
 
 ## Source map

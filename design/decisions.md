@@ -73,6 +73,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D57 | Control placement is derived from the bind joints, with no control joints in the skeleton | Decided | Assets |
 | D58 | One naming convention for joints, controls, modules and constraints: `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>` | Decided | Assets |
 | D59 | TwoBoneIk and Ribbon template keys for defaults, orientation and an FK layer | Decided | Assets |
+| D60 | The build is faster through parallel compiles and two precompiled headers, not by splitting the project | Decided | Build |
 
 ---
 
@@ -519,6 +520,14 @@ Every name is `<camelCaseName>_<##>_<L|R|M>_<JNT|CTRL|MOD|CON>`: `upperArm_00_L_
 - **Command:** `renameRigNodes` renames the nodes passed, or the selection, in that order (index from `startIndex`, 0 by default). The kind comes from the node type (`NamingScene::getKind`). It checks every target before the scene changes and renames through temporary names, so renumbering nodes among themselves works. It reads the selection in selection order, which needs Maya's `trackSelectionOrder`. It fails on a selection of more than one node while that is off, and does not change the user's preference (rejected: turning it on, since it is a user setting). `query` returns the parts of a name. Python: `rigmodules.naming` (`rename_nodes`, `parse`), thin over the command so the rules stay in C++.
 - **Rejected:** a `names` list flag on the command (one base per node), since `base` plus order covers renumbering and the author asked for order-based indexes. Checking a joint name's side letter against its markup `side` (more failure for a cosmetic mismatch, left to the author's tools).
 - **Consequence:** every control, module and constraint name changes, so rigs built before this must be rebuilt (no migration, D24), and saved pose, animation and shape files are keyed by markup and so are unaffected. Golden snapshots were regenerated, and the template module names, constraint names and socket ids in every fixture and doc changed. The suffix constants `JointSuffix`, `ControlSuffix` and the side suffixes left `RigNaming`, and `getSideSuffix` and `getSideFromSuffix` left `Side`. Selection set names still follow the module name, so they read `arm_00_L_MOD_joints_set`. mayadev call sites that build or parse these names must change.
+
+### D60. The build is faster through parallel compiles and two precompiled headers, not by splitting the project
+**Status:** Decided and built (author, 2026-11-18).
+
+`RigModules.vcxproj` turns on `MultiProcessorCompilation` and gives each source folder a precompiled header: `core/CorePch.h` (the standard library and json) and `maya/MayaPch.h` (that plus the common Maya headers). Each is force-included, so no `.cpp` lists it, and a wildcard `Update` item in the project applies it to every `.cpp` in the folder. Release x64 links with `/LTCG:INCREMENTAL`.
+
+- **Why:** a full rebuild took 219 s because the 67 `.cpp` files compiled one after another (`/m` only parallelises projects) and every file that reached `json.hpp` (about 1 MB) parsed it again (about 3 s a file against 0.9 s). Measured on the same machine with other work running: full rebuild 219 s before, 22 s after; one `.cpp` touched 9.7 s before, 6 s after; `Utilities.h` touched 8.5 s. **Rejected:** a separate `core` static library. Under `/GL` the code generation happens at link time anyway, so a full rebuild would not shrink, and it would add a second project to keep in sync with the include rules.
+- **Consequence:** `CorePch.h` holds no Maya header, so `core/` stays Maya-free (`test_source_layout.py` still checks the includes). A file may compile without including a standard or Maya header the PCH already supplies, so each `.cpp` should still include what it uses. A change to either PCH recompiles its folder, so add a header only when most files use it. The PCH files sit in `core/` and `maya/` themselves.
 
 ### D57. Control placement is derived from the bind joints, with no control joints in the skeleton
 **Status:** Decided (author, 2026-11-17). Phases 0 to 5 built (the -X chain, `core/ControlPlacement`, the Ribbon, TwoBoneIk, the perf scenes, the docs pass and the mayadev report). Design and build phases: `derived-controls.md`.

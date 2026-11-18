@@ -113,6 +113,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir);$(MAYA_DEVKIT_LOCATION)\include;$(ProjectDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -134,16 +135,19 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir);$(MAYA_DEVKIT_LOCATION)\include;$(ProjectDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(MAYA_LOCATION)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>OpenMaya.lib;OpenMayaAnim.lib;Foundation.lib;OpenMayaUI.lib;OpenMayaRender.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <LinkTimeCodeGeneration>UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="core\AssetId.cpp" />
+    <ClCompile Include="core\CorePch.cpp" />
     <ClCompile Include="core\ControlChannels.cpp" />
     <ClCompile Include="core\ControlMarkup.cpp" />
     <ClCompile Include="core\LibraryFile.cpp" />
@@ -171,6 +175,7 @@
     <ClCompile Include="core\NamingConvention.cpp" />
     <ClCompile Include="core\TemplateMirror.cpp" />
     <ClCompile Include="maya\CommandRegistry.cpp" />
+    <ClCompile Include="maya\MayaPch.cpp" />
     <ClCompile Include="maya\ModuleRegistry.cpp" />
     <ClCompile Include="maya\PluginMain.cpp" />
     <ClCompile Include="maya\commands\ConstraintCmds.cpp" />
@@ -215,8 +220,32 @@
     <ClCompile Include="maya\shared\SkinWeightScene.cpp" />
     <ClCompile Include="maya\shared\Utilities.cpp" />
   </ItemGroup>
+  <!-- Precompiled headers, one per folder: core/ gets only the standard library and json (so it stays Maya-free), maya/
+       adds the common Maya headers. The header is force-included, so no .cpp lists it. A new .cpp in either folder
+       needs no setting here: the wildcard picks it up. -->
+  <ItemGroup>
+    <ClCompile Update="core\*.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>core/CorePch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)CorePch.pch</PrecompiledHeaderOutputFile>
+      <ForcedIncludeFiles>core/CorePch.h</ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Update="maya\**\*.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>maya/MayaPch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)MayaPch.pch</PrecompiledHeaderOutputFile>
+      <ForcedIncludeFiles>maya/MayaPch.h</ForcedIncludeFiles>
+    </ClCompile>
+    <ClCompile Update="core\CorePch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Update="maya\MayaPch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\AssetId.h" />
+    <ClInclude Include="core\CorePch.h" />
     <ClInclude Include="core\Constants.h" />
     <ClInclude Include="core\ControlChannels.h" />
     <ClInclude Include="core\ControlMarkup.h" />
@@ -248,6 +277,7 @@
     <ClInclude Include="core\StringUtils.h" />
     <ClInclude Include="core\TemplateMirror.h" />
     <ClInclude Include="maya\CommandRegistry.h" />
+    <ClInclude Include="maya\MayaPch.h" />
     <ClInclude Include="maya\ModuleRegistry.h" />
     <ClInclude Include="maya\commands\ConstraintCmds.h" />
     <ClInclude Include="maya\commands\CreateRigCmd.h" />
