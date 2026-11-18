@@ -1,0 +1,16 @@
+{
+  "description": "The layout is a chain, so turning layout_0 90 about X turns layout_2 with it. The end plug's motion relative to the start's is then the identity and the end adds no twist: the whole ribbon is carried rigidly. Every joint turns 90 and nothing moves.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_driven_ends",
+  "set": {
+    "layout_0_ctrl_c.rotateX": 90
+  },
+  "expect": {
+    "tailCtrlB_jnt": {"translate": [4, 0, 0], "rotate": [90, 0, 0]},
+    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [90, 0, 0]},
+    "tail2_jnt": {"translate": [2, 0, 0], "rotate": [90, 0, 0]},
+    "tail3_jnt": {"translate": [4, 0, 0], "rotate": [90, 0, 0]},
+    "tail4_jnt": {"translate": [6, 0, 0], "rotate": [90, 0, 0]},
+    "tail5_jnt": {"translate": [8, 0, 0], "rotate": [90, 0, 0]}
+  }
+}

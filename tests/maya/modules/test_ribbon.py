@@ -169,6 +169,28 @@ class RibbonBehaviour(RigTestCase):
         self.assertAlmostEqual(turns["spineCtrlC_jnt"], 45.0, places=3)
         self.assertAlmostEqual(turns["spineCtrlD_jnt"], 22.5, places=3)
 
+    # ---- the end follows its plug's frame (design/ribbon-twist-follow.md) -----------------------
+
+    def test_an_arms_ribbons_meet_at_the_elbow_with_the_shoulders_twist_easing_in(self):
+        """An FK arm along X with a ribbon on each bone. The upper ribbon's start hangs on the layout (the body: no twist), its end
+        on the elbow socket, which carries the shoulder's twist T. Its twist runs 0 to T along the bone, and the forearm ribbon,
+        which starts on the elbow socket, starts at T, so the two meet. The arm is nearly straight (a 0.3 bend over 4), so the
+        roll about X is the twist to within a degree. Before the end followed its plug, the seam was T."""
+        self.build_standard("ribbon_arm", "ribbon_arm")
+        set_attr("armSettings_ctrl_l", "ikFkBlend", 0)   # FK: the shoulder control's rotation reaches the elbow socket
+
+        def roll(joint):
+            m = world_matrix(joint)
+            return math.degrees(math.atan2(m[6], m[5]))
+
+        for twist in (60, 170, -170):
+            set_attr("upperArm_ctrl_l", "rotateX", twist)
+            for joint, u in (("up1_jnt", 0.0), ("up2_jnt", 0.25), ("up3_jnt", 0.5), ("up4_jnt", 0.75), ("up5_jnt", 1.0)):
+                expected = twist * u
+                self.assertAlmostEqual(math.remainder(roll(joint) - expected, 360.0), 0.0, delta=1.0, msg="T=%s %s" % (twist, joint))
+            seam = math.remainder(roll("fo1_jnt") - roll("up5_jnt"), 360.0)
+            self.assertAlmostEqual(seam, 0.0, delta=1.0, msg="the seam at the elbow for T=%s" % twist)
+
     # ---- the plan step's checks (D17) ----------------------------------------------------------
 
     def _build_with(self, edit, skeleton="ribbon_basic"):

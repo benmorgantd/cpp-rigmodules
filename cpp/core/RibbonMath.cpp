@@ -209,10 +209,13 @@ namespace RibbonMath
 			}
 		};
 
+		// The start's frame is its parent's, so its twist is its own control's alone. The end also follows the twist of its plug's
+		// motion relative to the start's, so the end plug's parent can twist the ribbon. The secondary angle picks the turn of
+		// the sum.
 		EndTwists endTwists(const Params& params, const Input& input, int controlCount)
 		{
 			return { pickTwistBranch(extractTwist(input.local[0]), params.startTwist),
-				pickTwistBranch(extractTwist(input.local[controlCount - 1]), params.endTwist) };
+				pickTwistBranch(extractTwist(input.local[controlCount - 1]) + extractTwist(input.endDelta), params.endTwist) };
 		}
 
 		// ---- the base curve: start and end only ----

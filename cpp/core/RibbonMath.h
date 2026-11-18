@@ -76,6 +76,10 @@ namespace RibbonMath
 		Mat4 local[MaxControls];
 		Mat4 startOPM;
 		Mat4 endOPM;
+		// The end plug's motion relative to the start plug's, in the end's rest frame: endOPM = endRest * endDelta. Its twist about
+		// X joins the end's total twist, so a parent that twists the end (an elbow, a chest) twists the ribbon (design/ribbon-twist-follow.md).
+		// The identity at rest.
+		Mat4 endDelta;
 	};
 
 	struct Output

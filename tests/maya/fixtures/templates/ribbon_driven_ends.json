@@ -1,0 +1,11 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "RibbonDrivenEnds",
+  "rigModules": [
+    { "moduleType": "Ribbon", "name": "tail_1", "shapeType": "Box", "side": "Center",
+      "moduleArgs": {
+        "controls": [ ["Center", "tailCtrlA"], ["Center", "tailCtrlB"], ["Center", "tailCtrlC"] ],
+        "joints": [ ["Center", "tail1"], ["Center", "tail2"], ["Center", "tail3"], ["Center", "tail4"], ["Center", "tail5"] ] },
+      "parentStructure": { "start": "layout.index_0", "end": "layout.index_2" } }
+  ]
+}

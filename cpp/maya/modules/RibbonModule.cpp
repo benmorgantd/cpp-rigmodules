@@ -247,6 +247,7 @@ void RibbonModuleNode::evaluate(
 		input.local[j] = toMat4(mLocal[j]);
 	}
 	input.startOPM = toMat4(mRest[0]);
+	input.endDelta = toMat4(mEndDelta * mStartDelta.inverse());
 	input.endOPM = toMat4(mRest[controlCount - 1] * mEndDelta * mStartDelta.inverse());
 
 	RibbonMath::Output output;

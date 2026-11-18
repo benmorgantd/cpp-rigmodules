@@ -1,0 +1,16 @@
+{
+  "description": "The end plug's parent (layout_2) turns 90 about X while the start's stays. The end follows its plug's frame (design/ribbon-twist-follow.md): the end's total twist is 0 from its control plus extractTwist of its plug's motion relative to the start's, which is 90. The twist ramps linearly along the whole ribbon, so the joints at u = 0, 0.25, 0.5, 0.75 and 1 turn 0, 22.5, 45, 67.5 and 90, and the interior marker (u = 0.5) 45. Nothing moves: the curve is the same line.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_driven_ends",
+  "set": {
+    "layout_2_ctrl_c.rotateX": 90
+  },
+  "expect": {
+    "tailCtrlB_jnt": {"translate": [4, 0, 0], "rotate": [45, 0, 0]},
+    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [0, 0, 0]},
+    "tail2_jnt": {"translate": [2, 0, 0], "rotate": [22.5, 0, 0]},
+    "tail3_jnt": {"translate": [4, 0, 0], "rotate": [45, 0, 0]},
+    "tail4_jnt": {"translate": [6, 0, 0], "rotate": [67.5, 0, 0]},
+    "tail5_jnt": {"translate": [8, 0, 0], "rotate": [90, 0, 0]}
+  }
+}

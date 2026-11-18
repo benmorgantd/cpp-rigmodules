@@ -1,0 +1,13 @@
+{
+  "description": "The end plug's parent turns 200 about X, which the swing-twist split reads as -160, and the secondary twist stays 0, so the end's total twist is the plain wrapped angle -160 and the ramp runs 0 to -160: -40 at u = 0.25, -80 at u = 0.5 and -120 at u = 0.75. The same limit as the end control's own roll (end_twist_200_without_the_secondary).",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_driven_ends",
+  "set": {
+    "layout_2_ctrl_c.rotateX": 200
+  },
+  "expect": {
+    "tail2_jnt": {"translate": [2, 0, 0], "rotate": [-40, 0, 0]},
+    "tail3_jnt": {"translate": [4, 0, 0], "rotate": [-80, 0, 0]},
+    "tail4_jnt": {"translate": [6, 0, 0], "rotate": [-120, 0, 0]}
+  }
+}
