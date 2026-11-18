@@ -12,6 +12,15 @@ Design decisions and their history are in `design/decisions.md`. Read it before 
 
 Documentation has two homes (D21). `design/` is for people working on the system: why it is built the way it is. `README.md` and `docs/` are for people using it: what it does now. The process is in `docs/README.md`.
 
+## Where the instructions live
+
+This file is what every session loads, so it holds only what every task needs. The rest is split so it loads when it applies:
+
+- `.claude/rules/cpp.md` loads for `cpp/`: reuse, formatting, naming, Maya API rules.
+- `.claude/rules/mayadev-boundary.md` loads for commands, `python/` and the mayadev pages.
+- `.claude/agents/maya-runner.md`: the build and suite procedure, also run as the `maya-runner` agent. Agents start with a clean context, so give each a self-contained brief.
+- `docs/source-map.md` (per-file reference), `docs/architecture.md` are read on demand.
+
 ## Working style
 
 - Plan before code. For any new module or architectural change, propose the design first (inputs, outputs, child plugs, sockets, attributes, affects relationships, failure modes) and wait for sign-off before writing implementation.
@@ -123,64 +132,18 @@ RigTemplates/        example template
 Command naming: name API functions and commands in verb pairs: get/set for scene data (`getRigControls`, `setControlShape`), save/load for files this system owns (`saveRigControlShapes`, `loadRigControlShapes`), import/export for data going to or from other tools or formats, and `mirror` for copying one side onto the other (`mirrorRigControlShapes`). Every command follows the shape in D14, with `JointMarkupCmd` as the reference. The full command list is in `docs/commands.md`.
 
 
-## Reuse and complexity control
+## C++ rules (summary)
 
-Complexity grows through duplication and one-off special cases. Resist both.
+The full rules are in `.claude/rules/cpp.md`, which loads when you touch `cpp/`. Read it before planning or reviewing C++ if it has not loaded. The short form:
 
-### Look before you write
+- **Reuse first.** Search `maya/shared/Utilities.h`, `maya/shared/RigModule.h` and `core/` before writing a helper. Extend a near match backward-compatibly. A helper that isn't about one feature's own concepts goes in the shared layer when written. Name what you reused or added in the summary.
+- **Structure.** One home per concept, thin modules, data over branching, no dead or speculative code, no new dependency without asking. If logic can live in `core/`, it goes there.
+- **Format and names.** Allman braces (including empty bodies), tabs. `o` / `p` / `fn` / `a` prefixes for `MObject`, `MPlug`, function sets and module attributes. Module files are `<Name>Module`.
+- **Maya API.** Check every `MStatus`. No temporaries for non-const `MObject&` parameters. Every attribute gets create, add and `attributeAffects`. `compute()` has no allocation and no string lookup.
+- **State complexity you add** (a new shared function, attribute, JSON key or special case) and justify it.
 
-1. Before writing any helper, search `maya/shared/Utilities.h`, `maya/shared/RigModule.h` and `core/` (and their implementations) for existing functionality.
-2. If something close exists, **reuse it**. If it nearly fits, **make a small, backward-compatible edit** (new overload, optional parameter, clearer name) instead of writing a parallel version.
-3. Only write a new shared function when nothing close exists. Put it in the right shared location, not inside a module.
-4. When you reuse or edit a shared function, check its other callers so you do not change their behavior.
-5. In your change summary, state what existing code you reused or extended and why a new function was needed, if one was added.
-6. **Shareable helpers are shared when written, not after their third copy** (author, 2026-11-09). A helper that isn't about one feature's own concepts goes straight into the shared layer, even with one caller: finding nodes, joints or meshes, namespaces, DAG and history walks, components, file IO, flag parsing, report display. It goes in `maya/shared/Utilities.h` under the class for its topic (`DagUtils`, `MeshUtils`, `CommandUtils`, ...), or in the shared file that owns the topic (`JointMarkupScene` for joints by markup, `RigTraversal` for walking a rig), or `core/` if it needs no Maya. Only logic about the feature itself (a skinCluster's undo state, a module's math) stays file-local. Before finishing, list every anonymous-namespace helper the change added and say why each one isn't shareable.
+## Conventions that apply everywhere
 
-### Structural practices
-
-- **Rule of three, for feature logic only.** Logic about one feature may be duplicated twice before it is extracted. Scene and utility helpers never are: see step 6 above. Do not invent shared APIs nobody calls.
-- **One home per concept.** Each piece of logic, constant, and string lives in exactly one place. Shared code goes in the shared layer. Module-specific code stays in the module.
-- **Modules stay thin.** A module declares its attributes, child plugs, and sockets, then delegates to shared code for common behavior. If two modules share behavior, move it up to `maya/shared/RigModule.h` or `maya/shared/Utilities.h` (or `core/` when it needs no Maya) instead of copying.
-- **Prefer composition and data over inheritance and branching.** Avoid deep class hierarchies and long `if (moduleType == ...)` chains. Extend through shared helpers and the `ModuleRegistry`.
-- **Consistent patterns.** A new module should look like the existing ones (FkChain, Layout). If you need to break the pattern, say why. If the pattern itself is wrong, propose changing it everywhere rather than diverging once.
-- **Small, single-purpose functions** with clear inputs and outputs. Avoid functions that need many flags to behave differently.
-- **Minimize surface area.** Keep things private or file-local by default. Every new public function, attribute, or JSON key is a long-term commitment.
-- **No dead or speculative code.** No unused parameters, "just in case" options, or commented-out blocks. Delete what is not used.
-- **Avoid new dependencies** unless they clearly pay for themselves. Ask first.
-- **Document why, not what.** Comment non-obvious decisions, invariants, and Maya quirks. Do not narrate obvious code.
-- **Refactor with the change, not after.** If adding a feature exposes duplication or awkward structure, fix the structure in the same effort or flag it explicitly. Do not leave it for "later."
-
-### Complexity checks
-
-When a change adds notable complexity, call it out and justify it: a new shared function, a new attribute on an existing module, a new JSON key, or a new special case. If a simpler path exists, take it or present it as an alternative.
-
-## Code conventions
-
-### Formatting
-Every curly bracket goes on its own new line (Allman), with no exceptions. This includes functions, control flow, namespaces, classes, lambdas, empty bodies (`X::X()` then `{` and `}` on their own lines), and multi-line initializer blocks. A braced init list that fits on one line is a value, not a block, and stays inline: `int v{ 1 }`, `foo(a, {}, b)`, `{ attr, 0.0 }`. `test_source_layout.py` checks this.
-
-Indentation is tabs. `cpp/.clang-format` encodes these rules (Allman, tabs, a parameter list that doesn't fit on one line goes one parameter per line, sorted includes).
-
-**Includes** are grouped in blank-line-separated blocks: the file's own header first, then project headers, the standard library and Maya, in whatever groups the file already uses. Each block is sorted alphabetically, ignoring case. `test_source_layout.py` checks the order. Select the include lines and run Format Selection to sort them. Do not run it over whole files yet: it would also re-align hand-formatted code. Use it on new code or a selection.
-
-```cpp
-if (status != MS::kSuccess)
-{
-    return status;
-}
-```
-
-### Naming
-
-| Kind | Convention | Example |
-|---|---|---|
-| `MObject` | `o` prefix | `oMyName` |
-| `MPlug` | `p` prefix | `pMyPlug` |
-| `MFn*` function sets | `fn` prefix | `fnMyMfn` |
-| Module attributes | `a` prefix | `aMyAttributeName` |
-| Module files and classes | `<Name>Module.h/.cpp`, class `<Name>ModuleNode` (D53). The template `moduleType` stays `<Name>`. | `AimModule.cpp`, `AimModuleNode`, `"Aim"` |
-
-### Command flags
 
 Use long flag names everywhere: in code that reads flags, in comments, in docs and in examples (`-usage`, never `-us`). Short names get confusing when reading code. `MSyntax::addFlag` still requires a short name, so short names appear only inside `newSyntax()` and nowhere else. Keep long flag names in file-local constants and read them through those constants.
 
@@ -188,35 +151,12 @@ Use long flag names everywhere: in code that reads flags, in comments, in docs a
 
 **No import aliases in Python.** Write `import bmaya.core.asset` and call `bmaya.core.asset.Asset.create(...)`, never `import bmaya.core.asset as ba`. The full path says where each name lives. The one exception is `import maya.cmds as cmds`, the established convention. This applies to code, tests, docs and replies.
 
-### Maya API rules
-
-- **Pass lvalue MObjects to non-const `MObject&` parameters.** `MPlug::child(MObject& attr, MStatus*)` does not accept a temporary, so `pElement.child(fnModule.attribute("name"))` fails with E0304. Look the attribute up on its own line into a named `oAttrName` variable, then pass that variable. This applies to any Maya API function taking a non-const `MObject&`, including the result of `fnNode.attribute(...)` and `MFnAttribute::create(...)`. Check the header signature before nesting a call as an argument.
-- Always capture and check `MStatus`. Use the project's existing error-handling macros or patterns rather than inventing new ones.
-- In `initialize()`, every attribute needs create, add, and `attributeAffects` handled together. Missing `attributeAffects` is a common silent bug, so check it on every new attribute.
-- In `compute()`, group plug reads and writes by purpose and avoid re-querying the same plug.
-- Keep `compute()` free of allocations and string lookups. Resolve plugs and attributes outside the hot path where possible.
-
-## Structure: Maya-free core plus thin plugin layer
-
-Studio-style split, matching how the author structures their Python code. The folders exist (D13); the rest of the split is still planned.
-
-- **Core (`core/`, no Maya headers):** JSON parsing and validation, joint markup, shared constants. Still to move here: child plug and socket resolution, `parentStructure` ordering, matrix math. Meant to be testable with GoogleTest and no Maya install (no harness yet).
-- **Plugin layer (`maya/`, Maya API):** nodes, attribute definitions, plug I/O, and the commands that bridge to the core.
-- **Python (started, D30):** a thin package in `python/rigmodules`. Built: the rig query (`get_rig_info`, `get_rigs`), `template.get_rig_name` and `skinweights`. Planned: a build wrapper, the rest of the rig query API (modules, controls, sockets, rest values), template validation passed through to the core, shape IO and pose data read and write, and user-facing error messages. Placement rule: Python goes here only if it would have to change when a RigModules node, attribute, flag or template key changes. It imports no Qt or `bmaya` and reads no environment variables or asset paths (D24).
 
 ## Sibling repo: mayadev
 
-The author's Python pipeline lives in a separate repo: https://github.com/benmorgantd/mayadev, local checkout `C:\Users\bmorgan\Documents\dev\maya\mayadev`, package `bmaya` under `py/scripts/bmaya`. The author uses it for the asset file model, the menus and tools, the active rig, skinning, animation and GUI tools. Read `design/mayadev-integration.md` before touching either side of the boundary. The boundary is decided (D24).
+The author's Python pipeline is a separate repo (`C:\Users\bmorgan\Documents\dev\maya\mayadev`, package `bmaya`). mayadev depends on RigModules, never the reverse. The full boundary, what mayadev holds and the legacy builder notes are in `.claude/rules/mayadev-boundary.md` (loads for commands, `python/` and the mayadev pages), and `design/mayadev-integration.md` and `docs/mayadev.md`.
 
-**mayadev code is visible from here.** Its documentation is in its own `docs/` folder (`docs/README.md` there maps the pages; `docs/rigmodules.md` is the list of every command and `rigmodules` function it calls, and `docs/status.md` its known problems). `docs/mayadev.md` in this repo is the reverse view for someone changing RigModules. In a cloud session `benmorgantd/mayadev` is in the repository scope: attach it with `add_repo` when it isn't cloned, and read it there. **Before renaming, removing or reshaping a command, flag, return value or `rigmodules` function, search `py/scripts`, `toolsets` and `tests` in mayadev for it**, and list the call sites it breaks in the change summary. The menu tools in `toolsets/master_tool_registry.json` are a module, a function and keyword arguments (D47), so a `rigmodules` function named directly there is checked by mayadev's `check_calls`. A command called inside a mayadev function is not, so a name search is still the only check for it. Propose mayadev edits to the author instead of making them.
-
-- **Dependency direction:** mayadev depends on RigModules, never the reverse. mayadev tools reach rig internals only through the RigModules Python query API, never by walking node connections or parsing names.
-- **Legacy rig builder:** mayadev has its own builder (`maya/rigging/base/` with `Rig`, `Module`, `Layout`, plus `maya/rigging/modules/`). It uses cmds constraints, DAG offset groups, name-based joints and `L/R/M` sides. It is deleted on mayadev main (branch `asset-tools`, merged), along with `rigManager` and the legacy `bmaya.maya.asset`. The tag `legacy-rig-builder` keeps it, and an untracked copy sits in mayadev's ignored `legacy_reference/` folder for reading. mayadev stays the pipeline repo, and its asset tools (`bmaya.maya.assettools`) use `rigmodules.query` (D30). No rigs built with it need a migration path. Do not extend it, port its code, or copy its conventions into RigModules. Read its modules only as a list of animator-facing requirements when a new module goes through the gate.
-- **What mayadev holds now:** `bmaya.core.asset` (Maya-free: asset ids of any depth with the same rules as `core/AssetId` here, `project.json`, `asset.json`, skeletons, rigs and looks (D54), the registry, publishes, local versions, file handlers: D29), `bmaya.maya.assethandlers` and `assettools` (the only code that calls RigModules, with `activerig` and `posetools`; menu entry points are `*_interactive` and ask through a `Prompter`, D49), the rest of `core/` (plain Python: log, progress manager, `Event`, prompts, tool registry, batch framework), `maya/startup.py` and `maya_ui/startup.py` (the registration passes, D49), `maya/eventsregistry.py`, `maya_ui/` (Qt base classes, the Qt prompter and forms, the editors), the tool menus (`toolsets/`), and older skinning, joint and utility code in `maya/rigging/` and `maya/util/` that is not yet on the query API. The D49 `ui-phase1` branch is merged into mayadev `main`. D54 phase 4 (skeletons, rigs and looks: `Asset.skeletons`, `rigs`, `looks`, `rig.json` and `look.json`) is on mayadev branch `rigs-and-looks-phase4`. The attachment side of D55 (`rig.json` `parent`, `build_rig` with a parent, `apply_look` for a look that spans several skeletons) is on mayadev branch `attachments-phase8`, uncommitted.
-- **Same words, different meanings:** both repos have `Layout`, `FkChain` and `LayoutRig.json`. In this repo they always mean the RigModules ones. Call mayadev's versions "legacy".
-- mayadev is a different repo with its own conventions. This file's rules (Allman, docs pass, suite) apply only to this repo. Changes to mayadev need the author's go-ahead and a commit in that repo.
-
-Rule: if logic can live in the core, it goes in `core/`. The plugin layer should be thin adapters. A new file goes in `core/` when it needs no Maya header, including through what it includes.
+**Before renaming, removing or reshaping a command, flag, return value or `rigmodules` function, search mayadev's `py/scripts`, `toolsets` and `tests` for it**, and list the call sites it breaks in the change summary. Propose mayadev edits to the author instead of making them. "Layout" and "FkChain" here always mean the RigModules ones.
 
 ## Environments
 
@@ -225,50 +165,18 @@ Rule: if logic can live in the core, it goes in `core/`. The plugin layer should
 - Any change touching Maya-dependent code should end with a note: "Needs local build and Maya verification."
 - Stub-based syntax checks are a lint only. Stubs drift from real signatures.
 
-### Local build and test (Windows)
 
-- **Visual Studio project:** `cpp\RigModules.vcxproj`. The devkit path comes from the `MAYA_DEVKIT_LOCATION` env var (`C:\Users\bmorgan\Documents\dev\maya\devkit\devkitBase`).
-- **Build** (from the repo root): `& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" cpp\RigModules.vcxproj /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal`
-  - Output: `cpp\x64\Release\RigModules.mll`. That is the runner's default `--plugin`.
-  - **Then always run the tests**, even for a change that looks unrelated. Run `cmd /c tests\RigTests.cmd`, or the suite at the end of your own mayapy script (see Tests below).
-  - Warnings that already existed and can be ignored: nlohmann C5260, `maya/shared/Utilities.cpp` C4018.
-- **Run Maya headless:** `C:\Program Files\Autodesk\Maya2026\bin\mayapy.exe script.py`. Start the script with `maya.standalone.initialize(name="python")`, then `cmds.loadPlugin(path)`.
-- **No crash handler windows from your own scripts.** Set `MAYA_DISABLE_CER=1` before running mayapy or maya.exe yourself, and end a standalone script with `maya.standalone.uninitialize()` then `os._exit(0)`, as `tests/run_tests.py` does (Maya 2026 crashes at process exit without it). After a run that crashed, close any `senddmp.exe` or `cer_dialog.exe` it left open.
-- **Viewport (VP2) checks need a GUI session.** mayapy, `mayabatch` and `ogsRender` don't draw UI drawables or curves, so a draw override can't be checked there. After changing control drawing or shapes, run `cmd /c tests\ViewportGallery.cmd` and look at the images (see `tests/README.md`). It starts `maya.exe -command` with a one-line `python(...)` bootstrap (see the next bullet for how to write one). The script runs its work through `maya.utils.executeDeferred` (so the UI exists), sets the camera on `cmds.playblast(activeEditor=True)` (not the first model panel, which playblast may not capture), playblasts with `offScreen=True`, then calls `cmds.quit(force=True)`. `exec` gives it no `__file__`, so paths come through env vars.
-- **Starting a script in a GUI Maya: use `mayalaunch.run_gui(script, env, timeout)` (D48), which applies every rule below.** Never write the `-command` string by hand. The rules are kept here because they explain what it does. `-command` takes MEL, so MEL parses the string before Python sees it.
-  - `-command` takes MEL, so `python("...")` is a MEL string literal first. Rules, with the failure each one caused here:
-  - **A backslash in a MEL string is an escape.** `\n`, `\t`, `\r`, `\"` and `\\` are escapes, and any other `\x` is mangled or dropped. `python("exec(open('C:\Users\me\x.py').read())")` reached Python as `C:Users` plus a stray control character (`Invalid argument`), and the script never ran. Never put a Windows path in the string.
-  - **Only the double quote delimits a MEL string.** A single quote is plain text to MEL, so Python's `'...'` survives. A literal double quote inside needs `\"`, and a literal backslash needs `\\`. Avoid both: use single quotes in the Python and no backslashes at all.
-  - **Pass paths through environment variables, not the command string.** Set `PERF_SCRIPT` (and the plugin and output paths) before launching, and bootstrap with `python("exec(open(__import__('os').environ['PERF_SCRIPT'], encoding='utf-8').read())")`. The string then has no path, no backslash and no escaped quote. Forward slashes also work, but the variable removes the question.
-  - **Keep the bootstrap free of spaces when launching from PowerShell.** `Start-Process -ArgumentList` joins the array with spaces and adds no quotes, so a space inside the `python(...)` string splits it into two arguments and MEL reports `Unterminated string` (seen here at `environ['X'], encoding=...`). Write `open(p,encoding='utf-8')`, not `open(p, encoding='utf-8')`.
-  - **From PowerShell, `Start-Process -ArgumentList` hands the string to Windows unquoted.** The inner double quotes must reach the process as `\"`, which in a PowerShell double-quoted string is a backslash, a backtick, then the quote. Check the result in `Get-CimInstance Win32_Process` `CommandLine` before waiting on a run.
-  - **Write the script as UTF-8 without a BOM.** Windows PowerShell 5.1's `Set-Content -Encoding utf8` and `Out-File` add a BOM, and Python's default `open()` then fails with `invalid character '»' (U+00BB)`. Write scripts with the Edit and Write tools, or `[IO.File]::WriteAllText(path, text, (New-Object System.Text.UTF8Encoding($false)))`, and open them with `encoding='utf-8'`.
-  - **A bootstrap that fails does not exit.** Maya stays open on `Error: ...` in the script editor, so a runner that waits for exit waits out its whole timeout. Give every run a short timeout (a few minutes), have the script write a first log line at the top, and look for that line within a minute of launching.
-  - **Stop only the processes you started, by PID.** Never kill `maya.exe` by name or start time: the author's own Maya may be open.
-- **Copy the .mll before loading it.** A loaded plugin locks the file, so a Maya session that has it loaded makes the next build fail. Copy the .mll to the scratchpad and load the copy.
-- **Reading results in standalone:**
-  - `MGlobal::displayError` text surfaces as the `RuntimeError` message from the `cmds` call.
-  - Not enough command objects raises `TypeError`.
-  - The author's `userSetup.py` is mayadev's custom startup (logging, tool registry, menus), and it's wanted. It prints startup messages in mayapy, so filter them out of results rather than disabling it. The suite skips it on purpose (`MAYA_SKIP_USERSETUP_PY=1`), so tests see the plugin alone.
-  - Turn undo on with `cmds.undoInfo(state=True, infinity=True)` before testing undo/redo.
-- **Line endings:** source files are CRLF. Git Bash `sed -i` rewrites a file as LF, so prefer the Edit tool. Otherwise run `unix2dos` afterwards.
-- **Locked files:** `maya/nodes/RigRoot.cpp` and other files may be open and locked in Visual Studio, so writing them from a Python script fails with a permission error. The Edit tool still works.
-- **Short flag names:** `MSyntax::addFlag` rejects short names longer than 3 letters, and the flag then silently never registers. Wrap each `addFlag` in `CHECK_MSTATUS`.
-- **Tests:** run them after every build, in one of two ways:
-  - **Already running a mayapy script to check a change:** end that script with the suite instead of starting Maya again (about 4 s, no second startup). It must be the last thing the script does, because every test starts with `file -new`. It has no crash protection, so if Maya crashes, rerun with `RigTests.cmd` to find the test.
-    ```python
-    sys.path.insert(0, r"C:\Users\bmorgan\Documents\dev\maya\cpp\repos\RigModules\RigModules\tests")
-    import run_tests
-    ok = run_tests.run_in_current_maya()
-    ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 1207 tests in 6 tiers in one watched mayapy process (stopped by `--timeout`, default 900 s), plus the files in `PLAIN_PYTHON` (no plugin, no scene) in a plain Python process beside it, in about 35 s. `--durations` shows where the time went, and reports crashes with the test that caused them.
-  - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
-  - **Adding tests:**
-    - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.
-    - Follow `tests/README.md`.
-    - Write pose expectations by hand. Never record them from the rig.
-  - **Filtering:** pass a filter to run part of the suite, for example `RigTests.cmd fkchain`. Run the full suite before calling a change done.
-  - **Not covered:** there is no GoogleTest harness for the Maya-free core yet (D20).
+### Build and test (Windows)
+
+The full procedure (building, mayapy scripts, GUI Maya, crash windows, reading results) is in `.claude/agents/maya-runner.md`. Delegate build and suite runs to the `maya-runner` agent, which returns the TOTAL line and failures, or read that file before running Maya yourself. The essentials:
+
+- **Build** (from the repo root): `& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" cpp\RigModules.vcxproj /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal`. Output is `cpp\x64\Release\RigModules.mll`.
+- **Suite:** `cmd /c tests\RigTests.cmd` (pass a filter for part of it). Run it after every build. Both stop at the first failed tier, so fix the earliest failure first.
+- **Never** start Maya or write a `maya.exe -command` string by hand: use `python/mayalaunch` (D48). Set `MAYA_DISABLE_CER=1` for your own mayapy runs and end them with `maya.standalone.uninitialize()` then `os._exit(0)`.
+- **Copy the .mll** before loading it, because a loaded plugin locks the file.
+- **Line endings:** source files are CRLF. Prefer the Edit tool, since `sed -i` in Git Bash rewrites a file as LF.
+- **Adding tests:** assign every new test file a tier in `TIERS` in `tests/run_tests.py`, follow `tests/README.md`, and write pose expectations by hand, never recorded from the rig.
+- Stop only the processes you started, by PID. Never kill `maya.exe` by name: the author's own Maya may be open.
 
 ## Review checklist
 
