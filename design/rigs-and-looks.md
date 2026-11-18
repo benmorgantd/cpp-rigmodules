@@ -239,6 +239,6 @@ Each phase is one change with its tests and docs.
 4. **mayadev file model and tools.** The layout, `Asset`, the registry and publishes, then New Rig, New Look, Build Rig and Save Rig.
 5. **Looks in the scene.** The `lookRoot` node, the swap command, and the library browser's Looks kind. Done 2026-11-17, as D54's built note describes.
 6. **Source-control listing** of unsynced looks. Done 2026-11-17 in mayadev: `SourceControl.list_folders` and `sync`, `Asset.all_looks()` and `sync_look`, `assettools.list_rig_looks`, and `apply_look` syncing first. No RigModules change. The Perforce adapter (when a project uses Perforce) and the library window's Looks tab are not built.
-7. **Attachments.** Built here 2026-11-17 as D55 with no attach node: `parent:` ids and `parentRig` (`attachments.md`). The mayadev side (`rig.json` `parent`, build-and-attach, and `apply_look` for a look that spans several skeletons) is built on mayadev branch `attachments-phase8` (stacked on `rigs-and-looks-phase5`), not yet committed or merged (`attachments-mayadev.md`).
+7. **Attachments.** Built here 2026-11-17 as D55 with no attach node: `parent:` ids and `parentRig` (`attachments.md`). The mayadev side (`rig.json` `parent`, build-and-attach, and `apply_look` for a look that spans several skeletons) is built on mayadev branch `attachments-phase8` as `01a3d55` (stacked on `rigs-and-looks-phase5`), committed and not yet merged (`attachments-mayadev.md`).
 8. **Asset browser** (mayadev design first).
 9. **The parameters node,** with the face module (D46).

@@ -1,6 +1,6 @@
 # Attachments in mayadev (D55 follow-up, phase 7b)
 
-Status: approved by the author 2026-11-17, including the trimmed model import per rig for spanning looks (section 5). Built 2026-11-17 on mayadev branch `attachments-phase8`, uncommitted (see "As built" at the end). The handoff for the build was `attachments-mayadev-handoff.md`. RigModules already builds an attachment (`attachments.md`, `docs/attachments.md`). This page is the mayadev side: the file model, the build tool, and looks that span a rig and its attachment. mayadev code is read from `C:\Users\bmorgan\Documents\dev\maya\mayadev`. Edits there need the author's go-ahead, and go on a mayadev branch stacked on `rigs-and-looks-phase5`.
+Status: approved by the author 2026-11-17, including the trimmed model import per rig for spanning looks (section 5). Built 2026-11-17 and committed on mayadev branch `attachments-phase8` as `01a3d55`, not yet merged (see "As built" at the end). RigModules already builds an attachment (`attachments.md`, `docs/attachments.md`). This page is the mayadev side: the file model, the build tool, and looks that span a rig and its attachment. mayadev code is read from `C:\Users\bmorgan\Documents\dev\maya\mayadev`. Edits there need the author's go-ahead, and go on a mayadev branch stacked on `rigs-and-looks-phase5`.
 
 ## 1. What mayadev has to do
 

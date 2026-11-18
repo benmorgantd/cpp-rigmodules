@@ -1,6 +1,6 @@
 # Attachments: a rig that follows another rig (D54 phase 7)
 
-Status: signed off by the author and built 2026-11-17 (D55). The mayadev side (section 3.6) is built on mayadev branch `attachments-phase8` (stacked on `rigs-and-looks-phase5`), not yet committed or merged. Read `design/rigs-and-looks.md` section 7 first. This page is the design the gate in `CLAUDE.md` asks for. The user-facing description is `docs/attachments.md`.
+Status: signed off by the author and built 2026-11-17 (D55). The mayadev side (section 3.6) is built and committed on mayadev branch `attachments-phase8` as `01a3d55` (stacked on `rigs-and-looks-phase5`), not yet merged. Read `design/rigs-and-looks.md` section 7 first. This page is the design the gate in `CLAUDE.md` asks for. The user-facing description is `docs/attachments.md`.
 
 **As built, where it differs from the proposal below:**
 - `RigModuleNodeBase::findSocketById` is the one cross-rig lookup, and `RigConstraintNode::resolveSocket` is now a wrapper over it. The read phase calls it quietly and lists every miss.

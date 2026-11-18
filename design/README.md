@@ -23,7 +23,7 @@ Design pages are history with dates, not user documentation. What a feature does
 | [`mayadev-integration.md`](mayadev-integration.md) | D24 | The RigModules and mayadev boundary |
 | [`tool-registry.md`](tool-registry.md) | D47 | mayadev's tool registry and menus (built in mayadev) |
 | [`mayadev-ui.md`](mayadev-ui.md), [`active-rig-panel.md`](active-rig-panel.md), [`library-browser.md`](library-browser.md) | D49, D50, D51 | mayadev's Qt UIs, the active rig panel and the library browser (phases 1 to 3 built; the later phases are not) |
-| [`attachments-mayadev.md`](attachments-mayadev.md) | D55 | The mayadev side of attachments (built on a mayadev branch, uncommitted) |
+| [`attachments-mayadev.md`](attachments-mayadev.md) | D55 | The mayadev side of attachments (built and committed on mayadev branch `attachments-phase8`, not yet merged) |
 
 ## In progress
 
@@ -42,7 +42,6 @@ A handoff says "delete when its work is committed". Where the work is built but 
 |---|---|
 | [`ribbon-phase2-handoff.md`](ribbon-phase2-handoff.md) | The Ribbon's phase 2 work is committed |
 | [`derived-controls-phase2-handoff.md`](derived-controls-phase2-handoff.md) | D57 phase 2 is committed |
-| [`attachments-mayadev-handoff.md`](attachments-mayadev-handoff.md) | The mayadev side of attachments is committed |
 
 ## Proposals and speculation (nothing built)
 
