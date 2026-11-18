@@ -2,3 +2,6 @@
 # regardless of core.autocrlf. Git detects binaries (the PDF) on its own.
 * text=auto eol=crlf
 *.pdf binary
+
+# Shell scripts run under bash, which chokes on CRLF.
+*.sh text eol=lf
