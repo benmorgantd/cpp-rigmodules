@@ -124,6 +124,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/source-map.md](docs/source-map.md) | What every source file holds, the Python package, the design pages and the tools |
 | [docs/mayadev.md](docs/mayadev.md) | The mayadev pipeline repo as a consumer: what it calls and how to check its call sites before changing a name |
 | [tests/README.md](tests/README.md) | Running and writing tests |
+| [design/README.md](design/README.md) | Which design page to read, and its state |
 | [design/decisions.md](design/decisions.md) | Why the system is built the way it is (decision log) |
 | [design/asset-model.md](design/asset-model.md) | Asset id, namespaces and the file model (rigs and looks replace variants: [design/rigs-and-looks.md](design/rigs-and-looks.md)) |
 | [design/inverse-solve.md](design/inverse-solve.md) | Restoring controls from joints |
@@ -135,7 +136,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [design/tool-registry.md](design/tool-registry.md) | Proposal for mayadev's tool registry: fixes, readable ids, function calls, checked and versioned files |
 | [design/active-rig-panel.md](design/active-rig-panel.md) | The active rig panel (D50, built in mayadev except its out-of-date line): rig picker, control selection by module and side, pose tools and space switching, as a view over `RigPanelSession` |
 | [design/library-browser.md](design/library-browser.md) | Design for the library browser (D51, decided): list, apply, save, rename and delete poses and animations, as a searchable view over `LibrarySession`. The RigModules side (file metadata, two commands, `loadRigPose` mirror) and the mayadev side (the session and the window) are built. Publish to Approved and thumbnails are not |
-| [design/two-bone-ik.md](design/two-bone-ik.md) | Design for the two-bone IK limb (D52, decided, all eight phases built): controls, channels, matched IK/FK switch, module-owned spaces, inverse and build phases |
+| [design/two-bone-ik.md](design/two-bone-ik.md) | The two-bone IK limb as built (D52): the signed-off decisions and the maintenance surface. The full design is in design/archive/ |
 | [design/mayadev-ui.md](design/mayadev-ui.md) | Proposal for mayadev's user interfaces: thin Qt views over headless view-models, a startup registration pass between layers, questions through a `Prompter`, layer tests |
 
 [docs/README.md](docs/README.md) explains how the documentation is organized and kept current.

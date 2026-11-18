@@ -1,5 +1,7 @@
 # Two-bone IK: design plan and build steps
 
+> **Archived 2026-11-18.** Kept as history; the short current page is `../two-bone-ik.md`. Links below are relative to `design/`, so they do not resolve from here. Where this page and the code disagree, the code wins.
+
 **Status:** draft for sign-off (the module is named `TwoBoneIk`, author, 2026-11-15), revised 2026-11-15 with the author's requirements and answers, a soft IK design, a roll channel and a full review (section 9). Nothing here is built, and the module has not passed the gate (D12) until the author signs off section 2. Written from the code, `decisions.md` (D1 to D46), `inverse-solve.md` and `module-directions.md`. Where those disagree, section 9 lists it.
 
 The IK limb is the next module (author, 2026-11-10). **It is a two-bone IK limb: exactly three joints (root, mid, end), for arms and legs.** One-bone IK is the existing `Aim` module (a joint aimed at a target with an up control), so this module doesn't repeat it. Three or more IK bones is a different solve (a chain solver such as CCD or FABRIK, with no closed form, no single pole plane and no analytic inverse), and spline IK is another again. Both would be their own modules through the gate (D12) and share nothing with this solver except the blend and the matched-switch pattern. The module is IK/FK only. It is **not** a bendy limb: no twist, no bend bow, no ribbon. Section 7.4 says how those can be built on top later.
