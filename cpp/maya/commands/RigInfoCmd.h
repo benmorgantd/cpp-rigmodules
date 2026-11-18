@@ -4,7 +4,7 @@
 #include <maya/MPxCommand.h>
 #include <maya/MSyntax.h>
 
-// cmds.getRigInfo("hero:arm_ctrl_l")
+// cmds.getRigInfo("hero:arm_00_L_CTRL")
 //   -> JSON text: the rig root, asset id, rigName, skeletonHash, namespace and version stamps of the rig
 //   that a rig root, rig module, rig control or rig-driven joint belongs to (D29, D30). "" for any other node,
 //   with no error. The node is passed by name, never the selection. Query only, so not undoable. Keys are in

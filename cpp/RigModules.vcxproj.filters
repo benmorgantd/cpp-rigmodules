@@ -99,6 +99,9 @@
     <ClCompile Include="core\SkinWeightTable.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\NamingConvention.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\TemplateMirror.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -118,6 +121,9 @@
       <Filter>maya\commands</Filter>
     </ClCompile>
     <ClCompile Include="maya\commands\JointMarkupCmd.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\commands\RenameRigNodesCmd.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
     <ClCompile Include="maya\commands\RigControlCmds.cpp">
@@ -208,6 +214,9 @@
       <Filter>maya\shared</Filter>
     </ClCompile>
     <ClCompile Include="maya\shared\RigTraversal.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\NamingScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
     <ClCompile Include="maya\shared\Side.cpp">
@@ -314,6 +323,9 @@
     <ClInclude Include="core\SkinWeightTable.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="core\NamingConvention.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\StringUtils.h">
       <Filter>core</Filter>
     </ClInclude>
@@ -333,6 +345,9 @@
       <Filter>maya\commands</Filter>
     </ClInclude>
     <ClInclude Include="maya\commands\JointMarkupCmd.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\commands\RenameRigNodesCmd.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
     <ClInclude Include="maya\commands\RigControlCmds.h">
@@ -426,6 +441,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigTraversal.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\NamingScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\Side.h">

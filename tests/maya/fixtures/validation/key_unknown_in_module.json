@@ -6,7 +6,7 @@
     {
       "set": "/rigModules/1/parentStucture",
       "value": {
-        "start": "fkchain_1.start"
+        "start": "fkchain_01_M_MOD.start"
       }
     },
     {
@@ -16,7 +16,7 @@
   "expectErrors": [
     {
       "contains": "parentStucture",
-      "path": "rigModules[1] 'fkchain_2'"
+      "path": "rigModules[1] 'fkchain_02_L_MOD'"
     }
   ]
 }

@@ -2,10 +2,10 @@
   "description": "Handle at (0,5,0), pole moved to (5.5,3,0), so the pole is on the +X side of the +Y axis: n = +X, x = 1.8, h = 2.4, mid = 1.8*(0,1,0) + 2.4*(1,0,0) = (2.4,1.8,0), end = (0,5,0).",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "armIK_ctrl_l.translateX": -5, "armIK_ctrl_l.translateY": 5, "armPole_ctrl_l.translateX": 3, "armPole_ctrl_l.translateY": -2 },
+  "set": { "armIK_00_L_CTRL.translateX": -5, "armIK_00_L_CTRL.translateY": 5, "armPole_00_L_CTRL.translateX": 3, "armPole_00_L_CTRL.translateY": -2 },
   "expect": {
-    "upperArm_jnt": { "translate": [0, 0, 0] },
-    "lowerArm_jnt": { "translate": [2.4, 1.8, 0] },
-    "hand_jnt": { "translate": [0, 5, 0] }
+    "upperArm_00_M_JNT": { "translate": [0, 0, 0] },
+    "lowerArm_00_M_JNT": { "translate": [2.4, 1.8, 0] },
+    "hand_00_M_JNT": { "translate": [0, 5, 0] }
   }
 }

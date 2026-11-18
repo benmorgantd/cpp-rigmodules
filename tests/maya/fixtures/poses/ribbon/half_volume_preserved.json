@@ -3,12 +3,12 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailIK_02_ctrl_c.translateX": 4,
-    "tailIK_00_ctrl_c.volumePreserve": 0.5
+    "tailIK_02_M_CTRL.translateX": 4,
+    "tailIK_00_M_CTRL.volumePreserve": 0.5
   },
   "tolerance": 1e-05,
   "expect": {
-    "tail1_jnt": {
+    "tail1_00_M_JNT": {
       "translate": [
         0,
         0,
@@ -20,7 +20,7 @@
         0.903602
       ]
     },
-    "tail2_jnt": {
+    "tail2_00_M_JNT": {
       "translate": [
         3,
         0,
@@ -32,7 +32,7 @@
         0.903602
       ]
     },
-    "tail3_jnt": {
+    "tail3_00_M_JNT": {
       "translate": [
         6,
         0,
@@ -44,7 +44,7 @@
         0.903602
       ]
     },
-    "tail4_jnt": {
+    "tail4_00_M_JNT": {
       "translate": [
         9,
         0,
@@ -56,7 +56,7 @@
         0.903602
       ]
     },
-    "tail5_jnt": {
+    "tail5_00_M_JNT": {
       "translate": [
         12,
         0,

@@ -1,7 +1,7 @@
 {
   "joints": [
-    { "name": "n_jnt", "side": "Center", "usage": "n", "translate": [0, 2, 0] },
-    { "name": "f_a_jnt", "side": "Center", "usage": "f_a", "translate": [0, 5, 0] },
-    { "name": "f_b_jnt", "side": "Center", "usage": "f_b", "translate": [0, 6, 0] }
+    { "name": "n_00_M_JNT", "side": "Center", "usage": "n", "translate": [0, 2, 0] },
+    { "name": "fA_00_M_JNT", "side": "Center", "usage": "f_a", "translate": [0, 5, 0] },
+    { "name": "fB_00_M_JNT", "side": "Center", "usage": "f_b", "translate": [0, 6, 0] }
   ]
 }

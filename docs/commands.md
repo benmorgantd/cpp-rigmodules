@@ -14,19 +14,19 @@ Writes, edits, queries or removes the `rigMarkup` attribute on joints. Markup sa
 
 ```python
 # Create
-cmds.rigJointMarkup("skel:upperArm_jnt", usage="upperArm", side="Left", export=True, skin=True)
+cmds.rigJointMarkup("skel:upperArm_00_L_JNT", usage="upperArm", side="Left", export=True, skin=True)
 
 # Edit one value on several joints
-cmds.rigJointMarkup("skel:upperArm_jnt", "skel:upperArm_jnt1", edit=True, usage="shoulder")
+cmds.rigJointMarkup("skel:upperArm_00_L_JNT", "skel:lowerArm_00_L_JNT", edit=True, usage="shoulder")
 
 # Query one value: a list with one entry per joint, "" for unmarked joints
-cmds.rigJointMarkup("skel:upperArm_jnt", query=True, usage=True)   # ['upperArm']
+cmds.rigJointMarkup("skel:upperArm_00_L_JNT", query=True, usage=True)   # ['upperArm']
 
 # Query everything: the full markup JSON per joint
-cmds.rigJointMarkup("skel:upperArm_jnt", query=True)
+cmds.rigJointMarkup("skel:upperArm_00_L_JNT", query=True)
 
 # Remove
-cmds.rigJointMarkup("skel:upperArm_jnt", remove=True)
+cmds.rigJointMarkup("skel:upperArm_00_L_JNT", remove=True)
 ```
 
 | Flag | Type | Meaning |
@@ -45,12 +45,44 @@ cmds.rigJointMarkup("skel:upperArm_jnt", remove=True)
 
 The attribute holds JSON: `{"markupVersion": 1, "usage": "upperArm", "side": "Left", "export": true, "skin": true}`. The key names are public, so don't rename them.
 
+## renameRigNodes
+
+Renames joints, rig controls, rig modules and rig constraints into the [naming convention](naming.md), `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>`. The nodes are the ones passed, else the selection. The index counts up in that order, so the first node gets `startIndex` and each one after it one more.
+
+```python
+# Three joints in selection order (or in the order passed): upperArm_00_L_JNT, upperArm_01_L_JNT, upperArm_02_L_JNT
+cmds.renameRigNodes("a", "b", "c", base="upperArm", side="Left")
+
+# The selection, numbered from 3
+cmds.renameRigNodes(base="finger", startIndex=3)
+
+# Renumber only: each node keeps its own base and side
+cmds.renameRigNodes("skel:spine_03_M_JNT", "skel:spine_07_M_JNT")   # ['skel:spine_00_M_JNT', 'skel:spine_01_M_JNT']
+
+# Query: what a name means. One JSON string per name, "" when the name is not in the convention
+cmds.renameRigNodes("skel:upperArm_00_L_JNT", query=True)   # ['{"base":"upperArm","index":0,"kind":"Joint","side":"Left"}']
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `base` | string | The base name for every node: camelCase, a lowercase letter then letters and digits. Without it, each node keeps its own base, which must already be in the convention. |
+| `side` | string | `Center`, `Left` or `Right`. Without it, each node keeps its own side, else `Center`. |
+| `startIndex` | int | The index of the first node. Default 0. |
+| `query` | bool | Return the parts of each object name instead of renaming. |
+
+- **The kind comes from the node's type:** a joint is `JNT`, a rig control `CTRL`, a rig module `MOD` and a rig constraint `CON`. Any other node is an error.
+- **Nothing changes unless every name is free.** A target that another node holds, or that two of the nodes would share, fails the command and lists each one. Nodes can swap names among themselves, so renumbering a selection never collides with itself.
+- **Namespaces stay.** A node keeps its namespace.
+- **Selection order needs Maya to track it** (`cmds.selectPref(trackSelectionOrder=True)`, then select again). The command fails on a selection of more than one node while it is off. Passing the nodes by name never depends on it.
+- **One undo step.** The result is the new names, in order.
+- Renaming joints of a skeleton that a rig was built on changes the [skeleton hash](skeletons.md), and a control keeps the name it was built with. Rename the skeleton before the build.
+
 ## createRigFromTemplate
 
 Builds a rig from a template and the joints passed in.
 
 ```python
-joints = ["skel:spine1_jnt", "skel:spine2_jnt", "skel:arm_jnt"]
+joints = ["skel:spine1_00_M_JNT", "skel:spine2_00_M_JNT", "skel:arm_00_L_JNT"]
 cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="shooter\\characters\\hero")
 ```
 
@@ -62,12 +94,12 @@ cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="sh
 | `parentRig` | string | The rig root this rig is attached to ([attachments.md](attachments.md)). A template with `parent:module.socket` ids needs it, and a template without them refuses it. It must be a rig root in another namespace, and every socket the template takes from it must exist, or the read phase fails and lists them all. Optional. |
 | `checkMirrorPositions` | bool | Default `False`. With `True`, a mirrored module ([templates.md](templates.md#mirroring)) fails the build when one of its joints is more than 0.001 from its source joint reflected across X = 0. |
 
-Objects: one or more joint names, with their namespace (`skel:arm_jnt`).
+Objects: one or more joint names, with their namespace (`skel:arm_00_L_JNT`).
 
 After a successful build the selection is cleared.
 
 1. **Read and check.** Loads the template, reads markup from the given joints, and validates everything (see [templates.md](templates.md#validation)). Every joint passed in must have markup. On any error nothing is built, and every error is reported at once.
-2. **Build.** Creates the rig root, the `layout` module and every template module, connects child plugs to sockets, makes the display layers, groups and selection sets (below) and builds the template's constraints.
+2. **Build.** Creates the rig root, the layout module and every template module, connects child plugs to sockets, makes the display layers, groups and selection sets (below) and builds the template's constraints.
 
 Every node created goes in the rig namespace. The input joints are moved there too, with their names unchanged. A joint already in that namespace stays where it is. Joint and module names must be free in the rig namespace, so `skel:a` and `other:a` cannot both be passed.
 
@@ -123,8 +155,8 @@ Undo removes the rig and moves the joints back, but leaves the (empty) rig names
 Adds a space switch to a rig control after the build. Templates can declare the same thing in `constraints` ([templates.md](templates.md#constraints)).
 
 ```python
-cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
-# Returns the constraint node: 'hero_body:arm_ctrl_l_space'
+cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"], initial=1)
+# Returns the constraint node: 'hero_body:arm_00_L_CON'
 ```
 
 | Flag | Type | Meaning |
@@ -132,20 +164,20 @@ cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.en
 | `driver` | string, multi-use | A socket id, `module.socket`. At least one. |
 | `label` | string, multi-use | The driver's enum label. Give none, or one per `driver` in the same order. Defaults to the socket id. |
 | `initial` | int | Index of the driver that starts active. Defaults to 0. |
-| `name` | string | The constraint node's name. Defaults to `<control>_space`. |
+| `name` | string | The constraint node's name. Defaults to the control's name with `CON`, `arm_00_L_CTRL` giving `arm_00_L_CON`. A name must be in the [naming convention](naming.md), ending in `CON`. |
 | `type` | string | `Parent` (the default), `Orient`, `Point` or `Swing`. Orient takes only the driver's rotation, Point only its translation, and Swing its translation and its rotation without the twist about X. The rest comes from the child plug's parent ([templates.md](templates.md#constraint-types)). |
 
 Object: the control, which must be the control of a module's child plug.
 
 ```python
 # The arm keeps the world's rotation, and its shoulder pivot follows the chest.
-cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], type="Orient")
+cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"], type="Orient")
 ```
 
-- **Driver modules** without a namespace are looked up in the control's namespace, whatever the current namespace is. A driver that names a namespace (`other:layout.end`) is used as given.
+- **Driver modules** without a namespace are looked up in the control's namespace, whatever the current namespace is. A driver that names a namespace (`other:layout_00_M_MOD.end`) is used as given.
 - **The constraint node** goes in the control's namespace unless `name` includes a namespace.
 - A module cannot drive its own child plug, and a control can have only one space constraint.
-- An Orient, Point or Swing constraint fails on a child plug with no parent connected. A built rig always has one, `layout.end` by default.
+- An Orient, Point or Swing constraint fails on a child plug with no parent connected. A built rig always has one, `layout_00_M_MOD.end` by default.
 - The node is a `rigConstraint`, and its `constraintType` attribute holds the type.
 - With more than one driver, the control gets a `space` enum attribute listing the labels.
 - The control does not move. On a posed rig its translate, rotate and scale are changed to keep it in place, the same match `setRigConstraintSpace` does. At rest nothing changes.
@@ -155,8 +187,8 @@ cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.en
 Switches a constraint to another driver without moving the control at that frame.
 
 ```python
-cmds.setRigConstraintSpace("hero_body:arm_ctrl_l_space", label="World")
-cmds.setRigConstraintSpace("hero_body:arm_ctrl_l_space", space=0)
+cmds.setRigConstraintSpace("hero_body:arm_00_L_CON", label="World")
+cmds.setRigConstraintSpace("hero_body:arm_00_L_CON", space=0)
 ```
 
 | Flag | Type | Meaning |
@@ -180,8 +212,8 @@ Undo restores both the enum and the control's values.
 Switches a [TwoBoneIk](modules.md#twoboneik) limb between IK and FK without a pop. It first writes the control values that reproduce the limb's current pose on both sides, then sets `ikFkBlend`.
 
 ```python
-cmds.setRigIkFkBlend("hero_body:armSettings_ctrl_l", blend=0)    # to FK
-cmds.setRigIkFkBlend("hero_body:arm_l", blend=1)                   # to IK (the default)
+cmds.setRigIkFkBlend("hero_body:armSettings_00_L_CTRL", blend=0)    # to FK
+cmds.setRigIkFkBlend("hero_body:arm_00_L_MOD", blend=1)                   # to IK (the default)
 # Returns the controls that changed
 ```
 
@@ -257,8 +289,8 @@ Object: the rig root node. Returns the names of the controls changed.
 Returns the control on the other side of the same rig: the control with the same `usage` and the swapped `side` in its markup ([controls.md](controls.md#control-markup)).
 
 ```python
-cmds.getRigMirrorControl("hero_body:upperArm_l_ctrl_l")
-# Returns 'hero_body:upperArm_r_ctrl_r'
+cmds.getRigMirrorControl("hero_body:upperArm_00_L_CTRL")
+# Returns 'hero_body:upperArm_00_R_CTRL'
 ```
 
 Object: one control.
@@ -272,7 +304,7 @@ Object: one control.
 Returns what a rig node belongs to, as JSON text: its rig root, the asset id, the rig name, the skeleton hash, the namespace, the rig root's version stamps and the look it wears. Python tools use it through `rigmodules.query` ([python.md](python.md)).
 
 ```python
-cmds.getRigInfo("hero_body:arm_ctrl_l")
+cmds.getRigInfo("hero_body:arm_00_L_CTRL")
 # Returns '{"assetId":"shooter\\main\\characters\\hero","namespace":"hero_body","pluginVersion":"0.1",
 #           "publishVersion":"","rigName":"body","rigRoot":"hero_body:rigRootModule1","rigVersion":1,
 #           "skeletonHash":"3f2a9c0b7d4e1f68"}'
@@ -323,9 +355,9 @@ Reports what each control is: its module, its markup and its mirror.
 
 ```python
 import json
-data = json.loads(cmds.getRigControlInfo("hero_body:upperArm_l_ctrl_l", "hero_body:chest_ctrl_c"))
-data["hero_body:upperArm_l_ctrl_l"]
-# {"moduleType": "FkChain", "module": "hero_body:arm_l", "side": "Left", "usage": "upperArm", "mirror": "hero_body:upperArm_r_ctrl_r"}
+data = json.loads(cmds.getRigControlInfo("hero_body:upperArm_00_L_CTRL", "hero_body:chest_00_M_CTRL"))
+data["hero_body:upperArm_00_L_CTRL"]
+# {"moduleType": "FkChain", "module": "hero_body:arm_00_L_MOD", "side": "Left", "usage": "upperArm", "mirror": "hero_body:upperArm_00_R_CTRL"}
 ```
 
 Objects: one or more rig controls. Returns a JSON object keyed by control name. From Python, [`rigmodules.query.get_control`](python.md#rigmodulesquery) and `get_rig_controls` wrap it.
@@ -339,12 +371,12 @@ Reports a control's space switch: who owns it, the space labels and the space th
 
 ```python
 import json
-text = cmds.getRigControlSpace("hero_body:arm_ctrl_l")
+text = cmds.getRigControlSpace("hero_body:arm_00_L_CTRL")
 json.loads(text)
-# {"constraint": "hero_body:arm_ctrl_l_space", "module": "", "labels": ["World", "Chest"], "current": 1}
-text = cmds.getRigControlSpace("hero_body:armPole_ctrl_l")
+# {"constraint": "hero_body:arm_00_L_CON", "module": "", "labels": ["World", "Chest"], "current": 1}
+text = cmds.getRigControlSpace("hero_body:armPole_00_L_CTRL")
 json.loads(text)
-# {"constraint": "", "module": "hero_body:arm_l", "labels": ["Parent", "Ik"], "current": 0}
+# {"constraint": "", "module": "hero_body:arm_00_L_MOD", "labels": ["Parent", "Ik"], "current": 0}
 ```
 
 Object: exactly one rig control. Returns a JSON string, or an empty string for a control that has no space switch. A control built with a single driver has none: the `space` enum exists only for two or more drivers. From Python, [`rigmodules.query.find_control_space`](python.md#rigmodulesquery) wraps it.
@@ -363,8 +395,8 @@ Object: exactly one rig control. Returns a JSON string, or an empty string for a
 Switches a control to another space and keeps the control where it is in the world. One command for both kinds of space: a [constraint](#createrigconstraint) space and a module-owned space (the [TwoBoneIk](modules.md#twoboneik) pole's `Parent` and `Ik`). It names the control, so a tool needs no constraint or module name: [`getRigControlSpace`](#getrigcontrolspace) lists the labels.
 
 ```python
-cmds.setRigControlSpace("hero_body:arm_ctrl_l", label="Chest")
-cmds.setRigControlSpace("hero_body:armPole_ctrl_l", space=1)    # the pole follows the IK handle
+cmds.setRigControlSpace("hero_body:arm_00_L_CTRL", label="Chest")
+cmds.setRigControlSpace("hero_body:armPole_00_L_CTRL", space=1)    # the pole follows the IK handle
 ```
 
 | Flag | Type | Meaning |
@@ -387,8 +419,8 @@ Reports a control's animation interface: the channels an animator keys and a pos
 
 ```python
 import json
-data = json.loads(cmds.getRigControlChannels("hero_body:upperArm_l_ctrl_l", "hero_body:chest_ctrl_c"))
-data["hero_body:chest_ctrl_c"][0]
+data = json.loads(cmds.getRigControlChannels("hero_body:upperArm_00_L_CTRL", "hero_body:chest_00_M_CTRL"))
+data["hero_body:chest_00_M_CTRL"][0]
 # {"name": "translateX", "type": "doubleLinear", "rest": 0.0, "min": None, "max": None, "mirror": "copy"}
 ```
 
@@ -406,7 +438,7 @@ Puts a rig's controls back to their build pose.
 
 ```python
 cmds.zeroRigControls("hero_body:rigRootModule1")                           # every control
-cmds.zeroRigControls("hero_body:upperArm_l_ctrl_l", "hero_body:chest_ctrl_c")   # these two
+cmds.zeroRigControls("hero_body:upperArm_00_L_CTRL", "hero_body:chest_00_M_CTRL")   # these two
 # Returns the controls that moved
 ```
 
@@ -419,7 +451,7 @@ Copies the pose from one side of a rig to the other.
 ```python
 cmds.mirrorRigPose("hero_body:rigRootModule1")                    # Left onto Right
 cmds.mirrorRigPose("hero_body:rigRootModule1", leftToRight=False) # Right onto Left
-cmds.mirrorRigPose("hero_body:upperArm_l_ctrl_l", "hero_body:lowerArm_l_ctrl_l")   # these controls onto their mirrors
+cmds.mirrorRigPose("hero_body:upperArm_00_L_CTRL", "hero_body:lowerArm_00_L_CTRL")   # these controls onto their mirrors
 ```
 
 | Flag | Type | Meaning |
@@ -440,7 +472,7 @@ Swaps the pose between the two sides, and reflects the Center controls.
 
 ```python
 cmds.flipRigPose("hero_body:rigRootModule1")
-cmds.flipRigPose("hero_body:upperArm_l_ctrl_l", "hero_body:chest_ctrl_c")   # this pair, and this Center control
+cmds.flipRigPose("hero_body:upperArm_00_L_CTRL", "hero_body:chest_00_M_CTRL")   # this pair, and this Center control
 ```
 
 Objects: the rig root node, or one or more controls of one rig. Returns the controls changed.
@@ -455,7 +487,7 @@ Writes the channel values of controls to a pose file.
 
 ```python
 cmds.saveRigPose("hero_body:rigRootModule1", file="C:/poses/idle.controlpose.json")
-cmds.saveRigPose("hero_body:upperArm_l_ctrl_l", "hero_body:lowerArm_l_ctrl_l", file="C:/poses/arm.controlpose.json")
+cmds.saveRigPose("hero_body:upperArm_00_L_CTRL", "hero_body:lowerArm_00_L_CTRL", file="C:/poses/arm.controlpose.json")
 cmds.saveRigPose("hero_body:rigRootModule1", file="C:/poses/fist.controlpose.json", meta=json.dumps({"tags": ["hands", "fist"], "status": "scratch"}))
 # Returns the controls saved
 ```
@@ -477,7 +509,7 @@ Applies a pose file to controls.
 
 ```python
 cmds.loadRigPose("hero_body:rigRootModule1", file="C:/poses/idle.controlpose.json")
-cmds.loadRigPose("hero_body:upperArm_l_ctrl_l", file="C:/poses/idle.controlpose.json")   # only this control
+cmds.loadRigPose("hero_body:upperArm_00_L_CTRL", file="C:/poses/idle.controlpose.json")   # only this control
 cmds.loadRigPose("hero_body:rigRootModule1", file="C:/poses/idle.controlpose.json", mirror=True)   # the pose on the other side
 # Returns the controls that changed
 ```
@@ -502,7 +534,7 @@ import json
 
 keys = json.loads(cmds.getRigKeys("hero_body:rigRootModule1"))
 # {"Left": {"upperArm": {"rotateZ": [[1.0, 0.0], [10.0, 90.0]]}}}
-cmds.getRigKeys("hero_body:upperArm_l_ctrl_l")   # only this control
+cmds.getRigKeys("hero_body:upperArm_00_L_CTRL")   # only this control
 ```
 
 Objects: the rig root node (every control), or one or more controls of one rig. Returns one JSON string.
@@ -563,7 +595,7 @@ Writes the keys of a rig's controls as a ControlAnim file, the animator's own li
 
 ```python
 cmds.saveRigAnimation("hero_body:rigRootModule1", file="C:/anims/walk.controlanim.json", startFrame=1, endFrame=48)
-cmds.saveRigAnimation("hero_body:upperArm_l_ctrl_l", file="C:/anims/wave.controlanim.json")   # only this control, over the playback range
+cmds.saveRigAnimation("hero_body:upperArm_00_L_CTRL", file="C:/anims/wave.controlanim.json")   # only this control, over the playback range
 # Returns the controls it read
 ```
 
@@ -660,7 +692,7 @@ Sets a rig's control values from a joint pose, by solving each module's controls
 
 ```python
 cmds.poseRigFromJointPose("hero_body:rigRootModule1", jointPose="C:/tmp/idle.jointclip.json", sidecar="C:/poses/idle.controlpose.json", mode="match")
-cmds.poseRigFromJointPose("hero_body:upperArm_l_ctrl_l", jointPose="C:/tmp/idle.jointclip.json")   # only this control
+cmds.poseRigFromJointPose("hero_body:upperArm_00_L_CTRL", jointPose="C:/tmp/idle.jointclip.json")   # only this control
 # Returns the controls that changed
 ```
 
@@ -848,7 +880,7 @@ Writes a skeleton file with the joints' markup, names, parents, rotate orders an
 
 ```python
 cmds.saveRigSkeleton(*cmds.ls("skel:*", type="joint"), file="C:/assets/hero/skeletons/body/skeleton.json")
-# Returns "159c28565ab750f5", the skeleton hash
+# Returns "727fc558f44954b9", the skeleton hash
 ```
 
 | Flag | Type | Meaning |
@@ -868,7 +900,7 @@ Creates the joints of a skeleton file, at rest, parented and marked, and returns
 
 ```python
 cmds.loadRigSkeleton(file="C:/assets/hero/skeletons/body/skeleton.json", namespace="hero_body")
-# Returns ["hero_body:a_jnt", "hero_body:b_jnt", "hero_body:c_jnt"]
+# Returns ["hero_body:a_00_M_JNT", "hero_body:b_00_M_JNT", "hero_body:c_00_M_JNT"]
 ```
 
 | Flag | Type | Meaning |

@@ -15,11 +15,9 @@ namespace TemplateMirror
 	// "Left" <-> "Right". Anything else, Center included, comes back unchanged.
 	std::string swapSide(const std::string& side);
 
-	// "arm_l" <-> "arm_r", with the RigNaming side suffixes. Empty when the name ends in neither.
-	std::string swapSideSuffix(const std::string& name);
-
 	// Appends a mirror for every module and constraint with "mirror": true. A mirror is its source with:
-	//   side Left <-> Right, the name's _l <-> _r suffix swapped, and every [side, usage] selector in moduleArgs swapped
+	//   side Left <-> Right, the name's L <-> R side token swapped (NamingConvention::swapSide), and every [side, usage]
+	//   selector in moduleArgs swapped
 	//   (Center selectors stay, so they fail later as joints claimed twice);
 	//   each "module.x" id in parentStructure, target and drivers pointing at the other side's module when the
 	//   named module is Left or Right (the socket or child plug name never changes);

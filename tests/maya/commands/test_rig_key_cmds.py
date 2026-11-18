@@ -9,8 +9,8 @@ from maya import cmds
 
 from rigtest.case import RigTestCase, rig_name
 
-A = rig_name("a_ctrl_c")
-B = rig_name("b_ctrl_c")
+A = rig_name("a_00_M_CTRL")
+B = rig_name("b_00_M_CTRL")
 
 
 def rig_root():
@@ -44,7 +44,7 @@ class SetRigKeys(KeyCmdsTestCase):
 
     def test_keys_land_on_the_channels_by_markup(self):
         changed = self.set_keys({"Center": {"a": {"rotateZ": [[1, 0], [10, 90], [20, 45]], "translateX": [[1, 0], [20, 2.5]]}}})
-        self.assertEqual([c.split(":")[-1] for c in changed], ["a_ctrl_c"])
+        self.assertEqual([c.split(":")[-1] for c in changed], ["a_00_M_CTRL"])
         self.assertEqual(self.times(A + ".rotateZ"), [1, 10, 20])
         self.assertEqual(self.values(A + ".rotateZ"), [0, 90, 45])
         self.assertEqual(self.times(A + ".translateX"), [1, 20])
@@ -79,7 +79,7 @@ class SetRigKeys(KeyCmdsTestCase):
     def test_only_the_controls_in_the_scope_are_keyed(self):
         keys = {"Center": {"a": {"rotateZ": [[1, 0], [5, 10]]}, "b": {"rotateZ": [[1, 0], [5, 20]]}}}
         changed = self.set_keys(keys, B)
-        self.assertEqual([c.split(":")[-1] for c in changed], ["b_ctrl_c"])
+        self.assertEqual([c.split(":")[-1] for c in changed], ["b_00_M_CTRL"])
         self.assertTrue(cmds.keyframe(B + ".rotateZ", query=True, keyframeCount=True))
         self.assertFalse(cmds.keyframe(A + ".rotateZ", query=True, keyframeCount=True))
 
@@ -109,7 +109,7 @@ class SetRigKeys(KeyCmdsTestCase):
 
     def test_a_control_or_channel_the_rig_lacks_is_skipped(self):
         changed = self.set_keys({"Center": {"zzz": {"rotateZ": [[1, 0]]}, "a": {"nope": [[1, 0]], "rotateZ": [[1, 5]]}}, "Left": {"a": {"rotateZ": [[1, 0]]}}})
-        self.assertEqual([c.split(":")[-1] for c in changed], ["a_ctrl_c"])
+        self.assertEqual([c.split(":")[-1] for c in changed], ["a_00_M_CTRL"])
         self.assertEqual(self.values(A + ".rotateZ"), [5])
 
     def test_a_bad_string_changes_nothing(self):
@@ -136,7 +136,7 @@ class SteppedChannels(RigTestCase):
 
     def test_an_enum_keys_stepped(self):
         self.build_standard("mirror_arms", "mirror_arms")
-        plug = rig_name("upperArm_l_ctrl_l.space")
+        plug = rig_name("upperArm_00_L_CTRL.space")
         cmds.setRigKeys(rig_root(), keys=json.dumps({"Left": {"upperArm": {"space": [[1, 0], [10, 1]]}}}))
         self.assertEqual(cmds.keyTangent(plug, query=True, outTangentType=True), ["step", "step"])
         self.assertEqual(cmds.keyframe(plug, query=True, valueChange=True), [0, 1])

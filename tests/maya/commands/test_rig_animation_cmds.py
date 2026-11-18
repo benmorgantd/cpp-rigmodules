@@ -15,9 +15,9 @@ from maya import cmds
 import rigmodules.pose
 from rigtest.case import RigTestCase, rig_name
 
-ARM_L = rig_name("upperArm_l_ctrl_l")
-ARM_R = rig_name("upperArm_r_ctrl_r")
-CHEST = rig_name("chest_ctrl_c")
+ARM_L = rig_name("upperArm_00_L_CTRL")
+ARM_R = rig_name("upperArm_00_R_CTRL")
+CHEST = rig_name("chest_00_M_CTRL")
 
 
 def rig_root():
@@ -314,7 +314,7 @@ class SaveAndLoad(AnimTestCase):
         self.key_mixed_curve()
         cmds.setKeyframe(ARM_R + ".rotateZ", time=2, value=3)
         names = cmds.saveRigAnimation(ARM_R, file=self.path(), startFrame=1, endFrame=20)
-        self.assertEqual(names, ["rig:upperArm_r_ctrl_r"])
+        self.assertEqual(names, ["rig:upperArm_00_R_CTRL"])
         self.assertEqual(list(self.read()["controls"]), ["Right"])
 
     def test_the_saved_file_is_a_valid_input_for_load_and_pretty_printed(self):

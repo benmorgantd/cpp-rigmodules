@@ -1,5 +1,5 @@
 {
-  "description": "'layout' is reserved for the implicit layout module",
+  "description": "'layout_00_M_MOD' is reserved for the implicit layout module",
   "base": "layout_rig",
   "skeleton": "layout_rig",
   "edits": [

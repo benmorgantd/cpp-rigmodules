@@ -19,6 +19,7 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 |---|---|
 | [`../README.md`](../README.md) | What the project is, requirements, build, quick start, repo layout, links |
 | [`templates.md`](templates.md) | Template file format: every key, required or optional, defaults, allowed values, `parentStructure`, constraints, mirroring, validation rules |
+| [`naming.md`](naming.md) | The naming convention for joints, controls, modules and constraints, where each name comes from, and how to rename into it |
 | [`commands.md`](commands.md) | Every Maya command: syntax, flags, objects, behaviour, undo, errors |
 | [`modules.md`](modules.md) | Every module: `moduleType`, `moduleArgs`, joints, controls, child plugs, sockets, behaviour |
 | [`controls.md`](controls.md) | What every control carries: markup, shapes and the axis convention, the shape file format, mirroring shapes |
@@ -68,7 +69,7 @@ Internal changes (refactors, compute changes with the same results, test-only ch
 - **Describe the code, not the plan.** Document what is built. Planned features go in `design/`, or under a clearly marked "Not built yet" note if users need to know.
 - **The code wins.** When a page and the code disagree, fix the page, and say so in the change summary.
 - **Use the code's names exactly**: child plug, socket, `moduleArgs`, long flag names (`namespace`, never `ns`).
-- **Command examples are Python `maya.cmds`, never MEL.** Flags are keyword arguments named by the long flag name, and a multi-use flag takes a list: `cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.end"])`. Flag tables name the keyword without a leading `-`.
+- **Command examples are Python `maya.cmds`, never MEL.** Flags are keyword arguments named by the long flag name, and a multi-use flag takes a list: `cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"])`. Flag tables name the keyword without a leading `-`.
 - **Show, then list.** A short example first, then the full reference table.
 - **Plain Markdown in the repo.** No doc generator, so the docs are reviewed in the same diff as the code.
 

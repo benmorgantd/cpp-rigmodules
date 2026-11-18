@@ -71,15 +71,15 @@ class Arguments(RigTestCase):
     def test_unmarked_joint_fails_and_builds_nothing(self):
         joints = self.make_skeleton(SKELETON)
         cmds.select(clear=True)
-        helper = cmds.joint(name="skel:helper_jnt")
-        self.assertMayaError(lambda: self.build(TEMPLATE, joints + [helper]), "helper_jnt", "Nothing was built")
+        helper = cmds.joint(name="skel:helper_00_M_JNT")
+        self.assertMayaError(lambda: self.build(TEMPLATE, joints + [helper]), "helper_00_M_JNT", "Nothing was built")
         self.assertNothingBuilt()
         self.assertFalse(cmds.namespace(exists=":rig"), "a failed build must not create the rig namespace")
 
     def test_invalid_markup_fails_and_builds_nothing(self):
         joints = self.make_skeleton(SKELETON)
         cmds.setAttr(joints[0] + ".rigMarkup", "{bad json", type="string")
-        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "fkchain1_jnt")
+        self.assertMayaError(lambda: self.build(TEMPLATE, joints), "fkchain1_00_M_JNT")
         self.assertNothingBuilt()
 
     def test_duplicate_side_and_usage_fails(self):
@@ -102,14 +102,14 @@ class Namespaces(RigTestCase):
         # D54: always "{asset name}_{rigName}", so a second rig of the asset never moves the first one's namespace.
         joints = self.make_skeleton(SKELETON)
         self.build(TEMPLATE, joints, namespace=None, asset="shooter\\main\\characters\\hero")
-        self.assertExists(":hero_fktest:layout")
-        self.assertExists(":hero_fktest:fkchain1_ctrl_c")
+        self.assertExists(":hero_fktest:layout_00_M_MOD")
+        self.assertExists(":hero_fktest:fkchain1_00_M_CTRL")
         self.assertFalse(cmds.namespace(exists=":hero"))
 
     def test_namespace_flag_overrides_the_default(self):
         joints = self.make_skeleton(SKELETON)
         self.build(TEMPLATE, joints, asset="shooter\\main\\characters\\hero", namespace="hero_damaged")
-        self.assertExists(":hero_damaged:layout")
+        self.assertExists(":hero_damaged:layout_00_M_MOD")
         self.assertFalse(cmds.namespace(exists=":hero_fktest"))
 
     def test_joints_move_into_rig_namespace_with_names_unchanged(self):
@@ -121,20 +121,20 @@ class Namespaces(RigTestCase):
 
     def test_nested_namespace(self):
         self.build_standard(TEMPLATE, SKELETON, namespace="char:rig")
-        self.assertExists(rig_name("layout", "char:rig"))
-        self.assertExists(rig_name("fkchain1_jnt", "char:rig"))
-        self.assertExists(rig_name("fkchain1_ctrl_c", "char:rig"))
+        self.assertExists(rig_name("layout_00_M_MOD", "char:rig"))
+        self.assertExists(rig_name("fkchain1_00_M_JNT", "char:rig"))
+        self.assertExists(rig_name("fkchain1_00_M_CTRL", "char:rig"))
 
     def test_colons_around_the_namespace_are_dropped(self):
         self.build_standard(TEMPLATE, SKELETON, namespace=":char:rig:")
-        self.assertExists(rig_name("layout", "char:rig"))
-        self.assertExists(rig_name("fkchain1_jnt", "char:rig"))
+        self.assertExists(rig_name("layout_00_M_MOD", "char:rig"))
+        self.assertExists(rig_name("fkchain1_00_M_JNT", "char:rig"))
 
     def test_root_namespace(self):
         self.build_standard(TEMPLATE, SKELETON, namespace=":")
-        self.assertExists(":layout")
-        self.assertExists(":fkchain_1")
-        self.assertExists(":fkchain1_jnt")
+        self.assertExists(":layout_00_M_MOD")
+        self.assertExists(":fkchain_01_M_MOD")
+        self.assertExists(":fkchain1_00_M_JNT")
 
     def test_current_namespace_restored_and_unused(self):
         joints = self.make_skeleton(SKELETON)
@@ -148,12 +148,12 @@ class Namespaces(RigTestCase):
     def test_existing_rig_namespace_is_reused(self):
         cmds.namespace(add=":rig")
         self.build_standard(TEMPLATE, SKELETON)
-        self.assertExists(rig_name("layout"))
+        self.assertExists(rig_name("layout_00_M_MOD"))
 
     def test_joints_already_in_rig_namespace_stay(self):
         joints = self.make_skeleton(SKELETON, namespace="rig")
         self.build(TEMPLATE, joints)
-        self.assertExists(rig_name("fkchain1_jnt"))
+        self.assertExists(rig_name("fkchain1_00_M_JNT"))
 
     def test_second_build_into_same_namespace_fails(self):
         self.build_standard(TEMPLATE, SKELETON)
@@ -165,16 +165,16 @@ class Namespaces(RigTestCase):
         joints = self.make_skeleton(SKELETON)
         cmds.namespace(add=":b")
         cmds.select(clear=True)
-        duplicate = cmds.joint(name=":b:fkchain1_jnt")
+        duplicate = cmds.joint(name=":b:fkchain1_00_M_JNT")
         cmds.rigJointMarkup(duplicate, usage="extra", side="Center", export=False, skin=False)
-        self.assertMayaError(lambda: self.build(TEMPLATE, joints + [":b:fkchain1_jnt"]), "fkchain1_jnt", "Nothing was built")
+        self.assertMayaError(lambda: self.build(TEMPLATE, joints + [":b:fkchain1_00_M_JNT"]), "fkchain1_00_M_JNT", "Nothing was built")
         self.assertNothingBuilt()
 
     def test_markup_outside_passed_joints_is_ignored(self):
         # A marked skeleton in another namespace must not collide with the joints passed in.
         self.make_skeleton(SKELETON, namespace="other")
         self.build_standard(TEMPLATE, SKELETON)
-        self.assertEqual(cmds.listConnections("other:fkchain1_jnt.offsetParentMatrix") or [], [])
+        self.assertEqual(cmds.listConnections("other:fkchain1_00_M_JNT.offsetParentMatrix") or [], [])
 
 
 class RigNamespaces(RigTestCase):
@@ -510,7 +510,7 @@ class ParentMeshes(RigTestCase):
 
     def test_a_shape_alone_moves_its_transform_and_joints_are_skipped(self):
         body = cmds.polyCube(name="rig:body")[0]
-        joint = cmds.createNode("joint", name="rig:stray_jnt")
+        joint = cmds.createNode("joint", name="rig:stray_00_M_JNT")
         moved = rigmodules.groups.parent_meshes(self.rig_root, [cmds.listRelatives(body, shapes=True)[0], joint])
         self.assertEqual(moved, cmds.ls("rig:body", long=True))
         self.assertIsNone(cmds.listRelatives(joint, parent=True))

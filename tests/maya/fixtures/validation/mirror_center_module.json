@@ -3,5 +3,5 @@
   "base": "mirror_arms",
   "skeleton": "mirror_arms",
   "edits": [ { "set": "/rigModules/0/mirror", "value": true } ],
-  "expectErrors": [ { "path": "rigModules[0] 'spine'.mirror", "contains": "Center" } ]
+  "expectErrors": [ { "path": "rigModules[0] 'spine_00_M_MOD'.mirror", "contains": "Center" } ]
 }

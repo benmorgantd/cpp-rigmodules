@@ -54,7 +54,7 @@ class CaptureFlatRig(CaptureTestCase):
         joints, clip = self.capture()
         self.assertEqual(len(joints), 7)
         self.assertEqual(sorted(joint["path"] for joint in clip["joints"]), sorted([
-            "chest_jnt", "clavicle_l_jnt", "upperArm_l_jnt", "lowerArm_l_jnt", "clavicle_r_jnt", "upperArm_r_jnt", "lowerArm_r_jnt"]))
+            "chest_00_M_JNT", "clavicle_00_L_JNT", "upperArm_00_L_JNT", "lowerArm_00_L_JNT", "clavicle_00_R_JNT", "upperArm_00_R_JNT", "lowerArm_00_R_JNT"]))
 
     def test_header_holds_version_frame_rate_and_start_frame(self):
         cmds.currentUnit(time="ntsc")
@@ -66,23 +66,23 @@ class CaptureFlatRig(CaptureTestCase):
 
     def test_markup_is_the_joints_own_json(self):
         _, clip = self.capture()
-        entry = clip["joints"][self.joint_index(clip, "upperArm_l_jnt")]
+        entry = clip["joints"][self.joint_index(clip, "upperArm_00_L_JNT")]
         self.assertEqual(json.loads(entry["markup"]),
                          {"markupVersion": 1, "usage": "upperArm", "side": "Left", "export": True, "skin": True})
 
     def test_rest_and_a_pose_at_rest_are_the_skeleton(self):
         _, clip = self.capture()
-        index = self.joint_index(clip, "upperArm_l_jnt")
+        index = self.joint_index(clip, "upperArm_00_L_JNT")
         for transform in (clip["joints"][index]["rest"], clip["poses"][0][index]):
             self.assertVector(transform["translate"], [2, 5, 0])
             self.assertVector(transform["rotate"], [0, 0, 0, 1])
             self.assertVector(transform["scale"], [1, 1, 1])
 
     def test_posing_a_control_moves_its_joints_and_not_the_rest(self):
-        cmds.setAttr(rig_name("upperArm_l_ctrl_l") + ".rotateZ", 90)
+        cmds.setAttr(rig_name("upperArm_00_L_CTRL") + ".rotateZ", 90)
         _, clip = self.capture()
-        upper = self.joint_index(clip, "upperArm_l_jnt")
-        lower = self.joint_index(clip, "lowerArm_l_jnt")
+        upper = self.joint_index(clip, "upperArm_00_L_JNT")
+        lower = self.joint_index(clip, "lowerArm_00_L_JNT")
         self.assertVector(clip["poses"][0][upper]["translate"], [2, 5, 0])
         self.assertVector(clip["poses"][0][upper]["rotate"], [0, 0, HALF_ROOT, HALF_ROOT])
         # The lower arm hangs 2 units down +X from the upper arm, and swings to 2 units up +Y.
@@ -92,12 +92,12 @@ class CaptureFlatRig(CaptureTestCase):
         self.assertVector(clip["joints"][lower]["rest"]["rotate"], [0, 0, 0, 1])
 
     def test_every_frame_is_sampled_without_moving_the_time_slider(self):
-        control = rig_name("upperArm_l_ctrl_l")
+        control = rig_name("upperArm_00_L_CTRL")
         cmds.setKeyframe(control + ".rotateZ", time=1, value=0, outTangentType="linear")
         cmds.setKeyframe(control + ".rotateZ", time=3, value=90, inTangentType="linear")
         cmds.currentTime(10)
         _, clip = self.capture(start=1, end=3)
-        index = self.joint_index(clip, "upperArm_l_jnt")
+        index = self.joint_index(clip, "upperArm_00_L_JNT")
         half = math.radians(45) / 2
         self.assertVector(clip["poses"][0][index]["rotate"], [0, 0, 0, 1])
         self.assertVector(clip["poses"][1][index]["rotate"], [0, 0, math.sin(half), math.cos(half)])
@@ -105,23 +105,23 @@ class CaptureFlatRig(CaptureTestCase):
         self.assertEqual(cmds.currentTime(query=True), 10)
 
     def test_quaternions_keep_one_sign_through_a_long_turn(self):
-        control = rig_name("upperArm_l_ctrl_l")
+        control = rig_name("upperArm_00_L_CTRL")
         for frame, value in enumerate((0, 120, 240, 360), start=1):
             cmds.setKeyframe(control + ".rotateZ", time=frame, value=value, inTangentType="linear", outTangentType="linear")
         _, clip = self.capture(start=1, end=4)
-        index = self.joint_index(clip, "upperArm_l_jnt")
+        index = self.joint_index(clip, "upperArm_00_L_JNT")
         rotations = [pose[index]["rotate"] for pose in clip["poses"]]
         for before, after in zip(rotations, rotations[1:]):
             self.assertGreater(sum(a * b for a, b in zip(before, after)), 0.0)
 
     def test_the_plugin_restores_the_pose_from_the_file(self):
-        control = rig_name("upperArm_l_ctrl_l")
+        control = rig_name("upperArm_00_L_CTRL")
         cmds.setAttr(control + ".rotateZ", 90)
         self.capture()
         cmds.zeroRigControls(rig_root())
         cmds.poseRigFromJointPose(rig_root(), jointPose=self.path)
         self.assertAlmostEqual(cmds.getAttr(control + ".rotateZ"), 90, places=3)
-        self.assertAlmostEqual(cmds.getAttr(rig_name("lowerArm_l_ctrl_l") + ".rotateZ"), 0, places=3)
+        self.assertAlmostEqual(cmds.getAttr(rig_name("lowerArm_00_L_CTRL") + ".rotateZ"), 0, places=3)
 
     def test_start_after_end_is_an_error(self):
         with self.assertRaisesRegex(ValueError, "start_frame 5 is after end_frame 2"):
@@ -141,7 +141,7 @@ class CaptureParentedChain(CaptureTestCase):
 
     def test_paths_follow_the_joint_hierarchy_parents_first(self):
         _, clip = self.capture()
-        self.assertEqual([joint["path"] for joint in clip["joints"]], ["a_jnt", "a_jnt/b_jnt", "a_jnt/b_jnt/c_jnt"])
+        self.assertEqual([joint["path"] for joint in clip["joints"]], ["a_00_M_JNT", "a_00_M_JNT/b_00_M_JNT", "a_00_M_JNT/b_00_M_JNT/c_00_M_JNT"])
 
     def test_transforms_are_relative_to_the_parent(self):
         _, clip = self.capture()

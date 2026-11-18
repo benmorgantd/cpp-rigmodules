@@ -3,11 +3,11 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailIK_02_ctrl_c.scaleY": 2
+    "tailIK_02_M_CTRL.scaleY": 2
   },
   "expect": {
-    "tail3_jnt": {"scale": [1, 1, 1]},
-    "tail4_jnt": {"scale": [1, 1.5, 1]},
-    "tail5_jnt": {"scale": [1, 2, 1]}
+    "tail3_00_M_JNT": {"scale": [1, 1, 1]},
+    "tail4_00_M_JNT": {"scale": [1, 1.5, 1]},
+    "tail5_00_M_JNT": {"scale": [1, 2, 1]}
   }
 }

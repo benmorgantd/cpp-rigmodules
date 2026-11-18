@@ -4,7 +4,7 @@
         TEMPLATE = "fkchain_three"
         SKELETON = "fk_three"
         MODULE_TYPE = "fkChainModule"
-        JOINT_OWNERS = {"a_jnt": "fkchain_1", ...}
+        JOINT_OWNERS = {"a_00_M_JNT": "fkchain_01_M_MOD", ...}
         MIRROR_TEMPLATE = "mirror_arms"   # a template with this module marked "mirror": true (D28)
         MIRROR_SKELETON = "mirror_arms"   # its skeleton, with joints for both sides
 

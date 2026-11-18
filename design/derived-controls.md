@@ -124,11 +124,11 @@ Docs: `docs/modules.md` (both module sections), `docs/templates.md`, `docs/skele
 
 Answered by the author on 2026-11-17: the name base is an optional `controlName` (Ribbon and TwoBoneIk), the TwoBoneIk names are `<base>IK`, `<base>Pole` and `<base>Settings`, the offsets are optional world-space vector args, the placement is a smooth spline, the cap stays 8, and the tolerances are accepted.
 
-Also answered (2026-11-17): the settings default is a quarter of the limb's length, and a straight limb is not an error. Still to confirm:
+Also answered (2026-11-17): the settings default is a quarter of the limb's length, and a straight limb is not an error. The last three are closed (2026-11-18):
 
-1. **The straight-limb direction.** The root joint's -Y, where the author said "-Z" (section 5).
-2. **The straight-limb tolerance**, 0.1 percent of the limb's length, is my number.
-3. **The -X chain check**, which is phase 0.
+1. **The straight-limb direction.** The root joint's -Y, where the author said "-Z" (section 5). Confirmed by the author in phase 3.
+2. **The straight-limb tolerance**, 0.1 percent of the limb's length. Built in phase 3 and accepted with it.
+3. **The -X chain check.** Answered by phase 0: the probe failed and `chainSign` fixed it.
 
 ## 10. Build phases
 
@@ -141,7 +141,7 @@ One commit per phase. Each ends with the build and the full suite, and the commi
 | 2 | **Done 2026-11-18.** **Ribbon.** `controlCount` and `controlName`, the `controls` key removed with a `moduleVersion` 2 step, names (`<base>IK_<nn>`, `<base>Tweak_<nn>`), derived rests where the claimed control joints were, the read-phase errors. The Ribbon fixtures lose their control joints. Goldens and pose cases regenerate by hand. | `ModuleContract`, pose cases, validation fixtures, update-table test, `test_docs_examples.py` |
 | 3 | **Done 2026-11-18.** **TwoBoneIk.** `controlName`, `poleOffset` and `settingsOffset`, `ik`, `pole` and `settings` removed with a `moduleVersion` step, names (`<base>IK`, `<base>Pole`, `<base>Settings`), mirror negation of the offsets. The solve, the match outputs and the inverse are unchanged and the existing pose cases must pass unchanged. | The same set, with the straight-limb case |
 | 4 | **Done 2026-11-18.** **Perf scenes.** `tools/perf/perf_scenes.py` and `check_perf_scene.py` drop their control joints. One `bench` run on the 50-rig scene to check nothing got slower. It isn't part of the suite, and no target applies (no new module). | `bench` numbers in the commit message |
-| 5 | **Docs, repo map and callers.** `docs/` pages (section 8), `CLAUDE.md`'s repo map and module descriptions, a search of mayadev (`py/scripts`, `toolsets`, `tests`) for the removed keys and the old usages, and a list of the call sites it breaks. Not an edit of mayadev. | The docs pass checklist |
+| 5 | **Done 2026-11-18 (docs verified, mayadev call sites reported, nothing in mayadev edited).** **Docs, repo map and callers.** `docs/` pages (section 8), `CLAUDE.md`'s repo map and module descriptions, a search of mayadev (`py/scripts`, `toolsets`, `tests`) for the removed keys and the old usages, and a list of the call sites it breaks. Not an edit of mayadev. | The docs pass checklist |
 
 Phases 2 and 3 are independent of each other once phase 1 is in. They are sequential only because both touch `docs/modules.md` and `tests/run_tests.py`.
 

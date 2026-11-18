@@ -9,9 +9,9 @@ import maya.api.OpenMaya as om
 import rigmodules.query
 from rigtest.case import RigTestCase, rig_name
 
-# up_ctrl_r drives aim_1.up. Its drivers must not depend on aim_1, or the constraint would form a cycle.
-CONTROL = rig_name("up_ctrl_r")
-OTHER_CONTROL = rig_name("fkchain1_ctrl_c")
+# up_00_R_CTRL drives aim_01_R_MOD.up. Its drivers must not depend on aim_1, or the constraint would form a cycle.
+CONTROL = rig_name("up_00_R_CTRL")
+OTHER_CONTROL = rig_name("fkchain1_00_M_CTRL")
 
 
 def world_matrix(node):
@@ -32,7 +32,7 @@ class ConstraintTestCase(RigTestCase):
         self.build_standard("layout_rig", "layout_rig")
 
     def create(self, control=CONTROL, **kwargs):
-        kwargs.setdefault("driver", ["layout.end", "fkchain_1.end"])
+        kwargs.setdefault("driver", ["layout_00_M_MOD.end", "fkchain_01_M_MOD.end"])
         return cmds.createRigConstraint(control, **kwargs)
 
     def assertWorldMatrix(self, node, expected, message):
@@ -47,7 +47,7 @@ class Create(ConstraintTestCase):
 
     def test_default_labels_are_the_driver_ids(self):
         self.create()
-        self.assertEqual(cmds.attributeQuery("space", node=CONTROL, listEnum=True), ["layout.end:fkchain_1.end"])
+        self.assertEqual(cmds.attributeQuery("space", node=CONTROL, listEnum=True), ["layout_00_M_MOD.end:fkchain_01_M_MOD.end"])
 
     def test_initial_sets_active_driver(self):
         con = self.create(initial=1)
@@ -56,7 +56,7 @@ class Create(ConstraintTestCase):
 
     def test_default_name_is_control_space(self):
         con = self.create()
-        self.assertEqual(con.lstrip(":"), "rig:up_ctrl_r_space")
+        self.assertEqual(con.lstrip(":"), "rig:up_00_R_CON")
 
     def test_undo_and_redo_create(self):
         con = self.create()
@@ -72,18 +72,18 @@ class Create(ConstraintTestCase):
         self.assertWorldTranslation(CONTROL, before)
 
     def test_create_on_posed_rig_does_not_move_control(self):
-        # The control's current parent (fkchain_1.start) is posed and the new driver is not,
+        # The control's current parent (fkchain_01_M_MOD.start) is posed and the new driver is not,
         # so a missing offset would show as a jump.
         cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
         before = world_matrix(CONTROL)
-        self.create(driver=["layout.end"])
+        self.create(driver=["layout_00_M_MOD.end"])
         self.assertWorldMatrix(CONTROL, before, "moved when its constraint was created on a posed rig")
 
     def test_zero_after_create_on_posed_rig_returns_to_rest(self):
         # D27: the compensation lives in the control's values, so zeroing every control gives the rest pose.
         rest = world_matrix(CONTROL)
         cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
-        self.create(driver=["layout.end"])
+        self.create(driver=["layout_00_M_MOD.end"])
         zero_controls(OTHER_CONTROL, CONTROL)
         self.assertWorldMatrix(CONTROL, rest, "not at rest after zeroing every control")
 
@@ -96,10 +96,10 @@ class Create(ConstraintTestCase):
 class CreateRejected(ConstraintTestCase):
 
     def test_no_control(self):
-        self.assertMayaError(lambda: cmds.createRigConstraint(driver=["layout.end"]))
+        self.assertMayaError(lambda: cmds.createRigConstraint(driver=["layout_00_M_MOD.end"]))
 
     def test_two_controls(self):
-        self.assertMayaError(lambda: cmds.createRigConstraint(CONTROL, OTHER_CONTROL, driver=["layout.end"]))
+        self.assertMayaError(lambda: cmds.createRigConstraint(CONTROL, OTHER_CONTROL, driver=["layout_00_M_MOD.end"]))
 
     def test_no_driver(self):
         self.assertMayaError(lambda: cmds.createRigConstraint(OTHER_CONTROL))
@@ -114,7 +114,7 @@ class CreateRejected(ConstraintTestCase):
         self.assertMayaError(lambda: self.create(OTHER_CONTROL, initial=2))
 
     def test_unknown_socket(self):
-        self.assertMayaError(lambda: self.create(OTHER_CONTROL, driver=["layout.nope"]), "nope", "layout")
+        self.assertMayaError(lambda: self.create(OTHER_CONTROL, driver=["layout_00_M_MOD.nope"]), "nope", "layout_00_M_MOD")
 
     def test_unknown_module(self):
         self.assertMayaError(lambda: self.create(OTHER_CONTROL, driver=["nope.end"]), "nope")
@@ -124,8 +124,8 @@ class CreateRejected(ConstraintTestCase):
 
     def test_legacy_semicolon_socket_names_rejected(self):
         # D16: rigs built before socket names became JSON report an error instead of guessing.
-        cmds.setAttr(rig_name("fkchain_1") + ".socketNames[0]", "index_0;start;", type="string")
-        self.assertMayaError(lambda: self.create(OTHER_CONTROL, driver=["fkchain_1.start"]), "Invalid socketNames[0]")
+        cmds.setAttr(rig_name("fkchain_01_M_MOD") + ".socketNames[0]", "index_0;start;", type="string")
+        self.assertMayaError(lambda: self.create(OTHER_CONTROL, driver=["fkchain_01_M_MOD.start"]), "Invalid socketNames[0]")
 
 
 class SpaceSwitch(ConstraintTestCase):
@@ -195,7 +195,7 @@ class SpaceSwitch(ConstraintTestCase):
     def test_control_follows_new_space_after_switch(self):
         cmds.setRigConstraintSpace(self.con, label="Arm")
         before = cmds.xform(CONTROL, q=True, ws=True, t=True)
-        cmds.setAttr(rig_name("fkchain1_ctrl_c") + ".translateX", 3)
+        cmds.setAttr(rig_name("fkchain1_00_M_CTRL") + ".translateX", 3)
         self.assertWorldTranslation(CONTROL, [before[0] + 3, before[1], before[2]])
 
     def test_undo_switch(self):
@@ -204,8 +204,8 @@ class SpaceSwitch(ConstraintTestCase):
         self.assertEqual(cmds.getAttr(self.con + ".activeDriver"), 0)
 
     def test_template_constraint_by_label(self):
-        cmds.setRigConstraintSpace(rig_name("fkchain_2_space"), label="Aim")
-        self.assertEqual(cmds.getAttr(rig_name("fkchain_2_space") + ".activeDriver"), 1)
+        cmds.setRigConstraintSpace(rig_name("fkchain2Space_00_M_CON"), label="Aim")
+        self.assertEqual(cmds.getAttr(rig_name("fkchain2Space_00_M_CON") + ".activeDriver"), 1)
 
 
 class RotatedSpaceSwitch(RigTestCase):
@@ -214,12 +214,12 @@ class RotatedSpaceSwitch(RigTestCase):
     def setUp(self):
         super().setUp()
         self.build_standard("fkchain_two_chains", "fk_two_chains_rotated")
-        self.child = rig_name("c_ctrl_l")
-        self.parents = (rig_name("a_ctrl_c"), rig_name("b_ctrl_c"))
+        self.child = rig_name("c_00_L_CTRL")
+        self.parents = (rig_name("a_00_M_CTRL"), rig_name("b_00_M_CTRL"))
         cmds.setAttr(self.child + ".rotateOrder", lock=False)   # the module locks it (D40); this case needs another order
         cmds.setAttr(self.child + ".rotateOrder", 2)   # zxy
-        # The child's current parent is fkchain_1.end, so the initial driver needs no match.
-        self.con = cmds.createRigConstraint(self.child, driver=["fkchain_1.end", "fkchain_1.start"])
+        # The child's current parent is fkchain_01_M_MOD.end, so the initial driver needs no match.
+        self.con = cmds.createRigConstraint(self.child, driver=["fkchain_01_M_MOD.end", "fkchain_01_M_MOD.start"])
         cmds.setAttr(self.parents[0] + ".rotateY", 40)
         cmds.setAttr(self.parents[1] + ".rotate", 30, 0, -25)
         cmds.setAttr(self.child + ".rotateX", 15)
@@ -234,8 +234,8 @@ class RotatedSpaceSwitch(RigTestCase):
         cmds.setRigConstraintSpace(self.con, space=1)
         zero_controls(self.child, *self.parents)
         # Rest values come from the fk_two_chains_rotated skeleton.
-        self.assertWorldTranslation(rig_name("c_jnt"), [1, 3, 0])
-        self.assertWorldRotation(rig_name("c_jnt"), [20, -30, 60])
+        self.assertWorldTranslation(rig_name("c_00_M_JNT"), [1, 3, 0])
+        self.assertWorldRotation(rig_name("c_00_M_JNT"), [20, -30, 60])
 
 
 class SpaceSwitchRejected(ConstraintTestCase):
@@ -346,11 +346,11 @@ class SetRigControlSpace(ConstraintTestCase):
         self.assertMayaError(lambda: cmds.setRigControlSpace(OTHER_CONTROL, space=0), "no space switch")
 
     def test_a_single_driver_constraint_has_no_space_switch(self):
-        self.create(OTHER_CONTROL, driver=["layout.end"])
+        self.create(OTHER_CONTROL, driver=["layout_00_M_MOD.end"])
         self.assertMayaError(lambda: cmds.setRigControlSpace(OTHER_CONTROL, space=0), "no space switch")
 
     def test_the_node_must_be_a_rig_control(self):
-        self.assertMayaError(lambda: cmds.setRigControlSpace(rig_name("fkchain_1"), space=0), "Not a rig control")
+        self.assertMayaError(lambda: cmds.setRigControlSpace(rig_name("fkchain_01_M_MOD"), space=0), "Not a rig control")
         self.assertMayaError(lambda: cmds.setRigControlSpace("missing", space=0), "Not a rig control")
 
     def test_no_object_is_an_error(self):
@@ -377,7 +377,7 @@ class CommandIdResolution(RigTestCase):
         self.build_standard("fkchain_two_chains", "fk_two_chains", namespace=namespace)
         if not cmds.namespace(exists=":elsewhere"):
             cmds.namespace(add=":elsewhere")
-        return rig_name("c_ctrl_l", namespace)
+        return rig_name("c_00_L_CTRL", namespace)
 
     def test_drivers_resolve_in_control_namespace(self):
         for namespace in self.NAMESPACES:
@@ -385,9 +385,9 @@ class CommandIdResolution(RigTestCase):
                 self.setUp()
                 control = self.build_in(namespace)
                 cmds.namespace(setNamespace=":elsewhere")
-                con = cmds.createRigConstraint(control, driver=["layout.end", "fkchain_1.start"])
+                con = cmds.createRigConstraint(control, driver=["layout_00_M_MOD.end", "fkchain_01_M_MOD.start"])
                 cmds.namespace(setNamespace=":")
-                self.assertSource(con + ".drivers[0].driverMatrix", rig_name("layout", namespace) + ".outputSocketMatrix[2]")
+                self.assertSource(con + ".drivers[0].driverMatrix", rig_name("layout_00_M_MOD", namespace) + ".outputSocketMatrix[2]")
 
     def test_constraint_node_goes_in_control_namespace(self):
         for namespace in self.NAMESPACES:
@@ -395,19 +395,19 @@ class CommandIdResolution(RigTestCase):
                 self.setUp()
                 control = self.build_in(namespace)
                 cmds.namespace(setNamespace=":elsewhere")
-                default = cmds.createRigConstraint(control, driver=["layout.end"])
+                default = cmds.createRigConstraint(control, driver=["layout_00_M_MOD.end"])
                 cmds.undo()
-                custom = cmds.createRigConstraint(control, driver=["layout.end"], name="custom")
+                custom = cmds.createRigConstraint(control, driver=["layout_00_M_MOD.end"], name="custom_00_M_CON")
                 cmds.undo()
-                qualified = cmds.createRigConstraint(control, driver=["layout.end"], name=":elsewhere:qualified")
+                qualified = cmds.createRigConstraint(control, driver=["layout_00_M_MOD.end"], name=":elsewhere:qualified_00_M_CON")
                 cmds.namespace(setNamespace=":")
-                self.assertEqual(default.lstrip(":"), rig_name("c_ctrl_l_space", namespace).lstrip(":"))
-                self.assertEqual(custom.lstrip(":"), rig_name("custom", namespace).lstrip(":"))
-                self.assertEqual(qualified.lstrip(":"), "elsewhere:qualified")
+                self.assertEqual(default.lstrip(":"), rig_name("c_00_L_CON", namespace).lstrip(":"))
+                self.assertEqual(custom.lstrip(":"), rig_name("custom_00_M_CON", namespace).lstrip(":"))
+                self.assertEqual(qualified.lstrip(":"), "elsewhere:qualified_00_M_CON")
 
     def test_redo_keeps_constraint_name_under_another_current_namespace(self):
         control = self.build_in("rig")
-        con = cmds.createRigConstraint(control, driver=["layout.end"])
+        con = cmds.createRigConstraint(control, driver=["layout_00_M_MOD.end"])
         cmds.undo()
         # MNamespace, not cmds.namespace: the cmds version is undoable and would clear the redo queue.
         om.MNamespace.setCurrentNamespace(":elsewhere")
@@ -418,8 +418,8 @@ class CommandIdResolution(RigTestCase):
 
     def test_qualified_driver_used_as_given(self):
         control = self.build_in("rig")
-        con = cmds.createRigConstraint(control, driver=["rig:layout.end"])
-        self.assertSource(con + ".drivers[0].driverMatrix", "rig:layout.outputSocketMatrix[2]")
+        con = cmds.createRigConstraint(control, driver=["rig:layout_00_M_MOD.end"])
+        self.assertSource(con + ".drivers[0].driverMatrix", "rig:layout_00_M_MOD.outputSocketMatrix[2]")
 
     def test_old_layout_module_name_rejected(self):
         control = self.build_in("rig")
@@ -436,7 +436,7 @@ class GetRigControlSpace(ConstraintTestCase):
 
     def test_labels_default_to_the_driver_ids(self):
         self.create()
-        self.assertEqual(json.loads(cmds.getRigControlSpace(CONTROL))["labels"], ["layout.end", "fkchain_1.end"])
+        self.assertEqual(json.loads(cmds.getRigControlSpace(CONTROL))["labels"], ["layout_00_M_MOD.end", "fkchain_01_M_MOD.end"])
 
     def test_current_follows_a_space_switch(self):
         con = self.create(label=["World", "Arm"])
@@ -456,7 +456,7 @@ class GetRigControlSpace(ConstraintTestCase):
 
     def test_a_single_driver_constraint_has_no_space_switch(self):
         """With one driver there is no `space` enum, so the control has nothing to switch."""
-        self.create(driver=["layout.end"])
+        self.create(driver=["layout_00_M_MOD.end"])
         self.assertEqual(cmds.getRigControlSpace(CONTROL), "")
 
     def test_it_is_not_undoable_and_changes_nothing(self):
@@ -466,7 +466,7 @@ class GetRigControlSpace(ConstraintTestCase):
         self.assertNotIn("getRigControlSpace", cmds.undoInfo(query=True, undoName=True) or "")
 
     def test_the_node_must_be_a_rig_control(self):
-        self.assertMayaError(lambda: cmds.getRigControlSpace(rig_name("fkchain_1")), "Not a rig control")
+        self.assertMayaError(lambda: cmds.getRigControlSpace(rig_name("fkchain_01_M_MOD")), "Not a rig control")
         self.assertMayaError(lambda: cmds.getRigControlSpace("missing"), "Not a rig control")
 
     def test_it_takes_exactly_one_control(self):
@@ -479,4 +479,4 @@ class GetRigControlSpace(ConstraintTestCase):
         self.assertEqual(space, rigmodules.query.ControlSpace(constraint=con.lstrip(":"), labels=("World", "Arm"), current=1))
         self.assertIsNone(rigmodules.query.find_control_space(OTHER_CONTROL))
         with self.assertRaises(RuntimeError):
-            rigmodules.query.find_control_space(rig_name("fkchain_1"))
+            rigmodules.query.find_control_space(rig_name("fkchain_01_M_MOD"))

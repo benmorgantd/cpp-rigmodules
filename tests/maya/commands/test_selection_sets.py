@@ -12,14 +12,14 @@ TEMPLATE = "mirror_arms"
 SKELETON = "mirror_arms"
 
 # Hand-written from the template: its modules and the joints each one drives. The hand is driven by none.
-MODULES = ["arm_l", "arm_r", "clavicle_l", "clavicle_r", "spine"]
-DRIVEN_BY = {"arm_l": ["upperArm_l_jnt", "lowerArm_l_jnt"], "arm_r": ["upperArm_r_jnt", "lowerArm_r_jnt"],
-             "clavicle_l": ["clavicle_l_jnt"], "clavicle_r": ["clavicle_r_jnt"], "spine": ["chest_jnt"]}
-UNCLAIMED_JOINT = "hand_l_jnt"
-SKIN_JOINTS = ["chest_jnt", "clavicle_l_jnt", "upperArm_l_jnt", "lowerArm_l_jnt", UNCLAIMED_JOINT,
-               "clavicle_r_jnt", "upperArm_r_jnt", "lowerArm_r_jnt"]
-SKIN_JOINTS_AFTER_UNMARK = ["chest_jnt", "clavicle_l_jnt", "upperArm_l_jnt", "lowerArm_l_jnt",
-                            "clavicle_r_jnt", "upperArm_r_jnt"]
+MODULES = ["arm_00_L_MOD", "arm_00_R_MOD", "clavicle_00_L_MOD", "clavicle_00_R_MOD", "spine_00_M_MOD"]
+DRIVEN_BY = {"arm_00_L_MOD": ["upperArm_00_L_JNT", "lowerArm_00_L_JNT"], "arm_00_R_MOD": ["upperArm_00_R_JNT", "lowerArm_00_R_JNT"],
+             "clavicle_00_L_MOD": ["clavicle_00_L_JNT"], "clavicle_00_R_MOD": ["clavicle_00_R_JNT"], "spine_00_M_MOD": ["chest_00_M_JNT"]}
+UNCLAIMED_JOINT = "hand_00_L_JNT"
+SKIN_JOINTS = ["chest_00_M_JNT", "clavicle_00_L_JNT", "upperArm_00_L_JNT", "lowerArm_00_L_JNT", UNCLAIMED_JOINT,
+               "clavicle_00_R_JNT", "upperArm_00_R_JNT", "lowerArm_00_R_JNT"]
+SKIN_JOINTS_AFTER_UNMARK = ["chest_00_M_JNT", "clavicle_00_L_JNT", "upperArm_00_L_JNT", "lowerArm_00_L_JNT",
+                            "clavicle_00_R_JNT", "upperArm_00_R_JNT"]
 
 
 def short(node):
@@ -66,7 +66,7 @@ class SetLayout(SelectionSetsCase):
                          ["joints_center_set", "joints_left_set", "joints_modules_set", "joints_right_set"])
         self.assertEqual(self.direct_names("joints_modules_set"), sorted(m + "_joints_set" for m in MODULES))
         # the layout module has controls and no joints
-        self.assertEqual(self.direct_names("controls_modules_set"), sorted(m + "_controls_set" for m in MODULES + ["layout"]))
+        self.assertEqual(self.direct_names("controls_modules_set"), sorted(m + "_controls_set" for m in MODULES + ["layout_00_M_MOD"]))
 
     def test_only_the_side_and_module_sets_hold_items(self):
         self.build_rig()
@@ -98,7 +98,7 @@ class ControlSets(SelectionSetsCase):
 
     def test_each_module_set_holds_that_modules_controls(self):
         self.build_rig()
-        for module in MODULES + ["layout"]:
+        for module in MODULES + ["layout_00_M_MOD"]:
             expected = [c.node for c in rigmodules.query.get_rig_controls(self.root) if short(c.module) == module]
             self.assertTrue(expected, module)
             self.assertEqual(self.long_names(self.direct_members(module + "_controls_set")), self.long_names(expected))
@@ -126,10 +126,10 @@ class JointSets(SelectionSetsCase):
 
     def test_side_sets(self):
         self.build_rig()
-        self.assertEqual(self.direct_names("joints_center_set"), ["chest_jnt"])
-        self.assertEqual(self.direct_names("joints_right_set"), ["clavicle_r_jnt", "lowerArm_r_jnt", "upperArm_r_jnt"])
+        self.assertEqual(self.direct_names("joints_center_set"), ["chest_00_M_JNT"])
+        self.assertEqual(self.direct_names("joints_right_set"), ["clavicle_00_R_JNT", "lowerArm_00_R_JNT", "upperArm_00_R_JNT"])
         self.assertEqual(self.direct_names("joints_left_set"),
-                         sorted(["clavicle_l_jnt", "upperArm_l_jnt", "lowerArm_l_jnt", UNCLAIMED_JOINT]))
+                         sorted(["clavicle_00_L_JNT", "upperArm_00_L_JNT", "lowerArm_00_L_JNT", UNCLAIMED_JOINT]))
 
     def test_a_joint_no_module_drives_is_in_its_side_set_only(self):
         self.build_rig()
@@ -140,13 +140,13 @@ class JointSets(SelectionSetsCase):
         self.build_rig(unmark_skin)
         members = rigmodules.selection.get_members(rig_name("joints_set"))
         self.assertEqual(sorted(short(m) for m in members), sorted(SKIN_JOINTS_AFTER_UNMARK))
-        self.assertEqual(self.direct_names("arm_r_joints_set"), ["upperArm_r_jnt"])
+        self.assertEqual(self.direct_names("arm_00_R_MOD_joints_set"), ["upperArm_00_R_JNT"])
 
     def test_a_module_with_no_skin_joints_has_no_set(self):
         self.build_rig(lambda joints: cmds.rigJointMarkup(joints[0], usage="chest", side="Center", export=True, skin=False, edit=True))
-        self.assertEqual(cmds.ls(rig_name("spine_joints_set")), [])
+        self.assertEqual(cmds.ls(rig_name("spine_00_M_MOD_joints_set")), [])
         self.assertEqual(self.direct_names("joints_center_set"), [])
-        self.assertEqual(cmds.ls(rig_name("spine_controls_set")), [rig_name("spine_controls_set")[1:]])
+        self.assertEqual(cmds.ls(rig_name("spine_00_M_MOD_controls_set")), [rig_name("spine_00_M_MOD_controls_set")[1:]])
 
 
 class Lifecycle(SelectionSetsCase):
@@ -187,29 +187,29 @@ class SelectionHelpers(SelectionSetsCase):
         find = rigmodules.selection.find_set
         self.assertEqual(find(self.root, "controls"), "rig:controls_set")
         self.assertEqual(find(self.root, "joints", side="Left"), "rig:joints_left_set")
-        self.assertEqual(find(self.root, "joints", module="arm_r"), "rig:arm_r_joints_set")
-        self.assertIsNone(find(self.root, "joints", module="layout"))
+        self.assertEqual(find(self.root, "joints", module="arm_00_R_MOD"), "rig:arm_00_R_MOD_joints_set")
+        self.assertIsNone(find(self.root, "joints", module="layout_00_M_MOD"))
         with self.assertRaises(RuntimeError):
-            rigmodules.selection.get_set(self.root, "joints", module="layout")
+            rigmodules.selection.get_set(self.root, "joints", module="layout_00_M_MOD")
 
     def test_get_skin_joints_narrows_by_side_module_and_usage(self):
         get = rigmodules.selection.get_skin_joints
         self.assertEqual(self.names(get(self.root)), sorted(SKIN_JOINTS_AFTER_UNMARK))
-        self.assertEqual(self.names(get(self.root, side="Right")), ["clavicle_r_jnt", "upperArm_r_jnt"])
-        self.assertEqual(self.names(get(self.root, module="arm_l")), ["lowerArm_l_jnt", "upperArm_l_jnt"])
-        self.assertEqual(self.names(get(self.root, side="Left", module="clavicle_l")), ["clavicle_l_jnt"])
-        self.assertEqual(self.names(get(self.root, side="Right", module="clavicle_l")), [])
-        self.assertEqual(self.names(get(self.root, usage="upperArm")), ["upperArm_l_jnt", "upperArm_r_jnt"])
-        self.assertEqual(get(self.root, module="layout"), [])
+        self.assertEqual(self.names(get(self.root, side="Right")), ["clavicle_00_R_JNT", "upperArm_00_R_JNT"])
+        self.assertEqual(self.names(get(self.root, module="arm_00_L_MOD")), ["lowerArm_00_L_JNT", "upperArm_00_L_JNT"])
+        self.assertEqual(self.names(get(self.root, side="Left", module="clavicle_00_L_MOD")), ["clavicle_00_L_JNT"])
+        self.assertEqual(self.names(get(self.root, side="Right", module="clavicle_00_L_MOD")), [])
+        self.assertEqual(self.names(get(self.root, usage="upperArm")), ["upperArm_00_L_JNT", "upperArm_00_R_JNT"])
+        self.assertEqual(get(self.root, module="layout_00_M_MOD"), [])
 
     def test_select_skin_joints_replaces_or_adds(self):
         select = rigmodules.selection.select_skin_joints
-        select(self.root, module="arm_l")
-        self.assertEqual(self.names(cmds.ls(selection=True)), ["lowerArm_l_jnt", "upperArm_l_jnt"])
-        select(self.root, module="spine", add=True)
-        self.assertEqual(self.names(cmds.ls(selection=True)), ["chest_jnt", "lowerArm_l_jnt", "upperArm_l_jnt"])
+        select(self.root, module="arm_00_L_MOD")
+        self.assertEqual(self.names(cmds.ls(selection=True)), ["lowerArm_00_L_JNT", "upperArm_00_L_JNT"])
+        select(self.root, module="spine_00_M_MOD", add=True)
+        self.assertEqual(self.names(cmds.ls(selection=True)), ["chest_00_M_JNT", "lowerArm_00_L_JNT", "upperArm_00_L_JNT"])
         select(self.root, side="Right")
-        self.assertEqual(self.names(cmds.ls(selection=True)), ["clavicle_r_jnt", "upperArm_r_jnt"])
+        self.assertEqual(self.names(cmds.ls(selection=True)), ["clavicle_00_R_JNT", "upperArm_00_R_JNT"])
 
     def test_influences_of_a_mesh(self):
         mesh = cmds.polyCube(name="body")[0]
@@ -218,10 +218,10 @@ class SelectionHelpers(SelectionSetsCase):
                          sorted(SKIN_JOINTS_AFTER_UNMARK))
         self.assertEqual(rigmodules.selection.get_extra_influences(self.root, mesh), [])
         # bound to a skin joint and a joint that does not skin
-        cmds.skinCluster(rig_name("chest_jnt"), rig_name("lowerArm_r_jnt"), mesh)
+        cmds.skinCluster(rig_name("chest_00_M_JNT"), rig_name("lowerArm_00_R_JNT"), mesh)
         self.assertEqual(self.names(rigmodules.selection.get_missing_influences(self.root, mesh)),
-                         ["clavicle_l_jnt", "clavicle_r_jnt", "lowerArm_l_jnt", "upperArm_l_jnt", "upperArm_r_jnt"])
-        self.assertEqual(self.names(rigmodules.selection.get_extra_influences(self.root, mesh)), ["lowerArm_r_jnt"])
+                         ["clavicle_00_L_JNT", "clavicle_00_R_JNT", "lowerArm_00_L_JNT", "upperArm_00_L_JNT", "upperArm_00_R_JNT"])
+        self.assertEqual(self.names(rigmodules.selection.get_extra_influences(self.root, mesh)), ["lowerArm_00_R_JNT"])
 
     def test_a_node_that_is_not_a_rig_has_no_sets(self):
         node = cmds.createNode("transform", name="notARig")

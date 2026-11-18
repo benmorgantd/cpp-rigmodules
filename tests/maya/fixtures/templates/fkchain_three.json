@@ -2,7 +2,7 @@
   "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "FkChainThree",
   "rigModules": [
-    { "moduleType": "FkChain", "name": "fkchain_1", "shapeType": "Box", "side": "Center",
+    { "moduleType": "FkChain", "name": "fkchain_01_M_MOD", "shapeType": "Box", "side": "Center",
       "moduleArgs": { "joints": [ ["Center", "a"], ["Center", "b"], ["Center", "c"] ] } }
   ]
 }

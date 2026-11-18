@@ -77,7 +77,7 @@ RigModuleBuildResult LayoutModuleNode::createModule(
 
 	// 1. Layout module node
 	MObject oLayoutModule = dagMod.MDGModifier::createNode(LayoutModuleNode::id);
-	// Named like template modules (scene name == socket id module half), so "layout.end" resolves in commands too (D19).
+	// Named like template modules (scene name == socket id module half), so "layout_00_M_MOD.end" resolves in commands too (D19).
 	dagMod.renameNode(oLayoutModule, RigNaming::LayoutModule);
 
 	MPlug pSide(oLayoutModule, LayoutModuleNode::aSide);
@@ -172,5 +172,5 @@ ModuleInterface LayoutModuleNode::makeInterface(unsigned int count)
 
 ControlMarkup LayoutModuleNode::controlMarkupAt(unsigned int index)
 {
-	return makeControlMarkup(SideNames::Center, std::string(RigNaming::LayoutModule) + "_" + std::to_string(index));
+	return makeControlMarkup(SideNames::Center, std::string(RigNaming::LayoutBase) + "_" + std::to_string(index));
 }

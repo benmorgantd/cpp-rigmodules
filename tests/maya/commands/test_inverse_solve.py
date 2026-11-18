@@ -80,35 +80,35 @@ class HandWrittenClip(SolveTestCase):
         self.build_standard("fkchain_three", "fk_three")
         half = math.sqrt(0.5)
         poses = {
-            "a_jnt": {"translate": [0, 0, 0], "rotate": [0, 0, half, half], "scale": [1, 1, 1]},
-            "b_jnt": {"translate": [0, 2, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1]},
-            "c_jnt": {"translate": [0, 2, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1]},
+            "a_00_M_JNT": {"translate": [0, 0, 0], "rotate": [0, 0, half, half], "scale": [1, 1, 1]},
+            "b_00_M_JNT": {"translate": [0, 2, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1]},
+            "c_00_M_JNT": {"translate": [0, 2, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1]},
         }
         clip = {
             "formatVersion": 1, "frameRate": 24.0, "startFrame": 1,
             "joints": [
-                {"path": "a_jnt", "markup": markup_of(rig_name("a_jnt")), "rest": transform_of(world(rig_name("a_jnt")))},
-                {"path": "a_jnt/b_jnt", "markup": markup_of(rig_name("b_jnt")), "rest": poses["b_jnt"]},
-                {"path": "a_jnt/b_jnt/c_jnt", "markup": markup_of(rig_name("c_jnt")), "rest": poses["c_jnt"]},
+                {"path": "a_00_M_JNT", "markup": markup_of(rig_name("a_00_M_JNT")), "rest": transform_of(world(rig_name("a_00_M_JNT")))},
+                {"path": "a_00_M_JNT/b_00_M_JNT", "markup": markup_of(rig_name("b_00_M_JNT")), "rest": poses["b_00_M_JNT"]},
+                {"path": "a_00_M_JNT/b_00_M_JNT/c_00_M_JNT", "markup": markup_of(rig_name("c_00_M_JNT")), "rest": poses["c_00_M_JNT"]},
             ],
-            "poses": [[poses["a_jnt"], poses["b_jnt"], poses["c_jnt"]]],
+            "poses": [[poses["a_00_M_JNT"], poses["b_00_M_JNT"], poses["c_00_M_JNT"]]],
         }
         cmds.poseRigFromJointPose(rig_root(), jointPose=self.write("hand.json", clip))
 
         # a turns 90 degrees about Z and carries b and c rigidly, which are still at their own rest locals.
-        self.assertValues(rig_name("a_ctrl_c"), {"rotateZ": 90, "rotateX": 0, "rotateY": 0, "translateX": 0, "translateY": 0})
-        self.assertValues(rig_name("b_ctrl_c"), {"rotateZ": 0, "translateX": 0, "translateY": 0})
-        self.assertValues(rig_name("c_ctrl_c"), {"rotateZ": 0, "translateX": 0, "translateY": 0})
-        self.assertWorldTranslation(rig_name("b_jnt"), [-2, 0, 0])
-        self.assertWorldTranslation(rig_name("c_jnt"), [-4, 0, 0])
+        self.assertValues(rig_name("a_00_M_CTRL"), {"rotateZ": 90, "rotateX": 0, "rotateY": 0, "translateX": 0, "translateY": 0})
+        self.assertValues(rig_name("b_00_M_CTRL"), {"rotateZ": 0, "translateX": 0, "translateY": 0})
+        self.assertValues(rig_name("c_00_M_CTRL"), {"rotateZ": 0, "translateX": 0, "translateY": 0})
+        self.assertWorldTranslation(rig_name("b_00_M_JNT"), [-2, 0, 0])
+        self.assertWorldTranslation(rig_name("c_00_M_JNT"), [-4, 0, 0])
 
 
 class FkChainRoundTrip(SolveTestCase):
 
     def test_every_control_comes_back(self):
         self.build_standard("fkchain_three", "fk_three")
-        posed = {"a_ctrl_c.rotateZ": 30, "a_ctrl_c.translateX": 0.5, "b_ctrl_c.rotateX": 20, "b_ctrl_c.rotateY": -15,
-                 "c_ctrl_c.rotateZ": 45, "c_ctrl_c.scaleY": 1.5}
+        posed = {"a_00_M_CTRL.rotateZ": 30, "a_00_M_CTRL.translateX": 0.5, "b_00_M_CTRL.rotateX": 20, "b_00_M_CTRL.rotateY": -15,
+                 "c_00_M_CTRL.rotateZ": 45, "c_00_M_CTRL.scaleY": 1.5}
         _, posed_joints, controls = self.round_trip(posed)
         self.assertJointsAt(posed_joints)
         for control, expected in controls.items():
@@ -117,73 +117,73 @@ class FkChainRoundTrip(SolveTestCase):
     def test_a_pose_at_rest_is_the_rest_pose(self):
         self.build_standard("fkchain_three", "fk_three")
         rest = self.snapshot()
-        cmds.setAttr(rig_name("b_ctrl_c.rotateZ"), 40)
+        cmds.setAttr(rig_name("b_00_M_CTRL.rotateZ"), 40)
         cmds.poseRigFromJointPose(rig_root(), jointPose=self.write_clip(rest, [rest]))
-        self.assertValues(rig_name("b_ctrl_c"), {"rotateZ": 0})
+        self.assertValues(rig_name("b_00_M_CTRL"), {"rotateZ": 0})
         self.assertJointsAt(rest)
 
     def test_undo_and_redo(self):
         self.build_standard("fkchain_three", "fk_three")
         rest = self.snapshot()
-        cmds.setAttr(rig_name("a_ctrl_c.rotateZ"), 60)
+        cmds.setAttr(rig_name("a_00_M_CTRL.rotateZ"), 60)
         clip = self.write_clip(rest, [self.snapshot()])
         cmds.zeroRigControls(rig_root())
         cmds.poseRigFromJointPose(rig_root(), jointPose=clip)
-        self.assertValues(rig_name("a_ctrl_c"), {"rotateZ": 60})
+        self.assertValues(rig_name("a_00_M_CTRL"), {"rotateZ": 60})
         cmds.undo()
-        self.assertValues(rig_name("a_ctrl_c"), {"rotateZ": 0})
+        self.assertValues(rig_name("a_00_M_CTRL"), {"rotateZ": 0})
         cmds.redo()
-        self.assertValues(rig_name("a_ctrl_c"), {"rotateZ": 60})
+        self.assertValues(rig_name("a_00_M_CTRL"), {"rotateZ": 60})
 
     def test_controls_in_a_scope_are_the_only_ones_set(self):
         self.build_standard("fkchain_three", "fk_three")
         rest = self.snapshot()
-        cmds.setAttr(rig_name("a_ctrl_c.rotateZ"), 30)
-        cmds.setAttr(rig_name("b_ctrl_c.rotateZ"), 20)
+        cmds.setAttr(rig_name("a_00_M_CTRL.rotateZ"), 30)
+        cmds.setAttr(rig_name("b_00_M_CTRL.rotateZ"), 20)
         clip = self.write_clip(rest, [self.snapshot()])
         cmds.zeroRigControls(rig_root())
-        changed = cmds.poseRigFromJointPose(rig_name("b_ctrl_c"), jointPose=clip)
-        self.assertEqual([c.split(":")[-1] for c in changed], ["b_ctrl_c"])
-        self.assertValues(rig_name("a_ctrl_c"), {"rotateZ": 0})
+        changed = cmds.poseRigFromJointPose(rig_name("b_00_M_CTRL"), jointPose=clip)
+        self.assertEqual([c.split(":")[-1] for c in changed], ["b_00_M_CTRL"])
+        self.assertValues(rig_name("a_00_M_CTRL"), {"rotateZ": 0})
         # b's control value is relative to a, which stayed at rest, so b matches its joint only through its own value.
-        self.assertValues(rig_name("b_ctrl_c"), {"rotateZ": 20})
+        self.assertValues(rig_name("b_00_M_CTRL"), {"rotateZ": 20})
 
     def test_a_source_without_the_joints_leaves_the_controls_to_the_sidecar_then_rest(self):
         self.build_standard("fkchain_three", "fk_three")
         rest = self.snapshot()
-        cmds.setAttr(rig_name("c_ctrl_c.rotateZ"), 25)
-        clip = self.write_clip(rest, [self.snapshot()], skip=("c_jnt",))
+        cmds.setAttr(rig_name("c_00_M_CTRL.rotateZ"), 25)
+        clip = self.write_clip(rest, [self.snapshot()], skip=("c_00_M_JNT",))
         cmds.zeroRigControls(rig_root())
         cmds.poseRigFromJointPose(rig_root(), jointPose=clip)
-        self.assertValues(rig_name("c_ctrl_c"), {"rotateZ": 0})
+        self.assertValues(rig_name("c_00_M_CTRL"), {"rotateZ": 0})
 
         sidecar = self.write_sidecar({"Center": {"c": {"rotateZ": 25.0}}})
         cmds.poseRigFromJointPose(rig_root(), jointPose=clip, sidecar=sidecar)
-        self.assertValues(rig_name("c_ctrl_c"), {"rotateZ": 25})
+        self.assertValues(rig_name("c_00_M_CTRL"), {"rotateZ": 25})
 
     def test_a_missing_joint_in_the_middle_keeps_the_controls_above_it(self):
         self.build_standard("fkchain_three", "fk_three")
         rest = self.snapshot()
-        cmds.setAttr(rig_name("a_ctrl_c.rotateZ"), 30)
-        cmds.setAttr(rig_name("b_ctrl_c.rotateZ"), 20)
-        cmds.setAttr(rig_name("c_ctrl_c.rotateZ"), 10)
-        clip = self.write_clip(rest, [self.snapshot()], skip=("b_jnt",))
+        cmds.setAttr(rig_name("a_00_M_CTRL.rotateZ"), 30)
+        cmds.setAttr(rig_name("b_00_M_CTRL.rotateZ"), 20)
+        cmds.setAttr(rig_name("c_00_M_CTRL.rotateZ"), 10)
+        clip = self.write_clip(rest, [self.snapshot()], skip=("b_00_M_JNT",))
         cmds.zeroRigControls(rig_root())
         cmds.poseRigFromJointPose(rig_root(), jointPose=clip)
-        self.assertValues(rig_name("a_ctrl_c"), {"rotateZ": 30})
-        self.assertValues(rig_name("b_ctrl_c"), {"rotateZ": 0})
+        self.assertValues(rig_name("a_00_M_CTRL"), {"rotateZ": 30})
+        self.assertValues(rig_name("b_00_M_CTRL"), {"rotateZ": 0})
         # c is solved against b at rest, so it takes up the 20 degrees b's joint would have given.
-        self.assertValues(rig_name("c_ctrl_c"), {"rotateZ": 30})
+        self.assertValues(rig_name("c_00_M_CTRL"), {"rotateZ": 30})
 
     def test_a_sidecar_value_never_beats_a_joint(self):
         self.build_standard("fkchain_three", "fk_three")
         rest = self.snapshot()
-        cmds.setAttr(rig_name("a_ctrl_c.rotateZ"), 30)
+        cmds.setAttr(rig_name("a_00_M_CTRL.rotateZ"), 30)
         clip = self.write_clip(rest, [self.snapshot()])
         cmds.zeroRigControls(rig_root())
         sidecar = self.write_sidecar({"Center": {"a": {"rotateZ": 99.0}}})
         cmds.poseRigFromJointPose(rig_root(), jointPose=clip, sidecar=sidecar)
-        self.assertValues(rig_name("a_ctrl_c"), {"rotateZ": 30})
+        self.assertValues(rig_name("a_00_M_CTRL"), {"rotateZ": 30})
 
     def test_a_source_with_different_bone_lengths_is_a_warning_and_still_runs(self):
         self.build_standard("fkchain_three", "fk_three")
@@ -200,7 +200,7 @@ class AimRoundTrip(SolveTestCase):
 
     def test_target_and_up_come_back_and_the_aim_joint_follows(self):
         self.build_standard("aim_basic", "aim_basic")
-        posed = {"eyeTarget_ctrl_r.translateX": 2.0, "eyeTarget_ctrl_r.translateY": 1.0, "eyeUp_ctrl_r.translateX": -1.5}
+        posed = {"eyeTarget_00_R_CTRL.translateX": 2.0, "eyeTarget_00_R_CTRL.translateY": 1.0, "eyeUp_00_R_CTRL.translateX": -1.5}
         _, posed_joints, controls = self.round_trip(posed)
         self.assertJointsAt(posed_joints)
         for control, expected in controls.items():
@@ -209,11 +209,11 @@ class AimRoundTrip(SolveTestCase):
     def test_a_missing_up_joint_leaves_that_control_to_rest(self):
         self.build_standard("aim_basic", "aim_basic")
         rest = self.snapshot()
-        cmds.setAttr(rig_name("eyeUp_ctrl_r.translateX"), -1.5)
-        clip = self.write_clip(rest, [self.snapshot()], skip=("eyeUp_jnt",))
+        cmds.setAttr(rig_name("eyeUp_00_R_CTRL.translateX"), -1.5)
+        clip = self.write_clip(rest, [self.snapshot()], skip=("eyeUp_00_M_JNT",))
         cmds.zeroRigControls(rig_root())
         cmds.poseRigFromJointPose(rig_root(), jointPose=clip)
-        self.assertValues(rig_name("eyeUp_ctrl_r"), {"translateX": 0})
+        self.assertValues(rig_name("eyeUp_00_R_CTRL"), {"translateX": 0})
 
 
 class LayoutRoundTrip(SolveTestCase):
@@ -223,30 +223,30 @@ class LayoutRoundTrip(SolveTestCase):
     def setUp(self):
         super().setUp()
         self.build_standard("mirror_arms", "mirror_arms")
-        self.layout = [c for c in cmds.ls(rig_name("layout_*_ctrl_c"), type="rigControlNode")]
+        self.layout = [c for c in cmds.ls(rig_name("layout_*_M_CTRL"), type="rigControlNode")]
         self.assertTrue(self.layout)
 
     def test_the_sidecar_restores_the_layout_and_the_modules_below_stay_put(self):
         _, posed_joints, controls = self.round_trip(
-            {"layout_0_ctrl_c.translateX": 3.0, "chest_ctrl_c.rotateZ": 15},
+            {"layout_00_M_CTRL.translateX": 3.0, "chest_00_M_CTRL.rotateZ": 15},
             sidecar=self.write_sidecar({"Center": {"layout_0": {"translateX": 3.0}}}))
         self.assertJointsAt(posed_joints)
-        self.assertValues(rig_name("layout_0_ctrl_c"), {"translateX": 3.0})
-        self.assertValues(rig_name("chest_ctrl_c"), {"rotateZ": 15, "translateX": 0})
+        self.assertValues(rig_name("layout_00_M_CTRL"), {"translateX": 3.0})
+        self.assertValues(rig_name("chest_00_M_CTRL"), {"rotateZ": 15, "translateX": 0})
 
     def test_without_a_sidecar_the_layout_is_at_rest_and_the_controls_below_carry_the_move(self):
-        _, posed_joints, _ = self.round_trip({"layout_0_ctrl_c.translateX": 3.0})
+        _, posed_joints, _ = self.round_trip({"layout_00_M_CTRL.translateX": 3.0})
         self.assertJointsAt(posed_joints)
-        self.assertValues(rig_name("layout_0_ctrl_c"), {"translateX": 0.0})
-        self.assertValues(rig_name("chest_ctrl_c"), {"translateX": 3.0})
+        self.assertValues(rig_name("layout_00_M_CTRL"), {"translateX": 0.0})
+        self.assertValues(rig_name("chest_00_M_CTRL"), {"translateX": 3.0})
 
 
 class SpaceRoundTrip(SolveTestCase):
     """The arm's space switch: clavicle (0) or the world (1). The sidecar says which, and the sweep builds the same
     delta the constraint does."""
 
-    ARM = "upperArm_l_ctrl_l"
-    POSE = {"clavicle_l_ctrl_l.rotateZ": 25, ARM + ".rotateZ": 35, "lowerArm_l_ctrl_l.rotateZ": -10, "chest_ctrl_c.rotateZ": 10}
+    ARM = "upperArm_00_L_CTRL"
+    POSE = {"clavicle_00_L_CTRL.rotateZ": 25, ARM + ".rotateZ": 35, "lowerArm_00_L_CTRL.rotateZ": -10, "chest_00_M_CTRL.rotateZ": 10}
 
     def setUp(self):
         super().setUp()
@@ -259,7 +259,7 @@ class SpaceRoundTrip(SolveTestCase):
         for plug, value in self.POSE.items():
             cmds.setAttr(rig_name(plug), value)
         posed_joints = self.snapshot()
-        controls = {c: values_of(c) for c in cmds.ls(rig_name("*_ctrl_l"), type="rigControlNode")}
+        controls = {c: values_of(c) for c in cmds.ls(rig_name("*_L_CTRL"), type="rigControlNode")}
         return self.write_clip(rest, [posed_joints]), posed_joints, controls
 
     def check_space(self, space):
@@ -302,14 +302,14 @@ class SpaceRoundTrip(SolveTestCase):
 class OrientConstraintRoundTrip(SolveTestCase):
     """The other constraint types go through the same delta function the constraint node uses (D31)."""
 
-    CONTROL = rig_name("c_ctrl_l")
+    CONTROL = rig_name("c_00_L_CTRL")
 
     def test_an_orient_space_round_trip(self):
         self.build_standard("fkchain_two_chains", "fk_two_chains")
-        cmds.createRigConstraint(self.CONTROL, driver=["fkchain_1.end", "layout.end"], type="Orient")
+        cmds.createRigConstraint(self.CONTROL, driver=["fkchain_01_M_MOD.end", "layout_00_M_MOD.end"], type="Orient")
         cmds.setAttr(self.CONTROL + ".space", 1)
         rest = self.snapshot()
-        cmds.setAttr(rig_name("a_ctrl_c.rotateZ"), 40)
+        cmds.setAttr(rig_name("a_00_M_CTRL.rotateZ"), 40)
         cmds.setAttr(self.CONTROL + ".rotateZ", 15)
         posed_joints = self.snapshot()
         clip = self.write_clip(rest, [posed_joints])
@@ -325,17 +325,17 @@ class OrientConstraintRoundTrip(SolveTestCase):
         """A Swing driver is the layout's end, which no joint can give, so its twist and swing come from the sidecar. The control's
         own rotation comes back from the joints through the same delta function."""
         self.build_standard("fkchain_two_chains", "fk_two_chains")
-        cmds.createRigConstraint(self.CONTROL, driver=["fkchain_1.end", "layout.end"], type="Swing")
+        cmds.createRigConstraint(self.CONTROL, driver=["fkchain_01_M_MOD.end", "layout_00_M_MOD.end"], type="Swing")
         cmds.setAttr(self.CONTROL + ".space", 1)
         rest = self.snapshot()
-        cmds.setAttr(rig_name("layout_2_ctrl_c.rotateX"), 50)
-        cmds.setAttr(rig_name("layout_2_ctrl_c.rotateZ"), 30)
+        cmds.setAttr(rig_name("layout_02_M_CTRL.rotateX"), 50)
+        cmds.setAttr(rig_name("layout_02_M_CTRL.rotateZ"), 30)
         cmds.setAttr(self.CONTROL + ".rotateZ", 15)
         posed_joints = self.snapshot()
         clip = self.write_clip(rest, [posed_joints])
         cmds.zeroRigControls(rig_root())
         control = rigmodules.query.get_control(self.CONTROL)
-        layout_end = rigmodules.query.get_control(rig_name("layout_2_ctrl_c"))
+        layout_end = rigmodules.query.get_control(rig_name("layout_02_M_CTRL"))
         sidecar = self.write_sidecar({
             control.side: {control.usage: {"space": 1}},
             layout_end.side: {layout_end.usage: {"rotateX": 50, "rotateZ": 30}}})
@@ -347,8 +347,8 @@ class OrientConstraintRoundTrip(SolveTestCase):
 class AnimateFromClip(SolveTestCase):
     """animateRigFromJointClip keys every channel the joints gave on every frame, from the joints' animation."""
 
-    A = rig_name("a_ctrl_c")
-    B = rig_name("b_ctrl_c")
+    A = rig_name("a_00_M_CTRL")
+    B = rig_name("b_00_M_CTRL")
     FRAMES = (1, 2, 3, 4, 5)
 
     def setUp(self):
@@ -386,8 +386,8 @@ class AnimateFromClip(SolveTestCase):
             self.assertAlmostEqual(a, e, places=places, msg="%s.%s: wanted %s, got %s" % (node, channel, expected, actual))
 
     def test_every_channel_is_baked_on_every_frame_and_the_joints_follow(self):
-        self.key("a_ctrl_c.rotateZ", (0, 10, 20, 30, 40))
-        self.key("b_ctrl_c.rotateX", (0, 5, 10, 15, 20))
+        self.key("a_00_M_CTRL.rotateZ", (0, 10, 20, 30, 40))
+        self.key("b_00_M_CTRL.rotateX", (0, 5, 10, 15, 20))
         snapshots = self.capture()
         clip = self.write_clip(self.rest, snapshots)
         self.clear_animation()
@@ -395,7 +395,7 @@ class AnimateFromClip(SolveTestCase):
         changed = cmds.animateRigFromJointClip(rig_root(), jointClip=clip)
 
         # The controls the joints gave. The layout's have no joints and no sidecar entry, so they keep their keys (none).
-        self.assertEqual(sorted(c.lstrip(":") for c in changed), sorted(c.lstrip(":") for c in (self.A, self.B, rig_name("c_ctrl_c"))))
+        self.assertEqual(sorted(c.lstrip(":") for c in changed), sorted(c.lstrip(":") for c in (self.A, self.B, rig_name("c_00_M_CTRL"))))
         for layout in cmds.ls(rig_name("layout_*"), type="rigControlNode"):
             self.assertFalse(cmds.keyframe(layout, query=True, keyframeCount=True), layout)
         for node in (self.A, self.B):
@@ -409,7 +409,7 @@ class AnimateFromClip(SolveTestCase):
             self.assertJointsAt(snapshot)
 
     def test_a_range_keys_only_those_frames(self):
-        self.key("a_ctrl_c.rotateZ", (0, 10, 20, 30, 40))
+        self.key("a_00_M_CTRL.rotateZ", (0, 10, 20, 30, 40))
         clip = self.write_clip(self.rest, self.capture())
         self.clear_animation()
         cmds.animateRigFromJointClip(rig_root(), jointClip=clip, startFrame=2, endFrame=4)
@@ -430,8 +430,8 @@ class AnimateFromClip(SolveTestCase):
         self.assertCurve(self.A, "rotateZ", [0, 30])
 
     def test_a_scope_keys_only_those_controls(self):
-        self.key("a_ctrl_c.rotateZ", (0, 10, 20, 30, 40))
-        self.key("b_ctrl_c.rotateX", (0, 5, 10, 15, 20))
+        self.key("a_00_M_CTRL.rotateZ", (0, 10, 20, 30, 40))
+        self.key("b_00_M_CTRL.rotateX", (0, 5, 10, 15, 20))
         clip = self.write_clip(self.rest, self.capture())
         self.clear_animation()
         cmds.animateRigFromJointClip(self.B, jointClip=clip)
@@ -439,7 +439,7 @@ class AnimateFromClip(SolveTestCase):
         self.assertEqual(self.times(self.A, "rotateZ"), [])
 
     def test_the_whole_call_is_one_undo(self):
-        self.key("a_ctrl_c.rotateZ", (0, 10, 20, 30, 40))
+        self.key("a_00_M_CTRL.rotateZ", (0, 10, 20, 30, 40))
         clip = self.write_clip(self.rest, self.capture())
         self.clear_animation()
         cmds.animateRigFromJointClip(rig_root(), jointClip=clip)
@@ -453,14 +453,14 @@ class AnimateFromClip(SolveTestCase):
 
     def test_a_long_turn_does_not_flip_the_euler_curve(self):
         # 170 degrees a frame is the most a quaternion can carry. The curve must keep climbing, not wrap.
-        self.key("a_ctrl_c.rotateZ", (0, 170, 340, 510, 680))
+        self.key("a_00_M_CTRL.rotateZ", (0, 170, 340, 510, 680))
         clip = self.write_clip(self.rest, self.capture())
         self.clear_animation()
         cmds.animateRigFromJointClip(rig_root(), jointClip=clip)
         self.assertCurve(self.A, "rotateZ", [0, 170, 340, 510, 680])
 
     def test_keys_an_animator_set_on_other_frames_survive(self):
-        self.key("a_ctrl_c.rotateZ", (0, 10, 20, 30, 40))
+        self.key("a_00_M_CTRL.rotateZ", (0, 10, 20, 30, 40))
         clip = self.write_clip(self.rest, self.capture(), start_frame=1)
         cmds.setKeyframe(self.A + ".rotateZ", time=50, value=5)
         cmds.animateRigFromJointClip(rig_root(), jointClip=clip)
@@ -472,7 +472,7 @@ class AnimateWithSidecar(SolveTestCase):
     """The animation command's sidecar is a ControlAnim (D42). Its curves are sampled on the clip's frames for the solve,
     and what only the sidecar gave is keyed with the sidecar's own keys and tangents, not baked."""
 
-    ARM = rig_name("upperArm_l_ctrl_l")
+    ARM = rig_name("upperArm_00_L_CTRL")
     FRAMES = (1, 2, 3)
 
     def setUp(self):
@@ -512,13 +512,13 @@ class AnimateWithSidecar(SolveTestCase):
 
     def test_the_layout_comes_from_the_sidecar_with_the_sidecars_own_keys(self):
         for frame, value in zip(self.FRAMES, (1.0, 2.0, 3.0)):
-            cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=frame, value=value)
+            cmds.setKeyframe(rig_name("layout_00_M_CTRL.translateX"), time=frame, value=value)
         snapshots = self.capture()
         layout = {"Center": {"layout_0": {"translateX": {"keys": [[1, 1.0, "linear", "linear"], [3, 3.0, "linear", "linear"]]}}}}
 
         self.restore(snapshots, layout)
 
-        plug = rig_name("layout_0_ctrl_c.translateX")
+        plug = rig_name("layout_00_M_CTRL.translateX")
         self.assertEqual(self.times(plug), [1, 3], "the sidecar's keys, not one on every frame")
         self.assertEqual(self.values(plug), [1.0, 3.0])
         self.assertEqual(cmds.keyTangent(plug, query=True, outTangentType=True), ["linear", "linear"])
@@ -529,7 +529,7 @@ class AnimateWithSidecar(SolveTestCase):
         for frame, value in ((1, 0), (3, 1)):
             cmds.setKeyframe(arm + ".space", time=frame, value=value, inTangentType="auto", outTangentType="step")
         for frame, value in zip(self.FRAMES, (0, 20, 40)):
-            cmds.setKeyframe(rig_name("clavicle_l_ctrl_l.rotateZ"), time=frame, value=value)
+            cmds.setKeyframe(rig_name("clavicle_00_L_CTRL.rotateZ"), time=frame, value=value)
         snapshots = self.capture()
         space = {"Left": {"upperArm": {"space": {"keys": [[1, 0, "auto", "step"], [3, 1, "auto", "step"]]}}}}
 
@@ -556,7 +556,7 @@ class AnimateWithSidecar(SolveTestCase):
 
     def test_a_weighted_fixed_tangent_on_an_angle_channel_samples_as_the_rigs_own_curve(self):
         """The joints must land where the animator's weighted curve put them, on a frame between the keys."""
-        plug = rig_name("layout_0_ctrl_c.rotateZ")
+        plug = rig_name("layout_00_M_CTRL.rotateZ")
         cmds.setKeyframe(plug, time=1, value=0)
         cmds.setKeyframe(plug, time=3, value=60)
         cmds.keyTangent(plug, edit=True, weightedTangents=True)
@@ -571,8 +571,8 @@ class AnimateWithSidecar(SolveTestCase):
         self.assertJointsFollow(snapshots)
 
     def test_the_sampling_leaves_no_scratch_curve_and_the_restore_is_one_undo_step(self):
-        cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=1, value=1)
-        cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=3, value=3)
+        cmds.setKeyframe(rig_name("layout_00_M_CTRL.translateX"), time=1, value=1)
+        cmds.setKeyframe(rig_name("layout_00_M_CTRL.translateX"), time=3, value=3)
         snapshots = self.capture()
         layout = {"Center": {"layout_0": {"translateX": {"keys": [[1, 1.0], [3, 3.0]]}}}}
         self.restore(snapshots, layout)
@@ -585,17 +585,17 @@ class AnimateWithSidecar(SolveTestCase):
 
     def test_keys_outside_the_restore_range_are_left_out(self):
         for frame, value in zip(self.FRAMES, (1.0, 2.0, 3.0)):
-            cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=frame, value=value)
+            cmds.setKeyframe(rig_name("layout_00_M_CTRL.translateX"), time=frame, value=value)
         snapshots = self.capture()
         clip = self.write_clip(self.rest, snapshots)
         sidecar = self.write_control_anim({"Center": {"layout_0": {"translateX": {"keys": [[1, 1.0], [2, 2.0], [3, 3.0]]}}}})
         cmds.delete(cmds.ls(type="animCurve"))
         cmds.animateRigFromJointClip(rig_root(), jointClip=clip, sidecar=sidecar, startFrame=2, endFrame=3)
-        self.assertEqual(self.times(rig_name("layout_0_ctrl_c.translateX")), [2, 3])
+        self.assertEqual(self.times(rig_name("layout_00_M_CTRL.translateX")), [2, 3])
 
     def test_a_sidecar_that_covers_less_than_the_clip_holds_its_last_value(self):
         for frame in self.FRAMES:
-            cmds.setKeyframe(rig_name("layout_0_ctrl_c.translateX"), time=frame, value=1.0)
+            cmds.setKeyframe(rig_name("layout_00_M_CTRL.translateX"), time=frame, value=1.0)
         snapshots = self.capture()
         clip = self.write_clip(self.rest, snapshots)
         sidecar = self.write("short.json", {"formatVersion": 1, "frameRate": 24.0, "startFrame": 1, "endFrame": 2,

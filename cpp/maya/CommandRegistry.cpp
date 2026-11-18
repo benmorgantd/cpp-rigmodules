@@ -3,6 +3,7 @@
 #include "maya/commands/ConstraintCmds.h"
 #include "maya/commands/CreateRigCmd.h"
 #include "maya/commands/JointMarkupCmd.h"
+#include "maya/commands/RenameRigNodesCmd.h"
 #include "maya/commands/RigControlCmds.h"
 #include "maya/commands/RigDataFileCmds.h"
 #include "maya/commands/RigInfoCmd.h"
@@ -53,7 +54,8 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ SetRigKeysCmd::aCommandString, SetRigKeysCmd::creator, SetRigKeysCmd::newSyntax },
 		{ SaveRigAnimationCmd::aCommandString, SaveRigAnimationCmd::creator, SaveRigAnimationCmd::newSyntax },
 		{ LoadRigAnimationCmd::aCommandString, LoadRigAnimationCmd::creator, LoadRigAnimationCmd::newSyntax },
-		{ SetRigIkFkBlendCmd::aCommandString, SetRigIkFkBlendCmd::creator, SetRigIkFkBlendCmd::newSyntax }
+		{ SetRigIkFkBlendCmd::aCommandString, SetRigIkFkBlendCmd::creator, SetRigIkFkBlendCmd::newSyntax },
+		{ RenameRigNodesCmd::aCommandString, RenameRigNodesCmd::creator, RenameRigNodesCmd::newSyntax }
 	};
 	return descriptors;
 }

@@ -70,7 +70,7 @@ ROM_AXES = ("rotateX", "rotateY", "rotateZ")
 
 def _chain(base, side, count, at, offset, step, parent, constraint):
     """at: (base, joint index) the chain's first joint is placed relative to, None for the root chain.
-    parent: (module base, socket) the chain's start attaches to, None for layout.end.
+    parent: (module base, socket) the chain's start attaches to, None for layout_00_M_MOD.end.
     constraint: (type, [(module base, socket, label), ...]) on the chain's start, None for none."""
     return {"base": base, "side": side, "count": count, "at": at, "offset": offset, "step": step,
             "parent": parent, "constraint": constraint}
@@ -170,20 +170,30 @@ def aim_specs():
 
 
 def side_suffix(side):
-    return {"Center": "c", "Left": "l", "Right": "r"}[side]
+    return {"Center": "M", "Left": "L", "Right": "R"}[side]
 
 
 def module_name(base, side):
-    return base if side == "Center" else "%s_%s" % (base, side_suffix(side))
+    """The naming convention's module name (D58): base_00_L_MOD."""
+    return "%s_00_%s_MOD" % (base, side_suffix(side))
+
+
+def constraint_name(base, side):
+    return "%s_00_%s_CON" % (base, side_suffix(side))
 
 
 def joint_name(base, index, side):
-    return "%s%d_%s" % (base, index + 1, side_suffix(side))
+    return "%s_%02d_%s_JNT" % (base, index, side_suffix(side))
+
+
+def aim_usage(base, role):
+    """The usage of an aim set's marker joint, role being aim, target and up."""
+    return "%s%s" % (base, role.capitalize())
 
 
 def aim_joint(base, role, side):
-    """Name of an aim set's marker joint, role being aim, target and up. Without its side suffix it is the usage."""
-    return "%s%s_%s" % (base, role.capitalize(), side_suffix(side))
+    """Name of an aim set's marker joint."""
+    return "%s_00_%s_JNT" % (aim_usage(base, role), side_suffix(side))
 
 
 def usage_name(base, index):
@@ -250,7 +260,7 @@ def joint_layout():
             for role in ("aim", "target", "up"):
                 offset = _flip(aim[role], side)
                 name = aim_joint(aim["base"], role, side)
-                joints.append({"name": name, "parent": parent, "side": side, "usage": name[:-2],
+                joints.append({"name": name, "parent": parent, "side": side, "usage": aim_usage(aim["base"], role),
                                "chain": module_name(aim["base"], side), "aim_next": False, "secondary": "yup",
                                "position": (anchor[0] + offset[0], anchor[1] + offset[1], anchor[2] + offset[2])})
     for limb in limb_specs():
@@ -330,7 +340,7 @@ def _constraint_entry(name, constraint_type, target, drivers, side, side_of):
     entry = {"name": name, "type": constraint_type, "target": target, "drivers": []}
     for index, (driver_base, socket, label) in enumerate(drivers):
         if driver_base == "layout":
-            socket_id = "layout.end"
+            socket_id = "layout_00_M_MOD.end"
         else:
             socket_id = "%s.%s" % (module_name(driver_base, side_of[driver_base]), socket)
         driver = {"socket": socket_id, "label": label}
@@ -364,7 +374,7 @@ def build_template():
         modules.append(module)
         if spec["constraint"] is not None:
             constraint_type, drivers = spec["constraint"]
-            constraints.append(_constraint_entry("%s_space%s" % (spec["base"], "_l" if side == "Left" else ""),
+            constraints.append(_constraint_entry(constraint_name(spec["base"] + "Space", side),
                                                  constraint_type, "%s.start" % name, drivers, side, side_of))
     for aim in aim_specs():
         name = module_name(aim["base"], "Left")
@@ -373,15 +383,15 @@ def build_template():
             "name": name,
             "side": "Left",
             "mirror": True,
-            "moduleArgs": {role: ["Left", aim_joint(aim["base"], role, "Left")[:-2]] for role in ("aim", "target", "up")},
-            "parentStructure": {role: "%s.end" % aim["parent"][0] for role in ("aim", "target", "up")},
+            "moduleArgs": {role: ["Left", aim_usage(aim["base"], role)] for role in ("aim", "target", "up")},
+            "parentStructure": {role: "%s.end" % module_name(aim["parent"][0], "Center") for role in ("aim", "target", "up")},
         })
         constraints.append({
-            "name": "%s_space_l" % aim["base"],
+            "name": constraint_name(aim["base"] + "Space", "Left"),
             "type": "Parent",
             "target": "%s.target" % name,
-            "drivers": [{"socket": "%s.end" % aim["parent"][0], "label": "Head", "weight": 1.0},
-                        {"socket": "layout.end", "label": "World"}],
+            "drivers": [{"socket": "%s.end" % module_name(aim["parent"][0], "Center"), "label": "Head", "weight": 1.0},
+                        {"socket": "layout_00_M_MOD.end", "label": "World"}],
             "mirror": True,
         })
     for limb in limb_specs():
@@ -404,10 +414,10 @@ def build_template():
             },
             # The pole can't name the module's own socket (D17): it hangs from the layout, and its Ik space is switched later.
             "parentStructure": {"start": "%s.%s" % (module_name(parent_base, side_of[parent_base]), parent_socket),
-                                "ik": "layout.end", "pole": "layout.end"},
+                                "ik": "layout_00_M_MOD.end", "pole": "layout_00_M_MOD.end"},
         })
         for plug, (constraint_type, drivers) in limb["constraints"].items():
-            constraints.append(_constraint_entry("%s_%s_space_l" % (limb["base"], plug), constraint_type,
+            constraints.append(_constraint_entry(constraint_name("%s%sSpace" % (limb["base"], plug.capitalize()), "Left"), constraint_type,
                                                  "%s.%s" % (name, plug), drivers, "Left", side_of))
     for ribbon in ribbon_specs():
         side = ribbon["side"]
@@ -431,7 +441,7 @@ def build_template():
         modules.append(module)
         if ribbon.get("swing"):
             # A Swing constraint (D31) on the start, driven by the start's own parent: the arm ribbons' shoulder case.
-            constraints.append(_constraint_entry("%s_swing_l" % ribbon["base"], "Swing", "%s.start" % module_name(ribbon["base"], side),
+            constraints.append(_constraint_entry(constraint_name(ribbon["base"] + "Swing", "Left"), "Swing", "%s.start" % module_name(ribbon["base"], side),
                                                  [(parent_base, parent_socket, "Clavicle")], side, side_of))
     return {
         "formatVersion": 1,
@@ -451,8 +461,8 @@ def build_template():
 # a body socket through a constraint (the hidden, locked kind). Run `bench` on the scene made with 0 and with N
 # attachments to get what they cost: the floor has no attachments, so the 1.5 times check (D36) stays on 0.
 
-ATTACHMENT_CHAINS = [("fxa", "neck.end"), ("fxb", "spine.end"), ("fxc", "neck.index_1"), ("fxd", "arm_l.end")]
-ATTACHMENT_DRIVEN = [("drva", "spine.index_4"), ("drvb", "neck.index_2")]
+ATTACHMENT_CHAINS = [("fxa", "neck_00_M_MOD.end"), ("fxb", "spine_00_M_MOD.end"), ("fxc", "neck_00_M_MOD.index_1"), ("fxd", "arm_00_L_MOD.end")]
+ATTACHMENT_DRIVEN = [("drva", "spine_00_M_MOD.index_4"), ("drvb", "neck_00_M_MOD.index_2")]
 ATTACHMENT_CHAIN_JOINTS = 4
 
 
@@ -465,12 +475,12 @@ def attachment_joints():
         for i in range(ATTACHMENT_CHAIN_JOINTS):
             name = joint_name(base, i, "Center")
             joints.append({"name": name, "parent": previous, "position": (0.3 * k, 10.0 + 0.4 * i, 0.5), "side": "Center",
-                           "usage": usage_name(base, i), "chain": base, "aim_next": i < ATTACHMENT_CHAIN_JOINTS - 1,
+                           "usage": usage_name(base, i), "chain": module_name(base, "Center"), "aim_next": i < ATTACHMENT_CHAIN_JOINTS - 1,
                            "secondary": "zup"})
             previous = name
     for k, (base, _) in enumerate(ATTACHMENT_DRIVEN):
         joints.append({"name": joint_name(base, 0, "Center"), "parent": None, "position": (-0.5 - 0.3 * k, 10.0, 0.5),
-                       "side": "Center", "usage": usage_name(base, 0), "chain": base, "aim_next": False, "secondary": "yup"})
+                       "side": "Center", "usage": usage_name(base, 0), "chain": module_name(base, "Center"), "aim_next": False, "secondary": "yup"})
     return joints
 
 
@@ -478,13 +488,13 @@ def attachment_template():
     modules = []
     constraints = []
     for base, socket in ATTACHMENT_CHAINS:
-        modules.append({"moduleType": "FkChain", "name": base, "side": "Center",
+        modules.append({"moduleType": "FkChain", "name": module_name(base, "Center"), "side": "Center",
                         "moduleArgs": {"joints": [["Center", usage_name(base, i)] for i in range(ATTACHMENT_CHAIN_JOINTS)]},
                         "parentStructure": {"start": "parent:" + socket}})
     for base, socket in ATTACHMENT_DRIVEN:
-        modules.append({"moduleType": "FkChain", "name": base, "side": "Center",
+        modules.append({"moduleType": "FkChain", "name": module_name(base, "Center"), "side": "Center",
                         "moduleArgs": {"joints": [["Center", usage_name(base, 0)]]}})
-        constraints.append({"name": base + "_follow", "type": "Parent", "target": base + ".start",
+        constraints.append({"name": constraint_name(base + "Follow", "Center"), "type": "Parent", "target": module_name(base, "Center") + ".start",
                             "drivers": [{"socket": "parent:" + socket, "label": "Body", "weight": 1.0}]})
     return {"formatVersion": 1, "rigName": "attachment", "rigVersion": 1, "rigTemplateName": "ComplexAttachment",
             "rigAuthor": "perf_scenes.py", "rigModules": modules, "constraints": constraints}
@@ -771,7 +781,7 @@ def build_floor_instance(joints, namespace):
         cmds.setAttr(name + ".translate", *joint["position"])
         if joint["usage"] in aim_usages:
             continue   # an aim joint has no control (it keeps its own position)
-        control = cmds.createNode("transform", name=name + "_ctrl")
+        control = cmds.createNode("transform", name=name.replace("_JNT", "_CTRL"))
         cmds.setAttr(control + ".inheritsTransform", 0)
         cmds.setAttr(control + ".translate", *joint["position"])
         cmds.connectAttr(control + ".worldMatrix[0]", name + ".offsetParentMatrix")
@@ -782,7 +792,7 @@ def build_floor_instance(joints, namespace):
                 if joint["usage"].endswith(suffix):
                     limbs.setdefault(joint["chain"], {})[role] = control
     for derived in derived_controls():
-        control = cmds.createNode("transform", name="%s:%s_%s_ctrl" % (namespace, derived["chain"], derived["role"]))
+        control = cmds.createNode("transform", name="%s:%s_%s_CTRL" % (namespace, derived["chain"], derived["role"]))
         cmds.setAttr(control + ".inheritsTransform", 0)
         cmds.setAttr(control + ".translate", *derived["position"])
         controls.append(control)

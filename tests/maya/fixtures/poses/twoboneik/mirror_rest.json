@@ -3,11 +3,11 @@
   "skeleton": "twoboneik_mirror",
   "template": "twoboneik_mirror",
   "expect": {
-    "upperArm_l_jnt": { "translate": [1, 0, 0], "rotate": [0, 0, 0] },
-    "lowerArm_l_jnt": { "translate": [2.8, 2.4, 0], "rotate": [0, 0, 0] },
-    "hand_l_jnt": { "translate": [6, 0, 0] },
-    "upperArm_r_jnt": { "translate": [-1, 0, 0], "rotate": [0, 0, 0] },
-    "lowerArm_r_jnt": { "translate": [-2.8, 2.4, 0], "rotate": [0, 0, 0] },
-    "hand_r_jnt": { "translate": [-6, 0, 0] }
+    "upperArm_00_L_JNT": { "translate": [1, 0, 0], "rotate": [0, 0, 0] },
+    "lowerArm_00_L_JNT": { "translate": [2.8, 2.4, 0], "rotate": [0, 0, 0] },
+    "hand_00_L_JNT": { "translate": [6, 0, 0] },
+    "upperArm_00_R_JNT": { "translate": [-1, 0, 0], "rotate": [0, 0, 0] },
+    "lowerArm_00_R_JNT": { "translate": [-2.8, 2.4, 0], "rotate": [0, 0, 0] },
+    "hand_00_R_JNT": { "translate": [-6, 0, 0] }
   }
 }

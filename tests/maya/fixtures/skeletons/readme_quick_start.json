@@ -1,8 +1,8 @@
 {
   "joints": [
-    { "name": "spine1_jnt", "side": "Center", "usage": "spine1", "translate": [0, 0, 0] },
-    { "name": "spine2_jnt", "side": "Center", "usage": "spine2", "translate": [0, 2, 0], "parent": "spine1_jnt" },
-    { "name": "spine3_jnt", "side": "Center", "usage": "spine3", "translate": [0, 4, 0], "parent": "spine2_jnt" },
-    { "name": "arm_jnt", "side": "Left", "usage": "arm", "translate": [2, 4, 0], "parent": "spine3_jnt" }
+    { "name": "spine1_00_M_JNT", "side": "Center", "usage": "spine1", "translate": [0, 0, 0] },
+    { "name": "spine2_00_M_JNT", "side": "Center", "usage": "spine2", "translate": [0, 2, 0], "parent": "spine1_00_M_JNT" },
+    { "name": "spine3_00_M_JNT", "side": "Center", "usage": "spine3", "translate": [0, 4, 0], "parent": "spine2_00_M_JNT" },
+    { "name": "arm_00_L_JNT", "side": "Left", "usage": "arm", "translate": [2, 4, 0], "parent": "spine3_00_M_JNT" }
   ]
 }

@@ -1,8 +1,8 @@
 """Orient, Point and Swing constraints (D31): the driver gives only its rotation (Orient), translation (Point) or
 translation and rotation without its twist (Swing), and the rest comes from the child plug's parentStructure parent.
 
-fk_two_chains: a_jnt (0,0,0) and b_jnt (0,2,0) are fkchain_1, under layout.end. c_jnt (1,3,0) is fkchain_2,
-whose start plug is parented to fkchain_1.end. Every constraint here is on that plug, so its parent is b."""
+fk_two_chains: a_00_M_JNT (0,0,0) and b_00_M_JNT (0,2,0) are fkchain_1, under layout_00_M_MOD.end. c_00_M_JNT (1,3,0) is fkchain_2,
+whose start plug is parented to fkchain_01_M_MOD.end. Every constraint here is on that plug, so its parent is b."""
 import math
 
 from maya import cmds
@@ -11,10 +11,10 @@ import maya.api.OpenMaya as om
 from rigtest import fixtures
 from rigtest.case import RigTestCase, rig_name
 
-CHILD_CTRL = rig_name("c_ctrl_l")
-CHILD_JNT = rig_name("c_jnt")
-A_CTRL = rig_name("a_ctrl_c")
-LAYOUT_END_CTRL = rig_name("layout_2_ctrl_c")
+CHILD_CTRL = rig_name("c_00_L_CTRL")
+CHILD_JNT = rig_name("c_00_M_JNT")
+A_CTRL = rig_name("a_00_M_CTRL")
+LAYOUT_END_CTRL = rig_name("layout_02_M_CTRL")
 
 
 def world_matrix(node):
@@ -29,7 +29,7 @@ class ConstraintTypeCase(RigTestCase):
         super().setUp()
         self.build_standard("fkchain_two_chains", self.SKELETON)
 
-    def constrain(self, constraint_type, driver=("layout.end",)):
+    def constrain(self, constraint_type, driver=("layout_00_M_MOD.end",)):
         return cmds.createRigConstraint(CHILD_CTRL, driver=list(driver), type=constraint_type)
 
     def assertWorldMatrix(self, node, expected, message):
@@ -50,7 +50,7 @@ class Orient(ConstraintTypeCase):
         self.assertWorldRotation(CHILD_JNT, [0, 0, 0])
 
     def test_rotation_follows_driver(self):
-        # layout.end also parents fkchain_1, so its move carries the pivot too: (1,3,0) about Y 90 is (0,3,-1), then +5 in X.
+        # layout_00_M_MOD.end also parents fkchain_1, so its move carries the pivot too: (1,3,0) about Y 90 is (0,3,-1), then +5 in X.
         self.constrain("Orient")
         cmds.setAttr(LAYOUT_END_CTRL + ".rotateY", 90)
         cmds.setAttr(LAYOUT_END_CTRL + ".translateX", 5)
@@ -65,11 +65,11 @@ class Orient(ConstraintTypeCase):
 
     def test_template_type(self):
         template = fixtures.load_template("fkchain_two_chains")
-        template["constraints"] = [{"name": "c_space", "type": "Orient", "target": "fkchain_2.start",
-                                    "drivers": [{"socket": "layout.end", "label": "World", "weight": 1.0}]}]
+        template["constraints"] = [{"name": "cSpace_00_M_CON", "type": "Orient", "target": "fkchain_02_L_MOD.start",
+                                    "drivers": [{"socket": "layout_00_M_MOD.end", "label": "World", "weight": 1.0}]}]
         cmds.file(new=True, force=True)
         self.build(template, self.make_skeleton(self.SKELETON))
-        self.assertEqual(cmds.getAttr(rig_name("c_space") + ".constraintType", asString=True), "Orient")
+        self.assertEqual(cmds.getAttr(rig_name("cSpace_00_M_CON") + ".constraintType", asString=True), "Orient")
         cmds.setAttr(A_CTRL + ".rotateZ", 90)
         self.assertWorldTranslation(CHILD_JNT, [-3, 1, 0])
         self.assertWorldRotation(CHILD_JNT, [0, 0, 0])
@@ -84,7 +84,7 @@ class Point(ConstraintTypeCase):
         self.assertWorldRotation(CHILD_JNT, [0, 0, 90])
 
     def test_translation_follows_driver(self):
-        # fkchain_1 rides layout.end too, so the parent's rotation is the layout's.
+        # fkchain_1 rides layout_00_M_MOD.end too, so the parent's rotation is the layout's.
         self.constrain("Point")
         cmds.setAttr(LAYOUT_END_CTRL + ".translateX", 5)
         self.assertWorldTranslation(CHILD_JNT, [6, 3, 0])
@@ -100,7 +100,7 @@ class Point(ConstraintTypeCase):
 class Swing(ConstraintTypeCase):
     """The driver's translation and its rotation without the twist about X (design/ribbon-twist-follow.md, phase 3).
 
-    The driver here is layout.end, a control at the origin, and c's pivot is at (1,3,0), so as with Point the pivot swings about
+    The driver here is layout_00_M_MOD.end, a control at the origin, and c's pivot is at (1,3,0), so as with Point the pivot swings about
     the origin with the driver's whole rotation, twist included (rotateX 90 takes (1,3,0) to (1,0,3), rotateZ 90 to (-3,1,0)).
     Only c's own rotation loses the twist. Its rotate order is xyz, so rotateX is applied first and is the twist, and rotateY and
     rotateZ after it are the swing: twist * swing."""
@@ -148,11 +148,11 @@ class Swing(ConstraintTypeCase):
 
     def test_template_type(self):
         template = fixtures.load_template("fkchain_two_chains")
-        template["constraints"] = [{"name": "c_swing", "type": "Swing", "target": "fkchain_2.start",
-                                    "drivers": [{"socket": "layout.end", "label": "World", "weight": 1.0}]}]
+        template["constraints"] = [{"name": "cSwing_00_M_CON", "type": "Swing", "target": "fkchain_02_L_MOD.start",
+                                    "drivers": [{"socket": "layout_00_M_MOD.end", "label": "World", "weight": 1.0}]}]
         cmds.file(new=True, force=True)
         self.build(template, self.make_skeleton(self.SKELETON))
-        self.assertEqual(cmds.getAttr(rig_name("c_swing") + ".constraintType", asString=True), "Swing")
+        self.assertEqual(cmds.getAttr(rig_name("cSwing_00_M_CON") + ".constraintType", asString=True), "Swing")
         cmds.setAttr(LAYOUT_END_CTRL + ".rotateX", 60)
         cmds.setAttr(LAYOUT_END_CTRL + ".rotateZ", 40)
         self.assertWorldRotation(CHILD_JNT, [0, 0, 40])
@@ -170,7 +170,7 @@ class SwingShoulder(RigTestCase):
     # The arm drops 0.3 over 4 (a 4.3 degree tilt of the bone from X, which the TwoBoneIk needs for its bend), so a twist about
     # the tangent differs from one about X by a few degrees at the middle joints. The wrong answers differ by tens of degrees.
     TOLERANCE_DEGREES = 5.0
-    JOINTS = ("up1_jnt", "up2_jnt", "up3_jnt", "up4_jnt", "up5_jnt", "fo1_jnt")
+    JOINTS = ("up1_00_M_JNT", "up2_00_M_JNT", "up3_00_M_JNT", "up4_00_M_JNT", "up5_00_M_JNT", "fo1_00_M_JNT")
 
     def setUp(self):
         super().setUp()
@@ -179,12 +179,12 @@ class SwingShoulder(RigTestCase):
     def start(self, skeleton):
         cmds.file(new=True, force=True)
         self.build_standard("ribbon_arm_swing", skeleton)
-        cmds.setAttr(rig_name("armSettings_ctrl_l.ikFkBlend"), 0)   # FK: the shoulder control's rotation reaches the elbow socket
+        cmds.setAttr(rig_name("armSettings_00_L_CTRL.ikFkBlend"), 0)   # FK: the shoulder control's rotation reaches the elbow socket
         self.rest = {joint: world_matrix(rig_name(joint)) for joint in self.JOINTS}
 
     def pose(self, twist, swing):
-        cmds.setAttr(rig_name("upperArm_ctrl_l.rotateX"), twist)
-        cmds.setAttr(rig_name("upperArm_ctrl_l.rotateZ"), swing)
+        cmds.setAttr(rig_name("upperArm_00_L_CTRL.rotateX"), twist)
+        cmds.setAttr(rig_name("upperArm_00_L_CTRL.rotateZ"), swing)
 
     def motion(self, joint):
         """The joint's motion in its own rest frame, world * rest^-1: what its control's channels would hold. A rotation about the
@@ -206,46 +206,46 @@ class SwingShoulder(RigTestCase):
         ribbon."""
         for twist in (60, 170, -170):
             self.pose(twist, 0)
-            for joint, share in (("up1_jnt", 0.0), ("up2_jnt", 0.25), ("up3_jnt", 0.5), ("up4_jnt", 0.75), ("up5_jnt", 1.0)):
+            for joint, share in (("up1_00_M_JNT", 0.0), ("up2_00_M_JNT", 0.25), ("up3_00_M_JNT", 0.5), ("up4_00_M_JNT", 0.75), ("up5_00_M_JNT", 1.0)):
                 self.assertAlmostEqual(math.remainder(self.twist_of(joint) - twist * share, 360.0), 0.0, delta=2.0, msg="twist %s, %s" % (twist, joint))
 
     def test_a_swing_alone_turns_every_joint_by_the_swing(self):
         self.pose(0, 40)
-        for joint in ("up1_jnt", "up3_jnt", "up5_jnt", "fo1_jnt"):
+        for joint in ("up1_00_M_JNT", "up3_00_M_JNT", "up5_00_M_JNT", "fo1_00_M_JNT"):
             self.assertTurnedBy(joint, 0, 40)
 
     def test_the_start_takes_the_swing_and_not_the_twist_and_the_end_takes_both(self):
         self.pose(60, 40)
-        self.assertTurnedBy("up1_jnt", 0, 40)
-        self.assertTurnedBy("up3_jnt", 30, 40)
-        self.assertTurnedBy("up5_jnt", 60, 40)
+        self.assertTurnedBy("up1_00_M_JNT", 0, 40)
+        self.assertTurnedBy("up3_00_M_JNT", 30, 40)
+        self.assertTurnedBy("up5_00_M_JNT", 60, 40)
 
     def test_the_forearm_meets_the_upper_arm_at_the_elbow(self):
         self.pose(60, 40)
-        self.assertTurnedBy("fo1_jnt", 60, 40)
+        self.assertTurnedBy("fo1_00_M_JNT", 60, 40)
 
     def test_a_tilted_arm_is_the_same_whichever_way_its_bone_points(self):
         """The same poses on an arm turned 35 degrees about Z, every joint turned with it (+X down the bone). A delta is a motion
         in world axes, so a twist read about the world X would be wrong here: it must be read about the bone."""
         self.start("ribbon_arm_tilted")
         self.pose(60, 0)
-        for joint, share in (("up1_jnt", 0.0), ("up3_jnt", 0.5), ("up5_jnt", 1.0)):
+        for joint, share in (("up1_00_M_JNT", 0.0), ("up3_00_M_JNT", 0.5), ("up5_00_M_JNT", 1.0)):
             self.assertAlmostEqual(self.twist_of(joint), 60 * share, delta=2.0, msg=joint)
         self.pose(60, 40)
-        self.assertTurnedBy("up1_jnt", 0, 40)
-        self.assertTurnedBy("up5_jnt", 60, 40)
-        self.assertTurnedBy("fo1_jnt", 60, 40)
+        self.assertTurnedBy("up1_00_M_JNT", 0, 40)
+        self.assertTurnedBy("up5_00_M_JNT", 60, 40)
+        self.assertTurnedBy("fo1_00_M_JNT", 60, 40)
 
     def test_without_the_swing_constraint_the_whole_arm_turns_by_the_twist(self):
         """Parenting the start on the shoulder alone carries its twist rigidly (the probe's 'no ease' wiring): every joint takes it."""
         data = fixtures.load_template("ribbon_arm_swing")
-        data["constraints"] = [c for c in data["constraints"] if c["name"] != "upper_start_swing"]
+        data["constraints"] = [c for c in data["constraints"] if c["name"] != "upperStartSwing_00_M_CON"]
         cmds.file(new=True, force=True)
         self.build(data, self.make_skeleton("ribbon_arm"), label="ribbon_arm_no_swing")
-        cmds.setAttr(rig_name("armSettings_ctrl_l.ikFkBlend"), 0)
+        cmds.setAttr(rig_name("armSettings_00_L_CTRL.ikFkBlend"), 0)
         self.rest = {joint: world_matrix(rig_name(joint)) for joint in self.JOINTS}
         self.pose(60, 0)
-        for joint in ("up1_jnt", "up3_jnt", "up5_jnt"):
+        for joint in ("up1_00_M_JNT", "up3_00_M_JNT", "up5_00_M_JNT"):
             self.assertTurnedBy(joint, 60, 0)
 
 
@@ -254,21 +254,21 @@ class TypedSpaceSwitch(ConstraintTypeCase):
 
     def pose(self):
         cmds.setAttr(A_CTRL + ".rotate", 10, 20, 30)
-        cmds.setAttr(rig_name("b_ctrl_c") + ".rotateX", -40)
+        cmds.setAttr(rig_name("b_00_M_CTRL") + ".rotateX", -40)
         cmds.setAttr(LAYOUT_END_CTRL + ".rotateY", 25)
 
     def test_switch_does_not_move_control(self):
         for constraint_type in ("Orient", "Point", "Swing"):
             with self.subTest(type=constraint_type):
                 self.setUp()
-                con = self.constrain(constraint_type, ["layout.end", "fkchain_1.start"])
+                con = self.constrain(constraint_type, ["layout_00_M_MOD.end", "fkchain_01_M_MOD.start"])
                 self.pose()
                 before = world_matrix(CHILD_CTRL)
                 cmds.setRigConstraintSpace(con, space=1)
                 self.assertWorldMatrix(CHILD_CTRL, before, "moved on a %s space switch" % constraint_type)
 
     def test_orient_switch_writes_only_rotate(self):
-        con = self.constrain("Orient", ["layout.end", "fkchain_1.start"])
+        con = self.constrain("Orient", ["layout_00_M_MOD.end", "fkchain_01_M_MOD.start"])
         self.pose()
         cmds.setRigConstraintSpace(con, space=1)
         for value in cmds.getAttr(CHILD_CTRL + ".translate")[0]:
@@ -276,7 +276,7 @@ class TypedSpaceSwitch(ConstraintTypeCase):
         self.assertNotEqual(cmds.getAttr(CHILD_CTRL + ".rotate")[0], (0.0, 0.0, 0.0))
 
     def test_point_switch_writes_only_translate(self):
-        con = self.constrain("Point", ["layout.end", "fkchain_1.start"])
+        con = self.constrain("Point", ["layout_00_M_MOD.end", "fkchain_01_M_MOD.start"])
         self.pose()
         cmds.setRigConstraintSpace(con, space=1)
         for value in cmds.getAttr(CHILD_CTRL + ".rotate")[0]:
@@ -291,7 +291,7 @@ class TypedSpaceSwitch(ConstraintTypeCase):
 
     def test_every_space_gives_rest_at_rest(self):
         rest = world_matrix(CHILD_CTRL)
-        self.constrain("Orient", ["layout.end", "fkchain_1.start"])
+        self.constrain("Orient", ["layout_00_M_MOD.end", "fkchain_01_M_MOD.start"])
         for space in (1, 0):
             cmds.setAttr(CHILD_CTRL + ".space", space)
             self.assertWorldMatrix(CHILD_CTRL, rest, "space %d does not give the rest pose" % space)
@@ -337,8 +337,8 @@ class MatchesMayaConstraints(ConstraintTypeCase):
                 con = self.constrain(constraint_type)
                 reference = self.reference(con, constraint_type)
                 cmds.setAttr(A_CTRL + ".rotate", 15, -35, 50)
-                cmds.setAttr(rig_name("b_ctrl_c") + ".rotate", 70, 10, -20)
-                cmds.setAttr(rig_name("b_ctrl_c") + ".translate", 0.5, 0, 1)
+                cmds.setAttr(rig_name("b_00_M_CTRL") + ".rotate", 70, 10, -20)
+                cmds.setAttr(rig_name("b_00_M_CTRL") + ".translate", 0.5, 0, 1)
                 cmds.setAttr(LAYOUT_END_CTRL + ".rotate", -30, 60, 5)
                 cmds.setAttr(LAYOUT_END_CTRL + ".translate", 2, 1, -3)
                 cmds.setAttr(CHILD_CTRL + ".rotate", 5, 40, -15)
@@ -353,11 +353,11 @@ class Rejected(ConstraintTypeCase):
         self.assertMayaError(lambda: self.constrain("Scale"), "Scale", "(has: Parent, Orient, Point, Swing)")
 
     def test_orient_without_parent(self):
-        cmds.disconnectAttr(rig_name("fkchain_1") + ".outputSocketMatrix[1]",
-                            rig_name("fkchain_2") + ".childPlugs[0].childPlugParentMatrix")
+        cmds.disconnectAttr(rig_name("fkchain_01_M_MOD") + ".outputSocketMatrix[1]",
+                            rig_name("fkchain_02_L_MOD") + ".childPlugs[0].childPlugParentMatrix")
         self.assertMayaError(lambda: self.constrain("Orient"), "no parent")
 
     def test_parent_without_parent_is_allowed(self):
-        cmds.disconnectAttr(rig_name("fkchain_1") + ".outputSocketMatrix[1]",
-                            rig_name("fkchain_2") + ".childPlugs[0].childPlugParentMatrix")
+        cmds.disconnectAttr(rig_name("fkchain_01_M_MOD") + ".outputSocketMatrix[1]",
+                            rig_name("fkchain_02_L_MOD") + ".childPlugs[0].childPlugParentMatrix")
         self.assertExists(self.constrain("Parent"))

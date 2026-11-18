@@ -13,7 +13,7 @@
   "expectErrors": [
     {
       "contains": "",
-      "path": "rigModules[1] 'fkchain_2'"
+      "path": "rigModules[1] 'fkchain_02_L_MOD'"
     }
   ]
 }

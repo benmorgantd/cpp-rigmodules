@@ -15,8 +15,8 @@ The rig it builds is aimed at animation and game export: predictable controls, s
 Inside the rig:
 
 - **Module nodes do all the transform math.** Controls and joints have `inheritsTransform` off, so the DAG hierarchy is only for organization and never drives a result.
-- **Modules connect through named matrices.** A module publishes **sockets** (world-space matrix outputs such as `start` and `end`) and takes **child plugs** (inputs that attach to a parent's socket). A template's `parentStructure` maps each child plug to a socket by id, for example `"start": "fkchain_1.end"`.
-- **Every rig has a `layout` module** with three stacked root controls. Child plugs that a template doesn't parent attach to `layout.end`.
+- **Modules connect through named matrices.** A module publishes **sockets** (world-space matrix outputs such as `start` and `end`) and takes **child plugs** (inputs that attach to a parent's socket). A template's `parentStructure` maps each child plug to a socket by id, for example `"start": "fkchain_01_M_MOD.end"`.
+- **Every rig has a layout module (`layout_00_M_MOD`)** with three stacked root controls. Child plugs that a template doesn't parent attach to `layout_00_M_MOD.end`.
 - **Space switching** uses constraints whose drivers are sockets: Parent follows the driver, Orient takes only its rotation, Point only its translation, and Swing its rotation without the twist about the bone (for a shoulder ribbon). A control with more than one driver gets a `space` enum attribute to pick the active one.
 
 ## Requirements
@@ -50,23 +50,23 @@ This builds a three-joint spine with a one-joint arm hanging off its last joint.
   "rigModules": [
     {
       "moduleType": "FkChain",
-      "name": "spine",
+      "name": "spine_00_M_MOD",
       "side": "Center",
       "moduleArgs": { "joints": [["Center", "spine1"], ["Center", "spine2"], ["Center", "spine3"]] }
     },
     {
       "moduleType": "FkChain",
-      "name": "arm",
+      "name": "arm_00_L_MOD",
       "side": "Left",
       "shapeType": "Capsule",
       "moduleArgs": { "joints": [["Left", "arm"]] },
-      "parentStructure": { "start": "spine.end" }
+      "parentStructure": { "start": "spine_00_M_MOD.end" }
     }
   ]
 }
 ```
 
-Load the plugin, mark up the skeleton (joints `skel:spine1_jnt`, `skel:spine2_jnt`, `skel:spine3_jnt`, `skel:arm_jnt`), and build:
+Load the plugin, mark up the skeleton (joints `skel:spine1_00_M_JNT`, `skel:spine2_00_M_JNT`, `skel:spine3_00_M_JNT`, `skel:arm_00_L_JNT`), and build:
 
 ```python
 from maya import cmds
@@ -75,21 +75,21 @@ cmds.loadPlugin(r"<repo>\cpp\x64\Release\RigModules.mll")
 
 # Joints are always passed by name. The selection is never used.
 for usage in ("spine1", "spine2", "spine3"):
-    cmds.rigJointMarkup("skel:%s_jnt" % usage, usage=usage, side="Center", export=True, skin=True)
-cmds.rigJointMarkup("skel:arm_jnt", usage="arm", side="Left", export=True, skin=True)
+    cmds.rigJointMarkup("skel:%s_00_M_JNT" % usage, usage=usage, side="Center", export=True, skin=True)
+cmds.rigJointMarkup("skel:arm_00_L_JNT", usage="arm", side="Left", export=True, skin=True)
 
 # Every joint passed in must carry markup.
-joints = ["skel:spine1_jnt", "skel:spine2_jnt", "skel:spine3_jnt", "skel:arm_jnt"]
+joints = ["skel:spine1_00_M_JNT", "skel:spine2_00_M_JNT", "skel:spine3_00_M_JNT", "skel:arm_00_L_JNT"]
 cmds.createRigFromTemplate(*joints, template=r"C:\path\to\spine_arm.json", asset="shooter\\characters\\hero")
 ```
 
-`asset` is the asset's folder path below the projects root. The template names no asset, so one template can build many assets. The rig and its input joints end up in a namespace named after the asset and the template's `rigName`, `hero_body`. A namespace holds one rig. The `namespace` flag changes it, and `:` means the root. Joint names are kept. Controls are named from their joint and their module's side, so `skel:arm_jnt` in a `Left` module gives `hero_body:arm_ctrl_l`.
+`asset` is the asset's folder path below the projects root. The template names no asset, so one template can build many assets. The rig and its input joints end up in a namespace named after the asset and the template's `rigName`, `hero_body`. A namespace holds one rig. The `namespace` flag changes it, and `:` means the root. Joint names are kept, and each must be in the [naming convention](docs/naming.md), `<camelCaseName>_##_<L|R|M>_JNT`. Controls are named from their joint and their module's side, so `skel:arm_00_L_JNT` in a `Left` module gives `hero_body:arm_00_L_CTRL`.
 
 Give the arm a space switch between the world and the chest. The first driver starts active, so the arm now stays in world space when the spine moves. Switch it back to following the chest:
 
 ```python
-cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"])
-cmds.setRigConstraintSpace("hero_body:arm_ctrl_l_space", label="Chest")
+cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"])
+cmds.setRigConstraintSpace("hero_body:arm_00_L_CON", label="Chest")
 ```
 
 Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`](RigTemplates/LayoutRig.json) is a larger example that does that and uses all three modules.
@@ -98,7 +98,7 @@ Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`
 
 | Module | `moduleType` | Child plugs | Sockets |
 |---|---|---|---|
-| Layout | built in, named `layout` | none | `index_0` … `index_2`, `end` |
+| Layout | built in, named `layout_00_M_MOD` | none | `index_0` … `index_2`, `end` |
 | FkChain | `FkChain` | `start` | `index_<n>` per joint, plus `start` (first) and `end` (last) |
 | Aim | `Aim` | `aim`, `target`, `up` | `aim`, `target`, `up` |
 | TwoBoneIk | `TwoBoneIk` | `start`, `ik`, `pole` | `index_0`, `index_1`, `index_2` (with `start` and `end`), `ik`, `pole`, `settings` |
@@ -111,6 +111,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | Page | Covers |
 |---|---|
 | [docs/templates.md](docs/templates.md) | Template file format, every key, mirroring, validation rules |
+| [docs/naming.md](docs/naming.md) | The naming convention for joints, controls, modules and constraints |
 | [docs/commands.md](docs/commands.md) | Every Maya command and flag |
 | [docs/modules.md](docs/modules.md) | Each module's joints, controls, child plugs and sockets |
 | [docs/controls.md](docs/controls.md) | Control markup, shapes, the shape file, and mirroring shapes |

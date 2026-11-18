@@ -322,7 +322,7 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 	const MMatrix mParentRest = DagUtils::getMatrixFromPlug(pPlugParentRest);
 	if (args.type != kParentType && pParentSource.isNull())
 	{
-		// Unreachable from a template, where every child plug has a parent (layout.end by default).
+		// Unreachable from a template, where every child plug has a parent (layout_00_M_MOD.end by default).
 		MGlobal::displayError(MString("A ") + ConstraintTypes::All[args.type] + " constraint takes the rest of its transform from the child plug's parent, and "
 			+ fnControl.name() + "'s child plug has no parent connected.");
 		return MStatus::kFailure;

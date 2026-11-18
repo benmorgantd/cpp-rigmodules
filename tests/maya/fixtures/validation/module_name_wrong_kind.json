@@ -1,0 +1,17 @@
+{
+  "description": "A module's name ends in MOD, not another kind (D58)",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/0/name",
+      "value": "fkchain_01_M_CTRL"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "ending in MOD",
+      "path": "rigModules[0] 'fkchain_01_M_CTRL'"
+    }
+  ]
+}

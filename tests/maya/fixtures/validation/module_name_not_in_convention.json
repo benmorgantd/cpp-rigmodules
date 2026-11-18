@@ -1,0 +1,17 @@
+{
+  "description": "A module's name must be <camelCaseName>_##_<L|R|M>_MOD (D58)",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/0/name",
+      "value": "fkchain_1"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "ending in MOD",
+      "path": "rigModules[0] 'fkchain_1'"
+    }
+  ]
+}

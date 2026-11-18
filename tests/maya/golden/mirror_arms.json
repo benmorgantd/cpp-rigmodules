@@ -4,85 +4,85 @@
   "skeleton": "mirror_arms",
   "interface": {
     "modules": {
-      "arm_l": {
+      "arm_00_L_MOD": {
         "type": "fkChainModule",
         "sockets": [["index_0", "start"], ["index_1", "end"]],
         "childPlugs": ["start"]
       },
-      "arm_r": {
+      "arm_00_R_MOD": {
         "type": "fkChainModule",
         "sockets": [["index_0", "start"], ["index_1", "end"]],
         "childPlugs": ["start"]
       },
-      "clavicle_l": {
+      "clavicle_00_L_MOD": {
         "type": "fkChainModule",
         "sockets": [["index_0", "start", "end"]],
         "childPlugs": ["start"]
       },
-      "clavicle_r": {
+      "clavicle_00_R_MOD": {
         "type": "fkChainModule",
         "sockets": [["index_0", "start", "end"]],
         "childPlugs": ["start"]
       },
-      "layout": {
+      "layout_00_M_MOD": {
         "type": "layoutModule",
         "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
         "childPlugs": []
       },
-      "spine": {
+      "spine_00_M_MOD": {
         "type": "fkChainModule",
         "sockets": [["index_0", "start", "end"]],
         "childPlugs": ["start"]
       }
     },
     "controls": {
-      "chest_ctrl_c": {
+      "chest_00_M_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Center", "chest"]
       },
-      "clavicle_l_ctrl_l": {
+      "clavicle_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Left", "clavicle"]
       },
-      "clavicle_r_ctrl_r": {
+      "clavicle_00_R_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Right", "clavicle"]
       },
-      "layout_0_ctrl_c": {
+      "layout_00_M_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Center", "layout_0"]
       },
-      "layout_1_ctrl_c": {
+      "layout_01_M_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Center", "layout_1"]
       },
-      "layout_2_ctrl_c": {
+      "layout_02_M_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Center", "layout_2"]
       },
-      "lowerArm_l_ctrl_l": {
+      "lowerArm_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Left", "lowerArm"]
       },
-      "lowerArm_r_ctrl_r": {
+      "lowerArm_00_R_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Right", "lowerArm"]
       },
-      "upperArm_l_ctrl_l": {
+      "upperArm_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ", "space"],
         "markup": ["Left", "upperArm"],
-        "spaces": ["clavicle_l.end", "World"]
+        "spaces": ["clavicle_00_L_MOD.end", "World"]
       },
-      "upperArm_r_ctrl_r": {
+      "upperArm_00_R_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ", "space"],
         "markup": ["Right", "upperArm"],
-        "spaces": ["clavicle_r.end", "World"]
+        "spaces": ["clavicle_00_R_MOD.end", "World"]
       }
     },
-    "joints": ["chest_jnt", "clavicle_l_jnt", "clavicle_r_jnt", "hand_l_jnt", "lowerArm_l_jnt", "lowerArm_r_jnt", "upperArm_l_jnt", "upperArm_r_jnt"],
+    "joints": ["chest_00_M_JNT", "clavicle_00_L_JNT", "clavicle_00_R_JNT", "hand_00_L_JNT", "lowerArm_00_L_JNT", "lowerArm_00_R_JNT", "upperArm_00_L_JNT", "upperArm_00_R_JNT"],
     "constraints": {
-      "arm_space_l": ["clavicle_l.end", "World"],
-      "arm_space_r": ["clavicle_r.end", "World"]
+      "armSpace_00_L_CON": ["clavicle_00_L_MOD.end", "World"],
+      "armSpace_00_R_CON": ["clavicle_00_R_MOD.end", "World"]
     }
   }
 }

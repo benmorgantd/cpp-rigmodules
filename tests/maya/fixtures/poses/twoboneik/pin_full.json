@@ -2,9 +2,9 @@
   "description": "Pole at (2,3,0), pin 1: the mid joint sits on the pole control (2,3,0) and the end on the handle (5,0,0), so the bones are sqrt(13) and sqrt(18) long.",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "armPole_ctrl_l.translateX": -0.5, "armPole_ctrl_l.translateY": -2, "armPole_ctrl_l.pin": 1 },
+  "set": { "armPole_00_L_CTRL.translateX": -0.5, "armPole_00_L_CTRL.translateY": -2, "armPole_00_L_CTRL.pin": 1 },
   "expect": {
-    "lowerArm_jnt": { "translate": [2, 3, 0] },
-    "hand_jnt": { "translate": [5, 0, 0] }
+    "lowerArm_00_M_JNT": { "translate": [2, 3, 0] },
+    "hand_00_M_JNT": { "translate": [5, 0, 0] }
   }
 }

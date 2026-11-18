@@ -1,7 +1,7 @@
 {
-  "description": "A mirrored constraint's name must end in _l or _r, so the mirror's name can swap it",
+  "description": "A mirrored constraint's name must have a side of L or R, so the mirror's name can swap it",
   "base": "mirror_arms",
   "skeleton": "mirror_arms",
-  "edits": [ { "set": "/constraints/0/name", "value": "arm_space" } ],
-  "expectErrors": [ { "path": "constraints[0] 'arm_space'.name", "contains": "_l" } ]
+  "edits": [ { "set": "/constraints/0/name", "value": "armSpace_00_M_CON" } ],
+  "expectErrors": [ { "path": "constraints[0] 'armSpace_00_M_CON'.name", "contains": "side of L or R" } ]
 }

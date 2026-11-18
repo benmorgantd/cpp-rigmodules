@@ -1,7 +1,7 @@
 {
   "joints": [
-    { "name": "upperArm_jnt", "side": "Left", "usage": "upperArm", "translate": [0, 0, 0] },
-    { "name": "lowerArm_jnt", "side": "Left", "usage": "lowerArm", "translate": [0, -3, 0] },
-    { "name": "hand_jnt", "side": "Left", "usage": "hand", "translate": [0, -7, 0] }
+    { "name": "upperArm_00_M_JNT", "side": "Left", "usage": "upperArm", "translate": [0, 0, 0] },
+    { "name": "lowerArm_00_M_JNT", "side": "Left", "usage": "lowerArm", "translate": [0, -3, 0] },
+    { "name": "hand_00_M_JNT", "side": "Left", "usage": "hand", "translate": [0, -7, 0] }
   ]
 }

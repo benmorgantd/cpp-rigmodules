@@ -5,12 +5,12 @@
   "edits": [
     {
       "set": "/constraints/1/name",
-      "value": "fkchain_2_space"
+      "value": "fkchain2Space_00_M_CON"
     }
   ],
   "expectErrors": [
     {
-      "contains": "fkchain_2_space"
+      "contains": "fkchain2Space_00_M_CON"
     }
   ]
 }

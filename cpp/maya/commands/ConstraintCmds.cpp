@@ -1,5 +1,6 @@
 #include "maya/commands/ConstraintCmds.h"
 #include "core/Constants.h"
+#include "core/NamingConvention.h"
 #include "core/StringUtils.h"
 #include "maya/nodes/Constraints.h"
 #include "maya/shared/RigModule.h"
@@ -28,8 +29,6 @@ namespace
 	constexpr const char* kInitialFlag{ "-initial" };
 	constexpr const char* kSpaceFlag{ "-space" };
 	constexpr const char* kTypeFlag{ "-type" };
-
-	constexpr const char* kDefaultConstraintSuffix{ "_space" };
 
 	// Fills everything createConstraint needs from the control and the flags. Resolves every driver socket
 	// before anything is queued, so a bad name leaves the scene untouched.
@@ -106,11 +105,29 @@ namespace
 		}
 		outArgs.initialDriver = static_cast<unsigned int>(initialDriver);
 
-		MString name = MNamespace::stripNamespaceFromName(MFnDependencyNode(outArgs.oControl).name()) + kDefaultConstraintSuffix;
+		// The default is the control's name with the constraint kind: arm_00_L_CTRL gives arm_00_L_CON (D58).
+		NamingConvention::Name parsedControl;
+		const std::string controlNodeName = MNamespace::stripNamespaceFromName(MFnDependencyNode(outArgs.oControl).name()).asChar();
+		if (!NamingConvention::parse(controlNodeName, parsedControl))
+		{
+			MGlobal::displayError(MString("The control '") + controlNodeName.c_str() + "' is not named " + NamingConvention::Form + ", so a constraint name can't be made from it. Pass -name.");
+			return MStatus::kFailure;
+		}
+		parsedControl.kind = NamingConvention::Kind::Constraint;
+		MString name = NamingConvention::format(parsedControl).c_str();
 		if (argData.isFlagSet(kNameFlag))
 		{
 			status = argData.getFlagArgument(kNameFlag, 0, name);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			NamingConvention::Name givenName;
+			const std::string givenText = MNamespace::stripNamespaceFromName(name).asChar();
+			if (!NamingConvention::parse(givenText, givenName) || givenName.kind != NamingConvention::Kind::Constraint)
+			{
+				MGlobal::displayError(MString("The constraint name '") + givenText.c_str() + "' must be " + NamingConvention::Form + " ending in "
+					+ NamingConvention::kindToken(NamingConvention::Kind::Constraint) + ".");
+				return MStatus::kFailure;
+			}
 		}
 		// An unqualified name goes in the control's rig namespace. Absolute, so redo does not depend on the current namespace.
 		if (name.index(':') < 0)

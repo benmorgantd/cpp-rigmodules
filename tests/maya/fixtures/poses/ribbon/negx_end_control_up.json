@@ -3,12 +3,12 @@
   "skeleton": "ribbon_negx",
   "template": "ribbon_negx",
   "set": {
-    "tailIK_02_ctrl_c.translateY": 2
+    "tailIK_02_M_CTRL.translateY": 2
   },
   "tolerance": 0.001,
   "expect": {
-    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [0, 0, 0]},
-    "tail3_jnt": {"translate": [-4, 1, 0]},
-    "tail5_jnt": {"translate": [-8, 2, 0], "rotate": [0, 0, 0]}
+    "tail1_00_M_JNT": {"translate": [0, 0, 0], "rotate": [0, 0, 0]},
+    "tail3_00_M_JNT": {"translate": [-4, 1, 0]},
+    "tail5_00_M_JNT": {"translate": [-8, 2, 0], "rotate": [0, 0, 0]}
   }
 }

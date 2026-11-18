@@ -1,0 +1,17 @@
+{
+  "description": "The derived controls are named from controlName, which must be camelCase (D58)",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/controlName",
+      "value": "left_arm"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "not camelCase",
+      "path": "rigModules[0] 'arm_01_L_MOD'.moduleArgs.controlName"
+    }
+  ]
+}

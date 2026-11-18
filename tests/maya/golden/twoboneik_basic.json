@@ -4,57 +4,57 @@
   "skeleton": "twoboneik_basic",
   "interface": {
     "modules": {
-      "arm_1": {
+      "arm_01_L_MOD": {
         "type": "twoBoneIkModule",
         "sockets": [["index_0", "start"], ["index_1"], ["index_2", "end"], ["ik"], ["pole"], ["settings"]],
         "childPlugs": ["start", "ik", "pole", "settings"]
       },
-      "layout": {
+      "layout_00_M_MOD": {
         "type": "layoutModule",
         "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
         "childPlugs": []
       }
     },
     "controls": {
-      "armIK_ctrl_l": {
+      "armIK_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "roll"],
         "markup": ["Left", "armIK"]
       },
-      "armPole_ctrl_l": {
+      "armPole_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "pin", "space"],
         "markup": ["Left", "armPole"],
         "spaces": ["Parent", "Ik"]
       },
-      "armSettings_ctrl_l": {
+      "armSettings_00_L_CTRL": {
         "keyable": ["visibility", "ikFkBlend", "stretch", "soft"],
         "markup": ["Left", "armSettings"]
       },
-      "hand_ctrl_l": {
+      "hand_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Left", "hand"]
       },
-      "layout_0_ctrl_c": {
+      "layout_00_M_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Center", "layout_0"]
       },
-      "layout_1_ctrl_c": {
+      "layout_01_M_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Center", "layout_1"]
       },
-      "layout_2_ctrl_c": {
+      "layout_02_M_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Center", "layout_2"]
       },
-      "lowerArm_ctrl_l": {
+      "lowerArm_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Left", "lowerArm"]
       },
-      "upperArm_ctrl_l": {
+      "upperArm_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Left", "upperArm"]
       }
     },
-    "joints": ["hand_jnt", "lowerArm_jnt", "upperArm_jnt"],
+    "joints": ["hand_00_M_JNT", "lowerArm_00_M_JNT", "upperArm_00_M_JNT"],
     "constraints": {}
   }
 }

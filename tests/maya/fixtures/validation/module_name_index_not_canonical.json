@@ -1,0 +1,17 @@
+{
+  "description": "An index is two digits, so arm_0_M_MOD is not a name (D58)",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/0/name",
+      "value": "fkchain_1_M_MOD"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "ending in MOD",
+      "path": "rigModules[0] 'fkchain_1_M_MOD'"
+    }
+  ]
+}

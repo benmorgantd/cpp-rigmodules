@@ -73,7 +73,7 @@ def _run_validation_case(test, path):
 
     if not case["expectErrors"]:
         test.build(template, joints, label=label)
-        test.assertExists(rig_name("layout"))
+        test.assertExists(rig_name("layout_00_M_MOD"))
         return
 
     message = test.assertMayaError(lambda: test.build(template, joints, label=label), "Nothing was built")
@@ -187,7 +187,7 @@ def add_golden_cases(cls):
 def _run_smoke_case(test, path):
     case = fixtures.read_json(path)
     test.build_standard(case["template"], case["skeleton"])
-    test.assertExists(rig_name("layout"))
+    test.assertExists(rig_name("layout_00_M_MOD"))
 
 
 def add_smoke_cases(cls):

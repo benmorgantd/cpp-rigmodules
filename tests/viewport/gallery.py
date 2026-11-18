@@ -80,20 +80,20 @@ def build_mirrored_arm():
     """A chest and a left arm, X down the bone, behavior-mirrored to the right like mayadev's joint tool, built with
     "mirror": true. The left controls get offset, filled shapes, then mirrorRigControlShapes copies them right."""
     cmds.select(clear=True)
-    chest = cmds.joint(name="chest_jnt", position=(0, 5, 0))
+    chest = cmds.joint(name="chest_00_M_JNT", position=(0, 5, 0))
     cmds.select(clear=True)
-    clavicle = cmds.joint(name="clavicle_l_jnt", position=(0.5, 5.5, 0.5))
-    cmds.joint(name="upperArm_l_jnt", position=(2, 5.5, 0))
-    cmds.joint(name="lowerArm_l_jnt", position=(4.5, 4, 0.5))
-    cmds.joint(name="hand_l_jnt", position=(6.5, 3, 1.5))
+    clavicle = cmds.joint(name="clavicle_00_L_JNT", position=(0.5, 5.5, 0.5))
+    cmds.joint(name="upperArm_00_L_JNT", position=(2, 5.5, 0))
+    cmds.joint(name="lowerArm_00_L_JNT", position=(4.5, 4, 0.5))
+    cmds.joint(name="hand_00_L_JNT", position=(6.5, 3, 1.5))
     cmds.joint(clavicle, edit=True, orientJoint="xyz", secondaryAxisOrient="yup", children=True, zeroScaleOrient=True)
-    cmds.mirrorJoint(clavicle, mirrorYZ=True, mirrorBehavior=True, searchReplace=("_l_", "_r_"))
+    cmds.mirrorJoint(clavicle, mirrorYZ=True, mirrorBehavior=True, searchReplace=("_L_", "_R_"))
 
     cmds.rigJointMarkup(chest, usage="chest", side="Center", export=True, skin=True)
     joints = [chest]
-    for suffix, side in (("l", "Left"), ("r", "Right")):
+    for suffix, side in (("L", "Left"), ("R", "Right")):
         for usage in ("clavicle", "upperArm", "lowerArm", "hand"):
-            joint = "%s_%s_jnt" % (usage, suffix)
+            joint = "%s_00_%s_JNT" % (usage, suffix)
             cmds.rigJointMarkup(joint, usage=usage, side=side, export=True, skin=True)
             joints.append(joint)
 
@@ -101,10 +101,10 @@ def build_mirrored_arm():
         "rigVersion": 1,
         "rigTemplateName": "MirrorGallery", "rigAuthor": "gallery",
         "rigModules": [
-            {"moduleType": "FkChain", "name": "spine", "moduleArgs": {"joints": [["Center", "chest"]]}},
-            {"moduleType": "FkChain", "name": "arm_l", "side": "Left", "mirror": True,
+            {"moduleType": "FkChain", "name": "spine_00_M_MOD", "moduleArgs": {"joints": [["Center", "chest"]]}},
+            {"moduleType": "FkChain", "name": "arm_00_L_MOD", "side": "Left", "mirror": True,
              "moduleArgs": {"joints": [["Left", "clavicle"], ["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"]]},
-             "parentStructure": {"start": "spine.end"}},
+             "parentStructure": {"start": "spine_00_M_MOD.end"}},
         ],
     }
     path = os.path.join(OUT, "mirror_template.json").replace("\\", "/")
@@ -120,7 +120,7 @@ def build_mirrored_arm():
         "hand": (SHAPES.index("Circle"), [0.8, 0, 0, 0, 0, 0.8, 0, 0, 0, 0, 0.8, 0, 0, 0, 0.4, 1], False),
     }
     for usage, (shape_type, shape_transform, filled) in left_shapes.items():
-        control = "rig:%s_l_ctrl_l" % usage
+        control = "rig:%s_00_L_CTRL" % usage
         cmds.setAttr(control + ".shapeType", shape_type)
         cmds.setAttr(control + ".shapeTransform", shape_transform, type="matrix")
         cmds.setAttr(control + ".filled", filled)

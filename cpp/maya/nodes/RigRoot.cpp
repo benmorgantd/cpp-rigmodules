@@ -3,6 +3,7 @@
 #include "core/AssetId.h"
 #include "core/Constants.h"
 #include "core/Hash64.h"
+#include "core/NamingConvention.h"
 #include "core/RigControlFilter.h"
 #include "core/RigJsonStructs.h"
 #include "core/RigTemplateValidation.h"
@@ -261,6 +262,15 @@ namespace
 		for (unsigned int i = 0; i < joints.length(); ++i)
 		{
 			const MFnDependencyNode fnJoint(joints[i].node());
+
+			// The controls take their names from their joints, so a joint name outside the convention is an error (D58).
+			NamingConvention::Name parsedName;
+			const std::string jointName = MNamespace::stripNamespaceFromName(fnJoint.name()).asChar();
+			if (!NamingConvention::parse(jointName, parsedName) || parsedName.kind != NamingConvention::Kind::Joint)
+			{
+				report.addError(joints[i].fullPathName().asChar(), "joint name '" + jointName + "' must be " + NamingConvention::Form
+					+ " ending in " + NamingConvention::kindToken(NamingConvention::Kind::Joint) + ". Rename it with cmds.renameRigNodes");
+			}
 			checkName(DagUtils::getAbsoluteName(rigNamespace, MNamespace::stripNamespaceFromName(fnJoint.name())), joints[i].node(),
 				joints[i].fullPathName().asChar());
 		}
@@ -447,7 +457,7 @@ namespace
 		}
 	}
 
-	// Pass 2. Every child plug gets a parent: its parentStructure entry, or layout.end when the template does not list it.
+	// Pass 2. Every child plug gets a parent: its parentStructure entry, or layout_00_M_MOD.end when the template does not list it.
 	// The template was validated, so a failed lookup here means a module built something its plan did not declare.
 	// A "parent:" entry takes a socket of the rig this one is attached to (D55): the matrix connects across, and the DAG
 	// is left alone.

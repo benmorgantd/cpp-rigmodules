@@ -1,6 +1,6 @@
 """saveRigSkeleton, loadRigSkeleton and the skeleton hash (D54, design/rigs-and-looks.md section 5).
 
-The skeleton is fk_three_parented in 'skel': a_jnt at the origin, b_jnt at y=2 under it, c_jnt at y=4 under b, all
+The skeleton is fk_three_parented in 'skel': a_00_M_JNT at the origin, b_00_M_JNT at y=2 under it, c_00_M_JNT at y=4 under b, all
 [Center, a/b/c], exported and skinned, with no rig. reference_hash recomputes the hash from a file's own contents,
 written independently of core/SkeletonFile.cpp, so a change to what the hash feeds fails here.
 """
@@ -97,14 +97,14 @@ class FileContents(SkeletonTestCase):
     def test_each_joint(self):
         _, data = self.save()
         a = self.joint(data, "a")
-        self.assertEqual(a["name"], "a_jnt")
+        self.assertEqual(a["name"], "a_00_M_JNT")
         self.assertIsNone(a["parent"])
         self.assertEqual(a["rotateOrder"], "xyz")
         self.assertTrue(a["export"])
         self.assertTrue(a["skin"])
         self.assertEqual(a["restLocal"], IDENTITY)
         b = self.joint(data, "b")
-        self.assertEqual(b["name"], "b_jnt")
+        self.assertEqual(b["name"], "b_00_M_JNT")
         self.assertEqual(b["parent"], ["Center", "a"])
         self.assertEqual(b["restLocal"][12:15], [0, 2, 0])
 
@@ -163,7 +163,7 @@ class Determinism(SkeletonTestCase):
         changes = {
             "move past the grid": lambda joints: cmds.setAttr(joints[1] + ".translateY", 2.001),
             "rotate": lambda joints: cmds.setAttr(joints[1] + ".rotateZ", 10),
-            "rename": lambda joints: cmds.rename(joints[2], "tip_jnt"),
+            "rename": lambda joints: cmds.rename(joints[2], "tip_00_M_JNT"),
             "rotate order": lambda joints: cmds.setAttr(joints[1] + ".rotateOrder", 3),
             "usage": lambda joints: cmds.rigJointMarkup(joints[2], edit=True, usage="tip"),
             "side": lambda joints: cmds.rigJointMarkup(joints[2], edit=True, side="Left"),
@@ -188,9 +188,9 @@ class Errors(SkeletonTestCase):
 
     def test_unmarked_joint_fails(self):
         cmds.select(clear=True)
-        helper = cmds.joint(name="skel:helper_jnt")
+        helper = cmds.joint(name="skel:helper_00_M_JNT")
         self.assertMayaError(lambda: cmds.saveRigSkeleton(*(self.joints + [helper]), file=self.path),
-                             "helper_jnt", "no rigMarkup", "nothing was written")
+                             "helper_00_M_JNT", "no rigMarkup", "nothing was written")
         self.assertNothingWritten()
 
     def test_duplicate_markup_fails(self):
@@ -219,16 +219,16 @@ LOADED = "loaded"
 
 
 def hand_written_skeleton():
-    """Written by hand, not saved from a scene. root_jnt is at (1, 2, 3), turned 90 degrees about Z, with rotate
-    order zxy. tip_jnt is 2 along its parent's Y, a marker joint. Rows are Maya's: a 90 degree turn about Z has the
-    X row (0, 1, 0) and the Y row (-1, 0, 0), so tip_jnt's world position is (1, 2, 3) + 2 * (-1, 0, 0) = (-1, 2, 3)."""
+    """Written by hand, not saved from a scene. root_00_M_JNT is at (1, 2, 3), turned 90 degrees about Z, with rotate
+    order zxy. tip_00_M_JNT is 2 along its parent's Y, a marker joint. Rows are Maya's: a 90 degree turn about Z has the
+    X row (0, 1, 0) and the Y row (-1, 0, 0), so tip_00_M_JNT's world position is (1, 2, 3) + 2 * (-1, 0, 0) = (-1, 2, 3)."""
     data = {
         "formatVersion": 1,
         "skeletonHash": "",
         "joints": [
-            {"markup": ["Center", "root"], "export": True, "skin": True, "name": "root_jnt", "parent": None,
+            {"markup": ["Center", "root"], "export": True, "skin": True, "name": "root_00_M_JNT", "parent": None,
              "rotateOrder": "zxy", "restLocal": [0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 1, 2, 3, 1]},
-            {"markup": ["Left", "tip"], "export": False, "skin": False, "name": "tip_jnt", "parent": ["Center", "root"],
+            {"markup": ["Left", "tip"], "export": False, "skin": False, "name": "tip_00_M_JNT", "parent": ["Center", "root"],
              "rotateOrder": "xyz", "restLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1]},
         ],
     }
@@ -260,31 +260,31 @@ class Load(LoadTestCase):
 
     def test_hand_written_file(self):
         self.write(hand_written_skeleton())
-        self.assertEqual(self.load(), ["loaded:root_jnt", "loaded:tip_jnt"])
+        self.assertEqual(self.load(), ["loaded:root_00_M_JNT", "loaded:tip_00_M_JNT"])
 
-        self.assertWorldTranslation("loaded:root_jnt", [1, 2, 3])
-        self.assertWorldRotation("loaded:root_jnt", [0, 0, 90])
-        self.assertWorldTranslation("loaded:tip_jnt", [-1, 2, 3])
-        self.assertEqual(cmds.listRelatives("loaded:tip_jnt", parent=True), ["loaded:root_jnt"])
-        self.assertIsNone(cmds.listRelatives("loaded:root_jnt", parent=True))
-        self.assertEqual(cmds.getAttr("loaded:root_jnt.rotateOrder"), 2)   # zxy
-        self.assertEqual(cmds.getAttr("loaded:tip_jnt.rotateOrder"), 0)
+        self.assertWorldTranslation("loaded:root_00_M_JNT", [1, 2, 3])
+        self.assertWorldRotation("loaded:root_00_M_JNT", [0, 0, 90])
+        self.assertWorldTranslation("loaded:tip_00_M_JNT", [-1, 2, 3])
+        self.assertEqual(cmds.listRelatives("loaded:tip_00_M_JNT", parent=True), ["loaded:root_00_M_JNT"])
+        self.assertIsNone(cmds.listRelatives("loaded:root_00_M_JNT", parent=True))
+        self.assertEqual(cmds.getAttr("loaded:root_00_M_JNT.rotateOrder"), 2)   # zxy
+        self.assertEqual(cmds.getAttr("loaded:tip_00_M_JNT.rotateOrder"), 0)
 
     def test_rest_goes_into_joint_orient_and_rotate_stays_zero(self):
         self.write(hand_written_skeleton())
         self.load()
-        self.assertEqual(cmds.getAttr("loaded:root_jnt.rotate")[0], (0.0, 0.0, 0.0))
-        for actual, expected in zip(cmds.getAttr("loaded:root_jnt.jointOrient")[0], (0, 0, 90)):
+        self.assertEqual(cmds.getAttr("loaded:root_00_M_JNT.rotate")[0], (0.0, 0.0, 0.0))
+        for actual, expected in zip(cmds.getAttr("loaded:root_00_M_JNT.jointOrient")[0], (0, 0, 90)):
             self.assertAlmostEqual(actual, expected, places=6)
-        self.assertEqual(cmds.getAttr("loaded:root_jnt.translate")[0], (1.0, 2.0, 3.0))
-        for joint in ("loaded:root_jnt", "loaded:tip_jnt"):
+        self.assertEqual(cmds.getAttr("loaded:root_00_M_JNT.translate")[0], (1.0, 2.0, 3.0))
+        for joint in ("loaded:root_00_M_JNT", "loaded:tip_00_M_JNT"):
             self.assertFalse(cmds.getAttr(joint + ".segmentScaleCompensate"))
 
     def test_markup_is_loaded(self):
         self.write(hand_written_skeleton())
         self.load()
-        root = json.loads(cmds.rigJointMarkup("loaded:root_jnt", query=True)[0])
-        tip = json.loads(cmds.rigJointMarkup("loaded:tip_jnt", query=True)[0])
+        root = json.loads(cmds.rigJointMarkup("loaded:root_00_M_JNT", query=True)[0])
+        tip = json.loads(cmds.rigJointMarkup("loaded:tip_00_M_JNT", query=True)[0])
         self.assertEqual((root["side"], root["usage"], root["export"], root["skin"]), ("Center", "root", True, True))
         self.assertEqual((tip["side"], tip["usage"], tip["export"], tip["skin"]), ("Left", "tip", False, False))
 
@@ -304,7 +304,7 @@ class Load(LoadTestCase):
         saved_hash, _ = self.save()
         loaded = self.load()
         # b's rotate moves into jointOrient: the same rest, with rotate at zero.
-        self.assertEqual(cmds.getAttr("loaded:b_jnt.rotate")[0], (0.0, 0.0, 0.0))
+        self.assertEqual(cmds.getAttr("loaded:b_00_M_JNT.rotate")[0], (0.0, 0.0, 0.0))
         self.assertEqual(cmds.saveRigSkeleton(*loaded, file=self.path), saved_hash)
         for source, copy in zip(self.joints, loaded):
             actual = cmds.xform(copy, query=True, worldSpace=True, matrix=True)
@@ -318,22 +318,22 @@ class Load(LoadTestCase):
         b = cmds.parent(self.joints[1], group)[0]
         self.save([self.joints[0], b, self.joints[2]])
         self.load()
-        self.assertEqual(cmds.listRelatives("loaded:b_jnt", parent=True), ["loaded:a_jnt"])
-        self.assertWorldTranslation("loaded:b_jnt", [0, 2, 0])
+        self.assertEqual(cmds.listRelatives("loaded:b_00_M_JNT", parent=True), ["loaded:a_00_M_JNT"])
+        self.assertWorldTranslation("loaded:b_00_M_JNT", [0, 2, 0])
         self.assertEqual(cmds.ls("loaded:*", exactType="transform"), [])
 
     def test_namespace_defaults_to_the_current_one(self):
         self.save()
-        self.assertEqual(cmds.loadRigSkeleton(file=self.path), ["a_jnt", "b_jnt", "c_jnt"])
+        self.assertEqual(cmds.loadRigSkeleton(file=self.path), ["a_00_M_JNT", "b_00_M_JNT", "c_00_M_JNT"])
         cmds.namespace(add=":other")
         cmds.namespace(setNamespace=":other")
-        self.assertEqual(cmds.loadRigSkeleton(file=self.path), ["other:a_jnt", "other:b_jnt", "other:c_jnt"])
+        self.assertEqual(cmds.loadRigSkeleton(file=self.path), ["other:a_00_M_JNT", "other:b_00_M_JNT", "other:c_00_M_JNT"])
         self.assertEqual(cmds.namespaceInfo(currentNamespace=True), "other")
 
     def test_namespace_colons_are_trimmed_and_the_namespace_is_made(self):
         self.save()
         self.assertFalse(cmds.namespace(exists=":fresh"))
-        self.assertEqual(self.load(":fresh:"), ["fresh:a_jnt", "fresh:b_jnt", "fresh:c_jnt"])
+        self.assertEqual(self.load(":fresh:"), ["fresh:a_00_M_JNT", "fresh:b_00_M_JNT", "fresh:c_00_M_JNT"])
         self.assertEqual(cmds.namespaceInfo(currentNamespace=True), ":")
 
     def test_undo_and_redo(self):
@@ -366,7 +366,7 @@ class LoadErrors(LoadTestCase):
     def test_name_taken_in_the_namespace_fails_and_creates_nothing(self):
         self.save()
         before = cmds.ls(type="joint", long=True)
-        self.assertMayaError(lambda: self.load(config.SKELETON_NAMESPACE), "a_jnt", "already exists in the namespace")
+        self.assertMayaError(lambda: self.load(config.SKELETON_NAMESPACE), "a_00_M_JNT", "already exists in the namespace")
         self.assertNothingLoaded(before)
 
     def test_file_flag_is_required(self):
@@ -399,8 +399,8 @@ class LoadErrors(LoadTestCase):
             "unknown rotate order": (set_key(0, "rotateOrder", "abc"), "joints[0].rotateOrder", "must be one of"),
             "short matrix": (set_key(0, "restLocal", [1] * 15), "joints[0].restLocal", "must be 16 numbers"),
             "markup listed twice": (set_key(1, "markup", ["Center", "root"]), "[Center, root] is listed twice"),
-            "parent not in the file": (set_key(1, "parent", ["Center", "hips"]), "tip_jnt", "[Center, hips] is not a joint in the file"),
-            "parents in a loop": (set_key(0, "parent", ["Left", "tip"]), "parents form a loop", "root_jnt", "tip_jnt"),
+            "parent not in the file": (set_key(1, "parent", ["Center", "hips"]), "tip_00_M_JNT", "[Center, hips] is not a joint in the file"),
+            "parents in a loop": (set_key(0, "parent", ["Left", "tip"]), "parents form a loop", "root_00_M_JNT", "tip_00_M_JNT"),
         }
         for label, (change, *contains) in cases.items():
             with self.subTest(label):

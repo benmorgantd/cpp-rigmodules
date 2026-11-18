@@ -33,6 +33,7 @@ COMMAND_FLAGS = {
     "poseRigFromJointPose": ["jointPose", "sidecar", "mode"],
     "animateRigFromJointClip": ["jointClip", "sidecar", "mode", "startFrame", "endFrame"],
     "setRigIkFkBlend": ["blend"],
+    "renameRigNodes": ["base", "side", "startIndex", "query"],
 }
 
 

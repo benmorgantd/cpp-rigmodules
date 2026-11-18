@@ -18,7 +18,7 @@ The `.mod` doesn't add the plugin to `MAYA_PLUG_IN_PATH`. Load the `.mll` by pat
 ```python
 import rigmodules.query
 
-info = rigmodules.query.get_rig_info("hero_body:arm_ctrl_l")      # a control, module, rig root or driven joint
+info = rigmodules.query.get_rig_info("hero_body:arm_00_L_CTRL")      # a control, module, rig root or driven joint
 info.asset_id      # "shooter\\main\\characters\\hero"
 info.rig_name      # "body"
 info.rig_root      # "hero_body:rigRootModule1"
@@ -70,8 +70,8 @@ Keying a rig's controls. The pose commands set values and key nothing, so keying
 import rigmodules.pose
 
 rigmodules.pose.key_rig("hero_body:rigRootModule1")                                  # every control
-rigmodules.pose.key_modules("hero_body:rigRootModule1", ["hero_body:arm_l", "hero_body:arm_r"])   # these modules' controls
-rigmodules.pose.key_controls(["hero_body:upperArm_l_ctrl_l"], time=12)
+rigmodules.pose.key_modules("hero_body:rigRootModule1", ["hero_body:arm_00_L_MOD", "hero_body:arm_00_R_MOD"])   # these modules' controls
+rigmodules.pose.key_controls(["hero_body:upperArm_00_L_CTRL"], time=12)
 ```
 
 - **`key_controls(controls, time=None)`**: the named controls.
@@ -95,6 +95,22 @@ rigmodules.library.set_data_file_meta("C:/lib/fist.controlpose.json", {"tags": [
 | `set_data_file_meta(file, meta)` | Nothing. [`setRigDataFileMeta`](commands.md#setrigdatafilemeta) with the dict as JSON. Raises `RuntimeError`, leaving the file as it was, for a bad value, an unknown key or a rig field |
 
 `DataFileInfo` is a frozen dataclass: `file`, `error` (`""` when the file was read), `kind` (`"pose"` or `"animation"`), `format_version`, `meta`, `frame_rate`, `start_frame` and `end_frame` (animations only), `control_count`, `channel_count` and `unmatched_controls` (a tuple of `(side, usage)`).
+
+## rigmodules.naming
+
+The [naming convention](naming.md) from Python. Both functions call [`renameRigNodes`](commands.md#renamerignodes), so the rules live in the plugin.
+
+```python
+import rigmodules.naming
+
+rigmodules.naming.rename_nodes(["a", "b", "c"], base="upperArm", side="Left")   # ['upperArm_00_L_JNT', 'upperArm_01_L_JNT', 'upperArm_02_L_JNT']
+rigmodules.naming.parse("skel:upperArm_00_L_JNT")   # RigName(base='upperArm', index=0, side='Left', kind='Joint')
+```
+
+| Function | Returns |
+|---|---|
+| `rename_nodes(nodes=None, base=None, side=None, start_index=0)` | Renames the nodes (the selection when `None`) into the convention, numbering them in order from `start_index`, and returns the new names |
+| `parse(name)` | A `RigName(base, index, side, kind)`, or `None` when the name is not in the convention. A namespace is ignored |
 
 ## rigmodules.template
 
@@ -151,7 +167,7 @@ A rig's selection sets ([`createRigFromTemplate`](commands.md#createrigfromtempl
 ```python
 import rigmodules.selection
 
-rigmodules.selection.select_skin_joints("hero_body:rigRootModule1", module="arm_l")          # the left arm's skin joints
+rigmodules.selection.select_skin_joints("hero_body:rigRootModule1", module="arm_00_L_MOD")          # the left arm's skin joints
 rigmodules.selection.get_skin_joints("hero_body:rigRootModule1", side="Right", usage="hand")
 joints = rigmodules.selection.get_missing_influences("hero_body:rigRootModule1", "hero_body:body_geo")   # for a first bind
 ```

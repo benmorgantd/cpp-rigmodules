@@ -1,5 +1,6 @@
 #include "maya/nodes/RigControlNode.h"
 #include "core/Constants.h"
+#include "core/NamingConvention.h"
 #include "maya/shared/Colors.h"
 #include "maya/shared/Utilities.h"
 
@@ -14,6 +15,7 @@
 #include <maya/MFnMessageAttribute.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnTypedAttribute.h>
+#include <maya/MGlobal.h>
 #include <maya/MHWGeometryUtilities.h>
 #include <maya/MNamespace.h>
 #include <maya/MPlug.h>
@@ -369,11 +371,18 @@ MObject RigControlNode::createRigControl(
 	DagUtils::setInheritsTransform(oControl, false, dagMod);
 
 	// Input joints can sit in another namespace when modules are built. The control belongs in the current (rig) namespace.
-	MString ctrlName = MNamespace::stripNamespaceFromName(baseName);
-	ctrlName.substitute(RigNaming::JointSuffix, "");
-	ctrlName += RigNaming::ControlSuffix;
-	ctrlName += getSideSuffix(side);
-	dagMod.renameNode(oControl, ctrlName);
+	// The name comes from a joint name or a usage (D58). The build checked both in its read phase, so a failure here is a
+	// module that skipped that check. The control keeps Maya's default name and the error says which.
+	const MString source = MNamespace::stripNamespaceFromName(baseName);
+	std::string ctrlName;
+	if (NamingConvention::controlName(source.asChar(), getFullSideName(side), ctrlName))
+	{
+		dagMod.renameNode(oControl, ctrlName.c_str());
+	}
+	else
+	{
+		MGlobal::displayError(MString("Cannot name a control from '") + source + "'. Expected " + NamingConvention::Form + ".");
+	}
 
 	// Color follows the module's side.
 	MPlug pColor(oControl, RigControlNode::aWireColor);

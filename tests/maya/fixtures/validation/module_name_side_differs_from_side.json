@@ -1,0 +1,17 @@
+{
+  "description": "A module's side letter must equal its side field (D58)",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/0/name",
+      "value": "fkchain_01_L_MOD"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "name has side L, but the module's side is 'Center'",
+      "path": "rigModules[0] 'fkchain_01_L_MOD'"
+    }
+  ]
+}

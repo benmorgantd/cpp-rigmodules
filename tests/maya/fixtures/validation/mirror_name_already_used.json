@@ -2,6 +2,6 @@
   "description": "A generated mirror's name must be free, like any module name",
   "base": "mirror_arms",
   "skeleton": "mirror_arms",
-  "edits": [ { "set": "/rigModules/0/name", "value": "arm_r" } ],
-  "expectErrors": [ { "path": "rigModules[2] 'arm_l' (mirror 'arm_r')", "contains": "rigModules[0] 'arm_r'" } ]
+  "edits": [ { "set": "/rigModules/0/name", "value": "arm_00_R_MOD" }, { "set": "/rigModules/0/side", "value": "Right" } ],
+  "expectErrors": [ { "path": "rigModules[2] 'arm_00_L_MOD' (mirror 'arm_00_R_MOD')", "contains": "rigModules[0] 'arm_00_R_MOD'" } ]
 }

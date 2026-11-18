@@ -9,23 +9,23 @@ A socket of the parent rig is written `parent:module.socket`. It is valid in two
 **`parentStructure` values.** A child plug follows the parent's socket:
 
 ```json
-{ "moduleType": "FkChain", "name": "face_chain", "shapeType": "Box", "side": "Center",
+{ "moduleType": "FkChain", "name": "faceChain_00_M_MOD", "shapeType": "Box", "side": "Center",
   "moduleArgs": { "joints": [["Center", "f_a"], ["Center", "f_b"]] },
-  "parentStructure": { "start": "parent:fkchain_1.end" } }
+  "parentStructure": { "start": "parent:fkchain_01_M_MOD.end" } }
 ```
 
 **Constraint drivers.** A control the parent drives:
 
 ```json
-{ "name": "neck_follow", "target": "neck_copy.start",
-  "drivers": [ { "socket": "parent:fkchain_1.index_1", "label": "Body" } ] }
+{ "name": "neckFollow_00_M_CON", "target": "neckCopy_00_M_MOD.start",
+  "drivers": [ { "socket": "parent:fkchain_01_M_MOD.index_1", "label": "Body" } ] }
 ```
 
 The template therefore lists everything it needs from the parent. There is no separate mapping. A template with a `parent:` id is an attachment and can only be built with a parent rig.
 
-- The part after the prefix is `module.socket`, with the module's `name` in the parent rig. `parent:layout.end` is the parent's layout socket.
+- The part after the prefix is `module.socket`, with the module's `name` in the parent rig. `parent:layout_00_M_MOD.end` is the parent's layout socket.
 - A `parent:` id never takes part in the template's own loop check. The parent rig is not part of the template.
-- In a mirrored module or constraint, a `parent:` id swaps the side suffix of the parent module's name: `parent:arm_l.end` becomes `parent:arm_r.end`. A parent module with no `_l` or `_r` suffix, such as `parent:head.end`, stays as it is.
+- In a mirrored module or constraint, a `parent:` id swaps the side letter of the parent module's name: `parent:arm_00_L_MOD.end` becomes `parent:arm_00_R_MOD.end`. A parent module with no `_l` or `_r` suffix, such as `parent:head.end`, stays as it is.
 - Labels: a driver's label defaults to its socket id, `parent:` included. Give a driver a `label` when the animator will see it.
 
 ## Building

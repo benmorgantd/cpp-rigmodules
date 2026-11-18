@@ -38,7 +38,7 @@ struct ModulePlugInfo
 	// The template can't name a parent for it, so a parentStructure entry for it is an error too.
 	std::string followsPlug;
 	// Not empty for a plug the template may parent but need not: with no parentStructure entry it takes the parent of this
-	// plug of the same module, where any other unlisted plug takes layout.end (Ribbon's end follows its start).
+	// plug of the same module, where any other unlisted plug takes layout_00_M_MOD.end (Ribbon's end follows its start).
 	std::string defaultsToPlug;
 };
 
@@ -64,7 +64,7 @@ namespace RigTemplateValidation
 	// "rigModules[3] 'arm_l' (mirror 'arm_r')", because its own index is not in the file (D28).
 	std::string modulePath(std::size_t index, const RigModuleData& module);
 
-	// "constraints[0] 'arm_space_l'", and the mirror form like modulePath.
+	// "constraints[0] 'armSpace_00_L_CON'", and the mirror form like modulePath.
 	std::string constraintPath(std::size_t index, const std::string& name);
 	std::string constraintPath(std::size_t index, const RigConstraintData& constraint);
 

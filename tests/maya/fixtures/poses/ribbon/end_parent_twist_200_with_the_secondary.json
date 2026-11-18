@@ -3,12 +3,12 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_driven_ends",
   "set": {
-    "layout_2_ctrl_c.rotateX": 200,
-    "tailIK_00_ctrl_c.endTwist": 200
+    "layout_02_M_CTRL.rotateX": 200,
+    "tailIK_00_M_CTRL.endTwist": 200
   },
   "expect": {
-    "tail2_jnt": {"translate": [2, 0, 0], "rotate": [50, 0, 0]},
-    "tail3_jnt": {"translate": [4, 0, 0], "rotate": [100, 0, 0]},
-    "tail4_jnt": {"translate": [6, 0, 0], "rotate": [150, 0, 0]}
+    "tail2_00_M_JNT": {"translate": [2, 0, 0], "rotate": [50, 0, 0]},
+    "tail3_00_M_JNT": {"translate": [4, 0, 0], "rotate": [100, 0, 0]},
+    "tail4_00_M_JNT": {"translate": [6, 0, 0], "rotate": [150, 0, 0]}
   }
 }

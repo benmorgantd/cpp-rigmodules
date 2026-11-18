@@ -14,9 +14,9 @@ import rigmodules.pose
 import rigmodules.query
 from rigtest.case import RigTestCase, rig_name
 
-ARM_L = rig_name("upperArm_l_ctrl_l")
-ARM_R = rig_name("upperArm_r_ctrl_r")
-CHEST = rig_name("chest_ctrl_c")
+ARM_L = rig_name("upperArm_00_L_CTRL")
+ARM_R = rig_name("upperArm_00_R_CTRL")
+CHEST = rig_name("chest_00_M_CTRL")
 
 CALLER_META = {
     "template": "Human", "skeleton": "body", "author": "bmorgan", "description": "Clenched right hand",
@@ -357,7 +357,7 @@ class MirrorOnLoad(DataFileTestCase):
         cmds.saveRigPose(ARM_L, file=path)
         cmds.zeroRigControls(rig_root())
         changed = cmds.loadRigPose(ARM_R, file=path, mirror=True)
-        self.assertEqual(changed, ["rig:upperArm_r_ctrl_r"])
+        self.assertEqual(changed, ["rig:upperArm_00_R_CTRL"])
         self.assertEqual(values(ARM_L, self.NAMES), [0] * 6)
 
     def test_mirror_false_is_the_default(self):

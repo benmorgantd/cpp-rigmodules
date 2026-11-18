@@ -1,17 +1,17 @@
 {
   "joints": [
-    { "name": "upperArm_jnt", "side": "Left", "usage": "upperArm", "translate": [0.0, 0.0, 0], "rotate": [0, 0, 35] },
-    { "name": "lowerArm_jnt", "side": "Left", "usage": "lowerArm", "translate": [3.448681, 2.04856, 0], "rotate": [0, 0, 35] },
-    { "name": "hand_jnt", "side": "Left", "usage": "hand", "translate": [6.553216, 4.588611, 0], "rotate": [0, 0, 35] },
-    { "name": "up1_jnt", "side": "Center", "usage": "up1", "translate": [0.0, 0.0, 0], "rotate": [0, 0, 35] },
-    { "name": "up2_jnt", "side": "Center", "usage": "up2", "translate": [0.86217, 0.51214, 0], "rotate": [0, 0, 35] },
-    { "name": "up3_jnt", "side": "Center", "usage": "up3", "translate": [1.724341, 1.02428, 0], "rotate": [0, 0, 35] },
-    { "name": "up4_jnt", "side": "Center", "usage": "up4", "translate": [2.586511, 1.53642, 0], "rotate": [0, 0, 35] },
-    { "name": "up5_jnt", "side": "Center", "usage": "up5", "translate": [3.448681, 2.04856, 0], "rotate": [0, 0, 35] },
-    { "name": "fo1_jnt", "side": "Center", "usage": "fo1", "translate": [3.448681, 2.04856, 0], "rotate": [0, 0, 35] },
-    { "name": "fo2_jnt", "side": "Center", "usage": "fo2", "translate": [4.224815, 2.683573, 0], "rotate": [0, 0, 35] },
-    { "name": "fo3_jnt", "side": "Center", "usage": "fo3", "translate": [5.000949, 3.318586, 0], "rotate": [0, 0, 35] },
-    { "name": "fo4_jnt", "side": "Center", "usage": "fo4", "translate": [5.777083, 3.953599, 0], "rotate": [0, 0, 35] },
-    { "name": "fo5_jnt", "side": "Center", "usage": "fo5", "translate": [6.553216, 4.588611, 0], "rotate": [0, 0, 35] }
+    { "name": "upperArm_00_M_JNT", "side": "Left", "usage": "upperArm", "translate": [0.0, 0.0, 0], "rotate": [0, 0, 35] },
+    { "name": "lowerArm_00_M_JNT", "side": "Left", "usage": "lowerArm", "translate": [3.448681, 2.04856, 0], "rotate": [0, 0, 35] },
+    { "name": "hand_00_M_JNT", "side": "Left", "usage": "hand", "translate": [6.553216, 4.588611, 0], "rotate": [0, 0, 35] },
+    { "name": "up1_00_M_JNT", "side": "Center", "usage": "up1", "translate": [0.0, 0.0, 0], "rotate": [0, 0, 35] },
+    { "name": "up2_00_M_JNT", "side": "Center", "usage": "up2", "translate": [0.86217, 0.51214, 0], "rotate": [0, 0, 35] },
+    { "name": "up3_00_M_JNT", "side": "Center", "usage": "up3", "translate": [1.724341, 1.02428, 0], "rotate": [0, 0, 35] },
+    { "name": "up4_00_M_JNT", "side": "Center", "usage": "up4", "translate": [2.586511, 1.53642, 0], "rotate": [0, 0, 35] },
+    { "name": "up5_00_M_JNT", "side": "Center", "usage": "up5", "translate": [3.448681, 2.04856, 0], "rotate": [0, 0, 35] },
+    { "name": "fo1_00_M_JNT", "side": "Center", "usage": "fo1", "translate": [3.448681, 2.04856, 0], "rotate": [0, 0, 35] },
+    { "name": "fo2_00_M_JNT", "side": "Center", "usage": "fo2", "translate": [4.224815, 2.683573, 0], "rotate": [0, 0, 35] },
+    { "name": "fo3_00_M_JNT", "side": "Center", "usage": "fo3", "translate": [5.000949, 3.318586, 0], "rotate": [0, 0, 35] },
+    { "name": "fo4_00_M_JNT", "side": "Center", "usage": "fo4", "translate": [5.777083, 3.953599, 0], "rotate": [0, 0, 35] },
+    { "name": "fo5_00_M_JNT", "side": "Center", "usage": "fo5", "translate": [6.553216, 4.588611, 0], "rotate": [0, 0, 35] }
   ]
 }

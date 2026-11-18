@@ -3,13 +3,13 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailIK_02_ctrl_c.translateX": 4
+    "tailIK_02_M_CTRL.translateX": 4
   },
   "expect": {
-    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [0, 0, 0]},
-    "tail2_jnt": {"translate": [3, 0, 0], "rotate": [0, 0, 0]},
-    "tail3_jnt": {"translate": [6, 0, 0], "rotate": [0, 0, 0]},
-    "tail4_jnt": {"translate": [9, 0, 0], "rotate": [0, 0, 0]},
-    "tail5_jnt": {"translate": [12, 0, 0], "rotate": [0, 0, 0]}
+    "tail1_00_M_JNT": {"translate": [0, 0, 0], "rotate": [0, 0, 0]},
+    "tail2_00_M_JNT": {"translate": [3, 0, 0], "rotate": [0, 0, 0]},
+    "tail3_00_M_JNT": {"translate": [6, 0, 0], "rotate": [0, 0, 0]},
+    "tail4_00_M_JNT": {"translate": [9, 0, 0], "rotate": [0, 0, 0]},
+    "tail5_00_M_JNT": {"translate": [12, 0, 0], "rotate": [0, 0, 0]}
   }
 }

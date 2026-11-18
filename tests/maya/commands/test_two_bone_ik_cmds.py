@@ -17,16 +17,16 @@ from rigtest import fixtures
 from rigtest.case import rig_name
 from rigtest.jointclips import rig_root, values_of
 
-UPPER = "upperArm_ctrl_l"
-LOWER = "lowerArm_ctrl_l"
-END = "hand_ctrl_l"
-HANDLE = "armIK_ctrl_l"
-POLE = "armPole_ctrl_l"
-SETTINGS = "armSettings_ctrl_l"
-MODULE = "arm_1"
-LAYOUT_CONTROL = "layout_2_ctrl_c"
+UPPER = "upperArm_00_L_CTRL"
+LOWER = "lowerArm_00_L_CTRL"
+END = "hand_00_L_CTRL"
+HANDLE = "armIK_00_L_CTRL"
+POLE = "armPole_00_L_CTRL"
+SETTINGS = "armSettings_00_L_CTRL"
+MODULE = "arm_01_L_MOD"
+LAYOUT_CONTROL = "layout_02_M_CTRL"
 MATCHED = (UPPER, LOWER, END, HANDLE, POLE)
-LIMB_JOINTS = ("upperArm_jnt", "lowerArm_jnt", "hand_jnt")
+LIMB_JOINTS = ("upperArm_00_M_JNT", "lowerArm_00_M_JNT", "hand_00_M_JNT")
 
 
 class SwitchTestCase(SolveTestCase):
@@ -77,8 +77,8 @@ class TwoBoneIkSwitch(SwitchTestCase):
         # its rest height 5 on that side: world (5,-1.8,0), local (2.5,-6.8,0) against its rest (2.5,5,0).
         cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0)
         cmds.setAttr(rig_name(UPPER + ".rotateZ"), -90)
-        self.assertWorldTranslation(rig_name("lowerArm_jnt"), [2.4, -1.8, 0])
-        self.assertWorldTranslation(rig_name("hand_jnt"), [0, -5, 0])
+        self.assertWorldTranslation(rig_name("lowerArm_00_M_JNT"), [2.4, -1.8, 0])
+        self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [0, -5, 0])
         before = self.limb()
         changed = self.switch(1)
         self.assertValues(rig_name(HANDLE), {"translateX": -5, "translateY": -5, "translateZ": 0, "rotateZ": -90}, places=3)
@@ -96,8 +96,8 @@ class TwoBoneIkSwitch(SwitchTestCase):
         # so the end control undoes the turn: +36.8699.
         cmds.setAttr(rig_name(HANDLE + ".translateX"), -1)
         cmds.setAttr(rig_name(HANDLE + ".translateY"), -3)
-        self.assertWorldTranslation(rig_name("lowerArm_jnt"), [2.88, 0.84, 0])
-        self.assertWorldTranslation(rig_name("hand_jnt"), [4, -3, 0])
+        self.assertWorldTranslation(rig_name("lowerArm_00_M_JNT"), [2.88, 0.84, 0])
+        self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [4, -3, 0])
         before = self.limb()
         self.switch(0)
         self.assertValues(rig_name(UPPER), {"rotateZ": -36.8699, "rotateX": 0, "rotateY": 0, "translateX": 0, "translateY": 0}, places=3)
@@ -124,7 +124,7 @@ class TwoBoneIkSwitch(SwitchTestCase):
         cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0)
         cmds.setAttr(rig_name(UPPER + ".rotateZ"), -90)
         cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 1)
-        self.assertWorldTranslation(rig_name("hand_jnt"), [5, 0, 0])
+        self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [5, 0, 0])
 
     # ---- no pop, either way ---------------------------------------------------------------------
 
@@ -247,8 +247,8 @@ class TwoBoneIkSwitch(SwitchTestCase):
         pose = {SETTINGS + ".ikFkBlend": 0, UPPER + ".rotateZ": -53.1301, LOWER + ".rotateZ": 90,
                 LOWER + ".translateX": 0.36, LOWER + ".translateY": 0.48, END + ".translateX": 0.64, END + ".translateY": -0.48}
         self.set_plugs(pose)
-        self.assertWorldTranslation(rig_name("lowerArm_jnt"), [3.6, 0, 0], 1e-3)
-        self.assertWorldTranslation(rig_name("hand_jnt"), [8.4, 0, 0], 1e-3)
+        self.assertWorldTranslation(rig_name("lowerArm_00_M_JNT"), [3.6, 0, 0], 1e-3)
+        self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [8.4, 0, 0], 1e-3)
         before = self.limb()
         with CapturedWarnings() as warnings:
             self.switch(1)
@@ -352,7 +352,7 @@ class TwoBoneIkSwitch(SwitchTestCase):
     def test_a_node_that_is_not_a_limb_is_an_error(self):
         self.assertMayaError(lambda: cmds.setRigIkFkBlend(rig_name(LAYOUT_CONTROL), blend=0), "not a TwoBoneIk")
         self.assertMayaError(lambda: cmds.setRigIkFkBlend(rig_root(), blend=0), "not a TwoBoneIk")
-        self.assertMayaError(lambda: cmds.setRigIkFkBlend(rig_name("upperArm_jnt"), blend=1), "not a TwoBoneIk")
+        self.assertMayaError(lambda: cmds.setRigIkFkBlend(rig_name("upperArm_00_M_JNT"), blend=1), "not a TwoBoneIk")
 
     def test_a_missing_node_is_an_error(self):
         self.assertMayaError(lambda: cmds.setRigIkFkBlend("noSuchNode", blend=0), "not found")
@@ -371,7 +371,7 @@ class TwoBoneIkSwitch(SwitchTestCase):
 class TwoBoneIkPoleSpace(SwitchTestCase):
     """setRigControlSpace and getRigControlSpace on the pole's module-owned space (D52 phase 7).
 
-    The basic limb: the pole's rest is (2.5,5,0), the handle's (5,0,0), and both hang from layout.end. A control's world
+    The basic limb: the pole's rest is (2.5,5,0), the handle's (5,0,0), and both hang from layout_00_M_MOD.end. A control's world
     translate is its rest plus its parent's motion plus its own translate, so the cases are worked by hand.
     """
 
@@ -425,7 +425,7 @@ class TwoBoneIkPoleSpace(SwitchTestCase):
 
     def test_a_node_that_is_not_a_rig_control_raises(self):
         with self.assertRaises(RuntimeError):
-            rigmodules.query.find_ik_fk_limb(rig_name("upperArm_jnt"))
+            rigmodules.query.find_ik_fk_limb(rig_name("upperArm_00_M_JNT"))
 
     # ---- the switch keeps the pole where it is ------------------------------------------------------
 
@@ -452,7 +452,7 @@ class TwoBoneIkPoleSpace(SwitchTestCase):
         self.assertWorldTranslation(rig_name(POLE), [4.5, 6, 0], 1e-4)
 
     def test_parent_space_that_moved(self):
-        # layout.end moves (0,0,3) and carries both the pole and the handle. The handle also moved (-1,-3,0) in its own
+        # layout_00_M_MOD.end moves (0,0,3) and carries both the pole and the handle. The handle also moved (-1,-3,0) in its own
         # space. D_old = T(0,0,3), D_new = T(-1,-3,3): the local becomes (1,3,0) and the world stays (2.5,5,3).
         self.set_plugs({LAYOUT_CONTROL + ".translateZ": 3, HANDLE + ".translateX": -1, HANDLE + ".translateY": -3})
         self.assertWorldTranslation(rig_name(POLE), [2.5, 5, 3], 1e-4)
@@ -578,8 +578,8 @@ class TwoBoneIkSwitchSpaces(SwitchTestCase):
         super().setUp()
         joints = self.make_skeleton("twoboneik_basic")
         data = copy.deepcopy(fixtures.load_template("twoboneik_basic"))
-        data["constraints"] = [{"name": "arm_ik_space", "type": "Parent", "target": "arm_1.ik", "drivers": [
-            {"socket": "layout.end", "label": "Chest"}, {"socket": "layout.index_0", "label": "Hips"}]}]
+        data["constraints"] = [{"name": "armIkSpace_00_L_CON", "type": "Parent", "target": "arm_01_L_MOD.ik", "drivers": [
+            {"socket": "layout_00_M_MOD.end", "label": "Chest"}, {"socket": "layout_00_M_MOD.index_0", "label": "Hips"}]}]
         self.build(data, joints, label="twoboneik_switch_spaces")
 
     def test_the_handle_in_a_space_that_moved(self):
@@ -600,7 +600,7 @@ class TwoBoneIkSwitchSpaces(SwitchTestCase):
 
     def test_the_handles_constraint_space_reports_the_constraint(self):
         found = json.loads(cmds.getRigControlSpace(rig_name(HANDLE)))
-        self.assertEqual(found, {"constraint": rig_name("arm_ik_space").lstrip(":"), "module": "", "labels": ["Chest", "Hips"], "current": 0})
+        self.assertEqual(found, {"constraint": rig_name("armIkSpace_00_L_CON").lstrip(":"), "module": "", "labels": ["Chest", "Hips"], "current": 0})
 
     def test_the_handle_switches_by_control_and_keeps_its_world(self):
         self.set_plugs({LAYOUT_CONTROL + ".translateZ": 3})
@@ -623,15 +623,15 @@ class TwoBoneIkSwitchSpaces(SwitchTestCase):
 class TwoBoneIkSwitchMirror(SwitchTestCase):
     """The right limb is the left one reflected: its controls and joints are mirrored, and the switch holds there too."""
 
-    LIMB = ("upperArm_l_jnt", "lowerArm_l_jnt", "hand_l_jnt", "upperArm_r_jnt", "lowerArm_r_jnt", "hand_r_jnt")
+    LIMB = ("upperArm_00_L_JNT", "lowerArm_00_L_JNT", "hand_00_L_JNT", "upperArm_00_R_JNT", "lowerArm_00_R_JNT", "hand_00_R_JNT")
 
     def setUp(self):
         super().setUp()
         self.build_standard("twoboneik_mirror", "twoboneik_mirror")
 
     def test_both_limbs_keep_their_joints(self):
-        sides = {"l": ("upperArm_l_ctrl_l", "lowerArm_l_ctrl_l", "armSettings_ctrl_l", "armIK_ctrl_l", "armPole_ctrl_l"),
-                 "r": ("upperArm_r_ctrl_r", "lowerArm_r_ctrl_r", "armSettings_ctrl_r", "armIK_ctrl_r", "armPole_ctrl_r")}
+        sides = {"l": ("upperArm_00_L_CTRL", "lowerArm_00_L_CTRL", "armSettings_00_L_CTRL", "armIK_00_L_CTRL", "armPole_00_L_CTRL"),
+                 "r": ("upperArm_00_R_CTRL", "lowerArm_00_R_CTRL", "armSettings_00_R_CTRL", "armIK_00_R_CTRL", "armPole_00_R_CTRL")}
         for side, (upper, lower, settings, handle, pole) in sides.items():
             with self.subTest(side=side):
                 cmds.setAttr(rig_name(settings + ".ikFkBlend"), 0)

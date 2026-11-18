@@ -3,11 +3,11 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailIK_02_ctrl_c.rotateX": 200,
-    "tailIK_00_ctrl_c.endTwist": 200
+    "tailIK_02_M_CTRL.rotateX": 200,
+    "tailIK_00_M_CTRL.endTwist": 200
   },
   "expect": {
-    "tail3_jnt": {
+    "tail3_00_M_JNT": {
       "translate": [
         4,
         0,
@@ -19,7 +19,7 @@
         0
       ]
     },
-    "tail4_jnt": {
+    "tail4_00_M_JNT": {
       "translate": [
         6,
         0,
@@ -31,7 +31,7 @@
         0
       ]
     },
-    "tail5_jnt": {
+    "tail5_00_M_JNT": {
       "translate": [
         8,
         0,

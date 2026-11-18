@@ -47,7 +47,7 @@ class GetRigInfo(RigTestCase):
 
     def test_publish_version_is_read_from_the_rig_root(self):
         cmds.setAttr(self.rig_root + ".publishVersion", "20261108T142012Z_bmorgan", type="string")
-        self.assertEqual(self.info(rig_name("layout_0_ctrl_c"))["publishVersion"], "20261108T142012Z_bmorgan")
+        self.assertEqual(self.info(rig_name("layout_00_M_CTRL"))["publishVersion"], "20261108T142012Z_bmorgan")
 
     def test_joint_driven_by_a_module_reports_its_rig(self):
         expected = self.info(self.rig_root)
@@ -58,7 +58,7 @@ class GetRigInfo(RigTestCase):
 
     def test_other_nodes_give_an_empty_result_without_an_error(self):
         cmds.select(clear=True)
-        loose_joint = cmds.joint(name="loose_jnt")
+        loose_joint = cmds.joint(name="loose_00_M_JNT")
         for node in (loose_joint, cmds.createNode("network"), cmds.polyCube()[0]):
             self.assertEqual(cmds.getRigInfo(node), "", node)
 
@@ -66,7 +66,7 @@ class GetRigInfo(RigTestCase):
         self.assertMayaError(lambda: cmds.getRigInfo("no_such_node"), "Node not found")
 
     def test_takes_exactly_one_node(self):
-        self.assertMayaError(lambda: cmds.getRigInfo(self.rig_root, rig_name("layout")))
+        self.assertMayaError(lambda: cmds.getRigInfo(self.rig_root, rig_name("layout_00_M_MOD")))
 
 
 class PythonQuery(RigTestCase):
@@ -74,7 +74,7 @@ class PythonQuery(RigTestCase):
     def test_get_rig_info_wraps_the_command(self):
         self.build_standard(TEMPLATE, SKELETON)
         rig_root = cmds.ls(type="rigRootModule")[0]
-        info = rigmodules.query.get_rig_info(rig_name("layout_0_ctrl_c"))
+        info = rigmodules.query.get_rig_info(rig_name("layout_00_M_CTRL"))
         self.assertEqual(info, rigmodules.query.RigInfo(
             rig_root=rig_root,
             asset_id=config.ASSET_ID,

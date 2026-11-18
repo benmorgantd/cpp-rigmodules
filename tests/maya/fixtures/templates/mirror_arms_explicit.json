@@ -2,21 +2,21 @@
   "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "MirrorArms",
   "rigModules": [
-    { "moduleType": "FkChain", "name": "spine", "shapeType": "Box", "side": "Center",
+    { "moduleType": "FkChain", "name": "spine_00_M_MOD", "shapeType": "Box", "side": "Center",
       "moduleArgs": { "joints": [ ["Center", "chest"] ] } },
-    { "moduleType": "FkChain", "name": "clavicle_l", "shapeType": "Box", "side": "Left",
-      "moduleArgs": { "joints": [ ["Left", "clavicle"] ] }, "parentStructure": { "start": "spine.end" } },
-    { "moduleType": "FkChain", "name": "arm_l", "shapeType": "Circle", "side": "Left",
-      "moduleArgs": { "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"] ] }, "parentStructure": { "start": "clavicle_l.end" } },
-    { "moduleType": "FkChain", "name": "clavicle_r", "shapeType": "Box", "side": "Right",
-      "moduleArgs": { "joints": [ ["Right", "clavicle"] ] }, "parentStructure": { "start": "spine.end" } },
-    { "moduleType": "FkChain", "name": "arm_r", "shapeType": "Circle", "side": "Right",
-      "moduleArgs": { "joints": [ ["Right", "upperArm"], ["Right", "lowerArm"] ] }, "parentStructure": { "start": "clavicle_r.end" } }
+    { "moduleType": "FkChain", "name": "clavicle_00_L_MOD", "shapeType": "Box", "side": "Left",
+      "moduleArgs": { "joints": [ ["Left", "clavicle"] ] }, "parentStructure": { "start": "spine_00_M_MOD.end" } },
+    { "moduleType": "FkChain", "name": "arm_00_L_MOD", "shapeType": "Circle", "side": "Left",
+      "moduleArgs": { "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"] ] }, "parentStructure": { "start": "clavicle_00_L_MOD.end" } },
+    { "moduleType": "FkChain", "name": "clavicle_00_R_MOD", "shapeType": "Box", "side": "Right",
+      "moduleArgs": { "joints": [ ["Right", "clavicle"] ] }, "parentStructure": { "start": "spine_00_M_MOD.end" } },
+    { "moduleType": "FkChain", "name": "arm_00_R_MOD", "shapeType": "Circle", "side": "Right",
+      "moduleArgs": { "joints": [ ["Right", "upperArm"], ["Right", "lowerArm"] ] }, "parentStructure": { "start": "clavicle_00_R_MOD.end" } }
   ],
   "constraints": [
-    { "name": "arm_space_l", "target": "arm_l.start",
-      "drivers": [ { "socket": "clavicle_l.end", "weight": 1.0 }, { "socket": "layout.end", "label": "World" } ] },
-    { "name": "arm_space_r", "target": "arm_r.start",
-      "drivers": [ { "socket": "clavicle_r.end", "weight": 1.0 }, { "socket": "layout.end", "label": "World" } ] }
+    { "name": "armSpace_00_L_CON", "target": "arm_00_L_MOD.start",
+      "drivers": [ { "socket": "clavicle_00_L_MOD.end", "weight": 1.0 }, { "socket": "layout_00_M_MOD.end", "label": "World" } ] },
+    { "name": "armSpace_00_R_CON", "target": "arm_00_R_MOD.start",
+      "drivers": [ { "socket": "clavicle_00_R_MOD.end", "weight": 1.0 }, { "socket": "layout_00_M_MOD.end", "label": "World" } ] }
   ]
 }

@@ -8,7 +8,7 @@
     },
     {
       "set": "/rigModules/2/parentStructure/target",
-      "value": "aim_1.up"
+      "value": "aim_01_R_MOD.up"
     }
   ],
   "expectErrors": [

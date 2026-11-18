@@ -6,14 +6,14 @@
     {
       "set": "/rigModules/1/parentStructure",
       "value": {
-        "strat": "fkchain_1.start"
+        "strat": "fkchain_01_M_MOD.start"
       }
     }
   ],
   "expectErrors": [
     {
       "contains": "strat",
-      "path": "rigModules[1] 'fkchain_2'"
+      "path": "rigModules[1] 'fkchain_02_L_MOD'"
     }
   ]
 }

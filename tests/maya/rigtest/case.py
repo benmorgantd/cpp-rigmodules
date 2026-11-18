@@ -10,7 +10,7 @@ TOLERANCE = 1e-4
 
 
 def rig_name(short, namespace=config.RIG_NAMESPACE):
-    """'fkchain1_ctrl_c' -> ':rig:fkchain1_ctrl_c'. Root namespace ':' gives ':fkchain1_ctrl_c'."""
+    """'fkchain1_00_M_CTRL' -> ':rig:fkchain1_00_M_CTRL'. Root namespace ':' gives ':fkchain1_00_M_CTRL'."""
     if namespace in (":", ""):
         return ":" + short
     return ":%s:%s" % (namespace.strip(":"), short)

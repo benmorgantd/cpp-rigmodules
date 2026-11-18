@@ -16,8 +16,8 @@ class BuildUndoRedo(RigTestCase):
     def test_undo_returns_joints_to_their_namespace(self):
         self.build_standard("layout_rig", "layout_rig")
         cmds.undo()
-        self.assertExists(":skel:fkchain1_jnt")
-        self.assertNotExists(rig_name("fkchain1_jnt"))
+        self.assertExists(":skel:fkchain1_00_M_JNT")
+        self.assertNotExists(rig_name("fkchain1_00_M_JNT"))
 
     def test_redo_rebuilds_identical_rig(self):
         self.build_standard("layout_rig", "layout_rig")
@@ -43,8 +43,8 @@ class BuildUndoRedo(RigTestCase):
         self.build_standard("layout_rig", "layout_rig")
         cmds.undo()
         cmds.redo()
-        cmds.setAttr(rig_name("fkchain1_ctrl_c") + ".rotateZ", 90)
-        self.assertWorldTranslation(rig_name("fkchain2_jnt"), (-2, 0, 0))
+        cmds.setAttr(rig_name("fkchain1_00_M_CTRL") + ".rotateZ", 90)
+        self.assertWorldTranslation(rig_name("fkchain2_00_M_JNT"), (-2, 0, 0))
 
     def test_undo_leaves_empty_rig_namespace(self):
         # Documented in D18: namespace creation is not part of the command's undo.

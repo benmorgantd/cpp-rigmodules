@@ -1,5 +1,6 @@
 #include "TemplateMirror.h"
 #include "Constants.h"
+#include "NamingConvention.h"
 #include "RigTemplateValidation.h"
 #include "StringUtils.h"
 
@@ -12,11 +13,6 @@ namespace
 	bool isMirrorableSide(const std::string& side)
 	{
 		return side == SideNames::Left || side == SideNames::Right;
-	}
-
-	const char* suffixForSide(const std::string& side)
-	{
-		return side == SideNames::Left ? RigNaming::LeftSuffix : RigNaming::RightSuffix;
 	}
 
 	// A selector is a [side, usage] pair, the only two-string array with a side first in moduleArgs (D15).
@@ -46,12 +42,12 @@ namespace
 	// Template module name -> side, for the modules written in the file.
 	using ModuleSides = std::map<std::string, std::string>;
 
-	// "clavicle_l.end" -> "clavicle_r.end" when clavicle_l is a Left or Right module. Center modules, layout and
-	// unknown names stay as they are, and a malformed id is left for validateConnections to report.
+	// "clavicle_00_L_MOD.end" -> "clavicle_00_R_MOD.end" when clavicle_00_L_MOD is a Left or Right module. Center modules,
+	// layout and unknown names stay as they are, and a malformed id is left for validateConnections to report.
 	std::string mirrorIdentifier(const std::string& identifier, const ModuleSides& moduleSides, const std::string& where, ValidationReport& report)
 	{
-		// A parent rig's module is not in this template, so only its name's side suffix says which side it is (D55).
-		// A Center module (no suffix) stays as it is.
+		// A parent rig's module is not in this template, so only its name's side token says which side it is (D55).
+		// A Center module stays as it is.
 		if (RigTemplateValidation::isParentSocketId(identifier))
 		{
 			const std::string parentId = RigTemplateValidation::stripParentPrefix(identifier);
@@ -61,7 +57,7 @@ namespace
 			{
 				return identifier;
 			}
-			const std::string swapped = TemplateMirror::swapSideSuffix(parentModule);
+			const std::string swapped = NamingConvention::swapSide(parentModule);
 			return swapped.empty() ? identifier : std::string(ParentRigId::Prefix) + swapped + "." + parentMember;
 		}
 
@@ -78,11 +74,11 @@ namespace
 			return identifier;
 		}
 
-		const std::string mirrorModule = TemplateMirror::swapSideSuffix(moduleName);
+		const std::string mirrorModule = NamingConvention::swapSide(moduleName);
 		if (mirrorModule.empty())
 		{
-			report.addError(where, "'" + moduleName + "' is a " + it->second + " module, but its name doesn't end in '"
-				+ RigNaming::LeftSuffix + "' or '" + RigNaming::RightSuffix + "', so its mirror can't be found");
+			report.addError(where, "'" + moduleName + "' is a " + it->second + " module, but its name is not " + NamingConvention::Form
+				+ " with a side of L or R, so its mirror can't be found");
 			return identifier;
 		}
 		return mirrorModule + "." + memberName;
@@ -102,21 +98,6 @@ namespace TemplateMirror
 			return SideNames::Left;
 		}
 		return side;
-	}
-
-	std::string swapSideSuffix(const std::string& name)
-	{
-		const std::string left = RigNaming::LeftSuffix;
-		const std::string right = RigNaming::RightSuffix;
-		if (StringUtils::endsWith(name, left))
-		{
-			return name.substr(0, name.size() - left.size()) + right;
-		}
-		if (StringUtils::endsWith(name, right))
-		{
-			return name.substr(0, name.size() - right.size()) + left;
-		}
-		return std::string();
 	}
 
 	void expandMirrors(RigRootData& rigData, ValidationReport& report)
@@ -142,18 +123,19 @@ namespace TemplateMirror
 				report.addError(where + "." + TemplateKey::Mirror, "only Left or Right modules can be mirrored, this one is '" + source.side + "'");
 				continue;
 			}
-			const char* suffix = suffixForSide(source.side);
-			if (!StringUtils::endsWith(source.name, suffix))
+			// validateModuleNames checks the whole name and that its side is the module's. This only needs it to swap.
+			const std::string mirrorName = NamingConvention::swapSide(source.name);
+			if (mirrorName.empty())
 			{
-				report.addError(where + "." + TemplateKey::Name, "a mirrored " + source.side + " module's name must end in '"
-					+ suffix + "', so its mirror's name can swap the suffix");
+				report.addError(where + "." + TemplateKey::Name, "a mirrored " + source.side + " module's name must be "
+					+ NamingConvention::Form + " with a side of L or R, so its mirror's name can swap the side");
 				continue;
 			}
 
 			RigModuleData mirror = source;
 			mirror.mirror = false;
 			mirror.mirrorOf = static_cast<int>(i);
-			mirror.name = swapSideSuffix(source.name);
+			mirror.name = mirrorName;
 			mirror.side = swapSide(source.side);
 			swapSelectorSides(mirror.moduleArgs);
 			for (auto& [plugName, socketIdentifier] : mirror.parentStructure)
@@ -188,11 +170,11 @@ namespace TemplateMirror
 					+ targetModule + "' is not one");
 				continue;
 			}
-			const std::string mirrorName = swapSideSuffix(source.name);
+			const std::string mirrorName = NamingConvention::swapSide(source.name);
 			if (mirrorName.empty())
 			{
-				report.addError(where + "." + TemplateKey::Name, std::string("a mirrored constraint's name must end in '")
-					+ RigNaming::LeftSuffix + "' or '" + RigNaming::RightSuffix + "', so its mirror's name can swap the suffix");
+				report.addError(where + "." + TemplateKey::Name, std::string("a mirrored constraint's name must be ")
+					+ NamingConvention::Form + " with a side of L or R, so its mirror's name can swap the side");
 				continue;
 			}
 

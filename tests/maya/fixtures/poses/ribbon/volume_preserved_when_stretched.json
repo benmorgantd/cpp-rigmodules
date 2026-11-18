@@ -3,14 +3,14 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailIK_02_ctrl_c.translateX": 4,
-    "tailIK_00_ctrl_c.volumePreserve": 1
+    "tailIK_02_M_CTRL.translateX": 4,
+    "tailIK_00_M_CTRL.volumePreserve": 1
   },
   "expect": {
-    "tail1_jnt": {"translate": [0, 0, 0], "scale": [1, 0.816497, 0.816497]},
-    "tail2_jnt": {"translate": [3, 0, 0], "scale": [1, 0.816497, 0.816497]},
-    "tail3_jnt": {"translate": [6, 0, 0], "scale": [1, 0.816497, 0.816497]},
-    "tail4_jnt": {"translate": [9, 0, 0], "scale": [1, 0.816497, 0.816497]},
-    "tail5_jnt": {"translate": [12, 0, 0], "scale": [1, 0.816497, 0.816497]}
+    "tail1_00_M_JNT": {"translate": [0, 0, 0], "scale": [1, 0.816497, 0.816497]},
+    "tail2_00_M_JNT": {"translate": [3, 0, 0], "scale": [1, 0.816497, 0.816497]},
+    "tail3_00_M_JNT": {"translate": [6, 0, 0], "scale": [1, 0.816497, 0.816497]},
+    "tail4_00_M_JNT": {"translate": [9, 0, 0], "scale": [1, 0.816497, 0.816497]},
+    "tail5_00_M_JNT": {"translate": [12, 0, 0], "scale": [1, 0.816497, 0.816497]}
   }
 }

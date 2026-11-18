@@ -3,6 +3,7 @@
 #include "core/ControlPlacement.h"
 #include "core/JointMarkup.h"
 #include "core/JsonUtils.h"
+#include "core/NamingConvention.h"
 #include "core/RigJsonStructs.h"
 #include "core/StringUtils.h"
 #include "maya/nodes/RigControlNode.h"
@@ -1076,6 +1077,12 @@ bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 	// Names (D57): <base>IK, <base>Pole and <base>Settings. The base is controlName, else the first joint's usage without its
 	// trailing _NN. A usage another module already uses is reported by the template's one-usage-per-rig check (D25).
 	const std::string base = ikArgs.controlName.empty() ? StringUtils::stripNumberSuffix(ikArgs.joints.front().usage) : ikArgs.controlName;
+	if (!NamingConvention::isValidBase(base))
+	{
+		ctx.report.addError(argsPath + ".controlName", "the derived controls are named from '" + base + "', which is not camelCase (a lowercase letter, "
+			"then letters and digits). Set controlName to a camelCase name");
+		return false;
+	}
 	const std::string& firstSide = ikArgs.joints.front().side;
 	const std::pair<unsigned int, const char*> derived[] =
 	{

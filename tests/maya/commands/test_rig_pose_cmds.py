@@ -3,7 +3,7 @@ whole rig or on a set of controls.
 
 Every test builds mirror_arms: spine (Center chest), clavicle_l/r, arm_l/r (upperArm, lowerArm) and the layout.
 Every joint is world aligned, so a Center control's mirror axis is its local X. The upper arm controls carry the
-`space` enum of arm_space_l/r.
+`space` enum of armSpace_00_L_CON/r.
 """
 import json
 import math
@@ -17,11 +17,11 @@ import rigmodules.pose
 import rigmodules.query
 from rigtest.case import RigTestCase, rig_name
 
-ARM_L = rig_name("upperArm_l_ctrl_l")
-ARM_R = rig_name("upperArm_r_ctrl_r")
-FOREARM_L = rig_name("lowerArm_l_ctrl_l")
-FOREARM_R = rig_name("lowerArm_r_ctrl_r")
-CHEST = rig_name("chest_ctrl_c")
+ARM_L = rig_name("upperArm_00_L_CTRL")
+ARM_R = rig_name("upperArm_00_R_CTRL")
+FOREARM_L = rig_name("lowerArm_00_L_CTRL")
+FOREARM_R = rig_name("lowerArm_00_R_CTRL")
+CHEST = rig_name("chest_00_M_CTRL")
 
 TRANSFORMS = ["translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
 
@@ -104,11 +104,11 @@ class GetRigControlChannels(PoseTestCase):
 
     def test_custom_channel_without_a_mirror_mode_is_an_error(self):
         add_channel(CHEST, "lean", None, attributeType="double")
-        self.assertMayaError(lambda: cmds.getRigControlChannels(CHEST), "chest_ctrl_c.lean", "mirrorCopy", "mirrorNegate")
+        self.assertMayaError(lambda: cmds.getRigControlChannels(CHEST), "chest_00_M_CTRL.lean", "mirrorCopy", "mirrorNegate")
 
     def test_enum_or_bool_that_negates_is_an_error(self):
         add_channel(CHEST, "mode", "mirrorNegate", attributeType="enum", enumName="a:b")
-        self.assertMayaError(lambda: cmds.getRigControlChannels(CHEST), "chest_ctrl_c.mode", "can't be negated")
+        self.assertMayaError(lambda: cmds.getRigControlChannels(CHEST), "chest_00_M_CTRL.mode", "can't be negated")
 
     def test_locked_and_non_keyable_channels_are_left_out(self):
         cmds.setAttr(CHEST + ".translateY", lock=True)
@@ -127,10 +127,10 @@ class GetRigControlChannels(PoseTestCase):
 
     def test_several_controls_are_keyed_by_name(self):
         data = json.loads(cmds.getRigControlChannels(ARM_L, CHEST))
-        self.assertEqual(sorted(data), ["rig:chest_ctrl_c", "rig:upperArm_l_ctrl_l"])
+        self.assertEqual(sorted(data), ["rig:chest_00_M_CTRL", "rig:upperArm_00_L_CTRL"])
 
     def test_object_must_be_a_rig_control(self):
-        self.assertMayaError(lambda: cmds.getRigControlChannels(rig_name("upperArm_l_jnt")), "Not a rig control")
+        self.assertMayaError(lambda: cmds.getRigControlChannels(rig_name("upperArm_00_L_JNT")), "Not a rig control")
         self.assertMayaError(lambda: cmds.getRigControlChannels("missing"), "Not a rig control")
 
     def test_needs_a_control_and_ignores_the_selection(self):
@@ -151,7 +151,7 @@ class ZeroRigControls(PoseTestCase):
         set_values(ARM_L, rotateY=30, translateX=1.5)
         set_values(CHEST, scaleX=2, visibility=False)
         changed = cmds.zeroRigControls(rig_root())
-        self.assertEqual(sorted(changed), ["rig:chest_ctrl_c", "rig:upperArm_l_ctrl_l"])
+        self.assertEqual(sorted(changed), ["rig:chest_00_M_CTRL", "rig:upperArm_00_L_CTRL"])
         self.assertEqual(values(ARM_L, TRANSFORMS), [0, 0, 0, 0, 0, 0, 1, 1, 1])
         self.assertEqual(values(CHEST, TRANSFORMS), [0, 0, 0, 0, 0, 0, 1, 1, 1])
         self.assertTrue(cmds.getAttr(CHEST + ".visibility"))
@@ -182,7 +182,7 @@ class ZeroRigControls(PoseTestCase):
         self.assertEqual(values(ARM_L, ["rotateY"]), [0])
 
     def test_object_must_be_a_rig_root_or_control(self):
-        self.assertMayaError(lambda: cmds.zeroRigControls(rig_name("upperArm_l_jnt")), "Not a rig root or rig control")
+        self.assertMayaError(lambda: cmds.zeroRigControls(rig_name("upperArm_00_L_JNT")), "Not a rig root or rig control")
         self.assertMayaError(lambda: cmds.zeroRigControls("missing"), "Not a rig root or rig control")
 
     def test_controls_reset_only_those_controls(self):
@@ -190,7 +190,7 @@ class ZeroRigControls(PoseTestCase):
         set_values(ARM_R, rotateY=40)
         set_values(CHEST, translateX=2)
         changed = cmds.zeroRigControls(ARM_L, CHEST)
-        self.assertEqual(sorted(changed), ["rig:chest_ctrl_c", "rig:upperArm_l_ctrl_l"])
+        self.assertEqual(sorted(changed), ["rig:chest_00_M_CTRL", "rig:upperArm_00_L_CTRL"])
         self.assertEqual(values(ARM_L, ["rotateY"]), [0])
         self.assertEqual(values(CHEST, ["translateX"]), [0])
         self.assertEqual(values(ARM_R, ["rotateY"]), [40])
@@ -212,7 +212,7 @@ class ZeroRigControls(PoseTestCase):
 
     def test_a_control_given_twice_is_reset_once(self):
         set_values(ARM_L, rotateY=30)
-        self.assertEqual(cmds.zeroRigControls(ARM_L, ARM_L), ["rig:upperArm_l_ctrl_l"])
+        self.assertEqual(cmds.zeroRigControls(ARM_L, ARM_L), ["rig:upperArm_00_L_CTRL"])
 
 
 class MirrorRigPose(PoseTestCase):
@@ -221,7 +221,7 @@ class MirrorRigPose(PoseTestCase):
         set_values(ARM_L, translateX=1, rotateX=10, rotateY=20, rotateZ=30, scaleY=2)
         set_values(FOREARM_R, rotateZ=45)
         changed = cmds.mirrorRigPose(rig_root())
-        self.assertEqual(sorted(changed), ["rig:lowerArm_r_ctrl_r", "rig:upperArm_r_ctrl_r"])
+        self.assertEqual(sorted(changed), ["rig:lowerArm_00_R_CTRL", "rig:upperArm_00_R_CTRL"])
         self.assertEqual(values(ARM_R, TRANSFORMS), [1, 0, 0, 10, 20, 30, 1, 2, 1])
         self.assertEqual(values(FOREARM_R, ["rotateZ"]), [0])
 
@@ -236,7 +236,7 @@ class MirrorRigPose(PoseTestCase):
         set_values(ARM_R, rotateZ=-40)
         set_values(ARM_L, rotateZ=5)
         changed = cmds.mirrorRigPose(rig_root(), leftToRight=False)
-        self.assertEqual(changed, ["rig:upperArm_l_ctrl_l"])
+        self.assertEqual(changed, ["rig:upperArm_00_L_CTRL"])
         self.assertEqual(values(ARM_L, ["rotateZ"]), [-40])
         self.assertEqual(values(ARM_R, ["rotateZ"]), [-40])
 
@@ -268,21 +268,21 @@ class MirrorRigPose(PoseTestCase):
         self.assertEqual(values(ARM_R, ["rotateY"]), [20])
 
     def test_object_must_be_a_rig_root_or_control(self):
-        self.assertMayaError(lambda: cmds.mirrorRigPose(rig_name("upperArm_l_jnt")), "Not a rig root or rig control")
+        self.assertMayaError(lambda: cmds.mirrorRigPose(rig_name("upperArm_00_L_JNT")), "Not a rig root or rig control")
 
     def test_left_controls_mirror_from_their_side_and_leave_other_controls_alone(self):
         set_values(ARM_L, rotateY=20)
         set_values(FOREARM_L, rotateZ=45)
         set_values(ARM_R, rotateZ=9)
         changed = cmds.mirrorRigPose(ARM_L)
-        self.assertEqual(changed, ["rig:upperArm_r_ctrl_r"])
+        self.assertEqual(changed, ["rig:upperArm_00_R_CTRL"])
         self.assertEqual(values(ARM_R, ["rotateY", "rotateZ"]), [20, 0])
         self.assertEqual(values(FOREARM_R, ["rotateZ"]), [0])
 
     def test_right_controls_mirror_from_their_side_by_default(self):
         set_values(ARM_R, rotateZ=-40)
         set_values(ARM_L, rotateZ=5)
-        self.assertEqual(cmds.mirrorRigPose(ARM_R), ["rig:upperArm_l_ctrl_l"])
+        self.assertEqual(cmds.mirrorRigPose(ARM_R), ["rig:upperArm_00_L_CTRL"])
         self.assertEqual(values(ARM_L, ["rotateZ"]), [-40])
 
     def test_controls_from_both_sides_mirror_left_to_right(self):
@@ -329,7 +329,7 @@ class FlipRigPose(PoseTestCase):
         set_values(ARM_L, translateX=1, rotateX=10, rotateY=20, rotateZ=30)
         set_values(ARM_R, translateX=-2, rotateX=-1, rotateY=-2, rotateZ=-3)
         changed = cmds.flipRigPose(rig_root())
-        self.assertEqual(sorted(changed), ["rig:upperArm_l_ctrl_l", "rig:upperArm_r_ctrl_r"])
+        self.assertEqual(sorted(changed), ["rig:upperArm_00_L_CTRL", "rig:upperArm_00_R_CTRL"])
         self.assertEqual(values(ARM_L, ["translateX", "rotateX", "rotateY", "rotateZ"]), [-2, -1, -2, -3])
         self.assertEqual(values(ARM_R, ["translateX", "rotateX", "rotateY", "rotateZ"]), [1, 10, 20, 30])
 
@@ -381,7 +381,7 @@ class FlipRigPose(PoseTestCase):
         self.assertEqual(values(CHEST, ["translateX"]), [-1])
 
     def test_object_must_be_a_rig_root_or_control(self):
-        self.assertMayaError(lambda: cmds.flipRigPose(rig_name("upperArm_l_jnt")), "Not a rig root or rig control")
+        self.assertMayaError(lambda: cmds.flipRigPose(rig_name("upperArm_00_L_JNT")), "Not a rig root or rig control")
 
     def test_one_control_swaps_with_its_mirror_and_nothing_else_moves(self):
         set_values(ARM_L, rotateY=20)
@@ -389,7 +389,7 @@ class FlipRigPose(PoseTestCase):
         set_values(FOREARM_L, rotateZ=45)
         set_values(CHEST, translateX=1)
         changed = cmds.flipRigPose(ARM_R)
-        self.assertEqual(sorted(changed), ["rig:upperArm_l_ctrl_l", "rig:upperArm_r_ctrl_r"])
+        self.assertEqual(sorted(changed), ["rig:upperArm_00_L_CTRL", "rig:upperArm_00_R_CTRL"])
         self.assertEqual(values(ARM_L, ["rotateY"]), [-3])
         self.assertEqual(values(ARM_R, ["rotateY"]), [20])
         self.assertEqual(values(FOREARM_L, ["rotateZ"]), [45])
@@ -405,7 +405,7 @@ class FlipRigPose(PoseTestCase):
     def test_a_center_control_alone_flips_through_its_channels(self):
         set_values(CHEST, translateX=1, rotateY=20)
         set_values(ARM_L, rotateY=5)
-        self.assertEqual(cmds.flipRigPose(CHEST), ["rig:chest_ctrl_c"])
+        self.assertEqual(cmds.flipRigPose(CHEST), ["rig:chest_00_M_CTRL"])
         self.assertEqual(values(CHEST, ["translateX", "rotateY"]), [-1, -20])
         self.assertEqual(values(ARM_L, ["rotateY"]), [5])
 
@@ -425,11 +425,11 @@ class FlipCenterOffAxis(RigTestCase):
 
     def test_center_control_with_no_rest_axis_along_world_x_keeps_its_values(self):
         joints = self.make_skeleton("mirror_arms")
-        cmds.xform(joints[0], worldSpace=True, rotation=[0, 30, 0])   # chest_jnt, yawed off the mirror plane
+        cmds.xform(joints[0], worldSpace=True, rotation=[0, 30, 0])   # chest_00_M_JNT, yawed off the mirror plane
         self.build("mirror_arms", joints)
         set_values(CHEST, translateX=1, rotateY=20)
         changed = cmds.flipRigPose(rig_root()) or []
-        self.assertNotIn("rig:chest_ctrl_c", changed)
+        self.assertNotIn("rig:chest_00_M_CTRL", changed)
         self.assertEqual(values(CHEST, ["translateX", "rotateY"]), [1, 20])
 
     def test_center_control_pitched_in_the_mirror_plane_still_flips(self):
@@ -458,8 +458,8 @@ class PoseFiles(PoseTestCase):
         set_values(CHEST, translateX=2)
         path = self.pose_path()
         saved = cmds.saveRigPose(rig_root(), file=path)
-        self.assertIn("rig:upperArm_l_ctrl_l", saved)
-        self.assertIn("rig:chest_ctrl_c", saved)
+        self.assertIn("rig:upperArm_00_L_CTRL", saved)
+        self.assertIn("rig:chest_00_M_CTRL", saved)
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
         self.assertEqual(data["formatVersion"], 3)
@@ -477,7 +477,7 @@ class PoseFiles(PoseTestCase):
         cmds.saveRigPose(rig_root(), file=path)
         cmds.zeroRigControls(rig_root())
         changed = cmds.loadRigPose(rig_root(), file=path)
-        self.assertEqual(sorted(changed), ["rig:chest_ctrl_c", "rig:upperArm_l_ctrl_l", "rig:upperArm_r_ctrl_r"])
+        self.assertEqual(sorted(changed), ["rig:chest_00_M_CTRL", "rig:upperArm_00_L_CTRL", "rig:upperArm_00_R_CTRL"])
         self.assertEqual(values(ARM_L, ["rotateY"]), [20])
         self.assertEqual(values(ARM_R, ["translateX"]), [-3])
         self.assertEqual(values(CHEST, ["translateX", "rotateZ"]), [2, 30])
@@ -494,7 +494,7 @@ class PoseFiles(PoseTestCase):
         set_values(ARM_L, rotateY=20)
         set_values(ARM_R, rotateY=7)
         path = self.pose_path()
-        self.assertEqual(cmds.saveRigPose(ARM_L, file=path), ["rig:upperArm_l_ctrl_l"])
+        self.assertEqual(cmds.saveRigPose(ARM_L, file=path), ["rig:upperArm_00_L_CTRL"])
         with open(path, encoding="utf-8") as handle:
             self.assertEqual(list(json.load(handle)["controls"]), ["Left"])
         cmds.zeroRigControls(rig_root())
@@ -508,7 +508,7 @@ class PoseFiles(PoseTestCase):
         path = self.pose_path()
         cmds.saveRigPose(rig_root(), file=path)
         cmds.zeroRigControls(rig_root())
-        self.assertEqual(cmds.loadRigPose(CHEST, file=path), ["rig:chest_ctrl_c"])
+        self.assertEqual(cmds.loadRigPose(CHEST, file=path), ["rig:chest_00_M_CTRL"])
         self.assertEqual(values(CHEST, ["translateX"]), [2])
         self.assertEqual(values(ARM_L, ["rotateY"]), [0])
 
@@ -537,7 +537,7 @@ class PoseFiles(PoseTestCase):
         self.write(path, {"formatVersion": 1, "controls": {
             "Left": {"upperArm": {"rotateY": 20, "noSuchChannel": 1}, "noSuchControl": {"rotateY": 5}}}})
         changed = cmds.loadRigPose(rig_root(), file=path)
-        self.assertEqual(changed, ["rig:upperArm_l_ctrl_l"])
+        self.assertEqual(changed, ["rig:upperArm_00_L_CTRL"])
         self.assertEqual(values(ARM_L, ["rotateY"]), [20])
 
     def test_a_bad_file_changes_nothing(self):

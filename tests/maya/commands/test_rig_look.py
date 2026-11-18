@@ -54,7 +54,7 @@ class LookTestCase(RigTestCase):
     def make_weight_file(self, factory, name):
         """A real weight file for the rig: the mesh is skinned to the rig's joints, saved, then deleted."""
         mesh = factory()
-        cmds.skinCluster(rig_name("a_jnt"), rig_name("b_jnt"), mesh, toSelectedBones=True)
+        cmds.skinCluster(rig_name("a_00_M_JNT"), rig_name("b_00_M_JNT"), mesh, toSelectedBones=True)
         path = os.path.join(config.WORK_DIR, name).replace("\\", "/")
         cmds.saveRigSkinWeights(mesh, file=path)
         cmds.delete(mesh)
@@ -110,7 +110,7 @@ class ApplyLook(LookTestCase):
         cluster = skin_cluster(box)
         self.assertIsNotNone(cluster)
         influences = sorted(cmds.skinCluster(cluster, query=True, influence=True))
-        self.assertEqual(influences, sorted([rig_name("a_jnt").lstrip(":"), rig_name("b_jnt").lstrip(":")]))
+        self.assertEqual(influences, sorted([rig_name("a_00_M_JNT").lstrip(":"), rig_name("b_00_M_JNT").lstrip(":")]))
 
     def test_python_query_reads_the_look(self):
         self.apply_box()
@@ -165,7 +165,7 @@ class SwapLook(LookTestCase):
         self.assertIsNotNone(skin_cluster(ball))
 
     def test_controls_and_animation_are_untouched(self):
-        control = rig_name("a_ctrl_c")
+        control = rig_name("a_00_M_CTRL")
         cmds.setKeyframe(control, attribute="rotateZ", time=1, value=0)
         cmds.setKeyframe(control, attribute="rotateZ", time=10, value=45)
         before = cmds.keyframe(control, query=True, attribute="rotateZ", valueChange=True)
@@ -210,7 +210,7 @@ class SkeletonCheck(LookTestCase):
 
     def save_rig_skeleton(self, name):
         path = os.path.join(config.WORK_DIR, name).replace("\\", "/")
-        cmds.saveRigSkeleton(rig_name("a_jnt"), rig_name("b_jnt"), rig_name("c_jnt"), file=path)
+        cmds.saveRigSkeleton(rig_name("a_00_M_JNT"), rig_name("b_00_M_JNT"), rig_name("c_00_M_JNT"), file=path)
         return path
 
     def test_the_rigs_own_skeleton_matches_its_stamp(self):

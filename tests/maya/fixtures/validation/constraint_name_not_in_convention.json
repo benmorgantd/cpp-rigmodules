@@ -1,0 +1,17 @@
+{
+  "description": "A constraint's name must be <camelCaseName>_##_<L|R|M>_CON (D58)",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/0/name",
+      "value": "fkchain_2_space"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "ending in CON",
+      "path": "constraints[0] 'fkchain_2_space'"
+    }
+  ]
+}

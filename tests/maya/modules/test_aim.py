@@ -10,7 +10,7 @@ class AimContract(ModuleContract, RigTestCase):
     TEMPLATE = "aim_basic"
     SKELETON = "aim_basic"
     MODULE_TYPE = "aimModule"
-    JOINT_OWNERS = {"eye_jnt": "aim_1", "eyeTarget_jnt": "aim_1", "eyeUp_jnt": "aim_1"}
+    JOINT_OWNERS = {"eye_00_M_JNT": "aim_01_R_MOD", "eyeTarget_00_M_JNT": "aim_01_R_MOD", "eyeUp_00_M_JNT": "aim_01_R_MOD"}
     MIRROR_TEMPLATE = "aim_mirror"
     MIRROR_SKELETON = "aim_mirror"
 
@@ -28,16 +28,16 @@ class AimBehaviour(RigTestCase):
         self.build_standard("aim_basic", "aim_basic")
         controls = sorted(n.split(":")[-1] for n in cmds.ls(rig_name("*"), type="rigControlNode")
                           if not n.split(":")[-1].startswith("layout_"))
-        self.assertEqual(controls, ["eyeTarget_ctrl_r", "eyeUp_ctrl_r"])
+        self.assertEqual(controls, ["eyeTarget_00_R_CTRL", "eyeUp_00_R_CTRL"])
 
     def test_up_on_aim_line_fails_validation(self):
         joints = self.make_skeleton("aim_basic")
         cmds.xform(joints[2], worldSpace=True, translation=(0, 0, 10))
-        self.assertMayaError(lambda: self.build("aim_basic", joints), "rigModules[0] 'aim_1'", "Nothing was built")
+        self.assertMayaError(lambda: self.build("aim_basic", joints), "rigModules[0] 'aim_01_R_MOD'", "Nothing was built")
         self.assertNothingBuilt()
 
     def test_target_on_aim_joint_fails_validation(self):
         joints = self.make_skeleton("aim_basic")
         cmds.xform(joints[1], worldSpace=True, translation=(0, 0, 0))
-        self.assertMayaError(lambda: self.build("aim_basic", joints), "rigModules[0] 'aim_1'", "Nothing was built")
+        self.assertMayaError(lambda: self.build("aim_basic", joints), "rigModules[0] 'aim_01_R_MOD'", "Nothing was built")
         self.assertNothingBuilt()

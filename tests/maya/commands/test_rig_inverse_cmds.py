@@ -11,7 +11,7 @@ from maya import cmds
 
 from rigtest.case import RigTestCase, rig_name
 
-CHEST = rig_name("chest_ctrl_c")
+CHEST = rig_name("chest_00_M_CTRL")
 
 IDENTITY = {"translate": [0, 0, 0], "rotate": [0, 0, 0, 1], "scale": [1, 1, 1]}
 

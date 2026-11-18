@@ -2,9 +2,9 @@
   "description": "Rotating the last layout control swings the rig around the origin",
   "skeleton": "fk_three",
   "template": "fkchain_three",
-  "set": { "layout_2_ctrl_c.rotateZ": 90 },
+  "set": { "layout_02_M_CTRL.rotateZ": 90 },
   "expect": {
-    "b_jnt": { "translate": [-2, 0, 0], "rotate": [0, 0, 90] },
-    "c_jnt": { "translate": [-4, 0, 0], "rotate": [0, 0, 90] }
+    "b_00_M_JNT": { "translate": [-2, 0, 0], "rotate": [0, 0, 90] },
+    "c_00_M_JNT": { "translate": [-4, 0, 0], "rotate": [0, 0, 90] }
   }
 }

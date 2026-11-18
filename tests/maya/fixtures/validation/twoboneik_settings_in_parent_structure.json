@@ -5,13 +5,13 @@
   "edits": [
     {
       "set": "/rigModules/0/parentStructure/settings",
-      "value": "layout.end"
+      "value": "layout_00_M_MOD.end"
     }
   ],
   "expectErrors": [
     {
       "contains": "is internal",
-      "path": "rigModules[0] 'arm_1'.parentStructure.settings"
+      "path": "rigModules[0] 'arm_01_L_MOD'.parentStructure.settings"
     }
   ]
 }

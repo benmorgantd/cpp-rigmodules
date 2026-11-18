@@ -168,6 +168,7 @@
     <ClCompile Include="core\SkinWeightFile.cpp" />
     <ClCompile Include="core\SelectionSets.cpp" />
     <ClCompile Include="core\SkinWeightTable.cpp" />
+    <ClCompile Include="core\NamingConvention.cpp" />
     <ClCompile Include="core\TemplateMirror.cpp" />
     <ClCompile Include="maya\CommandRegistry.cpp" />
     <ClCompile Include="maya\ModuleRegistry.cpp" />
@@ -175,6 +176,8 @@
     <ClCompile Include="maya\commands\ConstraintCmds.cpp" />
     <ClCompile Include="maya\commands\CreateRigCmd.cpp" />
     <ClCompile Include="maya\commands\JointMarkupCmd.cpp" />
+    <ClCompile Include="maya\commands\RenameRigNodesCmd.cpp" />
+    <ClCompile Include="maya\shared\NamingScene.cpp" />
     <ClCompile Include="maya\commands\RigControlCmds.cpp" />
     <ClCompile Include="maya\commands\RigDataFileCmds.cpp" />
     <ClCompile Include="maya\commands\RigInfoCmd.cpp" />
@@ -241,6 +244,7 @@
     <ClInclude Include="core\SkinWeightFile.h" />
     <ClInclude Include="core\SelectionSets.h" />
     <ClInclude Include="core\SkinWeightTable.h" />
+    <ClInclude Include="core\NamingConvention.h" />
     <ClInclude Include="core\StringUtils.h" />
     <ClInclude Include="core\TemplateMirror.h" />
     <ClInclude Include="maya\CommandRegistry.h" />
@@ -248,6 +252,8 @@
     <ClInclude Include="maya\commands\ConstraintCmds.h" />
     <ClInclude Include="maya\commands\CreateRigCmd.h" />
     <ClInclude Include="maya\commands\JointMarkupCmd.h" />
+    <ClInclude Include="maya\commands\RenameRigNodesCmd.h" />
+    <ClInclude Include="maya\shared\NamingScene.h" />
     <ClInclude Include="maya\commands\RigControlCmds.h" />
     <ClInclude Include="maya\commands\RigDataFileCmds.h" />
     <ClInclude Include="maya\commands\RigLookCmd.h" />

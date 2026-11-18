@@ -91,7 +91,7 @@ public:
 		return m_drawGeneration;
 	}
 
-	// Creates the control, names it from baseName and side, colors it by side, and writes its markup and rotate
+	// Creates the control, names it from baseName (a joint name or a usage) and side (D58), colors it by side, and writes its markup and rotate
 	// order. The module owns the rotate order (D40), so it has no default. The build locks it afterwards.
 	// The caller wires it to its module.
 	static MObject createRigControl(

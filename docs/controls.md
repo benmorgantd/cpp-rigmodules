@@ -14,7 +14,7 @@ The build writes markup on every control, so tools find controls by what they ar
 The attribute is `controlMarkup`, a JSON string: `{"markupVersion": 1, "side": "Left", "usage": "upperArm"}`. It is not keyable. The key names are public, so don't rename them.
 
 - `(side, usage)` is unique across a rig's controls. The build fails if a joint's markup would give a control the same pair as a layout control (a `Center` joint with usage `layout_0`, for example).
-- The control's color and name suffix come from its module's `side`, not from its markup.
+- The control's color and the side letter in its name come from its module's `side`, not from its markup.
 - A **marker joint** is a joint that exists only to place a control: Aim's `target` and `up`. Mark it `export: false, skin: false`, so it never reaches the engine skeleton or the skin. Its control takes its markup like any other.
 - Find controls with [`getRigControls`](commands.md#getrigcontrols).
 

@@ -2,6 +2,7 @@
 #include "AssetId.h"
 #include "Constants.h"
 #include "JointMarkup.h"
+#include "NamingConvention.h"
 #include "StringUtils.h"
 #include "TemplateMirror.h"
 
@@ -81,21 +82,11 @@ namespace
 		return namesOrNone(names);
 	}
 
-	// Maya node names: a letter or '_', then letters, digits or '_'. This also keeps '.' out of "module.socket" identifiers.
-	bool isValidNodeName(const std::string& name)
+	// A name in the naming convention (D58) of the given kind. This also keeps '.' out of "module.socket" identifiers.
+	bool isConventionName(const std::string& name, NamingConvention::Kind kind)
 	{
-		if (name.empty() || std::isdigit(static_cast<unsigned char>(name[0])))
-		{
-			return false;
-		}
-		for (char c : name)
-		{
-			if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
-			{
-				return false;
-			}
-		}
-		return true;
+		NamingConvention::Name parsed;
+		return NamingConvention::parse(name, parsed) && parsed.kind == kind;
 	}
 
 	// Splits a "module.name" identifier and finds the module's planned interface.
@@ -299,9 +290,9 @@ namespace
 			const RigConstraintData& constraint = constraints[c];
 			const std::string where = RigTemplateValidation::constraintPath(c, constraint);
 
-			if (!isValidNodeName(constraint.name))
+			if (!isConventionName(constraint.name, NamingConvention::Kind::Constraint))
 			{
-				report.addError(where, "name must start with a letter or '_' and contain only letters, digits and '_'");
+				report.addError(where, "name must be " + std::string(NamingConvention::Form) + " ending in " + NamingConvention::kindToken(NamingConvention::Kind::Constraint));
 			}
 			else if (!constraintNames.emplace(constraint.name, c).second)
 			{
@@ -438,7 +429,7 @@ namespace RigTemplateValidation
 		{
 			return modulePath(index, module.name);
 		}
-		return modulePath(static_cast<std::size_t>(module.mirrorOf), TemplateMirror::swapSideSuffix(module.name))
+		return modulePath(static_cast<std::size_t>(module.mirrorOf), NamingConvention::swapSide(module.name))
 			+ " (mirror '" + module.name + "')";
 	}
 
@@ -453,7 +444,7 @@ namespace RigTemplateValidation
 		{
 			return constraintPath(index, constraint.name);
 		}
-		return constraintPath(static_cast<std::size_t>(constraint.mirrorOf), TemplateMirror::swapSideSuffix(constraint.name))
+		return constraintPath(static_cast<std::size_t>(constraint.mirrorOf), NamingConvention::swapSide(constraint.name))
 			+ " (mirror '" + constraint.name + "')";
 	}
 
@@ -587,9 +578,18 @@ namespace RigTemplateValidation
 			const std::string& name = modules[i].name;
 			const std::string where = modulePath(i, modules[i]);
 
-			if (!isValidNodeName(name))
+			if (!isConventionName(name, NamingConvention::Kind::Module))
 			{
-				report.addError(where, "name must start with a letter or '_' and contain only letters, digits and '_'");
+				report.addError(where, "name must be " + std::string(NamingConvention::Form) + " ending in " + NamingConvention::kindToken(NamingConvention::Kind::Module));
+				continue;
+			}
+
+			// The side letter and the side field say the same thing: the mirror swaps both, and the controls take the side.
+			NamingConvention::Name parsedName;
+			NamingConvention::parse(name, parsedName);
+			if (parsedName.side != modules[i].side)
+			{
+				report.addError(where, "name has side " + NamingConvention::sideToken(parsedName.side) + ", but the module's side is '" + modules[i].side + "'");
 				continue;
 			}
 

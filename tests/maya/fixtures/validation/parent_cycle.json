@@ -10,13 +10,13 @@
     {
       "set": "/rigModules/0/parentStructure",
       "value": {
-        "start": "fkchain_2.end"
+        "start": "fkchain_02_L_MOD.end"
       }
     },
     {
       "set": "/rigModules/1/parentStructure",
       "value": {
-        "start": "fkchain_1.end"
+        "start": "fkchain_01_M_MOD.end"
       }
     }
   ],

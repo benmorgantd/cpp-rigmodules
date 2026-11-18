@@ -2,11 +2,11 @@
   "description": "Mirrored pair: left root (1,0,0), end (6,0,0), pole (3.5,5,0); right root (-1,0,0), end (-6,0,0), pole (-3.5,5,0). Roll is mirrorNegate: left roll +90 about its axis +X turns n to +Z, mid = root + 1.8*(1,0,0) + 2.4*(0,0,1) = (2.8,0,2.4). Right roll -90 about its axis -X: rotating +Y about -X by -90 is rotating it about +X by +90, which gives +Z, so mid = (-1,0,0) + 1.8*(-1,0,0) + 2.4*(0,0,1) = (-2.8,0,2.4), the reflection of the left.",
   "skeleton": "twoboneik_mirror",
   "template": "twoboneik_mirror",
-  "set": { "armIK_ctrl_l.roll": 90, "armIK_ctrl_r.roll": -90 },
+  "set": { "armIK_00_L_CTRL.roll": 90, "armIK_00_R_CTRL.roll": -90 },
   "expect": {
-    "lowerArm_l_jnt": { "translate": [2.8, 0, 2.4] },
-    "hand_l_jnt": { "translate": [6, 0, 0] },
-    "lowerArm_r_jnt": { "translate": [-2.8, 0, 2.4] },
-    "hand_r_jnt": { "translate": [-6, 0, 0] }
+    "lowerArm_00_L_JNT": { "translate": [2.8, 0, 2.4] },
+    "hand_00_L_JNT": { "translate": [6, 0, 0] },
+    "lowerArm_00_R_JNT": { "translate": [-2.8, 0, 2.4] },
+    "hand_00_R_JNT": { "translate": [-6, 0, 0] }
   }
 }

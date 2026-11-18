@@ -27,7 +27,7 @@ Rest matrices are local, so moving a joint changes its own entry and nothing bel
 ```python
 joints = cmds.ls("skel:*", type="joint")
 cmds.saveRigSkeleton(*joints, file="C:/assets/hero/skeletons/body/skeleton.json")
-# Returns "159c28565ab750f5", the skeleton hash
+# Returns "727fc558f44954b9", the skeleton hash
 ```
 
 The joints should be at rest: the file records them as they are. Every joint of the skeleton must be marked, because the file holds marked joints only and an unmarked joint would be lost. The full command reference is in [commands.md](commands.md#saverigskeleton).
@@ -36,7 +36,7 @@ The joints should be at rest: the file records them as they are. Every joint of 
 
 ```python
 joints = cmds.loadRigSkeleton(file="C:/assets/hero/skeletons/body/skeleton.json", namespace="hero_body")
-# Returns ["hero_body:a_jnt", "hero_body:b_jnt", "hero_body:c_jnt"]
+# Returns ["hero_body:a_00_M_JNT", "hero_body:b_00_M_JNT", "hero_body:c_00_M_JNT"]
 ```
 
 The joints are created at rest, parented and marked, in the namespace. Saving them again writes the same file and the same hash, and a rig built on them stamps that hash. The full command reference is in [commands.md](commands.md#loadrigskeleton).
@@ -52,16 +52,16 @@ The stored `skeletonHash` is not trusted. The hash is recomputed from the joints
 
 ## File format
 
-The file for a three-joint chain: `a_jnt` at the origin, `b_jnt` 2 units up under it, and `c_jnt` 2 units further up under `b_jnt`.
+The file for a three-joint chain: `a_00_M_JNT` at the origin, `b_00_M_JNT` 2 units up under it, and `c_00_M_JNT` 2 units further up under `b_00_M_JNT`.
 
 ```json
 {
     "formatVersion": 1,
-    "skeletonHash": "159c28565ab750f5",
+    "skeletonHash": "727fc558f44954b9",
     "joints": [
-        {"markup": ["Center", "a"], "export": true, "skin": true, "name": "a_jnt", "parent": null, "rotateOrder": "xyz", "restLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]},
-        {"markup": ["Center", "b"], "export": true, "skin": true, "name": "b_jnt", "parent": ["Center", "a"], "rotateOrder": "xyz", "restLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1]},
-        {"markup": ["Center", "c"], "export": true, "skin": true, "name": "c_jnt", "parent": ["Center", "b"], "rotateOrder": "xyz", "restLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1]}
+        {"markup": ["Center", "a"], "export": true, "skin": true, "name": "a_00_M_JNT", "parent": null, "rotateOrder": "xyz", "restLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]},
+        {"markup": ["Center", "b"], "export": true, "skin": true, "name": "b_00_M_JNT", "parent": ["Center", "a"], "rotateOrder": "xyz", "restLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1]},
+        {"markup": ["Center", "c"], "export": true, "skin": true, "name": "c_00_M_JNT", "parent": ["Center", "b"], "rotateOrder": "xyz", "restLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1]}
     ]
 }
 ```

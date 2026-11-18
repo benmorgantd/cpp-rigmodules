@@ -3,14 +3,14 @@
   "skeleton": "ribbon_negx",
   "template": "ribbon_negx",
   "set": {
-    "tailIK_01_ctrl_c.translateY": 2
+    "tailIK_01_M_CTRL.translateY": 2
   },
   "tolerance": 0.001,
   "expect": {
-    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [0, 0, 0]},
-    "tail2_jnt": {"translate": [-2, 1, 0], "rotate": [0, 0, -36.8699]},
-    "tail3_jnt": {"translate": [-4, 2, 0], "rotate": [0, 0, 0]},
-    "tail4_jnt": {"translate": [-6, 1, 0], "rotate": [0, 0, 36.8699]},
-    "tail5_jnt": {"translate": [-8, 0, 0], "rotate": [0, 0, 0]}
+    "tail1_00_M_JNT": {"translate": [0, 0, 0], "rotate": [0, 0, 0]},
+    "tail2_00_M_JNT": {"translate": [-2, 1, 0], "rotate": [0, 0, -36.8699]},
+    "tail3_00_M_JNT": {"translate": [-4, 2, 0], "rotate": [0, 0, 0]},
+    "tail4_00_M_JNT": {"translate": [-6, 1, 0], "rotate": [0, 0, 36.8699]},
+    "tail5_00_M_JNT": {"translate": [-8, 0, 0], "rotate": [0, 0, 0]}
   }
 }

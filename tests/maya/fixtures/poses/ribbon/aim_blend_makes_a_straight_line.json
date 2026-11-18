@@ -3,16 +3,16 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailIK_02_ctrl_c.translateY": 2,
-    "tailIK_00_ctrl_c.startAimBlend": 1,
-    "tailIK_00_ctrl_c.endAimBlend": 1
+    "tailIK_02_M_CTRL.translateY": 2,
+    "tailIK_00_M_CTRL.startAimBlend": 1,
+    "tailIK_00_M_CTRL.endAimBlend": 1
   },
   "tolerance": 0.001,
   "expect": {
-    "tail1_jnt": {"translate": [0, 0.0, 0], "rotate": [0, 0, 14.0362]},
-    "tail2_jnt": {"translate": [2, 0.5, 0], "rotate": [0, 0, 14.0362]},
-    "tail3_jnt": {"translate": [4, 1.0, 0], "rotate": [0, 0, 14.0362]},
-    "tail4_jnt": {"translate": [6, 1.5, 0], "rotate": [0, 0, 14.0362]},
-    "tail5_jnt": {"translate": [8, 2.0, 0], "rotate": [0, 0, 14.0362]}
+    "tail1_00_M_JNT": {"translate": [0, 0.0, 0], "rotate": [0, 0, 14.0362]},
+    "tail2_00_M_JNT": {"translate": [2, 0.5, 0], "rotate": [0, 0, 14.0362]},
+    "tail3_00_M_JNT": {"translate": [4, 1.0, 0], "rotate": [0, 0, 14.0362]},
+    "tail4_00_M_JNT": {"translate": [6, 1.5, 0], "rotate": [0, 0, 14.0362]},
+    "tail5_00_M_JNT": {"translate": [8, 2.0, 0], "rotate": [0, 0, 14.0362]}
   }
 }

@@ -4,40 +4,40 @@
   "skeleton": "aim_basic",
   "interface": {
     "modules": {
-      "aim_1": {
+      "aim_01_R_MOD": {
         "type": "aimModule",
         "sockets": [["aim"], ["target"], ["up"]],
         "childPlugs": ["aim", "target", "up"]
       },
-      "layout": {
+      "layout_00_M_MOD": {
         "type": "layoutModule",
         "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
         "childPlugs": []
       }
     },
     "controls": {
-      "eyeTarget_ctrl_r": {
+      "eyeTarget_00_R_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Right", "eyeTarget"]
       },
-      "eyeUp_ctrl_r": {
+      "eyeUp_00_R_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Right", "eyeUp"]
       },
-      "layout_0_ctrl_c": {
+      "layout_00_M_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Center", "layout_0"]
       },
-      "layout_1_ctrl_c": {
+      "layout_01_M_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Center", "layout_1"]
       },
-      "layout_2_ctrl_c": {
+      "layout_02_M_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Center", "layout_2"]
       }
     },
-    "joints": ["eyeTarget_jnt", "eyeUp_jnt", "eye_jnt"],
+    "joints": ["eyeTarget_00_M_JNT", "eyeUp_00_M_JNT", "eye_00_M_JNT"],
     "constraints": {}
   }
 }

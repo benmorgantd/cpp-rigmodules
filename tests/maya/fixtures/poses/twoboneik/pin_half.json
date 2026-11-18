@@ -2,9 +2,9 @@
   "description": "Pole moved to (2,3,0), handle at rest (5,0,0), pin 0.5. Free mid is (1.8,2.4,0) (the pole is on +Y), pinned mid is the pole (2,3,0). lerp = (1.9,2.7,0). The free end is already on the handle, so end (5,0,0).",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "armPole_ctrl_l.translateX": -0.5, "armPole_ctrl_l.translateY": -2, "armPole_ctrl_l.pin": 0.5 },
+  "set": { "armPole_00_L_CTRL.translateX": -0.5, "armPole_00_L_CTRL.translateY": -2, "armPole_00_L_CTRL.pin": 0.5 },
   "expect": {
-    "lowerArm_jnt": { "translate": [1.9, 2.7, 0] },
-    "hand_jnt": { "translate": [5, 0, 0] }
+    "lowerArm_00_M_JNT": { "translate": [1.9, 2.7, 0] },
+    "hand_00_M_JNT": { "translate": [5, 0, 0] }
   }
 }

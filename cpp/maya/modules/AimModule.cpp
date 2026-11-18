@@ -275,7 +275,7 @@ RigModuleBuildResult AimModuleNode::createModule(
 			}
 		}
 
-		// Socket and child plug share a name. They live in separate maps/namespaces ("layout.end" vs. "target").
+		// Socket and child plug share a name. They live in separate maps/namespaces ("layout_00_M_MOD.end" vs. "target").
 		RigModuleSocketInfo socketInfo;
 		socketInfo.oTransform = oControl;      // null for aim, children get the matrix but no DAG parent
 		socketInfo.mRestWorld = mRestWorld;

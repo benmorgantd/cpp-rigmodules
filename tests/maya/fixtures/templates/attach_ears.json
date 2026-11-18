@@ -2,8 +2,8 @@
   "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "AttachEars",
   "rigModules": [
-    { "moduleType": "FkChain", "name": "ear_l", "shapeType": "Box", "side": "Left", "mirror": true,
+    { "moduleType": "FkChain", "name": "ear_00_L_MOD", "shapeType": "Box", "side": "Left", "mirror": true,
       "moduleArgs": { "joints": [ ["Left", "ear"] ] },
-      "parentStructure": { "start": "parent:arm_l.end" } }
+      "parentStructure": { "start": "parent:arm_00_L_MOD.end" } }
   ]
 }

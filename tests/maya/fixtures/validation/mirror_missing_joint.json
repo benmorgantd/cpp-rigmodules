@@ -3,5 +3,5 @@
   "base": "mirror_arms",
   "skeleton": "mirror_arms",
   "edits": [ { "set": "/rigModules/2/moduleArgs/joints/1", "value": ["Left", "hand"] } ],
-  "expectErrors": [ { "path": "rigModules[2] 'arm_l' (mirror 'arm_r').moduleArgs", "contains": "usage hand" } ]
+  "expectErrors": [ { "path": "rigModules[2] 'arm_00_L_MOD' (mirror 'arm_00_R_MOD').moduleArgs", "contains": "usage hand" } ]
 }

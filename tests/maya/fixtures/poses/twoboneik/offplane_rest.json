@@ -3,8 +3,8 @@
   "skeleton": "twoboneik_offplane",
   "template": "twoboneik_offplane",
   "expect": {
-    "upperArm_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, 0] },
-    "lowerArm_jnt": { "translate": [1.8, 0, 2.4], "rotate": [0, 0, 0] },
-    "hand_jnt": { "translate": [5, 0, 0], "rotate": [0, 0, 0] }
+    "upperArm_00_M_JNT": { "translate": [0, 0, 0], "rotate": [0, 0, 0] },
+    "lowerArm_00_M_JNT": { "translate": [1.8, 0, 2.4], "rotate": [0, 0, 0] },
+    "hand_00_M_JNT": { "translate": [5, 0, 0], "rotate": [0, 0, 0] }
   }
 }

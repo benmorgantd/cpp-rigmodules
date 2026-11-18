@@ -7,8 +7,8 @@
 //     "formatVersion": 1,
 //     "skeletonHash": "16 hex digits",
 //     "joints": [
-//         {"markup": ["Center", "root"], "export": true, "skin": true, "name": "root_jnt", "parent": null, "rotateOrder": "xyz", "restLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 10, 0, 1]},
-//         {"markup": ["Center", "spine_1"], "export": true, "skin": true, "name": "spine_1_jnt", "parent": ["Center", "root"], ...}
+//         {"markup": ["Center", "root"], "export": true, "skin": true, "name": "root_00_M_JNT", "parent": null, "rotateOrder": "xyz", "restLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 10, 0, 1]},
+//         {"markup": ["Center", "spine_1"], "export": true, "skin": true, "name": "spine_01_M_JNT", "parent": ["Center", "root"], ...}
 //     ]
 // }
 // One line per joint, sorted by side then usage, so an edit to one joint is a one-line diff. restLocal is the rest

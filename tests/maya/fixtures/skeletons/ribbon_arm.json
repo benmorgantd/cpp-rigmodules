@@ -1,17 +1,17 @@
 {
   "joints": [
-    { "name": "upperArm_jnt", "side": "Left", "usage": "upperArm", "translate": [0, 0, 0] },
-    { "name": "lowerArm_jnt", "side": "Left", "usage": "lowerArm", "translate": [4, -0.3, 0] },
-    { "name": "hand_jnt", "side": "Left", "usage": "hand", "translate": [8, 0, 0] },
-    { "name": "up1_jnt", "side": "Center", "usage": "up1", "translate": [0, 0, 0] },
-    { "name": "up2_jnt", "side": "Center", "usage": "up2", "translate": [1, -0.075, 0] },
-    { "name": "up3_jnt", "side": "Center", "usage": "up3", "translate": [2, -0.15, 0] },
-    { "name": "up4_jnt", "side": "Center", "usage": "up4", "translate": [3, -0.225, 0] },
-    { "name": "up5_jnt", "side": "Center", "usage": "up5", "translate": [4, -0.3, 0] },
-    { "name": "fo1_jnt", "side": "Center", "usage": "fo1", "translate": [4, -0.3, 0] },
-    { "name": "fo2_jnt", "side": "Center", "usage": "fo2", "translate": [5, -0.225, 0] },
-    { "name": "fo3_jnt", "side": "Center", "usage": "fo3", "translate": [6, -0.15, 0] },
-    { "name": "fo4_jnt", "side": "Center", "usage": "fo4", "translate": [7, -0.075, 0] },
-    { "name": "fo5_jnt", "side": "Center", "usage": "fo5", "translate": [8, 0, 0] }
+    { "name": "upperArm_00_M_JNT", "side": "Left", "usage": "upperArm", "translate": [0, 0, 0] },
+    { "name": "lowerArm_00_M_JNT", "side": "Left", "usage": "lowerArm", "translate": [4, -0.3, 0] },
+    { "name": "hand_00_M_JNT", "side": "Left", "usage": "hand", "translate": [8, 0, 0] },
+    { "name": "up1_00_M_JNT", "side": "Center", "usage": "up1", "translate": [0, 0, 0] },
+    { "name": "up2_00_M_JNT", "side": "Center", "usage": "up2", "translate": [1, -0.075, 0] },
+    { "name": "up3_00_M_JNT", "side": "Center", "usage": "up3", "translate": [2, -0.15, 0] },
+    { "name": "up4_00_M_JNT", "side": "Center", "usage": "up4", "translate": [3, -0.225, 0] },
+    { "name": "up5_00_M_JNT", "side": "Center", "usage": "up5", "translate": [4, -0.3, 0] },
+    { "name": "fo1_00_M_JNT", "side": "Center", "usage": "fo1", "translate": [4, -0.3, 0] },
+    { "name": "fo2_00_M_JNT", "side": "Center", "usage": "fo2", "translate": [5, -0.225, 0] },
+    { "name": "fo3_00_M_JNT", "side": "Center", "usage": "fo3", "translate": [6, -0.15, 0] },
+    { "name": "fo4_00_M_JNT", "side": "Center", "usage": "fo4", "translate": [7, -0.075, 0] },
+    { "name": "fo5_00_M_JNT", "side": "Center", "usage": "fo5", "translate": [8, 0, 0] }
   ]
 }

@@ -2,10 +2,10 @@
   "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "TwoBoneIkOffplane",
   "rigModules": [
-    { "moduleType": "TwoBoneIk", "moduleVersion": 2, "name": "arm_1", "shapeType": "Box", "side": "Left",
+    { "moduleType": "TwoBoneIk", "moduleVersion": 2, "name": "arm_01_L_MOD", "shapeType": "Box", "side": "Left",
       "moduleArgs": {
         "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"] ],
         "controlName": "arm", "poleOffset": [0.7, 5, -2.4], "settingsOffset": [-5, 8, 0] },
-      "parentStructure": { "start": "layout.end", "ik": "layout.end", "pole": "layout.end" } }
+      "parentStructure": { "start": "layout_00_M_MOD.end", "ik": "layout_00_M_MOD.end", "pole": "layout_00_M_MOD.end" } }
   ]
 }

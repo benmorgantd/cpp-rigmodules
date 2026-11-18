@@ -4,6 +4,6 @@ It imports no Qt and no bmaya, and reads no environment variables or asset paths
 mayapy with only the plugin loaded. Pipeline code (mayadev) reaches rig internals only through it.
 
     import rigmodules.query
-    info = rigmodules.query.get_rig_info("hero_body:arm_ctrl_l")
+    info = rigmodules.query.get_rig_info("hero_body:arm_00_L_CTRL")
     info.asset_id, info.rig_name                               # "shooter\\main\\characters\\hero", "body"
 """

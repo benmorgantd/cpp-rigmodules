@@ -1,7 +1,7 @@
 {
-  "description": "A mirrored module's name must end in its side's suffix, so the mirror's name can swap it",
+  "description": "A mirrored module's name must have its side's letter in its name, so the mirror's name can swap it",
   "base": "mirror_arms",
   "skeleton": "mirror_arms",
-  "edits": [ { "set": "/rigModules/2/name", "value": "arm" } ],
-  "expectErrors": [ { "path": "rigModules[2] 'arm'.name", "contains": "_l" } ]
+  "edits": [ { "set": "/rigModules/2/name", "value": "arm_00_M_MOD" } ],
+  "expectErrors": [ { "path": "rigModules[2] 'arm_00_M_MOD'.name", "contains": "side of L or R" } ]
 }

@@ -28,7 +28,7 @@
   "expectErrors": [
     {
       "contains": "Aim module",
-      "path": "rigModules[0] 'arm_1'.moduleArgs.joints"
+      "path": "rigModules[0] 'arm_01_L_MOD'.moduleArgs.joints"
     }
   ]
 }

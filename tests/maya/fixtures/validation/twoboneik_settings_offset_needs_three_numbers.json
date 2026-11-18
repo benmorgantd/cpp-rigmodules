@@ -16,7 +16,7 @@
   "expectErrors": [
     {
       "contains": "must be [x, y, z]",
-      "path": "rigModules[0] 'arm_1'.moduleArgs.settingsOffset"
+      "path": "rigModules[0] 'arm_01_L_MOD'.moduleArgs.settingsOffset"
     }
   ]
 }

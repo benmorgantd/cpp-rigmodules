@@ -516,15 +516,12 @@ namespace SideNames
 
 namespace RigNaming
 {
-	// Reserved module name for the implicit layout module. Templates address it as "layout.end".
-	inline constexpr const char* LayoutModule{ "layout" };
+	// The layout's base name: its controls' usages are "layout_<n>" and its controls are layout_<nn>_M_CTRL (D58).
+	inline constexpr const char* LayoutBase{ "layout" };
+	// Reserved module name for the implicit layout module (D58). Templates address it as "layout_00_M_MOD.end".
+	inline constexpr const char* LayoutModule{ "layout_00_M_MOD" };
 	// The lookRoot node of a rig (D54), created in the rig namespace.
 	inline constexpr const char* LookRoot{ "lookRoot" };
-	inline constexpr const char* JointSuffix{ "_jnt" };
-	inline constexpr const char* ControlSuffix{ "_ctrl" };
-	inline constexpr const char* LeftSuffix{ "_l" };
-	inline constexpr const char* RightSuffix{ "_r" };
-	inline constexpr const char* CenterSuffix{ "_c" };
 	// The display layers of a rig (D38), created in the rig namespace.
 	inline constexpr const char* JointLayer{ "jointsLayer" };
 	inline constexpr const char* MeshLayer{ "meshesLayer" };

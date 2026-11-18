@@ -2,14 +2,14 @@
   "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "AttachFace",
   "rigModules": [
-    { "moduleType": "FkChain", "name": "face_chain", "shapeType": "Box", "side": "Center",
+    { "moduleType": "FkChain", "name": "faceChain_00_M_MOD", "shapeType": "Box", "side": "Center",
       "moduleArgs": { "joints": [ ["Center", "f_a"], ["Center", "f_b"] ] },
-      "parentStructure": { "start": "parent:fkchain_1.end" } },
-    { "moduleType": "FkChain", "name": "neck_copy", "shapeType": "Box", "side": "Center",
+      "parentStructure": { "start": "parent:fkchain_01_M_MOD.end" } },
+    { "moduleType": "FkChain", "name": "neckCopy_00_M_MOD", "shapeType": "Box", "side": "Center",
       "moduleArgs": { "joints": [ ["Center", "n"] ] } }
   ],
   "constraints": [
-    { "name": "neck_follow", "target": "neck_copy.start",
-      "drivers": [ { "socket": "parent:fkchain_1.index_1", "label": "Body" } ] }
+    { "name": "neckFollow_00_M_CON", "target": "neckCopy_00_M_MOD.start",
+      "drivers": [ { "socket": "parent:fkchain_01_M_MOD.index_1", "label": "Body" } ] }
   ]
 }

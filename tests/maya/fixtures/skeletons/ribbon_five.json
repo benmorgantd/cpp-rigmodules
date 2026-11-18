@@ -1,13 +1,13 @@
 {
   "joints": [
-    { "name": "spine1_jnt", "side": "Center", "usage": "spine1", "translate": [0, 0, 0] },
-    { "name": "spine2_jnt", "side": "Center", "usage": "spine2", "translate": [1, 0, 0] },
-    { "name": "spine3_jnt", "side": "Center", "usage": "spine3", "translate": [2, 0, 0] },
-    { "name": "spine4_jnt", "side": "Center", "usage": "spine4", "translate": [3, 0, 0] },
-    { "name": "spine5_jnt", "side": "Center", "usage": "spine5", "translate": [4, 0, 0] },
-    { "name": "spine6_jnt", "side": "Center", "usage": "spine6", "translate": [5, 0, 0] },
-    { "name": "spine7_jnt", "side": "Center", "usage": "spine7", "translate": [6, 0, 0] },
-    { "name": "spine8_jnt", "side": "Center", "usage": "spine8", "translate": [7, 0, 0] },
-    { "name": "spine9_jnt", "side": "Center", "usage": "spine9", "translate": [8, 0, 0] }
+    { "name": "spine1_00_M_JNT", "side": "Center", "usage": "spine1", "translate": [0, 0, 0] },
+    { "name": "spine2_00_M_JNT", "side": "Center", "usage": "spine2", "translate": [1, 0, 0] },
+    { "name": "spine3_00_M_JNT", "side": "Center", "usage": "spine3", "translate": [2, 0, 0] },
+    { "name": "spine4_00_M_JNT", "side": "Center", "usage": "spine4", "translate": [3, 0, 0] },
+    { "name": "spine5_00_M_JNT", "side": "Center", "usage": "spine5", "translate": [4, 0, 0] },
+    { "name": "spine6_00_M_JNT", "side": "Center", "usage": "spine6", "translate": [5, 0, 0] },
+    { "name": "spine7_00_M_JNT", "side": "Center", "usage": "spine7", "translate": [6, 0, 0] },
+    { "name": "spine8_00_M_JNT", "side": "Center", "usage": "spine8", "translate": [7, 0, 0] },
+    { "name": "spine9_00_M_JNT", "side": "Center", "usage": "spine9", "translate": [8, 0, 0] }
   ]
 }

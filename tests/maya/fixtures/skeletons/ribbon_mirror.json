@@ -1,14 +1,14 @@
 {
   "joints": [
-    { "name": "tail1_l_jnt", "side": "Left", "usage": "tail1", "translate": [1, 0, 0] },
-    { "name": "tail2_l_jnt", "side": "Left", "usage": "tail2", "translate": [3, 0, 0] },
-    { "name": "tail3_l_jnt", "side": "Left", "usage": "tail3", "translate": [5, 0, 0] },
-    { "name": "tail4_l_jnt", "side": "Left", "usage": "tail4", "translate": [7, 0, 0] },
-    { "name": "tail5_l_jnt", "side": "Left", "usage": "tail5", "translate": [9, 0, 0] },
-    { "name": "tail1_r_jnt", "side": "Right", "usage": "tail1", "translate": [-1, 0, 0], "rotate": [0, 180, 0] },
-    { "name": "tail2_r_jnt", "side": "Right", "usage": "tail2", "translate": [-3, 0, 0], "rotate": [0, 180, 0] },
-    { "name": "tail3_r_jnt", "side": "Right", "usage": "tail3", "translate": [-5, 0, 0], "rotate": [0, 180, 0] },
-    { "name": "tail4_r_jnt", "side": "Right", "usage": "tail4", "translate": [-7, 0, 0], "rotate": [0, 180, 0] },
-    { "name": "tail5_r_jnt", "side": "Right", "usage": "tail5", "translate": [-9, 0, 0], "rotate": [0, 180, 0] }
+    { "name": "tail1_00_L_JNT", "side": "Left", "usage": "tail1", "translate": [1, 0, 0] },
+    { "name": "tail2_00_L_JNT", "side": "Left", "usage": "tail2", "translate": [3, 0, 0] },
+    { "name": "tail3_00_L_JNT", "side": "Left", "usage": "tail3", "translate": [5, 0, 0] },
+    { "name": "tail4_00_L_JNT", "side": "Left", "usage": "tail4", "translate": [7, 0, 0] },
+    { "name": "tail5_00_L_JNT", "side": "Left", "usage": "tail5", "translate": [9, 0, 0] },
+    { "name": "tail1_00_R_JNT", "side": "Right", "usage": "tail1", "translate": [-1, 0, 0], "rotate": [0, 180, 0] },
+    { "name": "tail2_00_R_JNT", "side": "Right", "usage": "tail2", "translate": [-3, 0, 0], "rotate": [0, 180, 0] },
+    { "name": "tail3_00_R_JNT", "side": "Right", "usage": "tail3", "translate": [-5, 0, 0], "rotate": [0, 180, 0] },
+    { "name": "tail4_00_R_JNT", "side": "Right", "usage": "tail4", "translate": [-7, 0, 0], "rotate": [0, 180, 0] },
+    { "name": "tail5_00_R_JNT", "side": "Right", "usage": "tail5", "translate": [-9, 0, 0], "rotate": [0, 180, 0] }
   ]
 }

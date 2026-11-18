@@ -41,7 +41,7 @@ struct ControlSpace
 	int current = 0;
 };
 
-// One JSON object: {"constraint": "hero:arm_ctrl_l_space", "module": "", "labels": ["World", "Chest"], "current": 1}.
+// One JSON object: {"constraint": "hero:arm_00_L_CON", "module": "", "labels": ["World", "Chest"], "current": 1}.
 // Keys in ControlSpaceKey.
 std::string serializeControlSpace(const ControlSpace& space);
 

@@ -5,12 +5,12 @@
   "edits": [
     {
       "set": "/constraints/1/target",
-      "value": "aim_1.aim"
+      "value": "aim_01_R_MOD.aim"
     }
   ],
   "expectErrors": [
     {
-      "contains": "aim_1.aim"
+      "contains": "aim_01_R_MOD.aim"
     }
   ]
 }

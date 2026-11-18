@@ -11,7 +11,7 @@
   "expectErrors": [
     {
       "contains": "missing_module",
-      "path": "rigModules[2] 'aim_1'.parentStructure.up"
+      "path": "rigModules[2] 'aim_01_R_MOD'.parentStructure.up"
     }
   ]
 }

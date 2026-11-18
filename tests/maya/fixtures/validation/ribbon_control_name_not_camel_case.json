@@ -1,0 +1,17 @@
+{
+  "description": "The ik and tweak controls are named from controlName, which must be camelCase (D58)",
+  "base": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/controlName",
+      "value": "Tail"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "not camelCase",
+      "path": "rigModules[0] 'tail_01_M_MOD'.moduleArgs.controlName"
+    }
+  ]
+}

@@ -7,16 +7,16 @@
       "set": "/constraints",
       "value": [
         {
-          "name": "c1",
+          "name": "armSettings_00_L_CON",
           "type": "Parent",
-          "target": "arm_1.settings",
+          "target": "arm_01_L_MOD.settings",
           "drivers": [
             {
-              "socket": "layout.index_0",
+              "socket": "layout_00_M_MOD.index_0",
               "label": "A"
             },
             {
-              "socket": "layout.end",
+              "socket": "layout_00_M_MOD.end",
               "label": "B"
             }
           ]
@@ -27,7 +27,7 @@
   "expectErrors": [
     {
       "contains": "does not take a constraint",
-      "path": "constraints[0] 'c1'.target"
+      "path": "constraints[0] 'armSettings_00_L_CON'.target"
     }
   ]
 }

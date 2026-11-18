@@ -2,11 +2,11 @@
   "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "RibbonAimed",
   "rigModules": [
-    { "moduleType": "Ribbon", "moduleVersion": 2, "name": "tail_1", "shapeType": "Box", "side": "Center",
+    { "moduleType": "Ribbon", "moduleVersion": 2, "name": "tail_01_M_MOD", "shapeType": "Box", "side": "Center",
       "moduleArgs": {
         "controlName": "tail",
         "joints": [ ["Center", "tail1"], ["Center", "tail2"], ["Center", "tail3"], ["Center", "tail4"], ["Center", "tail5"] ],
         "startAimBlend": 1, "endAimBlend": 0.5 },
-      "parentStructure": { "start": "layout.index_0", "end": "layout.index_2" } }
+      "parentStructure": { "start": "layout_00_M_MOD.index_0", "end": "layout_00_M_MOD.index_2" } }
   ]
 }

@@ -5,12 +5,12 @@
   "edits": [
     {
       "set": "/constraints/1/target",
-      "value": "fkchain_2.start"
+      "value": "fkchain_02_L_MOD.start"
     }
   ],
   "expectErrors": [
     {
-      "contains": "fkchain_2.start"
+      "contains": "fkchain_02_L_MOD.start"
     }
   ]
 }

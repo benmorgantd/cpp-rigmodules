@@ -6,7 +6,7 @@
     "rigModules": [
       {
         "moduleType": "FkChain",
-        "name": "fkchain_1",
+        "name": "fkchain_01_M_MOD",
         "shapeType": "Box",
         "side": "Center",
         "moduleArgs" : 
@@ -16,7 +16,7 @@
       },
       {
         "moduleType": "FkChain",
-        "name": "fkchain_2",
+        "name": "fkchain_02_L_MOD",
         "shapeType": "Capsule",
         "side": "Left",
         "moduleArgs" : 
@@ -25,12 +25,12 @@
         },
         "parentStructure" :
         {
-          "start" : "fkchain_1.start"
+          "start" : "fkchain_01_M_MOD.start"
         }
       },
       {
         "moduleType" : "Aim",
-        "name" : "aim_1",
+        "name" : "aim_01_R_MOD",
         "shapeType" : "Box",
         "side" : "Right",
         "moduleArgs" : 
@@ -39,26 +39,26 @@
         },
         "parentStructure":
         {
-          "aim" : "fkchain_1.start", "target" : "fkchain_1.start", "up" : "fkchain_1.start"
+          "aim" : "fkchain_01_M_MOD.start", "target" : "fkchain_01_M_MOD.start", "up" : "fkchain_01_M_MOD.start"
         }
       }
     ],
   "constraints": [
   {
-    "name": "fkchain_2_space",
+    "name": "fkchain2Space_00_M_CON",
     "type": "Parent",
-    "target": "fkchain_2.start",
+    "target": "fkchain_02_L_MOD.start",
     "drivers": [
-      { "socket": "fkchain_1.start", "label": "FkChain", "weight": 1.0 },
-      { "socket": "aim_1.aim", "label": "Aim" }
+      { "socket": "fkchain_01_M_MOD.start", "label": "FkChain", "weight": 1.0 },
+      { "socket": "aim_01_R_MOD.aim", "label": "Aim" }
     ]
   },
   {
-    "name" : "aim_target_space",
+    "name" : "aimTargetSpace_00_M_CON",
     "type" : "Parent",
-    "target" : "aim_1.target",
+    "target" : "aim_01_R_MOD.target",
     "drivers" : [
-      { "socket" : "layout.end", "label" : "Layout", "weight" : 1.0 }
+      { "socket" : "layout_00_M_MOD.end", "label" : "Layout", "weight" : 1.0 }
     ]
   }
 ]

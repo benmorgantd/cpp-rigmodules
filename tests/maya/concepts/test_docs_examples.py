@@ -22,11 +22,11 @@ TEMPLATES_DOC = os.path.join(config.REPO_DIR, "docs", "templates.md")
 DOC_ASSET = "shooter\\characters\\hero"
 DOC_NAMESPACE = "hero_body"
 
-SPINE3_CTRL = rig_name("spine3_ctrl_c", DOC_NAMESPACE)
-ARM_CTRL = rig_name("arm_ctrl_l", DOC_NAMESPACE)
-ARM_JNT = rig_name("arm_jnt", DOC_NAMESPACE)
+SPINE3_CTRL = rig_name("spine3_00_M_CTRL", DOC_NAMESPACE)
+ARM_CTRL = rig_name("arm_00_L_CTRL", DOC_NAMESPACE)
+ARM_JNT = rig_name("arm_00_L_JNT", DOC_NAMESPACE)
 
-# arm_jnt rests at (2, 4, 0), 2 units along +X from spine3_jnt at (0, 4, 0).
+# arm_00_L_JNT rests at (2, 4, 0), 2 units along +X from spine3_00_M_JNT at (0, 4, 0).
 ARM_REST = (2, 4, 0)
 # Rotating spine3 90 degrees about Z turns that +X offset into +Y.
 ARM_AFTER_SPINE3_ROTATE_Z_90 = (0, 6, 0)
@@ -72,9 +72,9 @@ class ReadmeQuickStart(RigTestCase):
         cmds.setAttr(SPINE3_CTRL + ".rotateZ", degrees)
 
     def test_builds_the_names_the_readme_gives(self):
-        for module in ("spine", "arm", "layout"):
+        for module in ("spine_00_M_MOD", "arm_00_L_MOD", "layout_00_M_MOD"):
             self.assertExists(rig_name(module, DOC_NAMESPACE))
-        for control in ("spine1_ctrl_c", "spine2_ctrl_c", "spine3_ctrl_c", "arm_ctrl_l"):
+        for control in ("spine1_00_M_CTRL", "spine2_00_M_CTRL", "spine3_00_M_CTRL", "arm_00_L_CTRL"):
             self.assertExists(rig_name(control, DOC_NAMESPACE))
 
     def test_arm_hangs_off_the_spine_end(self):
@@ -82,8 +82,8 @@ class ReadmeQuickStart(RigTestCase):
         self.assertWorldTranslation(ARM_JNT, ARM_AFTER_SPINE3_ROTATE_Z_90)
 
     def test_space_switch(self):
-        con = cmds.createRigConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"])
-        self.assertEqual(con.lstrip(":"), "hero_body:arm_ctrl_l_space")
+        con = cmds.createRigConstraint(ARM_CTRL, driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"])
+        self.assertEqual(con.lstrip(":"), "hero_body:arm_00_L_CON")
         self.assertEqual(cmds.attributeQuery("space", node=ARM_CTRL, listEnum=True), ["World:Chest"])
 
         # World is the first driver, so it starts active and the spine no longer carries the arm.
@@ -99,14 +99,14 @@ class ReadmeQuickStart(RigTestCase):
 
     def test_get_rig_control_space_example(self):
         """The example under '## getRigControlSpace' in docs/commands.md."""
-        cmds.createRigConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"], initial=1)
+        cmds.createRigConstraint(ARM_CTRL, driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"], initial=1)
         self.assertEqual(json.loads(cmds.getRigControlSpace(ARM_CTRL)),
-                         {"constraint": "hero_body:arm_ctrl_l_space", "module": "", "labels": ["World", "Chest"], "current": 1})
+                         {"constraint": "hero_body:arm_00_L_CON", "module": "", "labels": ["World", "Chest"], "current": 1})
         self.assertEqual(cmds.getRigControlSpace(SPINE3_CTRL), "")
 
     def test_set_rig_control_space_example(self):
         """The first example under '## setRigControlSpace' in docs/commands.md."""
-        cmds.createRigConstraint(ARM_CTRL, driver=["layout.end", "spine.end"], label=["World", "Chest"])
+        cmds.createRigConstraint(ARM_CTRL, driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"])
         cmds.setRigControlSpace(ARM_CTRL, label="Chest")
         self.assertEqual(json.loads(cmds.getRigControlSpace(ARM_CTRL))["current"], 1)
 
@@ -136,12 +136,12 @@ class OrientConstraintExamples(RigTestCase):
         template = readme_quick_start_template()
         template["constraints"] = [templates_doc_orient_constraint()]
         self.build(template, self.make_skeleton("readme_quick_start"), asset=DOC_ASSET, namespace=None)
-        self.assertEqual(cmds.getAttr("hero_body:arm_space.constraintType", asString=True), "Orient")
+        self.assertEqual(cmds.getAttr("hero_body:armSpace_00_L_CON.constraintType", asString=True), "Orient")
         self.assertPivotFollowsChestRotationDoesNot()
 
     def test_command_example(self):
         self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET, namespace=None)
-        cmds.createRigConstraint("hero_body:arm_ctrl_l", driver=["layout.end", "spine.end"], label=["World", "Chest"], type="Orient")
+        cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"], type="Orient")
         self.assertPivotFollowsChestRotationDoesNot()
 
 
@@ -170,15 +170,15 @@ class ControlDocExamples(RigTestCase):
     def test_get_rig_controls_examples(self):
         self.assertEqual(len(cmds.getRigControls(self.root)), 7)
         self.assertEqual([c.split(":")[-1] for c in cmds.getRigControls(self.root, moduleType="FkChain", side="Left")],
-                         ["arm_ctrl_l"])
+                         ["arm_00_L_CTRL"])
         self.assertEqual([c.split(":")[-1] for c in cmds.getRigControls(self.root, usage=["spine1", "spine2"])],
-                         ["spine1_ctrl_c", "spine2_ctrl_c"])
+                         ["spine1_00_M_CTRL", "spine2_00_M_CTRL"])
 
     def test_shape_file_example_loads(self):
         path = os.path.join(config.WORK_DIR, "doc_shapes.json").replace("\\", "/")
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(controls_doc_shape_file())
-        self.assertEqual([c.split(":")[-1] for c in cmds.loadRigControlShapes(self.root, file=path)], ["arm_ctrl_l"])
+        self.assertEqual([c.split(":")[-1] for c in cmds.loadRigControlShapes(self.root, file=path)], ["arm_00_L_CTRL"])
         self.assertEqual(cmds.getAttr(ARM_CTRL + ".shapeType", asString=True), "Circle")
         self.assertAlmostEqual(cmds.getAttr(ARM_CTRL + ".wireframeAlpha"), 0.5, places=5)
 
@@ -228,7 +228,7 @@ class LooksDocExample(RigTestCase):
         body = cmds.polyCube(name=":hero_body:body_geo", height=2, constructionHistory=False)[0]
         cmds.addAttr(body, longName="meshId", dataType="string")
         cmds.setAttr(body + ".meshId", "doc-body", type="string")
-        cmds.skinCluster(rig_name("a_jnt", DOC_NAMESPACE), rig_name("b_jnt", DOC_NAMESPACE), body, toSelectedBones=True)
+        cmds.skinCluster(rig_name("a_00_M_JNT", DOC_NAMESPACE), rig_name("b_00_M_JNT", DOC_NAMESPACE), body, toSelectedBones=True)
         path = os.path.join(config.WORK_DIR, "body_geo.json").replace("\\", "/")
         cmds.saveRigSkinWeights(body, file=path)
         cmds.delete(body)
@@ -261,10 +261,10 @@ class TemplatesDocMirroring(RigTestCase):
 
     def test_example_builds_both_sides(self):
         self.build_standard(templates_doc_mirroring_template(), "mirror_arms")
-        for name in ("clavicle_r", "arm_r", "arm_space_r"):
+        for name in ("clavicle_00_R_MOD", "arm_00_R_MOD", "armSpace_00_R_CON"):
             self.assertExists(rig_name(name))
-        self.assertOpmDrivenBy(rig_name("upperArm_r_jnt"), "arm_r")
-        self.assertEqual(cmds.attributeQuery("space", node=rig_name("upperArm_r_ctrl_r"), listEnum=True), ["Clavicle:World"])
+        self.assertOpmDrivenBy(rig_name("upperArm_00_R_JNT"), "arm_00_R_MOD")
+        self.assertEqual(cmds.attributeQuery("space", node=rig_name("upperArm_00_R_CTRL"), listEnum=True), ["Clavicle:World"])
 
 
 PYTHON_DOC = os.path.join(config.REPO_DIR, "docs", "python.md")
@@ -323,7 +323,7 @@ class FbxDocExample(RigTestCase):
             self.assertIn(call, section)
         self.build_standard("mirror_arms", "mirror_arms")
         root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
-        control = rig_name("upperArm_l_ctrl_l")
+        control = rig_name("upperArm_00_L_CTRL")
         cmds.setKeyframe(control + ".rotateZ", time=1, value=0)
         cmds.setKeyframe(control + ".rotateZ", time=3, value=60)
         clip = os.path.join(config.WORK_DIR, "doc_fbx_clip.json")
@@ -354,7 +354,7 @@ class ControlAnimDocExample(RigTestCase):
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(self.first_json("library.md", "## ControlAnim files"))
         cmds.loadRigAnimation(root, file=path)
-        plug = rig_name("upperArm_l_ctrl_l") + ".rotateZ"
+        plug = rig_name("upperArm_00_L_CTRL") + ".rotateZ"
         self.assertEqual(cmds.keyframe(plug, query=True, timeChange=True), [1, 10, 20])
         self.assertAlmostEqual(cmds.keyframe(plug, query=True, valueChange=True)[1], 90.0, places=3)
         saved = os.path.join(config.WORK_DIR, "doc_control_anim_saved.json").replace("\\", "/")
@@ -368,7 +368,7 @@ class ControlAnimDocExample(RigTestCase):
         self.build_standard("mirror_arms", "mirror_arms")
         root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
         changed = cmds.setRigKeys(root, keys=self.first_json("commands.md", "### Keys format"))
-        self.assertEqual(changed, ["rig:upperArm_l_ctrl_l"])
+        self.assertEqual(changed, ["rig:upperArm_00_L_CTRL"])
 
 
 COMMANDS_DOC = os.path.join(config.REPO_DIR, "docs", "commands.md")
@@ -393,8 +393,8 @@ class KeysDocExample(RigTestCase):
         root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
         keys = commands_doc_json("## setRigKeys")
         changed = cmds.setRigKeys(root, keys=keys)
-        self.assertEqual([c.split(":")[-1] for c in changed], ["upperArm_l_ctrl_l"])
-        arm = rig_name("upperArm_l_ctrl_l")
+        self.assertEqual([c.split(":")[-1] for c in changed], ["upperArm_00_L_CTRL"])
+        arm = rig_name("upperArm_00_L_CTRL")
         self.assertEqual(cmds.keyframe(arm + ".rotateZ", query=True, valueChange=True), [0, 90, 45])
         self.assertEqual(cmds.keyframe(arm + ".translateX", query=True, valueChange=True), [0, 2.5])
         found = json.loads(cmds.getRigKeys(root))
@@ -413,10 +413,10 @@ class AnimationSidecarDocExample(RigTestCase):
         clip = jointclips.write_json(os.path.join(folder, "doc_anim_clip.json"), jointclips.clip_data(rest, [rest, rest, rest]))
         sidecar = jointclips.write_json(os.path.join(folder, "doc_anim_sidecar.json"), commands_doc_json("### The sidecar"))
         cmds.animateRigFromJointClip(root, jointClip=clip.replace("\\", "/"), sidecar=sidecar.replace("\\", "/"))
-        layout = rig_name("layout_0_ctrl_c")
+        layout = rig_name("layout_00_M_CTRL")
         self.assertEqual(cmds.keyframe(layout + ".translateX", query=True, timeChange=True), [1, 3])
         self.assertEqual(cmds.keyframe(layout + ".translateX", query=True, valueChange=True), [0, 1.0])
-        self.assertEqual(cmds.keyframe(rig_name("upperArm_l_ctrl_l") + ".space", query=True, valueChange=True), [0])
+        self.assertEqual(cmds.keyframe(rig_name("upperArm_00_L_CTRL") + ".space", query=True, valueChange=True), [0])
 
 
 class LibraryMetaDocExample(RigTestCase):
@@ -441,7 +441,7 @@ class LibraryMetaDocExample(RigTestCase):
         meta = json.loads(self.meta_text())
         pose = os.path.join(config.WORK_DIR, "doc_meta_pose.json").replace("\\", "/")
         anim = os.path.join(config.WORK_DIR, "doc_meta_anim.json").replace("\\", "/")
-        cmds.setKeyframe(rig_name("upperArm_l_ctrl_l") + ".rotateZ", time=1, value=0)
+        cmds.setKeyframe(rig_name("upperArm_00_L_CTRL") + ".rotateZ", time=1, value=0)
         cmds.saveRigPose(root, file=pose, meta=self.meta_text())
         cmds.saveRigAnimation(root, file=anim, startFrame=1, endFrame=1, meta=self.meta_text())
         entries = json.loads(cmds.getRigDataFileInfo(root, file=[pose, anim]))
@@ -475,31 +475,31 @@ class TwoBoneIkDocExamples(RigTestCase):
     def test_modules_doc_entry_builds_a_mirrored_limb_at_rest(self):
         entry = json.loads(doc_code_block(MODULES_DOC, "## TwoBoneIk", "json"))
         self.build_entry({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [entry]})
-        for module in ("arm_l", "arm_r", "layout"):
+        for module in ("arm_00_L_MOD", "arm_00_R_MOD", "layout_00_M_MOD"):
             self.assertExists(rig_name(module))
-        self.assertWorldTranslation(rig_name("hand_l_jnt"), [6, 0, 0])
-        self.assertWorldTranslation(rig_name("lowerArm_r_jnt"), [-2.8, 2.4, 0])
+        self.assertWorldTranslation(rig_name("hand_00_L_JNT"), [6, 0, 0])
+        self.assertWorldTranslation(rig_name("lowerArm_00_R_JNT"), [-2.8, 2.4, 0])
         # The pole is the mid joint plus poleOffset [0, 2, 0], the settings control the end joint plus [-1, 3, 0] (X negated on the right).
-        self.assertWorldTranslation(rig_name("armPole_ctrl_l"), [2.8, 4.4, 0])
-        self.assertWorldTranslation(rig_name("armPole_ctrl_r"), [-2.8, 4.4, 0])
-        self.assertWorldTranslation(rig_name("armSettings_ctrl_l"), [5, 3, 0])
-        self.assertWorldTranslation(rig_name("armSettings_ctrl_r"), [-5, 3, 0])
+        self.assertWorldTranslation(rig_name("armPole_00_L_CTRL"), [2.8, 4.4, 0])
+        self.assertWorldTranslation(rig_name("armPole_00_R_CTRL"), [-2.8, 4.4, 0])
+        self.assertWorldTranslation(rig_name("armSettings_00_L_CTRL"), [5, 3, 0])
+        self.assertWorldTranslation(rig_name("armSettings_00_R_CTRL"), [-5, 3, 0])
 
     def test_modules_doc_snippet(self):
         entry = json.loads(doc_code_block(MODULES_DOC, "## TwoBoneIk", "json"))
         self.build_entry({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [entry]})
-        cmds.setAttr("rig:armIK_ctrl_l.translateY", 3)
-        cmds.setAttr("rig:armSettings_ctrl_l.stretch", 1)
-        cmds.setAttr("rig:armPole_ctrl_l.space", 1)
+        cmds.setAttr("rig:armIK_00_L_CTRL.translateY", 3)
+        cmds.setAttr("rig:armSettings_00_L_CTRL.stretch", 1)
+        cmds.setAttr("rig:armPole_00_L_CTRL.space", 1)
         # The hand follows the handle: the root is at (1, 0, 0) and the handle at (6, 3, 0), within reach.
-        self.assertWorldTranslation(rig_name("hand_l_jnt"), [6, 3, 0])
-        self.assertEqual(cmds.attributeQuery("space", node="rig:armPole_ctrl_l", listEnum=True)[0], "Parent:Ik")
+        self.assertWorldTranslation(rig_name("hand_00_L_JNT"), [6, 3, 0])
+        self.assertEqual(cmds.attributeQuery("space", node="rig:armPole_00_L_CTRL", listEnum=True)[0], "Parent:Ik")
 
     def test_templates_doc_mirrored_limb(self):
         template = json.loads(doc_code_block(TEMPLATES_DOC, "## Mirroring", "json", index=1))
         self.build_entry(template)
-        self.assertExists(rig_name("arm_ik_space_r"))
-        for control in ("armIK_ctrl_l", "armIK_ctrl_r"):
+        self.assertExists(rig_name("armIkSpace_00_R_CON"))
+        for control in ("armIK_00_L_CTRL", "armIK_00_R_CTRL"):
             self.assertEqual(cmds.attributeQuery("space", node=rig_name(control), listEnum=True)[0], "World:Hips")
 
 
@@ -529,10 +529,10 @@ class SkeletonDocExamples(RigTestCase):
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(doc_code_block(SKELETONS_DOC, "## File format", "json"))
         joints = cmds.loadRigSkeleton(file=path, namespace="hero_body")
-        self.assertEqual(joints, ["hero_body:a_jnt", "hero_body:b_jnt", "hero_body:c_jnt"])
+        self.assertEqual(joints, ["hero_body:a_00_M_JNT", "hero_body:b_00_M_JNT", "hero_body:c_00_M_JNT"])
         for doc, heading in ((SKELETONS_DOC, "## Loading"), (COMMANDS_DOC, "## loadRigSkeleton")):
             self.assertIn("Returns %s" % json.dumps(joints), doc_code_block(doc, heading, "python"))
-        self.assertWorldTranslation("hero_body:c_jnt", [0, 4, 0])
+        self.assertWorldTranslation("hero_body:c_00_M_JNT", [0, 4, 0])
 
 
 class RibbonDocExamples(RigTestCase):
@@ -544,20 +544,20 @@ class RibbonDocExamples(RigTestCase):
 
     def test_modules_doc_entry_builds_a_tail_at_rest(self):
         self.build_entry()
-        self.assertExists(rig_name("tail_1"))
-        self.assertWorldTranslation(rig_name("tail3_jnt"), [4, 0, 0])
-        self.assertWorldTranslation(rig_name("tail5_jnt"), [8, 0, 0])
+        self.assertExists(rig_name("tail_01_M_MOD"))
+        self.assertWorldTranslation(rig_name("tail3_00_M_JNT"), [4, 0, 0])
+        self.assertWorldTranslation(rig_name("tail5_00_M_JNT"), [8, 0, 0])
 
     def test_modules_doc_snippet(self):
         self.build_entry()
-        cmds.setAttr("rig:tailIK_01_ctrl_c.translateY", 2)
-        cmds.setAttr("rig:tailIK_02_ctrl_c.rotateX", 200)
-        cmds.setAttr("rig:tailIK_00_ctrl_c.endTwist", 200)
-        cmds.setAttr("rig:tailIK_00_ctrl_c.volumePreserve", 1)
+        cmds.setAttr("rig:tailIK_01_M_CTRL.translateY", 2)
+        cmds.setAttr("rig:tailIK_02_M_CTRL.rotateX", 200)
+        cmds.setAttr("rig:tailIK_00_M_CTRL.endTwist", 200)
+        cmds.setAttr("rig:tailIK_00_M_CTRL.volumePreserve", 1)
         # The end's 200 degree roll ramps along the ribbon, so the middle control's frame is rolled 100 degrees and its 2 units
         # of local Y point (0, cos 100, sin 100) * 2. The ends don't move.
-        self.assertWorldTranslation(rig_name("tail3_jnt"), [4, 2 * math.cos(math.radians(100)), 2 * math.sin(math.radians(100))])
-        self.assertWorldTranslation(rig_name("tail5_jnt"), [8, 0, 0])
+        self.assertWorldTranslation(rig_name("tail3_00_M_JNT"), [4, 2 * math.cos(math.radians(100)), 2 * math.sin(math.radians(100))])
+        self.assertWorldTranslation(rig_name("tail5_00_M_JNT"), [8, 0, 0])
 
     def test_modules_doc_shoulder_example_sheds_the_twist_at_the_start(self):
         """The 'A shoulder that sheds its twist' snippet: the upper ribbon entry and its two constraints go on the fixture's
@@ -568,14 +568,14 @@ class RibbonDocExamples(RigTestCase):
         modules = [fixture["rigModules"][0]] + snippet["rigModules"] + [fixture["rigModules"][2]]
         self.build({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": modules, "constraints": snippet["constraints"]},
                    self.make_skeleton("ribbon_arm"))
-        cmds.setAttr("rig:armSettings_ctrl_l.ikFkBlend", 0)
-        cmds.setAttr("rig:upperArm_ctrl_l.rotateX", 60)
+        cmds.setAttr("rig:armSettings_00_L_CTRL.ikFkBlend", 0)
+        cmds.setAttr("rig:upperArm_00_L_CTRL.rotateX", 60)
         rolls = {}
-        for joint in ("up1_jnt", "up5_jnt"):
+        for joint in ("up1_00_M_JNT", "up5_00_M_JNT"):
             m = cmds.xform(rig_name(joint), query=True, worldSpace=True, matrix=True)
             rolls[joint] = math.degrees(math.atan2(m[6], m[5]))
-        self.assertAlmostEqual(rolls["up1_jnt"], 0.0, delta=1.0)
-        self.assertAlmostEqual(rolls["up5_jnt"], 60.0, delta=1.0)
+        self.assertAlmostEqual(rolls["up1_00_M_JNT"], 0.0, delta=1.0)
+        self.assertAlmostEqual(rolls["up5_00_M_JNT"], 60.0, delta=1.0)
 
     def test_modules_doc_arm_example_builds_with_its_aim_keys_and_meets_at_the_elbow(self):
         """The two ribbon entries under 'An arm' go on the fixture's TwoBoneIk. They build at rest with both ends aimed, and with
@@ -583,11 +583,11 @@ class RibbonDocExamples(RigTestCase):
         ribbons = json.loads(doc_code_block(MODULES_DOC, "**An arm**", "json"))
         arm = json.loads(json.dumps(fixtures.load_template("ribbon_arm")["rigModules"][0]))
         self.build({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [arm] + ribbons}, self.make_skeleton("ribbon_arm"))
-        for control in ("upIK_00", "foIK_00"):
-            self.assertAlmostEqual(cmds.getAttr("rig:%s_ctrl_c.startAimBlend" % control), 1.0, places=6)
-            self.assertAlmostEqual(cmds.getAttr("rig:%s_ctrl_c.endAimBlend" % control), 1.0, places=6)
-        cmds.setAttr("rig:armSettings_ctrl_l.ikFkBlend", 0)
-        cmds.setAttr("rig:upperArm_ctrl_l.rotateX", 60)
-        for joint in ("up5_jnt", "fo1_jnt"):
+        for control in ("upIK", "foIK"):
+            self.assertAlmostEqual(cmds.getAttr("rig:%s_00_M_CTRL.startAimBlend" % control), 1.0, places=6)
+            self.assertAlmostEqual(cmds.getAttr("rig:%s_00_M_CTRL.endAimBlend" % control), 1.0, places=6)
+        cmds.setAttr("rig:armSettings_00_L_CTRL.ikFkBlend", 0)
+        cmds.setAttr("rig:upperArm_00_L_CTRL.rotateX", 60)
+        for joint in ("up5_00_M_JNT", "fo1_00_M_JNT"):
             m = cmds.xform(rig_name(joint), query=True, worldSpace=True, matrix=True)
             self.assertAlmostEqual(math.degrees(math.atan2(m[6], m[5])), 60.0, delta=1.0, msg=joint)

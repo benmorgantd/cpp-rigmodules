@@ -411,8 +411,8 @@ class SkeletonExport(FbxTestCase):
         data = rigmodules.bonemap.read_bone_map(self.map)
         self.assertEqual((data["assetId"], data["skeletonId"]), (config.ASSET_ID, "tests\\human"))
         self.assertEqual(sorted(data["joints"]), sorted([
-            "chest_jnt", "clavicle_l_jnt", "upperArm_l_jnt", "lowerArm_l_jnt", "clavicle_r_jnt", "upperArm_r_jnt", "lowerArm_r_jnt"]))
-        self.assertEqual(data["joints"]["upperArm_l_jnt"],
+            "chest_00_M_JNT", "clavicle_00_L_JNT", "upperArm_00_L_JNT", "lowerArm_00_L_JNT", "clavicle_00_R_JNT", "upperArm_00_R_JNT", "lowerArm_00_R_JNT"]))
+        self.assertEqual(data["joints"]["upperArm_00_L_JNT"],
                          {"markupVersion": 1, "side": "Left", "usage": "upperArm", "export": True, "skin": True})
 
     def test_the_skeleton_is_at_rest_with_no_animation(self):
@@ -423,20 +423,20 @@ class SkeletonExport(FbxTestCase):
         self.assertEqual(self.count_anim_curves(self.fbx), 0, "the skeleton export carries no animation")
         by_path = {joint["path"]: pose for joint, pose in zip(out["joints"], out["poses"][0])}
         # the fixture's joints are flat (every joint a root), at these world positions
-        for path, position in (("chest_jnt", (0, 4, 0)), ("upperArm_l_jnt", (2, 5, 0)), ("lowerArm_r_jnt", (-4, 5, 0))):
+        for path, position in (("chest_00_M_JNT", (0, 4, 0)), ("upperArm_00_L_JNT", (2, 5, 0)), ("lowerArm_00_R_JNT", (-4, 5, 0))):
             for actual, expected in zip(by_path[path]["translate"], position):
                 self.assertAlmostEqual(actual, expected, places=4)
 
     def test_a_posed_rig_still_exports_its_rest(self):
-        cmds.setAttr(rig_name("upperArm_l_ctrl_l") + ".rotateZ", 60)
+        cmds.setAttr(rig_name("upperArm_00_L_CTRL") + ".rotateZ", 60)
         rigmodules.jointclip.write_skeleton_fbx(self.root, "tests\\human", self.fbx, self.map)
         rigmodules.jointclip.read_fbx(self.fbx, self.path("out.json"), self.map)
         out = self.read_json("out.json")
-        pose = {joint["path"]: transform for joint, transform in zip(out["joints"], out["poses"][0])}["upperArm_l_jnt"]
+        pose = {joint["path"]: transform for joint, transform in zip(out["joints"], out["poses"][0])}["upperArm_00_L_JNT"]
         self.assertAlmostEqual(abs(pose["rotate"][3]), 1.0, places=4, msg="the rest has no rotation")
 
     def test_a_rig_animation_goes_through_fbx_and_restores(self):
-        control = rig_name("upperArm_l_ctrl_l")
+        control = rig_name("upperArm_00_L_CTRL")
         cmds.setKeyframe(control + ".rotateZ", time=1, value=0)
         cmds.setKeyframe(control + ".rotateZ", time=3, value=60)
         rigmodules.jointclip.capture_joint_clip(self.root, 1, 3, self.path("captured.json"))

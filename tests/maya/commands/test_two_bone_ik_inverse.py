@@ -13,13 +13,13 @@ from commands.test_inverse_solve import SolveTestCase
 from rigtest.case import rig_name
 from rigtest.jointclips import rig_root
 
-UPPER = "upperArm_ctrl_l"
-LOWER = "lowerArm_ctrl_l"
-END = "hand_ctrl_l"
-HANDLE = "armIK_ctrl_l"
-POLE = "armPole_ctrl_l"
-SETTINGS = "armSettings_ctrl_l"
-LIMB_JOINTS = ("upperArm_jnt", "lowerArm_jnt", "hand_jnt")
+UPPER = "upperArm_00_L_CTRL"
+LOWER = "lowerArm_00_L_CTRL"
+END = "hand_00_L_CTRL"
+HANDLE = "armIK_00_L_CTRL"
+POLE = "armPole_00_L_CTRL"
+SETTINGS = "armSettings_00_L_CTRL"
+LIMB_JOINTS = ("upperArm_00_M_JNT", "lowerArm_00_M_JNT", "hand_00_M_JNT")
 SETTINGS_USAGE = "armSettings"
 HANDLE_USAGE = "armIK"
 POLE_USAGE = "armPole"
@@ -80,7 +80,7 @@ class TwoBoneIkInverse(SolveTestCase):
 
     def test_a_moved_handle_comes_back_and_the_joints_follow(self):
         rest, posed = self.pose({HANDLE + ".translateX": -1, HANDLE + ".translateY": 2})
-        self.assertWorldTranslation(rig_name("hand_jnt"), [4, 2, 0])
+        self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [4, 2, 0])
         self.restore(rest, posed)
         self.assertValues(rig_name(HANDLE), {"translateX": -1, "translateY": 2, "translateZ": 0})
         self.assertJointsAt(self.limb(posed))
@@ -112,7 +112,7 @@ class TwoBoneIkInverse(SolveTestCase):
         # design 4.2: handle at rest, pole at (2,3,0), pin 0.5: the mid joint is at (1.9,2.7,0). Pin is what ties the pole
         # to the joints: along = (1.9-0.5*1.8)/0.5 = 2, height = (2.7^2-1.2^2)/(0.5*(2.7+1.2)) = 3.
         rest, posed = self.pose({POLE + ".translateX": -0.5, POLE + ".translateY": -2, POLE + ".pin": 0.5})
-        self.assertWorldTranslation(rig_name("lowerArm_jnt"), [1.9, 2.7, 0])
+        self.assertWorldTranslation(rig_name("lowerArm_00_M_JNT"), [1.9, 2.7, 0])
         self.restore(rest, posed, self.left(POLE_USAGE, pin=0.5))
         self.assertValues(rig_name(POLE), {"translateX": -0.5, "translateY": -2, "translateZ": 0})
         self.assertAlmostEqual(cmds.getAttr(rig_name(POLE + ".pin")), 0.5)
@@ -120,7 +120,7 @@ class TwoBoneIkInverse(SolveTestCase):
 
     def test_pin_full_puts_the_pole_on_the_elbow(self):
         rest, posed = self.pose({POLE + ".translateX": -0.5, POLE + ".translateY": -2, POLE + ".pin": 1})
-        self.assertWorldTranslation(rig_name("lowerArm_jnt"), [2, 3, 0])
+        self.assertWorldTranslation(rig_name("lowerArm_00_M_JNT"), [2, 3, 0])
         self.restore(rest, posed, self.left(POLE_USAGE, pin=1))
         self.assertValues(rig_name(POLE), {"translateX": -0.5, "translateY": -2})
         self.assertJointsAt(posed)
@@ -129,7 +129,7 @@ class TwoBoneIkInverse(SolveTestCase):
         # design 4.2: roll 90 turns the bend from +Y to +Z, mid (1.8,0,2.4). The pole is placed so that rolling by 90
         # puts the elbow there: back on +Y, world (1.8,5,0), local (-0.7,0,0).
         rest, posed = self.pose({HANDLE + ".roll": 90})
-        self.assertWorldTranslation(rig_name("lowerArm_jnt"), [1.8, 0, 2.4])
+        self.assertWorldTranslation(rig_name("lowerArm_00_M_JNT"), [1.8, 0, 2.4])
         self.restore(rest, posed, self.left(HANDLE_USAGE, roll=90))
         self.assertValues(rig_name(POLE), {"translateX": -0.7, "translateY": 0, "translateZ": 0})
         self.assertAlmostEqual(cmds.getAttr(rig_name(HANDLE + ".roll")), 90, places=3)
@@ -146,7 +146,7 @@ class TwoBoneIkInverse(SolveTestCase):
     def test_soft_alone_recovers_the_handle_past_the_wrist(self):
         # design 4.2a: soft 1/7, handle at distance 7: the hand stops at 6.632121 and the handle is at 7.
         rest, posed = self.pose({SETTINGS + ".soft": 1.0 / 7.0, HANDLE + ".translateX": 2})
-        self.assertWorldTranslation(rig_name("hand_jnt"), [6.632121, 0, 0], 1e-5)
+        self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [6.632121, 0, 0], 1e-5)
         self.restore(rest, posed, self.left(SETTINGS_USAGE, soft=1.0 / 7.0))
         self.assertValues(rig_name(HANDLE), {"translateX": 2.0}, places=4)
         self.assertJointsAt(self.limb(posed))
@@ -154,7 +154,7 @@ class TwoBoneIkInverse(SolveTestCase):
     def test_soft_with_stretch_reaches_the_handle(self):
         # design 4.2a: with stretch 1 the hand is at 7, the mid joint at (2.942992,1.168305,0).
         rest, posed = self.pose({SETTINGS + ".soft": 1.0 / 7.0, SETTINGS + ".stretch": 1, HANDLE + ".translateX": 2})
-        self.assertWorldTranslation(rig_name("lowerArm_jnt"), [2.942992, 1.168305, 0], 1e-5)
+        self.assertWorldTranslation(rig_name("lowerArm_00_M_JNT"), [2.942992, 1.168305, 0], 1e-5)
         self.restore(rest, posed, self.left(SETTINGS_USAGE, soft=1.0 / 7.0, stretch=1))
         self.assertValues(rig_name(HANDLE), {"translateX": 2.0}, places=4)
         self.assertJointsAt(self.limb(posed))
@@ -162,8 +162,8 @@ class TwoBoneIkInverse(SolveTestCase):
     def test_a_stretched_source_comes_back_with_stretch_in_the_sidecar(self):
         # Handle at 8, stretch 1: bones 3*8/7 and 4*8/7, a straight limb, hand at (8,0,0).
         rest, posed = self.pose({SETTINGS + ".stretch": 1, HANDLE + ".translateX": 3})
-        self.assertWorldTranslation(rig_name("hand_jnt"), [8, 0, 0])
-        self.assertWorldTranslation(rig_name("lowerArm_jnt"), [24.0 / 7.0, 0, 0])
+        self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [8, 0, 0])
+        self.assertWorldTranslation(rig_name("lowerArm_00_M_JNT"), [24.0 / 7.0, 0, 0])
         self.restore(rest, posed, self.left(SETTINGS_USAGE, stretch=1))
         self.assertValues(rig_name(HANDLE), {"translateX": 3.0}, places=4)
         self.assertJointsAt(self.limb(posed))
@@ -171,7 +171,7 @@ class TwoBoneIkInverse(SolveTestCase):
     def test_a_limb_extended_near_full_reach(self):
         # Handle at 6.9 of 7, no soft: the hand is at (6.9,0,0) and the handle is recovered exactly.
         rest, posed = self.pose({HANDLE + ".translateX": 1.9})
-        self.assertWorldTranslation(rig_name("hand_jnt"), [6.9, 0, 0])
+        self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [6.9, 0, 0])
         self.restore(rest, posed)
         self.assertValues(rig_name(HANDLE), {"translateX": 1.9}, places=4)
         self.assertJointsAt(self.limb(posed))
@@ -180,7 +180,7 @@ class TwoBoneIkInverse(SolveTestCase):
         # Handle at 8 with no stretch: the hand stops at (7,0,0). Any handle from there on gives that pose, so the
         # handle comes back at the wrist, translate 2, and the joints match.
         rest, posed = self.pose({HANDLE + ".translateX": 3})
-        self.assertWorldTranslation(rig_name("hand_jnt"), [7, 0, 0])
+        self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [7, 0, 0])
         self.restore(rest, posed)
         self.assertValues(rig_name(HANDLE), {"translateX": 2.0}, places=4)
         self.assertJointsAt(self.limb(posed))
@@ -258,7 +258,7 @@ class TwoBoneIkInverse(SolveTestCase):
         rest = self.snapshot()
         data = self.clip_data(rest, [rest])
         names = [entry["path"].split("/")[-1] for entry in data["joints"]]
-        hand = names.index("hand_jnt")
+        hand = names.index("hand_00_M_JNT")
         data["poses"][0][hand]["translate"][0] += 0.5
         with CapturedWarnings() as warnings:
             cmds.poseRigFromJointPose(rig_root(), jointPose=self.write("long_arm.json", data))
@@ -267,7 +267,7 @@ class TwoBoneIkInverse(SolveTestCase):
 
     def test_a_missing_limb_joint_takes_the_controls_from_the_sidecar(self):
         rest, posed = self.pose({HANDLE + ".translateX": -1})
-        clip = self.write_clip(rest, [posed], skip=("lowerArm_jnt",))
+        clip = self.write_clip(rest, [posed], skip=("lowerArm_00_M_JNT",))
         cmds.zeroRigControls(rig_root())
         sidecar = self.write_sidecar(self.left(HANDLE_USAGE, translateX=-1))
         with CapturedWarnings() as warnings:

@@ -45,8 +45,8 @@ class ComplexTemplateData(RigTestCase):
         usages = {j["usage"] for j in perf_scenes.joint_layout()}
         self.assertEqual({u for u in usages if u.endswith(("Aim", "Target", "Up"))}, {"%s%s" % (a["base"], r) for a in perf_scenes.aim_specs() for r in ("Aim", "Target", "Up")})   # the marker joints left are Aim's
         for limb in limbs:
-            module = [m for m in perf_scenes.build_template()["rigModules"] if m["name"] == "%s_l" % limb["base"]][0]
-            self.assertNotIn("%s_l." % limb["base"], module["parentStructure"]["pole"])   # D17: not the module's own socket
+            module = [m for m in perf_scenes.build_template()["rigModules"] if m["name"] == perf_scenes.module_name(limb["base"], "Left")][0]
+            self.assertNotIn(perf_scenes.module_name(limb["base"], "Left") + ".", module["parentStructure"]["pole"])   # D17: not the module's own socket
             self.assertEqual(module["moduleVersion"], 2)
             self.assertEqual(module["moduleArgs"]["controlName"], limb["base"])
             self.assertEqual(set(module["moduleArgs"]), {"joints", "controlName", "poleOffset", "settingsOffset"})
@@ -54,7 +54,7 @@ class ComplexTemplateData(RigTestCase):
     def test_limb_offsets_come_from_the_specs(self):
         # The arm limbA: bones (1.6, -0.2, -0.5) and (1.6, -0.2, 0.5), settings spec (0, 1.2, 0) from the root, so
         # (0, 1.2, 0) - (3.2, -0.4, 0) = (-3.2, 1.6, 0) from the end joint. The pole offset is the spec's.
-        module = [m for m in perf_scenes.build_template()["rigModules"] if m["name"] == "limbA_l"][0]
+        module = [m for m in perf_scenes.build_template()["rigModules"] if m["name"] == perf_scenes.module_name("limbA", "Left")][0]
         self.assertEqual(module["moduleArgs"]["poleOffset"], [0, 0, -1.5])
         for actual, expected in zip(module["moduleArgs"]["settingsOffset"], [-3.2, 1.6, 0.0]):
             self.assertAlmostEqual(actual, expected, places=6)
@@ -73,8 +73,8 @@ class ComplexTemplateData(RigTestCase):
         derived = perf_scenes.derived_controls()
         self.assertEqual(len(derived), 12 * 3 + (4 + 2 * 3 * 3))   # 12 limbs x (ik, pole, settings), the tail's 4 and 6 arm ribbons' 3
         # Left limbA: root (0.3+..) is the clavicle's first joint plus offset; the ik control sits on the end joint.
-        end = [j for j in perf_scenes.joint_layout() if j["name"] == "limbA3_l"][0]["position"]
-        ik = [d for d in derived if d["chain"] == "limbA_l" and d["role"] == "ik"][0]
+        end = [j for j in perf_scenes.joint_layout() if j["name"] == perf_scenes.joint_name("limbA", 2, "Left")][0]["position"]
+        ik = [d for d in derived if d["chain"] == perf_scenes.module_name("limbA", "Left") and d["role"] == "ik"][0]
         self.assertEqual(ik["position"], end)
         # 12 limbs + 22 ribbon controls + 290 joint controls = 348 controls, as the rig has
         self.assertEqual(len(derived) + len(perf_scenes.joint_layout()) - 6, 348)

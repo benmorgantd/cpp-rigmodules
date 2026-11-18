@@ -53,7 +53,7 @@ private:
 	MDGModifier fDGMod;
 };
 
-// cmds.getRigMirrorControl("rig:arm_ctrl_l") -> "arm_ctrl_r"
+// cmds.getRigMirrorControl("rig:arm_00_L_CTRL") -> "arm_00_R_CTRL"
 //   The control in the same rig with the same usage and the other side, found by control markup (D28).
 //   A Center control returns itself. Query only, so not undoable.
 class GetRigMirrorControlCmd : public MPxCommand
@@ -67,7 +67,7 @@ public:
 	static const char* aCommandString;
 };
 
-// cmds.getRigControlChannels("rig:arm_ctrl_l", "rig:arm_ctrl_r")
+// cmds.getRigControlChannels("rig:arm_00_L_CTRL", "rig:arm_00_R_CTRL")
 //   -> a JSON object: control name -> its channels in channel box order, each with name, type, rest, min, max and
 //   mirror (see core/ControlChannels.h, D34). Controls are passed by name, one or more. Query only, so not undoable.
 class GetRigControlChannelsCmd : public MPxCommand
@@ -81,7 +81,7 @@ public:
 	static const char* aCommandString;
 };
 
-// cmds.getRigControlInfo("rig:arm_ctrl_l", "rig:arm_ctrl_r")
+// cmds.getRigControlInfo("rig:arm_00_L_CTRL", "rig:arm_00_R_CTRL")
 //   -> a JSON object: control name -> moduleType, module, side, usage and mirror (the mirror control's name, null when
 //   it has none), keys in ControlInfoKey (D34). Controls are passed by name, one or more. Query only, so not undoable.
 class GetRigControlInfoCmd : public MPxCommand
@@ -95,7 +95,7 @@ public:
 	static const char* aCommandString;
 };
 
-// cmds.getRigControlSpace("rig:arm_ctrl_l")
+// cmds.getRigControlSpace("rig:arm_00_L_CTRL")
 //   -> a JSON object {"constraint": ..., "module": ..., "labels": [...], "current": n}, keys in ControlSpaceKey (D50,
 //   D52), or an empty string for a control with no space switch. A constraint space names the constraint and a
 //   module-owned space (the TwoBoneIk pole's) names the module, the other being empty. Exactly one control, by name.
@@ -111,7 +111,7 @@ public:
 	static const char* aCommandString;
 };
 
-// cmds.setRigControlSpace("rig:arm_ctrl_l", space=1) or cmds.setRigControlSpace("rig:arm_ctrl_l", label="Chest")
+// cmds.setRigControlSpace("rig:arm_00_L_CTRL", space=1) or cmds.setRigControlSpace("rig:arm_00_L_CTRL", label="Chest")
 //   Switches the control to that space, either kind, and keeps its world matrix (D27, D52). Exactly one of space (the
 //   index in getRigControlSpace's labels) or label. Undoable. A locked or driven channel keeps its value and warns.
 class SetRigControlSpaceCmd : public MPxCommand

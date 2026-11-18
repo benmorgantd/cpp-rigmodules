@@ -2,10 +2,10 @@
   "description": "The start control's rotation does nothing to the IK chain (D52 decision 16): the IK root takes only its translation. Rotating it 90 degrees about Z at blend 1 leaves every joint at its rest.",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "upperArm_ctrl_l.rotateZ": 90 },
+  "set": { "upperArm_00_L_CTRL.rotateZ": 90 },
   "expect": {
-    "upperArm_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, 0] },
-    "lowerArm_jnt": { "translate": [1.8, 2.4, 0], "rotate": [0, 0, 0] },
-    "hand_jnt": { "translate": [5, 0, 0], "rotate": [0, 0, 0] }
+    "upperArm_00_M_JNT": { "translate": [0, 0, 0], "rotate": [0, 0, 0] },
+    "lowerArm_00_M_JNT": { "translate": [1.8, 2.4, 0], "rotate": [0, 0, 0] },
+    "hand_00_M_JNT": { "translate": [5, 0, 0], "rotate": [0, 0, 0] }
   }
 }

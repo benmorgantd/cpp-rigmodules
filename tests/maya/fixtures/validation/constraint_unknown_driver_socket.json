@@ -5,12 +5,12 @@
   "edits": [
     {
       "set": "/constraints/0/drivers/1/socket",
-      "value": "aim_1.nope"
+      "value": "aim_01_R_MOD.nope"
     }
   ],
   "expectErrors": [
     {
-      "contains": "no socket 'nope' on 'aim_1'"
+      "contains": "no socket 'nope' on 'aim_01_R_MOD'"
     }
   ]
 }

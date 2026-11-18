@@ -2,9 +2,9 @@
   "description": "Pole moved to (2.5,0,5): n = +Z. mid = 1.8*(1,0,0) + 2.4*(0,0,1) = (1.8,0,2.4), end stays (5,0,0).",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "armPole_ctrl_l.translateY": -5, "armPole_ctrl_l.translateZ": 5 },
+  "set": { "armPole_00_L_CTRL.translateY": -5, "armPole_00_L_CTRL.translateZ": 5 },
   "expect": {
-    "lowerArm_jnt": { "translate": [1.8, 0, 2.4] },
-    "hand_jnt": { "translate": [5, 0, 0], "rotate": [0, 0, 0] }
+    "lowerArm_00_M_JNT": { "translate": [1.8, 0, 2.4] },
+    "hand_00_M_JNT": { "translate": [5, 0, 0], "rotate": [0, 0, 0] }
   }
 }

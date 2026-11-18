@@ -3,10 +3,10 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "expect": {
-    "tail1_jnt": {"translate": [0, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
-    "tail2_jnt": {"translate": [2, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
-    "tail3_jnt": {"translate": [4, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
-    "tail4_jnt": {"translate": [6, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
-    "tail5_jnt": {"translate": [8, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]}
+    "tail1_00_M_JNT": {"translate": [0, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
+    "tail2_00_M_JNT": {"translate": [2, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
+    "tail3_00_M_JNT": {"translate": [4, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
+    "tail4_00_M_JNT": {"translate": [6, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]},
+    "tail5_00_M_JNT": {"translate": [8, 0, 0], "rotate": [0, 0, 0], "scale": [1, 1, 1]}
   }
 }

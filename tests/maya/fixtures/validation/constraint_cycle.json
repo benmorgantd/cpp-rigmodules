@@ -9,10 +9,10 @@
         {
           "name": "loop",
           "type": "Parent",
-          "target": "fkchain_1.start",
+          "target": "fkchain_01_M_MOD.start",
           "drivers": [
             {
-              "socket": "fkchain_2.end",
+              "socket": "fkchain_02_L_MOD.end",
               "label": "Loop"
             }
           ]

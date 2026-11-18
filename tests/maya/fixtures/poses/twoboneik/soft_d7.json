@@ -2,9 +2,9 @@
   "description": "Soft 1/7 so ds = soft*L = 1, da = L-ds = 6; the handle is on +X at distance d from the root, pole at rest (n = +Y). d = 7: de = 6 + (1 - e^-1) = 6.632121, stretch 0 so dc = de. x = (de^2+9-16)/(2 de) = 2.788326, h = sqrt(9-x^2) = 1.106906. The end stops short of the handle: hand (6.632121,0,0), the marker joint on the handle (7,0,0).",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "armIK_ctrl_l.translateX": 2, "armSettings_ctrl_l.soft": 0.142857 },
+  "set": { "armIK_00_L_CTRL.translateX": 2, "armSettings_00_L_CTRL.soft": 0.142857 },
   "expect": {
-    "lowerArm_jnt": { "translate": [2.788326, 1.106906, 0] },
-    "hand_jnt": { "translate": [6.632121, 0, 0] }
+    "lowerArm_00_M_JNT": { "translate": [2.788326, 1.106906, 0] },
+    "hand_00_M_JNT": { "translate": [6.632121, 0, 0] }
   }
 }

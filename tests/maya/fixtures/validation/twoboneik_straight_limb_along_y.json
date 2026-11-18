@@ -11,7 +11,7 @@
   "expectErrors": [
     {
       "contains": "bend plane is undefined",
-      "path": "rigModules[0] 'arm_1'.moduleArgs.poleOffset"
+      "path": "rigModules[0] 'arm_01_L_MOD'.moduleArgs.poleOffset"
     }
   ]
 }

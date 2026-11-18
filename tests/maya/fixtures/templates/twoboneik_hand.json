@@ -6,7 +6,7 @@
     {
       "moduleType": "TwoBoneIk",
       "moduleVersion": 2,
-      "name": "arm_1",
+      "name": "arm_01_L_MOD",
       "shapeType": "Box",
       "side": "Left",
       "moduleArgs": {
@@ -37,14 +37,14 @@
         ]
       },
       "parentStructure": {
-        "start": "layout.end",
-        "ik": "layout.end",
-        "pole": "layout.end"
+        "start": "layout_00_M_MOD.end",
+        "ik": "layout_00_M_MOD.end",
+        "pole": "layout_00_M_MOD.end"
       }
     },
     {
       "moduleType": "FkChain",
-      "name": "finger_1",
+      "name": "finger_01_L_MOD",
       "shapeType": "Box",
       "side": "Left",
       "moduleArgs": {
@@ -56,7 +56,7 @@
         ]
       },
       "parentStructure": {
-        "start": "arm_1.end"
+        "start": "arm_01_L_MOD.end"
       }
     }
   ]

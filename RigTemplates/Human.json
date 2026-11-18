@@ -6,7 +6,7 @@
     "rigModules": [
       {
         "moduleType": "FkChain",
-        "name": "spine",
+        "name": "spine_00_M_MOD",
         "shapeType": "Cylinder",
         "side": "Center",
         "moduleArgs" : 
@@ -16,7 +16,7 @@
       },
       {
         "moduleType": "FkChain",
-        "name": "arm_l",
+        "name": "arm_00_L_MOD",
         "shapeType": "Capsule",
         "side": "Left",
         "mirror" : true,
@@ -26,7 +26,7 @@
         },
         "parentStructure" :
         {
-          "start" : "spine.end"
+          "start" : "spine_00_M_MOD.end"
         }
       },
       {
@@ -41,7 +41,7 @@
         },
         "parentStructure" :
         {
-          "start" : "spine.start"
+          "start" : "spine_00_M_MOD.start"
         }
       }
     ],
@@ -51,18 +51,18 @@
       "type": "Orient",
       "target": "leg_l.start",
       "drivers": [
-        { "socket": "layout.end", "label": "Layout", "weight": 1.0 },
-        { "socket": "spine.start", "label": "Spine" }
+        { "socket": "layout_00_M_MOD.end", "label": "Layout", "weight": 1.0 },
+        { "socket": "spine_00_M_MOD.start", "label": "Spine" }
       ],
       "mirror" : true
     },
     {
-      "name": "arm_space_l",
+      "name": "armSpace_00_L_CON",
       "type": "Orient",
-      "target": "arm_l.start",
+      "target": "arm_00_L_MOD.start",
       "drivers": [
-        { "socket": "layout.end", "label": "Layout", "weight": 1.0 },
-        { "socket": "spine.end", "label": "Spine" }
+        { "socket": "layout_00_M_MOD.end", "label": "Layout", "weight": 1.0 },
+        { "socket": "spine_00_M_MOD.end", "label": "Spine" }
       ],
       "mirror" : true
     }

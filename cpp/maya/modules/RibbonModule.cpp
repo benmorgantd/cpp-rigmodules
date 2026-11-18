@@ -2,6 +2,7 @@
 #include "core/Constants.h"
 #include "core/ControlPlacement.h"
 #include "core/JointMarkup.h"
+#include "core/NamingConvention.h"
 #include "core/RibbonMath.h"
 #include "core/RigJsonStructs.h"
 #include "core/StringUtils.h"
@@ -793,6 +794,12 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	// is controlName, else the first bind joint's usage without its trailing _NN. A usage another module already uses is
 	// reported by the template's one-usage-per-rig check (D25).
 	const std::string base = ribbonArgs.controlName.empty() ? StringUtils::stripNumberSuffix(ribbonArgs.joints.front().usage) : ribbonArgs.controlName;
+	if (!NamingConvention::isValidBase(base))
+	{
+		ctx.report.addError(argsPath + ".controlName", "the ik and tweak controls are named from '" + base + "', which is not camelCase (a lowercase "
+			"letter, then letters and digits). Set controlName to a camelCase name");
+		return false;
+	}
 	const std::string& firstSide = ribbonArgs.joints.front().side;
 	std::vector<RibbonSlotInput> controls;
 	for (int j = 0; j < ribbonArgs.controlCount; ++j)

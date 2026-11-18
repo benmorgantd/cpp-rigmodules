@@ -3,7 +3,7 @@
   "skeleton": "fk_two_chains",
   "template": "fkchain_two_chains",
   "expect": {
-    "c_jnt": { "translate": [1, 3, 0], "rotate": [0, 0, 0] },
-    "c_ctrl_l": { "translate": [1, 3, 0], "rotate": [0, 0, 0] }
+    "c_00_M_JNT": { "translate": [1, 3, 0], "rotate": [0, 0, 0] },
+    "c_00_L_CTRL": { "translate": [1, 3, 0], "rotate": [0, 0, 0] }
   }
 }

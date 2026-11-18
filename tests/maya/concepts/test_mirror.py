@@ -7,11 +7,11 @@ from rigtest import config, fixtures
 from rigtest.case import RigTestCase, rig_name
 from rigtest.cases import rig_interface
 
-ARM_L = rig_name("upperArm_l_ctrl_l")
-ARM_R = rig_name("upperArm_r_ctrl_r")
-FOREARM_L = rig_name("lowerArm_l_ctrl_l")
-FOREARM_R = rig_name("lowerArm_r_ctrl_r")
-CHEST = rig_name("chest_ctrl_c")
+ARM_L = rig_name("upperArm_00_L_CTRL")
+ARM_R = rig_name("upperArm_00_R_CTRL")
+FOREARM_L = rig_name("lowerArm_00_L_CTRL")
+FOREARM_R = rig_name("lowerArm_00_R_CTRL")
+CHEST = rig_name("chest_00_M_CTRL")
 REFLECT_X = om.MMatrix([-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
 SHAPE_POINTS = [om.MPoint(1, 0, 0), om.MPoint(0, 1, 0), om.MPoint(0, 0, 1), om.MPoint(0.5, -0.25, 2)]
 
@@ -46,17 +46,17 @@ class MirrorTemplate(RigTestCase):
 
     def test_mirror_module_drives_the_other_side(self):
         self.build_standard("mirror_arms", "mirror_arms")
-        self.assertOpmDrivenBy(rig_name("upperArm_r_jnt"), "arm_r")
-        self.assertOpmDrivenBy(rig_name("clavicle_r_jnt"), "clavicle_r")
-        self.assertEqual(cmds.getAttr(rig_name("arm_r") + ".side"), 2)   # Right
+        self.assertOpmDrivenBy(rig_name("upperArm_00_R_JNT"), "arm_00_R_MOD")
+        self.assertOpmDrivenBy(rig_name("clavicle_00_R_JNT"), "clavicle_00_R_MOD")
+        self.assertEqual(cmds.getAttr(rig_name("arm_00_R_MOD") + ".side"), 2)   # Right
 
     def test_mirror_constraint_uses_mirrored_sockets(self):
         self.build_standard("mirror_arms", "mirror_arms")
-        con = rig_name("arm_space_r")
+        con = rig_name("armSpace_00_R_CON")
         sources = cmds.listConnections(con + ".drivers[0].driverMatrix", source=True, destination=False)
-        self.assertEqual([s.split(":")[-1] for s in sources], ["clavicle_r"])
+        self.assertEqual([s.split(":")[-1] for s in sources], ["clavicle_00_R_MOD"])
         # A label left out defaults to the socket id, so the mirror's is its own socket.
-        self.assertEqual(cmds.getAttr(con + ".drivers[0].driverLabel"), "clavicle_r.end")
+        self.assertEqual(cmds.getAttr(con + ".drivers[0].driverLabel"), "clavicle_00_R_MOD.end")
         self.assertEqual(cmds.getAttr(con + ".drivers[1].driverLabel"), "World")
 
 
@@ -86,22 +86,22 @@ class GetRigMirrorControl(RigTestCase):
         self.build_standard("mirror_arms", "mirror_arms")
 
     def test_left_returns_right(self):
-        self.assertEqual(cmds.getRigMirrorControl(ARM_L), "rig:upperArm_r_ctrl_r")
+        self.assertEqual(cmds.getRigMirrorControl(ARM_L), "rig:upperArm_00_R_CTRL")
 
     def test_right_returns_left(self):
-        self.assertEqual(cmds.getRigMirrorControl(ARM_R), "rig:upperArm_l_ctrl_l")
+        self.assertEqual(cmds.getRigMirrorControl(ARM_R), "rig:upperArm_00_L_CTRL")
 
     def test_center_returns_itself(self):
-        self.assertEqual(cmds.getRigMirrorControl(CHEST), "rig:chest_ctrl_c")
-        self.assertEqual(cmds.getRigMirrorControl(rig_name("layout_1_ctrl_c")), "rig:layout_1_ctrl_c")
+        self.assertEqual(cmds.getRigMirrorControl(CHEST), "rig:chest_00_M_CTRL")
+        self.assertEqual(cmds.getRigMirrorControl(rig_name("layout_01_M_CTRL")), "rig:layout_01_M_CTRL")
 
     def test_no_mirror_is_an_error(self):
         RigTestCase.setUp(self)
         self.build_standard("fkchain_two_chains", "fk_two_chains")
-        self.assertMayaError(lambda: cmds.getRigMirrorControl(rig_name("c_ctrl_l")), "c_ctrl_l", "Right")
+        self.assertMayaError(lambda: cmds.getRigMirrorControl(rig_name("c_00_L_CTRL")), "c_00_L_CTRL", "Right")
 
     def test_not_a_control_is_an_error(self):
-        self.assertMayaError(lambda: cmds.getRigMirrorControl(rig_name("upperArm_l_jnt")), "Not a rig control")
+        self.assertMayaError(lambda: cmds.getRigMirrorControl(rig_name("upperArm_00_L_JNT")), "Not a rig control")
 
     def test_needs_one_control(self):
         self.assertMayaError(lambda: cmds.getRigMirrorControl(ARM_L, ARM_R))
@@ -130,7 +130,7 @@ class MirrorRigControlShapes(RigTestCase):
 
     def test_left_to_right_reflects_shapes_in_world_space(self):
         changed = cmds.mirrorRigControlShapes(rig_root())
-        self.assertEqual(sorted(changed), ["rig:clavicle_r_ctrl_r", "rig:lowerArm_r_ctrl_r", "rig:upperArm_r_ctrl_r"])
+        self.assertEqual(sorted(changed), ["rig:clavicle_00_R_CTRL", "rig:lowerArm_00_R_CTRL", "rig:upperArm_00_R_CTRL"])
         self.assertShapesReflect(ARM_L, ARM_R)
         self.assertShapesReflect(FOREARM_L, FOREARM_R)
         self.assertEqual(cmds.getAttr(ARM_R + ".shapeType"), 8)
@@ -143,10 +143,10 @@ class MirrorRigControlShapes(RigTestCase):
         self.assertShapesReflect(ARM_R, ARM_L)
 
     def test_uses_rest_not_the_current_pose(self):
-        cmds.setAttr(rig_name("clavicle_r_ctrl_r") + ".rotateZ", 45)
+        cmds.setAttr(rig_name("clavicle_00_R_CTRL") + ".rotateZ", 45)
         cmds.setAttr(ARM_L + ".rotateY", 30)
         cmds.mirrorRigControlShapes(rig_root())
-        cmds.setAttr(rig_name("clavicle_r_ctrl_r") + ".rotateZ", 0)
+        cmds.setAttr(rig_name("clavicle_00_R_CTRL") + ".rotateZ", 0)
         cmds.setAttr(ARM_L + ".rotateY", 0)
         self.assertShapesReflect(ARM_L, ARM_R)
 

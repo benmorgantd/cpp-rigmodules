@@ -1,5 +1,5 @@
 {
-  "description": "Child plugs a parentStructure leaves out default to layout.end",
+  "description": "Child plugs a parentStructure leaves out default to layout_00_M_MOD.end",
   "base": "layout_rig",
   "skeleton": "layout_rig",
   "edits": [
@@ -10,7 +10,7 @@
     {
       "set": "/rigModules/2/parentStructure",
       "value": {
-        "aim": "fkchain_1.start"
+        "aim": "fkchain_01_M_MOD.start"
       }
     }
   ],

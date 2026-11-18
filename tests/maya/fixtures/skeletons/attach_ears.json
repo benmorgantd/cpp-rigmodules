@@ -1,6 +1,6 @@
 {
   "joints": [
-    { "name": "ear_l_jnt", "side": "Left", "usage": "ear", "translate": [1, 6, 0] },
-    { "name": "ear_r_jnt", "side": "Right", "usage": "ear", "translate": [-1, 6, 0] }
+    { "name": "ear_00_L_JNT", "side": "Left", "usage": "ear", "translate": [1, 6, 0] },
+    { "name": "ear_00_R_JNT", "side": "Right", "usage": "ear", "translate": [-1, 6, 0] }
   ]
 }

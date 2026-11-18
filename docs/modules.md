@@ -4,7 +4,7 @@ A module is a node that takes joints and controls and computes the joints' world
 
 Controls and joints have `inheritsTransform` off. The module node computes every result, and the DAG hierarchy under the rig is only for organization.
 
-Control names come from the joint and the module's `side`: the namespace and `_jnt` are dropped, then `_ctrl` and the side suffix (`_c`, `_l`, `_r`) are added. `skel:arm_jnt` in a `Left` module gives `arm_ctrl_l`.
+Every name follows the [naming convention](naming.md), `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>`. A control's name is its joint's name with the module's side and `CTRL`: the namespace is dropped, so `skel:arm_00_L_JNT` in a `Left` module gives `arm_00_L_CTRL`. A control with no joint is named from its usage: the Layout's `layout_0` gives `layout_00_M_CTRL`, and TwoBoneIk's `armIK` gives `armIK_00_L_CTRL`.
 
 Each control also carries markup, `(side, usage)`, taken from its joint. Tools and shape files find controls by markup instead of by name (see [controls.md](controls.md)).
 
@@ -14,16 +14,16 @@ Child plug, socket, control and attribute names are public: saved poses, animati
 
 ## Layout
 
-Built into every rig. A template never lists it, but refers to it as `layout`.
+Built into every rig. A template never lists it, but refers to it as `layout_00_M_MOD`.
 
 | | |
 |---|---|
-| Node | `layout` (type `layoutModule`) |
-| Controls | `layout_0_ctrl_c`, `layout_1_ctrl_c`, `layout_2_ctrl_c`: three stacked square controls at the origin, each one driving the next. Markup `Center`, `layout_0` to `layout_2`. |
+| Node | `layout_00_M_MOD` (type `layoutModule`) |
+| Controls | `layout_00_M_CTRL`, `layout_01_M_CTRL`, `layout_02_M_CTRL`: three stacked square controls at the origin, each one driving the next. Markup `Center`, `layout_0` to `layout_2`. |
 | Child plugs | none |
 | Sockets | `index_0`, `index_1`, `index_2`. The last is also `end`. |
 
-Any child plug that a template doesn't parent attaches to `layout.end`, so moving the layout controls moves the whole rig.
+Any child plug that a template doesn't parent attaches to `layout_00_M_MOD.end`, so moving the layout controls moves the whole rig.
 
 ## FkChain
 
@@ -32,7 +32,7 @@ A forward-kinematics chain: one control per joint, each control's rotation and t
 ```json
 {
   "moduleType": "FkChain",
-  "name": "spine",
+  "name": "spine_00_M_MOD",
   "moduleArgs": { "joints": [["Center", "spine1"], ["Center", "spine2"], ["Center", "spine3"]] }
 }
 ```
@@ -57,7 +57,7 @@ Points a joint at a target control, with an up control setting its roll. The aim
 ```json
 {
   "moduleType": "Aim",
-  "name": "eye_r",
+  "name": "eye_00_R_MOD",
   "side": "Right",
   "moduleArgs": { "aim": ["Right", "eye"], "target": ["Right", "eyeTarget"], "up": ["Right", "eyeUp"] },
   "parentStructure": { "aim": "head.end", "target": "head.end", "up": "head.end" }
@@ -88,7 +88,7 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 {
   "moduleType": "TwoBoneIk",
   "moduleVersion": 2,
-  "name": "arm_l",
+  "name": "arm_00_L_MOD",
   "side": "Left",
   "mirror": true,
   "moduleArgs": {
@@ -97,7 +97,7 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
     "poleOffset": [0, 2, 0],
     "settingsOffset": [-1, 3, 0]
   },
-  "parentStructure": { "start": "layout.end", "ik": "layout.end", "pole": "layout.end" }
+  "parentStructure": { "start": "layout_00_M_MOD.end", "ik": "layout_00_M_MOD.end", "pole": "layout_00_M_MOD.end" }
 }
 ```
 
@@ -119,7 +119,7 @@ There are **no marker joints** (D57). The three limb joints belong to this modul
 | | |
 |---|---|
 | Node type | `twoBoneIkModule` |
-| Controls | Six. The FK start, lower and end controls are named from their joints and take their markup. The IK handle, pole and settings controls have no joint: their usages are `<base>IK`, `<base>Pole` and `<base>Settings` (`armIK`, `armPole`, `armSettings`), with the side of the first joint, and their nodes are named from the usage (`armPole_ctrl_l`). The names are public: poses and animation depend on them. Control shapes come from the module's `shapeType`. |
+| Controls | Six. The FK start, lower and end controls are named from their joints and take their markup. The IK handle, pole and settings controls have no joint: their usages are `<base>IK`, `<base>Pole` and `<base>Settings` (`armIK`, `armPole`, `armSettings`), with the side of the first joint, and their nodes are named from the usage (`armPole_00_L_CTRL`). The names are public: poses and animation depend on them. Control shapes come from the module's `shapeType`. |
 | Child plugs | `start` (the FK start control's parent), `ik`, `pole`. A fourth, `settings`, is internal: see below. |
 | Sockets | `index_0`, `index_1`, `index_2` for the three blended joints, with `start` the same socket as `index_0` and `end` the same as `index_2`. Also `ik`, `pole` and `settings` (the three derived controls). |
 
@@ -139,7 +139,7 @@ There are **no marker joints** (D57). The three limb joints belong to this modul
 - **`soft`** (0 to 1, default 0): eases the reach as the handle nears full length, so the elbow doesn't snap straight. It is a fraction of the limb's reach: 0 is a hard stop, and 0.1 starts easing in the last tenth of the reach. With `stretch` off, the end stops a little short of a far handle, which is the point of soft IK.
 - **`pin`** (0 to 1, default 0, on the pole): 1 puts the elbow on the pole control and the wrist on the handle, so the bones lengthen or shorten to fit. Pin wins over stretch and soft, and it fades `roll` out.
 - **`roll`** (an angle, default 0, on the IK handle): turns the bend plane about the root-to-handle axis, right-handed. A mirrored limb negates it.
-- **The pole's `space`** (`Parent` or `Ik`, default `Parent`): in `Parent` the pole follows what its child plug is attached to (`layout.end` by default). In `Ik` it follows the IK handle's motion. This space belongs to the module, so the template can't add to it and a constraint on `pole` is an error. Switch it with [`setRigControlSpace`](commands.md#setrigcontrolspace)`(pole, label="Ik")`, which keeps the pole where it is in the world. [`getRigControlSpace`](commands.md#getrigcontrolspace) lists it with the other spaces. Setting it directly with `setAttr` moves the pole and doesn't match.
+- **The pole's `space`** (`Parent` or `Ik`, default `Parent`): in `Parent` the pole follows what its child plug is attached to (`layout_00_M_MOD.end` by default). In `Ik` it follows the IK handle's motion. This space belongs to the module, so the template can't add to it and a constraint on `pole` is an error. Switch it with [`setRigControlSpace`](commands.md#setrigcontrolspace)`(pole, label="Ik")`, which keeps the pole where it is in the world. [`getRigControlSpace`](commands.md#getrigcontrolspace) lists it with the other spaces. Setting it directly with `setAttr` moves the pole and doesn't match.
 - **The solve is stateless**: the same controls always give the same pose. A pole that crosses the line from the root to the handle flips the bend, as in a native IK. With the pole exactly on that line the bend keeps the direction it had at rest.
 - A handle on the root folds the limb to its shortest reach. No input gives a NaN.
 - Each IK joint keeps its rest orientation at rest, wherever the rigger put the pole. The end joint's rotation follows the IK handle's.
@@ -166,7 +166,7 @@ There are **no marker joints** (D57). The three limb joints belong to this modul
 
 - `parentStructure` has three keys: `start`, `ik` and `pole`. A `settings` key is an error: the settings child plug is internal, and takes `start`'s parent.
 - A constraint may target `start` and `ik`. A constraint on `pole` or `settings` is an error.
-- Attach a hand's fingers to `arm_l.end` (or `index_2`): the sockets carry the blended joint, so the fingers follow the hand in IK and in FK, and their controls stay visible. A module cannot attach to its own sockets, so this module's own `pole` can't be parented to its `ik` socket: the pole's `Ik` space does that inside the module.
+- Attach a hand's fingers to `arm_00_L_MOD.end` (or `index_2`): the sockets carry the blended joint, so the fingers follow the hand in IK and in FK, and their controls stay visible. A module cannot attach to its own sockets, so this module's own `pole` can't be parented to its `ik` socket: the pole's `Ik` space does that inside the module.
 - Mirroring needs nothing extra: every selector's side is swapped, `roll` is negated by the pose mirror and everything else copies.
 
 The build fails if the limb has any other count of joints, if two limb joints sit on each other, if `poleOffset` or `settingsOffset` isn't three numbers, or if the pole lands on the line from the root to the end joint (only a straight limb along its root's Y axis does that by default). A limb with a bent rest pose works wherever the pole is: IK at rest reproduces the rest bend.
@@ -176,9 +176,9 @@ The build fails if the limb has any other count of joints, if two limb joints si
 ```python
 from maya import cmds
 
-cmds.setAttr("rig:armIK_ctrl_l.translateY", 3)               # the hand follows the handle
-cmds.setAttr("rig:armSettings_ctrl_l.stretch", 1)             # and reaches it even when it is far
-cmds.setAttr("rig:armPole_ctrl_l.space", 1)                   # the pole now follows the handle
+cmds.setAttr("rig:armIK_00_L_CTRL.translateY", 3)               # the hand follows the handle
+cmds.setAttr("rig:armSettings_00_L_CTRL.stretch", 1)             # and reaches it even when it is far
+cmds.setAttr("rig:armPole_00_L_CTRL.space", 1)                   # the pole now follows the handle
 ```
 
 ## Ribbon
@@ -189,7 +189,7 @@ A bendy, stretchy run of bind joints driven by a few controls: a tail, a spine, 
 {
   "moduleType": "Ribbon",
   "moduleVersion": 2,
-  "name": "tail_1",
+  "name": "tail_01_M_MOD",
   "side": "Center",
   "moduleArgs": {
     "controlName": "tail",
@@ -201,7 +201,7 @@ A bendy, stretchy run of bind joints driven by a few controls: a tail, a spine, 
 | `moduleArgs` key | Required | Value |
 |---|---|---|
 | `controlCount` | no | 2 to 8, default 3: how many ik controls, the start, the end and the interior ones, spread evenly by arc length along the chain |
-| `controlName` | no | The base of the control names (below). Default: the first bind joint's usage without a trailing `_NN` (`spine_00` gives `spine`, `tail1` stays `tail1`) |
+| `controlName` | no | The base of the control names (below). Default: the first bind joint's usage without a trailing `_NN` (`spine_00` gives `spine`, `tail1` stays `tail1`). It must be camelCase: a lowercase letter, then letters and digits |
 | `joints` | yes | 2 to 64 selectors for the **bind joints**, root to tip, already spaced the way the ribbon should hold them at rest |
 | `startAimBlend`, `endAimBlend` | no | A number from 0 to 1, default 0: the default, and so the rest, of the channel of the same name (below). Set `startAimBlend` to 1 on a shoulder or thigh so its start aims down the limb on every build. A value outside 0 to 1 fails the build |
 
@@ -212,7 +212,7 @@ There are **no control joints**. The ik controls are placed from the bind joints
 | | |
 |---|---|
 | Node type | `ribbonModule` |
-| Controls | `controlCount` **ik controls**, usage `<base>IK_<nn>` (`tailIK_00`, `tailIK_01`, ...), and one hidden **tweaker** per bind joint, usage `<base>Tweak_<nn>` with `nn` the bind joint's index from 00 (`tailTweak_00`, ...). The side is the first bind joint's. An ik control's node is named from its usage (`tailIK_00_ctrl_c`) and a tweaker's from its bind joint (`tail1_ctrl_c`). Usages are unique in a rig, so two ribbons with the same base and side fail the build: set `controlName` on one. Control shapes come from the module's `shapeType`. |
+| Controls | `controlCount` **ik controls**, usage `<base>IK_<nn>` (`tailIK_00`, `tailIK_01`, ...), and one hidden **tweaker** per bind joint, usage `<base>Tweak_<nn>` with `nn` the bind joint's index from 00 (`tailTweak_00`, ...). The side is the first bind joint's. An ik control's node is named from its usage (`tailIK_00_M_CTRL`) and a tweaker's from its bind joint (`tail1_00_M_CTRL`). Usages are unique in a rig, so two ribbons with the same base and side fail the build: set `controlName` on one. Control shapes come from the module's `shapeType`. |
 | Child plugs | `start` (the start control's parent) and `end` (the end control's parent) |
 | Sockets | `index_0` to `index_<j-1>` for the ik controls (`j` is `controlCount`), with `start` the same socket as `index_0` and `end` the last. The tweakers have none. |
 
@@ -244,29 +244,29 @@ There are **no control joints**. The ik controls are placed from the bind joints
 
 The sine goes on after the twist.
 
-**Parenting.** `parentStructure` may have `start` and `end`. A `start` you leave out parents to `layout.end`, as everywhere. An `end` you leave out takes **the same parent as `start`**, so a self-contained ribbon (a tail) moves as one with its parent. List `end` to drive the end from another socket. A constraint may target either. Mirroring needs nothing extra: selector sides swap, and `startTwist`, `endTwist` and `sineOrient` are negated by the pose mirror.
+**Parenting.** `parentStructure` may have `start` and `end`. A `start` you leave out parents to `layout_00_M_MOD.end`, as everywhere. An `end` you leave out takes **the same parent as `start`**, so a self-contained ribbon (a tail) moves as one with its parent. List `end` to drive the end from another socket. A constraint may target either. Mirroring needs nothing extra: selector sides swap, and `startTwist`, `endTwist` and `sineOrient` are negated by the pose mirror.
 
-**An arm** is two ribbons on a [TwoBoneIk](#twoboneik) `arm_1`. The upper arm hangs from the body (here the layout's end; use the clavicle's socket in a rig that has one) and ends on the elbow socket, so it starts with no twist and gathers the shoulder's twist along its length. The forearm starts on the elbow socket and ends on the wrist, so it begins with the twist the upper arm ends with. The aim keys make each end aim down its bone.
+**An arm** is two ribbons on a [TwoBoneIk](#twoboneik) `arm_01_L_MOD`. The upper arm hangs from the body (here the layout's end; use the clavicle's socket in a rig that has one) and ends on the elbow socket, so it starts with no twist and gathers the shoulder's twist along its length. The forearm starts on the elbow socket and ends on the wrist, so it begins with the twist the upper arm ends with. The aim keys make each end aim down its bone.
 
 ```json
 [
   {
-    "moduleType": "Ribbon", "moduleVersion": 2, "name": "upper_1", "side": "Center",
+    "moduleType": "Ribbon", "moduleVersion": 2, "name": "upper_01_M_MOD", "side": "Center",
     "moduleArgs": {
       "controlName": "up", "controlCount": 2,
       "joints": [["Center", "up1"], ["Center", "up2"], ["Center", "up3"], ["Center", "up4"], ["Center", "up5"]],
       "startAimBlend": 1, "endAimBlend": 1
     },
-    "parentStructure": { "start": "layout.end", "end": "arm_1.index_1" }
+    "parentStructure": { "start": "layout_00_M_MOD.end", "end": "arm_01_L_MOD.index_1" }
   },
   {
-    "moduleType": "Ribbon", "moduleVersion": 2, "name": "fore_1", "side": "Center",
+    "moduleType": "Ribbon", "moduleVersion": 2, "name": "fore_01_M_MOD", "side": "Center",
     "moduleArgs": {
       "controlName": "fo", "controlCount": 2,
       "joints": [["Center", "fo1"], ["Center", "fo2"], ["Center", "fo3"], ["Center", "fo4"], ["Center", "fo5"]],
       "startAimBlend": 1, "endAimBlend": 1
     },
-    "parentStructure": { "start": "arm_1.index_1", "end": "arm_1.end" }
+    "parentStructure": { "start": "arm_01_L_MOD.index_1", "end": "arm_01_L_MOD.end" }
   }
 ]
 ```
@@ -277,19 +277,19 @@ The sine goes on after the twist.
 {
   "rigModules": [
     {
-      "moduleType": "Ribbon", "moduleVersion": 2, "name": "upper_1", "side": "Center",
+      "moduleType": "Ribbon", "moduleVersion": 2, "name": "upper_01_M_MOD", "side": "Center",
       "moduleArgs": {
         "controlName": "up", "controlCount": 2,
         "joints": [["Center", "up1"], ["Center", "up2"], ["Center", "up3"], ["Center", "up4"], ["Center", "up5"]]
       },
-      "parentStructure": { "start": "arm_1.start", "end": "arm_1.start" }
+      "parentStructure": { "start": "arm_01_L_MOD.start", "end": "arm_01_L_MOD.start" }
     }
   ],
   "constraints": [
-    { "name": "upper_start_swing", "type": "Swing", "target": "upper_1.start",
-      "drivers": [{ "socket": "arm_1.start", "label": "Shoulder", "weight": 1.0 }] },
-    { "name": "upper_end_point", "type": "Point", "target": "upper_1.end",
-      "drivers": [{ "socket": "arm_1.index_1", "label": "Elbow", "weight": 1.0 }] }
+    { "name": "upperStartSwing_00_M_CON", "type": "Swing", "target": "upper_01_M_MOD.start",
+      "drivers": [{ "socket": "arm_01_L_MOD.start", "label": "Shoulder", "weight": 1.0 }] },
+    { "name": "upperEndPoint_00_M_CON", "type": "Point", "target": "upper_01_M_MOD.end",
+      "drivers": [{ "socket": "arm_01_L_MOD.index_1", "label": "Elbow", "weight": 1.0 }] }
   ]
 }
 ```
@@ -305,8 +305,8 @@ The build fails if `controlCount` is not 2 to 8, if there are fewer than 2 or mo
 ```python
 from maya import cmds
 
-cmds.setAttr("rig:tailIK_01_ctrl_c.translateY", 2)    # the middle of the tail rises, and the joints bend around it
-cmds.setAttr("rig:tailIK_02_ctrl_c.rotateX", 200)     # the end rolls 200 degrees about its own X, and the roll ramps along the ribbon, so the middle control's frame turns 100
-cmds.setAttr("rig:tailIK_00_ctrl_c.endTwist", 200)    # and the ribbon follows it past 180
-cmds.setAttr("rig:tailIK_00_ctrl_c.volumePreserve", 1)  # squash and stretch fatten and thin the joints
+cmds.setAttr("rig:tailIK_01_M_CTRL.translateY", 2)    # the middle of the tail rises, and the joints bend around it
+cmds.setAttr("rig:tailIK_02_M_CTRL.rotateX", 200)     # the end rolls 200 degrees about its own X, and the roll ramps along the ribbon, so the middle control's frame turns 100
+cmds.setAttr("rig:tailIK_00_M_CTRL.endTwist", 200)    # and the ribbon follows it past 180
+cmds.setAttr("rig:tailIK_00_M_CTRL.volumePreserve", 1)  # squash and stretch fatten and thin the joints
 ```

@@ -223,12 +223,12 @@ class SaveAndLoad(SkinWeightTestCase):
         set_mesh_id(self.box, FIXTURE_ID)
         cluster = self.bind(self.a, self.c)
         cmds.loadRigSkinWeights(self.box, file=FIXTURE_PATH)
-        self.assertEqual(sorted(cmds.skinCluster(cluster, query=True, influence=True)), ["skel:a_jnt", "skel:b_jnt"])
+        self.assertEqual(sorted(cmds.skinCluster(cluster, query=True, influence=True)), ["skel:a_00_M_JNT", "skel:b_00_M_JNT"])
         self.assertEqual(weights(self.box, [self.a, self.b]), FIXTURE_WEIGHTS)
 
     def test_renamed_joint_still_loads(self):
         set_mesh_id(self.box, FIXTURE_ID)
-        renamed = cmds.rename(self.b, ":skel:spine_jnt")
+        renamed = cmds.rename(self.b, ":skel:spine_00_M_JNT")
         cmds.loadRigSkinWeights(self.box, file=FIXTURE_PATH)
         self.assertEqual(weights(self.box, [self.a, renamed]), FIXTURE_WEIGHTS)
 
@@ -269,7 +269,7 @@ class UndoRedo(SkinWeightTestCase):
         before = weights(self.box, [self.a, self.c])
         cmds.loadRigSkinWeights(self.box, file=FIXTURE_PATH)
         cmds.undo()
-        self.assertEqual(sorted(cmds.skinCluster(cluster, query=True, influence=True)), ["skel:a_jnt", "skel:c_jnt"])
+        self.assertEqual(sorted(cmds.skinCluster(cluster, query=True, influence=True)), ["skel:a_00_M_JNT", "skel:c_00_M_JNT"])
         self.assertEqual(weights(self.box, [self.a, self.c]), before)
         cmds.redo()
         self.assertEqual(weights(self.box, [self.a, self.b]), FIXTURE_WEIGHTS)
@@ -299,13 +299,13 @@ class SaveErrors(SkinWeightTestCase):
         cmds.setRigMeshId(self.box)
         cmds.rigJointMarkup(self.b, remove=True)
         self.bind()
-        self.assertNotSaved(lambda: cmds.saveRigSkinWeights(self.box, file=self.path), "b_jnt", "no joint markup")
+        self.assertNotSaved(lambda: cmds.saveRigSkinWeights(self.box, file=self.path), "b_00_M_JNT", "no joint markup")
 
     def test_influence_marked_skin_false(self):
         cmds.setRigMeshId(self.box)
         cmds.rigJointMarkup(self.b, edit=True, skin=False)
         self.bind()
-        self.assertNotSaved(lambda: cmds.saveRigSkinWeights(self.box, file=self.path), "b_jnt", "skin: false")
+        self.assertNotSaved(lambda: cmds.saveRigSkinWeights(self.box, file=self.path), "b_00_M_JNT", "skin: false")
 
     def test_weights_not_normalized(self):
         cmds.setRigMeshId(self.box)
@@ -529,22 +529,22 @@ class BindAtRest(RigTestCase):
         set_mesh_id(self.box, FIXTURE_ID)
 
     def test_module_stores_each_joint_rest(self):
-        module = rig_name("fkchain_1")
+        module = rig_name("fkchain_01_M_MOD")
         self.assertEqual([round(v, 6) for v in cmds.getAttr(module + ".jointRestWorld[1]")],
                          [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 2, 0, 1])
 
     def test_load_on_a_posed_rig_binds_the_build_pose(self):
-        # Rotating a_ctrl_c 90 degrees about Z swings the whole chain rigidly about the origin, so every vertex
+        # Rotating a_00_M_CTRL 90 degrees about Z swings the whole chain rigidly about the origin, so every vertex
         # turns with it whatever its weights: (x, y, z) -> (-y, x, z). Binding at the posed joints would leave the
         # box upright instead.
-        cmds.setAttr(rig_name("a_ctrl_c") + ".rotateZ", 90)
+        cmds.setAttr(rig_name("a_00_M_CTRL") + ".rotateZ", 90)
         cluster = cmds.loadRigSkinWeights(self.box, file=FIXTURE_PATH)
         for index, expected in ((0, (0, -0.5, 0.5)), (3, (-2, 0.5, 0.5))):
             self.assertEqual([round(v, 4) for v in world_point(self.box, index)], list(expected))
         self.assertEqual([round(v, 6) for v in cmds.getAttr(cluster + ".bindPreMatrix[1]")],
                          [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -2, 0, 1])
 
-        cmds.setAttr(rig_name("a_ctrl_c") + ".rotateZ", 0)
+        cmds.setAttr(rig_name("a_00_M_CTRL") + ".rotateZ", 0)
         self.assertEqual([round(v, 4) for v in world_point(self.box, 3)], [0.5, 2, 0.5])
 
     def test_save_stamps_the_rig_skeleton_hash(self):
@@ -561,7 +561,7 @@ class BindAtRest(RigTestCase):
 
     def test_save_fails_for_influences_of_two_rigs(self):
         self.build("fkchain_three", self.make_skeleton("fk_three", namespace="skel2"), namespace="other")
-        cmds.skinCluster(rig_name("a_jnt"), "other:b_jnt", self.box, toSelectedBones=True)
+        cmds.skinCluster(rig_name("a_00_M_JNT"), "other:b_00_M_JNT", self.box, toSelectedBones=True)
         path = os.path.join(config.WORK_DIR, "rig_box_weights.json")
         if os.path.exists(path):
             os.remove(path)
