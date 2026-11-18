@@ -18,6 +18,7 @@ import argparse
 import glob
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -42,8 +43,6 @@ PYTHON_DIR = os.path.join(REPO_DIR, "python")
 TIERS = [
     ("registration", True, [
         "concepts.test_plugin",
-        "concepts.test_source_layout",     # core/ stays Maya-free; reads files, not the scene
-        "concepts.test_mayalaunch",        # the launcher every script that starts Maya uses (D48)
     ]),
     ("read only", True, [                  # commands and checks that never build a rig
         "commands.test_joint_markup_cmd",
@@ -51,7 +50,6 @@ TIERS = [
         "concepts.test_control_shapes",     # rigControlNode shapes and bounds, no rig
         "concepts.test_template_loading",
         "concepts.test_template_validation",
-        "concepts.test_python_template",    # rigmodules.template reads a file, builds nothing
     ]),
     ("build smoke", True, [                # every fixture template builds
         "concepts.test_smoke",
@@ -95,12 +93,25 @@ TIERS = [
     ]),
 ]
 
+# Test files that never touch the plugin or a scene. They run in their own plain Python process, started
+# before Maya and alongside it, so their time (mayalaunch starts real Mayas and waits on timeouts: about
+# 15 s) overlaps Maya's instead of adding to it. They gate nothing: if the launcher is broken, the Maya
+# tiers fail on their own, and the run reports both. Every file here must import no maya module.
+PLAIN_PYTHON = [
+    "concepts.test_mayalaunch",        # the launcher every script that starts Maya uses (D48)
+    "concepts.test_source_layout",     # core/ stays Maya-free; reads files, not the scene
+    "concepts.test_python_template",   # rigmodules.template reads a file, builds nothing
+]
+PLAIN_TIER = "plain"
+PLAIN_LABEL = "plain python    "
+
 OUTCOME_CHARS = {"pass": ".", "FAIL": "F", "ERROR": "E", "xfail": "x", "XPASS": "X", "skip": "s"}
 BAD_OUTCOMES = ("FAIL", "ERROR", "XPASS")
 FILES = {"results": "results.json", "progress": "progress.txt", "outcomes": "outcomes.jsonl", "log": "maya_output.log"}
 
-# A run that takes longer than this is a hung Maya. The suite takes about 20 s.
+# A run that takes longer than this is a hung Maya. The suite takes about 35 s.
 DEFAULT_TIMEOUT_SECONDS = 900
+DEFAULT_DURATIONS = 10
 
 
 def parse_args():
@@ -108,12 +119,16 @@ def parse_args():
     parser.add_argument("filters", nargs="*", help="keep tests whose id contains any of these")
     parser.add_argument("-v", "--verbose", action="store_true", help="print each test as it runs")
     parser.add_argument("--keep-going", action="store_true", help="run every tier even after one fails")
+    parser.add_argument("--durations", nargs="?", type=int, const=DEFAULT_DURATIONS, default=0, metavar="N",
+                        help="after the TOTAL line, list the N slowest test files and tests (default N: %d)"
+                             % DEFAULT_DURATIONS)
     parser.add_argument("--update-golden", action="store_true", help="rewrite golden interface snapshots")
     parser.add_argument("--plugin", default=DEFAULT_PLUGIN, help="plugin to test (default: Release build)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_SECONDS,
                         help="seconds before a Maya that has not finished is stopped (default: %(default)s)")
     # Internal: the parent starts the Maya process with these.
     parser.add_argument("--child-from-tier", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--plain-child", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--work-dir", help=argparse.SUPPRESS)
     return parser.parse_args()
 
@@ -179,9 +194,15 @@ class TierResult(unittest.TestResult):
         self.tier = tier
         self.verbose = verbose
         self.outcomes = []
+        self._mark = time.time()
 
     def _record(self, test, outcome, detail=""):
-        item = {"tier": self.tier, "id": test.id(), "group": group_of(test), "outcome": outcome, "detail": detail}
+        # Seconds since the previous record: a test's setup and body, never counted twice, so a test
+        # with subtests splits its time across them and the sum over all outcomes is the run's test time.
+        now = time.time()
+        item = {"tier": self.tier, "id": test.id(), "group": group_of(test), "outcome": outcome, "detail": detail,
+                "seconds": round(now - self._mark, 4)}
+        self._mark = now
         self.outcomes.append(item)
         append_outcome(self.files["outcomes"], item)
         self.out.write(("    %-8s %s\n" % (outcome, test.id())) if self.verbose else OUTCOME_CHARS[outcome])
@@ -191,7 +212,7 @@ class TierResult(unittest.TestResult):
         super().startTest(test)
         # Written before the test runs: if Maya crashes, the parent reads which test it was.
         with open(self.files["progress"], "w", encoding="utf-8") as handle:
-            handle.write("%d\t%s" % (self.tier, test.id()))
+            handle.write("%s\t%s" % (self.tier, test.id()))
         if self.verbose:
             self.out.write("\n    running  %s" % test.id())
             self.out.flush()
@@ -230,9 +251,14 @@ class TierResult(unittest.TestResult):
 
 def load_tier_tests(tier, filters):
     """Returns (tests, load errors) for one tier. A module that fails to import is reported, not fatal."""
+    return load_modules(TIERS[tier][2], tier, filters)
+
+
+def load_modules(modules, tier, filters):
+    """Returns (tests, load errors) for the named test modules, with the filters applied."""
     loader = unittest.TestLoader()
     tests, errors = [], []
-    for name in TIERS[tier][2]:
+    for name in modules:
         try:
             suite = loader.loadTestsFromName(name)
         except Exception:
@@ -289,8 +315,88 @@ def run_tiers(report, files, first_tier, filters, verbose, keep_going):
             blocked_by = "tier %d %s" % (tier + 1, TIERS[tier][0])
 
 
-def write_total(out, outcomes, elapsed, log_path, stopped=0):
-    """Writes the TOTAL line and returns True when nothing failed."""
+def write_durations(out, outcomes, elapsed, count):
+    """Where the time went: Maya's startup and tier loading apart from the tests, then the slowest test
+    files and the slowest tests. Each outcome's seconds run from the previous outcome's end (see
+    TierResult._record), so a test's own setup is counted against it."""
+    # The plain Python tests run alongside Maya, so only the Maya tiers count against the run's clock.
+    tests_seconds = sum(item.get("seconds", 0.0) for item in outcomes if item["tier"] != PLAIN_TIER)
+    plain_seconds = sum(item.get("seconds", 0.0) for item in outcomes if item["tier"] == PLAIN_TIER)
+    out.write("\nTime: %.1f s in Maya tests, %.1f s outside them (Maya startup, plugin load, test loading), "
+              "%.1f s in plain Python tests running alongside\n"
+              % (tests_seconds, max(0.0, elapsed - tests_seconds), plain_seconds))
+    by_group = {}
+    for item in outcomes:
+        total, number = by_group.get(item["group"], (0.0, 0))
+        by_group[item["group"]] = (total + item.get("seconds", 0.0), number + 1)
+    out.write("Slowest test files:\n")
+    for group, (total, number) in sorted(by_group.items(), key=lambda pair: -pair[1][0])[:count]:
+        out.write("  %6.2f s  %4d tests  %s\n" % (total, number, group))
+    out.write("Slowest tests:\n")
+    for item in sorted(outcomes, key=lambda i: -i.get("seconds", 0.0))[:count]:
+        out.write("  %6.2f s  %s\n" % (item.get("seconds", 0.0), item["id"]))
+    out.flush()
+
+
+def plain_files(work_dir):
+    files = {k: os.path.join(work_dir, "plain_" + v) for k, v in FILES.items()}
+    files["report"] = os.path.join(work_dir, "plain_report.txt")
+    return files
+
+
+def run_plain_child(args):
+    """Runs PLAIN_PYTHON in this process, which has no Maya, writing outcomes and a one-tier report."""
+    files = plain_files(args.work_dir)
+    configure_rigtest(os.path.join(args.work_dir, "plain"), update_golden=False)
+    os.makedirs(os.path.join(args.work_dir, "plain"), exist_ok=True)
+    with open(files["report"], "w", encoding="utf-8") as report:
+        tests, load_errors = load_modules(PLAIN_PYTHON, PLAIN_TIER, args.filters)
+        for error in load_errors:
+            append_outcome(files["outcomes"], error)
+        result = TierResult(report, files, PLAIN_TIER, args.verbose)
+        unittest.TestSuite(tests).run(result)
+        outcomes = load_errors + result.outcomes
+        counts, text = summarize(outcomes)
+        report.write("%s%s\n" % ("\n" + " " * len(PLAIN_LABEL) if args.verbose else ("  " if outcomes else ""),
+                                 text if outcomes else "no tests"))
+        write_failures(report, outcomes)
+
+
+def start_plain(work_dir, filters, verbose):
+    """Starts the plain Python child and returns its Popen. Nothing in it can reach the Maya run."""
+    command = [sys.executable, os.path.abspath(__file__), "--plain-child", "--work-dir", work_dir]
+    command += ["-v"] if verbose else []
+    command += list(filters)
+    log = open(plain_files(work_dir)["log"], "w", encoding="utf-8")
+    return subprocess.Popen(command, env=mayalaunch.child_environment(work_dir), stdout=log, stderr=subprocess.STDOUT)
+
+
+def finish_plain(process, work_dir, out, timeout):
+    """Waits for the plain child, writes its report to out and returns its outcomes. A child that dies or
+    hangs without finishing its report is an ERROR, not a pass by absence."""
+    files = plain_files(work_dir)
+    problem = None
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], capture_output=True)
+        problem = "the plain Python tests did not finish within %d s" % timeout
+    if problem is None and process.returncode != 0:
+        problem = "the plain Python process exited with code %s. See %s" % (process.returncode, files["log"])
+    if os.path.isfile(files["report"]):
+        with open(files["report"], encoding="utf-8") as handle:
+            out.write(PLAIN_LABEL + handle.read())
+    outcomes = read_outcomes(files["outcomes"])
+    if problem:
+        out.write(PLAIN_LABEL + "STOPPED\n" + indent(problem, "  ") + "\n")
+        outcomes.append({"tier": PLAIN_TIER, "id": "plain python process", "group": "plain", "outcome": "ERROR",
+                         "detail": problem, "seconds": 0.0})
+    out.flush()
+    return outcomes
+
+
+def write_total(out, outcomes, elapsed, log_path, stopped=0, durations=0):
+    """Writes the TOTAL line and returns True when nothing failed. durations > 0 adds write_durations."""
     counts, _ = summarize(outcomes)
     summary = "TOTAL %d passed" % counts.get("pass", 0)
     for key, label in (("FAIL", "failed"), ("ERROR", "errors"), ("XPASS", "unexpected passes"),
@@ -300,11 +406,13 @@ def write_total(out, outcomes, elapsed, log_path, stopped=0):
     if stopped:
         summary += ", Maya stopped %d time(s)" % stopped
     out.write("\n%s   (%.1f s)\nMaya log: %s\n" % (summary, elapsed, log_path))
+    if durations:
+        write_durations(out, outcomes, elapsed, durations)
     out.flush()
     return not stopped and not any(counts.get(k) for k in BAD_OUTCOMES)
 
 
-def run_in_current_maya(filters=(), verbose=False, keep_going=False):
+def run_in_current_maya(filters=(), verbose=False, keep_going=False, durations=0):
     """Runs the whole suite inside a mayapy that is already running with the plugin loaded, for example
     at the end of a script that just checked a change, so Maya starts once. Returns True if nothing failed.
 
@@ -330,12 +438,15 @@ def run_in_current_maya(filters=(), verbose=False, keep_going=False):
     report = os.fdopen(os.dup(1), "w", encoding="utf-8", errors="replace")
     report.write("\nRigModules tests | in the current Maya session\n\n")
     start = time.time()
+    plain = start_plain(work_dir, filters, verbose)
     redirect = mayalaunch.Redirect(files["log"])
     try:
         run_tiers(report, files, 0, list(filters), verbose, keep_going)
     finally:
         redirect.stop()
-    ok = write_total(report, read_outcomes(files["outcomes"]), time.time() - start, files["log"])
+    plain_outcomes = finish_plain(plain, work_dir, report, DEFAULT_TIMEOUT_SECONDS)
+    ok = write_total(report, read_outcomes(files["outcomes"]) + plain_outcomes, time.time() - start, files["log"],
+                     durations=durations)
     report.close()
     return ok
 
@@ -378,7 +489,7 @@ def check_tier_table():
     for path in glob.glob(os.path.join(MAYA_TESTS_DIR, "*", "test_*.py")):
         rel = os.path.relpath(path, MAYA_TESTS_DIR)
         on_disk.add(os.path.splitext(rel)[0].replace(os.sep, "."))
-    listed = [m for _, _, modules in TIERS for m in modules]
+    listed = [m for _, _, modules in TIERS for m in modules] + PLAIN_PYTHON
     problems = []
     problems += ["%s is not in any tier. Add it to TIERS in run_tests.py." % m for m in sorted(on_disk - set(listed))]
     problems += ["TIERS lists %s, which does not exist." % m for m in sorted(set(listed) - on_disk)]
@@ -473,6 +584,7 @@ def run_parent(args):
     out.flush()
 
     start = time.time()
+    plain = start_plain(work_dir, args.filters, args.verbose)
     stopped = 0
     from_tier = 0
     while from_tier < len(TIERS):
@@ -492,13 +604,17 @@ def run_parent(args):
             out.write("%sNOT RUN (blocked by %s)\n" % (tier_label(later), reason))
         break
 
-    outcomes = read_outcomes(os.path.join(work_dir, FILES["outcomes"]))
-    ok = write_total(out, outcomes, time.time() - start, os.path.join(work_dir, FILES["log"]), stopped)
+    outcomes = read_outcomes(os.path.join(work_dir, FILES["outcomes"])) + finish_plain(plain, work_dir, out, args.timeout)
+    ok = write_total(out, outcomes, time.time() - start, os.path.join(work_dir, FILES["log"]), stopped,
+                       args.durations)
     return 0 if ok else 1
 
 
 if __name__ == "__main__":
     arguments = parse_args()
+    if arguments.plain_child:
+        run_plain_child(arguments)
+        sys.exit(0)
     if arguments.child_from_tier is not None:
         run_child(arguments)
     sys.exit(run_parent(arguments))
