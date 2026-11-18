@@ -192,6 +192,7 @@ A bendy, stretchy run of bind joints driven by a few controls: a tail, a spine, 
 |---|---|---|
 | `controls` | yes | 2 to 8 selectors for the **control joints**, root to tip: the start, the interior ones and the end |
 | `joints` | yes | 2 to 64 selectors for the **bind joints**, root to tip, already spaced the way the ribbon should hold them at rest |
+| `startAimBlend`, `endAimBlend` | no | A number from 0 to 1, default 0: the default, and so the rest, of the channel of the same name (below). Set `startAimBlend` to 1 on a shoulder or thigh so its start aims down the limb on every build. A value outside 0 to 1 fails the build |
 
 The control joints are **marker joints**: mark them `export: false, skin: false`, as for Aim's target and up. Joints must point down the chain (+X toward the tip, +Y up), the way an FK chain's do. Every joint belongs to this module alone, and a joint can't be both a control joint and a bind joint.
 
@@ -223,7 +224,7 @@ The control joints are **marker joints**: mark them `export: false, skin: false`
 | `sinePhase` | 0 | -20 to 20 | Cycles | copy |
 | `sineOrient` | 0 | angle | The wave's direction around the ribbon: 0 is up, a quarter turn is sideways | negate |
 | `sineStartFalloff`, `sineEndFalloff` | 0.2 | 0 to 1 | The share of the ribbon over which the wave fades in and out | copy |
-| `startAimBlend`, `endAimBlend` | 0 | 0 to 1 | 0 lets the end's own X axis set its tangent, 1 aims it at the other end | copy |
+| `startAimBlend`, `endAimBlend` | 0, or the `moduleArgs` key | 0 to 1 | 0 lets the end's own X axis set its tangent, 1 aims it at the other end | copy |
 | `bendRoundness` | 1 | 0 to 2 | The size of the end tangents: 0 is straight, about 0.65 to 1 is rounded | copy |
 | `volumePreserve` | 0 | 0 to 1 | How much a stretch squashes the cross-section (and a squash fattens it) | copy |
 | `scaleStart`, `scaleMid`, `scaleEnd` | 1 | 0 to 1 | The weight of `volumePreserve` at the start, the middle and the end | copy |
@@ -231,6 +232,31 @@ The control joints are **marker joints**: mark them `export: false, skin: false`
 The sine goes on after the twist.
 
 **Parenting.** `parentStructure` may have `start` and `end`. A `start` you leave out parents to `layout.end`, as everywhere. An `end` you leave out takes **the same parent as `start`**, so a self-contained ribbon (a tail) moves as one with its parent. List `end` to drive the end from another socket. A constraint may target either. Mirroring needs nothing extra: selector sides swap, and `startTwist`, `endTwist` and `sineOrient` are negated by the pose mirror.
+
+**An arm** is two ribbons on a [TwoBoneIk](#twoboneik) `arm_1`. The upper arm hangs from the body (here the layout's end; use the clavicle's socket in a rig that has one) and ends on the elbow socket, so it starts with no twist and gathers the shoulder's twist along its length. The forearm starts on the elbow socket and ends on the wrist, so it begins with the twist the upper arm ends with. The aim keys make each end aim down its bone.
+
+```json
+[
+  {
+    "moduleType": "Ribbon", "name": "upper_1", "side": "Center",
+    "moduleArgs": {
+      "controls": [["Center", "upCtrlA"], ["Center", "upCtrlB"]],
+      "joints": [["Center", "up1"], ["Center", "up2"], ["Center", "up3"], ["Center", "up4"], ["Center", "up5"]],
+      "startAimBlend": 1, "endAimBlend": 1
+    },
+    "parentStructure": { "start": "layout.end", "end": "arm_1.index_1" }
+  },
+  {
+    "moduleType": "Ribbon", "name": "fore_1", "side": "Center",
+    "moduleArgs": {
+      "controls": [["Center", "foCtrlA"], ["Center", "foCtrlB"]],
+      "joints": [["Center", "fo1"], ["Center", "fo2"], ["Center", "fo3"], ["Center", "fo4"], ["Center", "fo5"]],
+      "startAimBlend": 1, "endAimBlend": 1
+    },
+    "parentStructure": { "start": "arm_1.index_1", "end": "arm_1.end" }
+  }
+]
+```
 
 **Restoring from joints** ([commands.md](commands.md#how-the-joints-become-control-values)): the ik controls come from their marker joints and each tweaker from its bind joint, so every bind joint present comes back exactly. A control joint the source lacks keeps the value from the sidecar, or rest, and the tweakers carry the difference. The channels above come from the sidecar, and otherwise stay as they are in the scene: a `sineAmplitude` the restore doesn't know about puts the interior controls in the wrong place.
 

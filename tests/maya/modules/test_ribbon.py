@@ -41,6 +41,16 @@ class RibbonContract(ModuleContract, RigTestCase):
     MIRROR_SKELETON = "ribbon_mirror"
 
 
+class RibbonAimedContract(ModuleContract, RigTestCase):
+    """The same contract on a ribbon with its ends on the layout's first and last sockets (so the end plug's parent twists the
+    ribbon, and the inverse has to take that out) and with the aim blends set from the template."""
+    TEMPLATE = "ribbon_aimed"
+    SKELETON = "ribbon_basic"
+    MODULE_TYPE = "ribbonModule"
+    JOINT_OWNERS = RibbonContract.JOINT_OWNERS
+    MIRROR_TEMPLATE = False
+
+
 class RibbonPoses(RigTestCase):
     pass
 
@@ -190,6 +200,62 @@ class RibbonBehaviour(RigTestCase):
                 self.assertAlmostEqual(math.remainder(roll(joint) - expected, 360.0), 0.0, delta=1.0, msg="T=%s %s" % (twist, joint))
             seam = math.remainder(roll("fo1_jnt") - roll("up5_jnt"), 360.0)
             self.assertAlmostEqual(seam, 0.0, delta=1.0, msg="the seam at the elbow for T=%s" % twist)
+
+    # ---- startAimBlend and endAimBlend in moduleArgs (design/ribbon-twist-follow.md) -----------
+
+    def _with_aim(self, template="ribbon_basic", **aim):
+        data = copy.deepcopy(fixtures.load_template(template))
+        data["rigModules"][0]["moduleArgs"].update(aim)
+        return data
+
+    def test_the_aim_keys_set_the_channels_default_and_rest(self):
+        """The keys are the same-named channels' rest (D34), so a build starts aimed and the other channels are untouched."""
+        self.build(self._with_aim(startAimBlend=1, endAimBlend=0.5), self.make_skeleton("ribbon_basic"), label="ribbon_aim")
+        channels = {c.name: c for c in rigmodules.query.get_control_channels(rig_name(FIRST))}
+        rests = dict((name, rest) for name, (rest, mirror) in CHANNELS.items())
+        rests.update(startAimBlend=1.0, endAimBlend=0.5)
+        for name, rest in rests.items():
+            self.assertAlmostEqual(channels[name].rest, rest, places=6, msg="%s rest" % name)
+            self.assertAlmostEqual(attr(FIRST, name), rest, places=6, msg="%s value at build" % name)
+        self.assertEqual(channels["startAimBlend"].mirror, "copy")
+
+    def test_zeroing_the_control_returns_to_the_aimed_state(self):
+        self.build(self._with_aim(startAimBlend=1, endAimBlend=1), self.make_skeleton("ribbon_basic"), label="ribbon_aim")
+        set_attr(FIRST, "startAimBlend", 0.2)
+        cmds.zeroRigControls(rig_name(FIRST))
+        self.assertAlmostEqual(attr(FIRST, "startAimBlend"), 1.0, places=6)
+
+    def test_an_aimed_build_straightens_the_ribbon_with_no_channel_set(self):
+        """aim_blend_makes_a_straight_line.json with the blends from the template: the end moves 2 up and the joints stay on the
+        line from the start to it."""
+        self.build(self._with_aim(startAimBlend=1, endAimBlend=1), self.make_skeleton("ribbon_basic"), label="ribbon_aim")
+        set_attr(LAST, "translateY", 2.0)
+        for joint, point in (("tail2_jnt", [2, 0.5, 0]), ("tail3_jnt", [4, 1.0, 0]), ("tail4_jnt", [6, 1.5, 0])):
+            self.assertWorldTranslation(rig_name(joint), point, 1e-3)
+
+    def test_the_aim_keys_reach_the_mirrored_side(self):
+        self.build(self._with_aim("ribbon_mirror", startAimBlend=1), self.make_skeleton("ribbon_mirror"), label="ribbon_aim_mirror")
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        firsts = [c for c in rigmodules.query.get_rig_controls(root) if c.usage == "tailCtrlA"]
+        self.assertEqual(sorted(c.side for c in firsts), ["Left", "Right"])
+        for control in firsts:
+            channels = {c.name: c for c in rigmodules.query.get_control_channels(control.node)}
+            self.assertAlmostEqual(channels["startAimBlend"].rest, 1.0, places=6, msg=control.side)
+            self.assertAlmostEqual(channels["endAimBlend"].rest, 0.0, places=6, msg=control.side)
+
+    def test_an_aim_key_outside_zero_to_one_is_an_error(self):
+        for key, value in (("startAimBlend", 1.5), ("endAimBlend", -0.1)):
+            message = self.assertMayaError(
+                lambda: self.build(self._with_aim(**{key: value}), self.make_skeleton("ribbon_basic"), label="ribbon_aim_bad"))
+            self.assertIn(key, message)
+            self.assertIn("between 0 and 1", message)
+            self.assertNothingBuilt()
+
+    def test_a_misspelled_aim_key_is_an_error(self):
+        message = self.assertMayaError(
+            lambda: self.build(self._with_aim(startAimBlen=1), self.make_skeleton("ribbon_basic"), label="ribbon_aim_typo"))
+        self.assertIn("startAimBlen", message)
+        self.assertNothingBuilt()
 
     # ---- the plan step's checks (D17) ----------------------------------------------------------
 

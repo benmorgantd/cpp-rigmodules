@@ -175,9 +175,12 @@ public:
 	static MStatus buildModules(const std::vector<ModulePlan>& plans, MObject oRigRoot, MDagModifier& dagMod, RigModuleMap& outModuleMap);
 
 	// Plan step helpers, shared by every module built from JSON. Both report into ctx.report and return false on failure.
-	// knownKeys are every moduleArgs key, all required. They must match the field names TArgs's JSON macro maps.
+	// knownKeys are the required moduleArgs keys, optionalKeys the ones that may be left out. Together they must match the field
+	// names TArgs's JSON macro maps, and a macro with defaults (NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT) keeps a left-out
+	// key's default.
 	template <typename TArgs>
-	static bool readModuleArgs(const nlohmann::json& args, std::initializer_list<const char*> knownKeys, PlanContext& ctx, TArgs& outArgs);
+	static bool readModuleArgs(const nlohmann::json& args, std::initializer_list<const char*> knownKeys, PlanContext& ctx, TArgs& outArgs,
+		std::initializer_list<const char*> optionalKeys = {});
 	static bool claimJoint(PlanContext& ctx, const JointSelector& selector, MObject& oOutJoint, MMatrix& mOutRestWorld);
 	
 	// Returns a pointer to the entry for the given name, or nullptr if the name isn't in the map.
@@ -217,11 +220,12 @@ public:
 };
 
 template <typename TArgs>
-bool RigModuleNodeBase::readModuleArgs(const nlohmann::json& args, std::initializer_list<const char*> knownKeys, PlanContext& ctx, TArgs& outArgs)
+bool RigModuleNodeBase::readModuleArgs(const nlohmann::json& args, std::initializer_list<const char*> knownKeys, PlanContext& ctx, TArgs& outArgs,
+	std::initializer_list<const char*> optionalKeys)
 {
 	const std::string argsPath = ctx.where + "." + TemplateKey::ModuleArgs;
 	const std::size_t errorCount = ctx.report.errors.size();
-	RigTemplateValidation::checkKeys(args, knownKeys, {}, argsPath, ctx.report);
+	RigTemplateValidation::checkKeys(args, knownKeys, optionalKeys, argsPath, ctx.report);
 	if (ctx.report.errors.size() != errorCount)
 	{
 		return false;

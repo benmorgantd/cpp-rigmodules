@@ -48,12 +48,16 @@ struct RibbonSlotInput
 
 // "controls": the control joints, root to tip, [[side, usage], ...] (2 to 8). "joints": the bind joints, root to tip (2 to 64).
 // The controls' joints are markers, not skinned, and the bind joints are what skins and exports.
+// "startAimBlend" and "endAimBlend" (optional, 0 to 1, default 0): the default, and so the rest (D34), of the channels of the same
+// names, for a ribbon whose ends should aim down the chain on every build (a shoulder or thigh, design/ribbon-twist-follow.md).
 struct RibbonArgs
 {
 	std::vector<JointSelector> controls;
 	std::vector<JointSelector> joints;
+	double startAimBlend{ 0.0 };
+	double endAimBlend{ 0.0 };
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RibbonArgs, controls, joints)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(RibbonArgs, controls, joints, startAimBlend, endAimBlend)
 
 // A virtual ribbon (D56, design/ribbon.md): a few ik controls shape a curve and every bind joint rides it through a
 // hidden tweaker control. Slots (the logical index controlData, controlOPM, jointOPM, outputSocketMatrix and childPlugs share):
@@ -93,6 +97,7 @@ public:
 		const std::vector<RibbonSlotInput>& controls,
 		const std::vector<RibbonSlotInput>& joints,
 		const RibbonMath::Setup& setup,
+		const std::array<double, RibbonChannel::Count>& channelDefaults,
 		MObject& oRigRoot,
 		MDagModifier& dagMod
 	);

@@ -11,7 +11,7 @@ import re
 
 from maya import cmds
 
-from rigtest import config
+from rigtest import config, fixtures
 from rigtest.case import RigTestCase, rig_name
 
 README = os.path.join(config.REPO_DIR, "README.md")
@@ -553,3 +553,18 @@ class RibbonDocExamples(RigTestCase):
         # of local Y point (0, cos 100, sin 100) * 2. The ends don't move.
         self.assertWorldTranslation(rig_name("tail3_jnt"), [4, 2 * math.cos(math.radians(100)), 2 * math.sin(math.radians(100))])
         self.assertWorldTranslation(rig_name("tail5_jnt"), [8, 0, 0])
+
+    def test_modules_doc_arm_example_builds_with_its_aim_keys_and_meets_at_the_elbow(self):
+        """The two ribbon entries under 'An arm' go on the fixture's TwoBoneIk. They build at rest with both ends aimed, and with
+        the shoulder turned 60 about X (FK) the upper arm's last joint and the forearm's first both roll 60."""
+        ribbons = json.loads(doc_code_block(MODULES_DOC, "**An arm**", "json"))
+        arm = json.loads(json.dumps(fixtures.load_template("ribbon_arm")["rigModules"][0]))
+        self.build({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [arm] + ribbons}, self.make_skeleton("ribbon_arm"))
+        for control in ("upCtrlA", "foCtrlA"):
+            self.assertAlmostEqual(cmds.getAttr("rig:%s_ctrl_c.startAimBlend" % control), 1.0, places=6)
+            self.assertAlmostEqual(cmds.getAttr("rig:%s_ctrl_c.endAimBlend" % control), 1.0, places=6)
+        cmds.setAttr("rig:armSettings_ctrl_l.ikFkBlend", 0)
+        cmds.setAttr("rig:upperArm_ctrl_l.rotateX", 60)
+        for joint in ("up5_jnt", "fo1_jnt"):
+            m = cmds.xform(rig_name(joint), query=True, worldSpace=True, matrix=True)
+            self.assertAlmostEqual(math.degrees(math.atan2(m[6], m[5])), 60.0, delta=1.0, msg=joint)

@@ -513,6 +513,7 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 	const std::vector<RibbonSlotInput>& controls,
 	const std::vector<RibbonSlotInput>& joints,
 	const RibbonMath::Setup& setup,
+	const std::array<double, RibbonChannel::Count>& channelDefaults,
 	MObject& oRigRoot,
 	MDagModifier& dagMod)
 {
@@ -618,11 +619,12 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 		return result;
 	}
 	const std::array<ChannelSpec, RibbonChannel::Count>& specs = channelSpecs();
-	for (const ChannelSpec& spec : specs)
+	for (unsigned int k = 0; k < RibbonChannel::Count; ++k)
 	{
+		const ChannelSpec& spec = specs[k];
 		status = spec.isAngle
 			? RigPoseScene::addAngleChannel(oControls[0], spec.name, spec.negate, dagMod)
-			: RigPoseScene::addDoubleChannel(oControls[0], spec.name, spec.defaultValue, spec.min, spec.max, spec.negate, dagMod);
+			: RigPoseScene::addDoubleChannel(oControls[0], spec.name, channelDefaults[k], spec.min, spec.max, spec.negate, dagMod);
 		CHECK_MSTATUS_AND_RETURN(status, result);
 	}
 	status = dagMod.doIt();
@@ -653,13 +655,23 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	RibbonArgs ribbonArgs;
-	if (!readModuleArgs(args, { "controls", "joints" }, ctx, ribbonArgs))
+	if (!readModuleArgs(args, { "controls", "joints" }, ctx, ribbonArgs, { RigAttr::StartAimBlend, RigAttr::EndAimBlend }))
 	{
 		return false;
 	}
 
 	const std::string argsPath = ctx.where + "." + TemplateKey::ModuleArgs;
 	bool valid = true;
+	// The channels clamp to their range, so a value outside it would build a rest the channel can't hold.
+	for (const auto& [key, value] : { std::pair<const char*, double>{ RigAttr::StartAimBlend, ribbonArgs.startAimBlend },
+		{ RigAttr::EndAimBlend, ribbonArgs.endAimBlend } })
+	{
+		if (value < 0.0 || value > 1.0)
+		{
+			ctx.report.addError(argsPath + "." + key, "must be between 0 and 1, got " + std::to_string(value));
+			valid = false;
+		}
+	}
 	if (ribbonArgs.controls.size() < 2 || ribbonArgs.controls.size() > static_cast<std::size_t>(RibbonMath::MaxControls))
 	{
 		ctx.report.addError(argsPath + ".controls", "a ribbon has between 2 and " + std::to_string(RibbonMath::MaxControls)
@@ -735,9 +747,16 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	const MString moduleName = ctx.moduleData.name.c_str();
 	const Side side = getSideFromString(ctx.moduleData.side);
 	const ShapeType shapeType = getShapeTypeFromString(ctx.moduleData.shapeType);
-	outPlan.build = [moduleName, side, shapeType, controls, joints, setup](MObject& oRigRoot, MDagModifier& dagMod)
+	std::array<double, RibbonChannel::Count> channelDefaults;
+	for (unsigned int k = 0; k < RibbonChannel::Count; ++k)
 	{
-		return RibbonModuleNode::createModule(moduleName, side, shapeType, controls, joints, setup, oRigRoot, dagMod);
+		channelDefaults[k] = channelSpecs()[k].defaultValue;
+	}
+	channelDefaults[RibbonChannel::StartAimBlend] = ribbonArgs.startAimBlend;
+	channelDefaults[RibbonChannel::EndAimBlend] = ribbonArgs.endAimBlend;
+	outPlan.build = [moduleName, side, shapeType, controls, joints, setup, channelDefaults](MObject& oRigRoot, MDagModifier& dagMod)
+	{
+		return RibbonModuleNode::createModule(moduleName, side, shapeType, controls, joints, setup, channelDefaults, oRigRoot, dagMod);
 	};
 	return true;
 }
