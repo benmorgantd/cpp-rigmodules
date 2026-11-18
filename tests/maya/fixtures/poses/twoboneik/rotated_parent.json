@@ -6,9 +6,6 @@
   "expect": {
     "upperArm_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, 90] },
     "lowerArm_jnt": { "translate": [-2.4, 1.8, 0], "rotate": [0, 0, 90] },
-    "hand_jnt": { "translate": [0, 5, 0], "rotate": [0, 0, 90] },
-    "handIk_jnt": { "translate": [0, 5, 0] },
-    "armPole_jnt": { "translate": [-5, 2.5, 0] },
-    "armSettings_jnt": { "translate": [-8, 0, 0] }
+    "hand_jnt": { "translate": [0, 5, 0], "rotate": [0, 0, 90] }
   }
 }

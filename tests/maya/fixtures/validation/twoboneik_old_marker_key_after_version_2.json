@@ -1,0 +1,20 @@
+{
+  "description": "ik, pole and settings are gone in version 2: a version 2 template that has one is an unknown key",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/pole",
+      "value": [
+        "Left",
+        "armPole"
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "unknown key 'pole'",
+      "path": "rigModules[0] 'arm_1'.moduleArgs"
+    }
+  ]
+}

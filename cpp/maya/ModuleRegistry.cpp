@@ -43,7 +43,7 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
         {
             "twoBoneIkModule", "TwoBoneIk", TwoBoneIkNode::id,
             TwoBoneIkNode::creator, TwoBoneIkNode::initialize,
-            {}, TwoBoneIkNode::planFromJson, TwoBoneIkNode::inverse, true, TwoBoneIkNode::inverseChannels(), TwoBoneIkNode::spaceDelta
+            TwoBoneIkNode::argUpdateTable(), TwoBoneIkNode::planFromJson, TwoBoneIkNode::inverse, true, TwoBoneIkNode::inverseChannels(), TwoBoneIkNode::spaceDelta
         },
         {
             "ribbonModule", "Ribbon", RibbonModuleNode::id,

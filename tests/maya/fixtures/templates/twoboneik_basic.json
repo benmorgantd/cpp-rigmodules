@@ -2,10 +2,10 @@
   "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "TwoBoneIkBasic",
   "rigModules": [
-    { "moduleType": "TwoBoneIk", "name": "arm_1", "shapeType": "Box", "side": "Left",
+    { "moduleType": "TwoBoneIk", "moduleVersion": 2, "name": "arm_1", "shapeType": "Box", "side": "Left",
       "moduleArgs": {
         "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"] ],
-        "ik": ["Left", "handIk"], "pole": ["Left", "armPole"], "settings": ["Left", "armSettings"] },
+        "controlName": "arm", "poleOffset": [0.7, 2.6, 0], "settingsOffset": [-5, 8, 0] },
       "parentStructure": { "start": "layout.end", "ik": "layout.end", "pole": "layout.end" } }
   ]
 }

@@ -479,22 +479,27 @@ class TwoBoneIkDocExamples(RigTestCase):
             self.assertExists(rig_name(module))
         self.assertWorldTranslation(rig_name("hand_l_jnt"), [6, 0, 0])
         self.assertWorldTranslation(rig_name("lowerArm_r_jnt"), [-2.8, 2.4, 0])
+        # The pole is the mid joint plus poleOffset [0, 2, 0], the settings control the end joint plus [-1, 3, 0] (X negated on the right).
+        self.assertWorldTranslation(rig_name("armPole_ctrl_l"), [2.8, 4.4, 0])
+        self.assertWorldTranslation(rig_name("armPole_ctrl_r"), [-2.8, 4.4, 0])
+        self.assertWorldTranslation(rig_name("armSettings_ctrl_l"), [5, 3, 0])
+        self.assertWorldTranslation(rig_name("armSettings_ctrl_r"), [-5, 3, 0])
 
     def test_modules_doc_snippet(self):
         entry = json.loads(doc_code_block(MODULES_DOC, "## TwoBoneIk", "json"))
         self.build_entry({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [entry]})
-        cmds.setAttr("rig:handIk_l_ctrl_l.translateY", 3)
-        cmds.setAttr("rig:armSettings_l_ctrl_l.stretch", 1)
-        cmds.setAttr("rig:armPole_l_ctrl_l.space", 1)
+        cmds.setAttr("rig:armIK_ctrl_l.translateY", 3)
+        cmds.setAttr("rig:armSettings_ctrl_l.stretch", 1)
+        cmds.setAttr("rig:armPole_ctrl_l.space", 1)
         # The hand follows the handle: the root is at (1, 0, 0) and the handle at (6, 3, 0), within reach.
         self.assertWorldTranslation(rig_name("hand_l_jnt"), [6, 3, 0])
-        self.assertEqual(cmds.attributeQuery("space", node="rig:armPole_l_ctrl_l", listEnum=True)[0], "Parent:Ik")
+        self.assertEqual(cmds.attributeQuery("space", node="rig:armPole_ctrl_l", listEnum=True)[0], "Parent:Ik")
 
     def test_templates_doc_mirrored_limb(self):
         template = json.loads(doc_code_block(TEMPLATES_DOC, "## Mirroring", "json", index=1))
         self.build_entry(template)
         self.assertExists(rig_name("arm_ik_space_r"))
-        for control in ("handIk_l_ctrl_l", "handIk_r_ctrl_r"):
+        for control in ("armIK_ctrl_l", "armIK_ctrl_r"):
             self.assertEqual(cmds.attributeQuery("space", node=rig_name(control), listEnum=True)[0], "World:Hips")
 
 

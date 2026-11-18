@@ -1,0 +1,22 @@
+{
+  "description": "settingsOffset is [x, y, z]",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/settingsOffset",
+      "value": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "must be [x, y, z]",
+      "path": "rigModules[0] 'arm_1'.moduleArgs.settingsOffset"
+    }
+  ]
+}

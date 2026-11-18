@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/StringUtils.h"   // Maya-free, so the template validator can share it
+#include "core/VectorMath.h"
 
 #include <maya/MArgDatabase.h>
 #include <maya/MDagModifier.h>
@@ -87,6 +88,24 @@ struct TwoBoneIkInverseResult
 class MathUtils
 {
 public:
+	// Between Maya's matrix and the Maya-free one the code in core/ works on (VectorMath::Mat4). Both are row-major with row vectors.
+	static inline VectorMath::Mat4 toMat4(const MMatrix& mMatrix)
+	{
+		VectorMath::Mat4 result;
+		for (int r = 0; r < 4; ++r)
+		{
+			for (int c = 0; c < 4; ++c)
+			{
+				result.m[r][c] = mMatrix[r][c];
+			}
+		}
+		return result;
+	}
+	static inline MMatrix toMMatrix(const VectorMath::Mat4& mat)
+	{
+		return MMatrix(mat.m);
+	}
+
 	// Closed-form two-bone solve with stretch, soft reach, pin and roll (D52 section 4.2). Stateless: the same inputs
 	// give the same pose, so a pole that crosses the root-to-handle line flips the limb. Allocation-free.
 	static TwoBoneIkResult computeTwoBoneIk(const TwoBoneIkInput& input);

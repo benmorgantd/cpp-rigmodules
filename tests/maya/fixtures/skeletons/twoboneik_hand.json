@@ -31,42 +31,6 @@
       ]
     },
     {
-      "name": "handIk_jnt",
-      "side": "Left",
-      "usage": "handIk",
-      "translate": [
-        5,
-        0,
-        0
-      ],
-      "export": false,
-      "skin": false
-    },
-    {
-      "name": "armPole_jnt",
-      "side": "Left",
-      "usage": "armPole",
-      "translate": [
-        2.5,
-        5,
-        0
-      ],
-      "export": false,
-      "skin": false
-    },
-    {
-      "name": "armSettings_jnt",
-      "side": "Left",
-      "usage": "armSettings",
-      "translate": [
-        0,
-        8,
-        0
-      ],
-      "export": false,
-      "skin": false
-    },
-    {
       "name": "finger_jnt",
       "side": "Left",
       "usage": "finger",

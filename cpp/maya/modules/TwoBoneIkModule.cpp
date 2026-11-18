@@ -1,7 +1,10 @@
 #include "maya/modules/TwoBoneIkModule.h"
 #include "core/Constants.h"
+#include "core/ControlPlacement.h"
+#include "core/JointMarkup.h"
 #include "core/JsonUtils.h"
 #include "core/RigJsonStructs.h"
+#include "core/StringUtils.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigModule.h"
 #include "maya/shared/RigPoseScene.h"
@@ -11,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -31,6 +35,7 @@
 #include <maya/MPlug.h>
 #include <maya/MPoint.h>
 #include <maya/MProfiler.h>
+#include <maya/MTransformationMatrix.h>
 #include <maya/MTypeId.h>
 #include <maya/MVector.h>
 
@@ -55,12 +60,26 @@ namespace
 {
 	// Rests closer than these have no bone, no end-to-handle match, or no pole plane.
 	constexpr double kMinBoneLength{ 1.0e-4 };
-	constexpr double kMaxIkEndOffset{ 1.0e-3 };
 	constexpr double kMinPoleSine{ 1.0e-4 };
 	// A rest mid this near the root-to-end line is a straight limb: it has no bend direction of its own.
 	constexpr double kMinRestBend{ 1.0e-4 };
 	// The IK solve of a restored pose may miss the joints by this fraction of the limb's reach before the restore warns.
 	constexpr double kMaxIkMismatch{ 1.0e-3 };
+
+	// Version 2 (D57): the IK handle, pole and settings controls come from the limb joints, so the three marker joints ("ik", "pole",
+	// "settings") are gone. The step has no scene, so it cannot turn their positions into offsets: an old template builds with the
+	// derived places. Anything else is left for the validation that follows.
+	void dropMarkerJoints(nlohmann::json& args)
+	{
+		if (!args.is_object())
+		{
+			return;
+		}
+		for (const char* key : { "ik", "pole", "settings" })
+		{
+			args.erase(key);
+		}
+	}
 
 	// The child plug each slot owns, or nullptr for the slots with none (the FK lower and end controls).
 	const char* childPlugNameAt(unsigned int slot)
@@ -217,6 +236,13 @@ TwoBoneIkNode::TwoBoneIkNode()
 }
 TwoBoneIkNode::~TwoBoneIkNode()
 {
+}
+
+const UpdateTable& TwoBoneIkNode::argUpdateTable()
+{
+	// Add a step here, and nowhere else, when TwoBoneIk's moduleArgs change shape or meaning. Step 0 takes version 1 to 2.
+	static const UpdateTable table{ 1, { &dropMarkerJoints } };
+	return table;
 }
 
 void* TwoBoneIkNode::creator()
@@ -678,7 +704,7 @@ ModuleInverseResult TwoBoneIkNode::inverse(const ModuleInverseContext& context, 
 		}
 	};
 
-	// The marker joints (slots 3 to 5) are not exported, so their joints are never read. The limb's three are.
+	// Slots 3 to 5 have no joints (D57): the handle and pole come from the limb's three, which are read here.
 	bool hasLimb = input.jointWorld.size() >= TwoBoneIkSlot::LimbCount;
 	for (unsigned int slot = 0; hasLimb && slot < TwoBoneIkSlot::LimbCount; ++slot)
 	{
@@ -796,16 +822,22 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
 	{
 		const TwoBoneIkSlotInput& input = slots[slot];
-		MFnDependencyNode fnJoint(input.oJoint);
 
-		status = TwoBoneIkNode::wireJoint(oModule, input.oJoint, slot, input.mRestWorld, dagMod);
-		if (!status)
+		// The IK, pole and settings controls have no joint (D57): their jointOPM and jointRestWorld elements are never made, which
+		// compute(), the inverse and the match outputs allow for. Their nodes are named from their usage.
+		MString controlBaseName(input.baseName.c_str());
+		if (!input.oJoint.isNull())
 		{
-			result.status = status;
-			return result;
+			status = TwoBoneIkNode::wireJoint(oModule, input.oJoint, slot, input.mRestWorld, dagMod);
+			if (!status)
+			{
+				result.status = status;
+				return result;
+			}
+			controlBaseName = MFnDependencyNode(input.oJoint).name();
 		}
 
-		oControls[slot] = RigControlNode::createRigControl(dagMod, fnJoint.name(), shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
+		oControls[slot] = RigControlNode::createRigControl(dagMod, controlBaseName, shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
 		// FK lower under FK upper and FK end under FK lower. The IK, pole and settings controls stay out of the FK
 		// hierarchy: visibility inherits through the DAG, and the FK controls hide in IK (section 3.2).
 		if (slot == TwoBoneIkSlot::Lower || slot == TwoBoneIkSlot::End)
@@ -950,7 +982,7 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	TwoBoneIkArgs ikArgs;
-	if (!readModuleArgs(args, { "joints", "ik", "pole", "settings" }, ctx, ikArgs))
+	if (!readModuleArgs(args, { "joints" }, ctx, ikArgs, { "controlName", "poleOffset", "settingsOffset" }))
 	{
 		return false;
 	}
@@ -964,53 +996,95 @@ bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 		valid = false;
 	}
 
-	// claimJoint rejects a joint picked twice, which also covers "six distinct joints". Claim every selector even after a
-	// failure, so the report lists every bad one at once.
-	std::vector<const JointSelector*> selectors;
-	for (const JointSelector& selector : ikArgs.joints)
+	// An offset is empty (the default) or three numbers. The other side of a mirrored module is the reflection across the YZ plane
+	// (D28), so a world offset's X is negated there.
+	const auto readOffset = [&](const std::vector<double>& values, const char* key) -> std::optional<VectorMath::Vec3>
 	{
-		selectors.push_back(&selector);
-	}
-	selectors.insert(selectors.end(), { &ikArgs.ik, &ikArgs.pole, &ikArgs.settings });
+		if (values.empty())
+		{
+			return std::nullopt;
+		}
+		if (values.size() != 3)
+		{
+			ctx.report.addError(argsPath + "." + key, "must be [x, y, z], got " + std::to_string(values.size()) + " numbers");
+			valid = false;
+			return std::nullopt;
+		}
+		return VectorMath::Vec3{ ctx.moduleData.isMirror() ? -values[0] : values[0], values[1], values[2] };
+	};
+	const std::optional<VectorMath::Vec3> poleOffset = readOffset(ikArgs.poleOffset, "poleOffset");
+	const std::optional<VectorMath::Vec3> settingsOffset = readOffset(ikArgs.settingsOffset, "settingsOffset");
 
+	// claimJoint rejects a joint picked twice. Claim every selector even after a failure, so the report lists every bad one at once.
 	std::array<TwoBoneIkSlotInput, TwoBoneIkSlot::Count> slots;
-	std::size_t slotIndex = 0;
-	for (const JointSelector* pSelector : selectors)
+	for (std::size_t i = 0; i < ikArgs.joints.size(); ++i)
 	{
-		// With the wrong joint count the first three aren't the limb, so they are claimed into a scratch input.
+		// With the wrong joint count the selectors aren't the limb, so they are claimed into a scratch input.
 		TwoBoneIkSlotInput scratch;
-		TwoBoneIkSlotInput& slot = valid ? slots[slotIndex] : scratch;
-		valid = claimJoint(ctx, *pSelector, slot.oJoint, slot.mRestWorld) && valid;
-		slot.controlMarkup = makeControlMarkup(pSelector->side, pSelector->usage);
-		++slotIndex;
+		TwoBoneIkSlotInput& slot = ikArgs.joints.size() == TwoBoneIkSlot::LimbCount ? slots[i] : scratch;
+		valid = claimJoint(ctx, ikArgs.joints[i], slot.oJoint, slot.mRestWorld) && valid;
+		slot.controlMarkup = makeControlMarkup(ikArgs.joints[i].side, ikArgs.joints[i].usage);
 	}
 	if (!valid)
 	{
 		return false;
 	}
 
-	// A degenerate rest pose gives the solve no bones, no axis or no plane.
+	// A degenerate rest pose gives the solve no bones. A straight limb is fine (mocap skeletons have them): the pole falls back to
+	// the root joint's -Y, which ControlPlacement::placeLimb does.
 	const MVector vRoot = MathUtils::translationOf(slots[TwoBoneIkSlot::Upper].mRestWorld);
 	const MVector vMid = MathUtils::translationOf(slots[TwoBoneIkSlot::Lower].mRestWorld);
 	const MVector vEnd = MathUtils::translationOf(slots[TwoBoneIkSlot::End].mRestWorld);
-	const MVector vHandle = MathUtils::translationOf(slots[TwoBoneIkSlot::Ik].mRestWorld);
-	const MVector vPole = MathUtils::translationOf(slots[TwoBoneIkSlot::Pole].mRestWorld);
 	if ((vMid - vRoot).length() < kMinBoneLength || (vEnd - vMid).length() < kMinBoneLength)
 	{
 		ctx.report.addError(argsPath + ".joints", "the limb's joints must not sit on each other: a bone has no length");
 		return false;
 	}
-	if ((vHandle - vEnd).length() > kMaxIkEndOffset)
+
+	// The derived controls (D57). The handle is at the end joint, turned the way that joint is. The pole and settings controls take
+	// world axes: their rotation is locked, so this only sets how their translate channels read.
+	const ControlPlacement::LimbPlacement placement = ControlPlacement::placeLimb(
+		MathUtils::toMat4(slots[TwoBoneIkSlot::Upper].mRestWorld), MathUtils::toMat4(slots[TwoBoneIkSlot::Lower].mRestWorld),
+		MathUtils::toMat4(slots[TwoBoneIkSlot::End].mRestWorld), poleOffset, settingsOffset);
+	const MVector vPole(placement.pole.x, placement.pole.y, placement.pole.z);
+	const MVector vSettings(placement.settings.x, placement.settings.y, placement.settings.z);
+
+	// A pole on the root-to-end line has no bend plane. A straight limb that runs along its root's Y (a leg) lands there by default,
+	// so it needs an offset.
+	const MVector vToPole = vPole - vRoot;
+	const MVector vToEnd = vEnd - vRoot;
+	if (vToPole.length() < kMinBoneLength || (vToPole.normal() ^ vToEnd.normal()).length() < kMinPoleSine)
 	{
-		ctx.report.addError(argsPath + ".ik", "the ik joint must sit at the end joint (an offset IK handle isn't supported)");
+		ctx.report.addError(argsPath + ".poleOffset", "the pole lies on the line from the root to the end, so the bend plane is undefined. "
+			"Give the limb a poleOffset that moves the pole off that line");
 		return false;
 	}
-	const MVector vToPole = vPole - vRoot;
-	const MVector vToHandle = vHandle - vRoot;
-	if (vToHandle.length() < kMinBoneLength || vToPole.length() < kMinBoneLength || (vToPole.normal() ^ vToHandle.normal()).length() < kMinPoleSine)
+
+	const MMatrix mEndRotation = MTransformationMatrix(slots[TwoBoneIkSlot::End].mRestWorld).asRotateMatrix();
+	const auto frameAt = [](const MMatrix& mRotation, const MVector& vOrigin)
 	{
-		ctx.report.addError(argsPath + ".pole", "the pole joint lies on the line from the root to the end, so the bend plane is undefined");
-		return false;
+		MMatrix mFrame = mRotation;
+		mFrame[3][0] = vOrigin.x;
+		mFrame[3][1] = vOrigin.y;
+		mFrame[3][2] = vOrigin.z;
+		return mFrame;
+	};
+	slots[TwoBoneIkSlot::Ik].mRestWorld = frameAt(mEndRotation, vEnd);
+	slots[TwoBoneIkSlot::Pole].mRestWorld = frameAt(MMatrix::identity, vPole);
+	slots[TwoBoneIkSlot::Settings].mRestWorld = frameAt(MMatrix::identity, vSettings);
+
+	// Names (D57): <base>IK, <base>Pole and <base>Settings. The base is controlName, else the first joint's usage without its
+	// trailing _NN. A usage another module already uses is reported by the template's one-usage-per-rig check (D25).
+	const std::string base = ikArgs.controlName.empty() ? StringUtils::stripNumberSuffix(ikArgs.joints.front().usage) : ikArgs.controlName;
+	const std::string& firstSide = ikArgs.joints.front().side;
+	const std::pair<unsigned int, const char*> derived[] =
+	{
+		{ TwoBoneIkSlot::Ik, "IK" }, { TwoBoneIkSlot::Pole, "Pole" }, { TwoBoneIkSlot::Settings, "Settings" }
+	};
+	for (const auto& [slotIndex, suffix] : derived)
+	{
+		slots[slotIndex].baseName = base + suffix;
+		slots[slotIndex].controlMarkup = makeControlMarkup(firstSide, slots[slotIndex].baseName);
 	}
 
 	std::array<MMatrix, TwoBoneIkSlot::Count> restWorlds;

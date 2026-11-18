@@ -1,7 +1,7 @@
 {
   "description": "A fourth joint is an error that names the Aim module and longer chains",
   "base": "twoboneik_basic",
-  "skeleton": "twoboneik_basic",
+  "skeleton": "twoboneik_hand",
   "edits": [
     {
       "set": "/rigModules/0/moduleArgs/joints",
@@ -20,7 +20,7 @@
         ],
         [
           "Left",
-          "armSettings"
+          "finger"
         ]
       ]
     }

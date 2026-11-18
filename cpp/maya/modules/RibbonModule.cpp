@@ -104,24 +104,6 @@ namespace
 		return params;
 	}
 
-	RibbonMath::Mat4 toMat4(const MMatrix& mMatrix)
-	{
-		RibbonMath::Mat4 result;
-		for (int r = 0; r < 4; ++r)
-		{
-			for (int c = 0; c < 4; ++c)
-			{
-				result.m[r][c] = mMatrix[r][c];
-			}
-		}
-		return result;
-	}
-
-	MMatrix toMMatrix(const RibbonMath::Mat4& mat)
-	{
-		return MMatrix(mat.m);
-	}
-
 	// Version 2 (D57): the ik controls come from the bind joints, so "controls" (their joints) gives way to "controlCount". A
 	// template that already has controlCount, or whose controls isn't a list, is left for the validation that follows.
 	void replaceControlsWithCount(nlohmann::json& args)
@@ -273,28 +255,28 @@ void RibbonModuleNode::evaluate(
 	RibbonMath::Input input;
 	for (int j = 0; j < controlCount; ++j)
 	{
-		input.local[j] = toMat4(mLocal[j]);
+		input.local[j] = MathUtils::toMat4(mLocal[j]);
 	}
-	input.startOPM = toMat4(mRest[0]);
+	input.startOPM = MathUtils::toMat4(mRest[0]);
 	// The plug deltas are motions in world axes (endOPM = endRest * delta), so the end's twist about its own X is read from the
 	// motion in the end control's frame: rest rotation * delta * rest rotation^-1.
 	const MMatrix mEndMotion = mEndDelta * mStartDelta.inverse();
 	const MMatrix mEndRestRotation = MTransformationMatrix(mRest[controlCount - 1]).asRotateMatrix();
-	input.endDelta = toMat4(mEndRestRotation * mEndMotion * mEndRestRotation.inverse());
-	input.endOPM = toMat4(mRest[controlCount - 1] * mEndMotion);
+	input.endDelta = MathUtils::toMat4(mEndRestRotation * mEndMotion * mEndRestRotation.inverse());
+	input.endOPM = MathUtils::toMat4(mRest[controlCount - 1] * mEndMotion);
 
 	RibbonMath::Output output;
 	RibbonMath::evaluate(setup, params, input, output);
 
 	for (int j = 0; j < controlCount; ++j)
 	{
-		outSolve.mControlOPM[j] = toMMatrix(output.controlOPM[j]) * mStartDelta;
+		outSolve.mControlOPM[j] = MathUtils::toMMatrix(output.controlOPM[j]) * mStartDelta;
 		outSolve.mWorld[j] = mLocal[j] * outSolve.mControlOPM[j];
 	}
 	for (int i = 0; i < setup.bindCount; ++i)
 	{
 		const unsigned int slot = static_cast<unsigned int>(controlCount + i);
-		outSolve.mControlOPM[slot] = toMMatrix(output.bindOPM[i]) * mStartDelta;
+		outSolve.mControlOPM[slot] = MathUtils::toMMatrix(output.bindOPM[i]) * mStartDelta;
 		outSolve.mWorld[slot] = mLocal[slot] * outSolve.mControlOPM[slot];
 	}
 }
@@ -353,7 +335,7 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 		}
 		if (ikOffsetStatus && hIkOffset.jumpToElement(j))
 		{
-			setup.ikOffset[j] = toMat4(hIkOffset.inputValue().asMatrix());
+			setup.ikOffset[j] = MathUtils::toMat4(hIkOffset.inputValue().asMatrix());
 		}
 	}
 	for (int i = 0; i < bindCount; ++i)
@@ -364,7 +346,7 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 		}
 		if (bindOffsetStatus && hBindOffset.jumpToElement(i))
 		{
-			setup.bindOffset[i] = toMat4(hBindOffset.inputValue().asMatrix());
+			setup.bindOffset[i] = MathUtils::toMat4(hBindOffset.inputValue().asMatrix());
 		}
 	}
 
@@ -446,11 +428,11 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 	RibbonMath::Mat4 bindRest[RibbonMath::MaxBindJoints];
 	for (int j = 0; j < controlCount; ++j)
 	{
-		controlRest[j] = toMat4(context.controlRestWorld[j]);
+		controlRest[j] = MathUtils::toMat4(context.controlRestWorld[j]);
 	}
 	for (int i = 0; i < bindCount; ++i)
 	{
-		bindRest[i] = toMat4(context.controlRestWorld[controlCount + i]);
+		bindRest[i] = MathUtils::toMat4(context.controlRestWorld[controlCount + i]);
 	}
 	RibbonMath::Setup setup;
 	const char* pReason = "";
@@ -663,13 +645,13 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 	{
 		dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aKnotU).elementByLogicalIndex(j), setup.knotU[j]);
 		MPlug pOffset = MPlug(oModule, RibbonModuleNode::aIkRestOffset).elementByLogicalIndex(j);
-		DagUtils::setMatrixPlug(pOffset, toMMatrix(setup.ikOffset[j]), dagMod);
+		DagUtils::setMatrixPlug(pOffset, MathUtils::toMMatrix(setup.ikOffset[j]), dagMod);
 	}
 	for (int i = 0; i < setup.bindCount; ++i)
 	{
 		dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aBindU).elementByLogicalIndex(i), setup.bindU[i]);
 		MPlug pOffset = MPlug(oModule, RibbonModuleNode::aBindRestOffset).elementByLogicalIndex(i);
-		DagUtils::setMatrixPlug(pOffset, toMMatrix(setup.bindOffset[i]), dagMod);
+		DagUtils::setMatrixPlug(pOffset, MathUtils::toMMatrix(setup.bindOffset[i]), dagMod);
 	}
 	dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aRestLength), setup.restLength);
 	dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aChainSign), setup.chainSign);
@@ -784,7 +766,7 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	std::vector<std::string> jointNames;
 	for (std::size_t i = 0; i < joints.size(); ++i)
 	{
-		bindRest.push_back(toMat4(joints[i].mRestWorld));
+		bindRest.push_back(MathUtils::toMat4(joints[i].mRestWorld));
 		jointNames.push_back(formatJointSelector(ribbonArgs.joints[i]));
 	}
 	const ControlPlacement::ChainCheck chainCheck = ControlPlacement::checkChain(bindRest);
@@ -816,7 +798,7 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	for (int j = 0; j < ribbonArgs.controlCount; ++j)
 	{
 		RibbonSlotInput slot;
-		slot.mRestWorld = toMMatrix(controlFrames[static_cast<std::size_t>(j)]);
+		slot.mRestWorld = MathUtils::toMMatrix(controlFrames[static_cast<std::size_t>(j)]);
 		slot.baseName = StringUtils::numberedName(base + "IK", j);
 		slot.controlMarkup = makeControlMarkup(firstSide, slot.baseName);
 		controls.push_back(slot);

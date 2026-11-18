@@ -2,10 +2,9 @@
   "description": "Soft 1/7 so ds = soft*L = 1, da = L-ds = 6; the handle is on +X at distance d from the root, pole at rest (n = +Y). d = 8: de = 6 + (1 - e^-2) = 6.864665, dc = de. x = (de^2-7)/(2 de) = 2.922475, h = sqrt(9-x^2) = 0.677599. hand (6.864665,0,0).",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "handIk_ctrl_l.translateX": 3, "armSettings_ctrl_l.soft": 0.142857 },
+  "set": { "armIK_ctrl_l.translateX": 3, "armSettings_ctrl_l.soft": 0.142857 },
   "expect": {
     "lowerArm_jnt": { "translate": [2.922475, 0.677599, 0] },
-    "hand_jnt": { "translate": [6.864665, 0, 0] },
-    "handIk_jnt": { "translate": [8, 0, 0] }
+    "hand_jnt": { "translate": [6.864665, 0, 0] }
   }
 }

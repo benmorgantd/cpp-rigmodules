@@ -81,7 +81,7 @@ Do not add a new module casually. Before proposing one:
 - The rig is built in two passes:
   1. Create every module separately.
   2. Parent them as defined by the JSON `parentStructure`, which maps child plug to parent socket.
-- Existing modules include Layout, FkChain, Aim, TwoBoneIk and Ribbon. Use FkChain and Layout as the reference for new modules. TwoBoneIk is the reference for a module with custom control channels, marker joints, an internal child plug (`ModulePlugInfo::followsPlug`) and a module-owned space.
+- Existing modules include Layout, FkChain, Aim, TwoBoneIk and Ribbon. Use FkChain and Layout as the reference for new modules. TwoBoneIk is the reference for a module with custom control channels, controls with no joint (derived from the limb joints, D57), an internal child plug (`ModulePlugInfo::followsPlug`) and a module-owned space.
 - Mirroring is template data (D28): a `"mirror": true` entry is copied to the other side in the read phase, so modules never see it. A module whose arguments change on the other side (a negated default, say) handles it in `planFromJson` through `ctx.moduleData.isMirror()`, never with a mirror branch in `createModule`.
 - A control's animation interface is its keyable, writable channels (D34). A custom channel sets its default to its rest, follows the naming rules in D34, and declares `mirrorCopy` or `mirrorNegate` through `RigPoseScene::setMirrorMode`. `ModuleContract` checks every control's channels.
 - Every control carries `controlMarkup` (side, usage), unique per rig (D25). A module's plan declares it in `ModuleInterface::controls` and passes the same values to `createRigControl`. Tools find controls through `RigTraversal`, never by name.

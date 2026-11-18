@@ -146,7 +146,7 @@ MPxNode
 | `LayoutModuleNode` | WithControls | none | 3 | none | `index_0`..`index_2`, `end` |
 | `FkChainModuleNode` | WithJoints | n | n | `start` | `index_<n>`, `start`, `end` |
 | `AimModuleNode` | WithJoints | 1 | 2 (target, up) | `aim`, `target`, `up` | `aim`, `target`, `up` |
-| `TwoBoneIkNode` | WithJoints | 6 (three limb, three marker) | 6 | `start`, `ik`, `pole`, `settings` (internal) | `index_0`..`index_2` (with `start`, `end`), `ik`, `pole`, `settings` |
+| `TwoBoneIkNode` | WithJoints | 3 (the limb joints, slots 0 to 2; the other three controls have none) | 6 | `start`, `ik`, `pole`, `settings` (internal) | `index_0`..`index_2` (with `start`, `end`), `ik`, `pole`, `settings` |
 | `RibbonModuleNode` | WithJoints | n (the bind joints, at slots j to j+n-1) | j + n (j ik, n tweakers) | `start`, `end` | `index_<k>` over the ik controls (with `start`, `end`) |
 
 `RibbonModuleNode`'s slots are the ik controls first (0 to j-1), then the tweakers (j to j+n-1), shared by `controlData`, `controlOPM`, `jointOPM` and `outputSocketMatrix`. `ikControlCount` says where the split is, and `RigInverse` hands it to the inverse as `ModuleInverseContext::ikControlCount`. `compute()` reads the stored rest (`knotU`, `bindU`, `restLength`, `restUp`, `restTangent`, `ikRestOffset`, `bindRestOffset`), the 15 channels and each control's local matrix, solves in the rest world through `RibbonMath::evaluate`, and carries the result by the `start` child plug's parent motion (the `end` plug's own motion on the end control). It never reads an ik control's world matrix or an OPM it writes: an interior control's OPM is a function of the two end controls' locals, so there is no cycle. `RibbonModuleNode::inverse` solves the ends from the first and last bind joints, whose frames they share, leaves the interior controls at their sidecar or rest values (they have no joint, D57), then the tweakers as the residual, so every bind joint that is present comes back exactly. The ik controls have no joint: `planFromJson` derives their rests with `ControlPlacement::placeAlongChain`, and `createModule` skips `wireJoint` for slots 0 to j-1, so `jointOPM` and `jointRestWorld` have no elements there.
@@ -158,9 +158,9 @@ MPxNode
 | 0 | `Upper` | FK start | `joints[0]` | `start` | `index_0`, `start` |
 | 1 | `Lower` | FK | `joints[1]` | none | `index_1` |
 | 2 | `End` | FK | `joints[2]` | none | `index_2`, `end` |
-| 3 | `Ik` | IK handle | `ik` marker | `ik` | `ik` |
-| 4 | `Pole` | pole | `pole` marker | `pole` | `pole` |
-| 5 | `Settings` | settings | `settings` marker | `settings` (internal) | `settings` |
+| 3 | `Ik` | IK handle | none | `ik` | `ik` |
+| 4 | `Pole` | pole | none | `pole` | `pole` |
+| 5 | `Settings` | settings | none | `settings` (internal) | `settings` |
 
 Slot numbers are never reused. The three `index_*` sockets have no DAG transform: a child module's controls would otherwise inherit an FK control's visibility, and the FK controls hide in IK.
 
@@ -178,7 +178,7 @@ Then add one row to `ModuleRegistry.cpp`.
 - Add each channel to its control with `RigPoseScene::addEnumChannel`, `addDoubleChannel` or `addAngleChannel`. Each takes the channel's rest and range and its mirror mode, and a mirror mode is required (D34). The controls must exist before an attribute can be added, and the attribute before it can be wired, so `createModule` runs `dagMod.doIt()` between the steps, as `RigConstraintNode::createConstraint` does.
 - Wire each channel from the control to a same-named input on the module (names from `RigAttr`), and add that input's `attributeAffects` in `initialize()`.
 - A control that keeps only some transform channels calls `DagUtils::queueLockAndHideTransform` with a keep list.
-- A **marker joint** gets a slot like any other, its control and its joint wired with `wireControl` and `wireJoint`. Its plan claims it with `claimJoint`.
+- A control with **no joint** (TwoBoneIk's IK handle, pole and settings, the Ribbon's ik controls, D57) gets a slot whose input has a null `oJoint` and a `baseName`. `createModule` skips `wireJoint` for it, so its `jointOPM` element is never made, and names the control node from the usage. `compute()`, `jointRestWorld` and the inverse allow for the missing element. Its plan places it with `ControlPlacement` and gives it its own markup. A **marker joint** (Aim's `target` and `up`) still gets its control and joint wired with `wireControl` and `wireJoint`, and its plan claims it with `claimJoint`.
 - A plug whose parent the template shouldn't choose is **internal**: its `ModulePlugInfo` sets `followsPlug` to the module's own plug whose `parentStructure` entry it takes, and `allowsConstraint` is false for a plug whose input the module owns. The build result's `RigModuleChildPlugInfo::followsPlug` must match, and pass 2 (`parentModuleControls`) reads it.
 
 ## Building a rig

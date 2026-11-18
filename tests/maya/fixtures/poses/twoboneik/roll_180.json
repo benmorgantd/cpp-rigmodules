@@ -2,7 +2,7 @@
   "description": "Roll 180 degrees turns n from +Y to -Y: mid = (1.8,-2.4,0), end (5,0,0). The bone joints turn 180 degrees about X.",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "handIk_ctrl_l.roll": 180 },
+  "set": { "armIK_ctrl_l.roll": 180 },
   "expect": {
     "upperArm_jnt": { "rotate": [180, 0, 0] },
     "lowerArm_jnt": { "translate": [1.8, -2.4, 0], "rotate": [180, 0, 0] },

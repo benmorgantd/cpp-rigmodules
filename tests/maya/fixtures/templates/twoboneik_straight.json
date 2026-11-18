@@ -1,0 +1,11 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "TwoBoneIkStraight",
+  "rigModules": [
+    { "moduleType": "TwoBoneIk", "moduleVersion": 2, "name": "arm_l", "shapeType": "Box", "side": "Left", "mirror": true,
+      "moduleArgs": {
+        "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"] ],
+        "controlName": "arm" },
+      "parentStructure": { "start": "layout.end", "ik": "layout.end", "pole": "layout.end" } }
+  ]
+}

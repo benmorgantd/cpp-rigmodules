@@ -8,8 +8,6 @@
     "hand_l_jnt": { "translate": [6, 0, 0] },
     "upperArm_r_jnt": { "translate": [-1, 0, 0], "rotate": [0, 0, 0] },
     "lowerArm_r_jnt": { "translate": [-2.8, 2.4, 0], "rotate": [0, 0, 0] },
-    "hand_r_jnt": { "translate": [-6, 0, 0] },
-    "armPole_r_jnt": { "translate": [-3.5, 5, 0] },
-    "armSettings_r_jnt": { "translate": [-1, 8, 0] }
+    "hand_r_jnt": { "translate": [-6, 0, 0] }
   }
 }

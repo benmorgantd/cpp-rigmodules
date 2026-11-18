@@ -1,0 +1,17 @@
+{
+  "description": "A straight limb along its root joint's Y axis has no bend plane for the default pole (-Y), so it needs a poleOffset",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_straight_down",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/poleOffset",
+      "value": []
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "bend plane is undefined",
+      "path": "rigModules[0] 'arm_1'.moduleArgs.poleOffset"
+    }
+  ]
+}

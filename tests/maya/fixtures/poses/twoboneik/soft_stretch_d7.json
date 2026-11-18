@@ -2,7 +2,7 @@
   "description": "Soft 1/7 so ds = soft*L = 1, da = L-ds = 6; the handle is on +X at distance d from the root, pole at rest (n = +Y). d = 7 with stretch 1: de = 6.632121, s = 7/6.632121 = 1.055469, bones 3.166408 and 4.221877, dc = de*s = 7. x = (49+L1s^2-L2s^2)/14 = 2.942992, h = 1.168305. The end reaches the handle: hand (7,0,0).",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "handIk_ctrl_l.translateX": 2, "armSettings_ctrl_l.soft": 0.142857, "armSettings_ctrl_l.stretch": 1 },
+  "set": { "armIK_ctrl_l.translateX": 2, "armSettings_ctrl_l.soft": 0.142857, "armSettings_ctrl_l.stretch": 1 },
   "expect": {
     "lowerArm_jnt": { "translate": [2.942992, 1.168305, 0] },
     "hand_jnt": { "translate": [7, 0, 0] }

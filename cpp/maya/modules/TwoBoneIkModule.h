@@ -23,9 +23,9 @@ namespace TwoBoneIkSlot
 	inline constexpr unsigned int Upper{ 0 };      // FK start control, drives joints[0]
 	inline constexpr unsigned int Lower{ 1 };      // FK, drives joints[1]
 	inline constexpr unsigned int End{ 2 };        // FK, drives joints[2]
-	inline constexpr unsigned int Ik{ 3 };         // IK handle, drives the ik marker joint
-	inline constexpr unsigned int Pole{ 4 };       // pole, drives the pole marker joint
-	inline constexpr unsigned int Settings{ 5 };   // settings (ikFkBlend, stretch, soft), drives the settings marker joint
+	inline constexpr unsigned int Ik{ 3 };         // IK handle, at the end joint, no joint of its own
+	inline constexpr unsigned int Pole{ 4 };       // pole, no joint
+	inline constexpr unsigned int Settings{ 5 };   // settings (ikFkBlend, stretch, soft), no joint
 	inline constexpr unsigned int Count{ 6 };
 	inline constexpr unsigned int LimbCount{ 3 };  // the slots that are limb joints
 }
@@ -45,9 +45,10 @@ namespace TwoBoneIkInverseChannel
 
 struct TwoBoneIkSlotInput
 {
-	MObject oJoint;
+	MObject oJoint;                // Null for the IK, pole and settings slots: they have no joint (D57)
 	MMatrix mRestWorld;
-	ControlMarkup controlMarkup;   // The joint's (side, usage)
+	ControlMarkup controlMarkup;   // The joint's (side, usage), or the derived control's
+	std::string baseName;          // What names a joint-less control's node (its usage). Empty for a slot with a joint
 };
 
 // What the plan step works out from the rest pose, stored on the node by createModule (D52 section 4.3).
@@ -60,15 +61,18 @@ struct TwoBoneIkRest
 	std::array<MMatrix, TwoBoneIkSlot::LimbCount> ikRestOffset;   // jointRest * frameAtRest^-1, per limb joint
 };
 
-// Field names are the JSON keys: "joints": [[side, usage] x 3], "ik": [...], "pole": [...], "settings": [...]
+// Field names are the JSON keys: "joints": [[side, usage] x 3] (root, mid, end). The IK handle, pole and settings controls are
+// derived from them (D57). "controlName" (optional): the base of their usages, <base>IK, <base>Pole and <base>Settings.
+// "poleOffset" and "settingsOffset" (optional, [x, y, z] in world space, left out or empty for the default): the pole's offset from
+// the mid joint and the settings control's from the end joint. The other side of a mirrored module gets X negated.
 struct TwoBoneIkArgs
 {
 	std::vector<JointSelector> joints;
-	JointSelector ik;
-	JointSelector pole;
-	JointSelector settings;
+	std::string controlName;
+	std::vector<double> poleOffset;
+	std::vector<double> settingsOffset;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TwoBoneIkArgs, joints, ik, pole, settings)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(TwoBoneIkArgs, joints, controlName, poleOffset, settingsOffset)
 
 // A two-bone IK limb (arm, leg): an FK chain and an IK solve, blended joint by joint (D52). Child plugs: start, ik, pole,
 // and settings (internal: it follows start's parent). Sockets: index_0, index_1, index_2 (the blended joint worlds), start,
@@ -82,6 +86,8 @@ public:
 	static void* creator();
 	static MStatus initialize();
 	virtual MStatus compute(const MPlug& plug, MDataBlock& data) override;
+	// The moduleArgs version table. Step 0 takes version 1 (ik, pole and settings joints) to 2 (derived controls, D57).
+	static const UpdateTable& argUpdateTable();
 
 public:
 	static MTypeId id;

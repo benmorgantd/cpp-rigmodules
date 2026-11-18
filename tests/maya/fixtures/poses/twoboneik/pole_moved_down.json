@@ -5,7 +5,6 @@
   "set": { "armPole_ctrl_l.translateY": -10 },
   "expect": {
     "lowerArm_jnt": { "translate": [1.8, -2.4, 0] },
-    "hand_jnt": { "translate": [5, 0, 0], "rotate": [0, 0, 0] },
-    "armPole_jnt": { "translate": [2.5, -5, 0] }
+    "hand_jnt": { "translate": [5, 0, 0], "rotate": [0, 0, 0] }
   }
 }

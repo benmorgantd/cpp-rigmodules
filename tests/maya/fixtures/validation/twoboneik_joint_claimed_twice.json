@@ -1,19 +1,19 @@
 {
-  "description": "The ik joint cannot also be the end joint",
+  "description": "The end joint cannot also be the mid joint",
   "base": "twoboneik_basic",
   "skeleton": "twoboneik_basic",
   "edits": [
     {
-      "set": "/rigModules/0/moduleArgs/ik",
+      "set": "/rigModules/0/moduleArgs/joints/2",
       "value": [
         "Left",
-        "hand"
+        "lowerArm"
       ]
     }
   ],
   "expectErrors": [
     {
-      "contains": "hand",
+      "contains": "lowerArm",
       "path": "rigModules[0] 'arm_1'"
     }
   ]

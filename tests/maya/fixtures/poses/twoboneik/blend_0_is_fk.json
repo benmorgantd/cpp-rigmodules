@@ -2,7 +2,7 @@
   "description": "ikFkBlend 0 returns the FK chain and ignores the IK controls. FK chain with the start control rotated 90 degrees about Z swings the whole chain about the origin: (1.8,2.4,0) goes to (-2.4,1.8,0) and (5,0,0) to (0,5,0), every joint rotated 90. The handle and pole are moved too and change nothing.",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "armSettings_ctrl_l.ikFkBlend": 0, "upperArm_ctrl_l.rotateZ": 90, "handIk_ctrl_l.translateX": -1, "handIk_ctrl_l.translateY": 3, "armPole_ctrl_l.translateX": 2 },
+  "set": { "armSettings_ctrl_l.ikFkBlend": 0, "upperArm_ctrl_l.rotateZ": 90, "armIK_ctrl_l.translateX": -1, "armIK_ctrl_l.translateY": 3, "armPole_ctrl_l.translateX": 2 },
   "expect": {
     "upperArm_jnt": { "translate": [0, 0, 0], "rotate": [0, 0, 90] },
     "lowerArm_jnt": { "translate": [-2.4, 1.8, 0], "rotate": [0, 0, 90] },

@@ -521,12 +521,12 @@ LIMB_ROLES = ("start", "lower", "end", "ik", "pole", "settings")
 
 def find_limbs(controls):
     """The TwoBoneIk limbs among rigmodules.query controls: one dict of control names by role per module. The three
-    limb joints' usages end in 1, 2 and 3 and the markers' in Ik, Pole and Settings (usage_name and aim_joint)."""
+    limb joints' usages end in 1, 2 and 3 and the derived controls' in IK, Pole and Settings (D57, TwoBoneIk's <base>IK, <base>Pole and <base>Settings; the marker joints this generator still writes are dropped by the version 1 update, phase 4 removes them)."""
     by_module = {}
     for control in controls:
         if control.module_type != "TwoBoneIk":
             continue
-        for role, suffix in zip(LIMB_ROLES, ("1", "2", "3", "Ik", "Pole", "Settings")):
+        for role, suffix in zip(LIMB_ROLES, ("1", "2", "3", "IK", "Pole", "Settings")):
             if control.usage.endswith(suffix):
                 by_module.setdefault(control.module, {})[role] = control.node
     return list(by_module.values())
@@ -747,7 +747,7 @@ def build_floor_instance(joints, namespace):
         cmds.setAttr(name + ".translate", 0, 0, 0)
         controls.append(control)
         if joint["chain"] in limb_chains:
-            for role, suffix in zip(LIMB_ROLES, ("1", "2", "3", "Ik", "Pole", "Settings")):
+            for role, suffix in zip(LIMB_ROLES, ("1", "2", "3", "IK", "Pole", "Settings")):
                 if joint["usage"].endswith(suffix):
                     limbs.setdefault(joint["chain"], {})[role] = control
     for limb in limbs.values():

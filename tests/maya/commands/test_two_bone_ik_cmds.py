@@ -20,7 +20,7 @@ from rigtest.jointclips import rig_root, values_of
 UPPER = "upperArm_ctrl_l"
 LOWER = "lowerArm_ctrl_l"
 END = "hand_ctrl_l"
-HANDLE = "handIk_ctrl_l"
+HANDLE = "armIK_ctrl_l"
 POLE = "armPole_ctrl_l"
 SETTINGS = "armSettings_ctrl_l"
 MODULE = "arm_1"
@@ -630,8 +630,8 @@ class TwoBoneIkSwitchMirror(SwitchTestCase):
         self.build_standard("twoboneik_mirror", "twoboneik_mirror")
 
     def test_both_limbs_keep_their_joints(self):
-        sides = {"l": ("upperArm_l_ctrl_l", "lowerArm_l_ctrl_l", "armSettings_l_ctrl_l", "handIk_l_ctrl_l", "armPole_l_ctrl_l"),
-                 "r": ("upperArm_r_ctrl_r", "lowerArm_r_ctrl_r", "armSettings_r_ctrl_r", "handIk_r_ctrl_r", "armPole_r_ctrl_r")}
+        sides = {"l": ("upperArm_l_ctrl_l", "lowerArm_l_ctrl_l", "armSettings_ctrl_l", "armIK_ctrl_l", "armPole_ctrl_l"),
+                 "r": ("upperArm_r_ctrl_r", "lowerArm_r_ctrl_r", "armSettings_ctrl_r", "armIK_ctrl_r", "armPole_ctrl_r")}
         for side, (upper, lower, settings, handle, pole) in sides.items():
             with self.subTest(side=side):
                 cmds.setAttr(rig_name(settings + ".ikFkBlend"), 0)

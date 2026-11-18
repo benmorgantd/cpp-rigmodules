@@ -87,14 +87,15 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 ```json
 {
   "moduleType": "TwoBoneIk",
+  "moduleVersion": 2,
   "name": "arm_l",
   "side": "Left",
   "mirror": true,
   "moduleArgs": {
     "joints": [["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"]],
-    "ik": ["Left", "handIk"],
-    "pole": ["Left", "armPole"],
-    "settings": ["Left", "armSettings"]
+    "controlName": "arm",
+    "poleOffset": [0, 2, 0],
+    "settingsOffset": [-1, 3, 0]
   },
   "parentStructure": { "start": "layout.end", "ik": "layout.end", "pole": "layout.end" }
 }
@@ -103,18 +104,24 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 | `moduleArgs` key | Required | Value |
 |---|---|---|
 | `joints` | yes | Exactly three selectors: root, mid, end |
-| `ik` | yes | Selector for the joint where the IK handle is placed. It must sit at the end joint |
-| `pole` | yes | Selector for the joint where the pole control is placed, out in front of the elbow or knee |
-| `settings` | yes | Selector for the joint where the settings control is placed, anywhere the animator will find it |
+| `controlName` | no | The base of the IK, pole and settings control names (below). Default: the first joint's usage without a trailing `_NN` (`upperArm` stays `upperArm`, so an arm wants `"controlName": "arm"`) |
+| `poleOffset` | no | `[x, y, z]` in world space: the pole control's offset from the mid joint. Default: see below |
+| `settingsOffset` | no | `[x, y, z]` in world space: the settings control's offset from the end joint. Default: see below |
 
-`ik`, `pole` and `settings` are **marker joints**: joints that exist only to place a control. Mark them `export: false, skin: false`, as for Aim's target and up. Each of the six joints belongs to this module alone.
+There are **no marker joints** (D57). The three limb joints belong to this module alone, and the other three controls are placed from them:
+
+- **The IK handle** sits at the end joint, turned the way that joint is turned.
+- **The pole** sits at the mid joint plus `poleOffset`. Without it, it is pushed out from the mid joint by the limb's length along the bend: the part of the root-to-mid vector that is perpendicular to the root-to-end line, so the elbow or knee points at it. A **straight limb is not an error** (mocap skeletons have them): when the mid joint is within 0.1 percent of the limb's length of the root-to-end line, the pole goes out along the **root joint's -Y** instead, which is the back of an elbow and the front of a knee on a skeleton whose joints are oriented the usual way. A straight limb whose root-to-end line runs along that same axis (a leg pointing straight down a Y axis) has no bend plane then, and the build fails with an error that asks for a `poleOffset`.
+- **The settings control** sits at the end joint plus `settingsOffset`. Without it, it sits a quarter of the limb's length straight up (world +Y) from the end joint.
+- **Orientation.** The handle takes the end joint's rotation. The pole and settings controls take **world axes**: their rotation is locked, so this only sets which way their translate channels point.
+- **Mirroring.** `poleOffset` and `settingsOffset` are world vectors for a `Left` or `Center` module. On the mirrored copy of a module the offsets' X is negated, so one template entry gives both sides.
 
 | | |
 |---|---|
 | Node type | `twoBoneIkModule` |
-| Controls | Six, named from their joints, each with its joint's markup: the FK start, lower and end controls (`joints`), the IK handle (`ik`), the pole (`pole`) and the settings control (`settings`). Control shapes come from the module's `shapeType`. |
+| Controls | Six. The FK start, lower and end controls are named from their joints and take their markup. The IK handle, pole and settings controls have no joint: their usages are `<base>IK`, `<base>Pole` and `<base>Settings` (`armIK`, `armPole`, `armSettings`), with the side of the first joint, and their nodes are named from the usage (`armPole_ctrl_l`). The names are public: poses and animation depend on them. Control shapes come from the module's `shapeType`. |
 | Child plugs | `start` (the FK start control's parent), `ik`, `pole`. A fourth, `settings`, is internal: see below. |
-| Sockets | `index_0`, `index_1`, `index_2` for the three blended joints, with `start` the same socket as `index_0` and `end` the same as `index_2`. Also `ik`, `pole` and `settings` (the three marker controls). |
+| Sockets | `index_0`, `index_1`, `index_2` for the three blended joints, with `start` the same socket as `index_0` and `end` the same as `index_2`. Also `ik`, `pole` and `settings` (the three derived controls). |
 
 **Channels.** Names are public: saved poses and animation depend on them ([controls.md](controls.md#channels)).
 
@@ -146,7 +153,7 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 - `ikFkBlend`, `stretch`, `soft`, `pin`, `roll` and the pole's `space` come from the pose file given as the sidecar, and otherwise stay as they are in the scene. A `soft` or `stretch` the restore doesn't know about puts the handle in the wrong place, so give them in the sidecar for a pose that used them.
 - **The IK side is exact at blend 0 and blend 1** for any pose the limb can make: bone lengths as built, or `stretch` or `pin` on. Between 0 and 1 the joints are a mix of both chains and IK matches them only approximately, so the restore warns. The FK controls reproduce the joints at any blend. A source with other bone lengths and `stretch` and `pin` off warns too: IK stops at the reach and FK still matches.
 - A handle pulled past full reach with `stretch` off comes back at the wrist, because every handle from there on gives the same pose.
-- The marker joints (`ik`, `pole`, `settings`) are not read. The settings control comes from the sidecar.
+- The IK handle, pole and settings controls have no joints. The handle and pole are solved from the three limb joints as above, and the settings control comes from the sidecar.
 
 ### Switching IK and FK
 
@@ -162,14 +169,16 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 - Attach a hand's fingers to `arm_l.end` (or `index_2`): the sockets carry the blended joint, so the fingers follow the hand in IK and in FK, and their controls stay visible. A module cannot attach to its own sockets, so this module's own `pole` can't be parented to its `ik` socket: the pole's `Ik` space does that inside the module.
 - Mirroring needs nothing extra: every selector's side is swapped, `roll` is negated by the pose mirror and everything else copies.
 
-The build fails if the limb has any other count of joints, if two limb joints sit on each other, if the `ik` joint is more than 0.001 from the end joint, or if the pole joint lies on the line from the root to the end joint. A limb with a bent rest pose works wherever the pole joint is: IK at rest reproduces the rest bend.
+The build fails if the limb has any other count of joints, if two limb joints sit on each other, if `poleOffset` or `settingsOffset` isn't three numbers, or if the pole lands on the line from the root to the end joint (only a straight limb along its root's Y axis does that by default). A limb with a bent rest pose works wherever the pole is: IK at rest reproduces the rest bend.
+
+**Version 1.** A `moduleVersion` 1 template names three marker joints in `ik`, `pole` and `settings`. The update to version 2 drops those keys, so the template still builds, but it has no scene to read the old joints from: the pole and settings controls go to the derived places above, **not where the old marker joints were**, and the controls are renamed (`handIk` becomes `<base>IK`). Add `controlName`, `poleOffset` and `settingsOffset` to put them back. Saved poses and animation that name the old controls stop matching.
 
 ```python
 from maya import cmds
 
-cmds.setAttr("rig:handIk_l_ctrl_l.translateY", 3)               # the hand follows the handle
-cmds.setAttr("rig:armSettings_l_ctrl_l.stretch", 1)             # and reaches it even when it is far
-cmds.setAttr("rig:armPole_l_ctrl_l.space", 1)                   # the pole now follows the handle
+cmds.setAttr("rig:armIK_ctrl_l.translateY", 3)               # the hand follows the handle
+cmds.setAttr("rig:armSettings_ctrl_l.stretch", 1)             # and reaches it even when it is far
+cmds.setAttr("rig:armPole_ctrl_l.space", 1)                   # the pole now follows the handle
 ```
 
 ## Ribbon

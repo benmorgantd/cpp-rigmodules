@@ -16,7 +16,7 @@ from rigtest.cases import add_pose_cases
 from rigtest.module_contract import ModuleContract
 
 ARM = ["upperArm_ctrl_l", "lowerArm_ctrl_l", "hand_ctrl_l"]
-HANDLE = "handIk_ctrl_l"
+HANDLE = "armIK_ctrl_l"
 POLE = "armPole_ctrl_l"
 SETTINGS = "armSettings_ctrl_l"
 LIMB_JOINTS = ["upperArm_jnt", "lowerArm_jnt", "hand_jnt"]
@@ -27,10 +27,7 @@ class TwoBoneIkContract(ModuleContract, RigTestCase):
     TEMPLATE = "twoboneik_basic"
     SKELETON = "twoboneik_basic"
     MODULE_TYPE = "twoBoneIkModule"
-    JOINT_OWNERS = {
-        "upperArm_jnt": "arm_1", "lowerArm_jnt": "arm_1", "hand_jnt": "arm_1",
-        "handIk_jnt": "arm_1", "armPole_jnt": "arm_1", "armSettings_jnt": "arm_1",
-    }
+    JOINT_OWNERS = {"upperArm_jnt": "arm_1", "lowerArm_jnt": "arm_1", "hand_jnt": "arm_1"}
     MIRROR_TEMPLATE = "twoboneik_mirror"
     MIRROR_SKELETON = "twoboneik_mirror"
 
@@ -40,6 +37,11 @@ class TwoBoneIkContract(ModuleContract, RigTestCase):
         takes its translation only, D52 decision 16). The joints still match, which the round trip checks."""
         name = control.split(":")[-1].split("_")[0]   # upperArm_ctrl_l, or upperArm_l_ctrl_l in the mirror skeleton
         return name in ("lowerArm", "hand") or (name == "upperArm" and not channel.startswith("translate"))
+
+    def controls_lost_with_joint(self, root, markup):
+        """The IK handle and pole are solved from all three limb joints (D52 section 6), so a source that lacks the hand gives
+        none of the limb's controls: every one of them comes from the sidecar. The settings control has no joint anyway."""
+        return [c for c in rigmodules.query.get_rig_controls(root) if cmds.nodeType(c.module) == self.MODULE_TYPE]
 
 
 class TwoBoneIkPoses(RigTestCase):
@@ -156,11 +158,11 @@ class TwoBoneIkBehaviour(RigTestCase):
         self.build_with_constraints(constraints)
         # Chest: everything the layout's end carries follows it.
         set_attr("layout_2_ctrl_c", "translateZ", 3)
-        self.assertWorldTranslation(rig_name("armSettings_jnt"), [0, 8, 3])
+        self.assertWorldTranslation(rig_name(SETTINGS), [0, 8, 3])
         self.assertWorldTranslation(rig_name("upperArm_jnt"), [0, 0, 3])
         # Hips: the start control leaves the chest and the settings control doesn't.
         set_attr("upperArm_ctrl_l", "space", 1)
-        self.assertWorldTranslation(rig_name("armSettings_jnt"), [0, 8, 3])
+        self.assertWorldTranslation(rig_name(SETTINGS), [0, 8, 3])
         self.assertWorldTranslation(rig_name("upperArm_jnt"), [0, 0, 0])
 
     def test_start_and_ik_take_constraint_spaces(self):
@@ -264,17 +266,17 @@ class TwoBoneIkBehaviour(RigTestCase):
         joints = self.make_skeleton("twoboneik_mirror")
         self.build("twoboneik_mirror", joints)
         root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
-        left, right = "handIk_l_ctrl_l", "handIk_r_ctrl_r"
+        left, right = "armIK_ctrl_l", "armIK_ctrl_r"
         set_attr(left, "roll", 35)
-        set_attr("armSettings_l_ctrl_l", "stretch", 0.4)
-        set_attr("armPole_l_ctrl_l", "pin", 0.25)
+        set_attr("armSettings_ctrl_l", "stretch", 0.4)
+        set_attr("armPole_ctrl_l", "pin", 0.25)
         path = os.path.join(tempfile.mkdtemp(), "arm.json").replace("\\", "/")
         cmds.saveRigPose(root, file=path)
         cmds.zeroRigControls(root)
         cmds.loadRigPose(root, file=path, mirror=True)
         self.assertAlmostEqual(attr(right, "roll"), -35, places=4)
-        self.assertAlmostEqual(attr("armSettings_r_ctrl_r", "stretch"), 0.4, places=6)
-        self.assertAlmostEqual(attr("armPole_r_ctrl_r", "pin"), 0.25, places=6)
+        self.assertAlmostEqual(attr("armSettings_ctrl_r", "stretch"), 0.4, places=6)
+        self.assertAlmostEqual(attr("armPole_ctrl_r", "pin"), 0.25, places=6)
         self.assertAlmostEqual(attr(left, "roll"), 0, places=6)
 
     # ---- playback ------------------------------------------------------------------------------
@@ -317,3 +319,117 @@ class TwoBoneIkBehaviour(RigTestCase):
         self.assertFalse(any("computeMatch" in name for name, _ in playback), "playback pulled a match output")
         pulled = recorded_events(pull_match)
         self.assertTrue(any("computeMatch" in name for name, _ in pulled), "computeMatch left no profiler event")
+
+
+class TwoBoneIkDerivedControls(RigTestCase):
+    """The IK handle, pole and settings controls come from the three limb joints (D57): where they sit, how they are named, and
+    what an old template does. Expectations are worked by hand from the fixtures' joint positions."""
+
+    def _template(self, name="twoboneik_basic", **args):
+        """A copy of a fixture template with its offsets and controlName replaced by args."""
+        data = copy.deepcopy(fixtures.load_template(name))
+        module_args = data["rigModules"][0]["moduleArgs"]
+        for key in ("controlName", "poleOffset", "settingsOffset"):
+            module_args.pop(key, None)
+        module_args.update(args)
+        return data
+
+    def _usages(self):
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        return sorted(c.usage for c in rigmodules.query.get_rig_controls(root) if c.usage.endswith(("IK", "Pole", "Settings")))
+
+    def _build_basic(self, **args):
+        self.build(self._template(**args), self.make_skeleton("twoboneik_basic"), label="derived")
+
+    # ---- placement -----------------------------------------------------------------------------
+
+    def test_the_handle_sits_on_the_end_joint(self):
+        self._build_basic(controlName="arm")
+        self.assertWorldTranslation(rig_name(HANDLE), [5, 0, 0])
+
+    def test_the_default_pole_is_pushed_out_along_the_bend_by_the_limbs_length(self):
+        """Root (0,0,0), mid (1.8,2.4,0), end (5,0,0): bones 3 and 4, so the limb is 7 long. The mid is 2.4 above the root-to-end
+        line (+X), so the bend is +Y and the pole is mid + 7 * (0,1,0) = (1.8, 9.4, 0)."""
+        self._build_basic(controlName="arm")
+        self.assertWorldTranslation(rig_name(POLE), [1.8, 9.4, 0])
+
+    def test_the_default_settings_control_is_a_quarter_of_the_limbs_length_above_the_end(self):
+        self._build_basic(controlName="arm")
+        self.assertWorldTranslation(rig_name(SETTINGS), [5, 1.75, 0])
+
+    def test_offsets_move_the_pole_and_the_settings_control(self):
+        """The pole is the mid joint plus poleOffset and the settings control the end joint plus settingsOffset, in world space."""
+        self._build_basic(controlName="arm", poleOffset=[1, -2, 3], settingsOffset=[0.5, 4, -1])
+        self.assertWorldTranslation(rig_name(POLE), [2.8, 0.4, 3])
+        self.assertWorldTranslation(rig_name(SETTINGS), [5.5, 4, -1])
+        self.assertWorldTranslation(rig_name(HANDLE), [5, 0, 0])
+
+    def test_the_other_side_of_a_mirrored_limb_negates_the_offsets_x(self):
+        """Left: mid (2.8,2.4,0) + (0.7,2.6,0) = (3.5,5,0), end (6,0,0) + (-5,8,0) = (1,8,0). Right is the reflection: X negated in
+        the offsets, on joints that are already reflected, so (-3.5,5,0) and (-1,8,0)."""
+        self.build_standard("twoboneik_mirror", "twoboneik_mirror")
+        self.assertWorldTranslation(rig_name("armPole_ctrl_l"), [3.5, 5, 0])
+        self.assertWorldTranslation(rig_name("armSettings_ctrl_l"), [1, 8, 0])
+        self.assertWorldTranslation(rig_name("armPole_ctrl_r"), [-3.5, 5, 0])
+        self.assertWorldTranslation(rig_name("armSettings_ctrl_r"), [-1, 8, 0])
+        self.assertWorldTranslation(rig_name("armIK_ctrl_r"), [-6, 0, 0])
+
+    def test_the_handle_takes_the_end_joints_rotation_and_the_others_world_axes(self):
+        """The tilted arm's joints are turned 35 degrees about Z. The handle turns with the hand. The pole and settings controls'
+        rotation is locked, so they stay on world axes: only their translate channels read in world axes."""
+        self.build_standard("ribbon_arm", "ribbon_arm_tilted")
+        self.assertWorldRotation(rig_name(HANDLE), [0, 0, 35], 1e-4)
+        self.assertWorldRotation(rig_name(POLE), [0, 0, 0], 1e-4)
+        self.assertWorldRotation(rig_name(SETTINGS), [0, 0, 0], 1e-4)
+
+    # ---- a straight limb -----------------------------------------------------------------------
+
+    def test_a_straight_limb_builds_and_its_pole_goes_out_along_the_root_joints_negative_y(self):
+        """Mocap skeletons have straight limbs (D57), so it is not an error. Left: root (1,0,0), mid (4,0,0), end (8,0,0), bones 3
+        and 4, so the pole is mid + 7 * (0,-1,0) = (4,-7,0). The Right root is turned 180 degrees about X, so its -Y is +Y and
+        the pole is (-4,7,0): the direction is the root's, not the world's."""
+        self.build_standard("twoboneik_straight", "twoboneik_straight")
+        self.assertWorldTranslation(rig_name("armPole_ctrl_l"), [4, -7, 0])
+        self.assertWorldTranslation(rig_name("armPole_ctrl_r"), [-4, 7, 0])
+        self.assertWorldTranslation(rig_name("armSettings_ctrl_l"), [8, 1.75, 0])
+        self.assertWorldTranslation(rig_name("armSettings_ctrl_r"), [-8, 1.75, 0])
+
+    def test_a_straight_limb_bends_toward_its_pole_when_the_handle_comes_in(self):
+        self.build_standard("twoboneik_straight", "twoboneik_straight")
+        set_attr("armIK_ctrl_l", "translateX", -4)
+        for joint in ("upperArm_l_jnt", "lowerArm_l_jnt", "hand_l_jnt"):
+            self.assertTrue(all(math.isfinite(v) for v in translation(joint)), joint)
+        # The pole is below the limb, so the elbow bends down.
+        self.assertLess(translation("lowerArm_l_jnt")[1], -0.1)
+
+    # ---- names ---------------------------------------------------------------------------------
+
+    def test_control_name_sets_the_base_of_the_usages(self):
+        self._build_basic(controlName="wing")
+        self.assertEqual(self._usages(), ["wingIK", "wingPole", "wingSettings"])
+        for node in ("wingIK_ctrl_l", "wingPole_ctrl_l", "wingSettings_ctrl_l"):
+            self.assertExists(rig_name(node))
+
+    def test_the_default_base_is_the_first_joints_usage(self):
+        self._build_basic()
+        self.assertEqual(self._usages(), ["upperArmIK", "upperArmPole", "upperArmSettings"])
+
+    # ---- no joints on the derived controls -----------------------------------------------------
+
+    def test_there_are_no_joints_on_the_derived_controls(self):
+        self.build_standard("twoboneik_basic", "twoboneik_basic")
+        indices = cmds.getAttr(rig_name("arm_1.jointOPM"), multiIndices=True)
+        self.assertEqual(list(indices), [0, 1, 2], "only the three limb joints are driven")
+
+    # ---- an old template -----------------------------------------------------------------------
+
+    def test_a_version_1_template_reads_and_builds_with_the_derived_places(self):
+        """Version 1 named three marker joints (ik, pole, settings). The update step drops them and has no scene to turn their
+        positions into offsets, so the controls are where a version 2 template with no offsets puts them, which is not where
+        the old pole (2.5,5,0) and settings joint (0,8,0) were. The marker joints stay in the skeleton, unclaimed."""
+        self.build_standard("twoboneik_v1", "twoboneik_v1")
+        self.assertWorldTranslation(rig_name("upperArmIK_ctrl_l"), [5, 0, 0])
+        self.assertWorldTranslation(rig_name("upperArmPole_ctrl_l"), [1.8, 9.4, 0])
+        self.assertWorldTranslation(rig_name("upperArmSettings_ctrl_l"), [5, 1.75, 0])
+        for joint in LIMB_JOINTS:
+            self.assertTrue(all(math.isfinite(v) for v in translation(joint)), joint)

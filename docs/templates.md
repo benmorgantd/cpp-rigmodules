@@ -58,7 +58,7 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 | `name` | yes | The module's id. Unique in the template, a valid Maya node name (no `.`), and not `layout`. The module node gets this name in the rig namespace. |
 | `side` | no | `Center` (default), `Left` or `Right`. Sets the control name suffix (`_c`, `_l`, `_r`). |
 | `shapeType` | no | Control shape for the module's controls: `Box` (default) or any shape in [controls.md](controls.md#shapes) |
-| `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Every module is at version 1. A `moduleArgs` written for an older version is updated before the module reads it. |
+| `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Layout, FkChain and Aim are at version 1, and TwoBoneIk and Ribbon at version 2. A `moduleArgs` written for an older version is updated before the module reads it. |
 | `moduleArgs` | no | Module-specific arguments, mostly joint selectors. See [modules.md](modules.md). |
 | `parentStructure` | no | Maps this module's child plugs to parent sockets (below) |
 | `mirror` | no | `true` also builds this module on the other side. Only `Left` and `Right` modules. See [Mirroring](#mirroring). |
@@ -162,17 +162,17 @@ A space switch keeps the control in place whatever the type. On an `Orient` cons
 
 This builds `clavicle_r`, `arm_r` and `arm_space_r` as well.
 
-A [`TwoBoneIk`](modules.md#twoboneik) limb mirrors the same way. Its six selectors swap sides, and the constraints that target its `start` and `ik` child plugs mirror like any other:
+A [`TwoBoneIk`](modules.md#twoboneik) limb mirrors the same way. Its three selectors swap sides, its `poleOffset` and `settingsOffset` have their X negated, and the constraints that target its `start` and `ik` child plugs mirror like any other:
 
 ```json
 {
   "rigVersion": 1,
   "rigTemplateName": "Arms", "rigAuthor": "you",
   "rigModules": [
-    { "moduleType": "TwoBoneIk", "name": "arm_l", "side": "Left", "mirror": true,
+    { "moduleType": "TwoBoneIk", "moduleVersion": 2, "name": "arm_l", "side": "Left", "mirror": true,
       "moduleArgs": {
         "joints": [["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"]],
-        "ik": ["Left", "handIk"], "pole": ["Left", "armPole"], "settings": ["Left", "armSettings"] },
+        "controlName": "arm" },
       "parentStructure": { "start": "layout.end", "ik": "layout.end", "pole": "layout.end" } }
   ],
   "constraints": [
@@ -186,7 +186,7 @@ The mirror is the source entry with:
 
 - **`side`** swapped, `Left` and `Right`.
 - **`name`** with its side suffix swapped: `arm_l` becomes `arm_r`. A mirrored module's name must end in its side's suffix (`_l` or `_r`), and a mirrored constraint's name must end in `_l` or `_r`.
-- **Every selector side** in `moduleArgs` swapped: `["Left", "upperArm"]` becomes `["Right", "upperArm"]`. `Center` selectors stay `Center`.
+- **Every selector side** in `moduleArgs` swapped (a module that has world-space vectors in its `moduleArgs`, as TwoBoneIk does, mirrors those itself): `["Left", "upperArm"]` becomes `["Right", "upperArm"]`. `Center` selectors stay `Center`.
 - **Socket ids** in `parentStructure`, `target` and `drivers` pointing at the other side's module when the named module is `Left` or `Right`: `clavicle_l.end` becomes `clavicle_r.end`. Ids on `Center` modules and `layout` stay as they are. The socket or child plug name never changes. Such a `Left` or `Right` module needs a side suffix on its name.
 - **Driver labels** unchanged, except a label left out, which defaults to the mirror's own socket id.
 - **`mirror`** removed. Everything else is copied.

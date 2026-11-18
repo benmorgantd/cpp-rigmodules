@@ -2,7 +2,7 @@
   "description": "Handle at (10,0,0), stretch 1: s = d/de = 10/7, bones 30/7 and 40/7, dc = 7*(10/7) = 10, x = (100+(900-1600)/49)/20 = 30/7 = 4.285714, h = 0. mid (30/7,0,0), end (10,0,0): the hand reaches the handle.",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "handIk_ctrl_l.translateX": 5, "armSettings_ctrl_l.stretch": 1 },
+  "set": { "armIK_ctrl_l.translateX": 5, "armSettings_ctrl_l.stretch": 1 },
   "expect": {
     "lowerArm_jnt": { "translate": [4.285714, 0, 0] },
     "hand_jnt": { "translate": [10, 0, 0], "rotate": [0, 0, 0] }

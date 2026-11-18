@@ -1,0 +1,20 @@
+{
+  "description": "poleOffset is [x, y, z]",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/poleOffset",
+      "value": [
+        1,
+        2
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "must be [x, y, z]",
+      "path": "rigModules[0] 'arm_1'.moduleArgs.poleOffset"
+    }
+  ]
+}

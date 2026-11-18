@@ -16,12 +16,12 @@ from rigtest.jointclips import rig_root
 UPPER = "upperArm_ctrl_l"
 LOWER = "lowerArm_ctrl_l"
 END = "hand_ctrl_l"
-HANDLE = "handIk_ctrl_l"
+HANDLE = "armIK_ctrl_l"
 POLE = "armPole_ctrl_l"
 SETTINGS = "armSettings_ctrl_l"
 LIMB_JOINTS = ("upperArm_jnt", "lowerArm_jnt", "hand_jnt")
 SETTINGS_USAGE = "armSettings"
-HANDLE_USAGE = "handIk"
+HANDLE_USAGE = "armIK"
 POLE_USAGE = "armPole"
 
 

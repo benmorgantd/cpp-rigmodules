@@ -9,7 +9,7 @@
 - The decision and its phases: D52 in `decisions.md`.
 - Tests: `tests/maya/modules/test_two_bone_ik.py`, `tests/maya/commands/test_two_bone_ik_cmds.py`, `tests/maya/commands/test_two_bone_ik_inverse.py`, the `twoboneik` pose cases and the golden snapshot.
 - Performance: 12 limbs in the complex rig (`tools/perf/perf_scenes.py`). `bench` is below D36's targets.
-- Still to come: D57 (`derived-controls.md`) removes the three marker joints per limb, replacing decision 1 below. Phase 3 of that is not built.
+- Reversed by D57 (`derived-controls.md`, built 2026-11-18): the three marker joints per limb are gone, so decision 1 below no longer holds. The IK handle, pole and settings are derived from the three limb joints, with `controlName`, `poleOffset` and `settingsOffset` in `moduleArgs` and a `moduleVersion` 2 step that drops `ik`, `pole` and `settings`. Everything else here stands.
 
 ## Decisions (all answered, author, 2026-11-15)
 
@@ -19,7 +19,7 @@ Changing one after the module ships changes a template key, a control markup or 
 
 | # | Question | Answer | Why it matters |
 |---|---|---|---|
-| 1 | Where do the IK handle, pole and settings controls get their markup and rest? | **Three non-export marker joints in the skeleton** (`ik`, `pole`, `settings`), selected in `moduleArgs` like Aim's `target` and `up`, marked `export: false`, `skin: false`. Rejected: derived usages with a computed pole position. | Follows Aim (D15: markup says what a joint is, the template picks joints), puts the pole where the rigger put it, invents no names. Cost: three non-export joints per limb. |
+| 1 | **Reversed by D57.** Where do the IK handle, pole and settings controls get their markup and rest? | **Three non-export marker joints in the skeleton** (`ik`, `pole`, `settings`), selected in `moduleArgs` like Aim's `target` and `up`, marked `export: false`, `skin: false`. Rejected: derived usages with a computed pole position. | Follows Aim (D15: markup says what a joint is, the template picks joints), puts the pole where the rigger put it, invents no names. Cost: three non-export joints per limb. |
 | 2 | Where do `ikFkBlend`, `stretch` and `soft` live? | A dedicated `settings` control, channel-only, always visible. | The IK handle is hidden in FK, so the switch would be hidden with it (priority 1). |
 | 3 | Pole spaces. | A module-owned space on the pole control, labels `Parent` and `Ik` (section 4.4). `Parent` is whatever the `pole` child plug's `parentStructure` socket is, `layout.end` by default. A template constraint on `pole` is a read-phase error. | Limit: one external space (the child plug's parent), not a list. More spaces later means more labels (append-only, D34), extra child plugs and `moduleArgs` keys with a `moduleVersion` step. |
 | 4 | The blend's default. | **1 (IK) for every limb, no template key.** | Default equals rest (D34), so a built rig, `zeroRigControls` and the contract's rest pose are all in IK, with the FK lower and end controls hidden. FK pose cases set `ikFkBlend` to 0. |

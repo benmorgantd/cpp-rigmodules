@@ -180,7 +180,7 @@ Undo restores both the enum and the control's values.
 Switches a [TwoBoneIk](modules.md#twoboneik) limb between IK and FK without a pop. It first writes the control values that reproduce the limb's current pose on both sides, then sets `ikFkBlend`.
 
 ```python
-cmds.setRigIkFkBlend("hero_body:armSettings_l_ctrl_l", blend=0)    # to FK
+cmds.setRigIkFkBlend("hero_body:armSettings_ctrl_l", blend=0)    # to FK
 cmds.setRigIkFkBlend("hero_body:arm_l", blend=1)                   # to IK (the default)
 # Returns the controls that changed
 ```
@@ -342,7 +342,7 @@ import json
 text = cmds.getRigControlSpace("hero_body:arm_ctrl_l")
 json.loads(text)
 # {"constraint": "hero_body:arm_ctrl_l_space", "module": "", "labels": ["World", "Chest"], "current": 1}
-text = cmds.getRigControlSpace("hero_body:armPole_l_ctrl_l")
+text = cmds.getRigControlSpace("hero_body:armPole_ctrl_l")
 json.loads(text)
 # {"constraint": "", "module": "hero_body:arm_l", "labels": ["Parent", "Ik"], "current": 0}
 ```
@@ -364,7 +364,7 @@ Switches a control to another space and keeps the control where it is in the wor
 
 ```python
 cmds.setRigControlSpace("hero_body:arm_ctrl_l", label="Chest")
-cmds.setRigControlSpace("hero_body:armPole_l_ctrl_l", space=1)    # the pole follows the IK handle
+cmds.setRigControlSpace("hero_body:armPole_ctrl_l", space=1)    # the pole follows the IK handle
 ```
 
 | Flag | Type | Meaning |

@@ -16,6 +16,10 @@
       }
     },
     "controls": {
+      "armIK_ctrl_l": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "roll"],
+        "markup": ["Left", "armIK"]
+      },
       "armPole_ctrl_l": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "pin", "space"],
         "markup": ["Left", "armPole"],
@@ -24,10 +28,6 @@
       "armSettings_ctrl_l": {
         "keyable": ["visibility", "ikFkBlend", "stretch", "soft"],
         "markup": ["Left", "armSettings"]
-      },
-      "handIk_ctrl_l": {
-        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "roll"],
-        "markup": ["Left", "handIk"]
       },
       "hand_ctrl_l": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
@@ -54,7 +54,7 @@
         "markup": ["Left", "upperArm"]
       }
     },
-    "joints": ["armPole_jnt", "armSettings_jnt", "handIk_jnt", "hand_jnt", "lowerArm_jnt", "upperArm_jnt"],
+    "joints": ["hand_jnt", "lowerArm_jnt", "upperArm_jnt"],
     "constraints": {}
   }
 }
