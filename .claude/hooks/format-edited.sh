@@ -10,10 +10,8 @@
 #   .py           black at 120 columns, limited by --line-ranges to the
 #                 changed hunks. Most existing files don't match black, so a
 #                 whole-file run would rewrite them.
-#   .json         validated only. clang-format reflows a JSON file's whole
-#                 structure (tested: it exploded the inline arrays in
-#                 RigTemplates/), and the templates and pose fixtures are
-#                 hand-formatted. An invalid file exits 2 so Claude sees it.
+#   other files   left alone. JSON is not formatted: clang-format reflows a whole
+#                 JSON file, and the templates and fixtures are hand-formatted.
 f=$(jq -r '.tool_response.filePath // .tool_input.file_path // empty')
 [ -n "$f" ] || exit 0
 cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
@@ -42,13 +40,6 @@ case "$f" in
 			black -q -l 120 $ranges "$f"
 		else
 			black -q -l 120 "$f"
-		fi
-		;;
-	*.json)
-		if ! err=$(jq empty "$f" 2>&1)
-		then
-			echo "Invalid JSON in $f: $err" >&2
-			exit 2
 		fi
 		;;
 esac
