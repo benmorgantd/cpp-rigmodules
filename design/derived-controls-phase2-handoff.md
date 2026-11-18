@@ -72,7 +72,7 @@ Write pose expectations by hand (`tests/README.md`). Most existing numbers stay 
 - **Line endings.** Source files are CRLF. Edit with the Edit tool, or write the file and run `unix2dos`. A Python script that edits a file must read and write bytes and use `\r\n`. New fixtures written with the Write tool are LF and git warns, which is harmless.
 - **The probe approach for `core/`:** `cl` from `vcvars64.bat`, compiling `core/ControlPlacement.cpp` with a `main` that holds hand-worked cases, gave a result in seconds. Phase 1's probe was in the scratchpad and is gone: rewrite the cases from section 3 if a `core/` change needs one.
 - **A bind joint's end twist** in `RibbonMath` has two assignments that overwrite the loop (`detail.twist[0]` and `[count - 1]`). Anything that changes a twist must change both. It cost a build in phase 0.
-- **Before a commit:** the full suite, then `bench` on `complex_x20`, `complex_x50` and `floor_x50` (CLAUDE.md, working style). Compare with the numbers in section 1.
+- **Before a commit:** the suite must have passed on the build being committed (not rerun if it passed recently, CLAUDE.md, working style). `bench` on `complex_x20`, `complex_x50` and `floor_x50` only when the author asks. Compare with the numbers in section 1.
 - **Commit message** shape and the docs list: CLAUDE.md, "Working style". Do not add the author's `--durations` files.
 
 ## 7. Done when

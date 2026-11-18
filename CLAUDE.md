@@ -32,8 +32,8 @@ Documentation has two homes (D21). `design/` is for people working on the system
 - If a requirement is ambiguous, ask. Do not guess at rig behavior.
 - Never claim code compiles or behaves correctly in Maya unless you actually built and ran it. Say what was verified and what was not.
 - **Every build is followed by the full test suite** (see "Tests" under Local build and test). A change is not done until the suite passes on the build that contains it. Report the TOTAL line, and report any tier that failed, crashed or was blocked.
-- **Benchmarks (`bench`, the fps and floor checks in `tools/perf/`) are slow and are not the test suite.** Run them only (a) once when a new module or constraint type is created, (b) before a commit, and (c) when the author asks. Never after each build or each change: the mayapy suite is the per-change check. For a change that could affect evaluation cost, say so in the summary instead of benchmarking, and offer to run it.
-  - **Before a commit, run the full mayapy suite and `bench`. Do not commit if either fails badly** (author, 2026-11-18). A suite failure, crash or blocked tier always stops the commit. For `bench`, a result well beyond the D36 limits (30 fps for 20 rigs, 1.5 times the native floor on the 50-rig scene) stops the commit: report the numbers and ask. A marginal miss does not stop it: commit and state the numbers in the message and summary. Say which side of the line a result is on.
+  - **Do not rerun the suite when it already passed recently** (author, 2026-11-18): if it passed on the current build and no source, test or build file has changed since, say so and cite that run's TOTAL line instead of running it again. This includes before a commit.
+- **Benchmarks (`bench`, the fps and floor checks in `tools/perf/`) are slow and are not the test suite.** Run them only (a) once when a new module or constraint type is created, and (b) when the author asks (author, 2026-11-18: never before a commit unless asked). Never after each build or each change: the mayapy suite is the per-change check. For a change that could affect evaluation cost, say so in the summary instead of benchmarking, and offer to run it.
 - **Verification lives in the suite, not in temp scripts.** Every change adds or updates tests in `tests/`. Throwaway mayapy probes are fine while exploring. Before finishing, either turn each check a probe made into a suite test, or list it in your summary as a proposed test (what it checks, which tier, data case or code) for the author to accept. Never leave a check only in the scratchpad.
 
 ## Product context and priorities
@@ -409,7 +409,7 @@ Before declaring work done, check:
 - [ ] No names (controls, attributes, child plugs, sockets) changed without flagging the pose, animation, and export impact
 - [ ] Animator-facing behavior is simple and predictable
 - [ ] Complexity added by this change is stated and justified
-- [ ] A new module or constraint type has many instances in the complex perf rig, and `bench` was run once for it. Otherwise `bench` runs only before a commit or when asked, never per change
+- [ ] A new module or constraint type has many instances in the complex perf rig, and `bench` was run once for it. Otherwise `bench` runs only when asked, never per change or per commit
 - [ ] Tests added or updated for the change, and the full suite passes on the build that contains it
 - [ ] Every check a temp mayapy probe made is now a suite test, or is listed in the summary as a proposed test
 - [ ] Docs pass done: every visible change is in its owning page, new topics have a page, no stale mentions remain, and the summary lists the docs touched
