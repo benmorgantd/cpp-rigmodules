@@ -42,6 +42,27 @@ public:
 		return text.size() >= suffix.size() && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
 	}
 
+	// text without a trailing "_NN" (an underscore and digits): "spine_00" is "spine", "spine" and "spine_" stay as they are.
+	static std::string stripNumberSuffix(const std::string& text)
+	{
+		size_t end = text.size();
+		while (end > 0 && std::isdigit(static_cast<unsigned char>(text[end - 1])))
+		{
+			--end;
+		}
+		if (end == text.size() || end < 2 || text[end - 1] != '_')
+		{
+			return text;
+		}
+		return text.substr(0, end - 1);
+	}
+
+	// base and a two-digit index: numberedName("spineIK", 2) is "spineIK_02". Three digits when the index needs them.
+	static std::string numberedName(const std::string& base, int index)
+	{
+		return base + (index < 10 ? "_0" : "_") + std::to_string(index);
+	}
+
 	static bool startsWith(const std::string& text, const std::string& prefix)
 	{
 		return text.compare(0, prefix.size(), prefix) == 0;

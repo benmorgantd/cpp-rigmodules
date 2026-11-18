@@ -3,7 +3,7 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailCtrlC_ctrl_c.rotateX": 200
+    "tailIK_02_ctrl_c.rotateX": 200
   },
   "expect": {
     "tail3_jnt": {"translate": [4, 0, 0], "rotate": [-80, 0, 0]},

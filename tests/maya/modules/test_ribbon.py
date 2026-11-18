@@ -16,9 +16,9 @@ from rigtest.case import RigTestCase, rig_name
 from rigtest.cases import add_pose_cases
 from rigtest.module_contract import ModuleContract
 
-FIRST = "tailCtrlA_ctrl_c"
-INTERIOR = "tailCtrlB_ctrl_c"
-LAST = "tailCtrlC_ctrl_c"
+FIRST = "tailIK_00_ctrl_c"
+INTERIOR = "tailIK_01_ctrl_c"
+LAST = "tailIK_02_ctrl_c"
 BIND_JOINTS = ["tail%d_jnt" % i for i in range(1, 6)]
 TWEAKERS = ["tail%d_ctrl_c" % i for i in range(1, 6)]
 
@@ -32,17 +32,35 @@ CHANNELS = {
 }
 
 
-class RibbonContract(ModuleContract, RigTestCase):
+class _RibbonRestore:
+    """What the inverse can and can't give back on a ribbon (D57). An interior ik control has no joint, so it is never restored:
+    it keeps its sidecar or rest value, and the tweakers carry the difference. The end controls take the whole of the first and last
+    bind joints, so those two tweakers can't be told apart from their ends. The round trip poses neither group (a posed interior
+    control's frame can't come back through the tweakers when the volume channel gives it a non-uniform scale: a tweaker is a
+    plain transform and can't hold the shear), and the other controls and every joint must come back."""
+    UNPOSED = ("tailIK_01", "tailTweak_00", "tailTweak_04")
+    LAST_BIND_CONTROLS = ("tailIK_02", "tailTweak_04")
+
+    def _pose_channels(self, control):
+        if rigmodules.query.get_control(control).usage in self.UNPOSED:
+            return {}
+        return super()._pose_channels(control)
+
+    def controls_lost_with_joint(self, root, markup):
+        """The last bind joint's tweaker and the end control that follows its frame."""
+        return [c for c in rigmodules.query.get_rig_controls(root) if c.usage in self.LAST_BIND_CONTROLS and c.side == markup["side"]]
+
+
+class RibbonContract(_RibbonRestore, ModuleContract, RigTestCase):
     TEMPLATE = "ribbon_basic"
     SKELETON = "ribbon_basic"
     MODULE_TYPE = "ribbonModule"
-    JOINT_OWNERS = dict(
-        [("tailCtrl%s_jnt" % c, "tail_1") for c in "ABC"] + [("tail%d_jnt" % i, "tail_1") for i in range(1, 6)])
+    JOINT_OWNERS = dict(("tail%d_jnt" % i, "tail_1") for i in range(1, 6))
     MIRROR_TEMPLATE = "ribbon_mirror"
     MIRROR_SKELETON = "ribbon_mirror"
 
 
-class RibbonAimedContract(ModuleContract, RigTestCase):
+class RibbonAimedContract(_RibbonRestore, ModuleContract, RigTestCase):
     """The same contract on a ribbon with its ends on the layout's first and last sockets (so the end plug's parent twists the
     ribbon, and the inverse has to take that out) and with the aim blends set from the template."""
     TEMPLATE = "ribbon_aimed"
@@ -51,8 +69,13 @@ class RibbonAimedContract(ModuleContract, RigTestCase):
     JOINT_OWNERS = RibbonContract.JOINT_OWNERS
     MIRROR_TEMPLATE = False
 
+    def joints_cannot_give(self, control, channel):
+        """An aimed end's tangent comes from the other end, so only the twist of its rotation reaches the joints: the joints come
+        back exactly, and the control gets a rotation that gives the same twist."""
+        return channel.startswith("rotate") and rigmodules.query.get_control(control).usage in ("tailIK_00", "tailIK_02")
 
-class RibbonNegXContract(ModuleContract, RigTestCase):
+
+class RibbonNegXContract(_RibbonRestore, ModuleContract, RigTestCase):
     """The same contract on a chain that runs down -X while the joints' X points back up it (a mirrored limb, D57): the inverse
     must give back the controls the forward solve was driven with, with the chain sign in play."""
     TEMPLATE = "ribbon_negx"
@@ -115,18 +138,13 @@ class RibbonBehaviour(RigTestCase):
             moved = world_matrix(joint) != before[joint]
             self.assertEqual(moved, joint == "tail2_jnt", "%s moved: %s" % (joint, moved))
 
-    def test_the_marker_joints_follow_their_controls(self):
-        self.build_standard("ribbon_basic", "ribbon_basic")
-        set_attr(INTERIOR, "translateY", 2.0)
-        self.assertWorldTranslation(rig_name("tailCtrlB_jnt"), [4, 2, 0], 1e-6)
-
     def test_an_interior_control_leaves_the_far_end_alone(self):
         """Locality: the base curve depends on the ends alone, and the detail curve through the controls changes only the
         segments around a moved one (a segment's tangents come from its neighbours). Positions only: a carried frame
         rolls along the whole curve."""
         self.build_standard("ribbon_five", "ribbon_five")
         before = {i: translation("spine%d_jnt" % i) for i in range(1, 10)}
-        set_attr("spineCtrlB_ctrl_c", "translateY", 2.0)
+        set_attr("spineIK_01_ctrl_c", "translateY", 2.0)
         after = {i: translation("spine%d_jnt" % i) for i in range(1, 10)}
         for i in (1, 7, 8, 9):
             self.assertEqual(after[i], before[i], "spine%d moved with an interior control far from it" % i)
@@ -198,16 +216,16 @@ class RibbonBehaviour(RigTestCase):
 
     def test_the_ends_twist_runs_along_the_whole_chain(self):
         """The start's twist is carried by the interior control as well, so it reaches the far end of the chain and not just
-        the next control: with 90 on the start, the interior marker turns 45 and the last joint 0."""
+        the next control: with 90 on the start, the middle joint turns 45 and the last joint 0."""
         self.build_standard("ribbon_five", "ribbon_five")
-        set_attr("spineCtrlA_ctrl_c", "rotateX", 90)
+        set_attr("spineIK_00_ctrl_c", "rotateX", 90)
         turns = {}
-        for name in ("spineCtrlB_jnt", "spineCtrlC_jnt", "spineCtrlD_jnt"):
+        for name in ("spine3_jnt", "spine5_jnt", "spine7_jnt"):
             m = world_matrix(name)
             turns[name] = math.degrees(math.atan2(m[6], m[5]))
-        self.assertAlmostEqual(turns["spineCtrlB_jnt"], 67.5, places=3)
-        self.assertAlmostEqual(turns["spineCtrlC_jnt"], 45.0, places=3)
-        self.assertAlmostEqual(turns["spineCtrlD_jnt"], 22.5, places=3)
+        self.assertAlmostEqual(turns["spine3_jnt"], 67.5, places=3)
+        self.assertAlmostEqual(turns["spine5_jnt"], 45.0, places=3)
+        self.assertAlmostEqual(turns["spine7_jnt"], 22.5, places=3)
 
     # ---- the end follows its plug's frame (design/ribbon-twist-follow.md) -----------------------
 
@@ -283,7 +301,7 @@ class RibbonBehaviour(RigTestCase):
     def test_the_aim_keys_reach_the_mirrored_side(self):
         self.build(self._with_aim("ribbon_mirror", startAimBlend=1), self.make_skeleton("ribbon_mirror"), label="ribbon_aim_mirror")
         root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
-        firsts = [c for c in rigmodules.query.get_rig_controls(root) if c.usage == "tailCtrlA"]
+        firsts = [c for c in rigmodules.query.get_rig_controls(root) if c.usage == "tailIK_00"]
         self.assertEqual(sorted(c.side for c in firsts), ["Left", "Right"])
         for control in firsts:
             channels = {c.name: c for c in rigmodules.query.get_control_channels(control.node)}
@@ -311,9 +329,10 @@ class RibbonBehaviour(RigTestCase):
         edit(data["rigModules"][0]["moduleArgs"])
         return self.assertMayaError(lambda: self.build(data, self.make_skeleton(skeleton), label="ribbon_bad"))
 
-    def test_one_control_joint_is_an_error(self):
-        message = self._build_with(lambda args: args.update(controls=[["Center", "tailCtrlA"]]))
-        self.assertIn("control joints", message)
+    def test_one_ik_control_is_an_error(self):
+        message = self._build_with(lambda args: args.update(controlCount=1))
+        self.assertIn("controlCount", message)
+        self.assertIn("between 2 and 8", message)
         self.assertNothingBuilt()
 
     def test_one_bind_joint_is_an_error(self):
@@ -321,13 +340,14 @@ class RibbonBehaviour(RigTestCase):
         self.assertIn("bind joints", message)
         self.assertNothingBuilt()
 
-    def test_a_joint_cannot_be_a_control_and_a_bind_joint(self):
-        message = self._build_with(lambda args: args.update(joints=[["Center", "tailCtrlA"]] + args["joints"]))
-        self.assertIn("tailCtrlA", message)
+    def test_a_joint_cannot_be_listed_twice(self):
+        message = self._build_with(lambda args: args.update(joints=[["Center", "tail1"]] + args["joints"]))
+        self.assertIn("tail1", message)
         self.assertNothingBuilt()
 
-    def test_more_than_eight_control_joints_is_an_error(self):
-        message = self._build_with(lambda args: args.update(controls=[["Center", "tailCtrlA"]] * 9))
+    def test_more_than_eight_ik_controls_is_an_error(self):
+        message = self._build_with(lambda args: args.update(controlCount=9))
+        self.assertIn("controlCount", message)
         self.assertIn("between 2 and 8", message)
         self.assertNothingBuilt()
 
@@ -343,7 +363,6 @@ class RibbonBehaviour(RigTestCase):
         self.assertWorldTranslation(rig_name("tail1_jnt"), [0, 0, 0], 1e-6)
         self.assertWorldTranslation(rig_name("tail5_jnt"), [8, 3, 0], 1e-6)
         self.assertWorldTranslation(rig_name("tail3_jnt"), [4, 1.5, 0], 1e-6)   # the base curve at u = 0.5 is the average of its ends
-        self.assertWorldTranslation(rig_name("tailCtrlC_jnt"), [8, 3, 0], 1e-6)
 
     def test_an_unlisted_end_follows_the_start_parent(self):
         """With no entry for `end` it takes start's parent, not layout.end: lifting the start's parent lifts the whole ribbon,
@@ -356,3 +375,123 @@ class RibbonBehaviour(RigTestCase):
         set_attr("layout_0_ctrl_c", "translateZ", 5.0)
         for joint, x in zip(BIND_JOINTS, (0, 2, 4, 6, 8)):
             self.assertWorldTranslation(rig_name(joint), [x, 0, 5], 1e-6)
+
+
+class RibbonDerivedControls(RigTestCase):
+    """The ik controls come from the bind joints, not from control joints (D57): where they sit, how they are named, and what the
+    read phase rejects. Expectations are worked by hand."""
+
+    def _template(self, joints, **args):
+        data = copy.deepcopy(fixtures.load_template("ribbon_basic"))
+        module_args = data["rigModules"][0]["moduleArgs"]
+        module_args["controlName"] = "tail"
+        module_args["joints"] = [["Center", usage] for usage in joints]
+        module_args.update(args)
+        if module_args["controlName"] is None:   # the test wants the default base
+            del module_args["controlName"]
+        return data
+
+    def _build(self, skeleton, joints, **args):
+        self.build(self._template(joints, **args), self.make_skeleton(skeleton), label="ribbon_derived")
+
+    def _rotation_degrees(self, node):
+        return [round(a, 3) + 0.0 for a in cmds.xform(rig_name(node), query=True, worldSpace=True, rotation=True)]
+
+    def test_a_curved_chain_puts_the_middle_control_halfway_along_the_curve(self):
+        """A quarter circle of radius 10 through five joints at 0, 22.5, 45, 67.5 and 90 degrees. By symmetry the middle joint is
+        at half the spline's length, so the middle control is on it: (10 cos 45, 10 sin 45)."""
+        self._build("ribbon_curved", ["tail1", "tail2", "tail3", "tail4", "tail5"])
+        self.assertWorldTranslation(rig_name("tailIK_01_ctrl_c"), [7.0711, 7.0711, 0], 0.05)
+
+    def test_uneven_joint_spacing_still_splits_the_length_evenly(self):
+        """Joints at x = 0, 1, 5 and 8 on a line: three controls sit at 0, 4 and 8, whichever joints are near."""
+        self._build("ribbon_uneven", ["tail1", "tail2", "tail3", "tail4"])
+        for node, x in (("tailIK_00_ctrl_c", 0), ("tailIK_01_ctrl_c", 4), ("tailIK_02_ctrl_c", 8)):
+            self.assertWorldTranslation(rig_name(node), [x, 0, 0], 1e-3)
+
+    def test_a_control_between_two_joints_takes_the_blend_of_their_rotations(self):
+        """Joints at x = 0, 4 and 8 turned 0, 0 and 90 about X, five controls at 0, 2, 4, 6 and 8. The control at 6 is halfway
+        from the joint turned 0 to the one turned 90: 45 about X. The one at 2 is between two joints turned 0."""
+        self._build("ribbon_twisted", ["tail1", "tail2", "tail3"], controlCount=5)
+        self.assertWorldTranslation(rig_name("tailIK_03_ctrl_c"), [6, 0, 0], 1e-3)
+        self.assertEqual(self._rotation_degrees("tailIK_03_ctrl_c"), [45, 0, 0])
+        self.assertEqual(self._rotation_degrees("tailIK_01_ctrl_c"), [0, 0, 0])
+        self.assertEqual(self._rotation_degrees("tailIK_04_ctrl_c"), [90, 0, 0])
+
+    def test_there_are_no_joints_on_the_ik_controls(self):
+        self._build("ribbon_basic", ["tail1", "tail2", "tail3", "tail4", "tail5"])
+        indices = cmds.getAttr(rig_name("tail_1.jointOPM"), multiIndices=True)
+        self.assertEqual(list(indices), [3, 4, 5, 6, 7], "only the tweakers' slots drive a joint")
+
+    # ---- names --------------------------------------------------------------------------------
+
+    def _usages(self):
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        return sorted(c.usage for c in rigmodules.query.get_rig_controls(root) if "IK_" in c.usage or "Tweak_" in c.usage)
+
+    def test_control_name_sets_the_base_of_the_usages(self):
+        self._build("ribbon_basic", ["tail1", "tail2", "tail3", "tail4", "tail5"], controlName="arm")
+        self.assertEqual(self._usages(), ["armIK_00", "armIK_01", "armIK_02"] + ["armTweak_0%d" % i for i in range(5)])
+
+    def test_the_default_base_drops_a_trailing_number(self):
+        self._build("ribbon_numbered", ["arm_00", "arm_01", "arm_02"], controlName=None)
+        self.assertEqual(self._usages(), ["armIK_00", "armIK_01", "armIK_02", "armTweak_00", "armTweak_01", "armTweak_02"])
+
+    def test_a_base_with_no_number_is_kept_whole(self):
+        self._build("ribbon_basic", ["tail1", "tail2", "tail3", "tail4", "tail5"], controlName=None)
+        self.assertEqual(self._usages()[:3], ["tail1IK_00", "tail1IK_01", "tail1IK_02"])
+
+    def test_two_ribbons_with_the_same_base_and_side_fail_the_build(self):
+        """Usages are unique in a rig (D25), so the second ribbon needs its own controlName."""
+        data = copy.deepcopy(fixtures.load_template("ribbon_arm"))
+        for module in data["rigModules"][1:]:
+            module["moduleArgs"]["controlName"] = "up"
+        message = self.assertMayaError(lambda: self.build(data, self.make_skeleton("ribbon_arm"), label="ribbon_same_base"))
+        self.assertIn("upIK_00", message)
+        self.assertNothingBuilt()
+
+    # ---- the chain checks (D57) ---------------------------------------------------------------
+
+    def _build_turned(self, joint, rotate):
+        joints = self.make_skeleton("ribbon_basic")
+        cmds.xform(":skel:%s_jnt" % joint, worldSpace=True, rotation=rotate)
+        self.build(self._template(["tail1", "tail2", "tail3", "tail4", "tail5"]), joints, label="ribbon_turned")
+
+    def test_a_joint_turned_65_degrees_off_the_chain_is_an_error(self):
+        message = self.assertMayaError(lambda: self._build_turned("tail3", [0, 0, 65]))
+        self.assertIn("tail3", message)
+        self.assertNothingBuilt()
+
+    def test_a_joint_turned_55_degrees_off_the_chain_builds(self):
+        self._build_turned("tail3", [0, 0, 55])
+        self.assertExists(rig_name("tailIK_01_ctrl_c"))
+
+    def test_a_joint_that_points_back_while_the_others_point_on_is_an_error(self):
+        message = self.assertMayaError(lambda: self._build_turned("tail3", [0, 180, 0]))
+        self.assertIn("tail3", message)
+        self.assertNothingBuilt()
+
+    def test_two_joints_on_each_other_are_an_error(self):
+        joints = self.make_skeleton("ribbon_basic")
+        cmds.xform(":skel:tail2_jnt", worldSpace=True, translation=[0, 0, 0])
+        message = self.assertMayaError(
+            lambda: self.build(self._template(["tail1", "tail2", "tail3", "tail4", "tail5"]), joints, label="ribbon_on_top"))
+        self.assertIn("tail", message)
+        self.assertNothingBuilt()
+
+    def test_a_misspelled_key_is_an_error(self):
+        message = self.assertMayaError(
+            lambda: self.build(self._template(["tail1", "tail2"], controlCoun=3), self.make_skeleton("ribbon_basic"), label="ribbon_typo"))
+        self.assertIn("controlCoun", message)
+        self.assertNothingBuilt()
+
+    # ---- version 1 templates ------------------------------------------------------------------
+
+    def test_a_version_1_template_reads_its_controls_as_a_count(self):
+        """moduleVersion 1 listed control joints. The update step keeps the count and drops the joints, so five listed give five
+        ik controls, and nothing looks the joints up (the skeleton has none)."""
+        data = self._template(["tail1", "tail2", "tail3", "tail4", "tail5"], controlName="tail")
+        data["rigModules"][0].pop("moduleVersion", None)
+        data["rigModules"][0]["moduleArgs"]["controls"] = [["Center", "oldCtrl%d" % i] for i in range(5)]
+        self.build(data, self.make_skeleton("ribbon_basic"), label="ribbon_v1")
+        self.assertEqual(len([u for u in self._usages() if "IK_" in u]), 5)

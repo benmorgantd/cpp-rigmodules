@@ -3,21 +3,9 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailCtrlA_ctrl_c.rotateX": 90
+    "tailIK_00_ctrl_c.rotateX": 90
   },
   "expect": {
-    "tailCtrlB_jnt": {
-      "translate": [
-        4,
-        0,
-        0
-      ],
-      "rotate": [
-        45,
-        0,
-        0
-      ]
-    },
     "tail1_jnt": {
       "translate": [
         0,

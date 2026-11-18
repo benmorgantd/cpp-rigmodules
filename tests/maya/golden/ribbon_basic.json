@@ -30,38 +30,38 @@
       },
       "tail1_ctrl_c": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Center", "tail1"]
+        "markup": ["Center", "tailTweak_00"]
       },
       "tail2_ctrl_c": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Center", "tail2"]
+        "markup": ["Center", "tailTweak_01"]
       },
       "tail3_ctrl_c": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Center", "tail3"]
+        "markup": ["Center", "tailTweak_02"]
       },
       "tail4_ctrl_c": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Center", "tail4"]
+        "markup": ["Center", "tailTweak_03"]
       },
       "tail5_ctrl_c": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Center", "tail5"]
+        "markup": ["Center", "tailTweak_04"]
       },
-      "tailCtrlA_ctrl_c": {
+      "tailIK_00_ctrl_c": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ", "startTwist", "endTwist", "sineAmplitude", "sineFrequency", "sinePhase", "sineOrient", "sineStartFalloff", "sineEndFalloff", "startAimBlend", "endAimBlend", "bendRoundness", "volumePreserve", "scaleStart", "scaleMid", "scaleEnd"],
-        "markup": ["Center", "tailCtrlA"]
+        "markup": ["Center", "tailIK_00"]
       },
-      "tailCtrlB_ctrl_c": {
+      "tailIK_01_ctrl_c": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Center", "tailCtrlB"]
+        "markup": ["Center", "tailIK_01"]
       },
-      "tailCtrlC_ctrl_c": {
+      "tailIK_02_ctrl_c": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Center", "tailCtrlC"]
+        "markup": ["Center", "tailIK_02"]
       }
     },
-    "joints": ["tail1_jnt", "tail2_jnt", "tail3_jnt", "tail4_jnt", "tail5_jnt", "tailCtrlA_jnt", "tailCtrlB_jnt", "tailCtrlC_jnt"],
+    "joints": ["tail1_jnt", "tail2_jnt", "tail3_jnt", "tail4_jnt", "tail5_jnt"],
     "constraints": {}
   }
 }

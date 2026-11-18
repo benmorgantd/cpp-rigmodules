@@ -1,0 +1,8 @@
+{
+  "joints": [
+    {"name": "tail1_jnt", "side": "Center", "usage": "tail1", "translate": [0, 0, 0]},
+    {"name": "tail2_jnt", "side": "Center", "usage": "tail2", "translate": [1, 0, 0]},
+    {"name": "tail3_jnt", "side": "Center", "usage": "tail3", "translate": [5, 0, 0]},
+    {"name": "tail4_jnt", "side": "Center", "usage": "tail4", "translate": [8, 0, 0]}
+  ]
+}

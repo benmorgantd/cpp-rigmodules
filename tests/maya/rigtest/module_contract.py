@@ -199,6 +199,11 @@ class ModuleContract:
                 actual = cmds.getAttr("%s.%s" % (control, name))
                 self.assertAlmostEqual(actual, value, places=3, msg="%s.%s was posed to %s, and restored as %s" % (control, name, value, actual))
 
+    def controls_lost_with_joint(self, root, markup):
+        """The controls that come from the sidecar when the source lacks the joint with this markup. The default is the
+        controls that share its markup. A module whose controls are named another way overrides it."""
+        return [c for c in rigmodules.query.get_rig_controls(root) if (c.side, c.usage) == (markup["side"], markup["usage"])]
+
     def joints_cannot_give(self, control, channel):
         """True for a posed value no joint carries, so the round trip can't expect it back. The default is none. A module
         with two ways to drive the same joints (TwoBoneIk: FK and IK, one of which the blend hides) overrides it."""
@@ -229,7 +234,7 @@ class ModuleContract:
         # Leave out the last joint the module drives. The control that shares its markup comes from the sidecar.
         last = rig_name(list(self.JOINT_OWNERS)[-1])
         markup = json.loads(jointclips.markup_of(last))
-        controls = [c for c in rigmodules.query.get_rig_controls(root) if (c.side, c.usage) == (markup["side"], markup["usage"])]
+        controls = self.controls_lost_with_joint(root, markup)
         short = last.split(":")[-1]
         clip = jointclips.write_json(os.path.join(folder, "clip.json"), jointclips.clip_data(rest, [posed_joints], skip=(short,)))
         # The sidecar carries what no joint can (the Layout, the channels that aren't transforms), and the control for the

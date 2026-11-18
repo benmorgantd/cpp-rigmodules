@@ -2,9 +2,9 @@
   "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "RibbonFive",
   "rigModules": [
-    { "moduleType": "Ribbon", "name": "spine_1", "shapeType": "Box", "side": "Center",
+    { "moduleType": "Ribbon", "moduleVersion": 2, "name": "spine_1", "shapeType": "Box", "side": "Center",
       "moduleArgs": {
-        "controls": [ ["Center", "spineCtrlA"], ["Center", "spineCtrlB"], ["Center", "spineCtrlC"], ["Center", "spineCtrlD"], ["Center", "spineCtrlE"] ],
+        "controlName": "spine", "controlCount": 5,
         "joints": [ ["Center", "spine1"], ["Center", "spine2"], ["Center", "spine3"], ["Center", "spine4"], ["Center", "spine5"], ["Center", "spine6"], ["Center", "spine7"], ["Center", "spine8"], ["Center", "spine9"] ] } }
   ]
 }

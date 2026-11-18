@@ -1,16 +1,10 @@
 {
   "joints": [
-    { "name": "tailCtrlA_l_jnt", "side": "Left", "usage": "tailCtrlA", "translate": [1, 0, 0], "export": false, "skin": false },
-    { "name": "tailCtrlB_l_jnt", "side": "Left", "usage": "tailCtrlB", "translate": [5, 0, 0], "export": false, "skin": false },
-    { "name": "tailCtrlC_l_jnt", "side": "Left", "usage": "tailCtrlC", "translate": [9, 0, 0], "export": false, "skin": false },
     { "name": "tail1_l_jnt", "side": "Left", "usage": "tail1", "translate": [1, 0, 0] },
     { "name": "tail2_l_jnt", "side": "Left", "usage": "tail2", "translate": [3, 0, 0] },
     { "name": "tail3_l_jnt", "side": "Left", "usage": "tail3", "translate": [5, 0, 0] },
     { "name": "tail4_l_jnt", "side": "Left", "usage": "tail4", "translate": [7, 0, 0] },
     { "name": "tail5_l_jnt", "side": "Left", "usage": "tail5", "translate": [9, 0, 0] },
-    { "name": "tailCtrlA_r_jnt", "side": "Right", "usage": "tailCtrlA", "translate": [-1, 0, 0], "rotate": [0, 180, 0], "export": false, "skin": false },
-    { "name": "tailCtrlB_r_jnt", "side": "Right", "usage": "tailCtrlB", "translate": [-5, 0, 0], "rotate": [0, 180, 0], "export": false, "skin": false },
-    { "name": "tailCtrlC_r_jnt", "side": "Right", "usage": "tailCtrlC", "translate": [-9, 0, 0], "rotate": [0, 180, 0], "export": false, "skin": false },
     { "name": "tail1_r_jnt", "side": "Right", "usage": "tail1", "translate": [-1, 0, 0], "rotate": [0, 180, 0] },
     { "name": "tail2_r_jnt", "side": "Right", "usage": "tail2", "translate": [-3, 0, 0], "rotate": [0, 180, 0] },
     { "name": "tail3_r_jnt", "side": "Right", "usage": "tail3", "translate": [-5, 0, 0], "rotate": [0, 180, 0] },

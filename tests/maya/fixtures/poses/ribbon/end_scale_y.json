@@ -3,7 +3,7 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailCtrlC_ctrl_c.scaleY": 2
+    "tailIK_02_ctrl_c.scaleY": 2
   },
   "expect": {
     "tail3_jnt": {"scale": [1, 1, 1]},

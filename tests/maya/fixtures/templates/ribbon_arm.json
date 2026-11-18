@@ -7,14 +7,14 @@
         "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"] ],
         "ik": ["Left", "handIk"], "pole": ["Left", "armPole"], "settings": ["Left", "armSettings"] },
       "parentStructure": { "start": "layout.end", "ik": "layout.end", "pole": "layout.end" } },
-    { "moduleType": "Ribbon", "name": "upper_1", "shapeType": "Box", "side": "Center",
+    { "moduleType": "Ribbon", "moduleVersion": 2, "name": "upper_1", "shapeType": "Box", "side": "Center",
       "moduleArgs": {
-        "controls": [ ["Center", "upCtrlA"], ["Center", "upCtrlB"] ],
+        "controlName": "up", "controlCount": 2,
         "joints": [ ["Center", "up1"], ["Center", "up2"], ["Center", "up3"], ["Center", "up4"], ["Center", "up5"] ] },
       "parentStructure": { "start": "layout.end", "end": "arm_1.index_1" } },
-    { "moduleType": "Ribbon", "name": "fore_1", "shapeType": "Box", "side": "Center",
+    { "moduleType": "Ribbon", "moduleVersion": 2, "name": "fore_1", "shapeType": "Box", "side": "Center",
       "moduleArgs": {
-        "controls": [ ["Center", "foCtrlA"], ["Center", "foCtrlB"] ],
+        "controlName": "fo", "controlCount": 2,
         "joints": [ ["Center", "fo1"], ["Center", "fo2"], ["Center", "fo3"], ["Center", "fo4"], ["Center", "fo5"] ] },
       "parentStructure": { "start": "arm_1.index_1", "end": "arm_1.end" } }
   ]

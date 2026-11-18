@@ -41,23 +41,27 @@ namespace RibbonChannel
 // One ribbon control or bind joint, resolved by the plan step.
 struct RibbonSlotInput
 {
-	MObject oJoint;
+	MObject oJoint;                // Null for an ik control: it has no joint, its rest is derived from the bind joints (D57)
 	MMatrix mRestWorld;
-	ControlMarkup controlMarkup;   // The joint's (side, usage)
+	ControlMarkup controlMarkup;
+	std::string baseName;          // What names an ik control's node (its usage, as it has no joint). Empty for a slot with a joint
 };
 
-// "controls": the control joints, root to tip, [[side, usage], ...] (2 to 8). "joints": the bind joints, root to tip (2 to 64).
-// The controls' joints are markers, not skinned, and the bind joints are what skins and exports.
+// "joints": the bind joints, root to tip (2 to 64). "controlCount" (optional, 2 to 8, default 3): how many ik controls, spread
+// evenly along the chain (D57). "controlName" (optional): the base of the control usages, <base>IK_<nn> and <base>Tweak_<nn>,
+// by default the first bind joint's usage without its trailing _NN. There are no control joints: the controls' rests come from
+// the bind joints (core/ControlPlacement).
 // "startAimBlend" and "endAimBlend" (optional, 0 to 1, default 0): the default, and so the rest (D34), of the channels of the same
 // names, for a ribbon whose ends should aim down the chain on every build (a shoulder or thigh, design/ribbon-twist-follow.md).
 struct RibbonArgs
 {
-	std::vector<JointSelector> controls;
 	std::vector<JointSelector> joints;
+	int controlCount{ 3 };
+	std::string controlName;
 	double startAimBlend{ 0.0 };
 	double endAimBlend{ 0.0 };
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(RibbonArgs, controls, joints, startAimBlend, endAimBlend)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(RibbonArgs, joints, controlCount, controlName, startAimBlend, endAimBlend)
 
 // A virtual ribbon (D56, design/ribbon.md): a few ik controls shape a curve and every bind joint rides it through a
 // hidden tweaker control. Slots (the logical index controlData, controlOPM, jointOPM, outputSocketMatrix and childPlugs share):
@@ -103,9 +107,11 @@ public:
 		MDagModifier& dagMod
 	);
 	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
-	// Control values from the joints (D56 section 7): the ik controls from their marker joints and the tweakers from the bind
-	// joints, the residual. A control whose joint is missing keeps its fallback value and the tweakers absorb the difference,
-	// so every bind joint that is present comes back exactly.
+	// moduleArgs version 2 (D57) dropped "controls" for "controlCount".
+	static const UpdateTable& argUpdateTable();
+	// Control values from the joints (D56 section 7, D57): the end controls from the first and last bind joints, whose frames
+	// they share, and the tweakers from the bind joints, the residual. An interior ik control has no joint, so it keeps its
+	// fallback value and the tweakers absorb the difference, so every bind joint that is present comes back exactly.
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
 	// The channels the inverse reads, in RibbonChannel order.
 	static std::vector<ModuleInverseChannel> inverseChannels();

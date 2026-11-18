@@ -2,9 +2,9 @@
   "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "RibbonMirror",
   "rigModules": [
-    { "moduleType": "Ribbon", "name": "tail_l", "shapeType": "Box", "side": "Left", "mirror": true,
+    { "moduleType": "Ribbon", "moduleVersion": 2, "name": "tail_l", "shapeType": "Box", "side": "Left", "mirror": true,
       "moduleArgs": {
-        "controls": [ ["Left", "tailCtrlA"], ["Left", "tailCtrlB"], ["Left", "tailCtrlC"] ],
+        "controlName": "tail",
         "joints": [ ["Left", "tail1"], ["Left", "tail2"], ["Left", "tail3"], ["Left", "tail4"], ["Left", "tail5"] ] } }
   ]
 }

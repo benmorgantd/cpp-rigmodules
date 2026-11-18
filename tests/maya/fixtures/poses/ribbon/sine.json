@@ -3,7 +3,7 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailCtrlA_ctrl_c.sineAmplitude": 0.25
+    "tailIK_00_ctrl_c.sineAmplitude": 0.25
   },
   "tolerance": 0.001,
   "expect": {

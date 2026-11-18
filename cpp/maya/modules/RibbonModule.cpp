@@ -1,7 +1,10 @@
 #include "maya/modules/RibbonModule.h"
 #include "core/Constants.h"
+#include "core/ControlPlacement.h"
+#include "core/JointMarkup.h"
 #include "core/RibbonMath.h"
 #include "core/RigJsonStructs.h"
+#include "core/StringUtils.h"
 #include "maya/modules/FkChainModule.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigModule.h"
@@ -119,6 +122,18 @@ namespace
 		return MMatrix(mat.m);
 	}
 
+	// Version 2 (D57): the ik controls come from the bind joints, so "controls" (their joints) gives way to "controlCount". A
+	// template that already has controlCount, or whose controls isn't a list, is left for the validation that follows.
+	void replaceControlsWithCount(nlohmann::json& args)
+	{
+		if (!args.is_object() || !args.contains("controls") || args.contains("controlCount") || !args["controls"].is_array())
+		{
+			return;
+		}
+		args["controlCount"] = args["controls"].size();
+		args.erase("controls");
+	}
+
 	// Socket names of ik control k, the way FkChain names its own: index_k, plus start and end on the ends.
 	ModuleInterface makeRibbonInterface(unsigned int controlCount)
 	{
@@ -140,6 +155,13 @@ RibbonModuleNode::RibbonModuleNode()
 }
 RibbonModuleNode::~RibbonModuleNode()
 {
+}
+
+const UpdateTable& RibbonModuleNode::argUpdateTable()
+{
+	// Add a step here, and nowhere else, when the Ribbon's moduleArgs change shape or meaning. Step 0 takes version 1 to 2.
+	static const UpdateTable table{ 1, { &replaceControlsWithCount } };
+	return table;
 }
 
 void* RibbonModuleNode::creator()
@@ -461,28 +483,58 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 		return slot < input.jointWorld.size() && input.jointWorld[slot].has_value();
 	};
 
-	// 1. The ends from their joints: the ordinary local from world.
+	// 1. The ends from the first and last bind joints, whose frames they share (D57). A joint's frame is not quite its end
+	// control's (the sine layer and a stretch move it), so the control is refined: with the tweaker at rest, each pass moves the
+	// control by the gap its joint is still away from where the solve puts it, until the gap is gone. Each pass costs one
+	// evaluation, and a restore is not playback. The two ends move each other's tangents, so a pass settles about a quarter of
+	// the gap, and the cap leaves it below 1e-7.
+	bool solved[MaxSlots] = {};
+	const unsigned int firstBind = static_cast<unsigned int>(controlCount);
+	const unsigned int lastBind = slotCount - 1;
 	for (const int j : { 0, controlCount - 1 })
 	{
-		if (hasJoint(j))
+		const unsigned int bindSlot = j == 0 ? firstBind : lastBind;
+		if (hasJoint(bindSlot))
 		{
-			mLocal[j] = ModuleInverse::localFromWorld(*input.jointWorld[j], mRest[j], j == 0 ? mStartDelta : mEndDelta);
+			mLocal[j] = ModuleInverse::localFromWorld(*input.jointWorld[bindSlot], mRest[j], j == 0 ? mStartDelta : mEndDelta);
+			solved[j] = true;
 		}
 	}
-
-	// 2. The interior controls. Their OPMs ride the base curve, which only the ends set, so the ends fixed above give them.
 	RibbonSolve solve;
-	evaluate(setup, params, mRest, mLocal, mStartDelta, mEndDelta, solve);
-	for (int j = 1; j < controlCount - 1; ++j)
+	constexpr int MaxEndRefinePasses = 24;
+	constexpr double EndRefineTolerance = 1e-9;
+	for (int pass = 0; pass < MaxEndRefinePasses && (solved[0] || solved[controlCount - 1]); ++pass)
 	{
-		if (hasJoint(j))
+		const MMatrix mKeepFirst = mLocal[firstBind];
+		const MMatrix mKeepLast = mLocal[lastBind];
+		mLocal[firstBind] = MMatrix::identity;
+		mLocal[lastBind] = MMatrix::identity;
+		evaluate(setup, params, mRest, mLocal, mStartDelta, mEndDelta, solve);
+		mLocal[firstBind] = mKeepFirst;
+		mLocal[lastBind] = mKeepLast;
+		bool settled = true;
+		for (const int j : { 0, controlCount - 1 })
 		{
-			mLocal[j] = *input.jointWorld[j] * solve.mControlOPM[j].inverse();
+			const unsigned int bindSlot = j == 0 ? firstBind : lastBind;
+			if (!solved[j])
+			{
+				continue;
+			}
+			const MMatrix mEndWorld = mLocal[j] * solve.mControlOPM[j];
+			const MMatrix mGap = *input.jointWorld[bindSlot] * solve.mWorld[bindSlot].inverse();
+			settled = settled && mGap.isEquivalent(MMatrix::identity, EndRefineTolerance);
+			mLocal[j] = ModuleInverse::localFromWorld(mGap * mEndWorld, mRest[j], j == 0 ? mStartDelta : mEndDelta);
+		}
+		if (settled)
+		{
+			break;
 		}
 	}
 
+	// 2. The interior controls have no joint, so they keep the fallback (the sidecar's value, else the rest) and the tweakers
+	// below carry what is left.
 	// 3. The tweakers are the residual: each bind joint against the frame the detail curve gives it, which the controls
-	// above fixed. A bind joint that is present comes back exactly whatever a missing control left.
+	// above fixed. A bind joint that is present comes back exactly whatever the interior controls hold.
 	evaluate(setup, params, mRest, mLocal, mStartDelta, mEndDelta, solve);
 	bool hasEveryBindJoint = true;
 	for (int slot = controlCount; slot < static_cast<int>(slotCount); ++slot)
@@ -490,6 +542,7 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 		if (hasJoint(slot))
 		{
 			mLocal[slot] = *input.jointWorld[slot] * solve.mControlOPM[slot].inverse();
+			solved[slot] = true;
 		}
 		else
 		{
@@ -499,7 +552,7 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 
 	for (unsigned int slot = 0; slot < slotCount; ++slot)
 	{
-		if (hasJoint(slot))
+		if (solved[slot])
 		{
 			result.controlLocal[slot] = mLocal[slot];
 		}
@@ -543,21 +596,26 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 	slots.insert(slots.end(), joints.begin(), joints.end());
 	std::vector<MObject> oControls(slots.size());
 
-	// 2. Per slot: wire the joint, create and wire the control. Every slot's joint follows its control's world, the tweakers
-	// drive the bind joints and the ik controls their marker joints.
+	// 2. Per slot: wire the joint, create and wire the control. The tweakers drive the bind joints.
 	for (unsigned int slot = 0; slot < slots.size(); ++slot)
 	{
 		const RibbonSlotInput& input = slots[slot];
-		MFnDependencyNode fnJoint(input.oJoint);
 
-		status = RibbonModuleNode::wireJoint(oModule, input.oJoint, slot, input.mRestWorld, dagMod);
-		if (!status)
+		// An ik control has no joint (D57): its jointOPM and jointRestWorld elements are never made, which the module's arrays
+		// and the inverse allow for.
+		MString controlBaseName(input.baseName.c_str());
+		if (!input.oJoint.isNull())
 		{
-			result.status = status;
-			return result;
+			status = RibbonModuleNode::wireJoint(oModule, input.oJoint, slot, input.mRestWorld, dagMod);
+			if (!status)
+			{
+				result.status = status;
+				return result;
+			}
+			controlBaseName = MFnDependencyNode(input.oJoint).name();
 		}
 
-		oControls[slot] = RigControlNode::createRigControl(dagMod, fnJoint.name(), shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
+		oControls[slot] = RigControlNode::createRigControl(dagMod, controlBaseName, shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
 		// All controls hang from the start control, except the end, which hangs from its own parent. Visibility and the outliner
 		// follow the start, and nothing transforms by it (inheritsTransform is off).
 		if (slot != 0 && slot != controlCount - 1)
@@ -668,7 +726,7 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	RibbonArgs ribbonArgs;
-	if (!readModuleArgs(args, { "controls", "joints" }, ctx, ribbonArgs, { RigAttr::StartAimBlend, RigAttr::EndAimBlend }))
+	if (!readModuleArgs(args, { "joints" }, ctx, ribbonArgs, { "controlCount", "controlName", RigAttr::StartAimBlend, RigAttr::EndAimBlend }))
 	{
 		return false;
 	}
@@ -685,10 +743,10 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 			valid = false;
 		}
 	}
-	if (ribbonArgs.controls.size() < 2 || ribbonArgs.controls.size() > static_cast<std::size_t>(RibbonMath::MaxControls))
+	if (ribbonArgs.controlCount < 2 || ribbonArgs.controlCount > RibbonMath::MaxControls)
 	{
-		ctx.report.addError(argsPath + ".controls", "a ribbon has between 2 and " + std::to_string(RibbonMath::MaxControls)
-			+ " control joints (a start, an end and the interior ones), got " + std::to_string(ribbonArgs.controls.size()));
+		ctx.report.addError(argsPath + ".controlCount", "a ribbon has between 2 and " + std::to_string(RibbonMath::MaxControls)
+			+ " ik controls (a start, an end and the interior ones), got " + std::to_string(ribbonArgs.controlCount));
 		valid = false;
 	}
 	if (ribbonArgs.joints.size() < 2 || ribbonArgs.joints.size() > static_cast<std::size_t>(RibbonMath::MaxBindJoints))
@@ -703,48 +761,69 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	}
 
 	// Claim every joint even after a failure, so the report lists every bad selector at once. claimJoint rejects a joint
-	// used twice, which also keeps a control joint from being a bind joint.
-	const auto claimAll = [&ctx](const std::vector<JointSelector>& selectors, std::vector<RibbonSlotInput>& outSlots)
-	{
-		bool allClaimed = true;
-		for (const JointSelector& selector : selectors)
-		{
-			RibbonSlotInput slot;
-			if (!RigModuleNodeBase::claimJoint(ctx, selector, slot.oJoint, slot.mRestWorld))
-			{
-				allClaimed = false;
-				continue;
-			}
-			slot.controlMarkup = makeControlMarkup(selector.side, selector.usage);
-			outSlots.push_back(slot);
-		}
-		return allClaimed;
-	};
-	std::vector<RibbonSlotInput> controls;
+	// used twice.
 	std::vector<RibbonSlotInput> joints;
-	valid = claimAll(ribbonArgs.controls, controls);
-	valid = claimAll(ribbonArgs.joints, joints) && valid;
+	for (const JointSelector& selector : ribbonArgs.joints)
+	{
+		RibbonSlotInput slot;
+		if (!RigModuleNodeBase::claimJoint(ctx, selector, slot.oJoint, slot.mRestWorld))
+		{
+			valid = false;
+			continue;
+		}
+		slot.controlMarkup = makeControlMarkup(selector.side, selector.usage);
+		joints.push_back(slot);
+	}
 	if (!valid)
 	{
 		return false;
 	}
 
-	RibbonMath::Mat4 controlRest[RibbonMath::MaxControls];
-	RibbonMath::Mat4 bindRest[RibbonMath::MaxBindJoints];
-	for (std::size_t j = 0; j < controls.size(); ++j)
+	// The ik controls come from the bind joints (D57): the axes must run down the chain, in one direction.
+	std::vector<RibbonMath::Mat4> bindRest;
+	std::vector<std::string> jointNames;
+	for (std::size_t i = 0; i < joints.size(); ++i)
 	{
-		controlRest[j] = toMat4(controls[j].mRestWorld);
+		bindRest.push_back(toMat4(joints[i].mRestWorld));
+		jointNames.push_back(formatJointSelector(ribbonArgs.joints[i]));
+	}
+	const ControlPlacement::ChainCheck chainCheck = ControlPlacement::checkChain(bindRest);
+	if (chainCheck.problem != ControlPlacement::ChainProblem::None)
+	{
+		ctx.report.addError(argsPath + ".joints", ControlPlacement::describeChainProblem(chainCheck, jointNames));
+		return false;
+	}
+	const std::vector<RibbonMath::Mat4> controlFrames = ControlPlacement::placeAlongChain(bindRest, ribbonArgs.controlCount);
+
+	RibbonMath::Mat4 controlRest[RibbonMath::MaxControls];
+	RibbonMath::Mat4 bindRestArray[RibbonMath::MaxBindJoints];
+	std::copy(controlFrames.begin(), controlFrames.end(), controlRest);
+	std::copy(bindRest.begin(), bindRest.end(), bindRestArray);
+	RibbonMath::Setup setup;
+	const char* pReason = "";
+	if (!RibbonMath::buildSetup(controlRest, ribbonArgs.controlCount, bindRestArray, static_cast<int>(joints.size()), setup, pReason))
+	{
+		ctx.report.addError(argsPath + ".joints", pReason);
+		return false;
+	}
+
+	// Names (D57): <base>IK_<nn> for the ik controls, <base>Tweak_<nn> for the tweakers (nn is the bind joint's index). The base
+	// is controlName, else the first bind joint's usage without its trailing _NN. A usage another module already uses is
+	// reported by the template's one-usage-per-rig check (D25).
+	const std::string base = ribbonArgs.controlName.empty() ? StringUtils::stripNumberSuffix(ribbonArgs.joints.front().usage) : ribbonArgs.controlName;
+	const std::string& firstSide = ribbonArgs.joints.front().side;
+	std::vector<RibbonSlotInput> controls;
+	for (int j = 0; j < ribbonArgs.controlCount; ++j)
+	{
+		RibbonSlotInput slot;
+		slot.mRestWorld = toMMatrix(controlFrames[static_cast<std::size_t>(j)]);
+		slot.baseName = StringUtils::numberedName(base + "IK", j);
+		slot.controlMarkup = makeControlMarkup(firstSide, slot.baseName);
+		controls.push_back(slot);
 	}
 	for (std::size_t i = 0; i < joints.size(); ++i)
 	{
-		bindRest[i] = toMat4(joints[i].mRestWorld);
-	}
-	RibbonMath::Setup setup;
-	const char* pReason = "";
-	if (!RibbonMath::buildSetup(controlRest, static_cast<int>(controls.size()), bindRest, static_cast<int>(joints.size()), setup, pReason))
-	{
-		ctx.report.addError(argsPath + ".controls", pReason);
-		return false;
+		joints[i].controlMarkup = makeControlMarkup(ribbonArgs.joints[i].side, StringUtils::numberedName(base + "Tweak", static_cast<int>(i)));
 	}
 
 	outPlan.moduleInterface = makeRibbonInterface(static_cast<unsigned int>(controls.size()));

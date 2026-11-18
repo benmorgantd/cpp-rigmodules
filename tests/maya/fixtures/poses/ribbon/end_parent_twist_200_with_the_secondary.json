@@ -4,7 +4,7 @@
   "template": "ribbon_driven_ends",
   "set": {
     "layout_2_ctrl_c.rotateX": 200,
-    "tailCtrlA_ctrl_c.endTwist": 200
+    "tailIK_00_ctrl_c.endTwist": 200
   },
   "expect": {
     "tail2_jnt": {"translate": [2, 0, 0], "rotate": [50, 0, 0]},

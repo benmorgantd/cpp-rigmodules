@@ -545,10 +545,10 @@ class RibbonDocExamples(RigTestCase):
 
     def test_modules_doc_snippet(self):
         self.build_entry()
-        cmds.setAttr("rig:tailCtrlB_ctrl_c.translateY", 2)
-        cmds.setAttr("rig:tailCtrlC_ctrl_c.rotateX", 200)
-        cmds.setAttr("rig:tailCtrlA_ctrl_c.endTwist", 200)
-        cmds.setAttr("rig:tailCtrlA_ctrl_c.volumePreserve", 1)
+        cmds.setAttr("rig:tailIK_01_ctrl_c.translateY", 2)
+        cmds.setAttr("rig:tailIK_02_ctrl_c.rotateX", 200)
+        cmds.setAttr("rig:tailIK_00_ctrl_c.endTwist", 200)
+        cmds.setAttr("rig:tailIK_00_ctrl_c.volumePreserve", 1)
         # The end's 200 degree roll ramps along the ribbon, so the middle control's frame is rolled 100 degrees and its 2 units
         # of local Y point (0, cos 100, sin 100) * 2. The ends don't move.
         self.assertWorldTranslation(rig_name("tail3_jnt"), [4, 2 * math.cos(math.radians(100)), 2 * math.sin(math.radians(100))])
@@ -578,7 +578,7 @@ class RibbonDocExamples(RigTestCase):
         ribbons = json.loads(doc_code_block(MODULES_DOC, "**An arm**", "json"))
         arm = json.loads(json.dumps(fixtures.load_template("ribbon_arm")["rigModules"][0]))
         self.build({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [arm] + ribbons}, self.make_skeleton("ribbon_arm"))
-        for control in ("upCtrlA", "foCtrlA"):
+        for control in ("upIK_00", "foIK_00"):
             self.assertAlmostEqual(cmds.getAttr("rig:%s_ctrl_c.startAimBlend" % control), 1.0, places=6)
             self.assertAlmostEqual(cmds.getAttr("rig:%s_ctrl_c.endAimBlend" % control), 1.0, places=6)
         cmds.setAttr("rig:armSettings_ctrl_l.ikFkBlend", 0)

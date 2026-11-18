@@ -48,7 +48,7 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
         {
             "ribbonModule", "Ribbon", RibbonModuleNode::id,
             RibbonModuleNode::creator, RibbonModuleNode::initialize,
-            {}, RibbonModuleNode::planFromJson, RibbonModuleNode::inverse, true, RibbonModuleNode::inverseChannels()
+            RibbonModuleNode::argUpdateTable(), RibbonModuleNode::planFromJson, RibbonModuleNode::inverse, true, RibbonModuleNode::inverseChannels()
         },
         {
             "rigConstraint", "RigConstraint", RigConstraintNode::id,

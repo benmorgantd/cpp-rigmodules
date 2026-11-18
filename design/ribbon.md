@@ -87,7 +87,7 @@ The scale of each control interpolates along `u` (cubic). On top, `volumePreserv
 Names are public API (D34). None of this is final until sign-off.
 
 - **Module type** `Ribbon`, node `ribbonModule`, MTypeId from the free list in `CLAUDE.md` (not `0x00219`, retired).
-- **`moduleArgs`:** the bind joint selectors, the control joint selectors (markers by markup, like `Aim`'s), `fkStyle`. Counts are derived from them, not stated.
+- **`moduleArgs`:** the bind joint selectors, the control joint selectors (markers by markup, like `Aim`'s), `fkStyle`. Counts are derived from them, not stated. **Reversed by D57 (2026-11-18, `derived-controls.md`):** `controls` is gone. `controlCount` (default 3) and `controlName` replace it, and the ik controls are placed from the bind joints.
 - **Child plugs:** `start` and `end`, which the template can connect to another module's sockets. With no connection the controls stay self-contained.
 - **Sockets:** `start`, `end`, and one per interior control.
 - **Control inputs:** the node takes each IK control's **local matrix**, a plug type new to the module layer.

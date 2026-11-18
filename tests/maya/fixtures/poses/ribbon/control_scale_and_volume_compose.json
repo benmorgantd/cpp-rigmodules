@@ -3,9 +3,9 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailCtrlC_ctrl_c.translateX": 4,
-    "tailCtrlA_ctrl_c.volumePreserve": 1,
-    "tailCtrlA_ctrl_c.scaleY": 2
+    "tailIK_02_ctrl_c.translateX": 4,
+    "tailIK_00_ctrl_c.volumePreserve": 1,
+    "tailIK_00_ctrl_c.scaleY": 2
   },
   "tolerance": 1e-05,
   "expect": {

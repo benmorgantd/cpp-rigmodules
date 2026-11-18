@@ -2,9 +2,9 @@
   "rigVersion": 1, "rigAuthor": "tests",
   "rigTemplateName": "RibbonBasic",
   "rigModules": [
-    { "moduleType": "Ribbon", "name": "tail_1", "shapeType": "Box", "side": "Center",
+    { "moduleType": "Ribbon", "moduleVersion": 2, "name": "tail_1", "shapeType": "Box", "side": "Center",
       "moduleArgs": {
-        "controls": [ ["Center", "tailCtrlA"], ["Center", "tailCtrlB"], ["Center", "tailCtrlC"] ],
+        "controlName": "tail",
         "joints": [ ["Center", "tail1"], ["Center", "tail2"], ["Center", "tail3"], ["Center", "tail4"], ["Center", "tail5"] ] } }
   ]
 }

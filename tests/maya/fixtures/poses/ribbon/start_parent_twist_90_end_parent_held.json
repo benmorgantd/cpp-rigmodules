@@ -7,7 +7,6 @@
     "layout_2_ctrl_c.rotateX": -90
   },
   "expect": {
-    "tailCtrlB_jnt": {"translate": [4, 0, 0], "rotate": [45, 0, 0]},
     "tail1_jnt": {"translate": [0, 0, 0], "rotate": [90, 0, 0]},
     "tail2_jnt": {"translate": [2, 0, 0], "rotate": [67.5, 0, 0]},
     "tail3_jnt": {"translate": [4, 0, 0], "rotate": [45, 0, 0]},

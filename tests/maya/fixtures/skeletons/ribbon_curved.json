@@ -1,0 +1,9 @@
+{
+  "joints": [
+    {"name": "tail1_jnt", "side": "Center", "usage": "tail1", "translate": [10.0, 0.0, 0], "rotate": [0, 0, 90.0]},
+    {"name": "tail2_jnt", "side": "Center", "usage": "tail2", "translate": [9.238795, 3.826834, 0], "rotate": [0, 0, 112.5]},
+    {"name": "tail3_jnt", "side": "Center", "usage": "tail3", "translate": [7.071068, 7.071068, 0], "rotate": [0, 0, 135.0]},
+    {"name": "tail4_jnt", "side": "Center", "usage": "tail4", "translate": [3.826834, 9.238795, 0], "rotate": [0, 0, 157.5]},
+    {"name": "tail5_jnt", "side": "Center", "usage": "tail5", "translate": [0.0, 10.0, 0], "rotate": [0, 0, 180.0]}
+  ]
+}

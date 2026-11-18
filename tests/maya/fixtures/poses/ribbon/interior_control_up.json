@@ -3,7 +3,7 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailCtrlB_ctrl_c.translateY": 2
+    "tailIK_01_ctrl_c.translateY": 2
   },
   "tolerance": 0.001,
   "expect": {

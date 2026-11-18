@@ -3,22 +3,10 @@
   "skeleton": "ribbon_basic",
   "template": "ribbon_basic",
   "set": {
-    "tailCtrlC_ctrl_c.rotateX": 90,
-    "tailCtrlB_ctrl_c.rotateX": 30
+    "tailIK_02_ctrl_c.rotateX": 90,
+    "tailIK_01_ctrl_c.rotateX": 30
   },
   "expect": {
-    "tailCtrlB_jnt": {
-      "translate": [
-        4,
-        0,
-        0
-      ],
-      "rotate": [
-        75,
-        0,
-        0
-      ]
-    },
     "tail1_jnt": {
       "translate": [
         0,

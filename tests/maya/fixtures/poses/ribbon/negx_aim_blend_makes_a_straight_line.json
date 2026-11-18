@@ -3,9 +3,9 @@
   "skeleton": "ribbon_negx",
   "template": "ribbon_negx",
   "set": {
-    "tailCtrlC_ctrl_c.translateY": 2,
-    "tailCtrlA_ctrl_c.startAimBlend": 1,
-    "tailCtrlA_ctrl_c.endAimBlend": 1
+    "tailIK_02_ctrl_c.translateY": 2,
+    "tailIK_00_ctrl_c.startAimBlend": 1,
+    "tailIK_00_ctrl_c.endAimBlend": 1
   },
   "tolerance": 0.001,
   "expect": {
