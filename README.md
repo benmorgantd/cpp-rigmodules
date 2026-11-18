@@ -17,7 +17,7 @@ Inside the rig:
 - **Module nodes do all the transform math.** Controls and joints have `inheritsTransform` off, so the DAG hierarchy is only for organization and never drives a result.
 - **Modules connect through named matrices.** A module publishes **sockets** (world-space matrix outputs such as `start` and `end`) and takes **child plugs** (inputs that attach to a parent's socket). A template's `parentStructure` maps each child plug to a socket by id, for example `"start": "fkchain_1.end"`.
 - **Every rig has a `layout` module** with three stacked root controls. Child plugs that a template doesn't parent attach to `layout.end`.
-- **Space switching** uses constraints whose drivers are sockets: Parent follows the driver, Orient takes only its rotation and Point only its translation. A control with more than one driver gets a `space` enum attribute to pick the active one.
+- **Space switching** uses constraints whose drivers are sockets: Parent follows the driver, Orient takes only its rotation, Point only its translation, and Swing its rotation without the twist about the bone (for a shoulder ribbon). A control with more than one driver gets a `space` enum attribute to pick the active one.
 
 ## Requirements
 

@@ -12,7 +12,7 @@ Run it with mayapy (set nothing else up: it loads a copy of the plugin and the p
 
 human    imports the asset's skeleton `--count` times, builds the asset's template on each, and keys every
          control on every frame through a cycle of load, mirror, flip and zero poses.
-complex  generates a 354 joint skeleton and a template with 75 constraints (Parent, Orient and Point), Aim modules,
+complex  generates a 354 joint skeleton and a template with 81 constraints (Parent, Orient, Point and Swing), Aim modules,
          TwoBoneIk limbs and Ribbons, builds it `--count` times, and keys a -90 to 90 range of motion on every control's rotate X, Y
          and Z, plus the limbs' handles, poles, roll and settings (blend, stretch, soft, pin) through every branch.
 
@@ -62,7 +62,7 @@ ROM_AXES = ("rotateX", "rotateY", "rotateZ")
 # reflection across X = 0) and gets "mirror": true in the template, so the template stays half the size.
 # Aim sets (aim, target and up joints) and limbs (three limb joints and three marker joints) are listed apart.
 # 66 Center joints + 2 x 144 side joints = 354 joints (the 272 of the chains, aim sets and limbs, and the 82 of the ribbons).
-# 7 Center + 2 x 34 side constraints = 75.
+# 7 Center + 2 x 37 side constraints = 81 (the 37 include the 3 arm ribbons' Swing starts).
 #
 # Every module type and constraint type the plugin has appears here many times. A new module or constraint
 # type adds a block of instances to this rig in the same change (CLAUDE.md, "Gate for new modules").
@@ -147,11 +147,11 @@ def ribbon_specs():
         {"base": "rbnTail", "side": "Center", "at": ("spine", 0), "parent": ("spine", "start"),
          "offset": (0, -0.3, -0.4), "run": (0, -0.1, -5.5), "controls": 4, "bind": 12},
         {"base": "rbnArmA", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"),
-         "offset": (0.3, -0.6, 0.6), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8},
+         "offset": (0.3, -0.6, 0.6), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8, "swing": True},
         {"base": "rbnArmB", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"),
-         "offset": (0.3, -0.9, 0.9), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8},
+         "offset": (0.3, -0.9, 0.9), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8, "swing": True},
         {"base": "rbnArmC", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"),
-         "offset": (0.3, -1.2, 1.2), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8},
+         "offset": (0.3, -1.2, 1.2), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8, "swing": True},
     ]
 
 
@@ -398,6 +398,10 @@ def build_template():
         if side == "Left":
             module["mirror"] = True
         modules.append(module)
+        if ribbon.get("swing"):
+            # A Swing constraint (D31) on the start, driven by the start's own parent: the arm ribbons' shoulder case.
+            constraints.append(_constraint_entry("%s_swing_l" % ribbon["base"], "Swing", "%s.start" % module_name(ribbon["base"], side),
+                                                 [(parent_base, parent_socket, "Clavicle")], side, side_of))
     return {
         "formatVersion": 1,
         "rigName": "complex272",
@@ -684,7 +688,7 @@ def make_complex(args):
     constraints = built_constraint_count(template)
     joints = joint_layout()
     assert len(joints) == 354, len(joints)
-    assert constraints == 75, constraints
+    assert constraints == 81, constraints
     template_file = os.path.join(out, "complex_template.json").replace("\\", "/")
     with open(template_file, "w", encoding="utf-8") as handle:
         json.dump(template, handle, indent=2)

@@ -1,5 +1,5 @@
 {
-  "description": "Constraint types are Parent, Orient and Point (D31)",
+  "description": "Constraint types are Parent, Orient, Point and Swing (D31)",
   "base": "layout_rig",
   "skeleton": "layout_rig",
   "edits": [

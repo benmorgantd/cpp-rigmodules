@@ -1,5 +1,5 @@
 """Checks the complex performance rig (tools/perf/perf_scenes.py): a generated 354 joint skeleton, a template with
-75 constraints, Aim modules, TwoBoneIk limbs and Ribbons, and a range of motion. They keep the benchmark's rig valid when the plugin changes,
+81 constraints, Aim modules, TwoBoneIk limbs and Ribbons, and a range of motion. They keep the benchmark's rig valid when the plugin changes,
 so a slow result is never a broken build.
 
 Not part of the suite, so RigTests.cmd never runs it. Run it on demand, after changing the rig generator or
@@ -29,7 +29,7 @@ class ComplexTemplateData(RigTestCase):
         template = perf_scenes.build_template()
         self.assertEqual(len(perf_scenes.joint_layout()), 354)      # 272 for the chains, aim sets and limbs, and 82 for the ribbons
         self.assertEqual(len(template["rigModules"]), 40)           # 8 Center chains, 19 Left chains, 3 Aim modules, 6 limbs, 1 Center and 3 Left ribbons
-        self.assertEqual(perf_scenes.built_constraint_count(template), 75)   # 7 Center, 34 mirrored (22 + 12 limb spaces)
+        self.assertEqual(perf_scenes.built_constraint_count(template), 81)   # 7 Center, 37 mirrored (22 + 12 limb spaces + 3 arm ribbon swings)
 
     def test_every_module_type_is_used(self):
         types = {module["moduleType"] for module in perf_scenes.build_template()["rigModules"]}
@@ -37,7 +37,7 @@ class ComplexTemplateData(RigTestCase):
 
     def test_every_constraint_type_is_used(self):
         types = {entry["type"] for entry in perf_scenes.build_template()["constraints"]}
-        self.assertEqual(types, {"Parent", "Orient", "Point"})
+        self.assertEqual(types, {"Parent", "Orient", "Point", "Swing"})
 
     def test_limbs_are_twelve_with_six_joints_each(self):
         limbs = perf_scenes.limb_specs()
@@ -100,7 +100,7 @@ class ComplexRig(RigTestCase):
     def test_builds_every_control_and_constraint(self):
         # 354 joints, less the 6 aim joints, which have no control
         self.assertEqual(len(self.instances[0].controls), 348)
-        self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="rigConstraint")), 75)
+        self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="rigConstraint")), 81)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="aimModule")), 6)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="twoBoneIkModule")), 12)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="ribbonModule")), 7)

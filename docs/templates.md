@@ -93,7 +93,7 @@ A constraint gives a control a choice of parent spaces. With more than one drive
 | `name` | yes | The constraint node's name. Unique in the template. |
 | `target` | yes | `module.childPlug`. The child plug must have a control. Only one constraint can target a child plug. |
 | `drivers` | yes | At least one driver (below) |
-| `type` | no | `Parent` (the default), `Orient` or `Point`. See [Constraint types](#constraint-types). |
+| `type` | no | `Parent` (the default), `Orient`, `Point` or `Swing`. See [Constraint types](#constraint-types). |
 | `mirror` | no | `true` also builds this constraint on the other side. The target must be a `Left` or `Right` module. See [Mirroring](#mirroring). |
 
 Drivers:
@@ -117,6 +117,9 @@ The active driver gives only its own part of the motion. Everything else comes f
 | `Parent` | driver | driver | driver |
 | `Orient` | parent | driver | parent |
 | `Point` | driver | parent | parent |
+| `Swing` | driver | driver, without its twist about X | parent |
+
+`Swing` is for the start of a [Ribbon](modules.md#ribbon) at a shoulder or a hip. The driver's rotation is a twist about the child's X (the bone's axis) and then a swing that turns X to where it points; `Swing` keeps the swing and drops the twist. The twist is the part of the rotation that spins about the bone, so with a rotate order of xyz it is the rotateX channel and rotateY and rotateZ are the swing. It is read about the child's own X, whichever way the bone points in the world. A twist is read as a half turn on either side (200 degrees is -160) and a swing of exactly half a turn from rest has no twist, so there the twist flips as the arm passes through. Give both ribbon plugs the same parent as the driver (below and [the Ribbon's shoulder example](modules.md#ribbon)).
 
 In the README's quick start rig, the arm's `start` attaches to `spine.end`. With this `Orient` constraint, the arm keeps the world's rotation while its shoulder pivot swings with the chest. A leg on `spine.start` works the same way, with the hip as its pivot.
 

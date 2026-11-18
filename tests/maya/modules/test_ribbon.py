@@ -8,6 +8,7 @@ import os
 import tempfile
 
 from maya import cmds
+import maya.api.OpenMaya as om
 
 import rigmodules.query
 from rigtest import fixtures
@@ -200,6 +201,23 @@ class RibbonBehaviour(RigTestCase):
                 self.assertAlmostEqual(math.remainder(roll(joint) - expected, 360.0), 0.0, delta=1.0, msg="T=%s %s" % (twist, joint))
             seam = math.remainder(roll("fo1_jnt") - roll("up5_jnt"), 360.0)
             self.assertAlmostEqual(seam, 0.0, delta=1.0, msg="the seam at the elbow for T=%s" % twist)
+
+    def test_a_tilted_arm_follows_its_end_plugs_twist_about_the_bone(self):
+        """The arm test above on an arm turned 35 degrees about Z, every joint turned with it. The end plug's motion is in world
+        axes, so its twist must be read about the end control's own X (the bone), not the world X."""
+        self.build_standard("ribbon_arm", "ribbon_arm_tilted")
+        set_attr("armSettings_ctrl_l", "ikFkBlend", 0)
+        rest = {j: om.MMatrix(world_matrix(j)) for j in ("up1_jnt", "up2_jnt", "up3_jnt", "up4_jnt", "up5_jnt", "fo1_jnt")}
+
+        def twist_of(joint):
+            motion = om.MMatrix(world_matrix(joint)) * rest[joint].inverse()
+            q = om.MTransformationMatrix(motion).rotation(asQuaternion=True)
+            return math.degrees(2.0 * math.atan2(q.x, q.w))
+
+        set_attr("upperArm_ctrl_l", "rotateX", 60)
+        for joint, u in (("up1_jnt", 0.0), ("up2_jnt", 0.25), ("up3_jnt", 0.5), ("up4_jnt", 0.75), ("up5_jnt", 1.0)):
+            self.assertAlmostEqual(twist_of(joint), 60 * u, delta=2.0, msg=joint)
+        self.assertAlmostEqual(twist_of("fo1_jnt") - twist_of("up5_jnt"), 0.0, delta=2.0, msg="the seam at the elbow")
 
     # ---- startAimBlend and endAimBlend in moduleArgs (design/ribbon-twist-follow.md) -----------
 

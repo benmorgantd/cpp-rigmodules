@@ -258,6 +258,31 @@ The sine goes on after the twist.
 ]
 ```
 
+**A shoulder that sheds its twist.** The arm above gives the upper ribbon a start with no twist by hanging it from the body. To hang it from the shoulder instead, so its start follows the shoulder's position and swing (its X points up when the arm raises and forward when it swings forward) with the shoulder's twist removed, use a [`Swing`](templates.md#constraint-types) constraint on the start, driven by the shoulder's own socket, and a `Point` constraint on the end driven by the elbow. Both plugs take the shoulder as their parent: the end then keeps the shoulder's whole rotation, twist included, and the elbow's position. The twist eases in along the ribbon from nothing at the shoulder to the whole twist at the elbow, and a forearm ribbon that starts on the elbow socket takes it up from there.
+
+```json
+{
+  "rigModules": [
+    {
+      "moduleType": "Ribbon", "name": "upper_1", "side": "Center",
+      "moduleArgs": {
+        "controls": [["Center", "upCtrlA"], ["Center", "upCtrlB"]],
+        "joints": [["Center", "up1"], ["Center", "up2"], ["Center", "up3"], ["Center", "up4"], ["Center", "up5"]]
+      },
+      "parentStructure": { "start": "arm_1.start", "end": "arm_1.start" }
+    }
+  ],
+  "constraints": [
+    { "name": "upper_start_swing", "type": "Swing", "target": "upper_1.start",
+      "drivers": [{ "socket": "arm_1.start", "label": "Shoulder", "weight": 1.0 }] },
+    { "name": "upper_end_point", "type": "Point", "target": "upper_1.end",
+      "drivers": [{ "socket": "arm_1.index_1", "label": "Elbow", "weight": 1.0 }] }
+  ]
+}
+```
+
+Without the `Swing` constraint a start parented on the shoulder carries its twist along the whole ribbon at once, with no ease. A shoulder that twists past a half turn flips the twist's sign like any other (see the end follows its parent's twist, above), and a swing of exactly a half turn from rest has no twist to remove, so the start's twist flips there. Neither is a case for the arm's normal range.
+
 **Restoring from joints** ([commands.md](commands.md#how-the-joints-become-control-values)): the ik controls come from their marker joints and each tweaker from its bind joint, so every bind joint present comes back exactly. A control joint the source lacks keeps the value from the sidecar, or rest, and the tweakers carry the difference. The channels above come from the sidecar, and otherwise stay as they are in the scene: a `sineAmplitude` the restore doesn't know about puts the interior controls in the wrong place.
 
 The build fails if there are fewer than 2 or more than 8 control joints, fewer than 2 or more than 64 bind joints, or if two neighbouring control joints sit on each other.

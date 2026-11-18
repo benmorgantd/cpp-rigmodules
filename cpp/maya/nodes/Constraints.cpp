@@ -1,6 +1,7 @@
 #include "maya/nodes/Constraints.h"
 #include "core/Constants.h"
 #include "core/RigTemplateValidation.h"
+#include "core/SwingTwist.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/RigTraversal.h"
@@ -27,11 +28,42 @@ namespace
 {
 	constexpr int kParentType{ ConstraintTypes::indexOf(ConstraintTypes::Parent) };
 	constexpr int kOrientType{ ConstraintTypes::indexOf(ConstraintTypes::Orient) };
+	constexpr int kSwingType{ ConstraintTypes::indexOf(ConstraintTypes::Swing) };
+
+	// A delta with its twist about the child's rest X taken out: the rotation is the swing, `twist * swing` being the delta. A
+	// delta is a motion in world axes (world = rest * delta), so its twist about the bone is read in the child's own frame:
+	// the motion the control's channels make is rest rotation * delta * rest rotation^-1. Reading the delta's own X would
+	// measure the twist about the world X, which is the bone's axis only for a bone that lies along it.
+	MMatrix withoutTwist(const MMatrix& mDelta, const MMatrix& mChildRest)
+	{
+		const MMatrix mRestRotation = MTransformationMatrix(mChildRest).asRotateMatrix();
+		const MMatrix mRestRotationInverse = mRestRotation.inverse();
+		const MMatrix mLocal = mRestRotation * mDelta * mRestRotationInverse;
+		double rows[3][3];
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				rows[r][c] = mLocal[r][c];
+			}
+		}
+		double untwist[3][3];
+		SwingTwist::rotationAboutX(-SwingTwist::twistAboutX(rows), untwist);
+		MMatrix mUntwist;
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				mUntwist[r][c] = untwist[r][c];
+			}
+		}
+		return (mRestRotationInverse * mUntwist * mRestRotation) * mDelta;
+	}
 }
 
-// The delta the module receives (D31). Parent passes the driver's motion through. Orient and Point apply both
-// motions to the control's rest, keep the driver's rotation or translation, take the rest from the parent,
-// and turn the result back into a delta on that rest.
+// The delta the module receives (D31). Parent passes the driver's motion through. Orient, Point and Swing apply both
+// motions to the control's rest, keep the driver's rotation, translation or swing (its rotation without its twist about the
+// child's rest X), take the rest from the parent, and turn the result back into a delta on that rest.
 MMatrix RigConstraintNode::computeDelta(int type, const MMatrix& mChildRest, const MMatrix& mParentDelta, const MMatrix& mDriverDelta)
 {
 	if (type == kParentType)
@@ -44,6 +76,12 @@ MMatrix RigConstraintNode::computeDelta(int type, const MMatrix& mChildRest, con
 	if (type == kOrientType)
 	{
 		tOut.rotateTo(tDriver.rotation());
+	}
+	else if (type == kSwingType)
+	{
+		const MTransformationMatrix tSwing(mChildRest * withoutTwist(mDriverDelta, mChildRest));
+		tOut.rotateTo(tSwing.rotation());
+		tOut.setTranslation(tDriver.getTranslation(MSpace::kTransform), MSpace::kTransform);
 	}
 	else
 	{

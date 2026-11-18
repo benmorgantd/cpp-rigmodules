@@ -26,6 +26,7 @@
 #include <maya/MMatrix.h>
 #include <maya/MObject.h>
 #include <maya/MPlug.h>
+#include <maya/MTransformationMatrix.h>
 #include <maya/MTypeId.h>
 #include <maya/MVector.h>
 
@@ -247,8 +248,12 @@ void RibbonModuleNode::evaluate(
 		input.local[j] = toMat4(mLocal[j]);
 	}
 	input.startOPM = toMat4(mRest[0]);
-	input.endDelta = toMat4(mEndDelta * mStartDelta.inverse());
-	input.endOPM = toMat4(mRest[controlCount - 1] * mEndDelta * mStartDelta.inverse());
+	// The plug deltas are motions in world axes (endOPM = endRest * delta), so the end's twist about its own X is read from the
+	// motion in the end control's frame: rest rotation * delta * rest rotation^-1.
+	const MMatrix mEndMotion = mEndDelta * mStartDelta.inverse();
+	const MMatrix mEndRestRotation = MTransformationMatrix(mRest[controlCount - 1]).asRotateMatrix();
+	input.endDelta = toMat4(mEndRestRotation * mEndMotion * mEndRestRotation.inverse());
+	input.endOPM = toMat4(mRest[controlCount - 1] * mEndMotion);
 
 	RibbonMath::Output output;
 	RibbonMath::evaluate(setup, params, input, output);

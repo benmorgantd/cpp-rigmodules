@@ -1,4 +1,5 @@
 #include "RibbonMath.h"
+#include "SwingTwist.h"
 
 #include <algorithm>
 #include <cmath>
@@ -479,13 +480,8 @@ namespace RibbonMath
 
 	double extractTwist(const Mat4& local)
 	{
-		// Scale off the axes, then the swing-twist split about X: for a rotation q with x and w, the twist is 2 atan2(x, w).
-		// In Maya's row layout x * 4w = m12 - m21 and 4w^2 = 1 + trace, so both come from the matrix without a quaternion.
-		const Vec3 x = normalized(row(local, 0), { 1.0, 0.0, 0.0 });
-		Vec3 y = row(local, 1);
-		y = normalized(sub(y, scale(x, dot(y, x))), anyPerpendicular(x));
-		const Vec3 z = cross(x, y);
-		return 2.0 * std::atan2(y.z - z.y, 1.0 + x.x + y.y + z.z);
+		const double rows[3][3]{ { local.m[0][0], local.m[0][1], local.m[0][2] }, { local.m[1][0], local.m[1][1], local.m[1][2] }, { local.m[2][0], local.m[2][1], local.m[2][2] } };
+		return SwingTwist::twistAboutX(rows);
 	}
 
 	bool buildSetup(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, Setup& outSetup, const char*& outReason)
