@@ -55,6 +55,8 @@ There is no fk ribbon and no `fkStyle` (author, 2026-11-19: the ribbon does not 
 | Ribbon ik | `controlCount` | `<base>RibbonIK_<nn>` | always |
 | Tweakers | one per bind joint | `<base>Tweak_<nn>` | hidden |
 
+The FK, IK, pole and settings controls are derived as in D57. **The ribbon ik controls are placed on the anchor curve** from parameters (the mid one at the mid joint's, the others spread between), not from `core/ControlPlacement` (section 5.1, which amends D57 for `Limb`).
+
 An arm with 5 ik controls and 5 bind joints has 16 controls, down from 21. With 3 ik controls it has 14. Slot indices are append-only, like every module's (D34). The FK, IK, pole and settings slots keep `TwoBoneIk`'s order.
 
 ### 4.3 DAG parenting (author, 2026-11-19)
@@ -95,7 +97,17 @@ Dropped: `startAimBlend` and `endAimBlend`. The swing and twist rules in section
    The start and end rules are the ones in D31's `Swing` and `Twist`, so the elbow no longer needs a constraint and the wrist's swing never reaches the forearm.
 3. **Ribbon solve.** One spline from start through mid to end, the ribbon controls riding it, then the tweakers, as `Ribbon` does. `startTwist` and `endTwist` add to the twist that arrives from the anchors. `bendRoundness` rounds the elbow.
 
-The one open piece of maths is step 3. `RibbonMath` builds its base curve from a start and an end, with the interior controls floating on it. `Limb` needs the curve to pass through the mid joint and the mid ik control to follow it. The expected change is to generalize the setup from "start and end deltas" to "an array of anchors", with a ribbon as the two-anchor case. Phase 1 is a spike on exactly this, and it must leave every existing `Ribbon` result unchanged.
+### 5.1 What phase 1 found (built 2026-11-19, `core/RibbonMath`)
+
+The curve through the mid joint is not new maths. It is the base curve D59 already builds for `fkStyle`: a Hermite spline through an fk chain's positions, with each ik control floating on it. `Limb` supplies its three blended joint frames as that chain, which is "an array of anchors" with no new curve type. The spike found two things the existing `fkStyle` did not do, and one choice for you.
+
+1. **An anchor's roll never reached the bind joints.** In `fkStyle` an fk roll turns the ik controls and stops there, because the detail curve takes its twist from the ik controls' own channels. For a limb the anchors are real joints, so the shoulder's and wrist's twist is what the skin must follow. `Setup::fkAnchors` makes the anchors' roll about the curve part of the detail twist, easing from one anchor's to the next. In the 3-control probe a start twist of 0.8 comes out at 0.80, 0.60, 0.40, 0.20, 0.00 down the bind joints and nothing past the elbow, and an end twist the same from the elbow to the wrist.
+2. **The ik controls must be placed on the anchor curve, from chosen parameters.** Laid out as a limb's controls normally are (the interior ones on the chord or on a separate spline), they rest a little off the curve and get a different parameter from the elbow anchor's. Bent, the mid control then sits 0.1 unit off the mid joint, and rolling an anchor swings an off-curve control around it: a 0.8 start twist leaked 0.05 radian past the elbow. `RibbonMath::buildAnchoredSetup(anchorRest, anchorCount, controlU, controlCount, bindRest, bindCount, ...)` takes the parameters, places the controls on the curve with the first anchor's orientation carried along it, and returns their rests. Their offsets from the curve are zero, so the mid control sits on the mid joint exactly, and the twist does not leak. **This amends D57 for `Limb` only:** its ik control rests come from the anchors, not from `core/ControlPlacement`'s spline through the bind joints. The bind joints keep their authored places, and their offsets from the detail curve are measured at build as for `Ribbon`.
+3. **The elbow is rounded, not creased, and only as round as the cubic allows.** The curve passes exactly through the mid joint, so a joint-sharp bend cannot become a wide arc. On a 98 degree bend with four bind joints on each side, the two steps at the elbow turn 46 and 34 degrees (48 and 34 with 5 controls), and the rest turn 1 to 5. That is the Catmull-Rom tangent at the mid knot, and `bendRoundness` only scales the two end handles. **Open, your call:** a mid-handle scale (one more channel, `bendRoundness` also applied at the mid knot, or its own) would spread the bend. Not added: nothing asked for it yet, and it is one channel and one line in `makeFkBase` if you want it after seeing the limb.
+
+The mirrored chain (X running back) works: the controls take the half-turn between the first anchor and the curve frame, the positions equal the +X chain's, and a twist about the own X reads with the sign flipped about the forward tangent.
+
+Existing `Ribbon` results do not change: the mode is a flag on the setup that no module sets yet, and `buildSetup` is the same code behind a wrapper.
 
 ## 6. Reuse: the shared solves
 
@@ -166,6 +178,7 @@ The cost of a limb is its node count, not the solver (1.4 percent of node time i
 - Validation errors: a stacked bind joint, no bind joint at the mid, fewer than 5 bind joints, a non-leaf bind joint, `controlCount` out of range.
 - The inverse round trip on the solomon pose, mirrored builds, and `ikTarget` (an `ikTarget` socket raised moves the end joint, a foot-shaped test module, the plug graph acyclic).
 - A golden snapshot, and a worked example in `docs/modules.md` with a test in `test_docs_examples.py`.
+- **From the phase 1 probe, to become pose cases through the `Limb` module** (`core/` has no test harness of its own, D20; the probe was a standalone program over a 3-anchor limb with joints at (0,0,0), (10,-3,0) and (20,0,0), 3 and 5 ik controls, 4 bind joints a side, and all 34 checks passed): the rest pose reproduces every bind frame, and every ik control rests on the curve with an identity offset. A rigid motion of the whole limb moves every bind frame with it. Bent (bone turns of 0.4 and 1.3 radians), the mid ik control and the elbow bind joint sit on the mid joint within 1e-6, the first and last bind joints sit on the start and end, and no step between neighbouring bind joints turns more than 65 percent of the joints' bend. A start-anchor roll of 0.8 gives 0.8 at the first bind joint, falling to 0 at the elbow and 0 past it, and an end-anchor roll of -0.9 gives 0 up to the elbow and -0.9 at the last bind joint. A mirrored chain (frames turned half a turn about Z) has the same bind positions, and its roll reads with the sign flipped about the forward tangent. Tier: the module tier, with `Limb`'s pose cases.
 
 ## 12. Build phases
 
@@ -174,7 +187,7 @@ Each phase ends with the build, the full suite, the docs pass and one commit tha
 | Phase | Work | Public change |
 |---|---|---|
 | 0 | Extract the `TwoBoneIk` and `Ribbon` solves. The coupling warning lands in the headers, `CLAUDE.md` and both design pages (this change) | none |
-| 1 | Spike and build the anchors-array change in `core/RibbonMath`. Hand-worked cases for a straight, a bent and a -X chain. The old ribbon results stay identical | none |
+| 1 | **Built 2026-11-19.** `RibbonMath::buildAnchoredSetup` and `Setup::fkAnchors` (section 5.1). Checked by a throwaway probe against hand-worked cases (section 11); the old ribbon results stay identical | none |
 | 2 | `Limb`: args, plan, create, `compute`, DAG parenting, registry, vcxproj, source map, `docs/modules.md`. Contract, pose cases, snapshot | `Limb` module |
 | 3 | The inverse and the matched switch through `setRigIkFkBlend` | none new |
 | 4 | `ikTarget` and the validator exemption, with the foot-shaped test module | `ikTarget` plug |
@@ -191,7 +204,7 @@ Each phase ends with the build, the full suite, the docs pass and one commit tha
 
 ## 14. Risks
 
-- **The ribbon through the mid joint** may need more than an anchors array. Phase 1 is a spike so the answer is known before the node exists, and the design page is amended if it is not.
+- **The ribbon through the mid joint** needed two changes beyond an anchors array and has one open choice (section 5.1). It is answered before the node exists.
 - **The coupling.** The shared-solve extraction makes it deliberate, and `test_limb_matches_parts` makes it tested.
 - **The `ReverseFoot` match problem** is open and belongs to that design.
 - **Size.** About 21 channels and 16 controls per limb. If `bench` is far below target, section 7's trim list applies before any structural change.

@@ -19,6 +19,8 @@ namespace RibbonMath
 		// How much of an interior control's own X axis sets the tangent of the curve through it (the rest is the
 		// finite difference of its neighbours).
 		constexpr double kControlTangentBlend{ 0.5 };
+		// Two control parameters closer than this are the same place on the curve.
+		constexpr double kKnotTolerance{ 1.0e-6 };
 
 		using VectorMath::add;
 		using VectorMath::anyPerpendicular;
@@ -163,6 +165,8 @@ namespace RibbonMath
 		{
 			Spline spline;
 			FrameTable table;
+			// With an fk chain: each fk control's roll away from its rest about the curve (fkRollDeltas).
+			double fkRoll[MaxControls]{};
 		};
 
 		// A control's X axis as a direction down the chain.
@@ -294,18 +298,23 @@ namespace RibbonMath
 				// Each fk control rides its parent by the rest offset between them, so a rest chain gives the rest worlds.
 				for (int k = 0; k < setup.fkCount; ++k)
 				{
+					if (setup.fkAnchors)
+					{
+						output.fkOPM[k] = input.fkWorld[k];
+						output.fkWorld[k] = input.fkWorld[k];
+						continue;
+					}
 					output.fkOPM[k] = k == 0 ? setup.fkRest[0] : multiply(multiply(setup.fkRest[k], inverseRigid(setup.fkRest[k - 1])), output.fkWorld[k - 1]);
 					output.fkWorld[k] = multiply(input.fkLocal[k], output.fkOPM[k]);
 				}
 				makeFkBase(setup, params, output.fkWorld, base);
-				double rollDelta[MaxControls];
-				fkRollDeltas(setup, base, output.fkWorld, rollDelta);
+				fkRollDeltas(setup, base, output.fkWorld, base.fkRoll);
 				for (int j = 0; j <= last; ++j)
 				{
 					// The ends' own twist is in their local matrix, so their frame carries none.
 					const double ramp = j == 0 || j == last ? 0.0 : setup.chainSign * twists.at(setup.knotU[j]);
 						// Every ik control also turns with the fk chain's roll at its parameter, so it follows the fk controls 1:1.
-						const double angle = ramp + fkRollAt(setup, rollDelta, setup.knotU[j]);
+						const double angle = ramp + fkRollAt(setup, base.fkRoll, setup.knotU[j]);
 					output.controlOPM[j] = multiply(setup.ikOffset[j], frameMatrix(base.spline, base.table, setup.knotU[j], angle));
 					output.controlWorld[j] = multiply(input.local[j], output.controlOPM[j]);
 				}
@@ -452,6 +461,15 @@ namespace RibbonMath
 			}
 			detail.twist[0] = setup.chainSign * twists.start;
 			detail.twist[count - 1] = setup.chainSign * twists.end;
+			if (setup.fkAnchors)
+			{
+				// A Limb's anchors are real joints, so their roll about the curve is twist the skin must follow: it eases between them
+				// like the ends' ramp. fkRoll is already about the forward tangent, so chainSign is not applied again.
+				for (int j = 0; j < count; ++j)
+				{
+					detail.twist[j] += fkRollAt(setup, base.fkRoll, setup.knotU[j]);
+				}
+			}
 			detail.lengthRatio = std::min(kMaxLengthRatio, std::max(kMinLengthRatio, liveLength / setup.restLength));
 		}
 
@@ -558,123 +576,211 @@ namespace RibbonMath
 		}
 	}
 
-	bool buildSetup(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, const Mat4* fkRest, int fkCount, Setup& outSetup, const char*& outReason)
+	namespace
 	{
-		if (controlCount < 2 || controlCount > MaxControls)
+		// Which way the controls' X axes run against the chain: each one dotted with the chord that leaves it (the last with the one
+		// that arrives). +1 when they run down it, -1 when they point back up it.
+		double chainSignOf(const Mat4* rest, int count)
 		{
-			outReason = "the ribbon needs between 2 and 8 control joints";
-			return false;
-		}
-		if (bindCount < 2 || bindCount > MaxBindJoints)
-		{
-			outReason = "the ribbon needs between 2 and 64 bind joints";
-			return false;
-		}
-
-		if (fkCount != 0 && (fkCount < 2 || fkCount > MaxControls))
-		{
-			outReason = "the fk chain needs between 2 and 8 controls";
-			return false;
-		}
-
-		Setup setup;
-		setup.controlCount = controlCount;
-		setup.bindCount = bindCount;
-		setup.fkCount = fkCount;
-		for (int k = 0; k < fkCount; ++k)
-		{
-			setup.fkRest[k] = fkRest[k];
-		}
-		if (fkCount > 0 && !fkKnots(fkRest, fkCount, setup.fkKnotU))
-		{
-			outReason = "two neighbouring fk controls sit on each other, so the fk chain has no length between them";
-			return false;
-		}
-
-		double chords[MaxControls]{};
-		double total = 0.0;
-		for (int j = 0; j + 1 < controlCount; ++j)
-		{
-			chords[j] = length(sub(origin(controlRest[j + 1]), origin(controlRest[j])));
-			if (chords[j] < kMinChord)
+			double alignment = 0.0;
+			for (int j = 0; j < count; ++j)
 			{
-				outReason = "two neighbouring control joints sit on each other, so the ribbon has no length between them";
+				const int chord = std::min(j, count - 2);
+				alignment += dot(row(rest[j], 0), sub(origin(rest[chord + 1]), origin(rest[chord])));
+			}
+			return alignment < 0.0 ? -1.0 : 1.0;
+		}
+
+		// The one setup builder. forcedKnotU is null when the knots are the controls' chord shares, and fkAnchors says the fk chain is
+		// given as world frames (Setup::fkAnchors).
+		bool buildSetupImpl(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, const Mat4* fkRest, int fkCount, const double* forcedKnotU, bool fkAnchors, Setup& outSetup, const char*& outReason)
+		{
+			if (controlCount < 2 || controlCount > MaxControls)
+			{
+				outReason = "the ribbon needs between 2 and 8 control joints";
 				return false;
 			}
-			total += chords[j];
-		}
-		setup.restLength = total;
-		double running = 0.0;
-		for (int j = 0; j < controlCount; ++j)
-		{
-			setup.knotU[j] = j == controlCount - 1 ? 1.0 : running / total;
-			running += chords[j];
-		}
+			if (bindCount < 2 || bindCount > MaxBindJoints)
+			{
+				outReason = "the ribbon needs between 2 and 64 bind joints";
+				return false;
+			}
 
-		// A bind joint's parameter: the closest point of the control polyline, by its share of the chord's u span.
-		for (int i = 0; i < bindCount; ++i)
-		{
-			const Vec3 p = origin(bindRest[i]);
-			double bestDistance = -1.0;
+			if (fkCount != 0 && (fkCount < 2 || fkCount > MaxControls))
+			{
+				outReason = "the fk chain needs between 2 and 8 controls";
+				return false;
+			}
+
+			Setup setup;
+			setup.controlCount = controlCount;
+			setup.bindCount = bindCount;
+			setup.fkCount = fkCount;
+			setup.fkAnchors = fkAnchors;
+			for (int k = 0; k < fkCount; ++k)
+			{
+				setup.fkRest[k] = fkRest[k];
+			}
+			if (fkCount > 0 && !fkKnots(fkRest, fkCount, setup.fkKnotU))
+			{
+				outReason = "two neighbouring fk controls sit on each other, so the fk chain has no length between them";
+				return false;
+			}
+
+			double chords[MaxControls]{};
+			double total = 0.0;
 			for (int j = 0; j + 1 < controlCount; ++j)
 			{
-				const Vec3 a = origin(controlRest[j]);
-				const Vec3 ab = sub(origin(controlRest[j + 1]), a);
-				const double t = clamp01(dot(sub(p, a), ab) / dot(ab, ab));
-				const double distance = length(sub(p, add(a, scale(ab, t))));
-				if (bestDistance < 0.0 || distance < bestDistance)
+				chords[j] = length(sub(origin(controlRest[j + 1]), origin(controlRest[j])));
+				if (chords[j] < kMinChord)
 				{
-					bestDistance = distance;
-					setup.bindU[i] = setup.knotU[j] + t * (setup.knotU[j + 1] - setup.knotU[j]);
+					outReason = "two neighbouring control joints sit on each other, so the ribbon has no length between them";
+					return false;
 				}
+				total += chords[j];
+			}
+			setup.restLength = total;
+			double running = 0.0;
+			for (int j = 0; j < controlCount; ++j)
+			{
+				setup.knotU[j] = forcedKnotU ? forcedKnotU[j] : (j == controlCount - 1 ? 1.0 : running / total);
+				running += chords[j];
+			}
+
+			// A bind joint's parameter: the closest point of the control polyline, by its share of the chord's u span.
+			for (int i = 0; i < bindCount; ++i)
+			{
+				const Vec3 p = origin(bindRest[i]);
+				double bestDistance = -1.0;
+				for (int j = 0; j + 1 < controlCount; ++j)
+				{
+					const Vec3 a = origin(controlRest[j]);
+					const Vec3 ab = sub(origin(controlRest[j + 1]), a);
+					const double t = clamp01(dot(sub(p, a), ab) / dot(ab, ab));
+					const double distance = length(sub(p, add(a, scale(ab, t))));
+					if (bestDistance < 0.0 || distance < bestDistance)
+					{
+						bestDistance = distance;
+						setup.bindU[i] = setup.knotU[j] + t * (setup.knotU[j + 1] - setup.knotU[j]);
+					}
+				}
+			}
+
+			setup.chainSign = chainSignOf(controlRest, controlCount);
+
+			setup.restTangent = forwardAxis(controlRest[0], setup, { 1.0, 0.0, 0.0 });
+			const Vec3 y = row(controlRest[0], 1);
+			setup.restUp = normalized(sub(y, scale(setup.restTangent, dot(y, setup.restTangent))), anyPerpendicular(setup.restTangent));
+
+			// The interior controls' offsets from the base curve at rest, then the bind joints' from the detail curve with the
+			// interior controls where they were built.
+			const Params defaults{};
+			Input input;
+			input.startOPM = controlRest[0];
+			input.endOPM = controlRest[controlCount - 1];
+			if (fkAnchors)
+			{
+				for (int k = 0; k < fkCount; ++k)
+				{
+					input.fkWorld[k] = fkRest[k];
+				}
+			}
+			Base base;
+			if (fkCount > 0)
+			{
+				makeFkBase(setup, defaults, setup.fkRest, base);
+				fkRollRests(setup);
+			}
+			else
+			{
+				makeBase(setup, defaults, controlRest[0], controlRest[controlCount - 1], base);
+			}
+			for (int j = fkCount > 0 ? 0 : 1; j < (fkCount > 0 ? controlCount : controlCount - 1); ++j)
+			{
+				setup.ikOffset[j] = multiply(controlRest[j], inverseRigid(frameMatrix(base.spline, base.table, setup.knotU[j], 0.0)));
+			}
+
+			Output output;
+			evaluate(setup, defaults, input, output);
+			for (int i = 0; i < bindCount; ++i)
+			{
+				setup.bindOffset[i] = multiply(bindRest[i], inverseRigid(output.bindOPM[i]));
+			}
+
+			outSetup = setup;
+			outReason = "";
+			return true;
+		}
+	}
+
+	bool buildSetup(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, const Mat4* fkRest, int fkCount, Setup& outSetup, const char*& outReason)
+	{
+		return buildSetupImpl(controlRest, controlCount, bindRest, bindCount, fkRest, fkCount, nullptr, false, outSetup, outReason);
+	}
+
+	bool buildAnchoredSetup(const Mat4* anchorRest, int anchorCount, const double* controlU, int controlCount, const Mat4* bindRest, int bindCount, Setup& outSetup, Mat4* outControlRest, const char*& outReason)
+	{
+		if (anchorCount < 2 || anchorCount > MaxControls || controlCount < 2 || controlCount > MaxControls)
+		{
+			outReason = "the ribbon needs between 2 and 8 anchors and between 2 and 8 control joints";
+			return false;
+		}
+		if (std::fabs(controlU[0]) > kKnotTolerance || std::fabs(controlU[controlCount - 1] - 1.0) > kKnotTolerance)
+		{
+			outReason = "the first and last control must sit at the start and end of the curve";
+			return false;
+		}
+		for (int j = 0; j + 1 < controlCount; ++j)
+		{
+			if (controlU[j + 1] - controlU[j] < kKnotTolerance)
+			{
+				outReason = "two neighbouring controls sit at the same place on the curve";
+				return false;
 			}
 		}
 
-		// Which way the controls' X axes run against the chain: each one dotted with the chord that leaves it (the last with the one
-		// that arrives).
-		double alignment = 0.0;
+		// The anchors' curve at rest. Its frame carries the first anchor's orientation, so the controls on it do too: the half-turn a
+		// mirrored chain keeps (X running back) is the first anchor's own difference from the curve's frame, and every control takes it.
+		Setup curveSetup;
+		curveSetup.fkCount = anchorCount;
+		for (int k = 0; k < anchorCount; ++k)
+		{
+			curveSetup.fkRest[k] = anchorRest[k];
+		}
+		if (!fkKnots(anchorRest, anchorCount, curveSetup.fkKnotU))
+		{
+			outReason = "two neighbouring anchors sit on each other, so the curve has no length between them";
+			return false;
+		}
+		curveSetup.chainSign = chainSignOf(anchorRest, anchorCount);
+		curveSetup.restTangent = forwardAxis(anchorRest[0], curveSetup, { 1.0, 0.0, 0.0 });
+		const Vec3 anchorY = row(anchorRest[0], 1);
+		curveSetup.restUp = normalized(sub(anchorY, scale(curveSetup.restTangent, dot(anchorY, curveSetup.restTangent))), anyPerpendicular(curveSetup.restTangent));
+		Base base;
+		makeFkBase(curveSetup, Params{}, anchorRest, base);
+		Mat4 startFrame = frameMatrix(base.spline, base.table, 0.0, 0.0);
+		Mat4 anchorRotation = anchorRest[0];
+		for (int c = 0; c < 3; ++c)
+		{
+			startFrame.m[3][c] = 0.0;
+			anchorRotation.m[3][c] = 0.0;
+		}
+		const Mat4 turn = multiply(anchorRotation, inverseRigid(startFrame));
 		for (int j = 0; j < controlCount; ++j)
 		{
-			const int chord = std::min(j, controlCount - 2);
-			alignment += dot(row(controlRest[j], 0), sub(origin(controlRest[chord + 1]), origin(controlRest[chord])));
-		}
-		setup.chainSign = alignment < 0.0 ? -1.0 : 1.0;
-
-		setup.restTangent = forwardAxis(controlRest[0], setup, { 1.0, 0.0, 0.0 });
-		const Vec3 y = row(controlRest[0], 1);
-		setup.restUp = normalized(sub(y, scale(setup.restTangent, dot(y, setup.restTangent))), anyPerpendicular(setup.restTangent));
-
-		// The interior controls' offsets from the base curve at rest, then the bind joints' from the detail curve with the
-		// interior controls where they were built.
-		const Params defaults{};
-		Input input;
-		input.startOPM = controlRest[0];
-		input.endOPM = controlRest[controlCount - 1];
-		Base base;
-		if (fkCount > 0)
-		{
-			makeFkBase(setup, defaults, setup.fkRest, base);
-			fkRollRests(setup);
-		}
-		else
-		{
-			makeBase(setup, defaults, controlRest[0], controlRest[controlCount - 1], base);
-		}
-		for (int j = fkCount > 0 ? 0 : 1; j < (fkCount > 0 ? controlCount : controlCount - 1); ++j)
-		{
-			setup.ikOffset[j] = multiply(controlRest[j], inverseRigid(frameMatrix(base.spline, base.table, setup.knotU[j], 0.0)));
+			Mat4 frame = frameMatrix(base.spline, base.table, controlU[j], 0.0);
+			const Vec3 position = origin(frame);
+			for (int c = 0; c < 3; ++c)
+			{
+				frame.m[3][c] = 0.0;
+			}
+			outControlRest[j] = multiply(turn, frame);
+			outControlRest[j].m[3][0] = position.x;
+			outControlRest[j].m[3][1] = position.y;
+			outControlRest[j].m[3][2] = position.z;
 		}
 
-		Output output;
-		evaluate(setup, defaults, input, output);
-		for (int i = 0; i < bindCount; ++i)
-		{
-			setup.bindOffset[i] = multiply(bindRest[i], inverseRigid(output.bindOPM[i]));
-		}
-
-		outSetup = setup;
-		outReason = "";
-		return true;
+		return buildSetupImpl(outControlRest, controlCount, bindRest, bindCount, anchorRest, anchorCount, controlU, true, outSetup, outReason);
 	}
 
 	void evaluate(const Setup& setup, const Params& params, const Input& input, Output& output)

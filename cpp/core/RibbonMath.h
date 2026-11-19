@@ -72,6 +72,11 @@ namespace RibbonMath
 		int fkCount{ 0 };
 		double fkKnotU[MaxControls]{};      // each fk control's parameter: its share of the fk rest chord length (fkKnots)
 		Mat4 fkRest[MaxControls];           // each fk control's rest world matrix
+		// The fk chain is a Limb's anchors (D62): its start, mid and end joint frames, given to every evaluation as world matrices
+		// (Input::fkWorld) and not composed from controls. The curve passes through them, the ik controls float on it as in D59, and
+		// their roll about the curve also twists the bind joints, easing from one anchor's to the next (an fk chain's roll only turns
+		// the ik controls).
+		bool fkAnchors{ false };
 		double fkRollRest[MaxControls]{};   // each fk control's rest roll about the base curve's tangent (what the ik controls' roll is measured from)
 		Mat4 bindOffset[MaxBindJoints];     // a bind joint's rest in the detail curve's frame at its parameter
 	};
@@ -82,6 +87,8 @@ namespace RibbonMath
 	{
 		Mat4 local[MaxControls];
 		Mat4 fkLocal[MaxControls];          // the fk controls' local matrices (the chain is composed here, never read from their worlds)
+		// The fk chain given as world matrices when setup.fkAnchors is set, instead of composed from fkLocal (D62).
+		Mat4 fkWorld[MaxControls];
 		Mat4 startOPM;
 		Mat4 endOPM;
 		// The end plug's motion relative to the start plug's, as a motion of the end control's own channels: the world motion
@@ -110,6 +117,14 @@ namespace RibbonMath
 	// False, with a reason, when the rest is unusable: a control, fk control or bind count out of range, controls on top of each
 	// other, a degenerate chord.
 	bool buildSetup(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, const Mat4* fkRest, int fkCount, Setup& outSetup, const char*& outReason);
+
+	// The Limb's setup (D62): the fk chain is `anchorCount` anchors (2 to 8) whose rest frames the curve passes through. The ik controls
+	// are not given but placed on that curve at `controlU` (their parameters, in the anchors' chord-share space: strictly increasing,
+	// the first 0 and the last 1, so a control at an anchor's parameter sits on the anchor exactly). Their rest frames come back in
+	// outControlRest (controlCount matrices): the position on the curve, with the first anchor's orientation carried along it, so the
+	// offsets from the curve are zero and rolling the anchors swings no control off it. A mirrored chain (X running back) keeps that.
+	// False, with a reason, when the rest is unusable.
+	bool buildAnchoredSetup(const Mat4* anchorRest, int anchorCount, const double* controlU, int controlCount, const Mat4* bindRest, int bindCount, Setup& outSetup, Mat4* outControlRest, const char*& outReason);
 
 	// The whole evaluation.
 	void evaluate(const Setup& setup, const Params& params, const Input& input, Output& output);
