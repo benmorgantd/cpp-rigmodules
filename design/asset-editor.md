@@ -95,3 +95,15 @@ Differences from the text above:
 Verified: the plain suites, the new mayapy session tests and the offscreen window tests pass. mayadev's older mayapy asset tests have the same 1 failure and 165 errors on a clean `main` as on the branch (they use pre-D58 joint and module names), so they were no check. Not verified: the window docked in a GUI Maya (the `addAction(text)` gotcha of D51 is avoided by building actions explicitly, but only a GUI run proves it), and drawing in a viewport. Proposed test: a `tests/gui/asseteditor` check like the rig panel's.
 
 Not built: textures, shaders and tracked high-res files (a `FileAction` and a handler each), and template hints (deferred to the template tool).
+
+## 11. Noted for the rig template editor (author, 2026-11-19)
+
+Found on `test\character\solomon`: its rig scene and template have very few local versions. Local version copies (`versions.version`) are made only when a file is saved through `handlers.save`, so:
+
+- A **template** edited by hand in a text editor is never versioned. Without a tool there is no local history for templates at all.
+- A **rig scene** saved with Maya's own File > Save, and not through Save Rig, is never versioned either. Saving a rig scene is awkward enough that it is not done often.
+
+This is part of the problem the Asset Editor addresses. The Files tab's Save Rig covers the scene. The template is still written by hand, so the rig template editor tool (not designed) must save through `handlers.save`, so each save keeps a local version copy, and its design should say how it lists and restores them. Until then, the Template row shows only its status, with no Save.
+
+Possible earlier help, not built: a Snapshot button on the Template row that copies the file into the versions folder, so a hand edit can be kept before it is made.
+
