@@ -2,6 +2,9 @@
 
 // The Ribbon module's math (D56, design/ribbon.md), with no Maya types so it can be checked against closed-form cases.
 //
+// COUPLED TO Limb (D62, design/limb.md): LimbNode runs this math for its one continuous ribbon. A change here changes Limb.
+// Read design/limb.md and run test_limb_matches_parts before changing it.
+//
 // A virtual ribbon: a piecewise cubic Hermite spline through the control matrices, a frame at any parameter u by parallel
 // transport, twist, a sine layer and a scale profile. Everything is a pure function of its inputs:
 // no state survives an evaluation, so scrubbing, baking and parallel evaluation cannot change a result.

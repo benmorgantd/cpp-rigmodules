@@ -77,6 +77,9 @@ struct TwoBoneIkArgs
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(TwoBoneIkArgs, joints, controlName, poleOffset, settingsOffset, ikFkBlend, ikOrientToWorld, ikAlignToPole)
 
+// COUPLED TO Limb (D62, design/limb.md): LimbNode runs this module's solve, channels, control derivation and inverse. A change here
+// changes Limb. Read design/limb.md and run test_limb_matches_parts before changing any of them.
+//
 // A two-bone IK limb (arm, leg): an FK chain and an IK solve, blended joint by joint (D52). Child plugs: start, ik, pole,
 // and settings (internal: it follows start's parent). Sockets: index_0, index_1, index_2 (the blended joint worlds), start,
 // end, ik, pole, settings.

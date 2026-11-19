@@ -1,5 +1,7 @@
 # Ribbon: design draft
 
+> **Coupling warning (D62).** The `Limb` module (`limb.md`) runs this module's solve, `core/RibbonMath`, `core/SwingTwist`, its channel specs and its inverse. Changing any of them changes `Limb`. Read `limb.md` first, run the Limb contract, pose cases and `test_limb_matches_parts`, and say in the change summary what `Limb` does with it.
+
 **Status:** D56. Built in part on 2026-11-17: phases 1, 2, 3 and 5 and the docs. `fkStyle` was built on 2026-11-18 (D59, section 3.1 as amended below). Phase 6 (the perf rig and `bench`) was built after the first build. Section 14 lists what the build did differently from this page. Branch: `ribbon-module-planning`.
 
 Sources: the author's note, the Claude-written handoff `maya_c_ik_ribbon_node_handoff.md` (a source of math, not of design: it conflicts with this repo in several places, section 10) and the author's answers.

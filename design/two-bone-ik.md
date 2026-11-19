@@ -1,5 +1,7 @@
 # Two-bone IK: as built
 
+> **Coupling warning (D62).** The `Limb` module (`limb.md`) runs this module's IK/FK solve, channels, control derivation and inverse. Changing any of them changes `Limb`. Read `limb.md` first, run the Limb contract, pose cases and `test_limb_matches_parts`, and say in the change summary what `Limb` does with it.
+
 **Status:** Decided, D52 (author, 2026-11-15). All eight phases are built. This page is the short form: the signed-off decisions and what the module adds to the maintenance surface. The full design (requirements, interface, the solve with stretch, soft, pin and roll, the inverse, build phases and the review) is kept in [`archive/two-bone-ik.md`](archive/two-bone-ik.md), which is history: where it and the code disagree, the code wins. [`archive/two-bone-ik-plan.md`](archive/two-bone-ik-plan.md) is the earlier cloud draft it superseded.
 
 ## Where it is documented now

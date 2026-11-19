@@ -75,6 +75,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D59 | TwoBoneIk and Ribbon template keys for defaults, orientation and an FK layer | Decided | Assets |
 | D60 | The build is faster through parallel compiles and two precompiled headers, not by splitting the project | Decided | Build |
 | D61 | The Asset Editor is a dockable asset context over files, markup and shapes | Decided | Assets |
+| D62 | Limb: one module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon | Decided | Assets |
 
 ---
 
@@ -976,6 +977,22 @@ Layout, Aim and TwoBoneIk already had `<Name>Module.h/.cpp` and `<Name>ModuleNod
 - **Not renamed:** the template `moduleType` (`FkChain`, `Aim`, ...) and the node type name (`fkChainModule`). Both are public: saved templates and rigs depend on them, and none of them carries the suffix in `moduleType`.
 
 - **Impact:** none on saved rigs, poses, animation or templates. Only C++ names and paths changed.
+
+### D62. Limb: one module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon
+
+**Status:** Decided (author, 2026-11-19: one round of answers). Not built. Design, interface and phases: `limb.md`.
+
+An arm or leg built from `TwoBoneIk`, two or three `Ribbon` modules and `Swing` and `Twist` constraints has a crease at the elbow, 21 controls, five nodes and the ribbon channels repeated on two controls (checked on the solomon rig). `Limb` is one module with one spline through start, mid and end.
+
+- **Inputs:** three IK/FK joints and 5 or more leaf bind joints, with exactly one at the mid joint and none stacked. `controlCount` ribbon ik controls, default 5, minimum 3. No fk ribbon.
+- **Channels:** every module-wide channel (`ikFkBlend`, `stretch`, `soft` and the ribbon's) is on the settings control, under the names already in use. `startAimBlend` and `endAimBlend` are dropped. `roll` and `pin` stay on the handle and the pole.
+- **Evaluation:** the IK/FK solve, then the ribbon's end frames from the blended joints (start: translation and swing of the start joint, as `Swing`; end: translation and twist of the end joint on the swing of the mid, as `Twist`), then the ribbon solve. No constraint nodes.
+- **DAG parenting (author):** the ribbon ik controls are leaf children of the start plug's DAG parent, and the tweakers are leaf children of the first ik control.
+- **Reuse, and the coupling:** `Limb` is not a subclass of `TwoBoneIk` or `Ribbon`. It calls their solves, which phase 0 moves into shared functions with no behaviour change, and their channel specs, control derivation and inverses. **A change to those, or to `core/RibbonMath` or `core/SwingTwist`, changes `Limb`.** The warning is in `limb.md`, `two-bone-ik.md`, `ribbon.md`, `CLAUDE.md` and three headers, and `test_limb_matches_parts` checks that the three agree.
+- **Hand and foot:** one `Limb`, not `Arm` and `Leg`. An optional `ikTarget` child plug sets where the end joint reaches, defaulting to the handle's own world. A later `ReverseFoot` module hangs from the `ik` socket and feeds `ikTarget`, so the foot pushes up the ankle target while the handle stays the foot's root. It makes a module-level loop that is acyclic at plug level, so the cycle check in D17 gets a declared exemption for that plug (author-approved). Rejected: a foot inside `Limb`, and a combined `Limb` and `ReverseFoot`. How an IK match works with a raised foot is left to the `ReverseFoot` design.
+- **Names:** type `Limb`, node `limbModule`, MTypeId `0x002192`, controls `<base>FK`, `<base>IK`, `<base>Pole`, `<base>Settings`, `<base>RibbonIK_<nn>`, `<base>Tweak_<nn>`.
+- **Migration:** none. No legacy rig has to survive (author), and the solomon template moves to `Limb` by hand in phase 6.
+- **Open:** whether the ribbon through the mid joint needs more than an anchors array in `RibbonMath` (a phase 1 spike), and `ReverseFoot`'s IK match.
 
 ## Open items
 
