@@ -441,9 +441,10 @@ namespace ConstraintTypes
 	inline constexpr const char* Orient{ "Orient" };   // rotate from the driver
 	inline constexpr const char* Point{ "Point" };     // translate from the driver
 	inline constexpr const char* Swing{ "Swing" };     // translate and the rotation without its twist about X from the driver
+	inline constexpr const char* Twist{ "Twist" };     // translate and the twist about X from the driver, the swing from the parent
 
 	// The rigConstraint node's constraintType enum, in this order. Scenes store the index, so append new types.
-	inline constexpr std::array<const char*, 4> All{ Parent, Orient, Point, Swing };
+	inline constexpr std::array<const char*, 5> All{ Parent, Orient, Point, Swing, Twist };
 
 	// The enum index of a type name, or -1 for an unknown one.
 	constexpr int indexOf(std::string_view type)

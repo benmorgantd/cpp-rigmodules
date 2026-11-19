@@ -1,0 +1,29 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "RibbonArmTwist",
+  "rigModules": [
+    { "moduleType": "TwoBoneIk", "moduleVersion": 2, "name": "arm_01_L_MOD", "shapeType": "Box", "side": "Left",
+      "moduleArgs": {
+        "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"] ],
+        "controlName": "arm", "poleOffset": [0, -4.7, 0], "settingsOffset": [-8, 8, 0] },
+      "parentStructure": { "start": "layout_00_M_MOD.end", "ik": "layout_00_M_MOD.end", "pole": "layout_00_M_MOD.end" } },
+    { "moduleType": "Ribbon", "moduleVersion": 2, "name": "upper_01_M_MOD", "shapeType": "Box", "side": "Center",
+      "moduleArgs": {
+        "controlName": "up", "controlCount": 2,
+        "joints": [ ["Center", "up1"], ["Center", "up2"], ["Center", "up3"], ["Center", "up4"], ["Center", "up5"] ] },
+      "parentStructure": { "start": "arm_01_L_MOD.start", "end": "arm_01_L_MOD.start" } },
+    { "moduleType": "Ribbon", "moduleVersion": 2, "name": "fore_01_M_MOD", "shapeType": "Box", "side": "Center",
+      "moduleArgs": {
+        "controlName": "fo", "controlCount": 2,
+        "joints": [ ["Center", "fo1"], ["Center", "fo2"], ["Center", "fo3"], ["Center", "fo4"], ["Center", "fo5"] ] },
+      "parentStructure": { "start": "arm_01_L_MOD.index_1", "end": "arm_01_L_MOD.index_1" } }
+  ],
+  "constraints": [
+    { "name": "upperStartSwing_00_M_CON", "type": "Swing", "target": "upper_01_M_MOD.start",
+      "drivers": [ { "socket": "arm_01_L_MOD.start", "label": "Shoulder", "weight": 1.0 } ] },
+    { "name": "upperEndPoint_00_M_CON", "type": "Point", "target": "upper_01_M_MOD.end",
+      "drivers": [ { "socket": "arm_01_L_MOD.index_1", "label": "Elbow", "weight": 1.0 } ] },
+    { "name": "foreEndTwist_00_M_CON", "type": "Twist", "target": "fore_01_M_MOD.end",
+      "drivers": [ { "socket": "arm_01_L_MOD.end", "label": "Wrist", "weight": 1.0 } ] }
+  ]
+}

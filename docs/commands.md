@@ -165,7 +165,7 @@ cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end
 | `label` | string, multi-use | The driver's enum label. Give none, or one per `driver` in the same order. Defaults to the socket id. |
 | `initial` | int | Index of the driver that starts active. Defaults to 0. |
 | `name` | string | The constraint node's name. Defaults to the control's name with `CON`, `arm_00_L_CTRL` giving `arm_00_L_CON`. A name must be in the [naming convention](naming.md), ending in `CON`. |
-| `type` | string | `Parent` (the default), `Orient`, `Point` or `Swing`. Orient takes only the driver's rotation, Point only its translation, and Swing its translation and its rotation without the twist about X. The rest comes from the child plug's parent ([templates.md](templates.md#constraint-types)). |
+| `type` | string | `Parent` (the default), `Orient`, `Point`, `Swing` or `Twist`. Orient takes only the driver's rotation, Point only its translation, Swing its translation and its rotation without the twist about X, and Twist its translation and its twist about X on the parent's swing. The rest comes from the child plug's parent ([templates.md](templates.md#constraint-types)). |
 
 Object: the control, which must be the control of a module's child plug.
 
@@ -177,7 +177,7 @@ cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end
 - **Driver modules** without a namespace are looked up in the control's namespace, whatever the current namespace is. A driver that names a namespace (`other:layout_00_M_MOD.end`) is used as given.
 - **The constraint node** goes in the control's namespace unless `name` includes a namespace.
 - A module cannot drive its own child plug, and a control can have only one space constraint.
-- An Orient, Point or Swing constraint fails on a child plug with no parent connected. A built rig always has one, `layout_00_M_MOD.end` by default.
+- An Orient, Point, Swing or Twist constraint fails on a child plug with no parent connected. A built rig always has one, `layout_00_M_MOD.end` by default.
 - The node is a `rigConstraint`, and its `constraintType` attribute holds the type.
 - With more than one driver, the control gets a `space` enum attribute listing the labels.
 - The control does not move. On a posed rig its translate, rotate and scale are changed to keep it in place, the same match `setRigConstraintSpace` does. At rest nothing changes.

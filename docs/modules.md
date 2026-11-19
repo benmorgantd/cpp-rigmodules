@@ -296,6 +296,29 @@ The sine goes on after the twist.
 
 Without the `Swing` constraint a start parented on the shoulder carries its twist along the whole ribbon at once, with no ease. A shoulder that twists past a half turn flips the twist's sign like any other (see the end follows its parent's twist, above), and a swing of exactly a half turn from rest has no twist to remove, so the start's twist flips there. Neither is a case for the arm's normal range.
 
+**A wrist that sends up only its twist.** A forearm ribbon whose end hangs from the wrist socket carries the hand's swing as well as its twist. The swing tilts the end frame and bends the ribbon, so the middle control moves when the hand flops. To send up the hand's twist alone, hang the end from the elbow socket like the start and use a [`Twist`](templates.md#constraint-types) constraint on the end, driven by the wrist. The end sits at the wrist and turns with the forearm's swing, and the hand's twist about the bone eases in along the ribbon from the elbow's to the wrist's. The same goes for an ankle on a leg ribbon.
+
+```json
+{
+  "rigModules": [
+    {
+      "moduleType": "Ribbon", "moduleVersion": 2, "name": "fore_01_M_MOD", "side": "Center",
+      "moduleArgs": {
+        "controlName": "fo", "controlCount": 2,
+        "joints": [["Center", "fo1"], ["Center", "fo2"], ["Center", "fo3"], ["Center", "fo4"], ["Center", "fo5"]]
+      },
+      "parentStructure": { "start": "arm_01_L_MOD.index_1", "end": "arm_01_L_MOD.index_1" }
+    }
+  ],
+  "constraints": [
+    { "name": "foreEndTwist_00_M_CON", "type": "Twist", "target": "fore_01_M_MOD.end",
+      "drivers": [{ "socket": "arm_01_L_MOD.end", "label": "Wrist", "weight": 1.0 }] }
+  ]
+}
+```
+
+The twist is the hand's whole twist about the bone since rest, the shoulder's and elbow's included, so a twist higher up the arm turns the whole forearm ribbon and nothing eases. Beyond a half turn the twist wraps like `Swing`'s, and the `endTwist` channel picks the turn.
+
 **Restoring from joints** ([commands.md](commands.md#how-the-joints-become-control-values)): the start and end controls come from the first and last bind joints, whose frames they share, and each tweaker from its bind joint, so every bind joint present comes back exactly. An interior ik control has no joint, so it keeps the value from the sidecar, or rest, and the tweakers carry the difference. The channels above come from the sidecar, and otherwise stay as they are in the scene: a `sineAmplitude` the restore doesn't know about puts the interior controls in the wrong place.
 
 The build fails if `controlCount` is not 2 to 8, if there are fewer than 2 or more than 64 bind joints, or if the bind joints' axes fail the checks above.

@@ -73,7 +73,7 @@ TIERS = [
     ]),
     ("constraints", True, [
         "commands.test_constraint_cmds",
-        "commands.test_constraint_types",  # Orient, Point and Swing (D31), and the shoulder ribbon
+        "commands.test_constraint_types",  # Orient, Point, Swing and Twist (D31), and the shoulder and wrist ribbons
         "concepts.test_docs_examples",    # the README quick start ends with a space switch
         "concepts.test_mirror",            # mirrored templates include mirrored constraints (D28)
         "commands.test_rig_pose_cmds",     # the animation interface: channels, zero, mirror and flip pose (D34)

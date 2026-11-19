@@ -41,9 +41,9 @@ struct ConstraintBuildArgs
 };
 
 // Space switch for one child plug. Outputs the motion the module reads as a child plug delta. For Parent that is
-// the active driver's motion since rest, rest[active]^-1 * world[active]. Orient, Point and Swing take only the driver's
-// rotation, translation, or translation and rotation without its twist about X, and the rest from the plug's
-// parentStructure parent (D31).
+// the active driver's motion since rest, rest[active]^-1 * world[active]. Orient, Point, Swing and Twist take only the
+// driver's rotation, translation, translation and rotation without its twist about X, or translation and its twist about X on the
+// parent's swing, and the rest from the plug's parentStructure parent (D31).
 // Every driver's delta is identity at rest, so every space gives the rest pose (D27). Nothing is stored per
 // switch: matching changes the control's own values instead (see matchSwitchSpace).
 // One node per child plug. Attribute naming follows the module nodes (aMyAttr).

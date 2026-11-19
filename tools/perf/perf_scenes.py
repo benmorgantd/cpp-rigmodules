@@ -12,7 +12,7 @@ Run it with mayapy (set nothing else up: it loads a copy of the plugin and the p
 
 human    imports the asset's skeleton `--count` times, builds the asset's template on each, and keys every
          control on every frame through a cycle of load, mirror, flip and zero poses.
-complex  generates a 296 joint skeleton and a template with 81 constraints (Parent, Orient, Point and Swing), Aim modules,
+complex  generates a 296 joint skeleton and a template with 87 constraints (Parent, Orient, Point, Swing and Twist), Aim modules,
          TwoBoneIk limbs and Ribbons, builds it `--count` times, and keys a -90 to 90 range of motion on every control's rotate X, Y
          and Z, plus the limbs' handles, poles, roll and settings (blend, stretch, soft, pin) through every branch.
 
@@ -63,7 +63,7 @@ ROM_AXES = ("rotateX", "rotateY", "rotateZ")
 # Aim sets (aim, target and up joints) and limbs (three limb joints) are listed apart. A limb's ik, pole and settings controls
 # and a ribbon's ik controls have no joint (D57): derived_controls() lists them.
 # 62 Center joints + 2 x 117 side joints = 296 joints (the 236 of the chains, aim sets and limbs, and the 60 of the ribbons).
-# 7 Center + 2 x 37 side constraints = 81 (the 37 include the 3 arm ribbons' Swing starts).
+# 7 Center + 2 x 40 side constraints = 87 (the 40 include the 3 arm ribbons' Swing starts and Twist ends).
 #
 # Every module type and constraint type the plugin has appears here many times. A new module or constraint
 # type adds a block of instances to this rig in the same change (CLAUDE.md, "Gate for new modules").
@@ -148,11 +148,11 @@ def ribbon_specs():
         {"base": "rbnTail", "side": "Center", "at": ("spine", 0), "parent": ("spine", "start"),
          "offset": (0, -0.3, -0.4), "run": (0, -0.1, -5.5), "controls": 4, "bind": 12},
         {"base": "rbnArmA", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"),
-         "offset": (0.3, -0.6, 0.6), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8, "swing": True},
+         "offset": (0.3, -0.6, 0.6), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8, "swing": True, "twist": ("arm", "end")},
         {"base": "rbnArmB", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"),
-         "offset": (0.3, -0.9, 0.9), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8, "swing": True},
+         "offset": (0.3, -0.9, 0.9), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8, "swing": True, "twist": ("arm", "end")},
         {"base": "rbnArmC", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"),
-         "offset": (0.3, -1.2, 1.2), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8, "swing": True},
+         "offset": (0.3, -1.2, 1.2), "run": (3.0, -0.2, 0), "controls": 3, "bind": 8, "swing": True, "twist": ("arm", "end")},
     ]
 
 
@@ -443,6 +443,11 @@ def build_template():
             # A Swing constraint (D31) on the start, driven by the start's own parent: the arm ribbons' shoulder case.
             constraints.append(_constraint_entry(constraint_name(ribbon["base"] + "Swing", "Left"), "Swing", "%s.start" % module_name(ribbon["base"], side),
                                                  [(parent_base, parent_socket, "Clavicle")], side, side_of))
+        if ribbon.get("twist"):
+            # A Twist constraint (D31) on the end, driven by the wrist: the end keeps the start's parent's swing and takes the wrist's twist.
+            twist_base, twist_socket = ribbon["twist"]
+            constraints.append(_constraint_entry(constraint_name(ribbon["base"] + "Twist", "Left"), "Twist", "%s.end" % module_name(ribbon["base"], side),
+                                                 [(twist_base, twist_socket, "Wrist")], side, side_of))
     return {
         "formatVersion": 1,
         "rigName": "complex272",
@@ -728,7 +733,7 @@ def make_complex(args):
     constraints = built_constraint_count(template)
     joints = joint_layout()
     assert len(joints) == 296, len(joints)
-    assert constraints == 81, constraints
+    assert constraints == 87, constraints
     template_file = os.path.join(out, "complex_template.json").replace("\\", "/")
     with open(template_file, "w", encoding="utf-8") as handle:
         json.dump(template, handle, indent=2)

@@ -29,16 +29,19 @@ namespace
 	constexpr int kParentType{ ConstraintTypes::indexOf(ConstraintTypes::Parent) };
 	constexpr int kOrientType{ ConstraintTypes::indexOf(ConstraintTypes::Orient) };
 	constexpr int kSwingType{ ConstraintTypes::indexOf(ConstraintTypes::Swing) };
+	constexpr int kTwistType{ ConstraintTypes::indexOf(ConstraintTypes::Twist) };
 
-	// A delta with its twist about the child's rest X taken out: the rotation is the swing, `twist * swing` being the delta. A
-	// delta is a motion in world axes (world = rest * delta), so its twist about the bone is read in the child's own frame:
+	// A delta is a motion in world axes (world = rest * delta), so its twist about the bone is read in the child's own frame:
 	// the motion the control's channels make is rest rotation * delta * rest rotation^-1. Reading the delta's own X would
 	// measure the twist about the world X, which is the bone's axis only for a bone that lies along it.
-	MMatrix withoutTwist(const MMatrix& mDelta, const MMatrix& mChildRest)
+	MMatrix localMotion(const MMatrix& mDelta, const MMatrix& mRestRotation)
 	{
-		const MMatrix mRestRotation = MTransformationMatrix(mChildRest).asRotateMatrix();
-		const MMatrix mRestRotationInverse = mRestRotation.inverse();
-		const MMatrix mLocal = mRestRotation * mDelta * mRestRotationInverse;
+		return mRestRotation * mDelta * mRestRotation.inverse();
+	}
+
+	// The rotation about X by `sign` times the twist of a local motion, so `local = twistRotationAboutX(local, 1) * swing`.
+	MMatrix twistRotationAboutX(const MMatrix& mLocal, double sign)
+	{
 		double rows[3][3];
 		for (int r = 0; r < 3; ++r)
 		{
@@ -47,23 +50,42 @@ namespace
 				rows[r][c] = mLocal[r][c];
 			}
 		}
-		double untwist[3][3];
-		SwingTwist::rotationAboutX(-SwingTwist::twistAboutX(rows), untwist);
-		MMatrix mUntwist;
+		double about[3][3];
+		SwingTwist::rotationAboutX(sign * SwingTwist::twistAboutX(rows), about);
+		MMatrix mAbout;
 		for (int r = 0; r < 3; ++r)
 		{
 			for (int c = 0; c < 3; ++c)
 			{
-				mUntwist[r][c] = untwist[r][c];
+				mAbout[r][c] = about[r][c];
 			}
 		}
-		return (mRestRotationInverse * mUntwist * mRestRotation) * mDelta;
+		return mAbout;
+	}
+
+	// A delta with its twist about the child's rest X taken out: the rotation is the swing, `twist * swing` being the delta.
+	MMatrix withoutTwist(const MMatrix& mDelta, const MMatrix& mRestRotation)
+	{
+		const MMatrix mUntwist = twistRotationAboutX(localMotion(mDelta, mRestRotation), -1.0);
+		return (mRestRotation.inverse() * mUntwist * mRestRotation) * mDelta;
+	}
+
+	// The driver's twist on the parent's swing, as a delta: in the child's frame `driver twist * parent swing`, the parent's
+	// swing being its motion with its own twist taken out. A swing leaves the driver's twist alone and a twist leaves the
+	// parent's swing alone, so the twist the Ribbon reads from this plug against another plug of the same parent is the
+	// driver's twist minus the parent's.
+	MMatrix driverTwistOnParentSwing(const MMatrix& mDriverDelta, const MMatrix& mParentDelta, const MMatrix& mRestRotation)
+	{
+		const MMatrix mParentLocal = localMotion(mParentDelta, mRestRotation);
+		const MMatrix mLocal = twistRotationAboutX(localMotion(mDriverDelta, mRestRotation), 1.0) * twistRotationAboutX(mParentLocal, -1.0) * mParentLocal;
+		return mRestRotation.inverse() * mLocal * mRestRotation;
 	}
 }
 
-// The delta the module receives (D31). Parent passes the driver's motion through. Orient, Point and Swing apply both
-// motions to the control's rest, keep the driver's rotation, translation or swing (its rotation without its twist about the
-// child's rest X), take the rest from the parent, and turn the result back into a delta on that rest.
+// The delta the module receives (D31). Parent passes the driver's motion through. Orient, Point, Swing and Twist apply both
+// motions to the control's rest, keep the driver's rotation, translation, swing (its rotation without its twist about the
+// child's rest X) or twist (on the parent's swing), take the rest from the parent, and turn the result back into a delta on
+// that rest. Swing and Twist also take the driver's translation.
 MMatrix RigConstraintNode::computeDelta(int type, const MMatrix& mChildRest, const MMatrix& mParentDelta, const MMatrix& mDriverDelta)
 {
 	if (type == kParentType)
@@ -79,8 +101,15 @@ MMatrix RigConstraintNode::computeDelta(int type, const MMatrix& mChildRest, con
 	}
 	else if (type == kSwingType)
 	{
-		const MTransformationMatrix tSwing(mChildRest * withoutTwist(mDriverDelta, mChildRest));
+		const MTransformationMatrix tSwing(mChildRest * withoutTwist(mDriverDelta, MTransformationMatrix(mChildRest).asRotateMatrix()));
 		tOut.rotateTo(tSwing.rotation());
+		tOut.setTranslation(tDriver.getTranslation(MSpace::kTransform), MSpace::kTransform);
+	}
+	else if (type == kTwistType)
+	{
+		const MTransformationMatrix tTwist(mChildRest * driverTwistOnParentSwing(
+			mDriverDelta, mParentDelta, MTransformationMatrix(mChildRest).asRotateMatrix()));
+		tOut.rotateTo(tTwist.rotation());
 		tOut.setTranslation(tDriver.getTranslation(MSpace::kTransform), MSpace::kTransform);
 	}
 	else

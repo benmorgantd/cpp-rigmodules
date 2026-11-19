@@ -343,6 +343,28 @@ class OrientConstraintRoundTrip(SolveTestCase):
         self.assertJointsAt(posed_joints)
         self.assertValues(self.CONTROL, {"rotateZ": 15})
 
+    def test_a_twist_space_round_trip(self):
+        """As for Swing: the driver's twist and the parent's swing come from the sidecar, and the control's own rotation comes back
+        through the same delta function."""
+        self.build_standard("fkchain_two_chains", "fk_two_chains")
+        cmds.createRigConstraint(self.CONTROL, driver=["fkchain_01_M_MOD.end", "layout_00_M_MOD.end"], type="Twist")
+        cmds.setAttr(self.CONTROL + ".space", 1)
+        rest = self.snapshot()
+        cmds.setAttr(rig_name("layout_02_M_CTRL.rotateX"), 50)
+        cmds.setAttr(rig_name("a_00_M_CTRL.rotateZ"), 30)
+        cmds.setAttr(self.CONTROL + ".rotateZ", 15)
+        posed_joints = self.snapshot()
+        clip = self.write_clip(rest, [posed_joints])
+        cmds.zeroRigControls(rig_root())
+        control = rigmodules.query.get_control(self.CONTROL)
+        layout_end = rigmodules.query.get_control(rig_name("layout_02_M_CTRL"))
+        sidecar = self.write_sidecar({
+            control.side: {control.usage: {"space": 1}},
+            layout_end.side: {layout_end.usage: {"rotateX": 50}}})
+        cmds.poseRigFromJointPose(rig_root(), jointPose=clip, sidecar=sidecar)
+        self.assertJointsAt(posed_joints)
+        self.assertValues(self.CONTROL, {"rotateZ": 15})
+
 
 class AnimateFromClip(SolveTestCase):
     """animateRigFromJointClip keys every channel the joints gave on every frame, from the joints' animation."""

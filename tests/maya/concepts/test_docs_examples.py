@@ -577,6 +577,29 @@ class RibbonDocExamples(RigTestCase):
         self.assertAlmostEqual(rolls["up1_00_M_JNT"], 0.0, delta=1.0)
         self.assertAlmostEqual(rolls["up5_00_M_JNT"], 60.0, delta=1.0)
 
+    def test_modules_doc_wrist_example_sends_up_only_the_hands_twist(self):
+        """The 'A wrist that sends up only its twist' snippet goes on the fixture's TwoBoneIk. The hand turned 60 about X (FK)
+        rolls the forearm's last joint 60 and its first none, and the hand's swing moves no joint of the ribbon."""
+        snippet = json.loads(doc_code_block(MODULES_DOC, "**A wrist that sends up only its twist.**", "json"))
+        arm = json.loads(json.dumps(fixtures.load_template("ribbon_arm_twist")["rigModules"][0]))
+        self.build({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [arm] + snippet["rigModules"],
+                    "constraints": snippet["constraints"]}, self.make_skeleton("ribbon_arm"))
+        cmds.setAttr("rig:armSettings_00_L_CTRL.ikFkBlend", 0)
+        rest = {joint: cmds.xform(rig_name(joint), query=True, worldSpace=True, matrix=True) for joint in ("fo1_00_M_JNT", "fo3_00_M_JNT", "fo5_00_M_JNT")}
+        cmds.setAttr("rig:hand_00_L_CTRL.rotateZ", 40)
+        for joint, matrix in rest.items():
+            now = cmds.xform(rig_name(joint), query=True, worldSpace=True, matrix=True)
+            for a, b in zip(now, matrix):
+                self.assertAlmostEqual(a, b, delta=1e-3, msg=joint)
+        cmds.setAttr("rig:hand_00_L_CTRL.rotateZ", 0)
+        cmds.setAttr("rig:hand_00_L_CTRL.rotateX", 60)
+        rolls = {}
+        for joint in ("fo1_00_M_JNT", "fo5_00_M_JNT"):
+            m = cmds.xform(rig_name(joint), query=True, worldSpace=True, matrix=True)
+            rolls[joint] = math.degrees(math.atan2(m[6], m[5]))
+        self.assertAlmostEqual(rolls["fo1_00_M_JNT"], 0.0, delta=1.0)
+        self.assertAlmostEqual(rolls["fo5_00_M_JNT"], 60.0, delta=1.0)
+
     def test_modules_doc_arm_example_builds_with_its_aim_keys_and_meets_at_the_elbow(self):
         """The two ribbon entries under 'An arm' go on the fixture's TwoBoneIk. They build at rest with both ends aimed, and with
         the shoulder turned 60 about X (FK) the upper arm's last joint and the forearm's first both roll 60."""
