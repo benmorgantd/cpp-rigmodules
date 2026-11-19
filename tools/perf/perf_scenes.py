@@ -352,8 +352,8 @@ def _constraint_entry(name, constraint_type, target, drivers, side, side_of):
     return entry
 
 
-def build_template():
-    """The template as a dict. Left chains carry "mirror": true."""
+def build_template(fk_style=False):
+    """The template as a dict. Left chains carry "mirror": true. `fk_style` gives every ribbon an fk chain (D59)."""
     modules = []
     constraints = []
     specs = chain_specs()
@@ -436,6 +436,8 @@ def build_template():
             # No `end`: it follows the start's parent.
             "parentStructure": {"start": "%s.%s" % (module_name(parent_base, side_of[parent_base]), parent_socket)},
         }
+        if fk_style:
+            module["moduleArgs"]["fkStyle"] = True
         if side == "Left":
             module["mirror"] = True
         modules.append(module)
@@ -724,7 +726,7 @@ def make_complex(args):
     from maya import cmds
     out = args.out
     os.makedirs(out, exist_ok=True)
-    template = build_template()
+    template = build_template(args.fk_style)
     constraints = built_constraint_count(template)
     joints = joint_layout()
     assert len(joints) == 296, len(joints)
@@ -755,7 +757,7 @@ def make_complex(args):
     last = key_rom(instances)
     print("%d instances, %d controls each, %d attachments each, ROM to frame %d" % (
         len(instances), len(instances[0].controls), args.attachments, last))
-    suffix = "_at%d" % args.attachments if args.attachments else ""
+    suffix = ("_at%d" % args.attachments if args.attachments else "") + ("_fk" if args.fk_style else "")
     save_scene(os.path.join(out, "complex_x%d%s.mb" % (args.count, suffix)), 1, last)
     mayalaunch.finish_standalone(0)
 
@@ -922,6 +924,7 @@ def main():
             p.add_argument("--out", default=DEFAULT_OUT)
         if name == "complex":
             p.add_argument("--attachments", type=int, default=0, help="attachment rigs built onto each rig (D55)")
+            p.add_argument("--fk-style", action="store_true", help="give every ribbon an fk chain (D59), saved as complex_xN_fk.mb")
         if name == "human":
             p.add_argument("--frames", type=int, default=96)
             p.add_argument("--asset-dir", default=DEFAULT_ASSET_DIR)
