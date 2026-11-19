@@ -37,6 +37,7 @@
 MTypeId RibbonModuleNode::id(0x002191);
 std::array<MObject, RibbonChannel::Count> RibbonModuleNode::aChannels;
 MObject RibbonModuleNode::aIkControlCount;
+MObject RibbonModuleNode::aFkControlCount;
 MObject RibbonModuleNode::aKnotU;
 MObject RibbonModuleNode::aBindU;
 MObject RibbonModuleNode::aRestLength;
@@ -118,12 +119,16 @@ namespace
 	}
 
 	// Socket names of ik control k, the way FkChain names its own: index_k, plus start and end on the ends.
-	ModuleInterface makeRibbonInterface(unsigned int controlCount)
+	ModuleInterface makeRibbonInterface(unsigned int controlCount, bool hasFkChain)
 	{
 		ModuleInterface moduleInterface;
 		moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Start, true });
-		// The end follows the start's parent unless the template drives it from another socket (section 3.4).
-		moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::End, true, true, "", PlugAndSocketNames::Start });
+		// The end follows the start's parent unless the template drives it from another socket (section 3.4). With an fk chain the end
+		// is on the chain, so it has no plug of its own (D59).
+		if (!hasFkChain)
+		{
+			moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::End, true, true, "", PlugAndSocketNames::Start });
+		}
 		for (unsigned int k = 0; k < controlCount; ++k)
 		{
 			const std::vector<std::string> names = FkChainModuleNode::socketNamesAt(k, controlCount);
@@ -190,6 +195,11 @@ MStatus RibbonModuleNode::initialize()
 	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkControlCount));
 
+	aFkControlCount = nAttr.create(RigAttr::FkControlCount, RigAttr::FkControlCount, MFnNumericData::kInt, 0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aFkControlCount));
+
 	for (const auto& [pAttr, name] : { std::pair<MObject*, const char*>{ &aKnotU, RigAttr::KnotU }, { &aBindU, RigAttr::BindU } })
 	{
 		*pAttr = nAttr.create(name, name, MFnNumericData::kDouble, 0.0, &status);
@@ -229,7 +239,7 @@ MStatus RibbonModuleNode::initialize()
 	// AFFECTS RELATIONSHIPS
 	declareStandardAffects();
 	std::vector<MObject> settings(aChannels.begin(), aChannels.end());
-	settings.insert(settings.end(), { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset });
+	settings.insert(settings.end(), { aIkControlCount, aFkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset });
 	for (const MObject& oInput : settings)
 	{
 		attributeAffects(oInput, aControlOPM);
@@ -259,9 +269,15 @@ void RibbonModuleNode::evaluate(
 		input.local[j] = MathUtils::toMat4(mLocal[j]);
 	}
 	input.startOPM = MathUtils::toMat4(mRest[0]);
+	// With an fk chain the whole ribbon rides the start's parent and the end rides the chain, so the end has no motion of its own.
+	const int fkFirst = controlCount + setup.bindCount;
+	for (int k = 0; k < setup.fkCount; ++k)
+	{
+		input.fkLocal[k] = MathUtils::toMat4(mLocal[fkFirst + k]);
+	}
 	// The plug deltas are motions in world axes (endOPM = endRest * delta), so the end's twist about its own X is read from the
 	// motion in the end control's frame: rest rotation * delta * rest rotation^-1.
-	const MMatrix mEndMotion = mEndDelta * mStartDelta.inverse();
+	const MMatrix mEndMotion = setup.fkCount > 0 ? MMatrix::identity : mEndDelta * mStartDelta.inverse();
 	const MMatrix mEndRestRotation = MTransformationMatrix(mRest[controlCount - 1]).asRotateMatrix();
 	input.endDelta = MathUtils::toMat4(mEndRestRotation * mEndMotion * mEndRestRotation.inverse());
 	input.endOPM = MathUtils::toMat4(mRest[controlCount - 1] * mEndMotion);
@@ -278,6 +294,12 @@ void RibbonModuleNode::evaluate(
 	{
 		const unsigned int slot = static_cast<unsigned int>(controlCount + i);
 		outSolve.mControlOPM[slot] = MathUtils::toMMatrix(output.bindOPM[i]) * mStartDelta;
+		outSolve.mWorld[slot] = mLocal[slot] * outSolve.mControlOPM[slot];
+	}
+	for (int k = 0; k < setup.fkCount; ++k)
+	{
+		const unsigned int slot = static_cast<unsigned int>(fkFirst + k);
+		outSolve.mControlOPM[slot] = MathUtils::toMMatrix(output.fkOPM[k]) * mStartDelta;
 		outSolve.mWorld[slot] = mLocal[slot] * outSolve.mControlOPM[slot];
 	}
 }
@@ -297,9 +319,10 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	const int controlCount = data.inputValue(aIkControlCount).asInt();
+	const int fkCount = data.inputValue(aFkControlCount).asInt();
 	const unsigned int slotCount = hControlInputData.elementCount();
-	const int bindCount = static_cast<int>(slotCount) - controlCount;
-	if (controlCount < 2 || bindCount < 1 || slotCount > MaxSlots)
+	const int bindCount = static_cast<int>(slotCount) - controlCount - fkCount;
+	if (controlCount < 2 || bindCount < 1 || fkCount < 0 || fkCount == 1 || fkCount > RibbonMath::MaxControls || slotCount > MaxSlots)
 	{
 		// Not built yet: the build sets the count after it creates the controls.
 		data.setClean(plug);
@@ -366,12 +389,26 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 		status = readControlInput(hControlInputData, slot, mLocal[slot], mRest[slot]);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
+	setup.fkCount = fkCount;
+	if (fkCount > 0)
+	{
+		// The fk chain's rests are the controls' own, and its parameters their chord shares, so neither is stored.
+		for (int k = 0; k < fkCount; ++k)
+		{
+			setup.fkRest[k] = MathUtils::toMat4(mRest[controlCount + bindCount + k]);
+		}
+		if (!RibbonMath::fkKnots(setup.fkRest, fkCount, setup.fkKnotU))
+		{
+			data.setClean(plug);
+			return MStatus::kSuccess;
+		}
+	}
 
 	RibbonSolve solve;
 	evaluate(
 		setup, paramsFromChannels(channelValues), mRest, mLocal,
 		readChildPlugParentDelta(hChildPlugs, 0),
-		readChildPlugParentDelta(hChildPlugs, controlCount - 1),
+		fkCount > 0 ? MMatrix::identity : readChildPlugParentDelta(hChildPlugs, controlCount - 1),
 		solve);
 
 	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
@@ -414,15 +451,16 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 	ModuleInverseResult result;
 	const unsigned int slotCount = static_cast<unsigned int>(context.controlRestWorld.size());
 	const int controlCount = static_cast<int>(context.ikControlCount);
+	const int fkCount = static_cast<int>(context.fkControlCount);
 	result.controlLocal.resize(slotCount);
 	result.socketWorld.assign(slotCount, MMatrix::identity);
 
-	if (controlCount < 2 || slotCount <= static_cast<unsigned int>(controlCount) || slotCount > MaxSlots)
+	if (controlCount < 2 || fkCount == 1 || fkCount > RibbonMath::MaxControls || slotCount <= static_cast<unsigned int>(controlCount + fkCount) || slotCount > MaxSlots)
 	{
 		result.reason = "the ribbon's slots are not what its build made, so its controls come from the sidecar or rest";
 		return result;
 	}
-	const int bindCount = static_cast<int>(slotCount) - controlCount;
+	const int bindCount = static_cast<int>(slotCount) - controlCount - fkCount;
 
 	// The setup comes from the stored rests, the way the plan step made it.
 	RibbonMath::Mat4 controlRest[RibbonMath::MaxControls];
@@ -435,9 +473,14 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 	{
 		bindRest[i] = MathUtils::toMat4(context.controlRestWorld[controlCount + i]);
 	}
+	RibbonMath::Mat4 fkRest[RibbonMath::MaxControls];
+	for (int k = 0; k < fkCount; ++k)
+	{
+		fkRest[k] = MathUtils::toMat4(context.controlRestWorld[controlCount + bindCount + k]);
+	}
 	RibbonMath::Setup setup;
 	const char* pReason = "";
-	if (!RibbonMath::buildSetup(controlRest, controlCount, bindRest, bindCount, setup, pReason))
+	if (!RibbonMath::buildSetup(controlRest, controlCount, bindRest, bindCount, fkRest, fkCount, setup, pReason))
 	{
 		result.reason = pReason;
 		return result;
@@ -473,7 +516,7 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 	// the gap, and the cap leaves it below 1e-7.
 	bool solved[MaxSlots] = {};
 	const unsigned int firstBind = static_cast<unsigned int>(controlCount);
-	const unsigned int lastBind = slotCount - 1;
+	const unsigned int lastBind = static_cast<unsigned int>(controlCount + bindCount - 1);
 	for (const int j : { 0, controlCount - 1 })
 	{
 		const unsigned int bindSlot = j == 0 ? firstBind : lastBind;
@@ -506,7 +549,11 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 			const MMatrix mEndWorld = mLocal[j] * solve.mControlOPM[j];
 			const MMatrix mGap = *input.jointWorld[bindSlot] * solve.mWorld[bindSlot].inverse();
 			settled = settled && mGap.isEquivalent(MMatrix::identity, EndRefineTolerance);
-			mLocal[j] = ModuleInverse::localFromWorld(mGap * mEndWorld, mRest[j], j == 0 ? mStartDelta : mEndDelta);
+			// An end rides its parent's motion, or with an fk chain the curve through the chain, whose offset parent matrix the
+			// solve just gave.
+			mLocal[j] = setup.fkCount > 0
+				? ModuleInverse::localFromWorld(mGap * mEndWorld, solve.mControlOPM[j], MMatrix::identity)
+				: ModuleInverse::localFromWorld(mGap * mEndWorld, mRest[j], j == 0 ? mStartDelta : mEndDelta);
 		}
 		if (settled)
 		{
@@ -520,7 +567,7 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 	// above fixed. A bind joint that is present comes back exactly whatever the interior controls hold.
 	evaluate(setup, params, mRest, mLocal, mStartDelta, mEndDelta, solve);
 	bool hasEveryBindJoint = true;
-	for (int slot = controlCount; slot < static_cast<int>(slotCount); ++slot)
+	for (int slot = controlCount; slot < controlCount + bindCount; ++slot)
 	{
 		if (hasJoint(slot))
 		{
@@ -560,6 +607,7 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 	const ShapeType& shapeType,
 	const std::vector<RibbonSlotInput>& controls,
 	const std::vector<RibbonSlotInput>& joints,
+	const std::vector<RibbonSlotInput>& fkControls,
 	const RibbonMath::Setup& setup,
 	const std::array<double, RibbonChannel::Count>& channelDefaults,
 	MObject& oRigRoot,
@@ -575,8 +623,11 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 	result.moduleNode = oModule;
 
 	const unsigned int controlCount = static_cast<unsigned int>(controls.size());
+	const unsigned int firstFk = controlCount + static_cast<unsigned int>(joints.size());
+	const bool hasFkChain = !fkControls.empty();
 	std::vector<RibbonSlotInput> slots = controls;
 	slots.insert(slots.end(), joints.begin(), joints.end());
+	slots.insert(slots.end(), fkControls.begin(), fkControls.end());
 	std::vector<MObject> oControls(slots.size());
 
 	// 2. Per slot: wire the joint, create and wire the control. The tweakers drive the bind joints.
@@ -600,8 +651,13 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 
 		oControls[slot] = RigControlNode::createRigControl(dagMod, controlBaseName, shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
 		// All controls hang from the start control, except the end, which hangs from its own parent. Visibility and the outliner
-		// follow the start, and nothing transforms by it (inheritsTransform is off).
-		if (slot != 0 && slot != controlCount - 1)
+		// follow the start, and nothing transforms by it (inheritsTransform is off). An fk chain's end is on the chain, so it hangs
+		// from the start like the rest, and each fk control hangs from the one before, as FkChain's do.
+		if (slot > firstFk)
+		{
+			dagMod.reparentNode(oControls[slot], oControls[slot - 1]);
+		}
+		else if (slot != 0 && (slot != controlCount - 1 || hasFkChain))
 		{
 			dagMod.reparentNode(oControls[slot], oControls[0]);
 		}
@@ -612,6 +668,11 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 			return result;
 		}
 
+		if (slot >= firstFk)
+		{
+			// An fk control has no socket and no joint: it shapes the curve the ik controls float on.
+			continue;
+		}
 		if (slot >= controlCount)
 		{
 			// A tweaker is the residual layer: hidden, still keyable (section 3.2).
@@ -632,7 +693,7 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 		}
 		DagPlugAndSocketUtils::setParentSocketNames(oModule, slot, socketNames, dagMod);
 
-		if (slot == 0 || slot == controlCount - 1)
+		if (slot == 0 || (slot == controlCount - 1 && !hasFkChain))
 		{
 			const char* plugName = slot == 0 ? PlugAndSocketNames::Start : PlugAndSocketNames::End;
 			result.childPlugs[plugName] = RigModuleChildPlugInfo{ oControls[slot], slot, "", slot == 0 ? "" : PlugAndSocketNames::Start };
@@ -642,6 +703,7 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 
 	// 3. The rest data the evaluation reads.
 	dagMod.newPlugValueInt(MPlug(oModule, RibbonModuleNode::aIkControlCount), static_cast<int>(controlCount));
+	dagMod.newPlugValueInt(MPlug(oModule, RibbonModuleNode::aFkControlCount), static_cast<int>(fkControls.size()));
 	for (unsigned int j = 0; j < controlCount; ++j)
 	{
 		dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aKnotU).elementByLogicalIndex(j), setup.knotU[j]);
@@ -709,7 +771,7 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	RibbonArgs ribbonArgs;
-	if (!readModuleArgs(args, { "joints" }, ctx, ribbonArgs, { "controlCount", "controlName", RigAttr::StartAimBlend, RigAttr::EndAimBlend }))
+	if (!readModuleArgs(args, { "joints" }, ctx, ribbonArgs, { "controlCount", "controlName", RigAttr::StartAimBlend, RigAttr::EndAimBlend, "fkStyle", "fkControlCount" }))
 	{
 		return false;
 	}
@@ -730,6 +792,18 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	{
 		ctx.report.addError(argsPath + ".controlCount", "a ribbon has between 2 and " + std::to_string(RibbonMath::MaxControls)
 			+ " ik controls (a start, an end and the interior ones), got " + std::to_string(ribbonArgs.controlCount));
+		valid = false;
+	}
+	// fkControlCount is the fk chain's own size, so it means nothing without the chain. Unset (-1) it follows controlCount.
+	if (ribbonArgs.fkControlCount != -1 && !ribbonArgs.fkStyle)
+	{
+		ctx.report.addError(argsPath + ".fkControlCount", "sizes the fk chain, so it needs fkStyle set to true as well");
+		valid = false;
+	}
+	if (ribbonArgs.fkStyle && ribbonArgs.fkControlCount != -1 && (ribbonArgs.fkControlCount < 2 || ribbonArgs.fkControlCount > RibbonMath::MaxControls))
+	{
+		ctx.report.addError(argsPath + ".fkControlCount", "an fk chain has between 2 and " + std::to_string(RibbonMath::MaxControls)
+			+ " controls, got " + std::to_string(ribbonArgs.fkControlCount));
 		valid = false;
 	}
 	if (ribbonArgs.joints.size() < 2 || ribbonArgs.joints.size() > static_cast<std::size_t>(RibbonMath::MaxBindJoints))
@@ -778,13 +852,23 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	}
 	const std::vector<RibbonMath::Mat4> controlFrames = ControlPlacement::placeAlongChain(bindRest, ribbonArgs.controlCount);
 
+	// The fk chain (D59) is placed the same way, with its own count.
+	const int fkCount = ribbonArgs.fkStyle ? (ribbonArgs.fkControlCount == -1 ? ribbonArgs.controlCount : ribbonArgs.fkControlCount) : 0;
+	std::vector<RibbonMath::Mat4> fkFrames;
+	if (fkCount > 0)
+	{
+		fkFrames = ControlPlacement::placeAlongChain(bindRest, fkCount);
+	}
+
 	RibbonMath::Mat4 controlRest[RibbonMath::MaxControls];
 	RibbonMath::Mat4 bindRestArray[RibbonMath::MaxBindJoints];
+	RibbonMath::Mat4 fkRest[RibbonMath::MaxControls];
 	std::copy(controlFrames.begin(), controlFrames.end(), controlRest);
 	std::copy(bindRest.begin(), bindRest.end(), bindRestArray);
+	std::copy(fkFrames.begin(), fkFrames.end(), fkRest);
 	RibbonMath::Setup setup;
 	const char* pReason = "";
-	if (!RibbonMath::buildSetup(controlRest, ribbonArgs.controlCount, bindRestArray, static_cast<int>(joints.size()), setup, pReason))
+	if (!RibbonMath::buildSetup(controlRest, ribbonArgs.controlCount, bindRestArray, static_cast<int>(joints.size()), fkRest, fkCount, setup, pReason))
 	{
 		ctx.report.addError(argsPath + ".joints", pReason);
 		return false;
@@ -814,13 +898,26 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	{
 		joints[i].controlMarkup = makeControlMarkup(ribbonArgs.joints[i].side, StringUtils::numberedName(base + "Tweak", static_cast<int>(i)));
 	}
+	std::vector<RibbonSlotInput> fkControls;
+	for (int k = 0; k < fkCount; ++k)
+	{
+		RibbonSlotInput slot;
+		slot.mRestWorld = MathUtils::toMMatrix(fkFrames[static_cast<std::size_t>(k)]);
+		slot.baseName = StringUtils::numberedName(base + "FK", k);
+		slot.controlMarkup = makeControlMarkup(firstSide, slot.baseName);
+		fkControls.push_back(slot);
+	}
 
-	outPlan.moduleInterface = makeRibbonInterface(static_cast<unsigned int>(controls.size()));
+	outPlan.moduleInterface = makeRibbonInterface(static_cast<unsigned int>(controls.size()), fkCount > 0);
 	for (const RibbonSlotInput& slot : controls)
 	{
 		outPlan.moduleInterface.controls.push_back(slot.controlMarkup);
 	}
 	for (const RibbonSlotInput& slot : joints)
+	{
+		outPlan.moduleInterface.controls.push_back(slot.controlMarkup);
+	}
+	for (const RibbonSlotInput& slot : fkControls)
 	{
 		outPlan.moduleInterface.controls.push_back(slot.controlMarkup);
 	}
@@ -835,9 +932,9 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	}
 	channelDefaults[RibbonChannel::StartAimBlend] = ribbonArgs.startAimBlend;
 	channelDefaults[RibbonChannel::EndAimBlend] = ribbonArgs.endAimBlend;
-	outPlan.build = [moduleName, side, shapeType, controls, joints, setup, channelDefaults](MObject& oRigRoot, MDagModifier& dagMod)
+	outPlan.build = [moduleName, side, shapeType, controls, joints, fkControls, setup, channelDefaults](MObject& oRigRoot, MDagModifier& dagMod)
 	{
-		return RibbonModuleNode::createModule(moduleName, side, shapeType, controls, joints, setup, channelDefaults, oRigRoot, dagMod);
+		return RibbonModuleNode::createModule(moduleName, side, shapeType, controls, joints, fkControls, setup, channelDefaults, oRigRoot, dagMod);
 	};
 	return true;
 }

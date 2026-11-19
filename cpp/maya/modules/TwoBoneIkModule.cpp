@@ -806,6 +806,7 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 	const ShapeType& shapeType,
 	const std::array<TwoBoneIkSlotInput, TwoBoneIkSlot::Count>& slots,
 	const TwoBoneIkRest& rest,
+	double ikFkBlend,
 	MObject& oRigRoot,
 	MDagModifier& dagMod)
 {
@@ -901,7 +902,7 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 		return result;
 	}
 
-	status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::IkFkBlend, 1.0, 0.0, 1.0, false, dagMod);
+	status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::IkFkBlend, ikFkBlend, 0.0, 1.0, false, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
 	status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::Stretch, 0.0, 0.0, 1.0, false, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
@@ -983,13 +984,24 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	TwoBoneIkArgs ikArgs;
-	if (!readModuleArgs(args, { "joints" }, ctx, ikArgs, { "controlName", "poleOffset", "settingsOffset" }))
+	if (!readModuleArgs(args, { "joints" }, ctx, ikArgs, { "controlName", "poleOffset", "settingsOffset", RigAttr::IkFkBlend, "ikOrientToWorld", "ikAlignToPole" }))
 	{
 		return false;
 	}
 
 	const std::string argsPath = ctx.where + "." + TemplateKey::ModuleArgs;
 	bool valid = true;
+	// The channel clamps to 0..1, so a value outside it would build a rest the channel can't hold.
+	if (ikArgs.ikFkBlend < 0.0 || ikArgs.ikFkBlend > 1.0)
+	{
+		ctx.report.addError(argsPath + "." + RigAttr::IkFkBlend, "must be between 0 (FK) and 1 (IK), got " + std::to_string(ikArgs.ikFkBlend));
+		valid = false;
+	}
+	if (ikArgs.ikAlignToPole && !ikArgs.ikOrientToWorld)
+	{
+		ctx.report.addError(argsPath + ".ikAlignToPole", "turns a world-aligned handle toward the pole, so it needs ikOrientToWorld set to true as well");
+		valid = false;
+	}
 	if (ikArgs.joints.size() != TwoBoneIkSlot::LimbCount)
 	{
 		ctx.report.addError(argsPath + ".joints", "a two-bone IK limb has exactly three joints (root, mid, end), got "
@@ -1070,7 +1082,24 @@ bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 		mFrame[3][2] = vOrigin.z;
 		return mFrame;
 	};
-	slots[TwoBoneIkSlot::Ik].mRestWorld = frameAt(mEndRotation, vEnd);
+	if (ikArgs.ikOrientToWorld)
+	{
+		// World-aligned (D59): on the mirrored side the pole is reflected, so a turn toward it is reflected too. The IK joints' rest
+		// offsets (computeRest) absorb whichever rotation the handle has, so the bind pose is unaffected.
+		const std::optional<VectorMath::Mat4> worldHandle = ControlPlacement::placeWorldIkHandle(
+			{ vEnd.x, vEnd.y, vEnd.z }, placement.pole, ikArgs.ikAlignToPole);
+		if (!worldHandle)
+		{
+			ctx.report.addError(argsPath + ".ikAlignToPole", "the pole is straight above or below the end joint, so there is no direction to turn the handle "
+				"toward. Give the limb a poleOffset that moves the pole off that vertical line");
+			return false;
+		}
+		slots[TwoBoneIkSlot::Ik].mRestWorld = MathUtils::toMMatrix(*worldHandle);
+	}
+	else
+	{
+		slots[TwoBoneIkSlot::Ik].mRestWorld = frameAt(mEndRotation, vEnd);
+	}
 	slots[TwoBoneIkSlot::Pole].mRestWorld = frameAt(MMatrix::identity, vPole);
 	slots[TwoBoneIkSlot::Settings].mRestWorld = frameAt(MMatrix::identity, vSettings);
 
@@ -1110,9 +1139,10 @@ bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 	const MString moduleName = ctx.moduleData.name.c_str();
 	const Side side = getSideFromString(ctx.moduleData.side);
 	const ShapeType shapeType = getShapeTypeFromString(ctx.moduleData.shapeType);
-	outPlan.build = [moduleName, side, shapeType, slots, rest](MObject& oRigRoot, MDagModifier& dagMod)
+	const double ikFkBlend = ikArgs.ikFkBlend;
+	outPlan.build = [moduleName, side, shapeType, slots, rest, ikFkBlend](MObject& oRigRoot, MDagModifier& dagMod)
 	{
-		return TwoBoneIkNode::createModule(moduleName, side, shapeType, slots, rest, oRigRoot, dagMod);
+		return TwoBoneIkNode::createModule(moduleName, side, shapeType, slots, rest, ikFkBlend, oRigRoot, dagMod);
 	};
 	return true;
 }

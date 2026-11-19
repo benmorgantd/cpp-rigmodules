@@ -107,13 +107,16 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 | `controlName` | no | The base of the IK, pole and settings control names (below). Default: the first joint's usage without a trailing `_NN` (`upperArm` stays `upperArm`, so an arm wants `"controlName": "arm"`) |
 | `poleOffset` | no | `[x, y, z]` in world space: the pole control's offset from the mid joint. Default: see below |
 | `settingsOffset` | no | `[x, y, z]` in world space: the settings control's offset from the end joint. Default: see below |
+| `ikFkBlend` | no | 0 to 1: the limb's blend when built, and the rest value of its `ikFkBlend` channel. Default 1 (IK). An arm usually wants 0 (FK). Out of range fails the build |
+| `ikOrientToWorld` | no | `true` puts the IK handle on world axes instead of the end joint's. Default `false`. For arms and legs that want orthogonal controls. The joints keep their bind pose |
+| `ikAlignToPole` | no | `true` (needs `ikOrientToWorld`) turns the world-aligned handle about world Y only, so +Z points along the horizontal part of the line from the end joint to the pole. Default `false`. For feet. Fails the build when the pole is straight above or below the end joint |
 
 There are **no marker joints** (D57). The three limb joints belong to this module alone, and the other three controls are placed from them:
 
 - **The IK handle** sits at the end joint, turned the way that joint is turned.
 - **The pole** sits at the mid joint plus `poleOffset`. Without it, it is pushed out from the mid joint by the limb's length along the bend: the part of the root-to-mid vector that is perpendicular to the root-to-end line, so the elbow or knee points at it. A **straight limb is not an error** (mocap skeletons have them): when the mid joint is within 0.1 percent of the limb's length of the root-to-end line, the pole goes out along the **root joint's -Y** instead, which is the back of an elbow and the front of a knee on a skeleton whose joints are oriented the usual way. A straight limb whose root-to-end line runs along that same axis (a leg pointing straight down a Y axis) has no bend plane then, and the build fails with an error that asks for a `poleOffset`.
 - **The settings control** sits at the end joint plus `settingsOffset`. Without it, it sits a quarter of the limb's length along world +X from the end joint (-X on the mirrored side).
-- **Orientation.** The handle takes the end joint's rotation. The pole and settings controls take **world axes**: their rotation is locked, so this only sets which way their translate channels point.
+- **Orientation.** The handle takes the end joint's rotation, or world axes with `ikOrientToWorld` (a yaw toward the pole as well with `ikAlignToPole`). Both keys apply to the mirrored side by the same rule: world axes stay world axes, and the yaw follows the mirrored pole, so the two feet turn equal and opposite and each faces its own pole. A world-aligned handle on both sides has the same axes, so its translate channels are not reflected the way a joint-aligned right handle's are. The pole and settings controls take **world axes**: their rotation is locked, so this only sets which way their translate channels point.
 - **Mirroring.** `poleOffset` and `settingsOffset` are world vectors for a `Left` or `Center` module. On the mirrored copy of a module the offsets' X is negated, so one template entry gives both sides.
 
 | | |
@@ -132,7 +135,7 @@ There are **no marker joints** (D57). The three limb joints belong to this modul
 | Pole | translate, `pin`, `space` | rotate, scale |
 | Settings | `ikFkBlend`, `stretch`, `soft` | translate, rotate, scale |
 
-- **`ikFkBlend`** (0 to 1, default 1): 0 is FK and 1 is IK, so **every limb is in IK when built**. Between, each joint's translation and scale lerp and its rotation slerps. At exactly 0 and 1 the result is exactly FK or IK. The FK lower and end controls show below 1, and the IK handle and pole show above 0. The start control and the settings control are always visible.
+- **`ikFkBlend`** (0 to 1): 0 is FK and 1 is IK. The channel's default and rest come from the template's `ikFkBlend` key, which is 1 when absent, so **a limb is in IK when built unless the template says otherwise**. Between, each joint's translation and scale lerp and its rotation slerps. At exactly 0 and 1 the result is exactly FK or IK. The FK lower and end controls show below 1, and the IK handle and pole show above 0. The start control and the settings control are always visible.
 - **Switch with [`setRigIkFkBlend`](commands.md#setrigikfkblend).** The two chains hold their own control values, so the command first writes the controls of both sides to match the current pose, then sets `ikFkBlend`. Switching with `setAttr` pops: it shows whatever the other side's controls say, the same way setting a `space` directly doesn't match.
 - **The FK start control** moves the whole chain. Its rotation turns the FK upper joint and **does nothing to the IK chain**: the IK root takes the start control's translation only, and the IK plane comes from the pole.
 - **`stretch`** (0 to 1, default 0): 0 stops the end at full reach, on the line to the handle, like any native IK. 1 stretches both bones so the end reaches the handle.
@@ -204,6 +207,8 @@ A bendy, stretchy run of bind joints driven by a few controls: a tail, a spine, 
 | `controlName` | no | The base of the control names (below). Default: the first bind joint's usage without a trailing `_NN` (`spine_00` gives `spine`, `tail1` stays `tail1`). It must be camelCase: a lowercase letter, then letters and digits |
 | `joints` | yes | 2 to 64 selectors for the **bind joints**, root to tip, already spaced the way the ribbon should hold them at rest |
 | `startAimBlend`, `endAimBlend` | no | A number from 0 to 1, default 0: the default, and so the rest, of the channel of the same name (below). Set `startAimBlend` to 1 on a shoulder or thigh so its start aims down the limb on every build. A value outside 0 to 1 fails the build |
+| `fkStyle` | no | `true` adds an **fk chain** under the ik controls (below). Default `false` |
+| `fkControlCount` | no | 2 to 8, default `controlCount`: how many fk controls, placed the same way as the ik controls. Needs `fkStyle`. Setting it without `fkStyle`, or outside 2 to 8, fails the build |
 
 There are **no control joints**. The ik controls are placed from the bind joints (D57): a smooth spline runs through the bind joints' rest positions, and control `k` of `c` sits at the share `k / (c - 1)` of its length. Its orientation is the rotation of the two bind joints either side of it, blended by how far between them it sits, so the first and last controls take the first and last joints' frames. A bind joint's X axis must run along the chain, either toward the tip (+X down the chain, +Y up, the way an FK chain's do) or back up it (-X down the chain, as on a mirrored limb that keeps the other side's axes). The build reads which from the bind joints and every control's twist keeps its sign about its own X. The build fails, naming the joint, when a joint's X axis is more than 60 degrees off the line to the next joint (the last uses the line from the one before), when joints disagree about the direction, or when two neighbouring joints sit on each other. Every joint belongs to this module alone.
 
@@ -213,8 +218,10 @@ There are **no control joints**. The ik controls are placed from the bind joints
 |---|---|
 | Node type | `ribbonModule` |
 | Controls | `controlCount` **ik controls**, usage `<base>IK_<nn>` (`tailIK_00`, `tailIK_01`, ...), and one hidden **tweaker** per bind joint, usage `<base>Tweak_<nn>` with `nn` the bind joint's index from 00 (`tailTweak_00`, ...). The side is the first bind joint's. An ik control's node is named from its usage (`tailIK_00_M_CTRL`) and a tweaker's from its bind joint (`tail1_00_M_CTRL`). Usages are unique in a rig, so two ribbons with the same base and side fail the build: set `controlName` on one. Control shapes come from the module's `shapeType`. |
-| Child plugs | `start` (the start control's parent) and `end` (the end control's parent) |
-| Sockets | `index_0` to `index_<j-1>` for the ik controls (`j` is `controlCount`), with `start` the same socket as `index_0` and `end` the last. The tweakers have none. |
+| Child plugs | `start` (the start control's parent) and `end` (the end control's parent). With `fkStyle` only `start`: the end rides the fk chain, and a template that connects `end` fails the build |
+| Sockets | `index_0` to `index_<j-1>` for the ik controls (`j` is `controlCount`), with `start` the same socket as `index_0` and `end` the last. The tweakers and the fk controls have none. |
+
+**The fk chain (`fkStyle`).** `fkControlCount` more controls, usage `<base>FK_<nn>` (`tailFK_00`, ...), a real chain: each rides the one before, so turning one carries the rest, as in an [FkChain](#fkchain). The first follows the `start` plug. The ribbon's base curve passes through the chain's positions, and every ik control, the start and end too, floats on that curve and keeps its own local offset, so animators pose the shape with the ik controls on top of the chain they keep as a pose. The chain's own controls never move the ik controls' channels. The fk controls have no joints, so a restore from joints leaves them at the sidecar or rest values and the ik end controls and tweakers carry the joints exactly, as for the interior ik controls. The ik controls' rest is placed at the same spots as without `fkStyle`, so a rest rig is the same.
 
 **How it moves.**
 
@@ -323,7 +330,7 @@ The twist is the hand's whole twist about the bone since rest, the shoulder's an
 
 The build fails if `controlCount` is not 2 to 8, if there are fewer than 2 or more than 64 bind joints, or if the bind joints' axes fail the checks above.
 
-**Not built yet** (design/ribbon.md): `fkStyle`, an FK chain under the ik controls.
+The build also fails if `fkControlCount` is set without `fkStyle` or is not 2 to 8.
 
 ```python
 from maya import cmds

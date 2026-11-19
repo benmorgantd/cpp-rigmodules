@@ -29,7 +29,7 @@ Design pages are history with dates, not user documentation. What a feature does
 
 | Page | Decision | State |
 |---|---|---|
-| [`ribbon.md`](ribbon.md) | D56 | Built in part. `fkStyle` and the perf rig are not |
+| [`ribbon.md`](ribbon.md) | D56 | Built. `fkStyle` was added in D59 (2026-11-18) |
 | [`derived-controls.md`](derived-controls.md) | D57 | Signed off. Phases 0 and 1 built |
 | [`ribbon-twist-follow.md`](ribbon-twist-follow.md) | D56 | Proposed, not signed off |
 | [`limb.md`](limb.md) | D31, D56 | A direction only: a Limb module over TwoBoneIk and Ribbon, and why the Twist constraint was built first. Not designed |

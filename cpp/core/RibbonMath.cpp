@@ -171,7 +171,9 @@ namespace RibbonMath
 			return normalized(scale(row(world, 0), setup.chainSign), fallback);
 		}
 
-		void makeBase(const Setup& setup, const Params& params, const Mat4& startWorld, const Mat4& endWorld, Base& base)
+		// A two-point spline from the start to the end, with the end handles the aim blends and the roundness set. Also the ends of an
+		// fk chain's base curve.
+		void makeEnds(const Setup& setup, const Params& params, const Mat4& startWorld, const Mat4& endWorld, Spline& spline)
 		{
 			const Vec3 p0 = origin(startWorld);
 			Vec3 p1 = origin(endWorld);
@@ -195,14 +197,18 @@ namespace RibbonMath
 			}
 
 			const double handle = chordLength * std::max(0.0, params.bendRoundness);
-			base.spline.count = 2;
-			base.spline.u[0] = 0.0;
-			base.spline.u[1] = 1.0;
-			base.spline.p[0] = p0;
-			base.spline.p[1] = p1;
-			base.spline.m[0] = scale(dir0, handle);
-			base.spline.m[1] = scale(dir1, handle);
+			spline.count = 2;
+			spline.u[0] = 0.0;
+			spline.u[1] = 1.0;
+			spline.p[0] = p0;
+			spline.p[1] = p1;
+			spline.m[0] = scale(dir0, handle);
+			spline.m[1] = scale(dir1, handle);
+		}
 
+		// The frame table of a base curve, carrying the rest up vector from the start.
+		void finishBase(const Setup& setup, Base& base)
+		{
 			Vec3 pos;
 			Vec3 d;
 			evalSpline(base.spline, 0.0, pos, d);
@@ -210,10 +216,62 @@ namespace RibbonMath
 			buildFrameTable(base.spline, up0, base.table);
 		}
 
-		// Start and end as given, the interior controls on the base curve at their parameters.
+		void makeBase(const Setup& setup, const Params& params, const Mat4& startWorld, const Mat4& endWorld, Base& base)
+		{
+			makeEnds(setup, params, startWorld, endWorld, base.spline);
+			finishBase(setup, base);
+		}
+
+		// The base curve of an fk chain (D59): through the fk controls' positions, with the ends' handles from makeEnds and each
+		// interior tangent blended from its neighbours and its own X axis, as the detail curve's are. Two fk controls are makeBase.
+		void makeFkBase(const Setup& setup, const Params& params, const Mat4* fkWorld, Base& base)
+		{
+			const int last = setup.fkCount - 1;
+			Spline ends;
+			makeEnds(setup, params, fkWorld[0], fkWorld[last], ends);
+			Spline& spline = base.spline;
+			spline.count = setup.fkCount;
+			for (int k = 0; k <= last; ++k)
+			{
+				spline.u[k] = setup.fkKnotU[k];
+				spline.p[k] = origin(fkWorld[k]);
+			}
+			spline.p[last] = ends.p[1];
+			spline.m[0] = ends.m[0];
+			spline.m[last] = ends.m[1];
+			for (int k = 1; k < last; ++k)
+			{
+				const Vec3 difference = scale(sub(spline.p[k + 1], spline.p[k - 1]), 1.0 / (spline.u[k + 1] - spline.u[k - 1]));
+				const Vec3 differenceDirection = normalized(difference, { 1.0, 0.0, 0.0 });
+				const Vec3 direction = normalized(lerp(differenceDirection, forwardAxis(fkWorld[k], setup, differenceDirection), kControlTangentBlend), differenceDirection);
+				spline.m[k] = scale(direction, length(difference));
+			}
+			finishBase(setup, base);
+		}
+
+		// Start and end as given, the interior controls on the base curve at their parameters. With an fk chain, the chain is composed
+		// first, the base curve goes through it, and every ik control (the ends too) floats on that curve.
 		void evaluateControlsInternal(const Setup& setup, const Params& params, const Input& input, const EndTwists& twists, Output& output, Base& base)
 		{
 			const int last = setup.controlCount - 1;
+			if (setup.fkCount > 0)
+			{
+				// Each fk control rides its parent by the rest offset between them, so a rest chain gives the rest worlds.
+				for (int k = 0; k < setup.fkCount; ++k)
+				{
+					output.fkOPM[k] = k == 0 ? setup.fkRest[0] : multiply(multiply(setup.fkRest[k], inverseRigid(setup.fkRest[k - 1])), output.fkWorld[k - 1]);
+					output.fkWorld[k] = multiply(input.fkLocal[k], output.fkOPM[k]);
+				}
+				makeFkBase(setup, params, output.fkWorld, base);
+				for (int j = 0; j <= last; ++j)
+				{
+					// The ends' own twist is in their local matrix, so their frame carries none.
+					const double angle = j == 0 || j == last ? 0.0 : setup.chainSign * twists.at(setup.knotU[j]);
+					output.controlOPM[j] = multiply(setup.ikOffset[j], frameMatrix(base.spline, base.table, setup.knotU[j], angle));
+					output.controlWorld[j] = multiply(input.local[j], output.controlOPM[j]);
+				}
+				return;
+			}
 			output.controlOPM[0] = input.startOPM;
 			output.controlOPM[last] = input.endOPM;
 			output.controlWorld[0] = multiply(input.local[0], input.startOPM);
@@ -327,7 +385,7 @@ namespace RibbonMath
 			}
 			// The ends take the base curve's handles (aim blend and roundness). A two-control ribbon is the base curve.
 			spline.m[0] = base.spline.m[0];
-			spline.m[count - 1] = base.spline.m[1];
+			spline.m[count - 1] = base.spline.m[base.spline.count - 1];
 			for (int j = 1; j < count - 1; ++j)
 			{
 				const Vec3 difference = scale(sub(spline.p[j + 1], spline.p[j - 1]), 1.0 / (spline.u[j + 1] - spline.u[j - 1]));
@@ -429,7 +487,29 @@ namespace RibbonMath
 		return SwingTwist::twistAboutX(rows);
 	}
 
-	bool buildSetup(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, Setup& outSetup, const char*& outReason)
+	bool fkKnots(const Mat4* fkRest, int fkCount, double* outU)
+	{
+		double chords[MaxControls]{};
+		double total = 0.0;
+		for (int k = 0; k + 1 < fkCount; ++k)
+		{
+			chords[k] = length(sub(origin(fkRest[k + 1]), origin(fkRest[k])));
+			if (chords[k] < kMinChord)
+			{
+				return false;
+			}
+			total += chords[k];
+		}
+		double running = 0.0;
+		for (int k = 0; k < fkCount; ++k)
+		{
+			outU[k] = k == fkCount - 1 ? 1.0 : running / total;
+			running += chords[k];
+		}
+		return true;
+	}
+
+	bool buildSetup(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, const Mat4* fkRest, int fkCount, Setup& outSetup, const char*& outReason)
 	{
 		if (controlCount < 2 || controlCount > MaxControls)
 		{
@@ -442,9 +522,25 @@ namespace RibbonMath
 			return false;
 		}
 
+		if (fkCount != 0 && (fkCount < 2 || fkCount > MaxControls))
+		{
+			outReason = "the fk chain needs between 2 and 8 controls";
+			return false;
+		}
+
 		Setup setup;
 		setup.controlCount = controlCount;
 		setup.bindCount = bindCount;
+		setup.fkCount = fkCount;
+		for (int k = 0; k < fkCount; ++k)
+		{
+			setup.fkRest[k] = fkRest[k];
+		}
+		if (fkCount > 0 && !fkKnots(fkRest, fkCount, setup.fkKnotU))
+		{
+			outReason = "two neighbouring fk controls sit on each other, so the fk chain has no length between them";
+			return false;
+		}
 
 		double chords[MaxControls]{};
 		double total = 0.0;
@@ -506,8 +602,15 @@ namespace RibbonMath
 		input.startOPM = controlRest[0];
 		input.endOPM = controlRest[controlCount - 1];
 		Base base;
-		makeBase(setup, defaults, controlRest[0], controlRest[controlCount - 1], base);
-		for (int j = 1; j < controlCount - 1; ++j)
+		if (fkCount > 0)
+		{
+			makeFkBase(setup, defaults, setup.fkRest, base);
+		}
+		else
+		{
+			makeBase(setup, defaults, controlRest[0], controlRest[controlCount - 1], base);
+		}
+		for (int j = fkCount > 0 ? 0 : 1; j < (fkCount > 0 ? controlCount : controlCount - 1); ++j)
 		{
 			setup.ikOffset[j] = multiply(controlRest[j], inverseRigid(frameMatrix(base.spline, base.table, setup.knotU[j], 0.0)));
 		}
