@@ -18,6 +18,10 @@ namespace ControlPlacement
 
 	// How far (degrees) a bind joint's X axis may be from the line of the chain before the template is rejected.
 	inline constexpr double MaxAxisAngleDegrees{ 60.0 };
+	// The same limit for the last joint of a limb's own joints, which may point at what hangs off the limb: an ankle's X axis runs to
+	// the ball of the foot, which is not along the shin. Wider than the rest so a pitched foot passes, short of 90 where the roll about
+	// the curve (the Y axis projected across the tangent) loses its meaning.
+	inline constexpr double MaxLimbEndAxisAngleDegrees{ 80.0 };
 	// A limb whose mid joint is off the root-to-end line by less than this share of the limb's length counts as straight.
 	inline constexpr double StraightLimbTolerance{ 0.001 };
 	// The settings control's default offset from the end joint along world X, as a share of the limb's length.
@@ -37,13 +41,14 @@ namespace ControlPlacement
 		ChainProblem problem{ ChainProblem::None };
 		int jointIndex{ -1 };         // the joint the problem is at
 		double angleDegrees{ 0.0 };   // AxisAcrossChain: the angle between the axis and the chain's line
+		double limitDegrees{ MaxAxisAngleDegrees };   // AxisAcrossChain: the limit that joint was held to
 		double sign{ 1.0 };           // +1 when the joints' X axes run toward the tip, -1 when they run back. Valid when problem is None
 	};
 
 	// Checks that every joint's X axis runs along the chain: within MaxAxisAngleDegrees of the line to the next joint (the last
 	// joint uses the line from the one before it), and all of them the same way along it. A chain that runs back is fine, as in a
-	// mirrored limb whose joints keep the other side's axes.
-	ChainCheck checkChain(const std::vector<Mat4>& joints);
+	// mirrored limb whose joints keep the other side's axes. `lastJointLimitDegrees` replaces MaxAxisAngleDegrees for the last joint.
+	ChainCheck checkChain(const std::vector<Mat4>& joints, double lastJointLimitDegrees = MaxAxisAngleDegrees);
 
 	// The error text for a problem, naming the joint by its entry in `jointNames` (one per joint, in order). Empty for None.
 	std::string describeChainProblem(const ChainCheck& check, const std::vector<std::string>& jointNames);

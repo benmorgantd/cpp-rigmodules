@@ -181,6 +181,17 @@ class LimbBehaviour(RigTestCase):
 
     # ---- the coupling to TwoBoneIk (design/limb.md, D62) -----------------------------------------
 
+    def test_an_end_joint_pitched_70_degrees_off_the_forearm_builds_and_rests_on_the_bind_joints(self):
+        """An end joint whose X axis points past the limb (an ankle at the ball of the foot) is allowed up to 80 degrees off the line from
+        the joint before it. Here the hand's X is 70 degrees off the forearm (world rotateZ 20 against the forearm's +Y). Nothing moves
+        at rest: every bind joint is where it was authored, and the elbow end of the curve is untouched by the hand's pitch."""
+        self._build(skeleton="limb_arm_hand_pitched_70")
+        for index, joint in enumerate(BIND_JOINTS):
+            expected = [4.0, float(index - 4), 0.0] if index >= 4 else [float(index), 0.0, 0.0]
+            actual = translation(joint)
+            for axis in range(3):
+                self.assertAlmostEqual(actual[axis], expected[axis], places=4, msg="%s axis %d" % (joint, axis))
+
     def _limb_joint_worlds(self):
         return [cmds.xform(rig_name(j), query=True, worldSpace=True, matrix=True) for j in LIMB_JOINTS]
 

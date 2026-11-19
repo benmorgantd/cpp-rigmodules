@@ -1,0 +1,173 @@
+{
+  "joints": [
+    {
+      "name": "upperArm_00_L_JNT",
+      "side": "Left",
+      "usage": "upperArm",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "skin": false
+    },
+    {
+      "name": "lowerArm_00_L_JNT",
+      "side": "Left",
+      "usage": "lowerArm",
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        90
+      ],
+      "parent": "upperArm_00_L_JNT",
+      "skin": false
+    },
+    {
+      "name": "hand_00_L_JNT",
+      "side": "Left",
+      "usage": "hand",
+      "translate": [
+        4,
+        4,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        20
+      ],
+      "parent": "lowerArm_00_L_JNT",
+      "skin": false
+    },
+    {
+      "name": "bind1_00_L_JNT",
+      "side": "Left",
+      "usage": "bind1",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "parent": "upperArm_00_L_JNT"
+    },
+    {
+      "name": "bind2_00_L_JNT",
+      "side": "Left",
+      "usage": "bind2",
+      "translate": [
+        1,
+        0,
+        0
+      ],
+      "parent": "upperArm_00_L_JNT"
+    },
+    {
+      "name": "bind3_00_L_JNT",
+      "side": "Left",
+      "usage": "bind3",
+      "translate": [
+        2,
+        0,
+        0
+      ],
+      "parent": "upperArm_00_L_JNT"
+    },
+    {
+      "name": "bind4_00_L_JNT",
+      "side": "Left",
+      "usage": "bind4",
+      "translate": [
+        3,
+        0,
+        0
+      ],
+      "parent": "upperArm_00_L_JNT"
+    },
+    {
+      "name": "bind5_00_L_JNT",
+      "side": "Left",
+      "usage": "bind5",
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        45
+      ],
+      "parent": "lowerArm_00_L_JNT"
+    },
+    {
+      "name": "bind6_00_L_JNT",
+      "side": "Left",
+      "usage": "bind6",
+      "translate": [
+        4,
+        1,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        90
+      ],
+      "parent": "lowerArm_00_L_JNT"
+    },
+    {
+      "name": "bind7_00_L_JNT",
+      "side": "Left",
+      "usage": "bind7",
+      "translate": [
+        4,
+        2,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        90
+      ],
+      "parent": "lowerArm_00_L_JNT"
+    },
+    {
+      "name": "bind8_00_L_JNT",
+      "side": "Left",
+      "usage": "bind8",
+      "translate": [
+        4,
+        3,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        90
+      ],
+      "parent": "lowerArm_00_L_JNT"
+    },
+    {
+      "name": "bind9_00_L_JNT",
+      "side": "Left",
+      "usage": "bind9",
+      "translate": [
+        4,
+        4,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        90
+      ],
+      "parent": "lowerArm_00_L_JNT"
+    }
+  ]
+}

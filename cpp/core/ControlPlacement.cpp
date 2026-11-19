@@ -162,7 +162,7 @@ namespace ControlPlacement
 		}
 	}
 
-	ChainCheck checkChain(const std::vector<Mat4>& joints)
+	ChainCheck checkChain(const std::vector<Mat4>& joints, double lastJointLimitDegrees)
 	{
 		ChainCheck check;
 		const int count = static_cast<int>(joints.size());
@@ -187,13 +187,15 @@ namespace ControlPlacement
 		}
 
 		const double limit = std::cos(MaxAxisAngleDegrees * kPi / 180.0);
+		const double lastLimit = std::cos(lastJointLimitDegrees * kPi / 180.0);
 		for (int i = 0; i < count; ++i)
 		{
-			if (std::fabs(cosines[i]) < limit)
+			if (std::fabs(cosines[i]) < (i == count - 1 ? lastLimit : limit))
 			{
 				check.problem = ChainProblem::AxisAcrossChain;
 				check.jointIndex = i;
 				check.angleDegrees = std::acos(std::min(1.0, std::fabs(cosines[i]))) * 180.0 / kPi;
+				check.limitDegrees = i == count - 1 ? lastJointLimitDegrees : MaxAxisAngleDegrees;
 				return check;
 			}
 		}
@@ -227,8 +229,8 @@ namespace ControlPlacement
 			return "joint " + name(check.jointIndex) + " sits on the joint before it, so the chain has no direction there";
 		case ChainProblem::AxisAcrossChain:
 			return "joint " + name(check.jointIndex) + " has its X axis " + std::to_string(static_cast<int>(std::lround(check.angleDegrees)))
-				+ " degrees off the chain: a joint's X axis must run along the chain, within "
-				+ std::to_string(static_cast<int>(MaxAxisAngleDegrees)) + " degrees";
+				+ " degrees off the chain (the last joint is measured against the line from the one before it): a joint's X axis must run along the chain, within "
+				+ std::to_string(static_cast<int>(check.limitDegrees)) + " degrees";
 		case ChainProblem::AxisDirectionDisagrees:
 			return "joint " + name(check.jointIndex) + " has its X axis running the other way along the chain from " + name(0)
 				+ ": every joint's X axis must run toward the tip, or every one must run back";

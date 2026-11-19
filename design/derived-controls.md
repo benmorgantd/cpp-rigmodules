@@ -61,7 +61,7 @@ Orientation: a control's rest basis is the rotation of the two bind joints on ei
 
 An error that names the bind joint and its selector when:
 
-- a joint's X axis, dotted with the direction to the next joint (the last uses the direction from the previous), is not within 60 degrees of its line, so the axis doesn't run along the chain (author accepted 60 degrees);
+- a joint's X axis, dotted with the direction to the next joint (the last uses the direction from the previous), is not within 60 degrees of its line, so the axis doesn't run along the chain (author accepted 60 degrees; a `Limb`'s end joint gets 80, because an ankle's X axis points at the ball of the foot, D62);
 - the sign of that dot differs from the first joint's. All joints must agree, so a chain is +X-down or -X-down, never mixed;
 - `controlCount` is outside 2 to the cap.
 

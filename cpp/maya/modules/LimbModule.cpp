@@ -524,7 +524,8 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 		limbRest.push_back(MathUtils::toMat4(slots[i].mRestWorld));
 		limbNames.push_back(formatJointSelector(limbArgs.joints[i]));
 	}
-	ControlPlacement::ChainCheck chainCheck = ControlPlacement::checkChain(limbRest);
+	// The end joint may point past the limb (an ankle at the ball of the foot), so it gets the wider limit.
+	ControlPlacement::ChainCheck chainCheck = ControlPlacement::checkChain(limbRest, ControlPlacement::MaxLimbEndAxisAngleDegrees);
 	if (chainCheck.problem != ControlPlacement::ChainProblem::None)
 	{
 		ctx.report.addError(argsPath + ".joints", ControlPlacement::describeChainProblem(chainCheck, limbNames));
