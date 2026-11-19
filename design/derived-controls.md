@@ -87,7 +87,7 @@ I changed one thing from the earlier draft: the tweaker name is `<base>Tweak_<nn
 
 - **IK handle:** at the end joint, with the end joint's orientation (D52 already says it is normally equal to it).
 - **Pole:** the mid joint plus `poleOffset`, an optional world-space vector (author, 2026-11-17: the direction isn't consistent between limbs). Without it, the pole is pushed from the mid joint along the bend direction, the component of (mid - root) perpendicular to the root-to-end line, by the limb's length. **A straight limb is not an error** (author, 2026-11-17: mocap skeletons have straight limbs). When the bend is under 0.1 percent of the limb's length and there is no `poleOffset`, the pole goes straight out in the -Y direction of the root joint's frame, which is the front of a knee and the back of an elbow. The author said "-Z orientation". The root joint's -Y is what gives that result on the `solomon` skeleton (the left hip's Y is world -Z, so -Y is front; the left shoulder's Y is world +Z, so -Y is back), so I read it as -Y. **To confirm.**
-- **Settings:** the end joint plus `settingsOffset`, an optional world-space vector. Default: a quarter of the limb's length along world +Y (author, 2026-11-17), so it doesn't sit on the IK handle.
+- **Settings:** the end joint plus `settingsOffset`, an optional world-space vector. Default: a quarter of the limb's length along world +X, so it doesn't sit on the IK handle (author, 2026-11-17 chose +Y; changed to +X on 2026-11-18). On the mirrored side the default is -X, so the two sides reflect.
 
 Both vectors are world-space for the Left or Center module and mirror by negating X for the other side, in `planFromJson` through `ctx.moduleData.isMirror()` (CLAUDE.md, mirroring).
 

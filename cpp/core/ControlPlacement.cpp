@@ -278,7 +278,7 @@ namespace ControlPlacement
 		return frames;
 	}
 
-	LimbPlacement placeLimb(const Mat4& root, const Mat4& mid, const Mat4& end, const std::optional<Vec3>& poleOffset, const std::optional<Vec3>& settingsOffset)
+	LimbPlacement placeLimb(const Mat4& root, const Mat4& mid, const Mat4& end, const std::optional<Vec3>& poleOffset, const std::optional<Vec3>& settingsOffset, bool mirrored)
 	{
 		const Vec3 pRoot = origin(root);
 		const Vec3 pMid = origin(mid);
@@ -300,7 +300,7 @@ namespace ControlPlacement
 				: scale(normalized(row(root, 1), { 0.0, 1.0, 0.0 }), -1.0);
 			placement.pole = add(pMid, scale(direction, limbLength));
 		}
-		placement.settings = add(pEnd, settingsOffset ? *settingsOffset : Vec3{ 0.0, DefaultSettingsRise * limbLength, 0.0 });
+		placement.settings = add(pEnd, settingsOffset ? *settingsOffset : Vec3{ (mirrored ? -DefaultSettingsRise : DefaultSettingsRise) * limbLength, 0.0, 0.0 });
 		return placement;
 	}
 }

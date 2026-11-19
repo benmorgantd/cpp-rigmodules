@@ -689,7 +689,7 @@ MStatus RigModuleWithControlsNode<Derived>::reparentChildPlugToSocket(const RigM
 	}
 	else
 	{
-		MGlobal::displayWarning(MString("Socket or child plug did not exist for DAG reparent"));  // we no longer have the child plug or parent socket namee
+		MGlobal::displayWarning(MString("Socket or child plug did not exist for DAG reparent"));  // we no longer have the child plug or parent socket name
 	}
 
 	return connectSocketMatrixToChildPlug(

@@ -20,7 +20,7 @@ namespace ControlPlacement
 	inline constexpr double MaxAxisAngleDegrees{ 60.0 };
 	// A limb whose mid joint is off the root-to-end line by less than this share of the limb's length counts as straight.
 	inline constexpr double StraightLimbTolerance{ 0.001 };
-	// The settings control's default rise above the end joint, as a share of the limb's length.
+	// The settings control's default offset from the end joint along world X, as a share of the limb's length.
 	inline constexpr double DefaultSettingsRise{ 0.25 };
 
 	enum class ChainProblem
@@ -65,7 +65,7 @@ namespace ControlPlacement
 	// The pole is the mid joint plus `poleOffset` when it is given. Without it, the pole is pushed from the mid joint by the limb's
 	// length along the bend (the part of root-to-mid that is perpendicular to the root-to-end line). A limb straighter than
 	// StraightLimbTolerance has no bend, so the pole goes out along the root joint's -Y instead. The settings control is the end
-	// joint plus `settingsOffset`, or DefaultSettingsRise of the limb's length straight up (+Y) when it is not given. Offsets are in
-	// world space, so a caller negates X for a mirrored side.
-	LimbPlacement placeLimb(const Mat4& root, const Mat4& mid, const Mat4& end, const std::optional<Vec3>& poleOffset, const std::optional<Vec3>& settingsOffset);
+	// joint plus `settingsOffset`, or DefaultSettingsRise of the limb's length along world +X (-X when `mirrored`, so the default is
+	// the reflection) when it is not given. Given offsets are in world space, so a caller negates X for a mirrored side.
+	LimbPlacement placeLimb(const Mat4& root, const Mat4& mid, const Mat4& end, const std::optional<Vec3>& poleOffset, const std::optional<Vec3>& settingsOffset, bool mirrored = false);
 }

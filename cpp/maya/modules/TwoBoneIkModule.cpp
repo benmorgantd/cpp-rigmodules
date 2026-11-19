@@ -1046,7 +1046,7 @@ bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 	// world axes: their rotation is locked, so this only sets how their translate channels read.
 	const ControlPlacement::LimbPlacement placement = ControlPlacement::placeLimb(
 		MathUtils::toMat4(slots[TwoBoneIkSlot::Upper].mRestWorld), MathUtils::toMat4(slots[TwoBoneIkSlot::Lower].mRestWorld),
-		MathUtils::toMat4(slots[TwoBoneIkSlot::End].mRestWorld), poleOffset, settingsOffset);
+		MathUtils::toMat4(slots[TwoBoneIkSlot::End].mRestWorld), poleOffset, settingsOffset, ctx.moduleData.isMirror());
 	const MVector vPole(placement.pole.x, placement.pole.y, placement.pole.z);
 	const MVector vSettings(placement.settings.x, placement.settings.y, placement.settings.z);
 

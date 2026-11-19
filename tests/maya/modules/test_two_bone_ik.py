@@ -353,9 +353,20 @@ class TwoBoneIkDerivedControls(RigTestCase):
         self._build_basic(controlName="arm")
         self.assertWorldTranslation(rig_name(POLE), [1.8, 9.4, 0])
 
-    def test_the_default_settings_control_is_a_quarter_of_the_limbs_length_above_the_end(self):
+    def test_the_default_settings_control_is_a_quarter_of_the_limbs_length_along_world_x_from_the_end(self):
+        """The limb is 7 long, so the settings control is the end (5,0,0) plus (1.75,0,0)."""
         self._build_basic(controlName="arm")
-        self.assertWorldTranslation(rig_name(SETTINGS), [5, 1.75, 0])
+        self.assertWorldTranslation(rig_name(SETTINGS), [6.75, 0, 0])
+
+    def test_the_default_settings_control_of_a_mirrored_limb_is_the_reflection(self):
+        """Without settingsOffset the right side's default is -X from its end, the reflection of the left's."""
+        data = self._template("twoboneik_mirror", controlName="arm", poleOffset=[0.7, 2.6, 0])
+        self.build_standard(data, "twoboneik_mirror")
+        left = cmds.xform(rig_name("armSettings_00_L_CTRL"), query=True, worldSpace=True, translation=True)
+        right = cmds.xform(rig_name("armSettings_00_R_CTRL"), query=True, worldSpace=True, translation=True)
+        for expected, actual in zip([left[0], left[1], left[2]], [-right[0], right[1], right[2]]):
+            self.assertAlmostEqual(expected, actual, places=4)
+        self.assertGreater(left[0], 6.0)
 
     def test_offsets_move_the_pole_and_the_settings_control(self):
         """The pole is the mid joint plus poleOffset and the settings control the end joint plus settingsOffset, in world space."""
@@ -387,12 +398,13 @@ class TwoBoneIkDerivedControls(RigTestCase):
     def test_a_straight_limb_builds_and_its_pole_goes_out_along_the_root_joints_negative_y(self):
         """Mocap skeletons have straight limbs (D57), so it is not an error. Left: root (1,0,0), mid (4,0,0), end (8,0,0), bones 3
         and 4, so the pole is mid + 7 * (0,-1,0) = (4,-7,0). The Right root is turned 180 degrees about X, so its -Y is +Y and
-        the pole is (-4,7,0): the direction is the root's, not the world's."""
+        the pole is (-4,7,0): the direction is the root's, not the world's. The settings default is a quarter of the 7 length
+        along +X from the end (-X on the mirrored side): (9.75,0,0) and (-9.75,0,0)."""
         self.build_standard("twoboneik_straight", "twoboneik_straight")
         self.assertWorldTranslation(rig_name("armPole_00_L_CTRL"), [4, -7, 0])
         self.assertWorldTranslation(rig_name("armPole_00_R_CTRL"), [-4, 7, 0])
-        self.assertWorldTranslation(rig_name("armSettings_00_L_CTRL"), [8, 1.75, 0])
-        self.assertWorldTranslation(rig_name("armSettings_00_R_CTRL"), [-8, 1.75, 0])
+        self.assertWorldTranslation(rig_name("armSettings_00_L_CTRL"), [9.75, 0, 0])
+        self.assertWorldTranslation(rig_name("armSettings_00_R_CTRL"), [-9.75, 0, 0])
 
     def test_a_straight_limb_bends_toward_its_pole_when_the_handle_comes_in(self):
         self.build_standard("twoboneik_straight", "twoboneik_straight")
@@ -430,6 +442,6 @@ class TwoBoneIkDerivedControls(RigTestCase):
         self.build_standard("twoboneik_v1", "twoboneik_v1")
         self.assertWorldTranslation(rig_name("upperArmIK_00_L_CTRL"), [5, 0, 0])
         self.assertWorldTranslation(rig_name("upperArmPole_00_L_CTRL"), [1.8, 9.4, 0])
-        self.assertWorldTranslation(rig_name("upperArmSettings_00_L_CTRL"), [5, 1.75, 0])
+        self.assertWorldTranslation(rig_name("upperArmSettings_00_L_CTRL"), [6.75, 0, 0])
         for joint in LIMB_JOINTS:
             self.assertTrue(all(math.isfinite(v) for v in translation(joint)), joint)

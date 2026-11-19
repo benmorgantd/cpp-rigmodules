@@ -112,7 +112,7 @@ There are **no marker joints** (D57). The three limb joints belong to this modul
 
 - **The IK handle** sits at the end joint, turned the way that joint is turned.
 - **The pole** sits at the mid joint plus `poleOffset`. Without it, it is pushed out from the mid joint by the limb's length along the bend: the part of the root-to-mid vector that is perpendicular to the root-to-end line, so the elbow or knee points at it. A **straight limb is not an error** (mocap skeletons have them): when the mid joint is within 0.1 percent of the limb's length of the root-to-end line, the pole goes out along the **root joint's -Y** instead, which is the back of an elbow and the front of a knee on a skeleton whose joints are oriented the usual way. A straight limb whose root-to-end line runs along that same axis (a leg pointing straight down a Y axis) has no bend plane then, and the build fails with an error that asks for a `poleOffset`.
-- **The settings control** sits at the end joint plus `settingsOffset`. Without it, it sits a quarter of the limb's length straight up (world +Y) from the end joint.
+- **The settings control** sits at the end joint plus `settingsOffset`. Without it, it sits a quarter of the limb's length along world +X from the end joint (-X on the mirrored side).
 - **Orientation.** The handle takes the end joint's rotation. The pole and settings controls take **world axes**: their rotation is locked, so this only sets which way their translate channels point.
 - **Mirroring.** `poleOffset` and `settingsOffset` are world vectors for a `Left` or `Center` module. On the mirrored copy of a module the offsets' X is negated, so one template entry gives both sides.
 
