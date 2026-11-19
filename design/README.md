@@ -23,6 +23,7 @@ Design pages are history with dates, not user documentation. What a feature does
 | [`mayadev-integration.md`](mayadev-integration.md) | D24 | The RigModules and mayadev boundary |
 | [`tool-registry.md`](tool-registry.md) | D47 | mayadev's tool registry and menus (built in mayadev) |
 | [`mayadev-ui.md`](mayadev-ui.md), [`active-rig-panel.md`](active-rig-panel.md), [`library-browser.md`](library-browser.md) | D49, D50, D51 | mayadev's Qt UIs, the active rig panel and the library browser (phases 1 to 3 built; the later phases are not) |
+| [`asset-editor.md`](asset-editor.md) | D61 | mayadev's Asset Editor: the asset context, the Files, Markup and Shapes tabs (phases 1 to 3 built) |
 | [`attachments-mayadev.md`](attachments-mayadev.md) | D55 | The mayadev side of attachments (built, merged into mayadev `main` and pushed (`01a3d55`)) |
 
 ## In progress
