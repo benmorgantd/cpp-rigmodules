@@ -564,6 +564,22 @@ class RibbonFkStyle(RigTestCase):
         self.assertWorldTranslation(rig_name(BIND_JOINTS[2]), [4, 0, 0], 1e-5)
         self.assertWorldTranslation(rig_name(BIND_JOINTS[4]), end, 1e-5)
 
+    def test_rolling_an_fk_control_rolls_the_ik_control_at_its_place_one_to_one(self):
+        """A roll about X leaves the curve where it is, so only the carried frame says it: the middle fk control rolls 50, and the
+        middle ik control (at its parameter) and the end (which hangs on it) roll 50 with it. The start is before the roll."""
+        self._build()
+        set_attr(FK_CONTROLS[1], "rotateX", 50)
+        self.assertWorldRotation(rig_name(FK_CONTROLS[1]), [50, 0, 0], 1e-4)
+        self.assertWorldRotation(rig_name(INTERIOR), [50, 0, 0], 1e-4)
+        self.assertWorldRotation(rig_name(LAST), [50, 0, 0], 1e-4)
+        self.assertWorldRotation(rig_name(FIRST), [0, 0, 0], 1e-4)
+
+    def test_rolling_the_first_fk_control_rolls_every_ik_control(self):
+        self._build()
+        set_attr(FK_CONTROLS[0], "rotateX", 30)
+        for control in (FIRST, INTERIOR, LAST):
+            self.assertWorldRotation(rig_name(control), [30, 0, 0], 1e-4)
+
     def test_an_ik_control_moves_the_curve_without_moving_the_fk_chain(self):
         self._build()
         before = translation(FK_CONTROLS[2])

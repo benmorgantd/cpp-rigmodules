@@ -69,6 +69,7 @@ namespace RibbonMath
 		int fkCount{ 0 };
 		double fkKnotU[MaxControls]{};      // each fk control's parameter: its share of the fk rest chord length (fkKnots)
 		Mat4 fkRest[MaxControls];           // each fk control's rest world matrix
+		double fkRollRest[MaxControls]{};   // each fk control's rest roll about the base curve's tangent (what the ik controls' roll is measured from)
 		Mat4 bindOffset[MaxBindJoints];     // a bind joint's rest in the detail curve's frame at its parameter
 	};
 
@@ -98,6 +99,9 @@ namespace RibbonMath
 
 	// Each fk control's parameter, its share of the fk rest chord length, for `fkCount` controls. False when two neighbours sit on each other.
 	bool fkKnots(const Mat4* fkRest, int fkCount, double* outU);
+
+	// Fills setup.fkRollRest from the fk rest matrices, once setup.fkKnotU, restTangent, restUp and chainSign are set.
+	void fkRollRests(Setup& setup);
 
 	// Fills the Setup from the controls' and the bind joints' rest world matrices, and the fk controls' when `fkCount` is above 0.
 	// False, with a reason, when the rest is unusable: a control, fk control or bind count out of range, controls on top of each

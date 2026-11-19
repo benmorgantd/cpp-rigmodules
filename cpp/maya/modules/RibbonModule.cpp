@@ -402,6 +402,7 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 			data.setClean(plug);
 			return MStatus::kSuccess;
 		}
+		RibbonMath::fkRollRests(setup);
 	}
 
 	RibbonSolve solve;

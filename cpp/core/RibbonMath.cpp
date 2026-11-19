@@ -249,6 +249,41 @@ namespace RibbonMath
 			finishBase(setup, base);
 		}
 
+		// How far a control's Y axis is turned about the curve's tangent from the carried normal at u, in (-pi, pi]. The curve only
+		// carries a direction, so this is how an fk control's roll reaches the ik controls.
+		double rollAbout(const Base& base, double u, const Mat4& world)
+		{
+			Vec3 tangent;
+			Vec3 normal;
+			frameAt(base.spline, base.table, u, tangent, normal);
+			const Vec3 y = row(world, 1);
+			const Vec3 flat = sub(y, scale(tangent, dot(y, tangent)));
+			return std::atan2(dot(flat, cross(tangent, normal)), dot(flat, normal));
+		}
+
+		// Each fk control's roll away from its rest roll, unwrapped along the chain so a turn past pi doesn't flip the ik controls.
+		void fkRollDeltas(const Setup& setup, const Base& base, const Mat4* fkWorld, double* outDelta)
+		{
+			for (int k = 0; k < setup.fkCount; ++k)
+			{
+				const double raw = rollAbout(base, setup.fkKnotU[k], fkWorld[k]) - setup.fkRollRest[k];
+				outDelta[k] = k == 0 ? wrapAngle(raw) : outDelta[k - 1] + wrapAngle(raw - outDelta[k - 1]);
+			}
+		}
+
+		// The fk rolls interpolated linearly at u.
+		double fkRollAt(const Setup& setup, const double* delta, double u)
+		{
+			int k = 0;
+			while (k < setup.fkCount - 2 && u > setup.fkKnotU[k + 1])
+			{
+				++k;
+			}
+			const double span = setup.fkKnotU[k + 1] - setup.fkKnotU[k];
+			const double s = clamp01((u - setup.fkKnotU[k]) / span);
+			return delta[k] + (delta[k + 1] - delta[k]) * s;
+		}
+
 		// Start and end as given, the interior controls on the base curve at their parameters. With an fk chain, the chain is composed
 		// first, the base curve goes through it, and every ik control (the ends too) floats on that curve.
 		void evaluateControlsInternal(const Setup& setup, const Params& params, const Input& input, const EndTwists& twists, Output& output, Base& base)
@@ -263,10 +298,14 @@ namespace RibbonMath
 					output.fkWorld[k] = multiply(input.fkLocal[k], output.fkOPM[k]);
 				}
 				makeFkBase(setup, params, output.fkWorld, base);
+				double rollDelta[MaxControls];
+				fkRollDeltas(setup, base, output.fkWorld, rollDelta);
 				for (int j = 0; j <= last; ++j)
 				{
 					// The ends' own twist is in their local matrix, so their frame carries none.
-					const double angle = j == 0 || j == last ? 0.0 : setup.chainSign * twists.at(setup.knotU[j]);
+					const double ramp = j == 0 || j == last ? 0.0 : setup.chainSign * twists.at(setup.knotU[j]);
+						// Every ik control also turns with the fk chain's roll at its parameter, so it follows the fk controls 1:1.
+						const double angle = ramp + fkRollAt(setup, rollDelta, setup.knotU[j]);
 					output.controlOPM[j] = multiply(setup.ikOffset[j], frameMatrix(base.spline, base.table, setup.knotU[j], angle));
 					output.controlWorld[j] = multiply(input.local[j], output.controlOPM[j]);
 				}
@@ -509,6 +548,16 @@ namespace RibbonMath
 		return true;
 	}
 
+	void fkRollRests(Setup& setup)
+	{
+		Base base;
+		makeFkBase(setup, Params{}, setup.fkRest, base);
+		for (int k = 0; k < setup.fkCount; ++k)
+		{
+			setup.fkRollRest[k] = rollAbout(base, setup.fkKnotU[k], setup.fkRest[k]);
+		}
+	}
+
 	bool buildSetup(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, const Mat4* fkRest, int fkCount, Setup& outSetup, const char*& outReason)
 	{
 		if (controlCount < 2 || controlCount > MaxControls)
@@ -605,6 +654,7 @@ namespace RibbonMath
 		if (fkCount > 0)
 		{
 			makeFkBase(setup, defaults, setup.fkRest, base);
+			fkRollRests(setup);
 		}
 		else
 		{
