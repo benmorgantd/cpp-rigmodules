@@ -303,4 +303,20 @@ namespace ControlPlacement
 		placement.settings = add(pEnd, settingsOffset ? *settingsOffset : Vec3{ (mirrored ? -DefaultSettingsRise : DefaultSettingsRise) * limbLength, 0.0, 0.0 });
 		return placement;
 	}
+
+	std::optional<Mat4> placeWorldIkHandle(const Vec3& pEnd, const Vec3& pole, bool alignToPole)
+	{
+		Vec3 axisZ{ 0.0, 0.0, 1.0 };
+		if (alignToPole)
+		{
+			const Vec3 toPole{ pole.x - pEnd.x, 0.0, pole.z - pEnd.z };
+			if (length(toPole) < kMinChord)
+			{
+				return std::nullopt;
+			}
+			axisZ = normalized(toPole, axisZ);
+		}
+		// Y is world up, so X = Y x Z.
+		return makeFrame({ axisZ.z, 0.0, -axisZ.x }, { 0.0, 1.0, 0.0 }, axisZ, pEnd);
+	}
 }

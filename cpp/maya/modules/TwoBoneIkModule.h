@@ -72,8 +72,10 @@ struct TwoBoneIkArgs
 	std::vector<double> poleOffset;
 	std::vector<double> settingsOffset;
 	double ikFkBlend{ 1.0 };
+	bool ikOrientToWorld{ false };
+	bool ikAlignToPole{ false };
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(TwoBoneIkArgs, joints, controlName, poleOffset, settingsOffset, ikFkBlend)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(TwoBoneIkArgs, joints, controlName, poleOffset, settingsOffset, ikFkBlend, ikOrientToWorld, ikAlignToPole)
 
 // A two-bone IK limb (arm, leg): an FK chain and an IK solve, blended joint by joint (D52). Child plugs: start, ik, pole,
 // and settings (internal: it follows start's parent). Sockets: index_0, index_1, index_2 (the blended joint worlds), start,

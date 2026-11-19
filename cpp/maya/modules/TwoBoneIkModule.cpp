@@ -984,7 +984,7 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	TwoBoneIkArgs ikArgs;
-	if (!readModuleArgs(args, { "joints" }, ctx, ikArgs, { "controlName", "poleOffset", "settingsOffset", RigAttr::IkFkBlend }))
+	if (!readModuleArgs(args, { "joints" }, ctx, ikArgs, { "controlName", "poleOffset", "settingsOffset", RigAttr::IkFkBlend, "ikOrientToWorld", "ikAlignToPole" }))
 	{
 		return false;
 	}
@@ -995,6 +995,11 @@ bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 	if (ikArgs.ikFkBlend < 0.0 || ikArgs.ikFkBlend > 1.0)
 	{
 		ctx.report.addError(argsPath + "." + RigAttr::IkFkBlend, "must be between 0 (FK) and 1 (IK), got " + std::to_string(ikArgs.ikFkBlend));
+		valid = false;
+	}
+	if (ikArgs.ikAlignToPole && !ikArgs.ikOrientToWorld)
+	{
+		ctx.report.addError(argsPath + ".ikAlignToPole", "turns a world-aligned handle toward the pole, so it needs ikOrientToWorld set to true as well");
 		valid = false;
 	}
 	if (ikArgs.joints.size() != TwoBoneIkSlot::LimbCount)
@@ -1077,7 +1082,24 @@ bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 		mFrame[3][2] = vOrigin.z;
 		return mFrame;
 	};
-	slots[TwoBoneIkSlot::Ik].mRestWorld = frameAt(mEndRotation, vEnd);
+	if (ikArgs.ikOrientToWorld)
+	{
+		// World-aligned (D59): on the mirrored side the pole is reflected, so a turn toward it is reflected too. The IK joints' rest
+		// offsets (computeRest) absorb whichever rotation the handle has, so the bind pose is unaffected.
+		const std::optional<VectorMath::Mat4> worldHandle = ControlPlacement::placeWorldIkHandle(
+			{ vEnd.x, vEnd.y, vEnd.z }, placement.pole, ikArgs.ikAlignToPole);
+		if (!worldHandle)
+		{
+			ctx.report.addError(argsPath + ".ikAlignToPole", "the pole is straight above or below the end joint, so there is no direction to turn the handle "
+				"toward. Give the limb a poleOffset that moves the pole off that vertical line");
+			return false;
+		}
+		slots[TwoBoneIkSlot::Ik].mRestWorld = MathUtils::toMMatrix(*worldHandle);
+	}
+	else
+	{
+		slots[TwoBoneIkSlot::Ik].mRestWorld = frameAt(mEndRotation, vEnd);
+	}
 	slots[TwoBoneIkSlot::Pole].mRestWorld = frameAt(MMatrix::identity, vPole);
 	slots[TwoBoneIkSlot::Settings].mRestWorld = frameAt(MMatrix::identity, vSettings);
 

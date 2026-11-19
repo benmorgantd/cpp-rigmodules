@@ -429,6 +429,59 @@ class TwoBoneIkDerivedControls(RigTestCase):
         self.assertWorldRotation(rig_name(POLE), [0, 0, 0], 1e-4)
         self.assertWorldRotation(rig_name(SETTINGS), [0, 0, 0], 1e-4)
 
+    # ---- a world-aligned handle (D59) ----------------------------------------------------------
+
+    def _assert_bind_pose_kept(self):
+        """The IK joints take their own rest offsets, so any handle rotation leaves the joints on the FK controls at rest."""
+        for control, joint in zip(ARM, LIMB_JOINTS):
+            for e, a in zip(world_matrix(control), world_matrix(joint)):
+                self.assertAlmostEqual(e, a, places=6, msg="%s moved off %s" % (joint, control))
+
+    def test_ik_orient_to_world_gives_the_handle_world_axes_on_a_turned_hand(self):
+        """The tilted arm's hand is turned 35 degrees about Z, and the handle normally turns with it. With ikOrientToWorld the
+        handle is on world axes and the hand is where it was."""
+        data = self._template("ribbon_arm", controlName="arm", poleOffset=[0, -4.7, 0], settingsOffset=[-8, 8, 0], ikOrientToWorld=True)
+        self.build(data, self.make_skeleton("ribbon_arm_tilted"), label="world_handle")
+        self.assertWorldRotation(rig_name(HANDLE), [0, 0, 0], 1e-6)
+        self.assertWorldRotation(rig_name("hand_00_M_JNT"), [0, 0, 35], 1e-4)
+        self.assertWorldTranslation(rig_name(HANDLE), translation("hand_00_M_JNT"), 1e-6)
+
+    def test_ik_orient_to_world_keeps_the_bind_pose_and_turning_the_handle_turns_the_hand(self):
+        self._build_basic(controlName="arm", ikOrientToWorld=True)
+        self._assert_bind_pose_kept()
+        set_attr(HANDLE, "rotateZ", 40)
+        self.assertWorldRotation(rig_name("hand_00_M_JNT"), [0, 0, 40], 1e-6)
+
+    def test_ik_align_to_pole_turns_the_handle_about_y_so_z_faces_the_pole(self):
+        """End (5,0,0), mid (1.8,2.4,0), poleOffset (0,2.6,3): the pole is (1.8,5,3), so the horizontal line from the end to it is
+        (-3.2,0,3). +Z along it is a turn about Y of atan2(-3.2, 3) = -46.85 degrees, with nothing about X or Z."""
+        self._build_basic(controlName="arm", poleOffset=[0, 2.6, 3], ikOrientToWorld=True, ikAlignToPole=True)
+        self.assertWorldRotation(rig_name(HANDLE), [0, math.degrees(math.atan2(-3.2, 3)), 0], 1e-4)
+        self.assertWorldTranslation(rig_name(HANDLE), [5, 0, 0])
+        self._assert_bind_pose_kept()
+
+    def test_ik_align_to_pole_on_the_other_side_of_a_mirrored_limb_is_the_reflection(self):
+        """Left: end (6,0,0), pole (2.8+0.7, 2.4+2.6, 3) = (3.5,5,3), so the horizontal line is (-2.5,0,3). The right is the
+        reflection with its pole X negated by D28, (2.5,0,3), so the two turns are equal and opposite."""
+        data = self._template("twoboneik_mirror", controlName="arm", poleOffset=[0.7, 2.6, 3], ikOrientToWorld=True, ikAlignToPole=True)
+        self.build_standard(data, "twoboneik_mirror")
+        turn = math.degrees(math.atan2(-2.5, 3))
+        self.assertWorldRotation(rig_name("armIK_00_L_CTRL"), [0, turn, 0], 1e-4)
+        self.assertWorldRotation(rig_name("armIK_00_R_CTRL"), [0, -turn, 0], 1e-4)
+
+    def test_ik_align_to_pole_without_ik_orient_to_world_is_an_error(self):
+        message = self.assertMayaError(lambda: self._build_basic(controlName="arm", ikAlignToPole=True))
+        self.assertIn("ikAlignToPole", message)
+        self.assertIn("ikOrientToWorld", message)
+        self.assertNothingBuilt()
+
+    def test_ik_align_to_pole_with_the_pole_straight_above_the_end_is_an_error(self):
+        """End (5,0,0), mid (1.8,2.4,0): poleOffset (3.2,2.6,0) puts the pole at (5,5,0), straight above the end."""
+        message = self.assertMayaError(lambda: self._build_basic(
+            controlName="arm", poleOffset=[3.2, 2.6, 0], ikOrientToWorld=True, ikAlignToPole=True))
+        self.assertIn("ikAlignToPole", message)
+        self.assertNothingBuilt()
+
     # ---- a straight limb -----------------------------------------------------------------------
 
     def test_a_straight_limb_builds_and_its_pole_goes_out_along_the_root_joints_negative_y(self):

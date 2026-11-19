@@ -68,4 +68,10 @@ namespace ControlPlacement
 	// joint plus `settingsOffset`, or DefaultSettingsRise of the limb's length along world +X (-X when `mirrored`, so the default is
 	// the reflection) when it is not given. Given offsets are in world space, so a caller negates X for a mirrored side.
 	LimbPlacement placeLimb(const Mat4& root, const Mat4& mid, const Mat4& end, const std::optional<Vec3>& poleOffset, const std::optional<Vec3>& settingsOffset, bool mirrored = false);
+
+	// A two-bone limb's IK handle frame when it is world-aligned instead of turned with the end joint (D59), at `end`. Identity
+	// rotation, or with `alignToPole` a turn about world Y only that points +Z along the horizontal part of the line from `end` to
+	// the pole, which is how a foot control wants to face. Returns nothing for `alignToPole` when the pole is straight above or
+	// below `end`, where that direction is undefined.
+	std::optional<Mat4> placeWorldIkHandle(const Vec3& end, const Vec3& pole, bool alignToPole);
 }

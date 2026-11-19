@@ -108,13 +108,15 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 | `poleOffset` | no | `[x, y, z]` in world space: the pole control's offset from the mid joint. Default: see below |
 | `settingsOffset` | no | `[x, y, z]` in world space: the settings control's offset from the end joint. Default: see below |
 | `ikFkBlend` | no | 0 to 1: the limb's blend when built, and the rest value of its `ikFkBlend` channel. Default 1 (IK). An arm usually wants 0 (FK). Out of range fails the build |
+| `ikOrientToWorld` | no | `true` puts the IK handle on world axes instead of the end joint's. Default `false`. For arms and legs that want orthogonal controls. The joints keep their bind pose |
+| `ikAlignToPole` | no | `true` (needs `ikOrientToWorld`) turns the world-aligned handle about world Y only, so +Z points along the horizontal part of the line from the end joint to the pole. Default `false`. For feet. Fails the build when the pole is straight above or below the end joint |
 
 There are **no marker joints** (D57). The three limb joints belong to this module alone, and the other three controls are placed from them:
 
 - **The IK handle** sits at the end joint, turned the way that joint is turned.
 - **The pole** sits at the mid joint plus `poleOffset`. Without it, it is pushed out from the mid joint by the limb's length along the bend: the part of the root-to-mid vector that is perpendicular to the root-to-end line, so the elbow or knee points at it. A **straight limb is not an error** (mocap skeletons have them): when the mid joint is within 0.1 percent of the limb's length of the root-to-end line, the pole goes out along the **root joint's -Y** instead, which is the back of an elbow and the front of a knee on a skeleton whose joints are oriented the usual way. A straight limb whose root-to-end line runs along that same axis (a leg pointing straight down a Y axis) has no bend plane then, and the build fails with an error that asks for a `poleOffset`.
 - **The settings control** sits at the end joint plus `settingsOffset`. Without it, it sits a quarter of the limb's length along world +X from the end joint (-X on the mirrored side).
-- **Orientation.** The handle takes the end joint's rotation. The pole and settings controls take **world axes**: their rotation is locked, so this only sets which way their translate channels point.
+- **Orientation.** The handle takes the end joint's rotation, or world axes with `ikOrientToWorld` (a yaw toward the pole as well with `ikAlignToPole`). Both keys apply to the mirrored side by the same rule: world axes stay world axes, and the yaw follows the mirrored pole, so the two feet turn equal and opposite and each faces its own pole. A world-aligned handle on both sides has the same axes, so its translate channels are not reflected the way a joint-aligned right handle's are. The pole and settings controls take **world axes**: their rotation is locked, so this only sets which way their translate channels point.
 - **Mirroring.** `poleOffset` and `settingsOffset` are world vectors for a `Left` or `Center` module. On the mirrored copy of a module the offsets' X is negated, so one template entry gives both sides.
 
 | | |
