@@ -1,6 +1,6 @@
 # Ribbon: design draft
 
-**Status:** D56. Built in part on 2026-11-17: phases 1, 2, 3 and 5 and the docs. Not built: `fkStyle` and phase 6 (the perf rig and `bench`). Section 14 lists what the build did differently from this page. Branch: `ribbon-module-planning`.
+**Status:** D56. Built in part on 2026-11-17: phases 1, 2, 3 and 5 and the docs. `fkStyle` was built on 2026-11-18 (D59, section 3.1 as amended below). Phase 6 (the perf rig and `bench`) was built after the first build. Section 14 lists what the build did differently from this page. Branch: `ribbon-module-planning`.
 
 Sources: the author's note, the Claude-written handoff `maya_c_ik_ribbon_node_handoff.md` (a source of math, not of design: it conflicts with this repo in several places, section 10) and the author's answers.
 
@@ -38,6 +38,8 @@ fk controls           (only when fkStyle is true)
   - `fkStyle` false: the **base curve** is built from the start and end only (tangent from the control's X axis blended with an aim at the other end, `bendRoundness`). Interior controls take their frame from that curve at `u_j`.
   - `fkStyle` true: the base curve passes through the **FK controls' positions** (an FK chain, like `FkChain`), and each IK control takes its frame from the FK control at the same index.
   
+  - **As built (D59, 2026-11-18):** `fkStyle` and `fkControlCount` (default `controlCount`) are template keys. The fk chain is a separate control layer of its own size, so an ik control can't take the frame of "the fk control at the same index": every ik control, the start and end too, takes its frame from the fk base curve **at its own parameter** `knotU[j]`, and its rest offset (`ikOffset`) is measured against that curve, so the rest is exact at any two counts. The ends have no twist in that frame, since their local carries it. The fk chain follows the `start` plug and the ribbon has **no `end` child plug** with an fk chain (the end rides the chain). The fk controls are the last slots, with no joint and no socket, so the inverse leaves them at the sidecar or rest and the end controls and tweakers carry the joints.
+
   Either way the next step is the same: each IK control's **local matrix** is an offset in that frame, and the detail curve passes through `frame_j * local_j`. Only where `frame_j` comes from differs.
 
 ### 3.2 Why there is no cycle

@@ -495,3 +495,133 @@ class RibbonDerivedControls(RigTestCase):
         data["rigModules"][0]["moduleArgs"]["controls"] = [["Center", "oldCtrl%d" % i] for i in range(5)]
         self.build(data, self.make_skeleton("ribbon_basic"), label="ribbon_v1")
         self.assertEqual(len([u for u in self._usages() if "IK_" in u]), 5)
+
+
+FK_CONTROLS = ["tailFK_%02d_M_CTRL" % i for i in range(3)]
+
+
+class RibbonFkContract(_RibbonRestore, ModuleContract, RigTestCase):
+    """The same contract on a ribbon with an fk chain (D59). An fk control has no joint, so like an interior ik control it keeps
+    its sidecar or rest value, and the round trip does not pose it."""
+    TEMPLATE = "ribbon_fk"
+    SKELETON = "ribbon_basic"
+    MODULE_TYPE = "ribbonModule"
+    JOINT_OWNERS = RibbonContract.JOINT_OWNERS
+    MIRROR_TEMPLATE = False
+    UNPOSED = _RibbonRestore.UNPOSED + ("tailFK_00", "tailFK_01", "tailFK_02")
+
+    def joints_cannot_give(self, control, channel):
+        """An end's tangent comes from the fk chain, so only the twist of its rotation reaches the joints: the joints come back
+        exactly, and the control gets a rotation that gives the same twist (the posed swing changes the twist the euler angles
+        read as, which is why the channel value is not compared)."""
+        return channel.startswith("rotate") and rigmodules.query.get_control(control).usage in ("tailIK_00", "tailIK_02")
+
+
+class RibbonFkStyle(RigTestCase):
+    """The fk chain (D59). The skeleton is five joints along +X at 0, 2, 4, 6 and 8, so the three ik controls and the three fk
+    controls sit at 0, 4 and 8. Expectations are worked by hand."""
+
+    def _template(self, **args):
+        data = copy.deepcopy(fixtures.load_template("ribbon_fk"))
+        data["rigModules"][0]["moduleArgs"].update(args)
+        return data
+
+    def _build(self, **args):
+        self.build(self._template(**args), self.make_skeleton("ribbon_basic"), label="ribbon_fk")
+
+    def test_the_rest_pose_is_the_joints_where_they_are(self):
+        self._build()
+        for i, joint in enumerate(BIND_JOINTS):
+            self.assertWorldTranslation(rig_name(joint), [2.0 * i, 0, 0], 1e-6)
+        for control, x in zip(FK_CONTROLS, (0, 4, 8)):
+            self.assertWorldTranslation(rig_name(control), [x, 0, 0], 1e-6)
+        for control, x in zip([FIRST, INTERIOR, LAST], (0, 4, 8)):
+            self.assertWorldTranslation(rig_name(control), [x, 0, 0], 1e-6)
+
+    def test_turning_the_first_fk_control_turns_the_whole_ribbon_about_it(self):
+        """A rigid turn of 30 degrees about Z at the origin: a point at x goes to (x cos 30, x sin 30, 0), the ik controls and the
+        joints with it."""
+        self._build()
+        set_attr(FK_CONTROLS[0], "rotateZ", 30)
+        c, s = math.cos(math.radians(30)), math.sin(math.radians(30))
+        for i, joint in enumerate(BIND_JOINTS):
+            self.assertWorldTranslation(rig_name(joint), [2.0 * i * c, 2.0 * i * s, 0], 1e-5)
+        for control, x in zip([FIRST, INTERIOR, LAST], (0, 4, 8)):
+            self.assertWorldTranslation(rig_name(control), [x * c, x * s, 0], 1e-5)
+            self.assertWorldRotation(rig_name(control), [0, 0, 30], 1e-4)
+
+    def test_bending_the_middle_fk_control_carries_the_end_and_the_ik_control_stays_on_the_chain(self):
+        """The middle fk control is at (4,0,0) and turns 40 degrees about Z, so the last one, 4 along its X, is at
+        (4 + 4 cos 40, 4 sin 40, 0). The end ik control floats there, turned 40 degrees with it. The middle ik control stays at
+        (4,0,0), where the curve passes through the middle fk control."""
+        self._build()
+        set_attr(FK_CONTROLS[1], "rotateZ", 40)
+        end = [4 + 4 * math.cos(math.radians(40)), 4 * math.sin(math.radians(40)), 0]
+        self.assertWorldTranslation(rig_name(FK_CONTROLS[2]), end, 1e-6)
+        self.assertWorldTranslation(rig_name(LAST), end, 1e-5)
+        self.assertWorldRotation(rig_name(LAST), [0, 0, 40], 1e-4)
+        self.assertWorldTranslation(rig_name(INTERIOR), [4, 0, 0], 1e-5)
+        self.assertWorldTranslation(rig_name(BIND_JOINTS[2]), [4, 0, 0], 1e-5)
+        self.assertWorldTranslation(rig_name(BIND_JOINTS[4]), end, 1e-5)
+
+    def test_an_ik_control_moves_the_curve_without_moving_the_fk_chain(self):
+        self._build()
+        before = translation(FK_CONTROLS[2])
+        set_attr(INTERIOR, "translateY", 1.5)
+        self.assertWorldTranslation(rig_name(FK_CONTROLS[2]), before, 1e-9)
+        self.assertWorldTranslation(rig_name(INTERIOR), [4, 1.5, 0], 1e-5)
+        self.assertWorldTranslation(rig_name(BIND_JOINTS[2]), [4, 1.5, 0], 1e-5)
+
+    def test_fk_control_count_sets_the_chain_apart_from_the_ik_controls(self):
+        """Two fk controls, at 0 and 8, under three ik controls: turning the first turns everything about the origin, as with
+        three."""
+        self._build(fkControlCount=2)
+        self.assertExists(rig_name("tailFK_01_M_CTRL"))
+        self.assertFalse(cmds.objExists(rig_name("tailFK_02_M_CTRL")))
+        set_attr("tailFK_00_M_CTRL", "rotateZ", 30)
+        c, s = math.cos(math.radians(30)), math.sin(math.radians(30))
+        for i, joint in enumerate(BIND_JOINTS):
+            self.assertWorldTranslation(rig_name(joint), [2.0 * i * c, 2.0 * i * s, 0], 1e-5)
+        self.assertWorldTranslation(rig_name("tailFK_01_M_CTRL"), [8 * c, 8 * s, 0], 1e-6)
+
+    def test_the_fk_chain_follows_the_controls_it_hangs_from(self):
+        """The chain is built by DAG parenting: the first fk control under the start ik control, each after it under the one before.
+        Nothing transforms by it (inheritsTransform is off), so the visibility and outliner are all it gives."""
+        self._build()
+        self.assertEqual(cmds.listRelatives(rig_name(FK_CONTROLS[1]), parent=True)[0].split(":")[-1], FK_CONTROLS[0])
+        self.assertEqual(cmds.listRelatives(rig_name(FK_CONTROLS[2]), parent=True)[0].split(":")[-1], FK_CONTROLS[1])
+
+    def test_there_is_no_end_child_plug_and_the_start_one_carries_the_ribbon(self):
+        self._build()
+        module = rig_name("tail_01_M_MOD")
+        self.assertEqual(cmds.getAttr("%s.childPlugs" % module, size=True), 1)
+        self.assertEqual(cmds.getAttr("%s.childPlugs[0].childPlugName" % module), "start")
+
+    def test_an_end_plug_in_the_template_is_an_error(self):
+        data = self._template()
+        data["rigModules"][0]["parentStructure"] = {"start": "layout_00_M_MOD.end", "end": "layout_00_M_MOD.end"}
+        message = self.assertMayaError(lambda: self.build(data, self.make_skeleton("ribbon_basic"), label="ribbon_fk_end"))
+        self.assertIn("end", message)
+        self.assertNothingBuilt()
+
+    def test_the_fk_chain_has_the_default_ik_count(self):
+        """Without fkControlCount the chain has controlCount controls: five ik controls give five fk controls."""
+        self.build(self._template(controlCount=5), self.make_skeleton("ribbon_basic"), label="ribbon_fk_five")
+        for i in range(5):
+            self.assertExists(rig_name("tailFK_%02d_M_CTRL" % i))
+        self.assertFalse(cmds.objExists(rig_name("tailFK_05_M_CTRL")))
+
+    def test_fk_control_count_without_fk_style_is_an_error(self):
+        data = self._template(fkStyle=False, fkControlCount=3)
+        message = self.assertMayaError(lambda: self.build(data, self.make_skeleton("ribbon_basic"), label="ribbon_fk_no_style"))
+        self.assertIn("fkControlCount", message)
+        self.assertIn("fkStyle", message)
+        self.assertNothingBuilt()
+
+    def test_an_fk_control_count_outside_two_to_eight_is_an_error(self):
+        for count in (1, 9):
+            message = self.assertMayaError(lambda: self.build(
+                self._template(fkControlCount=count), self.make_skeleton("ribbon_basic"), label="ribbon_fk_bad"))
+            self.assertIn("fkControlCount", message)
+            self.assertIn("between 2 and 8", message)
+            self.assertNothingBuilt()

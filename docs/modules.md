@@ -207,6 +207,8 @@ A bendy, stretchy run of bind joints driven by a few controls: a tail, a spine, 
 | `controlName` | no | The base of the control names (below). Default: the first bind joint's usage without a trailing `_NN` (`spine_00` gives `spine`, `tail1` stays `tail1`). It must be camelCase: a lowercase letter, then letters and digits |
 | `joints` | yes | 2 to 64 selectors for the **bind joints**, root to tip, already spaced the way the ribbon should hold them at rest |
 | `startAimBlend`, `endAimBlend` | no | A number from 0 to 1, default 0: the default, and so the rest, of the channel of the same name (below). Set `startAimBlend` to 1 on a shoulder or thigh so its start aims down the limb on every build. A value outside 0 to 1 fails the build |
+| `fkStyle` | no | `true` adds an **fk chain** under the ik controls (below). Default `false` |
+| `fkControlCount` | no | 2 to 8, default `controlCount`: how many fk controls, placed the same way as the ik controls. Needs `fkStyle`. Setting it without `fkStyle`, or outside 2 to 8, fails the build |
 
 There are **no control joints**. The ik controls are placed from the bind joints (D57): a smooth spline runs through the bind joints' rest positions, and control `k` of `c` sits at the share `k / (c - 1)` of its length. Its orientation is the rotation of the two bind joints either side of it, blended by how far between them it sits, so the first and last controls take the first and last joints' frames. A bind joint's X axis must run along the chain, either toward the tip (+X down the chain, +Y up, the way an FK chain's do) or back up it (-X down the chain, as on a mirrored limb that keeps the other side's axes). The build reads which from the bind joints and every control's twist keeps its sign about its own X. The build fails, naming the joint, when a joint's X axis is more than 60 degrees off the line to the next joint (the last uses the line from the one before), when joints disagree about the direction, or when two neighbouring joints sit on each other. Every joint belongs to this module alone.
 
@@ -216,8 +218,10 @@ There are **no control joints**. The ik controls are placed from the bind joints
 |---|---|
 | Node type | `ribbonModule` |
 | Controls | `controlCount` **ik controls**, usage `<base>IK_<nn>` (`tailIK_00`, `tailIK_01`, ...), and one hidden **tweaker** per bind joint, usage `<base>Tweak_<nn>` with `nn` the bind joint's index from 00 (`tailTweak_00`, ...). The side is the first bind joint's. An ik control's node is named from its usage (`tailIK_00_M_CTRL`) and a tweaker's from its bind joint (`tail1_00_M_CTRL`). Usages are unique in a rig, so two ribbons with the same base and side fail the build: set `controlName` on one. Control shapes come from the module's `shapeType`. |
-| Child plugs | `start` (the start control's parent) and `end` (the end control's parent) |
-| Sockets | `index_0` to `index_<j-1>` for the ik controls (`j` is `controlCount`), with `start` the same socket as `index_0` and `end` the last. The tweakers have none. |
+| Child plugs | `start` (the start control's parent) and `end` (the end control's parent). With `fkStyle` only `start`: the end rides the fk chain, and a template that connects `end` fails the build |
+| Sockets | `index_0` to `index_<j-1>` for the ik controls (`j` is `controlCount`), with `start` the same socket as `index_0` and `end` the last. The tweakers and the fk controls have none. |
+
+**The fk chain (`fkStyle`).** `fkControlCount` more controls, usage `<base>FK_<nn>` (`tailFK_00`, ...), a real chain: each rides the one before, so turning one carries the rest, as in an [FkChain](#fkchain). The first follows the `start` plug. The ribbon's base curve passes through the chain's positions, and every ik control, the start and end too, floats on that curve and keeps its own local offset, so animators pose the shape with the ik controls on top of the chain they keep as a pose. The chain's own controls never move the ik controls' channels. The fk controls have no joints, so a restore from joints leaves them at the sidecar or rest values and the ik end controls and tweakers carry the joints exactly, as for the interior ik controls. The ik controls' rest is placed at the same spots as without `fkStyle`, so a rest rig is the same.
 
 **How it moves.**
 
@@ -303,7 +307,7 @@ Without the `Swing` constraint a start parented on the shoulder carries its twis
 
 The build fails if `controlCount` is not 2 to 8, if there are fewer than 2 or more than 64 bind joints, or if the bind joints' axes fail the checks above.
 
-**Not built yet** (design/ribbon.md): `fkStyle`, an FK chain under the ik controls.
+The build also fails if `fkControlCount` is set without `fkStyle` or is not 2 to 8.
 
 ```python
 from maya import cmds

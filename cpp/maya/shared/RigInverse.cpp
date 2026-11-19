@@ -605,6 +605,11 @@ namespace
 			{
 				module.context.ikControlCount = static_cast<unsigned int>(pIkControlCount.asInt());
 			}
+			const MPlug pFkControlCount = fnModule.findPlug(RigAttr::FkControlCount, false, &status);
+			if (status)
+			{
+				module.context.fkControlCount = static_cast<unsigned int>(pFkControlCount.asInt());
+			}
 
 			status = readJoints(module, slotCount, clipJointByMarkup);
 			CHECK_MSTATUS_AND_RETURN_IT(status);

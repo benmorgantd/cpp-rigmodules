@@ -62,7 +62,13 @@ namespace RibbonMath
 		// the other side's axes (D57). Every use of a control's X axis as a direction goes through it, and a twist about that
 		// axis is turned about the chain's forward tangent with its sign flipped.
 		double chainSign{ 1.0 };
-		Mat4 ikOffset[MaxControls];         // an interior control's rest in the base curve's frame at its parameter
+		Mat4 ikOffset[MaxControls];         // an interior control's rest in the base curve's frame at its parameter (every control's,
+		                                    // the ends too, when there is an fk chain)
+		// The fk chain (D59), when fkCount is above 0: a real chain of controls the base curve passes through, which every ik control
+		// then floats on. With no fk chain the base curve is built from the start and end alone.
+		int fkCount{ 0 };
+		double fkKnotU[MaxControls]{};      // each fk control's parameter: its share of the fk rest chord length (fkKnots)
+		Mat4 fkRest[MaxControls];           // each fk control's rest world matrix
 		Mat4 bindOffset[MaxBindJoints];     // a bind joint's rest in the detail curve's frame at its parameter
 	};
 
@@ -71,6 +77,7 @@ namespace RibbonMath
 	struct Input
 	{
 		Mat4 local[MaxControls];
+		Mat4 fkLocal[MaxControls];          // the fk controls' local matrices (the chain is composed here, never read from their worlds)
 		Mat4 startOPM;
 		Mat4 endOPM;
 		// The end plug's motion relative to the start plug's, as a motion of the end control's own channels: the world motion
@@ -85,11 +92,17 @@ namespace RibbonMath
 		Mat4 controlOPM[MaxControls];   // every control's offset parent matrix (no local): start and end as given, the interior on the base curve
 		Mat4 controlWorld[MaxControls]; // local * controlOPM
 		Mat4 bindOPM[MaxBindJoints];    // every bind joint's frame (the tweaker's offset parent matrix), scale and offset in
+		Mat4 fkOPM[MaxControls];        // every fk control's offset parent matrix (no local): the first at its rest, the others on the one before
+		Mat4 fkWorld[MaxControls];      // local * fkOPM
 	};
 
-	// Fills the Setup from the controls' and the bind joints' rest world matrices. False, with a reason, when the rest is
-	// unusable: a control count or bind count out of range, controls on top of each other, a degenerate chord.
-	bool buildSetup(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, Setup& outSetup, const char*& outReason);
+	// Each fk control's parameter, its share of the fk rest chord length, for `fkCount` controls. False when two neighbours sit on each other.
+	bool fkKnots(const Mat4* fkRest, int fkCount, double* outU);
+
+	// Fills the Setup from the controls' and the bind joints' rest world matrices, and the fk controls' when `fkCount` is above 0.
+	// False, with a reason, when the rest is unusable: a control, fk control or bind count out of range, controls on top of each
+	// other, a degenerate chord.
+	bool buildSetup(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, const Mat4* fkRest, int fkCount, Setup& outSetup, const char*& outReason);
 
 	// The whole evaluation.
 	void evaluate(const Setup& setup, const Params& params, const Input& input, Output& output);

@@ -314,6 +314,7 @@ namespace RigAttr
 	// Ribbon rest data, stored at build and never changed. The module reads these and the controls' rests: nothing else
 	// describes the rest pose.
 	inline constexpr const char* IkControlCount{ "ikControlCount" };   // how many of the leading slots are ik controls: the rest are tweakers
+	inline constexpr const char* FkControlCount{ "fkControlCount" };   // how many of the trailing slots are fk controls (0 with no fk chain, D59)
 	inline constexpr const char* KnotU{ "knotU" };
 	inline constexpr const char* BindU{ "bindU" };
 	inline constexpr const char* RestLength{ "restLength" };
