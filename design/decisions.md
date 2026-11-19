@@ -74,6 +74,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D58 | One naming convention for joints, controls, modules and constraints: `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>` | Decided | Assets |
 | D59 | TwoBoneIk and Ribbon template keys for defaults, orientation and an FK layer | Decided | Assets |
 | D60 | The build is faster through parallel compiles and two precompiled headers, not by splitting the project | Decided | Build |
+| D61 | The Asset Editor is a dockable asset context over files, markup and shapes | Decided | Assets |
 
 ---
 
@@ -621,6 +622,17 @@ A variant was a rig, so every outfit was its own rig. The author meant a look: m
   - **Not built:** the Perforce adapter and the library window's Looks tab (author, phase 6): tested with a fake adapter.
 - **Rejected:** one asset per skeleton, rig and look, named by id (option B). It made the hero about eight asset folders and still ended in large look folders. Also rejected: a master list of an asset's looks, which brings back D29's shared-file edit. Listing unsynced looks asks source control instead.
 - **Consequence:** `assetRootModule` and `getRigInfo`'s asset root key go. `getRigInfo`'s `variant` key, `RigInfo.variant`, the pose and animation `meta` field `variant` and the `skeletonId` field change name, so mayadev call sites and saved library files need an update step. Attachments (an attach node, cross-rig constraint drivers) and the face parameters node go through the gate later.
+
+### D61. The Asset Editor is a dockable asset context over files, markup and shapes
+**Status:** Decided (author, 2026-11-19). Phases 1 to 3 built on mayadev branch `asset-editor`, not merged, and not checked in a GUI Maya. Design and what differs: `asset-editor.md`.
+
+One window where a modeler or rigger sets the asset they work on and creates, saves and loads its files, edits joint markup across a selection, and edits control shapes across a selection. It follows D49 to D51.
+
+- **The context:** `AssetContext` holds the asset id and the skeleton, rig and look. It changes only by an explicit action, never on file new, open or save, and closing the tool removes every callback it registered and clears it. The last asset prefills the next open.
+- **Menu tools:** when the editor is open they offer its asset instead of asking for an id, after a confirm.
+- **Files:** rows come from the project's file types and the handler registry, so textures, shaders and tracked files appear by adding a file type and a handler.
+- **Rejected:** role presets, a lazy tree over the projects root, editable control markup (the build owns it, D25), template hints (deferred to the template tool).
+- **Consequence:** mayadev only. No RigModules node, command or name change, no D36 impact.
 
 ---
 
