@@ -356,6 +356,20 @@ class DisplayLayers(RigTestCase):
         for name in self.LAYERS.values():
             self.assertEqual(cmds.getAttr(rig_name(name) + ".hideOnPlayback"), name == "controlsLayer", name)
 
+    def test_maya_display_type_enum_matches_DisplayLayerDisplayType(self):
+        # DisplayLayerDisplayType mirrors the displayLayer.displayType enum, which OpenMaya doesn't expose. If Maya
+        # reorders its fields, this fails and the C++ enum has to follow.
+        layer = cmds.createDisplayLayer(empty=True, name="enumProbe")
+        fields = cmds.attributeQuery("displayType", node=layer, listEnum=True)[0].split(":")
+        self.assertEqual([f.lower() for f in fields[:3]], ["normal", "template", "reference"])
+
+    def test_only_the_mesh_layer_is_a_reference(self):
+        self.build_standard(TEMPLATE, SKELETON)
+        for name in self.LAYERS.values():
+            layer = rig_name(name)
+            display_type = cmds.getAttr(layer + ".displayType", asString=True).lower()
+            self.assertEqual(display_type, "reference" if name == "meshesLayer" else "normal", name)
+
     def test_layers_are_in_the_layer_editor(self):
         self.build_standard(TEMPLATE, SKELETON)
         ids = [cmds.getAttr(rig_name(n) + ".identification") for n in self.LAYERS.values()]

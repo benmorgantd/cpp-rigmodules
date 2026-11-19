@@ -9,13 +9,22 @@
 #include <maya/MStatus.h>
 #include <maya/MString.h>
 
-// A display layer to create: its absolute name (":rig:jointsLayer"), the DAG nodes it holds and whether the layer's
-// members are hidden while the timeline plays (the layer's hideOnPlayback).
+// How a layer's members draw. The values are the layer's displayType enum attribute, so they are written as they are.
+enum class DisplayLayerDisplayType : int
+{
+	Normal = 0,
+	Template = 1,
+	Reference = 2
+};
+
+// A display layer to create: its absolute name (":rig:jointsLayer"), the DAG nodes it holds, whether the layer's
+// members are hidden while the timeline plays (the layer's hideOnPlayback) and how they draw (the layer's displayType).
 struct DisplayLayerSpec
 {
 	MString name;
 	MObjectArray members;
 	bool hideOnPlayback{ false };
+	DisplayLayerDisplayType displayType{ DisplayLayerDisplayType::Normal };
 };
 
 class DisplayLayerScene

@@ -105,7 +105,7 @@ Every node created goes in the rig namespace. The input joints are moved there t
 
 A namespace holds one rig (D54), so the display layers, groups and selection sets below, named per namespace, are that rig's own. The build fails, building nothing, when the namespace already holds a rig root, whatever its asset or `rigName`: pass `namespace` to build a second instance. The rig root stores `asset` in its `assetId` attribute.
 
-The build makes three display layers in the rig namespace: `jointsLayer` (the joints passed in), `meshesLayer` (empty) and `controlsLayer` (every control, with `hideOnPlayback` on so controls aren't drawn while the timeline plays). A layer of the same name already in the namespace is deleted first, and a node that was in another layer moves into the rig's layer. Each layer connects to its own message attribute on the rig root, so tools find them without reading names:
+The build makes three display layers in the rig namespace: `jointsLayer` (the joints passed in), `meshesLayer` (empty, with its display type set to Reference so the model can't be selected by mistake) and `controlsLayer` (every control, with `hideOnPlayback` on so controls aren't drawn while the timeline plays). A layer of the same name already in the namespace is deleted first, and a node that was in another layer moves into the rig's layer. Each layer connects to its own message attribute on the rig root, so tools find them without reading names:
 
 | Attribute | Layer |
 |---|---|

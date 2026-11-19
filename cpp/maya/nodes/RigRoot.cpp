@@ -559,6 +559,8 @@ namespace
 			specs[0].members.append(inputs.joints[i].node());
 		}
 		specs[1].name = DagUtils::getAbsoluteName(rigNamespace, RigNaming::MeshLayer);
+		// The model is not selectable while animating, so it can't be picked by mistake.
+		specs[1].displayType = DisplayLayerDisplayType::Reference;
 		specs[2].name = DagUtils::getAbsoluteName(rigNamespace, RigNaming::ControlLayer);
 		specs[2].members = oControls;
 		// Not drawing the controls during playback is the cheapest way to skip their custom draw override (D37).

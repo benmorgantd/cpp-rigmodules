@@ -21,6 +21,7 @@ namespace
 	constexpr const char* kIdentificationAttr = "identification";
 	constexpr const char* kDisplayOrderAttr = "displayOrder";
 	constexpr const char* kHideOnPlaybackAttr = "hideOnPlayback";
+	constexpr const char* kDisplayTypeAttr = "displayType";
 	constexpr const char* kLayerManagerName = "layerManager";
 	constexpr const char* kLayerIdsAttr = "displayLayerId";
 
@@ -121,6 +122,13 @@ MStatus DisplayLayerScene::replaceLayers(const std::vector<DisplayLayerSpec>& sp
 		{
 			MPlug pHide = fnLayer.findPlug(kHideOnPlaybackAttr, false);
 			status = dagMod.newPlugValueBool(pHide, true);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+
+		if (spec.displayType != DisplayLayerDisplayType::Normal)
+		{
+			MPlug pDisplayType = fnLayer.findPlug(kDisplayTypeAttr, false);
+			status = dagMod.newPlugValueInt(pDisplayType, static_cast<int>(spec.displayType));
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 
