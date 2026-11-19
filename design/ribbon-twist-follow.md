@@ -15,7 +15,7 @@ The same shape appears at the thigh, the neck and the spine's top (a chest that 
 
 The proposed constraint: the start control's rotation comes only from the shoulder's extracted twist, the rest from a Point constraint.
 
-1. **A constraint feeds the start plug's delta, and the Ribbon carries the whole ribbon with it.** `RibbonModuleNode::evaluate` solves the curve in the rest world and multiplies every control and bind OPM by `mStartDelta` (`RibbonModule.cpp:257`). A twist-only delta turns the whole ribbon rigidly, so it can't ease anything out.
+1. **A constraint feeds the start plug's delta, and the Ribbon carries the whole ribbon with it.** `RibbonSolve::evaluate` (`maya/shared/RibbonSolve.cpp`, moved out of `RibbonModuleNode` in D62 phase 0) solves the curve in the rest world and multiplies every control and bind OPM by `mStartDelta`. A twist-only delta turns the whole ribbon rigidly, so it can't ease anything out.
 2. **A delta is applied about the rest axis, not the current bone axis.** `computeDelta` (D31) builds `C * D` with `D` in the control's rest frame. Once the arm swings, a rotation about the rest X is not a twist about the bone.
 3. **The Ribbon never reads a frame's roll from a plug delta.** Its frame comes from the start's rest up (`setup.restUp`), turned by the shortest arc onto the chord and parallel-transported (`RibbonMath.cpp:261`). The ends contribute their *position* and their X axis (`startAimBlend` and `endAimBlend`, lines 245 and 246). The only roll that enters is `extractTwist(local)` of the end *controls*, the animator's own rotation.
 

@@ -213,6 +213,12 @@
     <ClCompile Include="maya\shared\RigModule.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
+    <ClCompile Include="maya\shared\RibbonSolve.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\TwoBoneIkSolve.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
     <ClCompile Include="maya\shared\RigPoseScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
@@ -444,6 +450,12 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigModule.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\RibbonSolve.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\TwoBoneIkSolve.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RigPoseScene.h">

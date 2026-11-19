@@ -99,7 +99,7 @@ The one open piece of maths is step 3. `RibbonMath` builds its base curve from a
 
 ## 6. Reuse: the shared solves
 
-`TwoBoneIkNode::evaluate` and `RibbonModuleNode::evaluate` are already pure functions over plain values (`TwoBoneIkEval`, `RibbonSolve`), but they are private statics. Phase 0 moves them into shared solve functions with their structs, and the nodes call them. **No behaviour changes in phase 0**: the existing suite and the golden snapshots must pass untouched.
+`TwoBoneIkNode::evaluate` and `RibbonModuleNode::evaluate` were pure functions over plain values (`TwoBoneIkEval`, `RibbonSolve`), but private statics. Phase 0 moved them into `maya/shared/TwoBoneIkSolve` (`TwoBoneIkSolve::evaluate`, with the slots, `TwoBoneIkRest`, `TwoBoneIkEval`, `TwoBoneIkSolveResult` and the frame helpers) and `maya/shared/RibbonSolve` (`RibbonSolve::evaluate`, `Result`, `MaxSlots`), and the nodes call them. **No behaviour changes in phase 0**: the existing suite and the golden snapshots must pass untouched.
 
 `Limb` then reuses, and never copies:
 

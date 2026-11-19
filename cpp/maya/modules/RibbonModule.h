@@ -2,6 +2,7 @@
 
 #include "core/RibbonMath.h"
 #include "maya/nodes/RigControlNode.h"
+#include "maya/shared/RibbonSolve.h"
 #include "maya/shared/RigModule.h"
 #include "maya/shared/Side.h"
 
@@ -128,23 +129,5 @@ public:
 	static std::vector<ModuleInverseChannel> inverseChannels();
 
 private:
-	static constexpr unsigned int MaxSlots{ RibbonMath::MaxControls + RibbonMath::MaxBindJoints };
-
-	// What one evaluation produces, by slot, in world space.
-	struct RibbonSolve
-	{
-		MMatrix mControlOPM[MaxSlots];   // rest carried by the parent's motion (the ik controls on the curve), no local
-		MMatrix mWorld[MaxSlots];        // local * controlOPM
-	};
-
-	// The forward evaluation, shared by compute() and the inverse so a restore returns compute()'s sockets. mRest and
-	// mLocal are by slot; the start's parent motion carries the whole ribbon and the end's is its own.
-	static void evaluate(
-		const RibbonMath::Setup& setup,
-		const RibbonMath::Params& params,
-		const MMatrix* mRest,
-		const MMatrix* mLocal,
-		const MMatrix& mStartDelta,
-		const MMatrix& mEndDelta,
-		RibbonSolve& outSolve);
+	static constexpr unsigned int MaxSlots{ RibbonSolve::MaxSlots };
 };
