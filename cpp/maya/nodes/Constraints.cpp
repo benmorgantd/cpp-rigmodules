@@ -86,8 +86,26 @@ namespace
 // motions to the control's rest, keep the driver's rotation, translation, swing (its rotation without its twist about the
 // child's rest X) or twist (on the parent's swing), take the rest from the parent, and turn the result back into a delta on
 // that rest. Swing and Twist also take the driver's translation.
-MMatrix RigConstraintNode::computeDelta(int type, const MMatrix& mChildRest, const MMatrix& mParentDelta, const MMatrix& mDriverDelta)
+MMatrix RigConstraintNode::computeDelta(
+	int type,
+	const MMatrix& mChildRest,
+	const MMatrix& mParentDelta,
+	const MMatrix& mDriverDelta,
+	double weight)
 {
+	// The delta of a control that only follows its parent is the parent's own motion, for every type (D63).
+	if (weight <= 0.0)
+	{
+		return mParentDelta;
+	}
+	if (weight < 1.0)
+	{
+		// Blended as world matrices, so the pivot moves in a straight line between the two results. Blending the deltas would
+		// rotate the pivot's offset from the origin by the blended rotation too.
+		const MMatrix mFull = mChildRest * computeDelta(type, mChildRest, mParentDelta, mDriverDelta);
+		return mChildRest.inverse() * MathUtils::blendMatrices(mChildRest * mParentDelta, mFull, weight);
+	}
+
 	if (type == kParentType)
 	{
 		return mDriverDelta;
@@ -127,6 +145,7 @@ MObject RigConstraintNode::aDriverRest;
 MObject RigConstraintNode::aDriverLabel;
 MObject RigConstraintNode::aActiveDriver;
 MObject RigConstraintNode::aConstraintType;
+MObject RigConstraintNode::aConstraintWeight;
 MObject RigConstraintNode::aParentMatrix;
 MObject RigConstraintNode::aParentRest;
 MObject RigConstraintNode::aChildRest;
@@ -193,6 +212,15 @@ MStatus RigConstraintNode::initialize()
 	eAttr.setKeyable(false);
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aConstraintType));
 
+	// Rig-builder data, not an animator channel (D63): not keyable, so it stays out of poses and animation.
+	aConstraintWeight = nAttr.create(ConstraintAttr::ConstraintWeight, ConstraintAttr::ConstraintWeight, MFnNumericData::kDouble, 1.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	nAttr.setMin(0.0);
+	nAttr.setMax(1.0);
+	nAttr.setStorable(true);
+	nAttr.setKeyable(false);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aConstraintWeight));
+
 	aParentMatrix = mAttr.create(ConstraintAttr::ParentMatrix, ConstraintAttr::ParentMatrix, MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aParentMatrix));
@@ -222,6 +250,7 @@ MStatus RigConstraintNode::initialize()
 	attributeAffects(aDriverRest, aOutParentMatrix);
 	attributeAffects(aActiveDriver, aOutParentMatrix);
 	attributeAffects(aConstraintType, aOutParentMatrix);
+	attributeAffects(aConstraintWeight, aOutParentMatrix);
 	attributeAffects(aParentMatrix, aOutParentMatrix);
 	attributeAffects(aParentRest, aOutParentMatrix);
 	attributeAffects(aChildRest, aOutParentMatrix);
@@ -229,8 +258,8 @@ MStatus RigConstraintNode::initialize()
 	return MStatus::kSuccess;
 }
 
-// Reads the active driver only. Inactive drivers are never read, so they are never evaluated, and a Parent
-// constraint never reads its parent inputs.
+// Reads the active driver only. Inactive drivers are never read, so they are never evaluated. A full-weight Parent
+// constraint never reads its parent inputs, and a weight of 0 never reads the driver (D63).
 MStatus RigConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	if (plug.attribute() != aOutParentMatrix)
@@ -243,12 +272,14 @@ MStatus RigConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	const int type = data.inputValue(aConstraintType, &status).asShort();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const double weight = data.inputValue(aConstraintWeight, &status).asDouble();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	MArrayDataHandle hDrivers = data.inputArrayValue(aDrivers, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	MMatrix mDriverDelta = MMatrix::identity;
-	if (activeDriver >= 0 && hDrivers.jumpToElement(static_cast<unsigned int>(activeDriver)) == MStatus::kSuccess)
+	if (weight > 0.0 && activeDriver >= 0 && hDrivers.jumpToElement(static_cast<unsigned int>(activeDriver)) == MStatus::kSuccess)
 	{
 		MDataHandle hDriver = hDrivers.inputValue(&status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -259,11 +290,11 @@ MStatus RigConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 	}
 
 	MMatrix mOut = mDriverDelta;
-	if (type != kParentType)
+	if (type != kParentType || weight < 1.0)
 	{
 		const MMatrix mParentDelta = MathUtils::computeDeltaFromRest(
 			data.inputValue(aParentRest).asMatrix(), data.inputValue(aParentMatrix).asMatrix());
-		mOut = computeDelta(type, data.inputValue(aChildRest).asMatrix(), mParentDelta, mDriverDelta);
+		mOut = computeDelta(type, data.inputValue(aChildRest).asMatrix(), mParentDelta, mDriverDelta, weight);
 	}
 
 	data.outputValue(aOutParentMatrix).setMMatrix(mOut);
@@ -339,6 +370,12 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 		return MStatus::kFailure;
 	}
 
+	if (!(args.constraintWeight >= 0.0 && args.constraintWeight <= 1.0))
+	{
+		MGlobal::displayError("constraintWeight must be between 0 and 1.");
+		return MStatus::kFailure;
+	}
+
 	bool createEnumAttr = args.drivers.size() > 1;
 
 	MPlug pPlugParentMatrix;
@@ -349,10 +386,11 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 	// The plug's parentStructure parent. The constraint takes it over, so Orient and Point can still read it (D31).
 	const MPlug pParentSource = pPlugParentMatrix.source();
 	const MMatrix mParentRest = DagUtils::getMatrixFromPlug(pPlugParentRest);
-	if (args.type != kParentType && pParentSource.isNull())
+	if ((args.type != kParentType || args.constraintWeight < 1.0) && pParentSource.isNull())
 	{
 		// Unreachable from a template, where every child plug has a parent (layout_00_M_MOD.end by default).
-		MGlobal::displayError(MString("A ") + ConstraintTypes::All[args.type] + " constraint takes the rest of its transform from the child plug's parent, and "
+		// A Parent constraint below full weight follows the parent too (D63).
+		MGlobal::displayError(MString("A ") + ConstraintTypes::All[args.type] + " constraint takes the rest of its transform from the child plug's parent (a Parent one only below constraintWeight 1), and "
 			+ fnControl.name() + "'s child plug has no parent connected.");
 		return MStatus::kFailure;
 	}
@@ -367,7 +405,8 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 	const ConstraintDriverInfo& initialDriver = args.drivers[args.initialDriver];
 	const MMatrix mInitialDriverDelta = computeDelta(args.type, mChildRest, mCurrentDelta, MathUtils::computeDeltaFromRest(
 		initialDriver.mRestWorld,
-		DagUtils::getMatrixFromPlug(RigModuleNodeBase::getSocketMatrixPlug(initialDriver.oModule, initialDriver.socketIndex))));
+		DagUtils::getMatrixFromPlug(RigModuleNodeBase::getSocketMatrixPlug(initialDriver.oModule, initialDriver.socketIndex))),
+		args.constraintWeight);
 
 	// STAGE 1: the constraint node and the control's enum. The enum must exist in the scene before it can be wired.
 	MObject oConstraint = dagMod.MDGModifier::createNode(RigConstraintNode::id);
@@ -426,6 +465,7 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 	}
 
 	dagMod.newPlugValueShort(MPlug(oConstraint, aConstraintType), static_cast<short>(args.type));
+	dagMod.newPlugValueDouble(MPlug(oConstraint, aConstraintWeight), args.constraintWeight);
 	MPlug pChildRest(oConstraint, aChildRest);
 	DagUtils::setMatrixPlug(pChildRest, mChildRest, dagMod);
 
@@ -507,6 +547,7 @@ MStatus RigConstraintNode::buildFromTemplate(
 		ConstraintBuildArgs args;
 		args.name = constraintData.name;
 		args.type = type;
+		args.constraintWeight = constraintData.constraintWeight;
 		args.oControl = pChildPlug->oTransform;
 		args.oModule = pTargetModule->moduleNode;
 		args.plugIndex = pChildPlug->plugIndex;
@@ -643,7 +684,8 @@ MStatus RigConstraintNode::matchSwitchSpace(const MObject& oConstraint, unsigned
 		mParentDelta,
 		MathUtils::computeDeltaFromRest(
 			DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverRest)),
-			DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverMatrix))));
+			DagUtils::getMatrixFromPlug(pNewDriver.child(aDriverMatrix))),
+		MPlug(oConstraint, aConstraintWeight).asDouble());
 
 	// The control hosts the space enum that drives activeDriver. A constraint without one has a single driver,
 	// so its delta never changes and there is nothing to match.

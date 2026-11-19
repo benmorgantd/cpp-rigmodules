@@ -304,6 +304,11 @@ namespace
 				report.addError(where + "." + TemplateKey::ConstraintType, "unknown constraint type '" + constraint.type + "' (has: " + namesOrNone(ConstraintTypes::All) + ")");
 			}
 
+			if (!(constraint.constraintWeight >= 0.0 && constraint.constraintWeight <= 1.0))
+			{
+				report.addError(where + "." + TemplateKey::ConstraintWeight, "must be between 0 and 1");
+			}
+
 			// Target child plug
 			std::string targetModule;
 			std::string targetPlug;
@@ -528,7 +533,7 @@ namespace RigTemplateValidation
 				const nlohmann::json& constraint = constraints[c];
 				const std::string name = constraint.is_object() ? constraint.value(Name, std::string()) : std::string();
 				const std::string where = constraintPath(c, name);
-				checkKeys(constraint, { Name, ConstraintTarget, ConstraintDrivers }, { ConstraintType, Mirror }, where, report);
+				checkKeys(constraint, { Name, ConstraintTarget, ConstraintDrivers }, { ConstraintType, ConstraintWeight, Mirror }, where, report);
 
 				if (!constraint.is_object() || !constraint.contains(ConstraintDrivers))
 				{

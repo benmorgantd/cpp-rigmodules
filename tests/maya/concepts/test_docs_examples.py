@@ -144,6 +144,17 @@ class OrientConstraintExamples(RigTestCase):
         cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"], type="Orient")
         self.assertPivotFollowsChestRotationDoesNot()
 
+    def test_constraint_weight_example(self):
+        """The docs/commands.md constraintWeight example: half the Orient's effect, so the arm turns halfway with the chest (D63)."""
+        import maya.api.OpenMaya as om
+        self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET, namespace=None)
+        cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"], type="Orient", constraintWeight=0.5)
+        rest = om.MMatrix(cmds.xform(ARM_JNT, q=True, ws=True, matrix=True))
+        cmds.setAttr(SPINE3_CTRL + ".rotateZ", 90)
+        self.assertWorldTranslation(ARM_JNT, ARM_AFTER_SPINE3_ROTATE_Z_90)
+        turned = om.MTransformationMatrix(om.MMatrix(cmds.xform(ARM_JNT, q=True, ws=True, matrix=True)) * rest.inverse()).rotation(asQuaternion=True)
+        self.assertAlmostEqual(math.degrees(2.0 * math.acos(min(1.0, abs(turned.w)))), 45.0, delta=0.1)
+
 
 CONTROLS_DOC = os.path.join(config.REPO_DIR, "docs", "controls.md")
 

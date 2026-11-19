@@ -94,6 +94,7 @@ A constraint gives a control a choice of parent spaces. With more than one drive
 | `target` | yes | `module.childPlug`. The child plug must have a control. Only one constraint can target a child plug. |
 | `drivers` | yes | At least one driver (below) |
 | `type` | no | `Parent` (the default), `Orient`, `Point`, `Swing` or `Twist`. See [Constraint types](#constraint-types). |
+| `constraintWeight` | no | 0 to 1, default 1. See [Constraint weight](#constraint-weight). Not the driver's `weight`, which only picks the starting driver. |
 | `mirror` | no | `true` also builds this constraint on the other side. The target must be a `Left` or `Right` module. See [Mirroring](#mirroring). |
 
 Drivers:
@@ -139,6 +140,10 @@ In the README's quick start rig, the arm's `start` attaches to `spine_00_M_MOD.e
 ```
 
 A space switch keeps the control in place whatever the type. On an `Orient` constraint it changes only the control's rotate channels while its translate is zero, and on a `Point` constraint only its translate while its rotate is zero.
+
+### Constraint weight
+
+`constraintWeight` takes a share of any type's effect, such as 20% of a wrist's twist: `"type": "Twist", "constraintWeight": 0.2`. At 1 (the default) the control gets the full constraint. At 0 it gets none, and just follows its parent as if the constraint were not there, for every type, `Parent` included. In between, the pivot moves part of the way and the rotation turns part of the way (a slerp), so a `Twist` at 0.5 is close to half the twist. The weight is part of the rig, set here or with `setAttr` on the constraint's `constraintWeight`, and is not an animation channel, so it is in no pose or animation. It applies to the whole constraint, whichever driver is active, and it copies to the other side with `mirror`. A `Parent` constraint below 1 reads its parent plug, so that plug needs a parent.
 
 ## Mirroring
 

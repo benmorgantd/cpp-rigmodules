@@ -29,6 +29,7 @@ namespace
 	constexpr const char* kInitialFlag{ "-initial" };
 	constexpr const char* kSpaceFlag{ "-space" };
 	constexpr const char* kTypeFlag{ "-type" };
+	constexpr const char* kConstraintWeightFlag{ "-constraintWeight" };
 
 	// Fills everything createConstraint needs from the control and the flags. Resolves every driver socket
 	// before anything is queued, so a bad name leaves the scene untouched.
@@ -62,6 +63,17 @@ namespace
 		{
 			MGlobal::displayError(MString("Unknown constraint -type '") + type + "' (has: "
 				+ StringUtils::joinNames(ConstraintTypes::All).c_str() + ").");
+			return MStatus::kFailure;
+		}
+
+		if (argData.isFlagSet(kConstraintWeightFlag))
+		{
+			status = argData.getFlagArgument(kConstraintWeightFlag, 0, outArgs.constraintWeight);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		if (!(outArgs.constraintWeight >= 0.0 && outArgs.constraintWeight <= 1.0))
+		{
+			MGlobal::displayError("-constraintWeight must be between 0 and 1.");
 			return MStatus::kFailure;
 		}
 
@@ -221,6 +233,7 @@ MSyntax CreateRigConstraintCmd::newSyntax()
 	CHECK_MSTATUS(syntax.makeFlagMultiUse(kLabelFlag));
 	CHECK_MSTATUS(syntax.addFlag("-i", kInitialFlag, MSyntax::kLong));
 	CHECK_MSTATUS(syntax.addFlag("-t", kTypeFlag, MSyntax::kString));
+	CHECK_MSTATUS(syntax.addFlag("-cw", kConstraintWeightFlag, MSyntax::kDouble));
 	syntax.setObjectType(MSyntax::kStringObjects, 1, 1);
 	syntax.useSelectionAsDefault(false);
 	return syntax;

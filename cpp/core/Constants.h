@@ -427,6 +427,7 @@ namespace TemplateKey
 	inline constexpr const char* ConstraintType{ "type" };
 	inline constexpr const char* ConstraintTarget{ "target" };
 	inline constexpr const char* ConstraintDrivers{ "drivers" };
+	inline constexpr const char* ConstraintWeight{ "constraintWeight" };   // 0..1, default 1 (D63). Not the driver's `weight`.
 	inline constexpr const char* DriverSocket{ "socket" };
 	inline constexpr const char* DriverLabel{ "label" };
 	inline constexpr const char* DriverWeight{ "weight" };
@@ -473,6 +474,7 @@ namespace ConstraintAttr
 	inline constexpr const char* DriverLabel{ "driverLabel" };
 	inline constexpr const char* ActiveDriver{ "activeDriver" };
 	inline constexpr const char* ConstraintType{ "constraintType" };
+	inline constexpr const char* ConstraintWeight{ "constraintWeight" };
 	inline constexpr const char* ParentMatrix{ "parentMatrix" };
 	inline constexpr const char* ParentRest{ "parentRest" };
 	inline constexpr const char* ChildRest{ "childRest" };

@@ -321,6 +321,27 @@ class OrientConstraintRoundTrip(SolveTestCase):
         self.assertValues(self.CONTROL, {"rotateZ": 15})
 
 
+    def test_a_partial_weight_orient_round_trip(self):
+        """The sweep passes the constraint's constraintWeight to the same delta function (D63)."""
+        self.build_standard("fkchain_two_chains", "fk_two_chains")
+        cmds.createRigConstraint(self.CONTROL, driver=["fkchain_01_M_MOD.end", "layout_00_M_MOD.end"], type="Orient", constraintWeight=0.4)
+        cmds.setAttr(self.CONTROL + ".space", 1)
+        rest = self.snapshot()
+        cmds.setAttr(rig_name("a_00_M_CTRL.rotateZ"), 40)
+        cmds.setAttr(rig_name("layout_02_M_CTRL.rotateY"), 30)
+        cmds.setAttr(self.CONTROL + ".rotateZ", 15)
+        posed_joints = self.snapshot()
+        clip = self.write_clip(rest, [posed_joints])
+        cmds.zeroRigControls(rig_root())
+        control = rigmodules.query.get_control(self.CONTROL)
+        layout_end = rigmodules.query.get_control(rig_name("layout_02_M_CTRL"))
+        sidecar = self.write_sidecar({
+            control.side: {control.usage: {"space": 1}},
+            layout_end.side: {layout_end.usage: {"rotateY": 30}}})
+        cmds.poseRigFromJointPose(rig_root(), jointPose=clip, sidecar=sidecar)
+        self.assertJointsAt(posed_joints)
+        self.assertValues(self.CONTROL, {"rotateZ": 15})
+
     def test_a_swing_space_round_trip(self):
         """A Swing driver is the layout's end, which no joint can give, so its twist and swing come from the sidecar. The control's
         own rotation comes back from the joints through the same delta function."""

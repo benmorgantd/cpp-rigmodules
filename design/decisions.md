@@ -76,6 +76,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D60 | The build is faster through parallel compiles and two precompiled headers, not by splitting the project | Decided | Build |
 | D61 | The Asset Editor is a dockable asset context over files, markup and shapes | Decided | Assets |
 | D62 | Limb: one module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon | Decided | Assets |
+| D63 | `constraintWeight`: a baked 0..1 blend from "follow the parent" to the full constraint | Decided | Constraints |
 
 ---
 
@@ -996,6 +997,21 @@ An arm or leg built from `TwoBoneIk`, two or three `Ribbon` modules and `Swing` 
 - **Phase 2, built (2026-11-19):** the `Limb` module (`limbModule`, `0x002192`). The two-bone half is shared as `TwoBoneIkPart<Node>` (attributes, plug reads, slots, channels) and `TwoBoneIkSolve::planSlots`, and the ribbon's channels, stored rest and evaluation as `RibbonSolve`, so `TwoBoneIk` and `Ribbon` now run on the code `Limb` uses. **Amended by the author (2026-11-19): the elbow is a sharp corner by default.** `bendSoftness` (0 to 1, rest 0, on the settings control) blends from the polyline through the joints to the smooth curve, in both the base curve and the detail curve, and replaces `bendRoundness` (which, with the aim blends, is not a Limb channel). A curve degree was rejected: a cubic with chord tangents is exactly a line, so one channel spans both. A split spline needed its own frame transport (the normal flips across a corner over a quarter turn) and a roll measured on each side of a corner. The test of the work: four hand-worked pose cases, eight validation cases, the contract (its three inverse tests skipped until phase 3), DAG parenting, and `test_limb_matches_parts`. Not built: the inverse, the matched switch for a Limb (`setRigIkFkBlend` is TwoBoneIk's), `ikTarget` and the perf-rig instances.
 - **Amendment (author, 2026-11-19): the end joint of `joints` may point up to 80 degrees off the shin.** A leg's ankle has its X axis at the ball of the foot, which on solomon is 62 degrees off the knee-to-ankle line and was rejected by the 60 degree check (D57). `checkChain` takes a separate limit for the last joint, and `Limb`'s `joints` check passes 80 (`ControlPlacement::MaxLimbEndAxisAngleDegrees`). The bind-joint checks and `Ribbon` keep 60. **Why 80, not removing the check:** the end anchor's roll is the angle of its Y axis projected across the curve's tangent, and it loses its meaning near 90. A pure hinge pitch of the foot projects to no roll, so it does not twist the lower leg. **Effect on the curve:** none at rest, and none by default (`bendSoftness` 0 puts the end handle on the chord); above 0 the ankle's own X axis bends the last stretch of the curve toward the foot.
 - **Open:** `ReverseFoot`'s IK match.
+
+### D63. `constraintWeight`: a baked 0..1 blend from "follow the parent" to the full constraint
+
+**Status:** Decided (author, 2026-11-19: three answers and the name). Built.
+
+A Twist (or Swing, Orient, Point) constraint sometimes should give only a share of its effect, say 20% of a wrist's twist. Every type needed the same dial.
+
+- **Attribute:** `constraintWeight` on `rigConstraint`, a double clamped to 0..1, default 1. One node type serves every constraint type (D31), so it is one attribute. A template constraint takes `constraintWeight`, and `cmds.createRigConstraint` takes `constraintWeight`. The name is not `weight`: that is already a driver key (D17) that only picks the initial driver.
+- **Meaning:** 0 gives the control's parent baseline, which is the control just following its parent. That is `mParentDelta` for every type, Parent included (author: "0 should mean follow the parent"). 1 is the type's full result. In between, the two results are blended as world matrices (`childRest * delta`) with `MathUtils::blendMatrices`: the pivot lerps and the rotation slerps, then the result goes back to a delta. Blending the deltas themselves was tried first and was wrong: a delta's translation is the offset from the child's rest pivot, so the blended rotation turned that offset and the pivot left the straight line between the two results. On Twist and Swing the blend is geodesic, close to scaling the twist angle but not identical.
+- **Baked, not animated (author):** it is not keyable and not a control channel, so it is in no pose or animation library (D34, D42) and has no mirror mode. A template `constraintWeight` copies to the mirror side with the rest of the constraint (D28). It is global to the constraint, not per driver.
+- **`computeDelta` takes the weight** (default 1). `compute()`, `matchSwitchSpace` and the inverse solve (D41) all pass it, so they cannot drift. The inverse only runs the delta forward, so it needs no inversion of the blend. A match at partial weight uses the weighted output, so the control does not jump (D27). At 0 the driver has no effect: the match writes nothing.
+- **Parent below weight 1 reads its parent inputs**, which a full Parent constraint never does. `createConstraint` therefore rejects a Parent constraint under weight 1 on a plug with no parent connected.
+- **Cost (D36):** one double read per evaluation. A weight of 1 returns early with no extra math, a weight of 0 skips the driver read, and only a weight strictly between pays for a decompose and a slerp. No `bench` (an attribute on an existing type: D12).
+- **Names and format:** additive. Old scenes load at 1 and nothing is renamed or bumped (D32, D33). `Limb` calls `computeDelta` with the default weight and uses no constraint nodes (D62), so it is unchanged.
+- **Rejected:** a keyable channel on the control (author: baked into the rig), a per-driver weight, and a blend toward rest for Parent (inconsistent with the other types).
 
 ## Open items
 

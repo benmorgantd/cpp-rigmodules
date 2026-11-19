@@ -1,0 +1,16 @@
+{
+  "description": "A constraint's constraintWeight must be between 0 and 1 (D63)",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints/0/constraintWeight",
+      "value": 1.5
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "must be between 0 and 1"
+    }
+  ]
+}

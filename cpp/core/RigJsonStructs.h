@@ -23,6 +23,7 @@ struct RigConstraintData
 	std::string name;
 	std::string type = ConstraintTypes::Parent;
 	std::string target;           // "module.childPlug"
+	double constraintWeight = 1.0;   // 0 follows the parent, 1 is the full constraint (D63)
 	std::vector<RigConstraintDriverData> drivers;
 	bool mirror = false;          // template key: build a copy on the other side too (D28)
 	int mirrorOf = -1;            // set on a generated mirror: the template index of its source
@@ -96,6 +97,7 @@ inline void from_json(const nlohmann::json& jsonData, RigConstraintData& constra
 	jsonData.at(TemplateKey::ConstraintTarget).get_to(constraint.target);
 	jsonData.at(TemplateKey::ConstraintDrivers).get_to(constraint.drivers);
 	constraint.type = jsonData.value(TemplateKey::ConstraintType, ConstraintTypes::Parent);
+	constraint.constraintWeight = jsonData.value(TemplateKey::ConstraintWeight, 1.0);
 	constraint.mirror = jsonData.value(TemplateKey::Mirror, false);
 }
 
@@ -103,4 +105,8 @@ inline void to_json(nlohmann::json& jsonData, const RigConstraintData& constrain
 {
 	jsonData = nlohmann::json{ { TemplateKey::Name, constraint.name }, { TemplateKey::ConstraintType, constraint.type },
 		{ TemplateKey::ConstraintTarget, constraint.target }, { TemplateKey::ConstraintDrivers, constraint.drivers } };
+	if (constraint.constraintWeight != 1.0)
+	{
+		jsonData[TemplateKey::ConstraintWeight] = constraint.constraintWeight;
+	}
 }

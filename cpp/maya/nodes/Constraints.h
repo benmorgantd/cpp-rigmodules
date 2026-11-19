@@ -37,6 +37,7 @@ struct ConstraintBuildArgs
 	unsigned int plugIndex = 0;      // child plug (and control) index on that module
 	std::vector<ConstraintDriverInfo> drivers;
 	unsigned int initialDriver = 0;
+	double constraintWeight = 1.0;   // 0 follows the parent, 1 is the full constraint (D63)
 	MObject oRigRoot;                // may be null
 };
 
@@ -67,6 +68,7 @@ public:
 	static MObject aDriverLabel;       //   enum label
 	static MObject aActiveDriver;      // int, driven by the control's enum
 	static MObject aConstraintType;    // enum, ConstraintTypes::All
+	static MObject aConstraintWeight;  // double 0..1, baked into the rig: 0 follows the parent, 1 is the full constraint (D63)
 	static MObject aParentMatrix;      // live world matrix of the plug's parentStructure socket
 	static MObject aParentRest;        // that socket's world matrix at rest
 	static MObject aChildRest;         // rest world matrix of the constrained control
@@ -77,7 +79,14 @@ public:
 	// The delta a constraint of this type outputs, from plain matrices: the child's rest, the motion of its
 	// parentStructure parent and the motion of the active driver (each rest^-1 * world, identity at rest). compute()
 	// and the inverse solve's sweep (D41) both call it, so the two can't drift.
-	static MMatrix computeDelta(int type, const MMatrix& mChildRest, const MMatrix& mParentDelta, const MMatrix& mDriverDelta);
+	// weight (D63) blends from the parent's own motion (0, the control just follows its parent, whatever the type) to the
+	// type's full result (1): translation lerps, rotation slerps. Below 1 even a Parent constraint needs mParentDelta.
+	static MMatrix computeDelta(
+		int type,
+		const MMatrix& mChildRest,
+		const MMatrix& mParentDelta,
+		const MMatrix& mDriverDelta,
+		double weight = 1.0);
 
 	// An unqualified module name resolves in rigNamespace (the constrained control's namespace), the same ids templates use.
 	static MStatus resolveSocket(const std::string& socketId, const MString& rigNamespace, ConstraintDriverInfo& outDriver);

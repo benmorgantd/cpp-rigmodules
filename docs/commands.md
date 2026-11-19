@@ -166,19 +166,24 @@ cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end
 | `initial` | int | Index of the driver that starts active. Defaults to 0. |
 | `name` | string | The constraint node's name. Defaults to the control's name with `CON`, `arm_00_L_CTRL` giving `arm_00_L_CON`. A name must be in the [naming convention](naming.md), ending in `CON`. |
 | `type` | string | `Parent` (the default), `Orient`, `Point`, `Swing` or `Twist`. Orient takes only the driver's rotation, Point only its translation, Swing its translation and its rotation without the twist about X, and Twist its translation and its twist about X on the parent's swing. The rest comes from the child plug's parent ([templates.md](templates.md#constraint-types)). |
+| `constraintWeight` | float | 0 to 1, default 1. How much of the constraint's effect the control gets: 0 makes the control just follow its parent, whatever the type, and 1 is the full constraint. In between, positions blend and rotations slerp. It is set at build time and is not an animation channel ([templates.md](templates.md#constraint-weight)). |
 
 Object: the control, which must be the control of a module's child plug.
 
 ```python
 # The arm keeps the world's rotation, and its shoulder pivot follows the chest.
 cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"], type="Orient")
+
+# The same, at half strength: the arm turns halfway with the chest.
+cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"], type="Orient", constraintWeight=0.5)
 ```
 
 - **Driver modules** without a namespace are looked up in the control's namespace, whatever the current namespace is. A driver that names a namespace (`other:layout_00_M_MOD.end`) is used as given.
 - **The constraint node** goes in the control's namespace unless `name` includes a namespace.
 - A module cannot drive its own child plug, and a control can have only one space constraint.
 - An Orient, Point, Swing or Twist constraint fails on a child plug with no parent connected. A built rig always has one, `layout_00_M_MOD.end` by default.
-- The node is a `rigConstraint`, and its `constraintType` attribute holds the type.
+- A Parent constraint below `constraintWeight` 1 also reads the child plug's parent, so it fails on a plug with none.
+- The node is a `rigConstraint`, and its `constraintType` attribute holds the type, and `constraintWeight` its weight.
 - With more than one driver, the control gets a `space` enum attribute listing the labels.
 - The control does not move. On a posed rig its translate, rotate and scale are changed to keep it in place, the same match `setRigConstraintSpace` does. At rest nothing changes.
 

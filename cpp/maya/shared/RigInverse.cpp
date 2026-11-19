@@ -57,6 +57,7 @@ namespace
 	struct ConstraintState
 	{
 		int type = 0;
+		double weight = 1.0;   // the constraint's constraintWeight (D63)
 		MMatrix mChildRest;
 		MMatrix mParentRest;
 		SocketRef parent;
@@ -423,6 +424,7 @@ namespace
 			plug.kind = PlugState::Kind::kConstraint;
 			ConstraintState& constraint = plug.constraint;
 			constraint.type = MPlug(oConstraint, RigConstraintNode::aConstraintType).asShort();
+			constraint.weight = MPlug(oConstraint, RigConstraintNode::aConstraintWeight).asDouble();
 			constraint.mChildRest = DagUtils::getMatrixFromPlug(MPlug(oConstraint, RigConstraintNode::aChildRest));
 			constraint.mParentRest = DagUtils::getMatrixFromPlug(MPlug(oConstraint, RigConstraintNode::aParentRest));
 			constraint.parent = readSocketSource(MPlug(oConstraint, RigConstraintNode::aParentMatrix), moduleByKey);
@@ -664,7 +666,7 @@ namespace
 		{
 			mDriverDelta = socketMotion(itDriver->second.socket, itDriver->second.mRest);
 		}
-		return RigConstraintNode::computeDelta(constraint.type, constraint.mChildRest, socketMotion(constraint.parent, constraint.mParentRest), mDriverDelta);
+		return RigConstraintNode::computeDelta(constraint.type, constraint.mChildRest, socketMotion(constraint.parent, constraint.mParentRest), mDriverDelta, constraint.weight);
 	}
 
 	MStatus Solver::solveFrame(const JointPose& pose, const PoseMap& sidecar, PoseMap& outPose)
