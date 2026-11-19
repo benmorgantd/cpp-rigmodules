@@ -2,11 +2,39 @@
 
 #include "core/RibbonMath.h"
 
-#include <maya/MMatrix.h>
+#include <array>
 
-// The Ribbon module's forward evaluation (D56), as plain values in and out, with no node and no plug. RibbonModuleNode calls it
-// from compute() and its inverse, and the Limb module (D62, design/limb.md) calls it for its ribbon. A change here changes both:
-// read design/limb.md first.
+#include <maya/MDagModifier.h>
+#include <maya/MDataBlock.h>
+#include <maya/MMatrix.h>
+#include <maya/MObject.h>
+#include <maya/MStatus.h>
+
+// The order of the channels on the first control, which is the order of RibbonModuleNode::aChannels, of RibbonSolve::channelSpecs()
+// and of ModuleInverseInput::channels. Append only: the order is not a name, but the node indexes by it.
+namespace RibbonChannel
+{
+	inline constexpr unsigned int StartTwist{ 0 };
+	inline constexpr unsigned int EndTwist{ 1 };
+	inline constexpr unsigned int SineAmplitude{ 2 };
+	inline constexpr unsigned int SineFrequency{ 3 };
+	inline constexpr unsigned int SinePhase{ 4 };
+	inline constexpr unsigned int SineOrient{ 5 };
+	inline constexpr unsigned int SineStartFalloff{ 6 };
+	inline constexpr unsigned int SineEndFalloff{ 7 };
+	inline constexpr unsigned int StartAimBlend{ 8 };
+	inline constexpr unsigned int EndAimBlend{ 9 };
+	inline constexpr unsigned int BendRoundness{ 10 };
+	inline constexpr unsigned int VolumePreserve{ 11 };
+	inline constexpr unsigned int ScaleStart{ 12 };
+	inline constexpr unsigned int ScaleMid{ 13 };
+	inline constexpr unsigned int ScaleEnd{ 14 };
+	inline constexpr unsigned int Count{ 15 };
+}
+
+// The Ribbon module's forward evaluation (D56), channels and stored rest data, as plain values and shared functions with no node of
+// their own. RibbonModuleNode calls it from compute() and its inverse, and the Limb module (D62, design/limb.md) calls it for its
+// ribbon. A change here changes both: read design/limb.md first.
 namespace RibbonSolve
 {
 	inline constexpr unsigned int MaxSlots{ RibbonMath::MaxControls + RibbonMath::MaxBindJoints };
@@ -18,7 +46,9 @@ namespace RibbonSolve
 		MMatrix mWorld[MaxSlots];        // local * controlOPM
 	};
 
-	// mRest and mLocal are by slot; the start's parent motion carries the whole ribbon and the end's is its own.
+	// mRest and mLocal are by slot; the start's parent motion carries the whole ribbon and the end's is its own. With pAnchorWorld (a
+	// Limb's start, mid and end frames, as world matrices) the curve passes through them in world space (RibbonMath::Setup::fkAnchors):
+	// pass identity for both deltas, and nothing reads the slots past the ik controls and the bind joints.
 	void evaluate(
 		const RibbonMath::Setup& setup,
 		const RibbonMath::Params& params,
@@ -26,5 +56,51 @@ namespace RibbonSolve
 		const MMatrix* mLocal,
 		const MMatrix& mStartDelta,
 		const MMatrix& mEndDelta,
-		Result& outSolve);
+		Result& outSolve,
+		const MMatrix* pAnchorWorld = nullptr);
+
+	// A channel on a control (D56 section 5): its name, rest (the default, D34), range, whether it is an angle and whether a mirror
+	// negates it. The ranges keep the evaluation finite: a fraction of the rest length, a handle scale.
+	struct ChannelSpec
+	{
+		const char* name;
+		double defaultValue;
+		double min;
+		double max;
+		bool isAngle;
+		bool negate;
+	};
+
+	// In RibbonChannel order.
+	const std::array<ChannelSpec, RibbonChannel::Count>& channelSpecs();
+
+	// The animator's channels in internal units, in RibbonChannel order, as the evaluation's parameters.
+	RibbonMath::Params paramsFromChannels(const double* values);
+
+	// The rest data a ribbon stores on its node at build (D56 section 3.4), by the module's own attributes. The two modules use the
+	// same names but for the ik controls' offsets, which Limb keeps apart from its two-bone limb's.
+	struct RestAttrs
+	{
+		MObject& ikControlCount;
+		MObject& knotU;
+		MObject& bindU;
+		MObject& restLength;
+		MObject& chainSign;
+		MObject& restUp;
+		MObject& restTangent;
+		MObject& ikRestOffset;
+		MObject& bindRestOffset;
+	};
+
+	// Creates and adds the rest attributes to the node being initialized (MPxNode::addAttribute). The offsets of the ik controls are
+	// named `ikRestOffsetName`.
+	MStatus createRestAttributes(const RestAttrs& attrs, const char* ikRestOffsetName);
+
+	// The stored rest into setup (knots, parameters, offsets, length, frame, chain sign). A saved scene keeps only the array elements
+	// that differ from their default, and an array with none has no handle, so a missing element is its default, which the Setup
+	// already holds.
+	void readSetup(MDataBlock& data, const RestAttrs& attrs, int controlCount, int bindCount, RibbonMath::Setup& setup);
+
+	// Queues the same rest data from a built setup, for createModule.
+	void writeRestData(const MObject& oModule, const RestAttrs& attrs, const RibbonMath::Setup& setup, MDagModifier& dagMod);
 }

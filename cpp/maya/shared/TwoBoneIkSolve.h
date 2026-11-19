@@ -1,13 +1,23 @@
 #pragma once
 
+#include "core/ControlMarkup.h"
+#include "core/RigJsonStructs.h"
+#include "core/RigTemplateValidation.h"
+#include "maya/shared/RigModule.h"
+
 #include <array>
+#include <nlohmann/json.hpp>
+#include <string>
+#include <vector>
 
 #include <maya/MMatrix.h>
+#include <maya/MObject.h>
 #include <maya/MVector.h>
 
 // The two-bone IK/FK solve (D52), as plain values in and out, with no node and no plug. TwoBoneIkNode reads its plugs into a
 // TwoBoneIkEval and calls TwoBoneIkSolve::evaluate, the inverse calls it on the values it built, and the Limb module (D62,
-// design/limb.md) calls it for its limb joints. A change here changes every one of them: read design/limb.md first.
+// design/limb.md) calls it for its limb joints. The plan step's derived controls and the rest data are here too, for the same
+// reason. A change here changes every one of them: read design/limb.md first.
 
 struct TwoBoneIkResult;   // maya/shared/Utilities.h
 
@@ -24,6 +34,30 @@ namespace TwoBoneIkSlot
 	inline constexpr unsigned int Count{ 6 };
 	inline constexpr unsigned int LimbCount{ 3 };  // the slots that are limb joints
 }
+
+struct TwoBoneIkSlotInput
+{
+	MObject oJoint;                // Null for the IK, pole and settings slots: they have no joint (D57)
+	MMatrix mRestWorld;
+	ControlMarkup controlMarkup;   // The joint's (side, usage), or the derived control's
+	std::string baseName;          // What names a joint-less control's node (its usage). Empty for a slot with a joint
+};
+
+// Field names are the JSON keys: "joints": [[side, usage] x 3] (root, mid, end). The IK handle, pole and settings controls are
+// derived from them (D57). "controlName" (optional): the base of their usages, <base>IK, <base>Pole and <base>Settings.
+// "poleOffset" and "settingsOffset" (optional, [x, y, z] in world space, left out or empty for the default): the pole's offset from
+// the mid joint and the settings control's from the end joint. The other side of a mirrored module gets X negated.
+struct TwoBoneIkArgs
+{
+	std::vector<JointSelector> joints;
+	std::string controlName;
+	std::vector<double> poleOffset;
+	std::vector<double> settingsOffset;
+	double ikFkBlend{ 1.0 };
+	bool ikOrientToWorld{ false };
+	bool ikAlignToPole{ false };
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(TwoBoneIkArgs, joints, controlName, poleOffset, settingsOffset, ikFkBlend, ikOrientToWorld, ikAlignToPole)
 
 // What the plan step works out from the rest pose, stored on the node by createModule (D52 section 4.3).
 struct TwoBoneIkRest
@@ -79,4 +113,23 @@ namespace TwoBoneIkSolve
 	// The forward evaluation, shared by compute(), the inverse and Limb so the sockets a restore returns are compute()'s.
 	// The FK chain is always solved (the controls' offsets stay current), the IK above blend 0.
 	void evaluate(const TwoBoneIkEval& eval, TwoBoneIkSolveResult& outResult);
+
+	// Everything the rest pose fixes: bone lengths, the plane angle that makes IK at rest reproduce the rest bend, and the offsets that
+	// give each IK joint its own rest orientation (bind pose safe). The rests are valid (planSlots checked the geometry). The inverse
+	// calls this again from the controls' stored rests.
+	TwoBoneIkRest computeRest(const std::array<MMatrix, TwoBoneIkSlot::Count>& restWorlds);
+
+	// The child plug each slot owns, or nullptr for the slots with none (the FK lower and end controls).
+	const char* childPlugNameAt(unsigned int slot);
+	// Every name of the socket on a slot. index_0 to index_2 (and start and end, which are the same sockets) carry the blended joint worlds.
+	std::vector<std::string> socketNamesAt(unsigned int slot);
+	// The child plugs and sockets of the limb's six slots: the pole and settings plugs take no constraint, and the settings plug
+	// follows start's parent (D52 decision 14). Limb has the same ones.
+	ModuleInterface makeInterface();
+
+	// The plan step's shared half (read phase, no scene changes): checks the limb's arguments (three joints, the blend's range, the
+	// pole and settings offsets, ikAlignToPole), claims the joints and derives the IK handle, pole and settings controls (D57), their
+	// names and markup, and the rest. Reports into ctx.report and returns false on a problem. outSlots holds, per slot, the joint (or
+	// none), its rest world, its markup and its base name.
+	bool planSlots(const TwoBoneIkArgs& ikArgs, PlanContext& ctx, std::array<TwoBoneIkSlotInput, TwoBoneIkSlot::Count>& outSlots, TwoBoneIkRest& outRest);
 }

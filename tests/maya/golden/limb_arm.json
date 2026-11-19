@@ -1,0 +1,116 @@
+{
+  "description": "The Limb's public names: the module's child plugs and sockets, and every control with its keyable channels and its markup",
+  "template": "limb_arm",
+  "skeleton": "limb_arm",
+  "interface": {
+    "modules": {
+      "arm_01_L_MOD": {
+        "type": "limbModule",
+        "sockets": [["index_0", "start"], ["index_1"], ["index_2", "end"], ["ik"], ["pole"], ["settings"]],
+        "childPlugs": ["start", "ik", "pole", "settings"]
+      },
+      "layout_00_M_MOD": {
+        "type": "layoutModule",
+        "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
+        "childPlugs": []
+      }
+    },
+    "controls": {
+      "armIK_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "roll"],
+        "markup": ["Left", "armIK"]
+      },
+      "armPole_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "pin", "space"],
+        "markup": ["Left", "armPole"],
+        "spaces": ["Parent", "Ik"]
+      },
+      "armRibbonIK_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armRibbonIK_00"]
+      },
+      "armRibbonIK_01_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armRibbonIK_01"]
+      },
+      "armRibbonIK_02_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armRibbonIK_02"]
+      },
+      "armRibbonIK_03_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armRibbonIK_03"]
+      },
+      "armRibbonIK_04_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armRibbonIK_04"]
+      },
+      "armSettings_00_L_CTRL": {
+        "keyable": ["visibility", "ikFkBlend", "stretch", "soft", "startTwist", "endTwist", "sineAmplitude", "sineFrequency", "sinePhase", "sineOrient", "sineStartFalloff", "sineEndFalloff", "volumePreserve", "scaleStart", "scaleMid", "scaleEnd", "bendSoftness"],
+        "markup": ["Left", "armSettings"]
+      },
+      "bind1_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armTweak_00"]
+      },
+      "bind2_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armTweak_01"]
+      },
+      "bind3_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armTweak_02"]
+      },
+      "bind4_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armTweak_03"]
+      },
+      "bind5_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armTweak_04"]
+      },
+      "bind6_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armTweak_05"]
+      },
+      "bind7_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armTweak_06"]
+      },
+      "bind8_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armTweak_07"]
+      },
+      "bind9_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "armTweak_08"]
+      },
+      "hand_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "hand"]
+      },
+      "layout_00_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_0"]
+      },
+      "layout_01_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_1"]
+      },
+      "layout_02_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_2"]
+      },
+      "lowerArm_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "lowerArm"]
+      },
+      "upperArm_00_L_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Left", "upperArm"]
+      }
+    },
+    "joints": ["bind1_00_L_JNT", "bind2_00_L_JNT", "bind3_00_L_JNT", "bind4_00_L_JNT", "bind5_00_L_JNT", "bind6_00_L_JNT", "bind7_00_L_JNT", "bind8_00_L_JNT", "bind9_00_L_JNT", "hand_00_L_JNT", "lowerArm_00_L_JNT", "upperArm_00_L_JNT"],
+    "constraints": {}
+  }
+}

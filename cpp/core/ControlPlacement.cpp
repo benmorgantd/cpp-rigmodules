@@ -319,4 +319,26 @@ namespace ControlPlacement
 		// Y is world up, so X = Y x Z.
 		return makeFrame({ axisZ.z, 0.0, -axisZ.x }, { 0.0, 1.0, 0.0 }, axisZ, pEnd);
 	}
+	std::vector<double> limbControlParameters(double upperLength, double lowerLength, int controlCount)
+	{
+		const double total = upperLength + lowerLength;
+		const double mid = upperLength / total;
+		const int extras = controlCount - 3;
+		const int onUpper = std::min(extras, std::max(0, static_cast<int>(std::lround(extras * upperLength / total))));
+		const int onLower = extras - onUpper;
+
+		std::vector<double> parameters;
+		parameters.push_back(0.0);
+		for (int i = 1; i <= onUpper; ++i)
+		{
+			parameters.push_back(mid * i / (onUpper + 1));
+		}
+		parameters.push_back(mid);
+		for (int i = 1; i <= onLower; ++i)
+		{
+			parameters.push_back(mid + (1.0 - mid) * i / (onLower + 1));
+		}
+		parameters.push_back(1.0);
+		return parameters;
+	}
 }

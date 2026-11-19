@@ -33,7 +33,7 @@ Design pages are history with dates, not user documentation. What a feature does
 | [`ribbon.md`](ribbon.md) | D56 | Built. `fkStyle` was added in D59 (2026-11-18) |
 | [`derived-controls.md`](derived-controls.md) | D57 | Signed off. Phases 0 and 1 built |
 | [`ribbon-twist-follow.md`](ribbon-twist-follow.md) | D56 | Proposed, not signed off |
-| [`limb.md`](limb.md) | D62 | Signed off 2026-11-19, not built: a Limb module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon. Changes to those modules affect it |
+| [`limb.md`](limb.md) | D62 | Signed off 2026-11-19, phases 0 to 2 built (the module, a sharp elbow with `bendSoftness`); the inverse is next: a Limb module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon. Changes to those modules affect it |
 | [`control-node-perf-handoff.md`](control-node-perf-handoff.md) | D36, D37 | Handoff, nothing built |
 
 ## Handoffs

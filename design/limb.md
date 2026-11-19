@@ -1,6 +1,6 @@
 # Limb module: design
 
-**Status:** signed off by the author on 2026-11-19 (D62), after one round of questions. Nothing is built. This page replaces the direction note of 2026-11-18, whose history is kept in section 2. Implementation follows the phases in section 12, one commit each.
+**Status:** signed off by the author on 2026-11-19 (D62), after one round of questions. **Phases 0 to 2 are built (2026-11-19):** the shared solves, the anchored ribbon and the `Limb` module. The inverse (phase 3) is next. This page replaces the direction note of 2026-11-18, whose history is kept in section 2. Implementation follows the phases in section 12, one commit each.
 
 > **Coupling warning.** `Limb` is not a subclass of `TwoBoneIk` or `Ribbon`, but it runs their solves. It calls the same shared functions, reads the same channel specs and uses the same inverse routines. **A change to the IK/FK solve, the ribbon solve, `core/RibbonMath`, `core/SwingTwist`, the TwoBoneIk or Ribbon channels, their inverses or their control derivation changes `Limb` too.** Before changing any of them, read this page, run the Limb contract and pose cases, and say in the change summary what Limb does with it. A suite test (section 11, `test_limb_matches_parts`) fails when the three disagree, so the coupling is checked and not only documented. The same warning is at the top of `two-bone-ik.md` and `ribbon.md`, in `CLAUDE.md`, and in the headers of `TwoBoneIkModule.h`, `RibbonModule.h` and `RibbonMath.h`.
 
@@ -75,9 +75,9 @@ Every module-wide channel is on the **settings control**. Names are the ones alr
 
 | From `TwoBoneIk` | From `Ribbon` | Stays where it is |
 |---|---|---|
-| `ikFkBlend`, `stretch`, `soft` | `startTwist`, `endTwist`, `bendRoundness`, `volumePreserve`, `scaleStart`, `scaleMid`, `scaleEnd`, `sineAmplitude`, `sineFrequency`, `sinePhase`, `sineOrient`, `sineStartFalloff`, `sineEndFalloff` | `roll` on the IK handle, `pin` and `space` on the pole, `space` on the FK start control and the IK handle (D27) |
+| `ikFkBlend`, `stretch`, `soft` | `startTwist`, `endTwist`, `volumePreserve`, `scaleStart`, `scaleMid`, `scaleEnd`, `sineAmplitude`, `sineFrequency`, `sinePhase`, `sineOrient`, `sineStartFalloff`, `sineEndFalloff` | `roll` on the IK handle, `pin` and `space` on the pole, `space` on the FK start control and the IK handle (D27) |
 
-Dropped: `startAimBlend` and `endAimBlend`. The swing and twist rules in section 5 replace them. Each channel keeps its default, its rest and its `mirrorCopy` or `mirrorNegate` mode (D34). The settings control is channel-only and has no transform channels, so the channels moving onto it is the only change an animator sees.
+Dropped: `startAimBlend`, `endAimBlend` and `bendRoundness`. The swing and twist rules in section 5 replace the aim blends, and the ends' handles are the chord of their one segment. **Added: `bendSoftness`** (0 to 1, rest 0, `mirrorCopy`): how round the elbow is (section 5.2). Each channel keeps its default, its rest and its `mirrorCopy` or `mirrorNegate` mode (D34). The settings control is channel-only and has no transform channels, so the channels moving onto it is the only change an animator sees.
 
 ### 4.5 Child plugs and sockets
 
@@ -95,7 +95,7 @@ Dropped: `startAimBlend` and `endAimBlend`. The swing and twist rules in section
    - **Mid:** the mid joint's world.
 
    The start and end rules are the ones in D31's `Swing` and `Twist`, so the elbow no longer needs a constraint and the wrist's swing never reaches the forearm.
-3. **Ribbon solve.** One spline from start through mid to end, the ribbon controls riding it, then the tweakers, as `Ribbon` does. `startTwist` and `endTwist` add to the twist that arrives from the anchors. `bendRoundness` rounds the elbow.
+3. **Ribbon solve.** One spline from start through mid to end, the ribbon controls riding it, then the tweakers, as `Ribbon` does. `startTwist` and `endTwist` add to the twist that arrives from the anchors. `bendSoftness` rounds the elbow (section 5.2).
 
 ### 5.1 What phase 1 found (built 2026-11-19, `core/RibbonMath`)
 
@@ -103,11 +103,20 @@ The curve through the mid joint is not new maths. It is the base curve D59 alrea
 
 1. **An anchor's roll never reached the bind joints.** In `fkStyle` an fk roll turns the ik controls and stops there, because the detail curve takes its twist from the ik controls' own channels. For a limb the anchors are real joints, so the shoulder's and wrist's twist is what the skin must follow. `Setup::fkAnchors` makes the anchors' roll about the curve part of the detail twist, easing from one anchor's to the next. In the 3-control probe a start twist of 0.8 comes out at 0.80, 0.60, 0.40, 0.20, 0.00 down the bind joints and nothing past the elbow, and an end twist the same from the elbow to the wrist.
 2. **The ik controls must be placed on the anchor curve, from chosen parameters.** Laid out as a limb's controls normally are (the interior ones on the chord or on a separate spline), they rest a little off the curve and get a different parameter from the elbow anchor's. Bent, the mid control then sits 0.1 unit off the mid joint, and rolling an anchor swings an off-curve control around it: a 0.8 start twist leaked 0.05 radian past the elbow. `RibbonMath::buildAnchoredSetup(anchorRest, anchorCount, controlU, controlCount, bindRest, bindCount, ...)` takes the parameters, places the controls on the curve with the first anchor's orientation carried along it, and returns their rests. Their offsets from the curve are zero, so the mid control sits on the mid joint exactly, and the twist does not leak. **This amends D57 for `Limb` only:** its ik control rests come from the anchors, not from `core/ControlPlacement`'s spline through the bind joints. The bind joints keep their authored places, and their offsets from the detail curve are measured at build as for `Ribbon`.
-3. **The elbow is rounded, not creased, and only as round as the cubic allows.** The curve passes exactly through the mid joint, so a joint-sharp bend cannot become a wide arc. On a 98 degree bend with four bind joints on each side, the two steps at the elbow turn 46 and 34 degrees (48 and 34 with 5 controls), and the rest turn 1 to 5. That is the Catmull-Rom tangent at the mid knot, and `bendRoundness` only scales the two end handles. **Open, your call:** a mid-handle scale (one more channel, `bendRoundness` also applied at the mid knot, or its own) would spread the bend. Not added: nothing asked for it yet, and it is one channel and one line in `makeFkBase` if you want it after seeing the limb.
+3. **(Superseded by 5.2: the elbow is now a sharp corner by default.) The elbow is rounded, not creased, and only as round as the cubic allows.** The curve passes exactly through the mid joint, so a joint-sharp bend cannot become a wide arc. On a 98 degree bend with four bind joints on each side, the two steps at the elbow turn 46 and 34 degrees (48 and 34 with 5 controls), and the rest turn 1 to 5. That is the Catmull-Rom tangent at the mid knot, and `bendRoundness` only scales the two end handles. **Open, your call:** a mid-handle scale (one more channel, `bendRoundness` also applied at the mid knot, or its own) would spread the bend. Not added: nothing asked for it yet, and it is one channel and one line in `makeFkBase` if you want it after seeing the limb.
 
 The mirrored chain (X running back) works: the controls take the half-turn between the first anchor and the curve frame, the positions equal the +X chain's, and a twist about the own X reads with the sign flipped about the forward tangent.
 
 Existing `Ribbon` results do not change: the mode is a flag on the setup that no module sets yet, and `buildSetup` is the same code behind a wrapper.
+
+### 5.2 The elbow is a sharp corner by default, and there is no curve degree (author, 2026-11-19, built in phase 2)
+
+The author asked for a very sharp elbow with a softness parameter at 0 by default, and for the curve through the bind joints to round no corner either, asking whether a curve degree (1 to 3) was too complex.
+
+- **`bendSoftness`** (0 to 1, rest 0). At 0 each side of the mid joint leaves it along its own chord, so a segment between two corners is a straight line and the curve through the anchors is the polyline: the bind joints lie on the bones, keep their spacing along them, and point along them, and the bend is all in the elbow bind joint, which points along the bisector. At 1 the two sides share one tangent (the smooth curve of 5.1). Between, the tangents blend. The elbow bind joint is on the mid joint at every softness.
+- **The same corner in both curves.** The base curve through the three joints and the detail curve through the ik controls both have it: the ik control at the mid joint's parameter is a corner of the detail curve at the same softness, so nothing between the ik controls and the bind joints rounds it. The other ik controls stay smooth knots, so moving the control halfway down the upper arm bows the bone smoothly and does not kink it.
+- **Why not a curve degree.** A cubic Hermite curve with the tangents along the chords is exactly a straight line, so one softness channel already runs from degree 1 to the smooth cubic, and a degree 2 does not exist in this form. A second knob (degree, and softness) would overlap the first, and a degree applied to every knot would kink the curve wherever an animator pulls an ik control, which is not wanted. Rejected for priority 2 (simplicity). If the author wants every knot to be able to kink, the same softness can be applied to all of them in `softenCorners`.
+- **Frames at a corner needed work** (a finding of the phase 2 tests). Carrying the normal along the curve by projecting it onto the next tangent's plane flips it when a corner turns more than a quarter turn, so a split spline is sampled segment by segment and the normal goes through each corner by the shortest rotation. A joint at a corner has its axes on the bone the curve leaves along, so its roll is measured on each side: for the side that arrives, its Y axis is first turned back through the corner. Without that, a joint that is only bent at the elbow would read as a 180 degree twist. The twist of the detail curve is per side for the control at the corner. Non-corner splines (every `Ribbon`) take the old code, so their results did not change.
 
 ## 6. Reuse: the shared solves
 
@@ -188,7 +197,7 @@ Each phase ends with the build, the full suite, the docs pass and one commit tha
 |---|---|---|
 | 0 | Extract the `TwoBoneIk` and `Ribbon` solves. The coupling warning lands in the headers, `CLAUDE.md` and both design pages (this change) | none |
 | 1 | **Built 2026-11-19.** `RibbonMath::buildAnchoredSetup` and `Setup::fkAnchors` (section 5.1). Checked by a throwaway probe against hand-worked cases (section 11); the old ribbon results stay identical | none |
-| 2 | `Limb`: args, plan, create, `compute`, DAG parenting, registry, vcxproj, source map, `docs/modules.md`. Contract, pose cases, snapshot | `Limb` module |
+| 2 | **Built 2026-11-19.** `Limb`: args, plan, create, `compute`, DAG parenting, registry, vcxproj, source map, `docs/modules.md`. Contract, pose cases, snapshot, `bendSoftness` (5.2). The two-bone half is the template `TwoBoneIkPart` and `TwoBoneIkSolve::planSlots`, and the ribbon's channels and stored rest are in `RibbonSolve`, so the two older modules run on the same code. The inverse is not built: the contract's three inverse tests are skipped for `Limb` | `Limb` module, `bendSoftness` |
 | 3 | The inverse and the matched switch through `setRigIkFkBlend` | none new |
 | 4 | `ikTarget` and the validator exemption, with the foot-shaped test module | `ikTarget` plug |
 | 5 | Perf rig instances and one `bench` | none |

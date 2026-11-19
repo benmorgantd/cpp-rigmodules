@@ -49,62 +49,9 @@ MObject RibbonModuleNode::aBindRestOffset;
 
 namespace
 {
-	// A channel on the first control (D56 section 5): its name, rest (the default, D34), range, whether it is an angle and
-	// whether a mirror negates it. The ranges keep the evaluation finite: a fraction of the rest length, a handle scale.
-	struct ChannelSpec
-	{
-		const char* name;
-		double defaultValue;
-		double min;
-		double max;
-		bool isAngle;
-		bool negate;
-	};
-
-	// In RibbonChannel order.
-	const std::array<ChannelSpec, RibbonChannel::Count>& channelSpecs()
-	{
-		static const std::array<ChannelSpec, RibbonChannel::Count> specs =
-		{
-			ChannelSpec{ RigAttr::StartTwist, 0.0, 0.0, 0.0, true, true },
-			ChannelSpec{ RigAttr::EndTwist, 0.0, 0.0, 0.0, true, true },
-			ChannelSpec{ RigAttr::SineAmplitude, 0.0, -5.0, 5.0, false, false },
-			ChannelSpec{ RigAttr::SineFrequency, 1.0, 0.0, 20.0, false, false },
-			ChannelSpec{ RigAttr::SinePhase, 0.0, -20.0, 20.0, false, false },
-			ChannelSpec{ RigAttr::SineOrient, 0.0, 0.0, 0.0, true, true },
-			ChannelSpec{ RigAttr::SineStartFalloff, 0.2, 0.0, 1.0, false, false },
-			ChannelSpec{ RigAttr::SineEndFalloff, 0.2, 0.0, 1.0, false, false },
-			ChannelSpec{ RigAttr::StartAimBlend, 0.0, 0.0, 1.0, false, false },
-			ChannelSpec{ RigAttr::EndAimBlend, 0.0, 0.0, 1.0, false, false },
-			ChannelSpec{ RigAttr::BendRoundness, 1.0, 0.0, 2.0, false, false },
-			ChannelSpec{ RigAttr::VolumePreserve, 0.0, 0.0, 1.0, false, false },
-			ChannelSpec{ RigAttr::ScaleStart, 1.0, 0.0, 1.0, false, false },
-			ChannelSpec{ RigAttr::ScaleMid, 1.0, 0.0, 1.0, false, false },
-			ChannelSpec{ RigAttr::ScaleEnd, 1.0, 0.0, 1.0, false, false }
-		};
-		return specs;
-	}
-
-	RibbonMath::Params paramsFromChannels(const double* values)
-	{
-		RibbonMath::Params params;
-		params.startTwist = values[RibbonChannel::StartTwist];
-		params.endTwist = values[RibbonChannel::EndTwist];
-		params.sineAmplitude = values[RibbonChannel::SineAmplitude];
-		params.sineFrequency = values[RibbonChannel::SineFrequency];
-		params.sinePhase = values[RibbonChannel::SinePhase];
-		params.sineOrient = values[RibbonChannel::SineOrient];
-		params.sineStartFalloff = values[RibbonChannel::SineStartFalloff];
-		params.sineEndFalloff = values[RibbonChannel::SineEndFalloff];
-		params.startAimBlend = values[RibbonChannel::StartAimBlend];
-		params.endAimBlend = values[RibbonChannel::EndAimBlend];
-		params.bendRoundness = values[RibbonChannel::BendRoundness];
-		params.volumePreserve = values[RibbonChannel::VolumePreserve];
-		params.scaleStart = values[RibbonChannel::ScaleStart];
-		params.scaleMid = values[RibbonChannel::ScaleMid];
-		params.scaleEnd = values[RibbonChannel::ScaleEnd];
-		return params;
-	}
+	using RibbonSolve::ChannelSpec;
+	using RibbonSolve::channelSpecs;
+	using RibbonSolve::paramsFromChannels;
 
 	// Version 2 (D57): the ik controls come from the bind joints, so "controls" (their joints) gives way to "controlCount". A
 	// template that already has controlCount, or whose controls isn't a list, is left for the validation that follows.
@@ -136,6 +83,11 @@ namespace
 		}
 		return moduleInterface;
 	}
+}
+
+RibbonSolve::RestAttrs RibbonModuleNode::restAttrs()
+{
+	return { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset };
 }
 
 RibbonModuleNode::RibbonModuleNode()
@@ -190,51 +142,13 @@ MStatus RibbonModuleNode::initialize()
 	}
 
 	// Rest data, stored at build like Aim's aimRestOffset.
-	aIkControlCount = nAttr.create(RigAttr::IkControlCount, RigAttr::IkControlCount, MFnNumericData::kInt, 0, &status);
+	status = RibbonSolve::createRestAttributes(restAttrs(), RigAttr::IkRestOffset);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkControlCount));
 
 	aFkControlCount = nAttr.create(RigAttr::FkControlCount, RigAttr::FkControlCount, MFnNumericData::kInt, 0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aFkControlCount));
-
-	for (const auto& [pAttr, name] : { std::pair<MObject*, const char*>{ &aKnotU, RigAttr::KnotU }, { &aBindU, RigAttr::BindU } })
-	{
-		*pAttr = nAttr.create(name, name, MFnNumericData::kDouble, 0.0, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setArray(true));
-		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(*pAttr));
-	}
-
-	aRestLength = nAttr.create(RigAttr::RestLength, RigAttr::RestLength, MFnNumericData::kDouble, 1.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aRestLength));
-
-	aChainSign = nAttr.create(RigAttr::ChainSign, RigAttr::ChainSign, MFnNumericData::kDouble, 1.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aChainSign));
-
-	for (const auto& [pAttr, name] : { std::pair<MObject*, const char*>{ &aRestUp, RigAttr::RestUp }, { &aRestTangent, RigAttr::RestTangent } })
-	{
-		*pAttr = nAttr.create(name, name, MFnNumericData::k3Double, 0.0, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(*pAttr));
-	}
-
-	for (const auto& [pAttr, name] : { std::pair<MObject*, const char*>{ &aIkRestOffset, RigAttr::IkRestOffset }, { &aBindRestOffset, RigAttr::BindRestOffset } })
-	{
-		*pAttr = mAttr.create(name, name, MFnMatrixAttribute::kDouble, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setArray(true));
-		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(true));
-		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(*pAttr));
-	}
 
 	// AFFECTS RELATIONSHIPS
 	declareStandardAffects();
@@ -277,48 +191,7 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 
 	// Everything the evaluation reads, as plain values: the stored rest, the channels, the controls' locals.
 	RibbonMath::Setup setup;
-	setup.controlCount = controlCount;
-	setup.bindCount = bindCount;
-	setup.restLength = data.inputValue(aRestLength).asDouble();
-	setup.chainSign = data.inputValue(aChainSign).asDouble();
-	{
-		const MVector vUp = data.inputValue(aRestUp).asVector();
-		const MVector vTangent = data.inputValue(aRestTangent).asVector();
-		setup.restUp = { vUp.x, vUp.y, vUp.z };
-		setup.restTangent = { vTangent.x, vTangent.y, vTangent.z };
-	}
-	// A saved scene keeps only the array elements that differ from their default (a knot at 0, an identity offset), and an
-	// array with none has no handle, so a missing element is its default, which the Setup already holds.
-	MStatus knotStatus;
-	MStatus bindUStatus;
-	MStatus ikOffsetStatus;
-	MStatus bindOffsetStatus;
-	MArrayDataHandle hKnotU = data.inputArrayValue(aKnotU, &knotStatus);
-	MArrayDataHandle hBindU = data.inputArrayValue(aBindU, &bindUStatus);
-	MArrayDataHandle hIkOffset = data.inputArrayValue(aIkRestOffset, &ikOffsetStatus);
-	MArrayDataHandle hBindOffset = data.inputArrayValue(aBindRestOffset, &bindOffsetStatus);
-	for (int j = 0; j < controlCount; ++j)
-	{
-		if (knotStatus && hKnotU.jumpToElement(j))
-		{
-			setup.knotU[j] = hKnotU.inputValue().asDouble();
-		}
-		if (ikOffsetStatus && hIkOffset.jumpToElement(j))
-		{
-			setup.ikOffset[j] = MathUtils::toMat4(hIkOffset.inputValue().asMatrix());
-		}
-	}
-	for (int i = 0; i < bindCount; ++i)
-	{
-		if (bindUStatus && hBindU.jumpToElement(i))
-		{
-			setup.bindU[i] = hBindU.inputValue().asDouble();
-		}
-		if (bindOffsetStatus && hBindOffset.jumpToElement(i))
-		{
-			setup.bindOffset[i] = MathUtils::toMat4(hBindOffset.inputValue().asMatrix());
-		}
-	}
+	RibbonSolve::readSetup(data, restAttrs(), controlCount, bindCount, setup);
 
 	double channelValues[RibbonChannel::Count];
 	const std::array<ChannelSpec, RibbonChannel::Count>& specs = channelSpecs();
@@ -649,29 +522,8 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 	}
 
 	// 3. The rest data the evaluation reads.
-	dagMod.newPlugValueInt(MPlug(oModule, RibbonModuleNode::aIkControlCount), static_cast<int>(controlCount));
+	RibbonSolve::writeRestData(oModule, restAttrs(), setup, dagMod);
 	dagMod.newPlugValueInt(MPlug(oModule, RibbonModuleNode::aFkControlCount), static_cast<int>(fkControls.size()));
-	for (unsigned int j = 0; j < controlCount; ++j)
-	{
-		dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aKnotU).elementByLogicalIndex(j), setup.knotU[j]);
-		MPlug pOffset = MPlug(oModule, RibbonModuleNode::aIkRestOffset).elementByLogicalIndex(j);
-		DagUtils::setMatrixPlug(pOffset, MathUtils::toMMatrix(setup.ikOffset[j]), dagMod);
-	}
-	for (int i = 0; i < setup.bindCount; ++i)
-	{
-		dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aBindU).elementByLogicalIndex(i), setup.bindU[i]);
-		MPlug pOffset = MPlug(oModule, RibbonModuleNode::aBindRestOffset).elementByLogicalIndex(i);
-		DagUtils::setMatrixPlug(pOffset, MathUtils::toMMatrix(setup.bindOffset[i]), dagMod);
-	}
-	dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aRestLength), setup.restLength);
-	dagMod.newPlugValueDouble(MPlug(oModule, RibbonModuleNode::aChainSign), setup.chainSign);
-	for (const auto& [oAttr, vValue] : { std::pair<const MObject&, RibbonMath::Vec3>{ RibbonModuleNode::aRestUp, setup.restUp }, { RibbonModuleNode::aRestTangent, setup.restTangent } })
-	{
-		MPlug pVector(oModule, oAttr);
-		dagMod.newPlugValueDouble(pVector.child(0), vValue.x);
-		dagMod.newPlugValueDouble(pVector.child(1), vValue.y);
-		dagMod.newPlugValueDouble(pVector.child(2), vValue.z);
-	}
 
 	// 4. The channels, on the first control. The controls must exist before an attribute can be added to them, and the
 	// attributes before they can be wired, so the build runs the modifier here, as TwoBoneIk does.

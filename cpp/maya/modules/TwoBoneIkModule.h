@@ -30,30 +30,6 @@ namespace TwoBoneIkInverseChannel
 	inline constexpr unsigned int Count{ 6 };
 }
 
-struct TwoBoneIkSlotInput
-{
-	MObject oJoint;                // Null for the IK, pole and settings slots: they have no joint (D57)
-	MMatrix mRestWorld;
-	ControlMarkup controlMarkup;   // The joint's (side, usage), or the derived control's
-	std::string baseName;          // What names a joint-less control's node (its usage). Empty for a slot with a joint
-};
-
-// Field names are the JSON keys: "joints": [[side, usage] x 3] (root, mid, end). The IK handle, pole and settings controls are
-// derived from them (D57). "controlName" (optional): the base of their usages, <base>IK, <base>Pole and <base>Settings.
-// "poleOffset" and "settingsOffset" (optional, [x, y, z] in world space, left out or empty for the default): the pole's offset from
-// the mid joint and the settings control's from the end joint. The other side of a mirrored module gets X negated.
-struct TwoBoneIkArgs
-{
-	std::vector<JointSelector> joints;
-	std::string controlName;
-	std::vector<double> poleOffset;
-	std::vector<double> settingsOffset;
-	double ikFkBlend{ 1.0 };
-	bool ikOrientToWorld{ false };
-	bool ikAlignToPole{ false };
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(TwoBoneIkArgs, joints, controlName, poleOffset, settingsOffset, ikFkBlend, ikOrientToWorld, ikAlignToPole)
-
 // COUPLED TO Limb (D62, design/limb.md): LimbNode runs this module's solve, channels, control derivation and inverse. A change here
 // changes Limb. Read design/limb.md and run test_limb_matches_parts before changing any of them.
 //
@@ -123,9 +99,6 @@ public:
 	static MStatus spaceDelta(const MObject& oModule, unsigned int slot, unsigned int label, MMatrix& outDelta);
 
 private:
-	// Reads the limb's plugs. The channels are read at every blend (the match outputs need them at 0); the IK rest data
-	// only above blend 0, where evaluate() uses it.
-	static MStatus readEval(MDataBlock& data, TwoBoneIkEval& outEval);
 	// The match outputs' branch of compute(): the inverse run on the current evaluation. Allocates.
 	static MStatus computeMatch(const MPlug& plug, MDataBlock& data);
 };

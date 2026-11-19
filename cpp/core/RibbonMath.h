@@ -45,6 +45,10 @@ namespace RibbonMath
 		double startAimBlend{ 0.0 };        // 0: the end's own X axis sets its tangent, 1: it aims at the other end
 		double endAimBlend{ 0.0 };
 		double bendRoundness{ 1.0 };        // Hermite handle scale at the ends: 0 is straight, about 0.65 to 1 is rounded
+		// With Setup::fkAnchors (D62): how round the corner at an interior anchor (a Limb's elbow) is. 0 is a sharp corner: the curve through
+		// the anchors is the polyline, a straight line to each side of it. 1 is the smooth curve, with one tangent through the anchor. The
+		// default is the rest (D34), so the bind pose is a polyline.
+		double cornerSoftness{ 0.0 };
 		double volumePreserve{ 0.0 };       // 0 to 1
 		double scaleStart{ 1.0 };           // the volume profile: weights at the start, the middle and the end
 		double scaleMid{ 1.0 };
@@ -77,7 +81,9 @@ namespace RibbonMath
 		// their roll about the curve also twists the bind joints, easing from one anchor's to the next (an fk chain's roll only turns
 		// the ik controls).
 		bool fkAnchors{ false };
+		bool corner[MaxControls]{};         // with fkAnchors: the controls that sit at an interior anchor's parameter, whose corner they share
 		double fkRollRest[MaxControls]{};   // each fk control's rest roll about the base curve's tangent (what the ik controls' roll is measured from)
+		double fkRollRestIn[MaxControls]{}; // the same measured on the side the curve arrives at it: at a corner (Params::cornerSoftness) the two differ
 		Mat4 bindOffset[MaxBindJoints];     // a bind joint's rest in the detail curve's frame at its parameter
 	};
 
@@ -109,6 +115,9 @@ namespace RibbonMath
 
 	// Each fk control's parameter, its share of the fk rest chord length, for `fkCount` controls. False when two neighbours sit on each other.
 	bool fkKnots(const Mat4* fkRest, int fkCount, double* outU);
+
+	// With setup.fkAnchors: marks setup.corner, the controls whose parameter is an interior anchor's, once knotU and fkKnotU are set.
+	void markAnchorCorners(Setup& setup);
 
 	// Fills setup.fkRollRest from the fk rest matrices, once setup.fkKnotU, restTangent, restUp and chainSign are set.
 	void fkRollRests(Setup& setup);

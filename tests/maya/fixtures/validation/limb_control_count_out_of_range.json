@@ -1,0 +1,17 @@
+{
+  "description": "A limb's ribbon has at least 3 ik controls",
+  "base": "limb_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/controlCount",
+      "value": 2
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "between 3 and 8 ik controls",
+      "path": "rigModules[0] 'arm_01_L_MOD'.moduleArgs.controlCount"
+    }
+  ]
+}

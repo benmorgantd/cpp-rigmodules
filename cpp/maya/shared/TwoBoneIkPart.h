@@ -1,0 +1,332 @@
+#pragma once
+
+#include "core/Constants.h"
+#include "maya/nodes/RigControlNode.h"
+#include "maya/shared/RigModule.h"
+#include "maya/shared/RigPoseScene.h"
+#include "maya/shared/Side.h"
+#include "maya/shared/TwoBoneIkSolve.h"
+#include "maya/shared/Utilities.h"
+
+#include <array>
+#include <string>
+#include <utility>
+
+#include <maya/MArrayDataHandle.h>
+#include <maya/MDagModifier.h>
+#include <maya/MDataBlock.h>
+#include <maya/MFnDependencyNode.h>
+#include <maya/MFnMatrixAttribute.h>
+#include <maya/MFnNumericAttribute.h>
+#include <maya/MFnUnitAttribute.h>
+#include <maya/MPlug.h>
+
+// The two-bone IK half of a module node (D62, design/limb.md): its attributes, its plug reads, its six slots' controls, joints, sockets
+// and child plugs, and its channels. TwoBoneIkNode is this and the match outputs, and LimbNode is this and a ribbon. A Maya node
+// can't inherit (RigModuleNodeBase), so the half is a template over the node, which must declare the same static attributes:
+// aIkFkBlend, aStretch, aSoft, aPin (clamped 0..1), aRoll (an angle), aPoleSpace (a short, 0 or 1), aIkRestOffset (a matrix array),
+// aRestBendNormal, aRestPlaneAngle, aLimbLengths, and the visibility outputs aFkVisible and aIkVisible. A change here changes both
+// modules: read design/limb.md first.
+template <typename Node>
+struct TwoBoneIkPart
+{
+	// Creates and adds the half's attributes, after Node::initializeSharedAttributes().
+	static MStatus createAttributes()
+	{
+		MStatus status;
+		MFnNumericAttribute nAttr;
+		MFnMatrixAttribute mAttr;
+		MFnUnitAttribute uAttr;
+
+		// Channel inputs, connected from the owning controls at build. Blend, stretch, soft and pin are clamped to 0..1.
+		struct ClampedInput
+		{
+			MObject& attr;
+			const char* name;
+			double defaultValue;
+		};
+		const ClampedInput clampedInputs[] =
+		{
+			{ Node::aIkFkBlend, RigAttr::IkFkBlend, 1.0 },
+			{ Node::aStretch, RigAttr::Stretch, 0.0 },
+			{ Node::aSoft, RigAttr::Soft, 0.0 },
+			{ Node::aPin, RigAttr::Pin, 0.0 }
+		};
+		for (const ClampedInput& input : clampedInputs)
+		{
+			input.attr = nAttr.create(input.name, input.name, MFnNumericData::kDouble, input.defaultValue, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMin(0.0));
+			CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMax(1.0));
+			CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+			CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(input.attr));
+		}
+
+		Node::aRoll = uAttr.create(RigAttr::Roll, RigAttr::Roll, MFnUnitAttribute::kAngle, 0.0, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(uAttr.setStorable(true));
+		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aRoll));
+
+		Node::aPoleSpace = nAttr.create(RigAttr::PoleSpace, RigAttr::PoleSpace, MFnNumericData::kShort, 0, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMin(0));
+		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMax(1));
+		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aPoleSpace));
+
+		// Stored at build, like Aim's aimRestOffset.
+		Node::aIkRestOffset = mAttr.create("ikRestOffset", "ikRestOffset", MFnMatrixAttribute::kDouble, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setArray(true));
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(true));
+		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aIkRestOffset));
+
+		Node::aRestBendNormal = nAttr.create("restBendNormal", "restBendNormal", MFnNumericData::k3Double, 0.0, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aRestBendNormal));
+
+		Node::aRestPlaneAngle = nAttr.create("restPlaneAngle", "restPlaneAngle", MFnNumericData::kDouble, 0.0, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aRestPlaneAngle));
+
+		Node::aLimbLengths = nAttr.create("limbLengths", "limbLengths", MFnNumericData::k2Double, 0.0, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aLimbLengths));
+
+		// Outputs that drive the controls' visibility, a function of the blend alone.
+		for (MObject* pAttr : { &Node::aFkVisible, &Node::aIkVisible })
+		{
+			const char* name = pAttr == &Node::aFkVisible ? "fkVisible" : "ikVisible";
+			*pAttr = nAttr.create(name, name, MFnNumericData::kDouble, 1.0, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			CHECK_MSTATUS_AND_RETURN_IT(nAttr.setWritable(false));
+			CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(false));
+			CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(*pAttr));
+		}
+		return MStatus::kSuccess;
+	}
+
+	// The half's attributeAffects, after Node::declareStandardAffects().
+	static void declareAffects()
+	{
+		// Every setting changes the solved joints and the sockets that carry them. The pole's space also moves the pole control.
+		for (const MObject& oInput : { Node::aIkFkBlend, Node::aStretch, Node::aSoft, Node::aPin, Node::aRoll, Node::aPoleSpace, Node::aIkRestOffset,
+			Node::aRestBendNormal, Node::aRestPlaneAngle, Node::aLimbLengths })
+		{
+			MPxNode::attributeAffects(oInput, Node::aJointOPM);
+			MPxNode::attributeAffects(oInput, Node::aOutputSocketMatrix);
+		}
+		MPxNode::attributeAffects(Node::aPoleSpace, Node::aControlOPM);
+		MPxNode::attributeAffects(Node::aIkFkBlend, Node::aFkVisible);
+		MPxNode::attributeAffects(Node::aIkFkBlend, Node::aIkVisible);
+	}
+
+	// Whether the FK lower and end controls (fk) or the IK handle and pole (not fk) are visible at a blend.
+	static bool isVisible(bool fk, double blend)
+	{
+		return fk ? blend < 1.0 : blend > 0.0;
+	}
+
+	// Reads the limb's plugs. compute() writes every output array from one evaluation of this.
+	static MStatus readEval(MDataBlock& data, TwoBoneIkEval& eval)
+	{
+		MStatus status;
+
+		MArrayDataHandle hControlInputData = data.inputArrayValue(Node::aControlInputData, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		MArrayDataHandle hChildPlugs = data.inputArrayValue(Node::aChildPlugs, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
+		{
+			status = Node::readControlInput(hControlInputData, slot, eval.mLocal[slot], eval.mRest[slot]);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		eval.mUpperDelta = Node::readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Upper);
+		eval.mIkDelta = Node::readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Ik);
+		eval.mSettingsDelta = Node::readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Settings);
+		eval.poleFollowsIk = data.inputValue(Node::aPoleSpace).asShort() == 1;
+		if (!eval.poleFollowsIk)
+		{
+			eval.mPoleParentDelta = Node::readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Pole);
+		}
+
+		// The settings are read at every blend: the match outputs run the inverse at blend 0 too, with these values.
+		eval.blend = data.inputValue(Node::aIkFkBlend).asDouble();
+		eval.stretch = data.inputValue(Node::aStretch).asDouble();
+		eval.soft = data.inputValue(Node::aSoft).asDouble();
+		eval.pin = data.inputValue(Node::aPin).asDouble();
+		eval.rollRadians = data.inputValue(Node::aRoll).asAngle().asRadians();
+		if (eval.blend > 0.0)
+		{
+			const double2& lengths = data.inputValue(Node::aLimbLengths).asDouble2();
+			eval.rest.length1 = lengths[0];
+			eval.rest.length2 = lengths[1];
+			eval.rest.restPlaneAngle = data.inputValue(Node::aRestPlaneAngle).asDouble();
+			eval.rest.restBendNormal = data.inputValue(Node::aRestBendNormal).asVector();
+
+			MArrayDataHandle hRestOffset = data.inputArrayValue(Node::aIkRestOffset, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			for (unsigned int slot = 0; slot < TwoBoneIkSlot::LimbCount; ++slot)
+			{
+				status = hRestOffset.jumpToElement(slot);
+				CHECK_MSTATUS_AND_RETURN_IT(status);
+				eval.rest.ikRestOffset[slot] = hRestOffset.inputValue().asMatrix();
+			}
+		}
+
+		return MStatus::kSuccess;
+	}
+
+	// Per slot: bake and wire the joint, create and wire the control, name the sockets and child plug. Then the rest data the solve
+	// reads. oControls gets the six controls, which the caller needs for the channels.
+	static MStatus createSlots(
+		const MObject& oModule,
+		const Side& side,
+		const ShapeType& shapeType,
+		const std::array<TwoBoneIkSlotInput, TwoBoneIkSlot::Count>& slots,
+		const TwoBoneIkRest& rest,
+		RigModuleBuildResult& result,
+		MObject (&oControls)[TwoBoneIkSlot::Count],
+		MDagModifier& dagMod)
+	{
+		MStatus status;
+		for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
+		{
+			const TwoBoneIkSlotInput& input = slots[slot];
+
+			// The IK, pole and settings controls have no joint (D57): their jointOPM and jointRestWorld elements are never made, which
+			// compute(), the inverse and the match outputs allow for. Their nodes are named from their usage.
+			MString controlBaseName(input.baseName.c_str());
+			if (!input.oJoint.isNull())
+			{
+				status = Node::wireJoint(oModule, input.oJoint, slot, input.mRestWorld, dagMod);
+				CHECK_MSTATUS_AND_RETURN_IT(status);
+				controlBaseName = MFnDependencyNode(input.oJoint).name();
+			}
+
+			oControls[slot] = RigControlNode::createRigControl(dagMod, controlBaseName, shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
+			// FK lower under FK upper and FK end under FK lower. The IK, pole and settings controls stay out of the FK
+			// hierarchy: visibility inherits through the DAG, and the FK controls hide in IK (section 3.2).
+			if (slot == TwoBoneIkSlot::Lower || slot == TwoBoneIkSlot::End)
+			{
+				dagMod.reparentNode(oControls[slot], oControls[slot - 1]);
+			}
+			status = Node::wireControl(oModule, oControls[slot], slot, input.mRestWorld, dagMod);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+
+			// index_0 to index_2 (and start and end) carry the blended joint, not the FK control, so they have no DAG transform:
+			// a child module's controls would otherwise inherit an FK control's visibility.
+			RigModuleSocketInfo socketInfo;
+			socketInfo.oTransform = slot < TwoBoneIkSlot::LimbCount ? MObject::kNullObj : oControls[slot];
+			socketInfo.mRestWorld = input.mRestWorld;
+			socketInfo.outputIndex = slot;
+			const std::vector<std::string> socketNames = TwoBoneIkSolve::socketNamesAt(slot);
+			for (const std::string& socketName : socketNames)
+			{
+				result.parentSockets[socketName] = socketInfo;
+			}
+			DagPlugAndSocketUtils::setParentSocketNames(oModule, slot, socketNames, dagMod);
+
+			if (const char* plugName = TwoBoneIkSolve::childPlugNameAt(slot))
+			{
+				RigModuleChildPlugInfo plugInfo{ oControls[slot], slot };
+				if (slot == TwoBoneIkSlot::Settings)
+				{
+					plugInfo.followsPlug = PlugAndSocketNames::Start;
+				}
+				result.childPlugs[plugName] = plugInfo;
+				DagPlugAndSocketUtils::setChildPlugName(oModule, slot, plugName, dagMod);
+			}
+		}
+
+		// The rest data the solve reads.
+		for (unsigned int i = 0; i < TwoBoneIkSlot::LimbCount; ++i)
+		{
+			MPlug pOffset = MPlug(oModule, Node::aIkRestOffset).elementByLogicalIndex(i);
+			DagUtils::setMatrixPlug(pOffset, rest.ikRestOffset[i], dagMod);
+		}
+		MPlug pBendNormal(oModule, Node::aRestBendNormal);
+		dagMod.newPlugValueDouble(pBendNormal.child(0), rest.restBendNormal.x);
+		dagMod.newPlugValueDouble(pBendNormal.child(1), rest.restBendNormal.y);
+		dagMod.newPlugValueDouble(pBendNormal.child(2), rest.restBendNormal.z);
+		dagMod.newPlugValueDouble(MPlug(oModule, Node::aRestPlaneAngle), rest.restPlaneAngle);
+		MPlug pLengths(oModule, Node::aLimbLengths);
+		dagMod.newPlugValueDouble(pLengths.child(0), rest.length1);
+		dagMod.newPlugValueDouble(pLengths.child(1), rest.length2);
+		return MStatus::kSuccess;
+	}
+
+	// Queues the half's channels on its controls. The controls must exist before an attribute can be added to them, and the attributes
+	// before they can be wired, as in RigConstraintNode::createConstraint, so the build runs the modifier between this and wireChannels.
+	static MStatus queueChannels(const MObject (&oControls)[TwoBoneIkSlot::Count], double ikFkBlend, MDagModifier& dagMod)
+	{
+		MStatus status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::IkFkBlend, ikFkBlend, 0.0, 1.0, false, dagMod);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::Stretch, 0.0, 0.0, 1.0, false, dagMod);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::Soft, 0.0, 0.0, 1.0, false, dagMod);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = RigPoseScene::addAngleChannel(oControls[TwoBoneIkSlot::Ik], RigAttr::Roll, true, dagMod);   // a reflection reverses a roll's sense
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::Pin, 0.0, 0.0, 1.0, false, dagMod);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		// The pole's module-owned space (D52 section 4.4): the module reads it, so it is wired here and not through a rigConstraint.
+		return RigPoseScene::addEnumChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::ControlSpace, { PoleSpaceLabels::Parent, PoleSpaceLabels::Ik }, 0, false, dagMod);
+	}
+
+	// Wires the channels queueChannels added to the module, drives the controls' visibility, and locks and hides the transform
+	// channels the animator doesn't use.
+	static MStatus wireChannels(const MObject& oModule, const MObject (&oControls)[TwoBoneIkSlot::Count], MDagModifier& dagMod)
+	{
+		MStatus status;
+		struct ChannelWire
+		{
+			unsigned int slot;
+			const char* controlAttr;
+			const MObject& moduleAttr;
+		};
+		const ChannelWire wires[] =
+		{
+			{ TwoBoneIkSlot::Settings, RigAttr::IkFkBlend, Node::aIkFkBlend },
+			{ TwoBoneIkSlot::Settings, RigAttr::Stretch, Node::aStretch },
+			{ TwoBoneIkSlot::Settings, RigAttr::Soft, Node::aSoft },
+			{ TwoBoneIkSlot::Ik, RigAttr::Roll, Node::aRoll },
+			{ TwoBoneIkSlot::Pole, RigAttr::Pin, Node::aPin },
+			{ TwoBoneIkSlot::Pole, RigAttr::ControlSpace, Node::aPoleSpace }
+		};
+		for (const ChannelWire& wire : wires)
+		{
+			MPlug pControlAttr = MFnDependencyNode(oControls[wire.slot]).findPlug(wire.controlAttr, false, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			status = dagMod.connect(pControlAttr, MPlug(oModule, wire.moduleAttr));
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+
+		// FK lower and end are visible below blend 1, the IK handle and pole above blend 0. Start and settings are always visible.
+		const std::pair<unsigned int, const MObject&> visibility[] =
+		{
+			{ TwoBoneIkSlot::Lower, Node::aFkVisible }, { TwoBoneIkSlot::End, Node::aFkVisible },
+			{ TwoBoneIkSlot::Ik, Node::aIkVisible }, { TwoBoneIkSlot::Pole, Node::aIkVisible }
+		};
+		for (const auto& [slot, oVisibleAttr] : visibility)
+		{
+			MPlug pVisibility = MFnDependencyNode(oControls[slot]).findPlug("visibility", false, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			status = dagMod.connect(MPlug(oModule, oVisibleAttr), pVisibility);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+
+		// Transform channels the animator doesn't use are locked and hidden. The IK controls keep what they move by (section 3.3).
+		const std::vector<std::string> ikKeep{ "tx", "ty", "tz", "rx", "ry", "rz" };
+		const std::vector<std::string> poleKeep{ "tx", "ty", "tz" };
+		status = DagUtils::queueLockAndHideTransform(oControls[TwoBoneIkSlot::Ik], dagMod, ikKeep);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = DagUtils::queueLockAndHideTransform(oControls[TwoBoneIkSlot::Pole], dagMod, poleKeep);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		return DagUtils::queueLockAndHideTransform(oControls[TwoBoneIkSlot::Settings], dagMod);
+	}
+};

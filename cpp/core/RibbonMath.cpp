@@ -54,46 +54,90 @@ namespace RibbonMath
 			int count{ 0 };
 			double u[MaxControls]{};
 			Vec3 p[MaxControls];
-			Vec3 m[MaxControls];   // dP/du at each knot
+			Vec3 m[MaxControls];   // dP/du at each knot, leaving it
+			// With `split` the tangent arriving at a knot is mIn, not m, so a knot can be a corner (a Limb's elbow, D62). Without it a
+			// knot has one tangent, and mIn is not read.
+			bool split{ false };
+			Vec3 mIn[MaxControls];
 		};
 
-		void evalSpline(const Spline& s, double u, Vec3& outPos, Vec3& outDerivative)
+		// Segment k at t (0 to 1 across it, and past either end the polynomial carries on).
+		void evalSegment(const Spline& s, int k, double t, Vec3& outPos, Vec3& outDerivative)
 		{
-			// Past either end the end segment's polynomial carries on, so a central difference at an end stays central.
-			int k = 0;
-			while (k < s.count - 2 && u > s.u[k + 1])
-			{
-				++k;
-			}
 			const double h = s.u[k + 1] - s.u[k];
-			const double t = (u - s.u[k]) / h;
 			const double t2 = t * t;
 			const double t3 = t2 * t;
 			const double h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
 			const double h10 = t3 - 2.0 * t2 + t;
 			const double h01 = -2.0 * t3 + 3.0 * t2;
 			const double h11 = t3 - t2;
-			outPos = add(add(scale(s.p[k], h00), scale(s.m[k], h10 * h)), add(scale(s.p[k + 1], h01), scale(s.m[k + 1], h11 * h)));
+			const Vec3& mEnd = s.split ? s.mIn[k + 1] : s.m[k + 1];
+			outPos = add(add(scale(s.p[k], h00), scale(s.m[k], h10 * h)), add(scale(s.p[k + 1], h01), scale(mEnd, h11 * h)));
 			const double d00 = (6.0 * t2 - 6.0 * t) / h;
 			const double d10 = 3.0 * t2 - 4.0 * t + 1.0;
 			const double d01 = (-6.0 * t2 + 6.0 * t) / h;
 			const double d11 = 3.0 * t2 - 2.0 * t;
-			outDerivative = add(add(scale(s.p[k], d00), scale(s.m[k], d10)), add(scale(s.p[k + 1], d01), scale(s.m[k + 1], d11)));
+			outDerivative = add(add(scale(s.p[k], d00), scale(s.m[k], d10)), add(scale(s.p[k + 1], d01), scale(mEnd, d11)));
+		}
+
+		// The segment u falls in. At a knot it is the one arriving there.
+		int segmentAt(const Spline& s, double u)
+		{
+			int k = 0;
+			while (k < s.count - 2 && u > s.u[k + 1])
+			{
+				++k;
+			}
+			return k;
+		}
+
+		void evalSpline(const Spline& s, double u, Vec3& outPos, Vec3& outDerivative)
+		{
+			// Past either end the end segment's polynomial carries on, so a central difference at an end stays central.
+			const int k = segmentAt(s, u);
+			evalSegment(s, k, (u - s.u[k]) / (s.u[k + 1] - s.u[k]), outPos, outDerivative);
 		}
 
 		// ---- parallel transport ----
 
 		// The normals carried along a spline at FrameSamples steps. The normal at a u is read back by interpolation and made
 		// perpendicular to the exact tangent, so the frame is smooth and no state outlives the evaluation.
+		//
+		// A spline with corners (split, D62) is sampled segment by segment instead, SegmentSamples steps each, because the tangent jumps
+		// at a corner and projecting the normal onto the new tangent's plane flips it when the corner turns more than a quarter turn. The
+		// normal goes through a corner by the shortest rotation that takes the arriving tangent to the leaving one.
+		constexpr int SegmentSamples{ 16 };
 		struct FrameTable
 		{
-			Vec3 n[FrameSamples + 1];
+			Vec3 n[(MaxControls - 1) * (SegmentSamples + 1)];
 		};
 
 		void buildFrameTable(const Spline& spline, const Vec3& up0, FrameTable& table)
 		{
 			Vec3 pos;
 			Vec3 d;
+			if (spline.split)
+			{
+				Vec3 normal;
+				Vec3 endTangent{ 1.0, 0.0, 0.0 };
+				for (int k = 0; k + 1 < spline.count; ++k)
+				{
+					evalSegment(spline, k, 0.0, pos, d);
+					Vec3 tangent = normalized(d, endTangent);
+					normal = k == 0 ? normalized(sub(up0, scale(tangent, dot(up0, tangent))), anyPerpendicular(tangent))
+						: normalized(rotateByArc(normal, endTangent, tangent), normal);
+					table.n[k * (SegmentSamples + 1)] = normal;
+					for (int i = 1; i <= SegmentSamples; ++i)
+					{
+						evalSegment(spline, k, static_cast<double>(i) / SegmentSamples, pos, d);
+						tangent = normalized(d, tangent);
+						normal = normalized(sub(normal, scale(tangent, dot(normal, tangent))), normal);
+						table.n[k * (SegmentSamples + 1) + i] = normal;
+					}
+					endTangent = tangent;
+				}
+				return;
+			}
 			evalSpline(spline, spline.u[0], pos, d);
 			Vec3 tangent = normalized(d, { 1.0, 0.0, 0.0 });
 			Vec3 normal = normalized(sub(up0, scale(tangent, dot(up0, tangent))), anyPerpendicular(tangent));
@@ -108,9 +152,29 @@ namespace RibbonMath
 			}
 		}
 
-		// The frame's tangent and normal at u (u in the spline's own range).
+		// The frame at t across segment k of a split spline: its tangent and the carried normal.
+		void splitFrameAt(const Spline& spline, const FrameTable& table, int k, double t, Vec3& outTangent, Vec3& outNormal)
+		{
+			Vec3 pos;
+			Vec3 d;
+			evalSegment(spline, k, t, pos, d);
+			outTangent = normalized(d, { 1.0, 0.0, 0.0 });
+			const double f = clamp01(t) * SegmentSamples;
+			const int i = std::min(static_cast<int>(f), SegmentSamples - 1);
+			const int base = k * (SegmentSamples + 1) + i;
+			const Vec3 blended = lerp(table.n[base], table.n[base + 1], f - i);
+			outNormal = normalized(sub(blended, scale(outTangent, dot(blended, outTangent))), anyPerpendicular(outTangent));
+		}
+
+		// The frame's tangent and normal at u (u in the spline's own range). At a corner it is the frame arriving there.
 		void frameAt(const Spline& spline, const FrameTable& table, double u, Vec3& outTangent, Vec3& outNormal)
 		{
+			if (spline.split)
+			{
+				const int k = segmentAt(spline, u);
+				splitFrameAt(spline, table, k, (u - spline.u[k]) / (spline.u[k + 1] - spline.u[k]), outTangent, outNormal);
+				return;
+			}
 			Vec3 pos;
 			Vec3 d;
 			evalSpline(spline, u, pos, d);
@@ -165,8 +229,10 @@ namespace RibbonMath
 		{
 			Spline spline;
 			FrameTable table;
-			// With an fk chain: each fk control's roll away from its rest about the curve (fkRollDeltas).
-			double fkRoll[MaxControls]{};
+			// With an fk chain: each fk control's roll away from its rest about the curve (fkRollDeltas), leaving its knot and arriving at it.
+			// They are one value except at a corner.
+			double fkRollOut[MaxControls]{};
+			double fkRollIn[MaxControls]{};
 		};
 
 		// A control's X axis as a direction down the chain.
@@ -226,6 +292,38 @@ namespace RibbonMath
 			finishBase(setup, base);
 		}
 
+		// Makes knots corners (D62, a Limb's elbow): each side of a corner leaves it along its own chord, so a segment between two
+		// corners is a straight line and the curve through them is the polyline. `softness` blends back to the smooth tangents the knots
+		// already hold: 0 is the corner, 1 leaves them as they are. isCorner marks the interior knots that are corners (null: all of
+		// them), and the two ends take the chord of their one segment too when `ends` is set.
+		void softenCorners(Spline& spline, double softness, const bool* isCorner, bool ends)
+		{
+			const double s = clamp01(softness);
+			spline.split = true;
+			for (int k = 0; k < spline.count; ++k)
+			{
+				spline.mIn[k] = spline.m[k];
+			}
+			for (int k = 0; k < spline.count; ++k)
+			{
+				const bool isEnd = k == 0 || k == spline.count - 1;
+				if (isEnd ? !ends : (isCorner != nullptr && !isCorner[k]))
+				{
+					continue;
+				}
+				if (k + 1 < spline.count)
+				{
+					const Vec3 chordOut = scale(sub(spline.p[k + 1], spline.p[k]), 1.0 / (spline.u[k + 1] - spline.u[k]));
+					spline.m[k] = lerp(chordOut, spline.m[k], s);
+				}
+				if (k > 0)
+				{
+					const Vec3 chordIn = scale(sub(spline.p[k], spline.p[k - 1]), 1.0 / (spline.u[k] - spline.u[k - 1]));
+					spline.mIn[k] = lerp(chordIn, spline.mIn[k], s);
+				}
+			}
+		}
+
 		// The base curve of an fk chain (D59): through the fk controls' positions, with the ends' handles from makeEnds and each
 		// interior tangent blended from its neighbours and its own X axis, as the detail curve's are. Two fk controls are makeBase.
 		void makeFkBase(const Setup& setup, const Params& params, const Mat4* fkWorld, Base& base)
@@ -250,42 +348,100 @@ namespace RibbonMath
 				const Vec3 direction = normalized(lerp(differenceDirection, forwardAxis(fkWorld[k], setup, differenceDirection), kControlTangentBlend), differenceDirection);
 				spline.m[k] = scale(direction, length(difference));
 			}
+			if (setup.fkAnchors)
+			{
+				softenCorners(spline, params.cornerSoftness, nullptr, true);
+			}
 			finishBase(setup, base);
 		}
 
-		// How far a control's Y axis is turned about the curve's tangent from the carried normal at u, in (-pi, pi]. The curve only
-		// carries a direction, so this is how an fk control's roll reaches the ik controls.
+		// How far a Y axis is turned about a tangent from the carried normal, in (-pi, pi].
+		double rollFrom(const Vec3& tangent, const Vec3& normal, const Vec3& y)
+		{
+			const Vec3 flat = sub(y, scale(tangent, dot(y, tangent)));
+			return std::atan2(dot(flat, cross(tangent, normal)), dot(flat, normal));
+		}
+
+		// How far a control's Y axis is turned about the curve's tangent from the carried normal at u. The curve only carries a
+		// direction, so this is how an fk control's roll reaches the ik controls.
 		double rollAbout(const Base& base, double u, const Mat4& world)
 		{
 			Vec3 tangent;
 			Vec3 normal;
 			frameAt(base.spline, base.table, u, tangent, normal);
-			const Vec3 y = row(world, 1);
-			const Vec3 flat = sub(y, scale(tangent, dot(y, tangent)));
-			return std::atan2(dot(flat, cross(tangent, normal)), dot(flat, normal));
+			return rollFrom(tangent, normal, row(world, 1));
+		}
+
+		// The roll at fk knot k, on the side the curve leaves it (leaving) or arrives at it. Only a corner has two sides. A joint at a corner
+		// has its axes on the bone the curve leaves along, so for the side that arrives its Y axis is first turned back through the corner,
+		// the shortest rotation that takes the leaving tangent to the arriving one: a joint that is only bent there has no roll on either
+		// side, and one that is twisted has the twist it was given.
+		double rollAtKnot(const Base& base, int k, bool leaving, const Mat4& world)
+		{
+			if (!base.spline.split)
+			{
+				return rollAbout(base, base.spline.u[k], world);
+			}
+			Vec3 tangent;
+			Vec3 normal;
+			splitFrameAt(base.spline, base.table, leaving ? k : k - 1, leaving ? 0.0 : 1.0, tangent, normal);
+			Vec3 y = row(world, 1);
+			if (!leaving && k + 1 < base.spline.count)
+			{
+				Vec3 leavingTangent;
+				Vec3 leavingNormal;
+				splitFrameAt(base.spline, base.table, k, 0.0, leavingTangent, leavingNormal);
+				y = rotateByArc(y, leavingTangent, tangent);
+			}
+			return rollFrom(tangent, normal, y);
 		}
 
 		// Each fk control's roll away from its rest roll, unwrapped along the chain so a turn past pi doesn't flip the ik controls.
-		void fkRollDeltas(const Setup& setup, const Base& base, const Mat4* fkWorld, double* outDelta)
+		void fkRollDeltas(const Setup& setup, const Base& base, const Mat4* fkWorld, double* outLeaving, double* outArriving)
 		{
-			for (int k = 0; k < setup.fkCount; ++k)
+			const int last = setup.fkCount - 1;
+			for (int k = 0; k <= last; ++k)
 			{
-				const double raw = rollAbout(base, setup.fkKnotU[k], fkWorld[k]) - setup.fkRollRest[k];
-				outDelta[k] = k == 0 ? wrapAngle(raw) : outDelta[k - 1] + wrapAngle(raw - outDelta[k - 1]);
+				if (k == 0)
+				{
+					outLeaving[0] = wrapAngle(rollAtKnot(base, 0, true, fkWorld[0]) - setup.fkRollRest[0]);
+					outArriving[0] = outLeaving[0];
+					continue;
+				}
+				const double arriving = rollAtKnot(base, k, false, fkWorld[k]) - setup.fkRollRestIn[k];
+				outArriving[k] = outLeaving[k - 1] + wrapAngle(arriving - outLeaving[k - 1]);
+				if (k == last)
+				{
+					outLeaving[k] = outArriving[k];
+					continue;
+				}
+				const double leaving = rollAtKnot(base, k, true, fkWorld[k]) - setup.fkRollRest[k];
+				outLeaving[k] = outArriving[k] + wrapAngle(leaving - outArriving[k]);
 			}
 		}
 
-		// The fk rolls interpolated linearly at u.
-		double fkRollAt(const Setup& setup, const double* delta, double u)
+		// The fk rolls interpolated linearly at u: from the roll leaving a knot to the one arriving at the next. At a knot itself the
+		// side is asked for.
+		double fkRollAt(const Setup& setup, const double* leaving, const double* arriving, double u, bool leavingSide)
 		{
 			int k = 0;
-			while (k < setup.fkCount - 2 && u > setup.fkKnotU[k + 1])
+			if (leavingSide)
 			{
-				++k;
+				while (k < setup.fkCount - 2 && u >= setup.fkKnotU[k + 1] - kKnotTolerance)
+				{
+					++k;
+				}
+			}
+			else
+			{
+				while (k < setup.fkCount - 2 && u > setup.fkKnotU[k + 1] + kKnotTolerance)
+				{
+					++k;
+				}
 			}
 			const double span = setup.fkKnotU[k + 1] - setup.fkKnotU[k];
 			const double s = clamp01((u - setup.fkKnotU[k]) / span);
-			return delta[k] + (delta[k + 1] - delta[k]) * s;
+			return leaving[k] + (arriving[k + 1] - leaving[k]) * s;
 		}
 
 		// Start and end as given, the interior controls on the base curve at their parameters. With an fk chain, the chain is composed
@@ -308,13 +464,13 @@ namespace RibbonMath
 					output.fkWorld[k] = multiply(input.fkLocal[k], output.fkOPM[k]);
 				}
 				makeFkBase(setup, params, output.fkWorld, base);
-				fkRollDeltas(setup, base, output.fkWorld, base.fkRoll);
+				fkRollDeltas(setup, base, output.fkWorld, base.fkRollOut, base.fkRollIn);
 				for (int j = 0; j <= last; ++j)
 				{
 					// The ends' own twist is in their local matrix, so their frame carries none.
 					const double ramp = j == 0 || j == last ? 0.0 : setup.chainSign * twists.at(setup.knotU[j]);
 						// Every ik control also turns with the fk chain's roll at its parameter, so it follows the fk controls 1:1.
-						const double angle = ramp + fkRollAt(setup, base.fkRoll, setup.knotU[j]);
+						const double angle = ramp + fkRollAt(setup, base.fkRollOut, base.fkRollIn, setup.knotU[j], false);
 					output.controlOPM[j] = multiply(setup.ikOffset[j], frameMatrix(base.spline, base.table, setup.knotU[j], angle));
 					output.controlWorld[j] = multiply(input.local[j], output.controlOPM[j]);
 				}
@@ -340,7 +496,10 @@ namespace RibbonMath
 			const Params* pParams{ nullptr };
 			Spline spline;
 			FrameTable table;
-			double twist[MaxControls]{};   // each control's total twist: the ends' ramp at its parameter plus its own
+			// each control's total twist: the ends' ramp at its parameter plus its own, leaving it and arriving at it (one value except at a
+			// corner, where the anchor's roll is measured on each side)
+			double twistOut[MaxControls]{};
+			double twistIn[MaxControls]{};
 			Vec3 axisScale[MaxControls];
 			double lengthRatio{ 1.0 };
 
@@ -362,7 +521,7 @@ namespace RibbonMath
 				int k;
 				double s;
 				segmentOf(u, k, s);
-				return twist[k] + (twist[k + 1] - twist[k]) * s;
+				return twistOut[k] + (twistIn[k + 1] - twistOut[k]) * s;
 			}
 
 			Vec3 scaleAt(double u) const
@@ -433,13 +592,20 @@ namespace RibbonMath
 			}
 			// The ends take the base curve's handles (aim blend and roundness). A two-control ribbon is the base curve.
 			spline.m[0] = base.spline.m[0];
-			spline.m[count - 1] = base.spline.m[base.spline.count - 1];
+			const int baseLast = base.spline.count - 1;
+			spline.m[count - 1] = base.spline.split ? base.spline.mIn[baseLast] : base.spline.m[baseLast];
 			for (int j = 1; j < count - 1; ++j)
 			{
 				const Vec3 difference = scale(sub(spline.p[j + 1], spline.p[j - 1]), 1.0 / (spline.u[j + 1] - spline.u[j - 1]));
 				const Vec3 differenceDirection = normalized(difference, { 1.0, 0.0, 0.0 });
 				const Vec3 direction = normalized(lerp(differenceDirection, forwardAxis(output.controlWorld[j], setup, differenceDirection), kControlTangentBlend), differenceDirection);
 				spline.m[j] = scale(direction, length(difference));
+			}
+			if (setup.fkAnchors)
+			{
+				// The controls at the anchors' corners are corners of this curve too, at the same softness, so the curve through the bind
+				// joints rounds nothing the base curve does not. The ends already took the base's.
+				softenCorners(spline, params.cornerSoftness, setup.corner, false);
 			}
 
 			Vec3 pos;
@@ -453,21 +619,25 @@ namespace RibbonMath
 				const Mat4& local = input.local[j];
 				detail.axisScale[j] = { length(row(local, 0)), length(row(local, 1)), length(row(local, 2)) };
 				// Twists are angles about a control's own X. The frame turns about the forward tangent, which is -X when the chain runs back.
-				detail.twist[j] = setup.chainSign * (twists.at(setup.knotU[j]) + extractTwist(local));
+				detail.twistOut[j] = setup.chainSign * (twists.at(setup.knotU[j]) + extractTwist(local));
+				detail.twistIn[j] = detail.twistOut[j];
 				if (j + 1 < count)
 				{
 					liveLength += length(sub(spline.p[j + 1], spline.p[j]));
 				}
 			}
-			detail.twist[0] = setup.chainSign * twists.start;
-			detail.twist[count - 1] = setup.chainSign * twists.end;
+			detail.twistOut[0] = setup.chainSign * twists.start;
+			detail.twistIn[0] = detail.twistOut[0];
+			detail.twistOut[count - 1] = setup.chainSign * twists.end;
+			detail.twistIn[count - 1] = detail.twistOut[count - 1];
 			if (setup.fkAnchors)
 			{
 				// A Limb's anchors are real joints, so their roll about the curve is twist the skin must follow: it eases between them
 				// like the ends' ramp. fkRoll is already about the forward tangent, so chainSign is not applied again.
 				for (int j = 0; j < count; ++j)
 				{
-					detail.twist[j] += fkRollAt(setup, base.fkRoll, setup.knotU[j]);
+					detail.twistOut[j] += fkRollAt(setup, base.fkRollOut, base.fkRollIn, setup.knotU[j], true);
+					detail.twistIn[j] += fkRollAt(setup, base.fkRollOut, base.fkRollIn, setup.knotU[j], false);
 				}
 			}
 			detail.lengthRatio = std::min(kMaxLengthRatio, std::max(kMinLengthRatio, liveLength / setup.restLength));
@@ -544,6 +714,18 @@ namespace RibbonMath
 		return SwingTwist::twistAboutX(rows);
 	}
 
+	void markAnchorCorners(Setup& setup)
+	{
+		for (int j = 0; j < setup.controlCount; ++j)
+		{
+			setup.corner[j] = false;
+			for (int k = 1; k + 1 < setup.fkCount; ++k)
+			{
+				setup.corner[j] = setup.corner[j] || std::fabs(setup.knotU[j] - setup.fkKnotU[k]) < kKnotTolerance;
+			}
+		}
+	}
+
 	bool fkKnots(const Mat4* fkRest, int fkCount, double* outU)
 	{
 		double chords[MaxControls]{};
@@ -570,9 +752,11 @@ namespace RibbonMath
 	{
 		Base base;
 		makeFkBase(setup, Params{}, setup.fkRest, base);
-		for (int k = 0; k < setup.fkCount; ++k)
+		const int last = setup.fkCount - 1;
+		for (int k = 0; k <= last; ++k)
 		{
-			setup.fkRollRest[k] = rollAbout(base, setup.fkKnotU[k], setup.fkRest[k]);
+			setup.fkRollRest[k] = rollAtKnot(base, k, k < last, setup.fkRest[k]);
+			setup.fkRollRestIn[k] = k > 0 ? rollAtKnot(base, k, false, setup.fkRest[k]) : setup.fkRollRest[0];
 		}
 	}
 
@@ -645,6 +829,11 @@ namespace RibbonMath
 			{
 				setup.knotU[j] = forcedKnotU ? forcedKnotU[j] : (j == controlCount - 1 ? 1.0 : running / total);
 				running += chords[j];
+			}
+
+			if (fkAnchors)
+			{
+				markAnchorCorners(setup);
 			}
 
 			// A bind joint's parameter: the closest point of the control polyline, by its share of the chord's u span.
@@ -743,6 +932,7 @@ namespace RibbonMath
 		// mirrored chain keeps (X running back) is the first anchor's own difference from the curve's frame, and every control takes it.
 		Setup curveSetup;
 		curveSetup.fkCount = anchorCount;
+		curveSetup.fkAnchors = true;   // the curve at rest has the corners the live one has by default
 		for (int k = 0; k < anchorCount; ++k)
 		{
 			curveSetup.fkRest[k] = anchorRest[k];

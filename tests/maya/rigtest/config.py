@@ -20,4 +20,4 @@ ASSET_ID = "tests\\rig"
 
 # Every node type the plugin registers that a build creates.
 RIG_NODE_TYPES = ["rigRootModule","layoutModule", "fkChainModule", "aimModule",
-                  "twoBoneIkModule", "ribbonModule", "rigConstraint", "rigControlNode"]
+                  "twoBoneIkModule", "ribbonModule", "limbModule", "rigConstraint", "rigControlNode"]

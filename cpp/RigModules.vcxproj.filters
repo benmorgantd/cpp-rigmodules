@@ -171,6 +171,9 @@
     <ClCompile Include="maya\modules\LayoutModule.cpp">
       <Filter>maya\modules</Filter>
     </ClCompile>
+    <ClCompile Include="maya\modules\LimbModule.cpp">
+      <Filter>maya\modules</Filter>
+    </ClCompile>
     <ClCompile Include="maya\modules\RibbonModule.cpp">
       <Filter>maya\modules</Filter>
     </ClCompile>
@@ -407,6 +410,9 @@
     <ClInclude Include="maya\modules\LayoutModule.h">
       <Filter>maya\modules</Filter>
     </ClInclude>
+    <ClInclude Include="maya\modules\LimbModule.h">
+      <Filter>maya\modules</Filter>
+    </ClInclude>
     <ClInclude Include="maya\modules\RibbonModule.h">
       <Filter>maya\modules</Filter>
     </ClInclude>
@@ -453,6 +459,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\RibbonSolve.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\TwoBoneIkPart.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\TwoBoneIkSolve.h">

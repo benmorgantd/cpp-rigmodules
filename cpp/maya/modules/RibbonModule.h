@@ -17,28 +17,6 @@
 #include <maya/MString.h>
 #include <maya/MTypeId.h>
 
-// The order of the channels on the first control, which is the order of RibbonModuleNode::aChannels, of
-// ribbonChannelSpecs() and of ModuleInverseInput::channels. Append only: the order is not a name, but the node indexes by it.
-namespace RibbonChannel
-{
-	inline constexpr unsigned int StartTwist{ 0 };
-	inline constexpr unsigned int EndTwist{ 1 };
-	inline constexpr unsigned int SineAmplitude{ 2 };
-	inline constexpr unsigned int SineFrequency{ 3 };
-	inline constexpr unsigned int SinePhase{ 4 };
-	inline constexpr unsigned int SineOrient{ 5 };
-	inline constexpr unsigned int SineStartFalloff{ 6 };
-	inline constexpr unsigned int SineEndFalloff{ 7 };
-	inline constexpr unsigned int StartAimBlend{ 8 };
-	inline constexpr unsigned int EndAimBlend{ 9 };
-	inline constexpr unsigned int BendRoundness{ 10 };
-	inline constexpr unsigned int VolumePreserve{ 11 };
-	inline constexpr unsigned int ScaleStart{ 12 };
-	inline constexpr unsigned int ScaleMid{ 13 };
-	inline constexpr unsigned int ScaleEnd{ 14 };
-	inline constexpr unsigned int Count{ 15 };
-}
-
 // One ribbon control or bind joint, resolved by the plan step.
 struct RibbonSlotInput
 {
@@ -130,4 +108,6 @@ public:
 
 private:
 	static constexpr unsigned int MaxSlots{ RibbonSolve::MaxSlots };
+	// The stored rest, by this node's attributes, for the shared reads and writes.
+	static RibbonSolve::RestAttrs restAttrs();
 };

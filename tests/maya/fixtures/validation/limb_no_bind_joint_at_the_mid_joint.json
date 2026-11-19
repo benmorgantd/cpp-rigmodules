@@ -1,0 +1,50 @@
+{
+  "description": "The elbow needs a bind joint on the mid joint",
+  "base": "limb_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/bindJoints",
+      "value": [
+        [
+          "Left",
+          "bind1"
+        ],
+        [
+          "Left",
+          "bind2"
+        ],
+        [
+          "Left",
+          "bind3"
+        ],
+        [
+          "Left",
+          "bind4"
+        ],
+        [
+          "Left",
+          "bind6"
+        ],
+        [
+          "Left",
+          "bind7"
+        ],
+        [
+          "Left",
+          "bind8"
+        ],
+        [
+          "Left",
+          "bind9"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "no bind joint sits at the mid joint",
+      "path": "rigModules[0] 'arm_01_L_MOD'.moduleArgs.bindJoints"
+    }
+  ]
+}

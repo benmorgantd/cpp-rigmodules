@@ -614,3 +614,34 @@ class RibbonDocExamples(RigTestCase):
         for joint in ("up5_00_M_JNT", "fo1_00_M_JNT"):
             m = cmds.xform(rig_name(joint), query=True, worldSpace=True, matrix=True)
             self.assertAlmostEqual(math.degrees(math.atan2(m[6], m[5])), 60.0, delta=1.0, msg=joint)
+
+
+class LimbDocExample(RigTestCase):
+    """The Limb entry in docs/modules.md builds on the limb_arm skeleton, and what the section says about the elbow holds (D62)."""
+
+    def _build(self):
+        entry = json.loads(doc_code_block(MODULES_DOC, "## Limb", "json"))
+        self.build({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [entry]}, self.make_skeleton("limb_arm"))
+
+    def test_modules_doc_limb_entry_builds_with_20_controls_and_all_its_channels_on_the_settings_control(self):
+        self._build()
+        import rigmodules.query
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        limb = [c for c in rigmodules.query.get_rig_controls(root) if cmds.nodeType(c.module) == "limbModule"]
+        self.assertEqual(len(limb), 6 + 5 + 9)
+        keyable = cmds.listAttr(rig_name("armSettings_00_L_CTRL"), keyable=True)
+        for channel in ("ikFkBlend", "stretch", "soft", "startTwist", "endTwist", "volumePreserve", "bendSoftness"):
+            self.assertIn(channel, keyable)
+
+    def test_modules_doc_the_elbow_is_a_sharp_corner_at_softness_0_and_the_bind_joints_stay_on_the_bones(self):
+        """The doc says the bind joints stay on the bones at 0. Bending the lower arm 45 degrees about Z in FK puts the forearm's
+        first bind joint at (4 - 4/4 * sin 45, 4/4 * cos 45), a quarter of the bone from the elbow; at 1 it is off that line."""
+        self._build()
+        cmds.setAttr(rig_name("armSettings_00_L_CTRL.ikFkBlend"), 0)
+        cmds.setAttr(rig_name("lowerArm_00_L_CTRL.rotateZ"), 45)
+        on_the_bone = [4 - math.sqrt(2) / 2, math.sqrt(2) / 2, 0]
+        self.assertWorldTranslation(rig_name("bind6_00_L_JNT"), on_the_bone, 1e-3)
+        cmds.setAttr(rig_name("armSettings_00_L_CTRL.bendSoftness"), 1)
+        moved = cmds.xform(rig_name("bind6_00_L_JNT"), query=True, worldSpace=True, translation=True)
+        self.assertGreater(math.dist(moved, on_the_bone), 0.05)
+

@@ -1,0 +1,11 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "LimbTwoBoneIkPeer",
+  "rigModules": [
+    { "moduleType": "TwoBoneIk", "moduleVersion": 2, "name": "arm_01_L_MOD", "shapeType": "Box", "side": "Left",
+      "moduleArgs": {
+        "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"] ],
+        "controlName": "arm" },
+      "parentStructure": { "start": "layout_00_M_MOD.end", "ik": "layout_00_M_MOD.end", "pole": "layout_00_M_MOD.end" } }
+  ]
+}

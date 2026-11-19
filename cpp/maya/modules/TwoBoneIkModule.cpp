@@ -10,6 +10,7 @@
 #include "maya/shared/RigModule.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/Side.h"
+#include "maya/shared/TwoBoneIkPart.h"
 #include "maya/shared/Utilities.h"
 
 #include <algorithm>
@@ -59,11 +60,6 @@ MObject TwoBoneIkNode::aMatchWarnings;
 
 namespace
 {
-	// Rests closer than these have no bone, no end-to-handle match, or no pole plane.
-	constexpr double kMinBoneLength{ 1.0e-4 };
-	constexpr double kMinPoleSine{ 1.0e-4 };
-	// A rest mid this near the root-to-end line is a straight limb: it has no bend direction of its own.
-	constexpr double kMinRestBend{ 1.0e-4 };
 	// The IK solve of a restored pose may miss the joints by this fraction of the limb's reach before the restore warns.
 	constexpr double kMaxIkMismatch{ 1.0e-3 };
 
@@ -82,114 +78,11 @@ namespace
 		}
 	}
 
-	// The child plug each slot owns, or nullptr for the slots with none (the FK lower and end controls).
-	const char* childPlugNameAt(unsigned int slot)
-	{
-		switch (slot)
-		{
-		case TwoBoneIkSlot::Upper:
-			return PlugAndSocketNames::Start;
-		case TwoBoneIkSlot::Ik:
-			return PlugAndSocketNames::Ik;
-		case TwoBoneIkSlot::Pole:
-			return PlugAndSocketNames::Pole;
-		case TwoBoneIkSlot::Settings:
-			return PlugAndSocketNames::Settings;
-		default:
-			return nullptr;
-		}
-	}
-
-	// Every name of the socket on a slot. index_0 to index_2 (and start and end, which are the same sockets) carry the blended joint worlds.
-	std::vector<std::string> socketNamesAt(unsigned int slot)
-	{
-		switch (slot)
-		{
-		case TwoBoneIkSlot::Upper:
-			return { std::string(PlugAndSocketNames::Index) + "0", PlugAndSocketNames::Start };
-		case TwoBoneIkSlot::Lower:
-			return { std::string(PlugAndSocketNames::Index) + "1" };
-		case TwoBoneIkSlot::End:
-			return { std::string(PlugAndSocketNames::Index) + "2", PlugAndSocketNames::End };
-		case TwoBoneIkSlot::Ik:
-			return { PlugAndSocketNames::Ik };
-		case TwoBoneIkSlot::Pole:
-			return { PlugAndSocketNames::Pole };
-		default:
-			return { PlugAndSocketNames::Settings };
-		}
-	}
-
-	// Mirrors createModule: every child plug has a control, the pole and settings plugs take no constraint, and the
-	// settings plug follows start's parent (D52 decision 14).
-	ModuleInterface makeTwoBoneIkInterface()
-	{
-		ModuleInterface moduleInterface;
-		moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Start, true, true, "" });
-		moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Ik, true, true, "" });
-		moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Pole, true, false, "" });
-		moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Settings, true, false, PlugAndSocketNames::Start });
-		for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
-		{
-			const std::vector<std::string> names = socketNamesAt(slot);
-			moduleInterface.sockets.insert(moduleInterface.sockets.end(), names.begin(), names.end());
-		}
-		return moduleInterface;
-	}
-
-	// The solve's frame helpers live in maya/shared/TwoBoneIkSolve (shared with Limb, D62).
+	// The solve's helpers live in maya/shared/TwoBoneIkSolve (shared with Limb, D62).
 	using TwoBoneIkSolve::computeLimbFrames;
+	using TwoBoneIkSolve::computeRest;
 	using TwoBoneIkSolve::makeFrame;
 	using TwoBoneIkSolve::orthonormalFrame;
-	using TwoBoneIkSolve::perpendicularPart;
-
-	// Everything the rest pose fixes: bone lengths, the plane angle that makes IK at rest reproduce the rest bend, and
-	// the offsets that give each IK joint its own rest orientation (bind pose safe). The rests are valid (planFromJson
-	// checked the geometry). The inverse calls this again from the controls' stored rests.
-	TwoBoneIkRest computeRest(const std::array<MMatrix, TwoBoneIkSlot::Count>& restWorlds)
-	{
-		const MVector vRoot = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Upper]);
-		const MVector vMid = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Lower]);
-		const MVector vEnd = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::End]);
-		const MVector vHandle = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Ik]);
-		const MVector vPole = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Pole]);
-
-		TwoBoneIkRest rest;
-		rest.length1 = (vMid - vRoot).length();
-		rest.length2 = (vEnd - vMid).length();
-
-		const MVector vAxis = (vHandle - vRoot).normal();
-		const MVector vPoleNormal = perpendicularPart(vPole - vRoot, vAxis).normal();
-		const MVector vMidPart = perpendicularPart(vMid - vRoot, vAxis);
-		if (vMidPart.length() > kMinRestBend)
-		{
-			const MVector vMidNormal = vMidPart.normal();
-			rest.restBendNormal = vMidNormal;
-			rest.restPlaneAngle = std::atan2(vAxis * (vPoleNormal ^ vMidNormal), vPoleNormal * vMidNormal);
-		}
-		else
-		{
-			rest.restBendNormal = vPoleNormal;
-		}
-
-		// The solve at rest, with every setting off. Its frames against the joints' rests give the offsets.
-		TwoBoneIkInput input;
-		input.root = vRoot;
-		input.handle = vHandle;
-		input.pole = vPole;
-		input.length1 = rest.length1;
-		input.length2 = rest.length2;
-		input.restPlaneAngle = rest.restPlaneAngle;
-		input.restBendNormal = rest.restBendNormal;
-		input.restAxis = vAxis;
-		MMatrix mFrames[TwoBoneIkSlot::LimbCount];
-		computeLimbFrames(MathUtils::computeTwoBoneIk(input), vRoot, restWorlds[TwoBoneIkSlot::Ik], mFrames);
-		for (unsigned int i = 0; i < TwoBoneIkSlot::LimbCount; ++i)
-		{
-			rest.ikRestOffset[i] = restWorlds[i] * mFrames[i].inverse();
-		}
-		return rest;
-	}
 }
 
 TwoBoneIkNode::TwoBoneIkNode()
@@ -222,74 +115,8 @@ MStatus TwoBoneIkNode::initialize()
 	status = initializeSharedAttributes();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Channel inputs, connected from the owning controls at build. Blend, stretch, soft and pin are clamped to 0..1.
-	struct ClampedInput
-	{
-		MObject& attr;
-		const char* name;
-		double defaultValue;
-	};
-	const ClampedInput clampedInputs[] =
-	{
-		{ aIkFkBlend, RigAttr::IkFkBlend, 1.0 },
-		{ aStretch, RigAttr::Stretch, 0.0 },
-		{ aSoft, RigAttr::Soft, 0.0 },
-		{ aPin, RigAttr::Pin, 0.0 }
-	};
-	for (const ClampedInput& input : clampedInputs)
-	{
-		input.attr = nAttr.create(input.name, input.name, MFnNumericData::kDouble, input.defaultValue, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMin(0.0));
-		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMax(1.0));
-		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(input.attr));
-	}
-
-	aRoll = uAttr.create(RigAttr::Roll, RigAttr::Roll, MFnUnitAttribute::kAngle, 0.0, &status);
+	status = TwoBoneIkPart<TwoBoneIkNode>::createAttributes();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(uAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aRoll));
-
-	aPoleSpace = nAttr.create(RigAttr::PoleSpace, RigAttr::PoleSpace, MFnNumericData::kShort, 0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMin(0));
-	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMax(1));
-	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aPoleSpace));
-
-	// Stored at build, like Aim's aimRestOffset.
-	aIkRestOffset = mAttr.create("ikRestOffset", "ikRestOffset", MFnMatrixAttribute::kDouble, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setArray(true));
-	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkRestOffset));
-
-	aRestBendNormal = nAttr.create("restBendNormal", "restBendNormal", MFnNumericData::k3Double, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aRestBendNormal));
-
-	aRestPlaneAngle = nAttr.create("restPlaneAngle", "restPlaneAngle", MFnNumericData::kDouble, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aRestPlaneAngle));
-
-	aLimbLengths = nAttr.create("limbLengths", "limbLengths", MFnNumericData::k2Double, 0.0, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aLimbLengths));
-
-	// Outputs that drive the controls' visibility, a function of the blend alone.
-	for (MObject* pAttr : { &aFkVisible, &aIkVisible })
-	{
-		const char* name = pAttr == &aFkVisible ? "fkVisible" : "ikVisible";
-		*pAttr = nAttr.create(name, name, MFnNumericData::kDouble, 1.0, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setWritable(false));
-		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(false));
-		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(*pAttr));
-	}
 
 	// Match outputs. Maya computes an output only when something pulls it, and nothing is connected to these.
 	for (MObject* pAttr : { &aFkMatchLocal, &aIkMatchLocal })
@@ -315,15 +142,7 @@ MStatus TwoBoneIkNode::initialize()
 
 	// AFFECTS RELATIONSHIPS
 	declareStandardAffects();
-	// Every setting changes the solved joints and the sockets that carry them. The pole's space also moves the pole control.
-	for (const MObject& oInput : { aIkFkBlend, aStretch, aSoft, aPin, aRoll, aPoleSpace, aIkRestOffset, aRestBendNormal, aRestPlaneAngle, aLimbLengths })
-	{
-		attributeAffects(oInput, aJointOPM);
-		attributeAffects(oInput, aOutputSocketMatrix);
-	}
-	attributeAffects(aPoleSpace, aControlOPM);
-	attributeAffects(aIkFkBlend, aFkVisible);
-	attributeAffects(aIkFkBlend, aIkVisible);
+	TwoBoneIkPart<TwoBoneIkNode>::declareAffects();
 	// The match outputs read everything the pose does: the controls, the child plugs' parents and every setting.
 	for (const MObject& oInput : { aControlMatrix, aControlRestWorld, aChildPlugParentMatrix, aChildPlugParentRestMatrix,
 		aIkFkBlend, aStretch, aSoft, aPin, aRoll, aPoleSpace, aIkRestOffset, aRestBendNormal, aRestPlaneAngle, aLimbLengths })
@@ -336,57 +155,6 @@ MStatus TwoBoneIkNode::initialize()
 	return MStatus::kSuccess;
 }
 
-// Reads the limb's plugs. compute() writes every output array from one evaluation of this.
-MStatus TwoBoneIkNode::readEval(MDataBlock& data, TwoBoneIkEval& eval)
-{
-	MStatus status;
-
-	MArrayDataHandle hControlInputData = data.inputArrayValue(aControlInputData, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hChildPlugs = data.inputArrayValue(aChildPlugs, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
-	{
-		status = readControlInput(hControlInputData, slot, eval.mLocal[slot], eval.mRest[slot]);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-	}
-	eval.mUpperDelta = readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Upper);
-	eval.mIkDelta = readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Ik);
-	eval.mSettingsDelta = readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Settings);
-	eval.poleFollowsIk = data.inputValue(aPoleSpace).asShort() == 1;
-	if (!eval.poleFollowsIk)
-	{
-		eval.mPoleParentDelta = readChildPlugParentDelta(hChildPlugs, TwoBoneIkSlot::Pole);
-	}
-
-	// The settings are read at every blend: the match outputs run the inverse at blend 0 too, with these values.
-	eval.blend = data.inputValue(aIkFkBlend).asDouble();
-	eval.stretch = data.inputValue(aStretch).asDouble();
-	eval.soft = data.inputValue(aSoft).asDouble();
-	eval.pin = data.inputValue(aPin).asDouble();
-	eval.rollRadians = data.inputValue(aRoll).asAngle().asRadians();
-	if (eval.blend > 0.0)
-	{
-		const double2& lengths = data.inputValue(aLimbLengths).asDouble2();
-		eval.rest.length1 = lengths[0];
-		eval.rest.length2 = lengths[1];
-		eval.rest.restPlaneAngle = data.inputValue(aRestPlaneAngle).asDouble();
-		eval.rest.restBendNormal = data.inputValue(aRestBendNormal).asVector();
-
-		MArrayDataHandle hRestOffset = data.inputArrayValue(aIkRestOffset, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		for (unsigned int slot = 0; slot < TwoBoneIkSlot::LimbCount; ++slot)
-		{
-			status = hRestOffset.jumpToElement(slot);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-			eval.rest.ikRestOffset[slot] = hRestOffset.inputValue().asMatrix();
-		}
-	}
-
-	return MStatus::kSuccess;
-}
-
 MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	const MObject oOutputAttr = plug.attribute();
@@ -394,7 +162,7 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 	if (oOutputAttr == aFkVisible || oOutputAttr == aIkVisible)
 	{
 		const double blend = data.inputValue(aIkFkBlend).asDouble();
-		const bool isVisible = oOutputAttr == aFkVisible ? blend < 1.0 : blend > 0.0;
+		const bool isVisible = TwoBoneIkPart<TwoBoneIkNode>::isVisible(oOutputAttr == aFkVisible, blend);
 		data.outputValue(oOutputAttr).setDouble(isVisible ? 1.0 : 0.0);
 		data.setClean(plug);
 		return MStatus::kSuccess;
@@ -412,7 +180,7 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 
 	MStatus status;
 	TwoBoneIkEval eval;
-	status = readEval(data, eval);
+	status = TwoBoneIkPart<TwoBoneIkNode>::readEval(data, eval);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	TwoBoneIkSolveResult result;
 	TwoBoneIkSolve::evaluate(eval, result);
@@ -455,7 +223,7 @@ MStatus TwoBoneIkNode::computeMatch(const MPlug& plug, MDataBlock& data)
 	MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorC_L2, ProfileComputeMatch);
 	MStatus status;
 	TwoBoneIkEval eval;
-	status = readEval(data, eval);
+	status = TwoBoneIkPart<TwoBoneIkNode>::readEval(data, eval);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	TwoBoneIkSolveResult pose;
 	TwoBoneIkSolve::evaluate(eval, pose);
@@ -706,6 +474,7 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 	MObject& oRigRoot,
 	MDagModifier& dagMod)
 {
+	using Part = TwoBoneIkPart<TwoBoneIkNode>;
 	RigModuleBuildResult result;
 	MStatus status;
 
@@ -715,101 +484,24 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 	dagMod.newPlugValueShort(MPlug(oModule, TwoBoneIkNode::aSide), getShortFromSide(side));
 	result.moduleNode = oModule;
 
-	// 2. Per slot: bake and wire the joint, create and wire the control, name the sockets and child plug.
+	// 2. Per slot: the joint, the control, the sockets and the child plug, and the rest data the solve reads.
 	MObject oControls[TwoBoneIkSlot::Count];
-	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
-	{
-		const TwoBoneIkSlotInput& input = slots[slot];
-
-		// The IK, pole and settings controls have no joint (D57): their jointOPM and jointRestWorld elements are never made, which
-		// compute(), the inverse and the match outputs allow for. Their nodes are named from their usage.
-		MString controlBaseName(input.baseName.c_str());
-		if (!input.oJoint.isNull())
-		{
-			status = TwoBoneIkNode::wireJoint(oModule, input.oJoint, slot, input.mRestWorld, dagMod);
-			if (!status)
-			{
-				result.status = status;
-				return result;
-			}
-			controlBaseName = MFnDependencyNode(input.oJoint).name();
-		}
-
-		oControls[slot] = RigControlNode::createRigControl(dagMod, controlBaseName, shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
-		// FK lower under FK upper and FK end under FK lower. The IK, pole and settings controls stay out of the FK
-		// hierarchy: visibility inherits through the DAG, and the FK controls hide in IK (section 3.2).
-		if (slot == TwoBoneIkSlot::Lower || slot == TwoBoneIkSlot::End)
-		{
-			dagMod.reparentNode(oControls[slot], oControls[slot - 1]);
-		}
-		status = wireControl(oModule, oControls[slot], slot, input.mRestWorld, dagMod);
-		if (!status)
-		{
-			result.status = status;
-			return result;
-		}
-
-		// index_0 to index_2 (and start and end) carry the blended joint, not the FK control, so they have no DAG transform:
-		// a child module's controls would otherwise inherit an FK control's visibility.
-		RigModuleSocketInfo socketInfo;
-		socketInfo.oTransform = slot < TwoBoneIkSlot::LimbCount ? MObject::kNullObj : oControls[slot];
-		socketInfo.mRestWorld = input.mRestWorld;
-		socketInfo.outputIndex = slot;
-		const std::vector<std::string> socketNames = socketNamesAt(slot);
-		for (const std::string& socketName : socketNames)
-		{
-			result.parentSockets[socketName] = socketInfo;
-		}
-		DagPlugAndSocketUtils::setParentSocketNames(oModule, slot, socketNames, dagMod);
-
-		if (const char* plugName = childPlugNameAt(slot))
-		{
-			RigModuleChildPlugInfo plugInfo{ oControls[slot], slot };
-			if (slot == TwoBoneIkSlot::Settings)
-			{
-				plugInfo.followsPlug = PlugAndSocketNames::Start;
-			}
-			result.childPlugs[plugName] = plugInfo;
-			DagPlugAndSocketUtils::setChildPlugName(oModule, slot, plugName, dagMod);
-		}
-	}
-
-	// 3. Rest data the solve reads.
-	for (unsigned int i = 0; i < TwoBoneIkSlot::LimbCount; ++i)
-	{
-		MPlug pOffset = MPlug(oModule, TwoBoneIkNode::aIkRestOffset).elementByLogicalIndex(i);
-		DagUtils::setMatrixPlug(pOffset, rest.ikRestOffset[i], dagMod);
-	}
-	MPlug pBendNormal(oModule, TwoBoneIkNode::aRestBendNormal);
-	dagMod.newPlugValueDouble(pBendNormal.child(0), rest.restBendNormal.x);
-	dagMod.newPlugValueDouble(pBendNormal.child(1), rest.restBendNormal.y);
-	dagMod.newPlugValueDouble(pBendNormal.child(2), rest.restBendNormal.z);
-	dagMod.newPlugValueDouble(MPlug(oModule, TwoBoneIkNode::aRestPlaneAngle), rest.restPlaneAngle);
-	MPlug pLengths(oModule, TwoBoneIkNode::aLimbLengths);
-	dagMod.newPlugValueDouble(pLengths.child(0), rest.length1);
-	dagMod.newPlugValueDouble(pLengths.child(1), rest.length2);
-
-	// 4. The channels. The controls must exist before an attribute can be added to them, and the attributes before they
-	// can be wired, as in RigConstraintNode::createConstraint, so the build runs the modifier here.
-	status = dagMod.doIt();
+	status = Part::createSlots(oModule, side, shapeType, slots, rest, result, oControls, dagMod);
 	if (!status)
 	{
 		result.status = status;
 		return result;
 	}
 
-	status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::IkFkBlend, ikFkBlend, 0.0, 1.0, false, dagMod);
-	CHECK_MSTATUS_AND_RETURN(status, result);
-	status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::Stretch, 0.0, 0.0, 1.0, false, dagMod);
-	CHECK_MSTATUS_AND_RETURN(status, result);
-	status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::Soft, 0.0, 0.0, 1.0, false, dagMod);
-	CHECK_MSTATUS_AND_RETURN(status, result);
-	status = RigPoseScene::addAngleChannel(oControls[TwoBoneIkSlot::Ik], RigAttr::Roll, true, dagMod);   // a reflection reverses a roll's sense
-	CHECK_MSTATUS_AND_RETURN(status, result);
-	status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::Pin, 0.0, 0.0, 1.0, false, dagMod);
-	CHECK_MSTATUS_AND_RETURN(status, result);
-	// The pole's module-owned space (D52 section 4.4): the module reads it, so it is wired here and not through a rigConstraint.
-	status = RigPoseScene::addEnumChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::ControlSpace, { PoleSpaceLabels::Parent, PoleSpaceLabels::Ik }, 0, false, dagMod);
+	// 3. The channels. The controls must exist before an attribute can be added to them, and the attributes before they can be wired,
+	// as in RigConstraintNode::createConstraint, so the build runs the modifier here.
+	status = dagMod.doIt();
+	if (!status)
+	{
+		result.status = status;
+		return result;
+	}
+	status = Part::queueChannels(oControls, ikFkBlend, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
 	status = dagMod.doIt();
 	if (!status)
@@ -817,55 +509,10 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 		result.status = status;
 		return result;
 	}
-
-	struct ChannelWire
-	{
-		unsigned int slot;
-		const char* controlAttr;
-		const MObject& moduleAttr;
-	};
-	const ChannelWire wires[] =
-	{
-		{ TwoBoneIkSlot::Settings, RigAttr::IkFkBlend, aIkFkBlend },
-		{ TwoBoneIkSlot::Settings, RigAttr::Stretch, aStretch },
-		{ TwoBoneIkSlot::Settings, RigAttr::Soft, aSoft },
-		{ TwoBoneIkSlot::Ik, RigAttr::Roll, aRoll },
-		{ TwoBoneIkSlot::Pole, RigAttr::Pin, aPin },
-		{ TwoBoneIkSlot::Pole, RigAttr::ControlSpace, aPoleSpace }
-	};
-	for (const ChannelWire& wire : wires)
-	{
-		MPlug pControlAttr = MFnDependencyNode(oControls[wire.slot]).findPlug(wire.controlAttr, false, &status);
-		CHECK_MSTATUS_AND_RETURN(status, result);
-		status = dagMod.connect(pControlAttr, MPlug(oModule, wire.moduleAttr));
-		CHECK_MSTATUS_AND_RETURN(status, result);
-	}
-
-	// FK lower and end are visible below blend 1, the IK handle and pole above blend 0. Start and settings are always visible.
-	const std::pair<unsigned int, const MObject&> visibility[] =
-	{
-		{ TwoBoneIkSlot::Lower, aFkVisible }, { TwoBoneIkSlot::End, aFkVisible },
-		{ TwoBoneIkSlot::Ik, aIkVisible }, { TwoBoneIkSlot::Pole, aIkVisible }
-	};
-	for (const auto& [slot, oVisibleAttr] : visibility)
-	{
-		MPlug pVisibility = MFnDependencyNode(oControls[slot]).findPlug("visibility", false, &status);
-		CHECK_MSTATUS_AND_RETURN(status, result);
-		status = dagMod.connect(MPlug(oModule, oVisibleAttr), pVisibility);
-		CHECK_MSTATUS_AND_RETURN(status, result);
-	}
-
-	// Transform channels the animator doesn't use are locked and hidden. The IK controls keep what they move by (section 3.3).
-	const std::vector<std::string> ikKeep{ "tx", "ty", "tz", "rx", "ry", "rz" };
-	const std::vector<std::string> poleKeep{ "tx", "ty", "tz" };
-	status = DagUtils::queueLockAndHideTransform(oControls[TwoBoneIkSlot::Ik], dagMod, ikKeep);
-	CHECK_MSTATUS_AND_RETURN(status, result);
-	status = DagUtils::queueLockAndHideTransform(oControls[TwoBoneIkSlot::Pole], dagMod, poleKeep);
-	CHECK_MSTATUS_AND_RETURN(status, result);
-	status = DagUtils::queueLockAndHideTransform(oControls[TwoBoneIkSlot::Settings], dagMod);
+	status = Part::wireChannels(oModule, oControls, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
 
-	// 5. Network
+	// 4. Network
 	if (!oRigRoot.isNull())
 	{
 		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dagMod, oModule, aRigRoot);
@@ -885,148 +532,14 @@ bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 		return false;
 	}
 
-	const std::string argsPath = ctx.where + "." + TemplateKey::ModuleArgs;
-	bool valid = true;
-	// The channel clamps to 0..1, so a value outside it would build a rest the channel can't hold.
-	if (ikArgs.ikFkBlend < 0.0 || ikArgs.ikFkBlend > 1.0)
-	{
-		ctx.report.addError(argsPath + "." + RigAttr::IkFkBlend, "must be between 0 (FK) and 1 (IK), got " + std::to_string(ikArgs.ikFkBlend));
-		valid = false;
-	}
-	if (ikArgs.ikAlignToPole && !ikArgs.ikOrientToWorld)
-	{
-		ctx.report.addError(argsPath + ".ikAlignToPole", "turns a world-aligned handle toward the pole, so it needs ikOrientToWorld set to true as well");
-		valid = false;
-	}
-	if (ikArgs.joints.size() != TwoBoneIkSlot::LimbCount)
-	{
-		ctx.report.addError(argsPath + ".joints", "a two-bone IK limb has exactly three joints (root, mid, end), got "
-			+ std::to_string(ikArgs.joints.size()) + ". One IK bone is the Aim module. A longer IK chain needs a different module");
-		valid = false;
-	}
-
-	// An offset is empty (the default) or three numbers. The other side of a mirrored module is the reflection across the YZ plane
-	// (D28), so a world offset's X is negated there.
-	const auto readOffset = [&](const std::vector<double>& values, const char* key) -> std::optional<VectorMath::Vec3>
-	{
-		if (values.empty())
-		{
-			return std::nullopt;
-		}
-		if (values.size() != 3)
-		{
-			ctx.report.addError(argsPath + "." + key, "must be [x, y, z], got " + std::to_string(values.size()) + " numbers");
-			valid = false;
-			return std::nullopt;
-		}
-		return VectorMath::Vec3{ ctx.moduleData.isMirror() ? -values[0] : values[0], values[1], values[2] };
-	};
-	const std::optional<VectorMath::Vec3> poleOffset = readOffset(ikArgs.poleOffset, "poleOffset");
-	const std::optional<VectorMath::Vec3> settingsOffset = readOffset(ikArgs.settingsOffset, "settingsOffset");
-
-	// claimJoint rejects a joint picked twice. Claim every selector even after a failure, so the report lists every bad one at once.
 	std::array<TwoBoneIkSlotInput, TwoBoneIkSlot::Count> slots;
-	for (std::size_t i = 0; i < ikArgs.joints.size(); ++i)
-	{
-		// With the wrong joint count the selectors aren't the limb, so they are claimed into a scratch input.
-		TwoBoneIkSlotInput scratch;
-		TwoBoneIkSlotInput& slot = ikArgs.joints.size() == TwoBoneIkSlot::LimbCount ? slots[i] : scratch;
-		valid = claimJoint(ctx, ikArgs.joints[i], slot.oJoint, slot.mRestWorld) && valid;
-		slot.controlMarkup = makeControlMarkup(ikArgs.joints[i].side, ikArgs.joints[i].usage);
-	}
-	if (!valid)
+	TwoBoneIkRest rest;
+	if (!TwoBoneIkSolve::planSlots(ikArgs, ctx, slots, rest))
 	{
 		return false;
 	}
 
-	// A degenerate rest pose gives the solve no bones. A straight limb is fine (mocap skeletons have them): the pole falls back to
-	// the root joint's -Y, which ControlPlacement::placeLimb does.
-	const MVector vRoot = MathUtils::translationOf(slots[TwoBoneIkSlot::Upper].mRestWorld);
-	const MVector vMid = MathUtils::translationOf(slots[TwoBoneIkSlot::Lower].mRestWorld);
-	const MVector vEnd = MathUtils::translationOf(slots[TwoBoneIkSlot::End].mRestWorld);
-	if ((vMid - vRoot).length() < kMinBoneLength || (vEnd - vMid).length() < kMinBoneLength)
-	{
-		ctx.report.addError(argsPath + ".joints", "the limb's joints must not sit on each other: a bone has no length");
-		return false;
-	}
-
-	// The derived controls (D57). The handle is at the end joint, turned the way that joint is. The pole and settings controls take
-	// world axes: their rotation is locked, so this only sets how their translate channels read.
-	const ControlPlacement::LimbPlacement placement = ControlPlacement::placeLimb(
-		MathUtils::toMat4(slots[TwoBoneIkSlot::Upper].mRestWorld), MathUtils::toMat4(slots[TwoBoneIkSlot::Lower].mRestWorld),
-		MathUtils::toMat4(slots[TwoBoneIkSlot::End].mRestWorld), poleOffset, settingsOffset, ctx.moduleData.isMirror());
-	const MVector vPole(placement.pole.x, placement.pole.y, placement.pole.z);
-	const MVector vSettings(placement.settings.x, placement.settings.y, placement.settings.z);
-
-	// A pole on the root-to-end line has no bend plane. A straight limb that runs along its root's Y (a leg) lands there by default,
-	// so it needs an offset.
-	const MVector vToPole = vPole - vRoot;
-	const MVector vToEnd = vEnd - vRoot;
-	if (vToPole.length() < kMinBoneLength || (vToPole.normal() ^ vToEnd.normal()).length() < kMinPoleSine)
-	{
-		ctx.report.addError(argsPath + ".poleOffset", "the pole lies on the line from the root to the end, so the bend plane is undefined. "
-			"Give the limb a poleOffset that moves the pole off that line");
-		return false;
-	}
-
-	const MMatrix mEndRotation = MTransformationMatrix(slots[TwoBoneIkSlot::End].mRestWorld).asRotateMatrix();
-	const auto frameAt = [](const MMatrix& mRotation, const MVector& vOrigin)
-	{
-		MMatrix mFrame = mRotation;
-		mFrame[3][0] = vOrigin.x;
-		mFrame[3][1] = vOrigin.y;
-		mFrame[3][2] = vOrigin.z;
-		return mFrame;
-	};
-	if (ikArgs.ikOrientToWorld)
-	{
-		// World-aligned (D59): on the mirrored side the pole is reflected, so a turn toward it is reflected too. The IK joints' rest
-		// offsets (computeRest) absorb whichever rotation the handle has, so the bind pose is unaffected.
-		const std::optional<VectorMath::Mat4> worldHandle = ControlPlacement::placeWorldIkHandle(
-			{ vEnd.x, vEnd.y, vEnd.z }, placement.pole, ikArgs.ikAlignToPole);
-		if (!worldHandle)
-		{
-			ctx.report.addError(argsPath + ".ikAlignToPole", "the pole is straight above or below the end joint, so there is no direction to turn the handle "
-				"toward. Give the limb a poleOffset that moves the pole off that vertical line");
-			return false;
-		}
-		slots[TwoBoneIkSlot::Ik].mRestWorld = MathUtils::toMMatrix(*worldHandle);
-	}
-	else
-	{
-		slots[TwoBoneIkSlot::Ik].mRestWorld = frameAt(mEndRotation, vEnd);
-	}
-	slots[TwoBoneIkSlot::Pole].mRestWorld = frameAt(MMatrix::identity, vPole);
-	slots[TwoBoneIkSlot::Settings].mRestWorld = frameAt(MMatrix::identity, vSettings);
-
-	// Names (D57): <base>IK, <base>Pole and <base>Settings. The base is controlName, else the first joint's usage without its
-	// trailing _NN. A usage another module already uses is reported by the template's one-usage-per-rig check (D25).
-	const std::string base = ikArgs.controlName.empty() ? StringUtils::stripNumberSuffix(ikArgs.joints.front().usage) : ikArgs.controlName;
-	if (!NamingConvention::isValidBase(base))
-	{
-		ctx.report.addError(argsPath + ".controlName", "the derived controls are named from '" + base + "', which is not camelCase (a lowercase letter, "
-			"then letters and digits). Set controlName to a camelCase name");
-		return false;
-	}
-	const std::string& firstSide = ikArgs.joints.front().side;
-	const std::pair<unsigned int, const char*> derived[] =
-	{
-		{ TwoBoneIkSlot::Ik, "IK" }, { TwoBoneIkSlot::Pole, "Pole" }, { TwoBoneIkSlot::Settings, "Settings" }
-	};
-	for (const auto& [slotIndex, suffix] : derived)
-	{
-		slots[slotIndex].baseName = base + suffix;
-		slots[slotIndex].controlMarkup = makeControlMarkup(firstSide, slots[slotIndex].baseName);
-	}
-
-	std::array<MMatrix, TwoBoneIkSlot::Count> restWorlds;
-	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
-	{
-		restWorlds[slot] = slots[slot].mRestWorld;
-	}
-	const TwoBoneIkRest rest = computeRest(restWorlds);
-
-	outPlan.moduleInterface = makeTwoBoneIkInterface();
+	outPlan.moduleInterface = TwoBoneIkSolve::makeInterface();
 	for (const TwoBoneIkSlotInput& slot : slots)
 	{
 		outPlan.moduleInterface.controls.push_back(slot.controlMarkup);

@@ -340,3 +340,44 @@ cmds.setAttr("rig:tailIK_02_M_CTRL.rotateX", 200)     # the end rolls 200 degree
 cmds.setAttr("rig:tailIK_00_M_CTRL.endTwist", 200)    # and the ribbon follows it past 180
 cmds.setAttr("rig:tailIK_00_M_CTRL.volumePreserve", 1)  # squash and stretch fatten and thin the joints
 ```
+
+
+## Limb
+
+An arm or a leg with **one continuous ribbon**. It is a [TwoBoneIk](#twoboneik) (the IK/FK blend, pole, stretch and soft) and a [Ribbon](#ribbon) in one node: a single curve passes through the start, mid and end joints, and a row of bind joints rides it, so the elbow or knee has no crease between an upper and a lower ribbon, and the twist and every channel run the whole length. Use it for a limb you want to deform well. Build [TwoBoneIk](#twoboneik) and [Ribbon](#ribbon) on their own when you want only one of them.
+
+The limb's own joints (`joints`) are the IK/FK chain and are not skin joints. The bind joints (`bindJoints`) are the skin joints: 5 or more, root to tip, **all leaves**, the first at the root joint, the last at the end joint and exactly one at the mid joint, none stacked. The ribbon's ik controls and the tweakers (one per bind joint, hidden) are derived from them, so the skeleton has no control joints.
+
+```json
+{
+  "moduleType": "Limb", "name": "arm_01_L_MOD", "shapeType": "Box", "side": "Left",
+  "moduleArgs": {
+    "joints": [ ["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"] ],
+    "bindJoints": [ ["Left", "bind1"], ["Left", "bind2"], ["Left", "bind3"], ["Left", "bind4"], ["Left", "bind5"],
+                    ["Left", "bind6"], ["Left", "bind7"], ["Left", "bind8"], ["Left", "bind9"] ],
+    "controlName": "arm", "controlCount": 5
+  },
+  "parentStructure": { "start": "layout_00_M_MOD.end", "ik": "layout_00_M_MOD.end", "pole": "layout_00_M_MOD.end" }
+}
+```
+
+| `moduleArgs` key | Default | Meaning |
+|---|---|---|
+| `joints` | required | The three limb joints, `[side, usage]` each: root, mid, end |
+| `bindJoints` | required | 5 to 64 skin joints, root to tip (above) |
+| `controlCount` | 5 | The ribbon's ik controls, 3 to 8: one at the root, one at the mid joint, one at the end, and the rest spread between. 5 gives the upper and the lower arm a middle control each |
+| `controlName`, `poleOffset`, `settingsOffset`, `ikFkBlend`, `ikOrientToWorld`, `ikAlignToPole` | as TwoBoneIk | See [TwoBoneIk](#twoboneik) |
+
+There is no fk ribbon: the ribbon follows the blended joints.
+
+**Controls.** The two-bone limb's six (the FK start, lower and end controls, the IK handle `<controlName>IK`, the pole `<controlName>Pole` and the settings control `<controlName>Settings`), the ribbon's ik controls `<controlName>RibbonIK_<nn>`, and a hidden tweaker per bind joint, named from its joint. The ribbon's ik controls hang from the start plug's DAG parent (the chest for an arm), and the tweakers from the first ik control. An arm with 5 ik controls and 9 bind joints has 6 + 5 + 9 = 20 controls (16 with 5 bind joints).
+
+**Channels.** All of them are on the settings control, which is always visible: `ikFkBlend`, `stretch` and `soft` as on TwoBoneIk, and the ribbon's `startTwist`, `endTwist`, `sineAmplitude`, `sineFrequency`, `sinePhase`, `sineOrient`, `sineStartFalloff`, `sineEndFalloff`, `volumePreserve`, `scaleStart`, `scaleMid` and `scaleEnd` as in the [Ribbon](#ribbon) table, with `bendSoftness` (below). `roll` stays on the IK handle and `pin` and `space` on the pole. There are no aim blends or `bendRoundness`: a limb's ends come from its joints. The channels are one set with the same rests and mirror modes as on the two modules.
+
+**The elbow.** `bendSoftness` (0 to 1, rest 0) is how round the corner at the mid joint is. At 0, the default, the curve is the straight line to each side of the mid joint: the bind joints stay on the bones and the bend happens at the elbow bind joint. At 1 it is a smooth curve through the three joints. A value between rounds it part way. The curve always passes through the mid joint.
+
+**Twist.** The ribbon starts with the start joint's swing and no twist, so the shoulder's twist arrives at the elbow and runs along the upper arm. It ends with the end joint's twist on the swing of the mid joint, so the wrist's twist runs along the forearm and the hand's swing never reaches it. These are the [Swing and Twist constraints](templates.md#constraints) applied to the joints inside the node, so a limb needs none.
+
+**Child plugs and sockets** are TwoBoneIk's: child plugs `start`, `ik`, `pole` and `settings` (internal), sockets `index_0`, `index_1`, `index_2` (also `start` and `end`), `ik`, `pole` and `settings`. A hand hangs from `end`. The bind joints have no sockets.
+
+**Not built yet.** The matched IK/FK switch (`setRigIkFkBlend`) and restoring a pose from joints do not work on a Limb yet (`design/limb.md`, D62 phase 3), and neither does the reverse foot's `ikTarget` plug (phase 4). A change to the IK/FK solve, the ribbon solve or their channels changes the Limb too.
