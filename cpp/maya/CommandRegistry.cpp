@@ -14,6 +14,7 @@
 #include "maya/commands/SkeletonCmds.h"
 #include "maya/commands/SkinWeightCmds.h"
 #include "maya/commands/TwoBoneIkCmds.h"
+#include "maya/contexts/SkinBrushContext.h"
 
 const std::vector<CommandDescriptor>& CommandRegistry::all()
 {
@@ -57,6 +58,15 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ LoadRigAnimationCmd::aCommandString, LoadRigAnimationCmd::creator, LoadRigAnimationCmd::newSyntax },
 		{ SetRigIkFkBlendCmd::aCommandString, SetRigIkFkBlendCmd::creator, SetRigIkFkBlendCmd::newSyntax },
 		{ RenameRigNodesCmd::aCommandString, RenameRigNodesCmd::creator, RenameRigNodesCmd::newSyntax }
+	};
+	return descriptors;
+}
+
+const std::vector<ContextDescriptor>& CommandRegistry::contexts()
+{
+	static const std::vector<ContextDescriptor> descriptors =
+	{
+		{ SkinBrushCtxCmd::aCommandString, SkinBrushCtxCmd::creator, SkinBrushStrokeCmd::aCommandString, SkinBrushStrokeCmd::creator, SkinBrushStrokeCmd::newSyntax }
 	};
 	return descriptors;
 }

@@ -12,8 +12,19 @@ struct CommandDescriptor
 	CommandSyntaxFn syntax;
 };
 
+// A context command and the tool command its strokes run as (D65). The tool command is registered with it.
+struct ContextDescriptor
+{
+	const char* name;               // the context command
+	CommandCreatorFn creator;
+	const char* toolName;           // the tool command
+	CommandCreatorFn toolCreator;
+	CommandSyntaxFn toolSyntax;
+};
+
 class CommandRegistry
 {
 public:
 	static const std::vector<CommandDescriptor>& all();
+	static const std::vector<ContextDescriptor>& contexts();
 };

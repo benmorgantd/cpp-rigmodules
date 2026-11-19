@@ -73,6 +73,17 @@ MStatus initializePlugin(MObject obj)
 		}
 	}
 
+	// -- REGISTER CONTEXTS --
+	for (const ContextDescriptor& descriptor : CommandRegistry::contexts())
+	{
+		status = plugin.registerContextCommand(descriptor.name, descriptor.creator, descriptor.toolName, descriptor.toolCreator, descriptor.toolSyntax);
+		if (!status)
+		{
+			status.perror(MString("Failed to register context ") + descriptor.name);
+			return status;
+		}
+	}
+
 	// Last: Maya doesn't call uninitializePlugin after a failed load, so nothing may return early after the
 	// callback is registered. The control draw override reads it.
 	status = ActiveSelection::start();
@@ -95,6 +106,13 @@ MStatus uninitializePlugin(MObject obj)
 		RigControlNode::drawRegistrantId
 	);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// -- Deregister Contexts --
+	const std::vector<ContextDescriptor>& contexts = CommandRegistry::contexts();
+	for (auto it = contexts.rbegin(); it != contexts.rend(); ++it)
+	{
+		plugin.deregisterContextCommand(it->name, it->toolName);
+	}
 
 	// -- Deregister Commands --
 	const std::vector<CommandDescriptor>& commands = CommandRegistry::all();

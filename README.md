@@ -162,6 +162,7 @@ All C++ is under `cpp/`, with the Visual Studio project. Inside it, source is sp
 | `cpp/core/` | Maya-free: template structs, loading, mirroring and validation, format version updates, joint and control markup schemas, control channels, the control shape library, and the file formats (shapes, skin weights, poses, keys, animation, joint clips), selection set layout, JSON and string helpers, shared name constants |
 | `cpp/maya/` | Plugin entry (`PluginMain.cpp`) and the registries every node and command is added to |
 | `cpp/maya/modules/` | Module nodes: Layout, FkChain, Aim, TwoBoneIk, Ribbon |
+| `cpp/maya/contexts/` | Interactive tools (contexts): the skin weight brush |
 | `cpp/maya/commands/` | The Maya commands, one file per command or related set: building, constraints, joint markup, controls and shapes, poses, keys and animation files, restoring from joints, rig info, skin weights. The list is in [docs/commands.md](docs/commands.md) |
 | `cpp/maya/nodes/` | Other nodes: the rig root (it also runs the build), the constraint node, the control node |
 | `cpp/maya/shared/` | Code used across those folders: the module base, utilities, rig traversal, and the scene sides of joint markup, shapes, skin weights, display layers, selection sets, poses, keys and the inverse solve |

@@ -904,6 +904,58 @@ Objects: meshes with a skinCluster (every vertex), or vertex, edge or face compo
 - A named node that isn't a mesh or mesh components, a mesh without a skinCluster, an `iterations` below 1 or a `strength` outside 0 to 1 is an error, and nothing changes.
 - Undoable, as one step across all the meshes. Undo restores every weight exactly.
 
+## skinBrushCtx
+
+The skin weight brush (D65): a context you paint with, on the selected skinned meshes. Drag over a mesh and the weights under the brush are smoothed, as strongly as the falloff there allows. The settings are edited and queried on the context.
+
+```python
+ctx = cmds.skinBrushCtx("skinBrushCtx1")    # create it: a context needs a name
+cmds.skinBrushCtx(ctx, edit=True, radius=8.0, strength=0.4)
+cmds.setToolTo(ctx)
+cmds.skinBrushCtx(ctx, query=True, radius=True)    # 8.0
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `operation` | string | What a dab does. `smooth` is the only one so far. Default `smooth`. |
+| `radius` | double | The brush radius, at least 0.001, a **length over the mesh surface** in scene units. Default 5. |
+| `strength` | double | How strongly each dab acts at the center of the brush, above 0 and at most 1. Default 0.5. |
+| `throughMesh` | bool | Off: a dab lands on the closest surface under the pointer. On: it lands on every surface the ray crosses, so painting a body also paints its back. Default off. |
+
+- **Meshes:** the selected meshes with a skinCluster. The brush picks the closest surface across all of them, and a stroke may move from one mesh to another. A selection of vertices or faces limits the brush to them (their neighbors are still read). Select again, or move the pointer out of the viewport and back, to pick up a new selection.
+- **Falloff** is smooth, 1 at the center and 0 at the radius, and is measured along the mesh edges from where the brush landed. Two surfaces that are close in space but not connected (a lip against a lip, two shells, the far side of a thin wall) never share a dab unless `throughMesh` is on.
+- **Resize** with Ctrl + left drag sideways. The ring shows the radius; the colored points are the vertices the next dab reaches (blue at the edge, yellow at the center).
+- A dab lands each time the brush has moved a quarter of its radius, so holding still changes nothing.
+- **Undo:** one stroke, from press to release, is one undo step. Undo restores the weights from before the stroke exactly, however much the dabs overlapped.
+- Like Maya's other tools, the context is created in a GUI session: Maya creates no contexts in `mayapy`. The tests drive the same engine through `skinBrushStroke`.
+
+## skinBrushStroke
+
+One brush stroke as an undoable command (D65). The context runs it for you at the end of each stroke. Run it yourself to repeat a stroke or to paint without the mouse.
+
+```python
+# Two dabs, each at a face and the point on it
+cmds.skinBrushStroke(operation="smooth", radius=0.3, strength=1.0,
+                     hitPoint=[("hero_body:body_geo", 5, 0.0, 0.0, 0.0), ("hero_body:body_geo", 6, 0.1, 0.0, 0.0)])
+# A ray from above, onto either of two meshes (origin x y z, then direction x y z)
+cmds.skinBrushStroke(radius=0.3, mesh=["hero_body:body_geo", "hero_body:shirt_geo"], viewRay=[(0, 5, 0, 0, -1, 0)], throughMesh=True)
+# Each returns the number of vertices whose weights changed
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `operation` | string | As on the context. Default `smooth`. |
+| `radius` | double | A length over the surface, at least 0.001. Default 5. |
+| `strength` | double | Above 0 and at most 1. Default 0.5. |
+| `hitPoint` | string, int, 3 doubles | Multi-use. A mesh, a face of it and the point on it. Each is one dab. |
+| `mesh` | string | Multi-use. Meshes a `viewRay` may hit. A mesh named in a `hitPoint` is included too. |
+| `viewRay` | 6 doubles | Multi-use. A ray, origin then direction. Each is one dab at what it picks, after the `hitPoint`s. A ray that hits nothing is skipped. |
+| `throughMesh` | bool | As on the context, for the rays. |
+
+- Needs at least one `hitPoint` or `viewRay`. A named mesh without a skinCluster, a `radius` or `strength` out of range, or an unknown `operation` is an error, and nothing changes.
+- Locked influences and the skinCluster's maximum influences are respected, as in [`smoothSkinWeights`](#smoothskinweights).
+- Undoable, as one step across every mesh the stroke touched. Undo restores every weight exactly.
+
 ## saveRigSkeleton
 
 Writes a skeleton file with the joints' markup, names, parents, rotate orders and rest matrices, and returns the skeleton hash (format and hash rules in [skeletons.md](skeletons.md)).

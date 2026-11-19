@@ -29,6 +29,8 @@ COMMAND_FLAGS = {
     "setRigLook": ["mesh", "file", "asset", "look", "publishVersion", "skeleton", "rigSkeleton", "ignoreSkeletonHash"],
     "pruneToMaxInfluences": ["maxInfluences"],
     "smoothSkinWeights": ["iterations", "strength"],
+    "skinBrushStroke": ["operation", "radius", "strength", "hitPoint", "mesh", "viewRay", "throughMesh"],
+    "skinBrushCtx": ["operation", "radius", "strength", "throughMesh"],
     "saveRigSkeleton": ["file"],
     "loadRigSkeleton": ["file", "namespace"],
     "poseRigFromJointPose": ["jointPose", "sidecar", "mode"],

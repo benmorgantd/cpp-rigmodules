@@ -102,10 +102,15 @@ class SkinWeightSmooth
 public:
 	MStatus bind(const MDagPath& mesh);
 	// vertices null is every vertex. Fails (and changes nothing) on iterations below 1 or a strength outside (0, 1].
-	MStatus prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength);
+	// vertexScale (D65, a brush): null, or parallel to sorted, unique vertices and each in (0, 1], a factor on strength
+	// per vertex. adjacency: null, or the mesh's neighbor map, which a brush builds once per stroke instead of asking
+	// the mesh for neighbors on every dab. It must outlive the call.
+	MStatus prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength, const std::vector<double>* vertexScale = nullptr, const MeshAdjacency* adjacency = nullptr);
 	MStatus apply();
 	MStatus undo();
 	unsigned int changedVertexCount() const;
+	// What the last prepare worked out, which a stroke journals.
+	const SmoothedWeights& smoothed() const;
 
 private:
 	MStatus write(const std::vector<double>& rows);
@@ -120,4 +125,29 @@ private:
 	SmoothedWeights fSmoothed;
 	MObject fChangedVertices;               // one component holding every changed vertex
 	MIntArray fInfluenceIndices;            // the influences fSmoothed lists
+};
+
+// Reads and writes whole rows of one mesh's skinCluster for chosen vertices: every influence, as the cluster holds
+// them. A brush stroke (D65) uses it to capture the weights it ends with and to put either end back, whatever the
+// operation changed. Writes are not normalized by Maya: a row keeps the total the operation left it.
+class SkinWeightRows
+{
+public:
+	// Whether the mesh has a skinCluster, without any message.
+	static bool isSkinned(const MDagPath& mesh);
+
+	MStatus bind(const MDagPath& mesh);
+	unsigned int influenceCount() const;
+	unsigned int vertexCount() const;
+	// sortedVertices: ascending and unique. rows: row-major, influenceCount() columns.
+	MStatus read(const std::vector<unsigned int>& sortedVertices, std::vector<double>& rows) const;
+	MStatus write(const std::vector<unsigned int>& sortedVertices, const std::vector<double>& rows) const;
+
+private:
+	MObject component(const std::vector<unsigned int>& sortedVertices, MStatus& status) const;
+
+	MDagPath fShape;
+	MObject fSkinCluster;
+	unsigned int fInfluenceCount = 0;
+	unsigned int fVertexCount = 0;
 };

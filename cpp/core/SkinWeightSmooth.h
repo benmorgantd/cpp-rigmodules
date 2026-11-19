@@ -43,6 +43,9 @@ struct SkinSmoothSettings
 	double strength = 1.0;         // how far each pass goes towards the average: above 0, at most 1
 	std::size_t maxInfluences = 0; // above 0: a smoothed vertex keeps only this many non-zero weights, locked ones included
 	std::vector<bool> locked;      // per influence, empty for none. A locked influence keeps its weight on every vertex
+	// Per vertex, empty for none: a factor in (0, 1] on strength, which is what lets a brush fall off. When set, the
+	// vertices passed to smoothSkinWeights must be sorted and unique and this parallel to them, or nothing is smoothed.
+	std::vector<double> vertexScale;
 };
 
 // The vertices whose weights changed. Each row of oldRows and newRows holds the weights of influences[0..] for the

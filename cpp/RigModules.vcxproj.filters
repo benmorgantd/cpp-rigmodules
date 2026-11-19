@@ -10,6 +10,9 @@
     <Filter Include="maya\commands">
       <UniqueIdentifier>{2DD58D33-39EF-5AB3-BA94-9AE58F80CEBF}</UniqueIdentifier>
     </Filter>
+    <Filter Include="maya\contexts">
+      <UniqueIdentifier>{1f402aac-c72b-4f1a-b6a8-0a46268c6b44}</UniqueIdentifier>
+    </Filter>
     <Filter Include="maya\modules">
       <UniqueIdentifier>{F2C34D53-D26D-5365-A52A-9174680199FC}</UniqueIdentifier>
     </Filter>
@@ -100,6 +103,9 @@
       <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="core\SkinWeightSmooth.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\SurfaceBrush.cpp">
       <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="core\SkinWeightTable.cpp">
@@ -252,6 +258,12 @@
     <ClCompile Include="maya\shared\SkinWeightScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
+    <ClCompile Include="maya\shared\SkinBrushStroke.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\contexts\SkinBrushContext.cpp">
+      <Filter>maya\contexts</Filter>
+    </ClCompile>
     <ClCompile Include="maya\shared\Utilities.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
@@ -342,6 +354,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\SkinWeightSmooth.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\SurfaceBrush.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\SkinWeightTable.h">
@@ -499,6 +514,12 @@
     </ClInclude>
     <ClInclude Include="maya\shared\SkinWeightScene.h">
       <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\SkinBrushStroke.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\contexts\SkinBrushContext.h">
+      <Filter>maya\contexts</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\Utilities.h">
       <Filter>maya\shared</Filter>

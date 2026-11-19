@@ -753,7 +753,7 @@ MStatus SkinWeightSmooth::bind(const MDagPath& mesh)
 	return MStatus::kSuccess;
 }
 
-MStatus SkinWeightSmooth::prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength)
+MStatus SkinWeightSmooth::prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength, const std::vector<double>* vertexScale, const MeshAdjacency* adjacency)
 {
 	fSmoothed = SmoothedWeights();
 	fChangedVertices = MObject::kNullObj;
@@ -808,8 +808,13 @@ MStatus SkinWeightSmooth::prepare(const std::vector<unsigned int>* vertices, uns
 
 	// Every vertex: the polygon loops give the whole map at once. Some: ask the mesh for just those vertices' neighbors.
 	MeshAdjacency bulk;
-	const NeighborFetch fetchNeighbors = [this, vertexCount, &status, &bulk](const std::vector<unsigned int>& targets, std::vector<unsigned int>& offsets, std::vector<unsigned int>& neighbors)
+	const NeighborFetch fetchNeighbors = [this, vertexCount, adjacency, &status, &bulk](const std::vector<unsigned int>& targets, std::vector<unsigned int>& offsets, std::vector<unsigned int>& neighbors)
 	{
+		if (adjacency)
+		{
+			neighborsFromAdjacency(*adjacency)(targets, offsets, neighbors);
+			return;
+		}
 		if (targets.size() == vertexCount)
 		{
 			MFnMesh fnMesh(fShape, &status);
@@ -867,6 +872,10 @@ MStatus SkinWeightSmooth::prepare(const std::vector<unsigned int>* vertices, uns
 	settings.strength = strength;
 	settings.maxInfluences = fMaxInfluences;
 	settings.locked = fLocked;
+	if (vertexScale)
+	{
+		settings.vertexScale = *vertexScale;
+	}
 	fSmoothed = smoothSkinWeights(vertexCount, vertices, fInfluenceCount, settings, fetchNeighbors, fetch);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	if (fSmoothed.vertices.empty())
@@ -918,4 +927,106 @@ MStatus SkinWeightSmooth::undo()
 unsigned int SkinWeightSmooth::changedVertexCount() const
 {
 	return static_cast<unsigned int>(fSmoothed.vertices.size());
+}
+
+const SmoothedWeights& SkinWeightSmooth::smoothed() const
+{
+	return fSmoothed;
+}
+
+bool SkinWeightRows::isSkinned(const MDagPath& mesh)
+{
+	MDagPath shape;
+	return MeshUtils::getMeshShape(mesh, shape) && !nearestSkinCluster(shape).isNull();
+}
+
+MStatus SkinWeightRows::bind(const MDagPath& mesh)
+{
+	MStatus status = MeshUtils::getMeshShape(mesh, fShape);
+	if (!status)
+	{
+		return status;
+	}
+	fSkinCluster = nearestSkinCluster(fShape);
+	if (fSkinCluster.isNull())
+	{
+		MGlobal::displayError(mesh.partialPathName() + " has no skinCluster.");
+		return MStatus::kFailure;
+	}
+	MFnSkinCluster fnSkin(fSkinCluster, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MFnMesh fnMesh(fShape, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MDagPathArray influences;
+	fnSkin.influenceObjects(influences, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	fInfluenceCount = influences.length();
+	fVertexCount = static_cast<unsigned int>(fnMesh.numVertices());
+	return MStatus::kSuccess;
+}
+
+unsigned int SkinWeightRows::influenceCount() const
+{
+	return fInfluenceCount;
+}
+
+unsigned int SkinWeightRows::vertexCount() const
+{
+	return fVertexCount;
+}
+
+MObject SkinWeightRows::component(const std::vector<unsigned int>& sortedVertices, MStatus& status) const
+{
+	MFnSingleIndexedComponent fnComponent;
+	MObject oVertices = fnComponent.create(MFn::kMeshVertComponent, &status);
+	if (!status)
+	{
+		return MObject::kNullObj;
+	}
+	const std::vector<int> ids(sortedVertices.begin(), sortedVertices.end());
+	MIntArray elements(ids.data(), static_cast<unsigned int>(ids.size()));
+	status = fnComponent.addElements(elements);
+	return oVertices;
+}
+
+MStatus SkinWeightRows::read(const std::vector<unsigned int>& sortedVertices, std::vector<double>& rows) const
+{
+	rows.clear();
+	if (sortedVertices.empty())
+	{
+		return MStatus::kSuccess;
+	}
+	MStatus status;
+	const MObject oVertices = component(sortedVertices, status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MFnSkinCluster fnSkin(fSkinCluster, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MDoubleArray weights;
+	unsigned int count = 0;
+	status = fnSkin.getWeights(fShape, oVertices, weights, count);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	rows.resize(weights.length());
+	weights.get(rows.data());
+	return MStatus::kSuccess;
+}
+
+MStatus SkinWeightRows::write(const std::vector<unsigned int>& sortedVertices, const std::vector<double>& rows) const
+{
+	if (sortedVertices.empty())
+	{
+		return MStatus::kSuccess;
+	}
+	MStatus status;
+	const MObject oVertices = component(sortedVertices, status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MFnSkinCluster fnSkin(fSkinCluster, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MIntArray influenceIndices(fInfluenceCount);
+	for (unsigned int i = 0; i < fInfluenceCount; ++i)
+	{
+		influenceIndices[i] = static_cast<int>(i);
+	}
+	MDoubleArray values(rows.data(), static_cast<unsigned int>(rows.size()));
+	ScopedNormalizeOff normalizeOff(fnSkin);
+	return fnSkin.setWeights(fShape, oVertices, influenceIndices, values, false);
 }

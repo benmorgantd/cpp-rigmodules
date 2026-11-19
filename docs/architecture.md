@@ -12,6 +12,7 @@ Contents: [Layers](#layers) · [Source map](#source-map) · [Plugin startup](#pl
  Commands (cpp/maya/commands)    parse flags, delegate, report
         |
  Nodes and scene code            cpp/maya/modules   module nodes (Layout, FkChain, Aim, TwoBoneIk, Ribbon)
+                                 cpp/maya/contexts  interactive tools: the skin brush
  (cpp/maya)                      cpp/maya/nodes     rig root, constraint, control
                                  cpp/maya/shared    module base, scene helpers, traversal, utilities
         |  includes
@@ -50,6 +51,7 @@ Paths are relative to `cpp/`. Include lines use the same paths (`"maya/shared/Ri
 | `modules/` | `LayoutModule`, `FkChainModule`, `AimModule`, `TwoBoneIkModule`, `RibbonModule` | One file pair per module node. FkChainModule is the reference. |
 | `nodes/` | `RigRoot`, `Constraints`, `RigControlNode` | The rig root (it also runs the build), the constraint node, and the control transform with its VP2 draw override. |
 | `commands/` | one file pair per command, or per closely related set | Flag parsing and delegation. See [Commands](#commands). |
+| `contexts/` | `SkinBrushContext` | Interactive tools (`MPxContext`): events in, a stroke out. A context holds no weight logic: it picks, draws and hands the stroke to `shared/SkinBrushStroke` and an undoable tool command (D65). |
 | `shared/` | see below | Code used by more than one of the folders above. |
 
 `maya/shared/` by role:
@@ -77,7 +79,7 @@ Paths are relative to `cpp/`. Include lines use the same paths (`"maya/shared/Ri
 `initializePlugin` in `maya/PluginMain.cpp`:
 
 1. Validates the control shape library. A shape that does not triangulate makes the load fail, because it would draw wrong in every rig.
-2. Registers every `ModuleDescriptor` in `ModuleRegistry::all()` as a node, then `rigControlNode` as a transform with its draw override, then every `CommandDescriptor` in `CommandRegistry::all()`.
+2. Registers every `ModuleDescriptor` in `ModuleRegistry::all()` as a node, then `rigControlNode` as a transform with its draw override, then every `CommandDescriptor` in `CommandRegistry::all()` and every `ContextDescriptor` (a context command plus its tool command) in `CommandRegistry::contexts()`.
 3. Starts `ActiveSelection`, the selection callback the draw override reads. It is last because Maya does not call `uninitializePlugin` after a failed load.
 
 `uninitializePlugin` reverses this. Nothing in `PluginMain.cpp` changes when a module or command is added: the registries are the extension points.
@@ -250,6 +252,7 @@ Every command is an `MPxCommand` with the same shape (D14):
 | `RigDataFileCmds` | `getRigDataFileInfo`, `setRigDataFileMeta` | `LibraryFile` in `core/`, `RigDataFileScene` |
 | `SkinWeightCmds` | `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `pruneToMaxInfluences`, `smoothSkinWeights` | `SkinWeightScene` |
 | `SkeletonCmds` | `saveRigSkeleton`, `loadRigSkeleton` | `SkeletonScene` and `SkeletonFile` in `core/` |
+| `SkinBrushContext` (in `contexts/`) | `skinBrushCtx` (the context), `skinBrushStroke` (its tool command) | `SkinBrushStroke` |
 
 The command reference is [commands.md](commands.md).
 

@@ -107,6 +107,7 @@ cpp/                 the C++ root and include root: RigModules.vcxproj + .filter
   maya/              PluginMain.cpp, ModuleRegistry, CommandRegistry
     modules/         one file pair per module node (FkChain, Layout, Aim, TwoBoneIk, Ribbon, Limb)
     commands/        one file pair per MPxCommand (or per closely related set)
+    contexts/        interactive tools: an MPxContext with its context and tool command (the skin brush, D65)
     nodes/           every other node: roots, constraint, control
     shared/          code used across those folders: module base, utilities, scene helpers, enums
   include/           vendored third-party headers (nlohmann json)
@@ -119,7 +120,7 @@ docs/, design/       user docs, design docs
 RigTemplates/        example template
 ```
 
-**Where a new file goes:** no Maya header needed → `core/`. A module node → `maya/modules/`. A command → `maya/commands/`, and its node-side logic stays in the node or `shared/` (the command parses flags and delegates, D14). Any other node → `maya/nodes/`. Used by more than one of those folders → `maya/shared/`. A new folder is a layout decision: add it to `SOURCE_FOLDERS` in the layout test and to this map.
+**Where a new file goes:** no Maya header needed → `core/`. A module node → `maya/modules/`. An interactive tool (an `MPxContext`) → `maya/contexts/`, and the logic it drives goes in `maya/shared/` or `core/` so a script can run it with no mouse. A command → `maya/commands/`, and its node-side logic stays in the node or `shared/` (the command parses flags and delegates, D14). Any other node → `maya/nodes/`. Used by more than one of those folders → `maya/shared/`. A new folder is a layout decision: add it to `SOURCE_FOLDERS` in the layout test and to this map.
 
 **Include rules** (checked by `tests/maya/concepts/test_source_layout.py`):
 - `core/` includes only other `core/` headers (by bare name, `"Constants.h"`), the standard library and `<nlohmann/json.hpp>`. Never Maya, never `maya/`. Bare names keep `core/` self-contained if it becomes its own library.

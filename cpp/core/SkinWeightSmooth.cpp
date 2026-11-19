@@ -154,6 +154,21 @@ SmoothedWeights smoothSkinWeights(std::size_t vertexCount, const std::vector<uns
 	{
 		return result;
 	}
+	if (!settings.vertexScale.empty())
+	{
+		// Parallel to the caller's own list, so that list must already have been sorted, unique and in range.
+		if (!vertices || targets != *vertices || settings.vertexScale.size() != targets.size())
+		{
+			return result;
+		}
+		for (const double scale : settings.vertexScale)
+		{
+			if (!(scale > 0.0 && scale <= 1.0))
+			{
+				return result;
+			}
+		}
+	}
 
 	std::vector<unsigned int> rowStart;
 	std::vector<unsigned int> neighborIds;
@@ -269,10 +284,11 @@ SmoothedWeights smoothSkinWeights(std::size_t vertexCount, const std::vector<uns
 				}
 			}
 			const double inverseCount = 1.0 / static_cast<double>(neighborStart[t + 1] - neighborStart[t] + 1);
+			const double strength = settings.vertexScale.empty() ? settings.strength : settings.strength * settings.vertexScale[t];
 			double sum = 0.0;
 			for (std::size_t k = 0; k < width; ++k)
 			{
-				out[k] = self[k] + settings.strength * (out[k] * inverseCount - self[k]);
+				out[k] = self[k] + strength * (out[k] * inverseCount - self[k]);
 				sum += out[k];
 			}
 			if (sum > kMinimumSum)

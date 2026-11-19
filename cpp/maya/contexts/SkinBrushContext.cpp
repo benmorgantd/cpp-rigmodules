@@ -1,0 +1,641 @@
+#include "maya/contexts/SkinBrushContext.h"
+#include "maya/shared/Utilities.h"
+
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <map>
+
+#include <maya/M3dView.h>
+#include <maya/MArgDatabase.h>
+#include <maya/MArgList.h>
+#include <maya/MArgParser.h>
+#include <maya/MColor.h>
+#include <maya/MColorArray.h>
+#include <maya/MFrameContext.h>
+#include <maya/MGlobal.h>
+#include <maya/MHWGeometry.h>
+#include <maya/MPointArray.h>
+#include <maya/MSelectionList.h>
+
+namespace
+{
+	// Code reads flags by long name only. Short names appear only where a syntax is built (D14).
+	constexpr const char* kOperationFlag{ "-operation" };
+	constexpr const char* kRadiusFlag{ "-radius" };
+	constexpr const char* kStrengthFlag{ "-strength" };
+	constexpr const char* kThroughMeshFlag{ "-throughMesh" };
+	// Not "-hit" or "-ray": Maya rejects a three-letter long name, and the flag silently never registers.
+	constexpr const char* kHitFlag{ "-hitPoint" };
+	constexpr const char* kMeshFlag{ "-mesh" };
+	constexpr const char* kRayFlag{ "-viewRay" };
+
+	// The brush may not shrink to nothing under the resize drag.
+	constexpr double kMinimumRadius = 1.0e-3;
+	// Each pixel of a Ctrl + drag grows or shrinks the radius by this factor.
+	constexpr double kResizePerPixel = 1.01;
+	// A dab lands only after the brush moved this far (in radii) from the last one, so tiny moves don't pile up.
+	constexpr double kDabSpacing = 0.25;
+
+	bool isValidRadius(double radius)
+	{
+		return radius >= kMinimumRadius;
+	}
+
+	bool isValidStrength(double strength)
+	{
+		return strength > 0.0 && strength <= 1.0;
+	}
+}
+
+// skinBrushStroke --------------------------------------------------------------------------------
+const char* SkinBrushStrokeCmd::aCommandString = "skinBrushStroke";
+
+void* SkinBrushStrokeCmd::creator()
+{
+	return new SkinBrushStrokeCmd();
+}
+
+MSyntax SkinBrushStrokeCmd::newSyntax()
+{
+	MSyntax syntax;
+	CHECK_MSTATUS(syntax.addFlag("-op", kOperationFlag, MSyntax::kString));
+	CHECK_MSTATUS(syntax.addFlag("-rd", kRadiusFlag, MSyntax::kDouble));
+	CHECK_MSTATUS(syntax.addFlag("-st", kStrengthFlag, MSyntax::kDouble));
+	CHECK_MSTATUS(syntax.addFlag("-hp", kHitFlag, MSyntax::kString, MSyntax::kLong, MSyntax::kDouble, MSyntax::kDouble, MSyntax::kDouble));
+	CHECK_MSTATUS(syntax.makeFlagMultiUse(kHitFlag));
+	CHECK_MSTATUS(syntax.addFlag("-ms", kMeshFlag, MSyntax::kString));
+	CHECK_MSTATUS(syntax.makeFlagMultiUse(kMeshFlag));
+	CHECK_MSTATUS(syntax.addFlag("-vr", kRayFlag, MSyntax::kDouble, MSyntax::kDouble, MSyntax::kDouble, MSyntax::kDouble, MSyntax::kDouble, MSyntax::kDouble));
+	CHECK_MSTATUS(syntax.makeFlagMultiUse(kRayFlag));
+	CHECK_MSTATUS(syntax.addFlag("-tm", kThroughMeshFlag, MSyntax::kBoolean));
+	syntax.enableQuery(false);
+	syntax.enableEdit(false);
+	return syntax;
+}
+
+bool SkinBrushStrokeCmd::isUndoable() const
+{
+	return true;
+}
+
+MStatus SkinBrushStrokeCmd::doIt(const MArgList& args)
+{
+	MStatus status;
+	MArgDatabase argData(syntax(), args, &status);
+	if (!status)
+	{
+		MGlobal::displayError(MString("Error parsing ") + aCommandString + " arguments.");
+		return status;
+	}
+
+	fOperation = "smooth";
+	fRadius = 5.0;
+	fStrength = 0.5;
+	if (argData.isFlagSet(kOperationFlag))
+	{
+		MString operation;
+		argData.getFlagArgument(kOperationFlag, 0, operation);
+		fOperation = operation.asChar();
+	}
+	if (argData.isFlagSet(kRadiusFlag))
+	{
+		argData.getFlagArgument(kRadiusFlag, 0, fRadius);
+	}
+	if (argData.isFlagSet(kStrengthFlag))
+	{
+		argData.getFlagArgument(kStrengthFlag, 0, fStrength);
+	}
+	if (!isValidRadius(fRadius) || !isValidStrength(fStrength))
+	{
+		MGlobal::displayError(MString(aCommandString) + " needs -radius of at least 0.001 and -strength above 0 and at most 1.");
+		return MStatus::kInvalidParameter;
+	}
+
+	// Each hit names its mesh, so the meshes are the distinct names, in the order they first appear.
+	struct NamedHit
+	{
+		std::string mesh;
+		int face;
+		MPoint point;
+	};
+	std::vector<NamedHit> hits;
+	const unsigned int hitCount = argData.numberOfFlagUses(kHitFlag);
+	for (unsigned int i = 0; i < hitCount; ++i)
+	{
+		MArgList hitArgs;
+		status = argData.getFlagArgumentList(kHitFlag, i, hitArgs);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		hits.push_back({ hitArgs.asString(0).asChar(), hitArgs.asInt(1), MPoint(hitArgs.asDouble(2), hitArgs.asDouble(3), hitArgs.asDouble(4)) });
+	}
+	const unsigned int rayCount = argData.numberOfFlagUses(kRayFlag);
+	if (hits.empty() && rayCount == 0)
+	{
+		MGlobal::displayError(MString(aCommandString) + " needs at least one -hitPoint (mesh, face and the point on it) or -viewRay (origin and direction).");
+		return MStatus::kFailure;
+	}
+
+	// The meshes a ray may hit are the -mesh names, then the distinct hit names, in the order they first appear.
+	std::vector<std::string> names;
+	const auto addMesh = [&names](const std::string& name)
+	{
+		if (std::find(names.begin(), names.end(), name) == names.end())
+		{
+			names.push_back(name);
+		}
+	};
+	for (unsigned int i = 0; i < argData.numberOfFlagUses(kMeshFlag); ++i)
+	{
+		MArgList meshArgs;
+		status = argData.getFlagArgumentList(kMeshFlag, i, meshArgs);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		addMesh(meshArgs.asString(0).asChar());
+	}
+	for (const NamedHit& hit : hits)
+	{
+		addMesh(hit.mesh);
+	}
+	MDagPathArray meshes;
+	for (const std::string& name : names)
+	{
+		MDagPath mesh;
+		status = DagUtils::getDagPathFromName(name.c_str(), mesh, DagUtils::NodeKind::kMesh);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		meshes.append(mesh);
+	}
+
+	bool throughMesh = false;
+	if (argData.isFlagSet(kThroughMeshFlag))
+	{
+		argData.getFlagArgument(kThroughMeshFlag, 0, throughMesh);
+	}
+
+	SkinBrushStroke stroke;
+	status = stroke.begin(meshes, fOperation);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	for (const NamedHit& hit : hits)
+	{
+		BrushHit brushHit;
+		brushHit.mesh = static_cast<unsigned int>(std::find(names.begin(), names.end(), hit.mesh) - names.begin());
+		brushHit.face = hit.face;
+		brushHit.point = hit.point;
+		status = stroke.dab({ brushHit }, fRadius, fStrength);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+	for (unsigned int i = 0; i < rayCount; ++i)
+	{
+		MArgList rayArgs;
+		status = argData.getFlagArgumentList(kRayFlag, i, rayArgs);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		std::vector<BrushHit> picked;
+		stroke.pick(MPoint(rayArgs.asDouble(0), rayArgs.asDouble(1), rayArgs.asDouble(2)), MVector(rayArgs.asDouble(3), rayArgs.asDouble(4), rayArgs.asDouble(5)), throughMesh, picked);
+		if (picked.empty())
+		{
+			continue;
+		}
+		status = stroke.dab(picked, fRadius, fStrength);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+	status = stroke.finish(fEdit);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	setResult(static_cast<int>(fEdit.vertexCount()));
+	return MStatus::kSuccess;
+}
+
+MStatus SkinBrushStrokeCmd::redoIt()
+{
+	return fEdit.apply();
+}
+
+MStatus SkinBrushStrokeCmd::undoIt()
+{
+	return fEdit.undo();
+}
+
+void SkinBrushStrokeCmd::setStroke(SkinBrushEdit&& edit, const std::string& operation, double radius, double strength)
+{
+	fEdit = std::move(edit);
+	fOperation = operation;
+	fRadius = radius;
+	fStrength = strength;
+}
+
+MStatus SkinBrushStrokeCmd::finalize()
+{
+	// The line the script editor and the journal show for the stroke: the same command, with every dab as a hit.
+	MArgList command;
+	command.addArg(MString(aCommandString));
+	command.addArg(MString(kOperationFlag));
+	command.addArg(MString(fOperation.c_str()));
+	command.addArg(MString(kRadiusFlag));
+	command.addArg(fRadius);
+	command.addArg(MString(kStrengthFlag));
+	command.addArg(fStrength);
+	for (const BrushDab& dab : fEdit.dabs)
+	{
+		command.addArg(MString(kHitFlag));
+		command.addArg(MString(dab.mesh.c_str()));
+		command.addArg(dab.face);
+		command.addArg(dab.x);
+		command.addArg(dab.y);
+		command.addArg(dab.z);
+	}
+	return doFinalize(command);
+}
+
+MStatus SkinBrushStrokeCmd::cancel()
+{
+	// The stroke was written as it went, so a cancelled one is put back.
+	return fEdit.undo();
+}
+
+// SkinBrushContext -------------------------------------------------------------------------------
+SkinBrushContext::SkinBrushContext()
+{
+	setTitleString("Skin Brush");
+}
+
+const std::string& SkinBrushContext::operation() const
+{
+	return fOperation;
+}
+
+double SkinBrushContext::radius() const
+{
+	return fRadius;
+}
+
+double SkinBrushContext::strength() const
+{
+	return fStrength;
+}
+
+bool SkinBrushContext::throughMesh() const
+{
+	return fThroughMesh;
+}
+
+bool SkinBrushContext::setOperation(const std::string& operation)
+{
+	const std::vector<std::string>& names = brushOperationNames();
+	if (std::find(names.begin(), names.end(), operation) == names.end())
+	{
+		return false;
+	}
+	fOperation = operation;
+	fSelectionKey.clear();
+	return true;
+}
+
+bool SkinBrushContext::setRadius(double radius)
+{
+	if (!isValidRadius(radius))
+	{
+		return false;
+	}
+	fRadius = radius;
+	return true;
+}
+
+bool SkinBrushContext::setStrength(double strength)
+{
+	if (!isValidStrength(strength))
+	{
+		return false;
+	}
+	fStrength = strength;
+	return true;
+}
+
+void SkinBrushContext::setThroughMesh(bool throughMesh)
+{
+	fThroughMesh = throughMesh;
+}
+
+void SkinBrushContext::gather()
+{
+	MSelectionList selection;
+	MGlobal::getActiveSelectionList(selection);
+	std::vector<MeshVertexTarget> targets;
+	MeshUtils::getVertexTargets(selection, targets);
+
+	MDagPathArray meshes;
+	std::vector<const MeshVertexTarget*> kept;
+	std::string key = fOperation;
+	for (const MeshVertexTarget& target : targets)
+	{
+		if (!SkinWeightRows::isSkinned(target.mesh))
+		{
+			continue;
+		}
+		meshes.append(target.mesh);
+		kept.push_back(&target);
+		key += "|";
+		key += target.mesh.fullPathName().asChar();
+		if (!target.allVertices)
+		{
+			std::size_t hash = target.vertices.size();
+			for (const unsigned int v : target.vertices)
+			{
+				hash = hash * 1099511628211ull ^ v;
+			}
+			key += ":" + std::to_string(hash);
+		}
+	}
+
+	if (key == fSelectionKey)
+	{
+		fStroke.refresh();
+		return;
+	}
+	if (!fStroke.begin(meshes, fOperation))
+	{
+		fSelectionKey.clear();
+		return;
+	}
+	fSelectionKey = key;
+	for (unsigned int i = 0; i < kept.size(); ++i)
+	{
+		if (!kept[i]->allVertices)
+		{
+			fStroke.restrict(i, kept[i]->vertices);
+		}
+	}
+	if (kept.empty())
+	{
+		MGlobal::displayWarning("Skin brush: select one or more skinned meshes.");
+	}
+}
+
+void SkinBrushContext::toolOnSetup(MEvent& event)
+{
+	setHelpString("Drag over the selected skinned meshes to paint. Ctrl + drag sideways resizes the brush.");
+	gather();
+}
+
+void SkinBrushContext::toolOffCleanup()
+{
+	// Drops the meshes, their neighbor maps and positions.
+	fStroke.begin(MDagPathArray(), fOperation);
+	fSelectionKey.clear();
+	fHits.clear();
+	fReaches.clear();
+	fIsStroking = false;
+	fIsResizing = false;
+	MPxContext::toolOffCleanup();
+}
+
+MStatus SkinBrushContext::doEnterRegion(MEvent& event)
+{
+	gather();
+	return MStatus::kSuccess;
+}
+
+MPxToolCommand* SkinBrushContext::newToolCommand()
+{
+	return new SkinBrushStrokeCmd();
+}
+
+bool SkinBrushContext::pickAt(MEvent& event)
+{
+	short x = 0;
+	short y = 0;
+	event.getPosition(x, y);
+	M3dView view = M3dView::active3dView();
+	MPoint origin;
+	MVector direction;
+	fHits.clear();
+	fReaches.clear();
+	if (!view.viewToWorld(x, y, origin, direction))
+	{
+		return false;
+	}
+	fStroke.pick(origin, direction, fThroughMesh, fHits);
+	fStroke.reach(fHits, fRadius, fReaches);
+	return !fHits.empty();
+}
+
+void SkinBrushContext::dabAt(MEvent& event)
+{
+	if (!pickAt(event))
+	{
+		return;
+	}
+	const MPoint& point = fHits.front().point;
+	if (fHasLastDab && point.distanceTo(fLastDabPoint) < kDabSpacing * fRadius)
+	{
+		return;
+	}
+	if (!fStroke.dab(fHits, fRadius, fStrength))
+	{
+		return;
+	}
+	fHasLastDab = true;
+	fLastDabPoint = point;
+}
+
+void SkinBrushContext::endStroke()
+{
+	fIsStroking = false;
+	fHasLastDab = false;
+	SkinBrushEdit edit;
+	if (!fStroke.finish(edit) || edit.empty())
+	{
+		return;
+	}
+	// Maya owns the command from here: it sits on the undo queue.
+	SkinBrushStrokeCmd* command = static_cast<SkinBrushStrokeCmd*>(newToolCommand());
+	command->setStroke(std::move(edit), fOperation, fRadius, fStrength);
+	command->finalize();
+}
+
+MStatus SkinBrushContext::doPress(MEvent& event, MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
+{
+	if (event.mouseButton() != MEvent::kLeftMouse)
+	{
+		return MStatus::kSuccess;
+	}
+	if (event.isModifierControl())
+	{
+		short y = 0;
+		event.getPosition(fResizeFromX, y);
+		fIsResizing = true;
+		return MStatus::kSuccess;
+	}
+	fStroke.refresh();
+	fIsStroking = true;
+	fHasLastDab = false;
+	dabAt(event);
+	draw(drawMgr);
+	return MStatus::kSuccess;
+}
+
+MStatus SkinBrushContext::doDrag(MEvent& event, MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
+{
+	if (fIsResizing)
+	{
+		short x = 0;
+		short y = 0;
+		event.getPosition(x, y);
+		fRadius = std::max(kMinimumRadius, fRadius * std::pow(kResizePerPixel, static_cast<double>(x - fResizeFromX)));
+		fResizeFromX = x;
+		fStroke.reach(fHits, fRadius, fReaches);
+	}
+	else if (fIsStroking)
+	{
+		dabAt(event);
+	}
+	draw(drawMgr);
+	return MStatus::kSuccess;
+}
+
+MStatus SkinBrushContext::doRelease(MEvent& event, MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
+{
+	fIsResizing = false;
+	if (fIsStroking)
+	{
+		endStroke();
+	}
+	draw(drawMgr);
+	return MStatus::kSuccess;
+}
+
+MStatus SkinBrushContext::doPtrMoved(MEvent& event, MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
+{
+	pickAt(event);
+	draw(drawMgr);
+	return MStatus::kSuccess;
+}
+
+MStatus SkinBrushContext::drawFeedback(MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
+{
+	draw(drawMgr);
+	return MStatus::kSuccess;
+}
+
+// The visualizer: a ring of the brush radius at the hit, and a point on every vertex the brush reaches, coloured by the
+// falloff there (blue at the edge, yellow at the center). The reach is the one a dab would use, so it follows the
+// surface, the restriction and the through-mesh setting. It is drawn on top of the surface in one call.
+void SkinBrushContext::draw(MHWRender::MUIDrawManager& drawMgr)
+{
+	if (fHits.empty())
+	{
+		return;
+	}
+	drawMgr.beginDrawable();
+	drawMgr.setDepthPriority(MHWRender::MRenderItem::sActivePointDepthPriority);
+
+	MPointArray positions;
+	MColorArray colors;
+	for (const BrushReach& reach : fReaches)
+	{
+		for (std::size_t i = 0; i < reach.vertices.size(); ++i)
+		{
+			const double t = reach.scales[i];
+			positions.append(fStroke.vertexPosition(reach.mesh, reach.vertices[i]));
+			colors.append(MColor(static_cast<float>(0.1 + 0.9 * t), static_cast<float>(0.4 + 0.5 * t), static_cast<float>(1.0 - 0.8 * t), 1.0f));
+		}
+	}
+	if (positions.length() > 0)
+	{
+		drawMgr.setPointSize(5.0f);
+		drawMgr.mesh(MHWRender::MUIDrawManager::kPoints, positions, nullptr, &colors);
+	}
+
+	drawMgr.setColor(MColor(1.0f, 1.0f, 1.0f, 1.0f));
+	drawMgr.setLineWidth(2.0f);
+	for (const BrushHit& hit : fHits)
+	{
+		drawMgr.circle(hit.point, hit.normal, fRadius, false);
+	}
+	drawMgr.endDrawable();
+}
+
+// skinBrushCtx -----------------------------------------------------------------------------------
+const char* SkinBrushCtxCmd::aCommandString = "skinBrushCtx";
+
+void* SkinBrushCtxCmd::creator()
+{
+	return new SkinBrushCtxCmd();
+}
+
+MPxContext* SkinBrushCtxCmd::makeObj()
+{
+	fContext = new SkinBrushContext();
+	return fContext;
+}
+
+MStatus SkinBrushCtxCmd::appendSyntax()
+{
+	MSyntax contextSyntax = syntax();
+	CHECK_MSTATUS(contextSyntax.addFlag("-op", kOperationFlag, MSyntax::kString));
+	CHECK_MSTATUS(contextSyntax.addFlag("-rd", kRadiusFlag, MSyntax::kDouble));
+	CHECK_MSTATUS(contextSyntax.addFlag("-st", kStrengthFlag, MSyntax::kDouble));
+	CHECK_MSTATUS(contextSyntax.addFlag("-tm", kThroughMeshFlag, MSyntax::kBoolean));
+	return MStatus::kSuccess;
+}
+
+MStatus SkinBrushCtxCmd::doEditFlags()
+{
+	MArgParser argData = parser();
+	if (argData.isFlagSet(kOperationFlag))
+	{
+		MString operation;
+		argData.getFlagArgument(kOperationFlag, 0, operation);
+		if (!fContext->setOperation(operation.asChar()))
+		{
+			MGlobal::displayError(operation + " is not a brush operation.");
+			return MStatus::kInvalidParameter;
+		}
+	}
+	if (argData.isFlagSet(kRadiusFlag))
+	{
+		double radius = 0.0;
+		argData.getFlagArgument(kRadiusFlag, 0, radius);
+		if (!fContext->setRadius(radius))
+		{
+			MGlobal::displayError("The brush -radius must be at least 0.001.");
+			return MStatus::kInvalidParameter;
+		}
+	}
+	if (argData.isFlagSet(kStrengthFlag))
+	{
+		double strength = 0.0;
+		argData.getFlagArgument(kStrengthFlag, 0, strength);
+		if (!fContext->setStrength(strength))
+		{
+			MGlobal::displayError("The brush -strength must be above 0 and at most 1.");
+			return MStatus::kInvalidParameter;
+		}
+	}
+	if (argData.isFlagSet(kThroughMeshFlag))
+	{
+		bool throughMesh = false;
+		argData.getFlagArgument(kThroughMeshFlag, 0, throughMesh);
+		fContext->setThroughMesh(throughMesh);
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus SkinBrushCtxCmd::doQueryFlags()
+{
+	MArgParser argData = parser();
+	if (argData.isFlagSet(kOperationFlag))
+	{
+		setResult(MString(fContext->operation().c_str()));
+	}
+	if (argData.isFlagSet(kRadiusFlag))
+	{
+		setResult(fContext->radius());
+	}
+	if (argData.isFlagSet(kStrengthFlag))
+	{
+		setResult(fContext->strength());
+	}
+	if (argData.isFlagSet(kThroughMeshFlag))
+	{
+		setResult(fContext->throughMesh());
+	}
+	return MStatus::kSuccess;
+}

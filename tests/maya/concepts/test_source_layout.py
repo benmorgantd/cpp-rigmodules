@@ -15,7 +15,7 @@ CORE_DIR = os.path.join(CPP_DIR, "core")
 MAYA_DIR = os.path.join(CPP_DIR, "maya")
 SOURCE_EXTENSIONS = (".h", ".cpp")
 # Every folder that may hold source, relative to cpp/. A new folder is a layout decision, so it is added here on purpose.
-SOURCE_FOLDERS = {"core", "maya", "maya/commands", "maya/modules", "maya/nodes", "maya/shared"}
+SOURCE_FOLDERS = {"core", "maya", "maya/commands", "maya/contexts", "maya/modules", "maya/nodes", "maya/shared"}
 
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]', re.MULTILINE)
 # Third-party headers core may use. The standard library is matched separately (no folder, no extension).
