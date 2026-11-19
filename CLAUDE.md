@@ -18,7 +18,7 @@ This file is what every session loads, so it holds only what every task needs. T
 
 - `.claude/rules/cpp.md` loads for `cpp/`: reuse, formatting, naming, Maya API rules.
 - `.claude/rules/mayadev-boundary.md` loads for commands, `python/` and the mayadev pages.
-- `.claude/agents/`: `maya-runner` (build and suite; the full procedure is in its file), `docs-auditor` (the docs pass on a diff), `convention-reviewer` (the review checklist on a diff, not a bug hunt) and `mayadev-callsites` (the call-site search). Agents start with a clean context, so give each a self-contained brief with the diff range or file list.
+- `.claude/agents/`: `maya-runner` (build and suite; the full procedure is in its file), `docs-auditor` (the docs pass on a diff), `convention-reviewer` (the review checklist on a diff, not a bug hunt) and `mayadev-callsites` (the call-site search), `decisions-lookup` (what `design/decisions.md` says about a topic, without reading its 200 KB), `module-explorer` (one module's plugs, channels, affects and tests), `api-surface-diff` (public-name changes and their pose, animation and export impact), `limb-coupling-check` (what Limb does with a TwoBoneIk or Ribbon change), `compute-reviewer` (evaluation cost and `attributeAffects`), `module-scaffolder` (the mechanical files of a signed-off new module) and `mayadev-explorer` (questions about mayadev code). Agents start with a clean context, so give each a self-contained brief with the diff range or file list.
 - `docs/source-map.md` (per-file reference), `design/README.md` (which design page to read and its state), `docs/architecture.md` are read on demand.
 
 ## Working style
