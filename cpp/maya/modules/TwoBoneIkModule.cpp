@@ -806,6 +806,7 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 	const ShapeType& shapeType,
 	const std::array<TwoBoneIkSlotInput, TwoBoneIkSlot::Count>& slots,
 	const TwoBoneIkRest& rest,
+	double ikFkBlend,
 	MObject& oRigRoot,
 	MDagModifier& dagMod)
 {
@@ -901,7 +902,7 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 		return result;
 	}
 
-	status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::IkFkBlend, 1.0, 0.0, 1.0, false, dagMod);
+	status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::IkFkBlend, ikFkBlend, 0.0, 1.0, false, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
 	status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::Stretch, 0.0, 0.0, 1.0, false, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
@@ -983,13 +984,19 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	TwoBoneIkArgs ikArgs;
-	if (!readModuleArgs(args, { "joints" }, ctx, ikArgs, { "controlName", "poleOffset", "settingsOffset" }))
+	if (!readModuleArgs(args, { "joints" }, ctx, ikArgs, { "controlName", "poleOffset", "settingsOffset", RigAttr::IkFkBlend }))
 	{
 		return false;
 	}
 
 	const std::string argsPath = ctx.where + "." + TemplateKey::ModuleArgs;
 	bool valid = true;
+	// The channel clamps to 0..1, so a value outside it would build a rest the channel can't hold.
+	if (ikArgs.ikFkBlend < 0.0 || ikArgs.ikFkBlend > 1.0)
+	{
+		ctx.report.addError(argsPath + "." + RigAttr::IkFkBlend, "must be between 0 (FK) and 1 (IK), got " + std::to_string(ikArgs.ikFkBlend));
+		valid = false;
+	}
 	if (ikArgs.joints.size() != TwoBoneIkSlot::LimbCount)
 	{
 		ctx.report.addError(argsPath + ".joints", "a two-bone IK limb has exactly three joints (root, mid, end), got "
@@ -1110,9 +1117,10 @@ bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, M
 	const MString moduleName = ctx.moduleData.name.c_str();
 	const Side side = getSideFromString(ctx.moduleData.side);
 	const ShapeType shapeType = getShapeTypeFromString(ctx.moduleData.shapeType);
-	outPlan.build = [moduleName, side, shapeType, slots, rest](MObject& oRigRoot, MDagModifier& dagMod)
+	const double ikFkBlend = ikArgs.ikFkBlend;
+	outPlan.build = [moduleName, side, shapeType, slots, rest, ikFkBlend](MObject& oRigRoot, MDagModifier& dagMod)
 	{
-		return TwoBoneIkNode::createModule(moduleName, side, shapeType, slots, rest, oRigRoot, dagMod);
+		return TwoBoneIkNode::createModule(moduleName, side, shapeType, slots, rest, ikFkBlend, oRigRoot, dagMod);
 	};
 	return true;
 }

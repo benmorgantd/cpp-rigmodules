@@ -107,6 +107,7 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 | `controlName` | no | The base of the IK, pole and settings control names (below). Default: the first joint's usage without a trailing `_NN` (`upperArm` stays `upperArm`, so an arm wants `"controlName": "arm"`) |
 | `poleOffset` | no | `[x, y, z]` in world space: the pole control's offset from the mid joint. Default: see below |
 | `settingsOffset` | no | `[x, y, z]` in world space: the settings control's offset from the end joint. Default: see below |
+| `ikFkBlend` | no | 0 to 1: the limb's blend when built, and the rest value of its `ikFkBlend` channel. Default 1 (IK). An arm usually wants 0 (FK). Out of range fails the build |
 
 There are **no marker joints** (D57). The three limb joints belong to this module alone, and the other three controls are placed from them:
 
@@ -132,7 +133,7 @@ There are **no marker joints** (D57). The three limb joints belong to this modul
 | Pole | translate, `pin`, `space` | rotate, scale |
 | Settings | `ikFkBlend`, `stretch`, `soft` | translate, rotate, scale |
 
-- **`ikFkBlend`** (0 to 1, default 1): 0 is FK and 1 is IK, so **every limb is in IK when built**. Between, each joint's translation and scale lerp and its rotation slerps. At exactly 0 and 1 the result is exactly FK or IK. The FK lower and end controls show below 1, and the IK handle and pole show above 0. The start control and the settings control are always visible.
+- **`ikFkBlend`** (0 to 1): 0 is FK and 1 is IK. The channel's default and rest come from the template's `ikFkBlend` key, which is 1 when absent, so **a limb is in IK when built unless the template says otherwise**. Between, each joint's translation and scale lerp and its rotation slerps. At exactly 0 and 1 the result is exactly FK or IK. The FK lower and end controls show below 1, and the IK handle and pole show above 0. The start control and the settings control are always visible.
 - **Switch with [`setRigIkFkBlend`](commands.md#setrigikfkblend).** The two chains hold their own control values, so the command first writes the controls of both sides to match the current pose, then sets `ikFkBlend`. Switching with `setAttr` pops: it shows whatever the other side's controls say, the same way setting a `space` directly doesn't match.
 - **The FK start control** moves the whole chain. Its rotation turns the FK upper joint and **does nothing to the IK chain**: the IK root takes the start control's translation only, and the IK plane comes from the pole.
 - **`stretch`** (0 to 1, default 0): 0 stops the end at full reach, on the line to the handle, like any native IK. 1 stretches both bones so the end reaches the handle.

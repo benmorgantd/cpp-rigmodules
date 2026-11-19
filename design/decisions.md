@@ -72,6 +72,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D56 | Ribbon module: a virtual ribbon with ik controls, tweakers and stateless twist | Leaning | Assets |
 | D57 | Control placement is derived from the bind joints, with no control joints in the skeleton | Decided | Assets |
 | D58 | One naming convention for joints, controls, modules and constraints: `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>` | Decided | Assets |
+| D59 | TwoBoneIk and Ribbon template keys for defaults, orientation and an FK layer | In progress | Assets |
 
 ---
 
@@ -498,6 +499,12 @@ The author considered starting a new pipeline repo, because most of mayadev chan
   - `getRigInfo` accepts joints, through the module that drives the joint's `offsetParentMatrix`, and returns `""` with no error for any node outside a rig, so a selection callback stays quiet. Rejected: a Python pre-check by node type in mayadev, which would copy RigModules node names (D24).
 - **Not built:** the template authoring UI (it needs a module interface query command first, D24). Building a second variant into a namespace. (Importing the variant's model and loading its weights in Build Rig was built 2026-11-09, D35.)
 - **Consequence:** `getRigInfo`'s keys, `RigInfoKey::Namespace`, and the `rigmodules.query` and `rigmodules.template` names are public API for mayadev. The template authoring UI validates through RigModules `python/`, never with its own copy of the template rules (D24).
+
+### D59. TwoBoneIk and Ribbon template keys for defaults, orientation and an FK layer
+**Status:** In progress (author, 2026-11-18). Built in steps on branch `claude/ribbon-two-bone-ik-updates-d3291d`, one commit each.
+- **Step 1, built:** TwoBoneIk takes `ikFkBlend` (0 to 1, default 1) in `moduleArgs`. It is the built value and the rest value of the settings control's `ikFkBlend` channel, so an arm builds in FK and `zeroRigControls` returns to FK. Additive, so no `moduleVersion` step. Rejected: a separate `defaultMode` string, since the channel is already the blend.
+- **Step 2, planned:** `ikOrientToWorld` (the IK handle's rest frame is world-aligned) and `ikAlignToPole` (a yaw about world Y so +Z points at the pole's horizontal direction, for feet). Two flags because an arm's pole sits behind the elbow, so one flag would turn an arm's handle 180 degrees.
+- **Step 3, planned:** Ribbon `fkStyle` (D56 phase 4) with `fkControlCount`, defaulting to `controlCount`.
 
 ### D58. One naming convention for joints, controls, modules and constraints
 **Status:** Decided (author, 2026-11-18). Built and run in mayapy 2026: the class, the build, validation, mirroring, the command and its undo.

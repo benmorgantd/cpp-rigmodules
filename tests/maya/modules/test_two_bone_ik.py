@@ -122,6 +122,42 @@ class TwoBoneIkBehaviour(RigTestCase):
             for control in ALL_CONTROLS:
                 self.assertEqual(bool(attr(control, "visibility")), control in visible, "%s at blend %s" % (control, blend))
 
+    # ---- the ikFkBlend template key --------------------------------------------------------------
+
+    def _with_blend(self, value):
+        data = copy.deepcopy(fixtures.load_template("twoboneik_basic"))
+        data["rigModules"][0]["moduleArgs"]["ikFkBlend"] = value
+        return data
+
+    def test_the_ik_fk_blend_key_sets_the_channels_value_and_rest(self):
+        """ikFkBlend: 0 builds the limb in FK. The channel holds 0 and its rest is 0, so zeroRigControls returns to FK and not to IK."""
+        self.build(self._with_blend(0), self.make_skeleton("twoboneik_basic"), label="twoboneik_fk")
+        self.assertAlmostEqual(attr(SETTINGS, "ikFkBlend"), 0.0, places=9)
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        settings = [c for c in rigmodules.query.get_rig_controls(root) if c.usage == "armSettings"][0]
+        channels = {c.name: c for c in rigmodules.query.get_control_channels(settings.node)}
+        self.assertEqual((channels["ikFkBlend"].rest, channels["ikFkBlend"].min, channels["ikFkBlend"].max), (0.0, 0.0, 1.0))
+        set_attr(SETTINGS, "ikFkBlend", 1)
+        cmds.zeroRigControls(rig_name(SETTINGS))
+        self.assertAlmostEqual(attr(SETTINGS, "ikFkBlend"), 0.0, places=9)
+
+    def test_a_limb_built_with_ik_fk_blend_0_follows_its_fk_controls(self):
+        self.build(self._with_blend(0), self.make_skeleton("twoboneik_basic"), label="twoboneik_fk")
+        set_attr(ARM[0], "rotateZ", 20)
+        set_attr(HANDLE, "translateX", -3)   # the IK side has no say at blend 0
+        for control, joint in zip(ARM, LIMB_JOINTS):
+            for e, a in zip(world_matrix(control), world_matrix(joint)):
+                self.assertAlmostEqual(e, a, places=9, msg="%s is not at %s" % (joint, control))
+        self.assertFalse(attr(HANDLE, "visibility"))
+        self.assertTrue(attr(ARM[1], "visibility"))
+
+    def test_an_ik_fk_blend_outside_zero_to_one_is_an_error(self):
+        for value in (1.5, -0.1):
+            message = self.assertMayaError(lambda: self.build(self._with_blend(value), self.make_skeleton("twoboneik_basic"), label="twoboneik_bad"))
+            self.assertIn("ikFkBlend", message)
+            self.assertIn("between 0", message)
+            self.assertNothingBuilt()
+
     # ---- sockets and child modules -------------------------------------------------------------
 
     def test_sockets_and_child_plugs(self):
