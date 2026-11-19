@@ -2,7 +2,7 @@
 
 Every command:
 
-- Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId` and `pruneToMaxInfluences` when no mesh is named.
+- Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId`, `pruneToMaxInfluences` and `smoothSkinWeights` when nothing is named.
 - Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `getRigMirrorControl`, `getRigKeys` and `getRigInfo`, and `saveRigControlShapes`, `saveRigSkinWeights` and `saveRigSkeleton` (they write a file and change nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
@@ -878,6 +878,31 @@ Objects: meshes with a skinCluster, by transform or shape name. With none named,
 - Locked influences are pruned like any other. The skinCluster's `maxInfluences` and `maintainMaxInfluences` settings aren't changed.
 - A named node that isn't a mesh, a mesh without a skinCluster, or a missing `maxInfluences` is an error, and nothing changes.
 - Undoable, as one step. Undo restores every weight exactly.
+
+## smoothSkinWeights
+
+Smooths skin weights: each vertex becomes the average of itself and its neighbors, one pass after another (D64).
+
+```python
+cmds.smoothSkinWeights("hero_body:body_geo.vtx[120:180]", iterations=3, strength=1.0)
+# Returns 54, the number of vertices whose weights changed
+cmds.smoothSkinWeights("hero_body:body_geo")   # every vertex of the mesh
+cmds.smoothSkinWeights()                       # the selected vertices, or every vertex of a selected mesh
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `iterations` | int | Passes, at least 1. Default 3. |
+| `strength` | double | How far each pass goes towards the average, above 0 and at most 1. Default 1. |
+
+Objects: meshes with a skinCluster (every vertex), or vertex, edge or face components of them (edges and faces count as the vertices they touch). With none named, the selection. Selected nodes that aren't meshes are skipped.
+
+- Every pass reads the weights the last pass left, so all vertices update at the same time and their order changes nothing. Vertices outside the named ones are read as neighbors and never written.
+- **Locked influences** (a joint's `lockInfluenceWeights`) keep their weight on every vertex. The other weights of a vertex keep the total they had, so it still adds up.
+- When the skinCluster has `maintainMaxInfluences` on, a smoothed vertex keeps only its largest `maxInfluences` weights (locked ones count towards the limit, and the unlocked ones keep at least one) and the rest is scaled back to the total.
+- Only the vertices whose weights moved are written, and only over the influences that matter around them. A mesh whose weights are already smooth changes nothing and returns 0.
+- A named node that isn't a mesh or mesh components, a mesh without a skinCluster, an `iterations` below 1 or a `strength` outside 0 to 1 is an error, and nothing changes.
+- Undoable, as one step across all the meshes. Undo restores every weight exactly.
 
 ## saveRigSkeleton
 

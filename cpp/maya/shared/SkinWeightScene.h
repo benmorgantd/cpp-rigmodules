@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/SkinWeightFile.h"
+#include "core/SkinWeightSmooth.h"
 
 #include <memory>
 #include <string>
@@ -87,4 +88,36 @@ private:
 	MDoubleArray fNewValues;        // the changed rows, pruned
 	MDoubleArray fOldValues;        // the same rows before pruning
 	unsigned int fChangedCount = 0;
+};
+
+// Smooths one mesh's skin weights over their neighbors (core smoothSkinWeights, D64), undoably. bind finds the
+// skinCluster and reads which influences are locked and the cluster's max influences. prepare then works out one
+// smoothing of some vertices, reading only those and their neighbors (asked of the mesh for those vertices alone, so a
+// ring of vertices costs the same on a small and a dense mesh; a whole mesh builds its neighbor map in bulk), and apply
+// and undo each write the changed vertices' rows in one setWeights call, over only the influences that moved. Nothing
+// about the topology is kept, so a bound object never goes stale on a mesh edit. A locked influence is never written. prepare replaces the last
+// preparation, so a command prepares, applies and keeps the object for undo and redo.
+class SkinWeightSmooth
+{
+public:
+	MStatus bind(const MDagPath& mesh);
+	// vertices null is every vertex. Fails (and changes nothing) on iterations below 1 or a strength outside (0, 1].
+	MStatus prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength);
+	MStatus apply();
+	MStatus undo();
+	unsigned int changedVertexCount() const;
+
+private:
+	MStatus write(const std::vector<double>& rows);
+
+	MDagPath fShape;
+	MObject fSkinCluster;
+	unsigned int fInfluenceCount = 0;
+	unsigned int fVertexCount = 0;
+	std::vector<bool> fLocked;
+	unsigned int fMaxInfluences = 0;        // 0 when the cluster doesn't maintain a maximum
+
+	SmoothedWeights fSmoothed;
+	MObject fChangedVertices;               // one component holding every changed vertex
+	MIntArray fInfluenceIndices;            // the influences fSmoothed lists
 };

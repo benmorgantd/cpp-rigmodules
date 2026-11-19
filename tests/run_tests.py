@@ -69,6 +69,7 @@ TIERS = [
         "commands.test_rig_control_cmds",   # control markup, traversal and shape files on a built rig
         "commands.test_rig_info",           # getRigInfo and the rigmodules Python query
         "commands.test_skin_weight_cmds",   # weight files; binding at rest needs a built rig (D35)
+        "commands.test_smooth_skin_weights",  # smoothSkinWeights: neighbor averaging, locks, max influences, undo (D64)
         "commands.test_rig_look",           # setRigLook and the lookRoot (D54)
         "commands.test_attachment",         # parentRig and "parent:" ids: a rig that follows another rig (D55)
     ]),

@@ -77,6 +77,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D61 | The Asset Editor is a dockable asset context over files, markup and shapes | Decided | Assets |
 | D62 | Limb: one module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon | Decided | Assets |
 | D63 | `constraintWeight`: a baked 0..1 blend from "follow the parent" to the full constraint | Decided | Constraints |
+| D64 | `smoothSkinWeights`: neighbor-average smoothing on a working set, built to be a brush later | Decided | Skinning |
 
 ---
 
@@ -1012,6 +1013,22 @@ A Twist (or Swing, Orient, Point) constraint sometimes should give only a share 
 - **Cost (D36):** one double read per evaluation. A weight of 1 returns early with no extra math, a weight of 0 skips the driver read, and only a weight strictly between pays for a decompose and a slerp. No `bench` (an attribute on an existing type: D12).
 - **Names and format:** additive. Old scenes load at 1 and nothing is renamed or bumped (D32, D33). `Limb` calls `computeDelta` with the default weight and uses no constraint nodes (D62), so it is unchanged.
 - **Rejected:** a keyable channel on the control (author: baked into the rig), a per-driver weight, and a blend toward rest for Parent (inconsistent with the other types).
+
+### D64. `smoothSkinWeights`: neighbor-average smoothing on a working set, built to be a brush later
+
+**Status:** Decided (author, 2026-11-19: the vertex counts in its own average, `strength`, locked influences respected, a one-time brush-rate check). Built.
+
+A rigger smooths skin weights by averaging each vertex with its neighbors, two or three times. It must be fast enough to become a brush context (15 fps or better on a dense mesh) and undoable.
+
+- **Command:** `cmds.smoothSkinWeights(*objects, iterations=3, strength=1.0)` returns the vertices changed. Objects are meshes or vertex, edge and face components (edges and faces count as the vertices they touch). With none named it reads the selection, the third command to do so after `setRigMeshId` and `pruneToMaxInfluences` (D14, D35). Undo restores the starting weights exactly.
+- **Algorithm:** each pass sets a vertex to the average of itself and its neighbors, blended by `strength`, reading only the previous pass (Jacobi), so every vertex updates at the same time and vertex order changes nothing. The vertex is in its own average (author): on a quad mesh, which is bipartite, a plain neighbor average swaps a checkerboard pattern every pass and never damps it.
+- **Why it is fast:** the neighbors of only the vertices being smoothed are asked of the mesh (`MItMeshVertex`), so a selected ring costs the same on a small and a dense mesh (author: it is smoothed from a hotkey). A whole-mesh smooth builds the map in bulk from the polygon loops (`MeshAdjacency`). Nothing about topology is kept between calls, so there is nothing to go stale on a mesh edit; the first design cached the map per mesh and was rejected for that risk. Only the working set (the target vertices and their neighbors) is read, so a dab costs what its vertices cost and not what the mesh costs. Only the unlocked influences with weight there are carried: a patch of skin has a handful of the cluster's dozens. Only the vertices that moved by more than 1e-9 are written, over only those influences, in one `setWeights` call.
+- **Locked influences (author):** a joint's `lockInfluenceWeights` is read once at bind. A locked influence keeps its weight on every vertex, and the unlocked ones keep the total they had, so the row still adds up. The cluster's `maintainMaxInfluences` is kept: a smoothed vertex keeps its largest `maxInfluences` weights, locked ones counting towards the limit and the unlocked ones keeping at least one.
+- **Layers:** `core/SkinWeightSmooth` has no Maya and takes the weights through a fetch callback. `SkinWeightSmooth` in `SkinWeightScene` binds a mesh once (skinCluster, locks, max influences) and then `prepare`s, applies and undoes any number of times, which is what a brush reuses. `MeshUtils::getVertexTargets` turns a selection list into meshes and vertex ids: meshes, faces, edges and vertices all work (author).
+- **Threading was looked at and not done (author asked, 2026-11-19).** On the 50k mesh the whole-mesh command is about 260 ms, of which Maya's `getWeights` (about 75 ms) and `setWeights` (about 135 ms) are most, and neither is thread-safe. Each extra pass costs about 10 ms, so threading the passes saves at most about 30 ms.
+- **Measured (author asked, 2026-11-19; scratch scripts, not part of the suite):** a 223 x 223 plane (50 176 vertices, 40 influences, 4 per vertex). The whole mesh at 3 passes is about 250 ms, mostly Maya's `getWeights` (about 75 ms) and `setWeights` (about 135 ms). A one-vertex or dab call is about 19 ms, and our own work in it (bind, neighbors, the smoothing) is about 0.4 ms. The rest is Maya re-evaluating the skinned mesh after the last weight edit, about 9 ms the first time anything touches the mesh (a `MSelectionList::add` of a component after any `setWeights` pays it, and so does `cmds.skinPercent` on one vertex) and about 10 ms in the write. The viewport pays the same evaluation after any edit, so a brush's rate is set by Maya's skin evaluation and not by this code. The first design cached a neighbor map to save what turned out to be about 1 ms. Not measured: a real brush context.
+- **Not done:** the brush context itself. A brush would call `prepare` and `apply` per dab with the vertices under the brush, and needs one undo chunk per stroke.
+- **Names and format:** additive: a new command and no changes to a saved file or name. mayadev gets a menu entry in the weights submenu.
 
 ## Open items
 

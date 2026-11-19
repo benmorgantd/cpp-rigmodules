@@ -230,7 +230,7 @@ Every command is an `MPxCommand` with the same shape (D14):
 
 - Long flag names are file-local `constexpr` constants. `newSyntax()` is the only place short names appear.
 - A file-local helper reads the flags into a struct or value before anything is queued. `doIt` parses, delegates and returns.
-- Nodes are passed by name as string objects, never taken from the selection. The two exceptions read the selection when no mesh is named: `setRigMeshId` and `pruneToMaxInfluences`.
+- Nodes are passed by name as string objects, never taken from the selection. The three exceptions read the selection when nothing is named: `setRigMeshId`, `pruneToMaxInfluences` and `smoothSkinWeights`.
 - State changes go through a modifier or edit object the command keeps, so `undoIt` and `redoIt` replay them.
 - Command logic that is about the scene lives in a `shared/*Scene` class or a node, and commands call it. A command file holds no scene logic of its own.
 
@@ -248,7 +248,7 @@ Every command is an `MPxCommand` with the same shape (D14):
 | `RigInfoCmd` | `getRigInfo` | `RigTraversal` |
 | `RigLookCmd` | `setRigLook` | `LookScene` |
 | `RigDataFileCmds` | `getRigDataFileInfo`, `setRigDataFileMeta` | `LibraryFile` in `core/`, `RigDataFileScene` |
-| `SkinWeightCmds` | `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `pruneToMaxInfluences` | `SkinWeightScene` |
+| `SkinWeightCmds` | `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `pruneToMaxInfluences`, `smoothSkinWeights` | `SkinWeightScene` |
 | `SkeletonCmds` | `saveRigSkeleton`, `loadRigSkeleton` | `SkeletonScene` and `SkeletonFile` in `core/` |
 
 The command reference is [commands.md](commands.md).

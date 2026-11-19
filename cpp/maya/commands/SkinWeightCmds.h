@@ -81,3 +81,24 @@ public:
 private:
 	std::vector<SkinWeightPrune> fPrunes;   // one per mesh
 };
+
+// cmds.smoothSkinWeights("hero:body_geo.vtx[10:40]", iterations=3, strength=1.0) -> number of vertices changed
+//   Each named vertex becomes the average of itself and its neighbors, iterations times, every vertex from the last
+//   pass (D64). Objects are meshes (every vertex) or vertex, edge or face components (the vertices they touch). With
+//   none named, acts on the selection. A locked influence keeps its weight, and the cluster's maintainMaxInfluences is
+//   kept. Vertices that don't change aren't written. Undoable, and undo restores the starting weights exactly.
+class SmoothSkinWeightsCmd : public MPxCommand
+{
+public:
+	MStatus doIt(const MArgList& args) override;
+	MStatus redoIt() override;
+	MStatus undoIt() override;
+	bool isUndoable() const override;
+
+	static void* creator();
+	static MSyntax newSyntax();
+	static const char* aCommandString;
+
+private:
+	std::vector<SkinWeightSmooth> fSmooths;   // one per mesh
+};

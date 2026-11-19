@@ -22,7 +22,10 @@
 #include <maya/MFnSingleIndexedComponent.h>
 #include <maya/MFnTransform.h>
 #include <maya/MGlobal.h>
+#include <maya/MIntArray.h>
 #include <maya/MItDependencyGraph.h>
+#include <maya/MItMeshEdge.h>
+#include <maya/MItMeshPolygon.h>
 #include <maya/MMatrix.h>
 #include <maya/MMessage.h>
 #include <maya/MModelMessage.h>
@@ -732,6 +735,92 @@ bool MeshUtils::findMeshTransform(const MDagPath& path, MDagPath& outTransform)
 	outTransform = shape;
 	outTransform.pop();
 	return true;
+}
+
+MStatus MeshUtils::getVertexTargets(const MSelectionList& selection, std::vector<MeshVertexTarget>& outTargets)
+{
+	for (unsigned int i = 0; i < selection.length(); ++i)
+	{
+		MDagPath path;
+		MObject oComponent;
+		MDagPath mesh;
+		if (!selection.getDagPath(i, path, oComponent) || !findMeshTransform(path, mesh))
+		{
+			continue;
+		}
+
+		bool allVertices = oComponent.isNull();
+		std::vector<unsigned int> vertices;
+		if (!allVertices)
+		{
+			MStatus status;
+			if (oComponent.hasFn(MFn::kMeshVertComponent))
+			{
+				MFnSingleIndexedComponent fnComponent(oComponent, &status);
+				CHECK_MSTATUS_AND_RETURN_IT(status);
+				allVertices = fnComponent.isComplete();
+				MIntArray elements;
+				fnComponent.getElements(elements);
+				vertices.assign(elements.length(), 0);
+				for (unsigned int e = 0; e < elements.length(); ++e)
+				{
+					vertices[e] = static_cast<unsigned int>(elements[e]);
+				}
+			}
+			else if (oComponent.hasFn(MFn::kMeshEdgeComponent))
+			{
+				for (MItMeshEdge itEdge(path, oComponent); !itEdge.isDone(); itEdge.next())
+				{
+					vertices.push_back(static_cast<unsigned int>(itEdge.index(0)));
+					vertices.push_back(static_cast<unsigned int>(itEdge.index(1)));
+				}
+			}
+			else if (oComponent.hasFn(MFn::kMeshPolygonComponent))
+			{
+				for (MItMeshPolygon itFace(path, oComponent); !itFace.isDone(); itFace.next())
+				{
+					MIntArray faceVertices;
+					itFace.getVertices(faceVertices);
+					for (unsigned int v = 0; v < faceVertices.length(); ++v)
+					{
+						vertices.push_back(static_cast<unsigned int>(faceVertices[v]));
+					}
+				}
+			}
+			else
+			{
+				continue;
+			}
+		}
+
+		MeshVertexTarget* existing = nullptr;
+		for (MeshVertexTarget& target : outTargets)
+		{
+			if (target.mesh == mesh)
+			{
+				existing = &target;
+			}
+		}
+		if (!existing)
+		{
+			outTargets.emplace_back();
+			existing = &outTargets.back();
+			existing->mesh = mesh;
+			existing->allVertices = false;
+		}
+		existing->allVertices = existing->allVertices || allVertices;
+		existing->vertices.insert(existing->vertices.end(), vertices.begin(), vertices.end());
+	}
+	for (MeshVertexTarget& target : outTargets)
+	{
+		std::sort(target.vertices.begin(), target.vertices.end());
+		target.vertices.erase(std::unique(target.vertices.begin(), target.vertices.end()), target.vertices.end());
+		if (target.allVertices)
+		{
+			target.vertices.clear();
+		}
+	}
+	return MStatus::kSuccess;
 }
 
 MStatus MeshUtils::getMeshShape(const MDagPath& mesh, MDagPath& outShape)

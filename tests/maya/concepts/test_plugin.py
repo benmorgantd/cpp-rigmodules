@@ -28,6 +28,7 @@ COMMAND_FLAGS = {
     "loadRigSkinWeights": ["file", "ignoreSkeletonHash"],
     "setRigLook": ["mesh", "file", "asset", "look", "publishVersion", "skeleton", "rigSkeleton", "ignoreSkeletonHash"],
     "pruneToMaxInfluences": ["maxInfluences"],
+    "smoothSkinWeights": ["iterations", "strength"],
     "saveRigSkeleton": ["file"],
     "loadRigSkeleton": ["file", "namespace"],
     "poseRigFromJointPose": ["jointPose", "sidecar", "mode"],

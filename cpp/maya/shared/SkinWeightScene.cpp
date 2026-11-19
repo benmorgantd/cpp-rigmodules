@@ -1,11 +1,13 @@
 #include "maya/shared/SkinWeightScene.h"
 #include "core/Constants.h"
 #include "core/Hash64.h"
+#include "core/SkinWeightSmooth.h"
 #include "core/SkinWeightTable.h"
 #include "maya/shared/JointMarkupScene.h"
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/Utilities.h"
 
+#include <algorithm>
 #include <set>
 #include <string>
 #include <utility>
@@ -17,6 +19,7 @@
 #include <maya/MFnSkinCluster.h>
 #include <maya/MGlobal.h>
 #include <maya/MItDag.h>
+#include <maya/MItMeshVertex.h>
 #include <maya/MMatrix.h>
 #include <maya/MNamespace.h>
 #include <maya/MObjectArray.h>
@@ -707,4 +710,212 @@ MStatus SkinWeightPrune::undo()
 unsigned int SkinWeightPrune::changedVertexCount() const
 {
 	return fChangedCount;
+}
+
+MStatus SkinWeightSmooth::bind(const MDagPath& mesh)
+{
+	MStatus status = MeshUtils::getMeshShape(mesh, fShape);
+	if (!status)
+	{
+		return status;
+	}
+	fSkinCluster = nearestSkinCluster(fShape);
+	if (fSkinCluster.isNull())
+	{
+		MGlobal::displayError(mesh.partialPathName() + " has no skinCluster.");
+		return MStatus::kFailure;
+	}
+	MFnSkinCluster fnSkin(fSkinCluster, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MFnMesh fnMesh(fShape, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	fVertexCount = static_cast<unsigned int>(fnMesh.numVertices());
+
+	// A joint's lockInfluenceWeights is what Maya's own weight tools respect.
+	MDagPathArray influences;
+	fnSkin.influenceObjects(influences, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	fInfluenceCount = influences.length();
+	fLocked.assign(fInfluenceCount, false);
+	for (unsigned int i = 0; i < fInfluenceCount; ++i)
+	{
+		const MFnDependencyNode fnJoint(influences[i].node());
+		fLocked[i] = fnJoint.hasAttribute("lockInfluenceWeights") && fnJoint.findPlug("lockInfluenceWeights", false).asBool();
+	}
+
+	fMaxInfluences = 0;
+	if (fnSkin.findPlug("maintainMaxInfluences", false).asBool())
+	{
+		const int maxInfluences = fnSkin.findPlug("maxInfluences", false).asInt();
+		fMaxInfluences = maxInfluences > 0 ? static_cast<unsigned int>(maxInfluences) : 0;
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus SkinWeightSmooth::prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength)
+{
+	fSmoothed = SmoothedWeights();
+	fChangedVertices = MObject::kNullObj;
+	fInfluenceIndices.clear();
+	if (iterations < 1 || !(strength > 0.0 && strength <= 1.0))
+	{
+		MGlobal::displayError("Smoothing needs iterations of at least 1 and a strength above 0 and at most 1.");
+		return MStatus::kInvalidParameter;
+	}
+
+	MStatus status = MStatus::kSuccess;
+	const unsigned int vertexCount = fVertexCount;
+	const WeightFetch fetch = [this, vertexCount, &status](const std::vector<unsigned int>& working, std::vector<double>& table)
+	{
+		table.clear();
+		MObject oVertices;
+		if (working.size() == vertexCount)
+		{
+			oVertices = MeshUtils::createAllVerticesComponent(vertexCount);
+		}
+		else
+		{
+			MFnSingleIndexedComponent fnComponent;
+			oVertices = fnComponent.create(MFn::kMeshVertComponent, &status);
+			if (!status)
+			{
+				return;
+			}
+			const std::vector<int> ids(working.begin(), working.end());
+			MIntArray elements(ids.data(), static_cast<unsigned int>(ids.size()));
+			status = fnComponent.addElements(elements);
+			if (!status)
+			{
+				return;
+			}
+		}
+		MFnSkinCluster fnSkin(fSkinCluster, &status);
+		if (!status)
+		{
+			return;
+		}
+		MDoubleArray weights;
+		unsigned int count = 0;
+		status = fnSkin.getWeights(fShape, oVertices, weights, count);
+		if (!status)
+		{
+			return;
+		}
+		table.resize(weights.length());
+		weights.get(table.data());
+	};
+
+	// Every vertex: the polygon loops give the whole map at once. Some: ask the mesh for just those vertices' neighbors.
+	MeshAdjacency bulk;
+	const NeighborFetch fetchNeighbors = [this, vertexCount, &status, &bulk](const std::vector<unsigned int>& targets, std::vector<unsigned int>& offsets, std::vector<unsigned int>& neighbors)
+	{
+		if (targets.size() == vertexCount)
+		{
+			MFnMesh fnMesh(fShape, &status);
+			if (!status)
+			{
+				return;
+			}
+			MIntArray polygonCounts;
+			MIntArray polygonConnects;
+			status = fnMesh.getVertices(polygonCounts, polygonConnects);
+			if (!status)
+			{
+				return;
+			}
+			std::vector<int> counts(polygonCounts.length());
+			polygonCounts.get(counts.data());
+			std::vector<int> connects(polygonConnects.length());
+			polygonConnects.get(connects.data());
+			bulk = buildMeshAdjacency(counts, connects, vertexCount);
+			neighborsFromAdjacency(bulk)(targets, offsets, neighbors);
+			return;
+		}
+		offsets.assign(1, 0);
+		neighbors.clear();
+		MItMeshVertex itVertex(fShape, MObject::kNullObj, &status);
+		if (!status)
+		{
+			offsets.clear();
+			return;
+		}
+		MIntArray connected;
+		for (const unsigned int v : targets)
+		{
+			int previous = 0;
+			status = itVertex.setIndex(static_cast<int>(v), previous);
+			if (!status)
+			{
+				offsets.clear();
+				return;
+			}
+			itVertex.getConnectedVertices(connected);
+			const std::size_t rowStart = neighbors.size();
+			for (unsigned int c = 0; c < connected.length(); ++c)
+			{
+				neighbors.push_back(static_cast<unsigned int>(connected[c]));
+			}
+			std::sort(neighbors.begin() + rowStart, neighbors.end());
+			neighbors.erase(std::unique(neighbors.begin() + rowStart, neighbors.end()), neighbors.end());
+			offsets.push_back(static_cast<unsigned int>(neighbors.size()));
+		}
+	};
+
+	SkinSmoothSettings settings;
+	settings.iterations = iterations;
+	settings.strength = strength;
+	settings.maxInfluences = fMaxInfluences;
+	settings.locked = fLocked;
+	fSmoothed = smoothSkinWeights(vertexCount, vertices, fInfluenceCount, settings, fetchNeighbors, fetch);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (fSmoothed.vertices.empty())
+	{
+		return MStatus::kSuccess;
+	}
+
+	MFnSingleIndexedComponent fnChanged;
+	fChangedVertices = fnChanged.create(MFn::kMeshVertComponent, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const std::vector<int> changedIds(fSmoothed.vertices.begin(), fSmoothed.vertices.end());
+	MIntArray changedElements(changedIds.data(), static_cast<unsigned int>(changedIds.size()));
+	status = fnChanged.addElements(changedElements);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	fInfluenceIndices.setLength(static_cast<unsigned int>(fSmoothed.influences.size()));
+	for (unsigned int i = 0; i < fInfluenceIndices.length(); ++i)
+	{
+		fInfluenceIndices[i] = static_cast<int>(fSmoothed.influences[i]);
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus SkinWeightSmooth::write(const std::vector<double>& rows)
+{
+	if (fSmoothed.vertices.empty())
+	{
+		return MStatus::kSuccess;
+	}
+	MStatus status;
+	MFnSkinCluster fnSkin(fSkinCluster, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MDoubleArray values(rows.data(), static_cast<unsigned int>(rows.size()));
+	// Not normalized by Maya: each row keeps its total, and the influences left out hold no weight on these vertices.
+	ScopedNormalizeOff normalizeOff(fnSkin);
+	return fnSkin.setWeights(fShape, fChangedVertices, fInfluenceIndices, values, false);
+}
+
+MStatus SkinWeightSmooth::apply()
+{
+	return write(fSmoothed.newRows);
+}
+
+MStatus SkinWeightSmooth::undo()
+{
+	return write(fSmoothed.oldRows);
+}
+
+unsigned int SkinWeightSmooth::changedVertexCount() const
+{
+	return static_cast<unsigned int>(fSmoothed.vertices.size());
 }

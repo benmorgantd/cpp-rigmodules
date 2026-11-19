@@ -7,6 +7,7 @@
 #include <maya/MArgDatabase.h>
 #include <maya/MDagPath.h>
 #include <maya/MGlobal.h>
+#include <maya/MSelectionList.h>
 #include <maya/MStringArray.h>
 
 namespace
@@ -16,6 +17,8 @@ namespace
 	// Not "-new": Maya rejects a three-letter long name, and the flag silently never registers.
 	constexpr const char* kNewIdFlag{ "-newId" };
 	constexpr const char* kMaxInfluencesFlag{ "-maxInfluences" };
+	constexpr const char* kIterationsFlag{ "-iterations" };
+	constexpr const char* kStrengthFlag{ "-strength" };
 	constexpr const char* kIgnoreSkeletonHashFlag{ "-ignoreSkeletonHash" };
 
 	// The one mesh the save and load commands take, plus their file.
@@ -334,6 +337,132 @@ MStatus PruneToMaxInfluencesCmd::redoIt()
 MStatus PruneToMaxInfluencesCmd::undoIt()
 {
 	for (auto it = fPrunes.rbegin(); it != fPrunes.rend(); ++it)
+	{
+		MStatus status = it->undo();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+	return MStatus::kSuccess;
+}
+
+// smoothSkinWeights ------------------------------------------------------------------------------
+const char* SmoothSkinWeightsCmd::aCommandString = "smoothSkinWeights";
+
+void* SmoothSkinWeightsCmd::creator()
+{
+	return new SmoothSkinWeightsCmd();
+}
+
+bool SmoothSkinWeightsCmd::isUndoable() const
+{
+	return true;
+}
+
+MSyntax SmoothSkinWeightsCmd::newSyntax()
+{
+	MSyntax syntax;
+	CHECK_MSTATUS(syntax.addFlag("-it", kIterationsFlag, MSyntax::kLong));
+	CHECK_MSTATUS(syntax.addFlag("-st", kStrengthFlag, MSyntax::kDouble));
+	syntax.setObjectType(MSyntax::kStringObjects, 0);
+	syntax.useSelectionAsDefault(false);
+	return syntax;
+}
+
+MStatus SmoothSkinWeightsCmd::doIt(const MArgList& args)
+{
+	MStatus status;
+	MArgDatabase argData(syntax(), args, &status);
+	if (!status)
+	{
+		MGlobal::displayError(MString("Error parsing ") + aCommandString + " arguments.");
+		return status;
+	}
+
+	int iterations = 3;
+	double strength = 1.0;
+	if (argData.isFlagSet(kIterationsFlag))
+	{
+		argData.getFlagArgument(kIterationsFlag, 0, iterations);
+	}
+	if (argData.isFlagSet(kStrengthFlag))
+	{
+		argData.getFlagArgument(kStrengthFlag, 0, strength);
+	}
+	if (iterations < 1 || !(strength > 0.0 && strength <= 1.0))
+	{
+		MGlobal::displayError(MString(aCommandString) + " needs -iterations of at least 1 and -strength above 0 and at most 1.");
+		return MStatus::kFailure;
+	}
+
+	// The named objects, each checked to be a mesh or mesh components, or the selection.
+	MSelectionList picked;
+	MStringArray objects;
+	argData.getObjects(objects);
+	if (objects.length() == 0)
+	{
+		MGlobal::getActiveSelectionList(picked);
+	}
+	for (unsigned int i = 0; i < objects.length(); ++i)
+	{
+		MSelectionList one;
+		status = one.add(objects[i]);
+		if (!status)
+		{
+			MGlobal::displayError(objects[i] + " does not exist.");
+			return status;
+		}
+		std::vector<MeshVertexTarget> check;
+		MeshUtils::getVertexTargets(one, check);
+		if (check.empty())
+		{
+			MGlobal::displayError(objects[i] + " is not a mesh or mesh components.");
+			return MStatus::kFailure;
+		}
+		picked.merge(one);
+	}
+
+	std::vector<MeshVertexTarget> targets;
+	status = MeshUtils::getVertexTargets(picked, targets);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (targets.empty())
+	{
+		MGlobal::displayError(MString(aCommandString) + " needs meshes or vertices: name them or select them.");
+		return MStatus::kFailure;
+	}
+
+	// Every mesh is checked and worked out in memory before any is written, so one without a skinCluster changes nothing.
+	fSmooths.assign(targets.size(), SkinWeightSmooth());
+	unsigned int changedCount = 0;
+	for (std::size_t i = 0; i < targets.size(); ++i)
+	{
+		status = fSmooths[i].bind(targets[i].mesh);
+		if (status)
+		{
+			status = fSmooths[i].prepare(targets[i].allVertices ? nullptr : &targets[i].vertices, static_cast<unsigned int>(iterations), strength);
+		}
+		if (!status)
+		{
+			return status;
+		}
+		changedCount += fSmooths[i].changedVertexCount();
+	}
+
+	setResult(static_cast<int>(changedCount));
+	return redoIt();
+}
+
+MStatus SmoothSkinWeightsCmd::redoIt()
+{
+	for (SkinWeightSmooth& smooth : fSmooths)
+	{
+		MStatus status = smooth.apply();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus SmoothSkinWeightsCmd::undoIt()
+{
+	for (auto it = fSmooths.rbegin(); it != fSmooths.rend(); ++it)
 	{
 		MStatus status = it->undo();
 		CHECK_MSTATUS_AND_RETURN_IT(status);

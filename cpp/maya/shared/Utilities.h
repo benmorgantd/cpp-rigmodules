@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+class MSelectionList;
 struct RigControlScope;
 struct ValidationReport;
 
@@ -207,9 +208,22 @@ public:
 	static MStatus queueHideAndLockVisibility(const MObject& oTransform, MDagModifier& dagMod);
 };
 
+// One mesh and the vertices a selection or a list of names picks on it.
+struct MeshVertexTarget
+{
+	MDagPath mesh;                          // the mesh transform
+	bool allVertices = true;                // the mesh itself, or a complete vertex component
+	std::vector<unsigned int> vertices;     // sorted, without repeats, when allVertices is false
+};
+
 class MeshUtils
 {
 public:
+	// The meshes of a selection list and the vertices picked on each. A mesh picked as an object, or with a complete
+	// vertex component, is allVertices. Edge and face components count as the vertices they touch. Several entries for
+	// one mesh merge, and anything that isn't a mesh is skipped quietly. In the order the meshes first appear.
+	static MStatus getVertexTargets(const MSelectionList& selection, std::vector<MeshVertexTarget>& outTargets);
+
 	// The transform of a mesh, given a transform with a mesh shape or a mesh shape. Reports nothing and returns false
 	// for anything else, so a command can filter the selection quietly.
 	// By name: DagUtils::getDagPathFromName with NodeKind::kMesh.

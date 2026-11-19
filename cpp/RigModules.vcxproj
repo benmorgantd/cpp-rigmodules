@@ -171,6 +171,7 @@
     <ClCompile Include="core\SkeletonFile.cpp" />
     <ClCompile Include="core\SkinWeightFile.cpp" />
     <ClCompile Include="core\SelectionSets.cpp" />
+    <ClCompile Include="core\SkinWeightSmooth.cpp" />
     <ClCompile Include="core\SkinWeightTable.cpp" />
     <ClCompile Include="core\NamingConvention.cpp" />
     <ClCompile Include="core\TemplateMirror.cpp" />
@@ -275,6 +276,7 @@
     <ClInclude Include="core\SkeletonFile.h" />
     <ClInclude Include="core\SkinWeightFile.h" />
     <ClInclude Include="core\SelectionSets.h" />
+    <ClInclude Include="core\SkinWeightSmooth.h" />
     <ClInclude Include="core\SkinWeightTable.h" />
     <ClInclude Include="core\NamingConvention.h" />
     <ClInclude Include="core\StringUtils.h" />
