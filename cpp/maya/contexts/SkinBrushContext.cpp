@@ -2,6 +2,7 @@
 #include "maya/shared/Utilities.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <functional>
 #include <map>
@@ -47,6 +48,8 @@ namespace
 	// Dabs along a drag are never closer than this on screen, and one event lands at most this many.
 	constexpr double kMinimumStepPixels = 2.0;
 	constexpr int kMaxDabsPerEvent = 24;
+		// One drag event spends at most this long dabbing before it skips ahead to the pointer.
+		constexpr std::chrono::milliseconds kEventBudget{ 40 };
 	// While the button is held and no drag lands a dab, one repeats this often (seconds). Maya skins the mesh after each
 	// one, which sets the real rate when that takes longer.
 	constexpr float kRepeatSeconds = 0.1f;   // 10 a second
@@ -531,7 +534,14 @@ void SkinBrushContext::repeatTick(float elapsedTime, float lastTime, void* clien
 	context->debugLog(MString("  repeat dab: ") + (context->fDabs > dabsBefore ? "landed" : "MISSED (no hit under the pointer, or the dab failed)") +
 		", hits under pointer " + static_cast<int>(context->fHits.size()));
 	context->fDabSinceTick = false;   // a repeat is not a drag's dab: the next tick repeats again
-	context->requestRedraw();
+	if (context->fDabs > dabsBefore)
+	{
+		M3dView::active3dView().refresh(false, true);   // show the repeated dab now
+	}
+	else
+	{
+		context->requestRedraw();
+	}
 }
 
 bool SkinBrushContext::pickAt(short x, short y)
@@ -604,10 +614,22 @@ void SkinBrushContext::dabAt(short x, short y, bool isRepeat)
 		return;
 	}
 	const int count = std::min(static_cast<int>(distance / step), kMaxDabsPerEvent);
+	const auto begin = std::chrono::steady_clock::now();
 	for (int i = 1; i <= count; ++i)
 	{
 		const double t = i * step / distance;
 		dabOnce(static_cast<short>(std::lround(startX + dx * t)), static_cast<short>(std::lround(startY + dy * t)));
+		// Each dab costs a skin evaluation. When the budget is spent the brush skips to the pointer instead of catching
+		// up, which leaves a gap on a fast drag but keeps the stroke under the pointer, as Maya's own brushes do.
+		if (std::chrono::steady_clock::now() - begin > kEventBudget)
+		{
+			if (i < count)
+			{
+				fLastDabX = x;
+				fLastDabY = y;
+			}
+			break;
+		}
 	}
 }
 
@@ -669,8 +691,26 @@ MStatus SkinBrushContext::doDrag(MEvent& event, MHWRender::MUIDrawManager& drawM
 	{
 		event.getPosition(fPointerX, fPointerY);
 		++fDragEvents;
+		const int dabsBefore = fDabs;
 		dabAt(fPointerX, fPointerY, false);
-		pickAt(fPointerX, fPointerY);   // the ring follows the pointer, not the last dab
+		// The ring follows the pointer, not the last dab, and stays at the last surface it was on when the pointer
+		// leaves the mesh mid-stroke, so it does not blink out.
+		if (fLastDabX != fPointerX || fLastDabY != fPointerY)
+		{
+			const std::vector<BrushHit> lastHits = fHits;
+			const std::vector<BrushReach> lastReaches = fReaches;
+			if (!pickAt(fPointerX, fPointerY))
+			{
+				fHits = lastHits;
+				fReaches = lastReaches;
+			}
+		}
+		if (fDabs > dabsBefore)
+		{
+			// A dab changed the skin: redraw now so the weights show under the pointer, not a frame behind.
+			M3dView::active3dView().refresh(false, true);
+			return MStatus::kSuccess;
+		}
 	}
 	requestRedraw();
 	return MStatus::kSuccess;
