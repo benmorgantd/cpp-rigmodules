@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Constants.h"
+#include "core/JsonUtils.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigModule.h"
 #include "maya/shared/RigPoseScene.h"
@@ -18,14 +19,18 @@
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnNumericAttribute.h>
+#include <maya/MFnStringData.h>
+#include <maya/MFnTypedAttribute.h>
 #include <maya/MFnUnitAttribute.h>
 #include <maya/MPlug.h>
+#include <maya/MProfiler.h>
 
 // The two-bone IK half of a module node (D62, design/limb.md): its attributes, its plug reads, its six slots' controls, joints, sockets
 // and child plugs, and its channels. TwoBoneIkNode is this and the match outputs, and LimbNode is this and a ribbon. A Maya node
 // can't inherit (RigModuleNodeBase), so the half is a template over the node, which must declare the same static attributes:
 // aIkFkBlend, aStretch, aSoft, aPin (clamped 0..1), aRoll (an angle), aPoleSpace (a short, 0 or 1), aIkRestOffset (a matrix array),
-// aRestBendNormal, aRestPlaneAngle, aLimbLengths, and the visibility outputs aFkVisible and aIkVisible. A change here changes both
+// aRestBendNormal, aRestPlaneAngle, aLimbLengths, the visibility outputs aFkVisible and aIkVisible, and the match outputs aFkMatchLocal and
+// aIkMatchLocal (matrix arrays) and aMatchWarnings (a string). A change here changes both
 // modules: read design/limb.md first.
 template <typename Node>
 struct TwoBoneIkPart
@@ -122,6 +127,114 @@ struct TwoBoneIkPart
 		MPxNode::attributeAffects(Node::aPoleSpace, Node::aControlOPM);
 		MPxNode::attributeAffects(Node::aIkFkBlend, Node::aFkVisible);
 		MPxNode::attributeAffects(Node::aIkFkBlend, Node::aIkVisible);
+	}
+
+	// The match outputs (D52 section 4.1), pulled only by setRigIkFkBlend and never in playback: the control locals that reproduce the current
+	// pose on each side, by slot (aFkMatchLocal 0 to 2, aIkMatchLocal 3 and 4), and what the match can't do, a JSON list of messages. The node
+	// declares aFkMatchLocal and aIkMatchLocal (matrix arrays) and aMatchWarnings (a string). Call after createAttributes().
+	static MStatus createMatchAttributes()
+	{
+		MStatus status;
+		MFnMatrixAttribute mAttr;
+		MFnTypedAttribute tAttr;
+		// Maya computes an output only when something pulls it, and nothing is connected to these.
+		for (MObject* pAttr : { &Node::aFkMatchLocal, &Node::aIkMatchLocal })
+		{
+			const char* name = pAttr == &Node::aFkMatchLocal ? RigAttr::FkMatchLocal : RigAttr::IkMatchLocal;
+			*pAttr = mAttr.create(name, name, MFnMatrixAttribute::kDouble, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			CHECK_MSTATUS_AND_RETURN_IT(mAttr.setArray(true));
+			CHECK_MSTATUS_AND_RETURN_IT(mAttr.setWritable(false));
+			CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(false));
+			CHECK_MSTATUS_AND_RETURN_IT(mAttr.setUsesArrayDataBuilder(true));
+			CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(*pAttr));
+		}
+		MFnStringData fnEmptyList;
+		const MObject oEmptyList = fnEmptyList.create("[]");
+		Node::aMatchWarnings = tAttr.create(RigAttr::MatchWarnings, RigAttr::MatchWarnings, MFnData::kString, oEmptyList, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(tAttr.setWritable(false));
+		CHECK_MSTATUS_AND_RETURN_IT(tAttr.setStorable(false));
+		return MPxNode::addAttribute(Node::aMatchWarnings);
+	}
+
+	// The match outputs read everything the pose does: the controls, the child plugs' parents and every two-bone setting.
+	static void declareMatchAffects()
+	{
+		for (const MObject& oInput : { Node::aControlMatrix, Node::aControlRestWorld, Node::aChildPlugParentMatrix, Node::aChildPlugParentRestMatrix,
+			Node::aIkFkBlend, Node::aStretch, Node::aSoft, Node::aPin, Node::aRoll, Node::aPoleSpace, Node::aIkRestOffset, Node::aRestBendNormal,
+			Node::aRestPlaneAngle, Node::aLimbLengths })
+		{
+			MPxNode::attributeAffects(oInput, Node::aFkMatchLocal);
+			MPxNode::attributeAffects(oInput, Node::aIkMatchLocal);
+			MPxNode::attributeAffects(oInput, Node::aMatchWarnings);
+		}
+	}
+
+	// The one branch of compute() that allocates (the inverse's vectors and warnings), against D36's rule. It runs only when a tool pulls a
+	// match output: playback never does, and bench (D52 phase 8) checks that. The inverse is the restore's, run on the joints this evaluation
+	// solved, so what a match command writes is what a restore of the same pose would. `inverse` is the two-bone inverse (TwoBoneIkNode::inverse):
+	// a Limb matches its limb joints the same way, and only the first six slots are matched.
+	static MStatus computeMatch(const MPlug& plug, MDataBlock& data, ModuleInverseFn inverse)
+	{
+		MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorC_L2, "twoBoneIk computeMatch");   // no such event in a playback profile shows the branch never ran
+		MStatus status;
+		TwoBoneIkEval eval;
+		status = readEval(data, eval);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		TwoBoneIkSolveResult pose;
+		TwoBoneIkSolve::evaluate(eval, pose);
+
+		ModuleInverseContext context;
+		ModuleInverseInput input;
+		for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
+		{
+			context.controlRestWorld.push_back(eval.mRest[slot]);
+			input.fallbackLocal.push_back(eval.mLocal[slot]);
+			if (slot < TwoBoneIkSlot::LimbCount)
+			{
+				input.jointWorld.push_back(pose.mJointWorld[slot]);
+			}
+			else
+			{
+				input.jointWorld.emplace_back();
+			}
+		}
+		// The inverse reads the start, IK handle, pole (in Parent space) and settings deltas, and no other.
+		input.parentDelta.assign(TwoBoneIkSlot::Count, MMatrix::identity);
+		input.parentDelta[TwoBoneIkSlot::Upper] = eval.mUpperDelta;
+		input.parentDelta[TwoBoneIkSlot::Ik] = eval.mIkDelta;
+		input.parentDelta[TwoBoneIkSlot::Pole] = eval.mPoleParentDelta;
+		input.parentDelta[TwoBoneIkSlot::Settings] = eval.mSettingsDelta;
+		input.channels =
+		{
+			eval.soft, eval.stretch, eval.pin, eval.rollRadians,
+			eval.poleFollowsIk ? 1.0 : 0.0,
+			eval.blend
+		};
+		const ModuleInverseResult result = inverse(context, input);
+
+		MArrayDataHandle hFkMatch = data.outputArrayValue(Node::aFkMatchLocal, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		MArrayDataHandle hIkMatch = data.outputArrayValue(Node::aIkMatchLocal, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		for (unsigned int slot = 0; slot < TwoBoneIkSlot::Settings && slot < result.controlLocal.size(); ++slot)
+		{
+			if (!result.controlLocal[slot].has_value())
+			{
+				continue;
+			}
+			Node::writeOutputMatrix(slot < TwoBoneIkSlot::LimbCount ? hFkMatch : hIkMatch, slot, *result.controlLocal[slot]);
+		}
+
+		data.outputValue(Node::aMatchWarnings).setString(JsonUtils::writeJsonString(result.warnings).c_str());
+
+		const MObject oNode = plug.node();
+		Node::commitOutput(data, oNode, Node::aFkMatchLocal, hFkMatch);
+		Node::commitOutput(data, oNode, Node::aIkMatchLocal, hIkMatch);
+		data.setClean(MPlug(oNode, Node::aMatchWarnings));
+		data.setClean(plug);
+		return MStatus::kSuccess;
 	}
 
 	// Whether the FK lower and end controls (fk) or the IK handle and pole (not fk) are visible at a blend.

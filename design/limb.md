@@ -147,6 +147,13 @@ Each bind joint that is present comes back exactly, as for `Ribbon` (the tweaker
 
 The inverse runs only in tools and never in playback. If it is too expensive on a limb, trim in this order, each one a `moduleVersion` step if it changes a name: the sine channels, then the scale profile, then `volumePreserve`. The author prefers to keep them all.
 
+### 7.1 What phase 3 built (2026-11-20)
+
+- **Step 3 is smaller than the sketch above.** The ribbon's ends are the anchors, which the two-bone half already matched, and a Limb's ribbon ik controls have no joint (D57). So the inverse leaves every ik control at its fallback (the sidecar's value, else the rest) and gives each tweaker `bindJoint * controlOPM^-1`, which brings every bind joint back exactly whatever the ik controls hold. The `Ribbon` inverse's end refinement is not needed, because a Limb's ends do not follow the first and last bind joint's frame. The ribbon is rebuilt from the stored rests with `RibbonMath::buildAnchoredSetup`, as the plan step made it, and `setAnchors` is the one place the anchors are marked, for `compute()` and the inverse.
+- **Channels.** `LimbNode::inverseChannels()` is the two-bone list (`TwoBoneIkInverseChannel`, moved to `TwoBoneIkSolve.h`) followed by the 13 ribbon channels, all on the settings control. The sockets for slots 0 to 5 are the forward joints.
+- **The match outputs are shared.** `TwoBoneIkPart` owns `fkMatchLocal`, `ikMatchLocal`, `matchWarnings` and their `computeMatch` (it takes the inverse to run), so a Limb's outputs are the TwoBoneIk's, on the first six slots. `setRigIkFkBlend` accepts either module. It does not write ribbon controls: the ribbon rides the matched joints.
+- **A restore does not put the ribbon's ik controls back.** A posed ik control comes back as the sidecar's value or rest, with its pose carried by the tweakers. The contract round trip leaves them unposed for that reason.
+
 ## 8. Hand, foot and `ikTarget` (author, 2026-11-19)
 
 **One `Limb`, no `Arm` and `Leg`.** A hand needs nothing special. A foot needs a virtual transform that pushes the ankle target up when the ball raises, and `Limb` should not know about feet. The foot is a later module, `ReverseFoot`, with its own gate.
@@ -198,7 +205,7 @@ Each phase ends with the build, the full suite, the docs pass and one commit tha
 | 0 | Extract the `TwoBoneIk` and `Ribbon` solves. The coupling warning lands in the headers, `CLAUDE.md` and both design pages (this change) | none |
 | 1 | **Built 2026-11-19.** `RibbonMath::buildAnchoredSetup` and `Setup::fkAnchors` (section 5.1). Checked by a throwaway probe against hand-worked cases (section 11); the old ribbon results stay identical | none |
 | 2 | **Built 2026-11-19.** `Limb`: args, plan, create, `compute`, DAG parenting, registry, vcxproj, source map, `docs/modules.md`. Contract, pose cases, snapshot, `bendSoftness` (5.2). The two-bone half is the template `TwoBoneIkPart` and `TwoBoneIkSolve::planSlots`, and the ribbon's channels and stored rest are in `RibbonSolve`, so the two older modules run on the same code. The inverse is not built: the contract's three inverse tests are skipped for `Limb` | `Limb` module, `bendSoftness` |
-| 3 | The inverse and the matched switch through `setRigIkFkBlend` | none new |
+| 3 | **Built 2026-11-20.** The inverse and the matched switch through `setRigIkFkBlend` (section 7.1). The contract's three inverse tests run on `Limb` | `setRigIkFkBlend` and `find_ik_fk_limb` accept a Limb |
 | 4 | `ikTarget` and the validator exemption, with the foot-shaped test module | `ikTarget` plug |
 | 5 | Perf rig instances and one `bench` | none |
 | 6 | Move the solomon template to `Limb` for the arms and legs | solomon template |

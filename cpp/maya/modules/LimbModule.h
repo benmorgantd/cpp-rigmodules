@@ -101,6 +101,11 @@ public:
 	static MObject aFkVisible;
 	static MObject aIkVisible;
 
+	// The match outputs (TwoBoneIkPart), pulled only by setRigIkFkBlend: the two-bone limb's control locals on each side and the warnings.
+	static MObject aFkMatchLocal;
+	static MObject aIkMatchLocal;
+	static MObject aMatchWarnings;
+
 	// The ribbon's channels, read from the settings control (LimbChannel order). Angles are in radians.
 	static std::array<MObject, LimbChannel::Count> aChannels;
 
@@ -131,8 +136,12 @@ public:
 		MObject& oRigRoot,
 		MDagModifier& dagMod);
 	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
-	// Not built (D62 phase 3): the result is unsolved, with a reason, so a restore takes the sidecar or the rests.
+	// The two-bone inverse on the first six slots, then the tweakers from the bind joints against the ribbon the blended joints give
+	// (design/limb.md section 7). The ribbon's ik controls have no joint and keep the sidecar's value or the rest. The sockets are the
+	// forward joints (slots 0 to 5).
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
+	// The two-bone channels, then the ribbon's in LimbChannel order (all read from the settings control).
+	static std::vector<ModuleInverseChannel> inverseChannels();
 
 private:
 	static RibbonSolve::RestAttrs restAttrs();

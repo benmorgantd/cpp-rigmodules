@@ -6,6 +6,7 @@
 #include "core/RibbonMath.h"
 #include "core/RigJsonStructs.h"
 #include "core/StringUtils.h"
+#include "maya/modules/TwoBoneIkModule.h"
 #include "maya/nodes/Constraints.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RibbonSolve.h"
@@ -18,6 +19,7 @@
 
 #include <algorithm>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -48,6 +50,9 @@ MObject LimbNode::aRestPlaneAngle;
 MObject LimbNode::aLimbLengths;
 MObject LimbNode::aFkVisible;
 MObject LimbNode::aIkVisible;
+MObject LimbNode::aFkMatchLocal;
+MObject LimbNode::aIkMatchLocal;
+MObject LimbNode::aMatchWarnings;
 std::array<MObject, LimbChannel::Count> LimbNode::aChannels;
 MObject LimbNode::aIkControlCount;
 MObject LimbNode::aKnotU;
@@ -130,6 +135,24 @@ namespace
 		return mEndRest * RigConstraintNode::computeDelta(
 			kTwistType, mEndRest, MathUtils::computeDeltaFromRest(mMidRest, mMidWorld), MathUtils::computeDeltaFromRest(mEndRest, mEndWorld));
 	}
+
+	// The anchors' part of the ribbon's setup (D62): the limb joints' rests (the first three of mRests) are the anchors the curve passes
+	// through, with a corner at the mid joint. The stored setup is read back with this in compute(), and the inverse rebuilds it, so
+	// both run the one rule. False when two joints sit on each other.
+	bool setAnchors(RibbonMath::Setup& setup, const MMatrix* mRests)
+	{
+		setup.fkAnchors = true;
+		for (unsigned int k = 0; k < TwoBoneIkSlot::LimbCount; ++k)
+		{
+			setup.fkRest[k] = MathUtils::toMat4(mRests[k]);
+		}
+		if (!RibbonMath::fkKnots(setup.fkRest, TwoBoneIkSlot::LimbCount, setup.fkKnotU))
+		{
+			return false;
+		}
+		RibbonMath::markAnchorCorners(setup);
+		return true;
+	}
 }
 
 RibbonSolve::RestAttrs LimbNode::restAttrs()
@@ -158,6 +181,8 @@ MStatus LimbNode::initialize()
 	status = initializeSharedAttributes();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	status = TwoBoneIkPart<LimbNode>::createAttributes();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	status = TwoBoneIkPart<LimbNode>::createMatchAttributes();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// The ribbon's channel inputs, connected from the settings control at build.
@@ -188,6 +213,7 @@ MStatus LimbNode::initialize()
 	// AFFECTS RELATIONSHIPS
 	declareStandardAffects();
 	TwoBoneIkPart<LimbNode>::declareAffects();
+	TwoBoneIkPart<LimbNode>::declareMatchAffects();
 	// The ribbon rides the blended joints, so every two-bone setting also moves the ribbon's controls.
 	for (const MObject& oInput : { aIkFkBlend, aStretch, aSoft, aPin, aRoll, aIkRestOffset, aRestBendNormal, aRestPlaneAngle, aLimbLengths })
 	{
@@ -217,6 +243,12 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 		return MStatus::kSuccess;
 	}
 
+	// The matched IK/FK switch (D62 phase 3) is the two-bone limb's: the ribbon rides the joints and has nothing to match.
+	if (oOutputAttr == aFkMatchLocal || oOutputAttr == aIkMatchLocal || oOutputAttr == aMatchWarnings)
+	{
+		return Part::computeMatch(plug, data, &TwoBoneIkNode::inverse);
+	}
+
 	if (oOutputAttr != aControlOPM && oOutputAttr != aJointOPM && oOutputAttr != aOutputSocketMatrix)
 	{
 		return MStatus::kUnknownParameter;
@@ -244,17 +276,11 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	// 2. The ribbon's stored rest, with the limb's three joint rests as the anchors the curve passes through.
 	RibbonMath::Setup setup;
 	RibbonSolve::readSetup(data, restAttrs(), controlCount, bindCount, TwoBoneIkSlot::LimbCount, setup);
-	setup.fkAnchors = true;
-	for (unsigned int k = 0; k < TwoBoneIkSlot::LimbCount; ++k)
-	{
-		setup.fkRest[k] = MathUtils::toMat4(eval.mRest[k]);
-	}
-	if (!RibbonMath::fkKnots(setup.fkRest, TwoBoneIkSlot::LimbCount, setup.fkKnotU))
+	if (!setAnchors(setup, eval.mRest))
 	{
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
-	RibbonMath::markAnchorCorners(setup);
 
 	double channelValues[LimbChannel::Count];
 	RibbonSolve::readChannels(data, aChannels.data(), limbChannelSpecs().data(), LimbChannel::Count, channelValues);
@@ -289,12 +315,128 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	return MStatus::kSuccess;
 }
 
-ModuleInverseResult LimbNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput&)
+std::vector<ModuleInverseChannel> LimbNode::inverseChannels()
+{
+	// The two-bone limb's, then the ribbon's in LimbChannel order, all on the settings control. The defaults are the channels' rests.
+	std::vector<ModuleInverseChannel> channels = TwoBoneIkNode::inverseChannels();
+	for (const ChannelSpec& spec : limbChannelSpecs())
+	{
+		channels.push_back(ModuleInverseChannel{ spec.name, TwoBoneIkSlot::Settings, spec.defaultValue });
+	}
+	return channels;
+}
+
+// Allocates (the contract's vectors, the warnings), which is fine for a restore. compute() never calls it. The forward evaluation is the
+// source of truth (design/limb.md section 7), so the three steps are the forward ones, run backwards where a joint gives the answer.
+ModuleInverseResult LimbNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput& input)
 {
 	ModuleInverseResult result;
-	result.controlLocal.resize(context.controlRestWorld.size());
-	result.socketWorld.assign(context.controlRestWorld.size(), MMatrix::identity);
-	result.reason = "the Limb's inverse is not built yet (D62 phase 3), so its controls come from the sidecar or rest";
+	const unsigned int slotCount = static_cast<unsigned int>(context.controlRestWorld.size());
+	const int controlCount = static_cast<int>(context.ikControlCount);
+	const int bindCount = static_cast<int>(slotCount) - static_cast<int>(LimbSlot::FirstRibbon) - controlCount;
+	result.controlLocal.resize(slotCount);
+	result.socketWorld.assign(slotCount, MMatrix::identity);
+	if (controlCount < 3 || controlCount > RibbonMath::MaxControls || bindCount < 1 || bindCount > RibbonMath::MaxBindJoints)
+	{
+		result.reason = "the Limb's slots are not what its build made, so its controls come from the sidecar or rest";
+		return result;
+	}
+
+	// 1. The two-bone inverse on the first six slots: the FK, IK handle and pole controls from the three limb joints, and the forward
+	// evaluation of them, which is the blended joint worlds the ribbon rides.
+	ModuleInverseContext ikContext;
+	ModuleInverseInput ikInput;
+	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
+	{
+		ikContext.controlRestWorld.push_back(context.controlRestWorld[slot]);
+		ikInput.jointWorld.push_back(slot < input.jointWorld.size() ? input.jointWorld[slot] : std::nullopt);
+		ikInput.parentDelta.push_back(input.parentDelta[slot]);
+		ikInput.fallbackLocal.push_back(input.fallbackLocal[slot]);
+	}
+	ikInput.channels.assign(input.channels.begin(), input.channels.begin() + std::min<std::size_t>(input.channels.size(), TwoBoneIkInverseChannel::Count));
+	const ModuleInverseResult ik = TwoBoneIkNode::inverse(ikContext, ikInput);
+	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
+	{
+		result.controlLocal[slot] = ik.controlLocal[slot];
+		result.socketWorld[slot] = ik.socketWorld[slot];
+	}
+	result.warnings = ik.warnings;
+
+	// 2. The ribbon's setup, rebuilt from the stored rests the way the plan step made it, and the anchors from the forward joints.
+	const std::vector<ModuleInverseChannel> wanted = inverseChannels();
+	double channelValues[LimbChannel::Count];
+	for (unsigned int k = 0; k < LimbChannel::Count; ++k)
+	{
+		const std::size_t at = TwoBoneIkInverseChannel::Count + k;
+		channelValues[k] = at < input.channels.size() ? input.channels[at] : wanted[at].defaultValue;
+	}
+	const unsigned int ribbonSlots = static_cast<unsigned int>(controlCount + bindCount);
+	RibbonMath::Mat4 anchorRest[TwoBoneIkSlot::LimbCount];
+	for (unsigned int i = 0; i < TwoBoneIkSlot::LimbCount; ++i)
+	{
+		anchorRest[i] = MathUtils::toMat4(context.controlRestWorld[i]);
+	}
+	RibbonMath::Mat4 bindRest[RibbonMath::MaxBindJoints];
+	for (int i = 0; i < bindCount; ++i)
+	{
+		bindRest[i] = MathUtils::toMat4(context.controlRestWorld[LimbSlot::FirstRibbon + static_cast<unsigned int>(controlCount + i)]);
+	}
+	const double upperLength = (MathUtils::translationOf(context.controlRestWorld[TwoBoneIkSlot::Lower]) - MathUtils::translationOf(context.controlRestWorld[TwoBoneIkSlot::Upper])).length();
+	const double lowerLength = (MathUtils::translationOf(context.controlRestWorld[TwoBoneIkSlot::End]) - MathUtils::translationOf(context.controlRestWorld[TwoBoneIkSlot::Lower])).length();
+	const std::vector<double> controlU = ControlPlacement::limbControlParameters(upperLength, lowerLength, controlCount);
+	RibbonMath::Mat4 controlRest[RibbonMath::MaxControls];
+	RibbonMath::Setup setup;
+	const char* pReason = "";
+	if (!RibbonMath::buildAnchoredSetup(anchorRest, TwoBoneIkSlot::LimbCount, controlU.data(), controlCount, bindRest, bindCount, setup, controlRest, pReason)
+		|| !setAnchors(setup, &context.controlRestWorld[0]))
+	{
+		result.reason = pReason[0] != '\0' ? pReason : "the Limb's joints sit on each other, so its ribbon has no curve";
+		return result;
+	}
+
+	MMatrix mRest[RibbonSolve::MaxSlots];
+	MMatrix mLocal[RibbonSolve::MaxSlots];
+	for (unsigned int j = 0; j < ribbonSlots; ++j)
+	{
+		mRest[j] = context.controlRestWorld[LimbSlot::FirstRibbon + j];
+		mLocal[j] = input.fallbackLocal[LimbSlot::FirstRibbon + j];
+	}
+	const MMatrix* pJoint = result.socketWorld.data();   // the blended start, mid and end
+	const MMatrix anchors[TwoBoneIkSlot::LimbCount] =
+	{
+		startAnchor(context.controlRestWorld[TwoBoneIkSlot::Upper], pJoint[TwoBoneIkSlot::Upper]),
+		pJoint[TwoBoneIkSlot::Lower],
+		endAnchor(context.controlRestWorld[TwoBoneIkSlot::End], pJoint[TwoBoneIkSlot::End], context.controlRestWorld[TwoBoneIkSlot::Lower], pJoint[TwoBoneIkSlot::Lower])
+	};
+
+	// 3. The ribbon's ik controls have no joint, so they keep the fallback (the sidecar's value, else the rest): the ends are the anchors,
+	// which the two-bone half already matched. The tweakers carry what is left, so a bind joint that is present comes back exactly
+	// whatever the ik controls hold.
+	RibbonSolve::Result solve;
+	RibbonSolve::evaluate(setup, paramsFromLimbChannels(channelValues), mRest, mLocal, MMatrix::identity, MMatrix::identity, solve, anchors);
+	bool hasEveryBindJoint = true;
+	for (int i = 0; i < bindCount; ++i)
+	{
+		const unsigned int slot = LimbSlot::FirstRibbon + static_cast<unsigned int>(controlCount + i);
+		if (slot < input.jointWorld.size() && input.jointWorld[slot].has_value())
+		{
+			result.controlLocal[slot] = *input.jointWorld[slot] * solve.mControlOPM[controlCount + i].inverse();
+		}
+		else
+		{
+			hasEveryBindJoint = false;
+		}
+	}
+
+	result.solved = ik.solved && hasEveryBindJoint;
+	if (!ik.solved)
+	{
+		result.reason = ik.reason;
+	}
+	else if (!hasEveryBindJoint)
+	{
+		result.reason = "a bind joint is missing from the source, so its tweaker comes from the sidecar or rest";
+	}
 	return result;
 }
 

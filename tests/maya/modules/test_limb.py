@@ -5,11 +5,12 @@ The Limb runs the TwoBoneIk and Ribbon solves, so test_limb_matches_parts holds 
 does not carry through fails it.
 """
 import math
-import unittest
 
 from maya import cmds
 
 import rigmodules.query
+from commands.test_two_bone_ik_cmds import SwitchTestCase
+from commands.test_two_bone_ik_inverse import CapturedWarnings
 from rigtest import fixtures
 from rigtest.case import RigTestCase, rig_name
 from rigtest.cases import add_pose_cases
@@ -25,6 +26,7 @@ HAND = "hand_00_L_CTRL"
 HANDLE = "armIK_00_L_CTRL"
 POLE = "armPole_00_L_CTRL"
 SETTINGS = "armSettings_00_L_CTRL"
+MATCHED_LIMB = (START, LOWER, HAND, HANDLE, POLE)
 
 # The ribbon's channels on the settings control: name -> (rest, mirror), and what the module adds to the two-bone limb's.
 RIBBON_CHANNELS = {
@@ -48,18 +50,22 @@ class LimbContract(ModuleContract, RigTestCase):
     MIRROR_TEMPLATE = "limb_mirror"
     MIRROR_SKELETON = "limb_mirror"
 
-    # The Limb's inverse is D62 phase 3: it answers "unsolved, with a reason", so a restore takes the sidecar or the rests.
-    @unittest.skip("D62 phase 3: the Limb's inverse is not built yet")
-    def test_contract_inverse_round_trip(self):
-        pass
+    # What the inverse can and can't give back (D62 phase 3, design/limb.md section 7). The ribbon's ik controls have no joint, so they
+    # are never restored: they keep the sidecar's value or the rest, and the tweakers carry the difference, so every bind joint comes
+    # back exactly. The round trip poses every other control. The two-bone half is TwoBoneIk's: the FK controls the blend hides can't
+    # come back from the joints.
+    def _pose_channels(self, control):
+        if rigmodules.query.get_control(control).usage.startswith("armRibbonIK"):
+            return {}
+        return super()._pose_channels(control)
 
-    @unittest.skip("D62 phase 3: the Limb's inverse is not built yet")
-    def test_contract_inverse_round_trip_mirrored(self):
-        pass
+    def joints_cannot_give(self, control, channel):
+        name = control.split(":")[-1].split("_")[0]
+        return name in ("lowerArm", "hand") or (name == "upperArm" and not channel.startswith("translate"))
 
-    @unittest.skip("D62 phase 3: the Limb's inverse is not built yet")
-    def test_contract_inverse_without_a_joint_falls_back_to_the_sidecar(self):
-        pass
+    def controls_lost_with_joint(self, root, markup):
+        """The last bind joint's tweaker, which has no joint when the source lacks it."""
+        return [c for c in rigmodules.query.get_rig_controls(root) if c.usage == "armTweak_08" and c.side == markup["side"]]
 
 
 class LimbPoses(RigTestCase):
@@ -225,3 +231,81 @@ class LimbBehaviour(RigTestCase):
             for joint, a, b in zip(LIMB_JOINTS, results["limb"][index], results["twoboneik"][index]):
                 for x, y in zip(a, b):
                     self.assertAlmostEqual(x, y, places=6, msg="pose %d %s: the Limb and a TwoBoneIk disagree" % (index, joint))
+
+
+class LimbSwitch(SwitchTestCase):
+    """setRigIkFkBlend on a Limb (D62 phase 3): the two-bone limb's match, with the ribbon riding the matched joints. The cases that are
+    worked by hand for the TwoBoneIk (test_two_bone_ik_cmds) are the same maths, so these check what a Limb adds: the bind joints stay
+    put with the limb's joints, and the command and the query find the module from any of its controls."""
+
+    LIMB = tuple(LIMB_JOINTS + BIND_JOINTS)
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard("limb_arm", "limb_arm")
+
+    def test_fk_to_ik_and_back_keeps_every_joint_and_bind_joint(self):
+        self.assertSwitchKeepsJoints(0.0, {START + ".rotateZ": 20, START + ".rotateX": 10, LOWER + ".rotateZ": 40, HAND + ".rotateY": 15})
+
+    def test_a_posed_ik_limb_keeps_every_joint_and_bind_joint(self):
+        self.assertSwitchKeepsJoints(1.0, {HANDLE + ".translateX": -1, HANDLE + ".translateY": 2, HANDLE + ".rotateZ": 25,
+                                           POLE + ".translateX": 1, POLE + ".translateY": -3})
+
+    def test_the_ribbons_own_posing_does_not_disturb_the_match(self):
+        """A moved ribbon ik control, a start twist, an end twist and the elbow's softness change the bind joints and nothing the
+        two-bone match reads, so the bind joints are where they were after a switch either way."""
+        self.assertSwitchKeepsJoints(0.0, {START + ".rotateZ": 30, LOWER + ".rotateZ": 35, RIBBON_IK[1] + ".translateY": 0.5,
+                                           SETTINGS + ".startTwist": 20, SETTINGS + ".endTwist": -30, SETTINGS + ".bendSoftness": 0.5})
+        self.assertSwitchKeepsJoints(1.0, {HANDLE + ".translateX": -1, RIBBON_IK[3] + ".translateZ": 0.3, SETTINGS + ".volumePreserve": 0.5})
+
+    def test_stretch_soft_roll_and_pin_carry_over(self):
+        self.assertSwitchKeepsJoints(1.0, {SETTINGS + ".stretch": 1, SETTINGS + ".soft": 0.1, HANDLE + ".roll": 40, HANDLE + ".translateX": 2,
+                                           POLE + ".pin": 0.3})
+
+    def test_a_pose_ik_can_make_warns_about_nothing(self):
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0)
+        cmds.setAttr(rig_name(START + ".rotateZ"), -40)
+        with CapturedWarnings() as warnings:
+            self.switch(1)
+        self.assertEqual(warnings.messages, [])
+
+    def test_a_blend_between_warns_that_ik_is_approximate(self):
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0.5)
+        cmds.setAttr(rig_name(START + ".rotateZ"), 20)
+        with CapturedWarnings() as warnings:
+            self.switch(0)
+        self.assertTrue(warnings.contain("between 0 and 1"), warnings.messages)
+
+    def test_any_control_of_the_module_names_the_limb(self):
+        for node in (START, HANDLE, POLE, SETTINGS, RIBBON_IK[2], TWEAKERS[4], "arm_01_L_MOD"):
+            with self.subTest(node=node):
+                cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 1)
+                cmds.setRigIkFkBlend(rig_name(node), blend=0)
+                self.assertEqual(cmds.getAttr(rig_name(SETTINGS + ".ikFkBlend")), 0)
+
+    def test_the_match_is_one_undo_step_and_sets_no_keys(self):
+        cmds.undoInfo(state=True, infinity=True)
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0)
+        cmds.setAttr(rig_name(START + ".rotateZ"), -40)
+        before = self.control_values()
+        self.switch(1)
+        self.assertNotEqual(before, self.control_values())
+        cmds.undo()
+        self.assertEqual(self.control_values(), before)
+        self.assertEqual(cmds.getAttr(rig_name(SETTINGS + ".ikFkBlend")), 0)
+        for control in MATCHED_LIMB + (SETTINGS,):
+            self.assertFalse(cmds.listConnections(rig_name(control), type="animCurve"), control)
+
+    def test_the_query_finds_the_limb_from_any_control(self):
+        module = rig_name("arm_01_L_MOD").lstrip(":")
+        for control in (START, HANDLE, SETTINGS, RIBBON_IK[0], TWEAKERS[0]):
+            with self.subTest(control=control):
+                limb = rigmodules.query.find_ik_fk_limb(rig_name(control))
+                self.assertEqual(limb.module, module)
+                self.assertEqual(limb.settings, rig_name(SETTINGS).lstrip(":"))
+                self.assertEqual(limb.blend, 1.0)
+                self.assertEqual(len(limb.controls), 6 + len(RIBBON_IK) + len(TWEAKERS))
+
+    def test_a_node_that_is_not_a_limb_is_an_error(self):
+        self.assertMayaError(lambda: cmds.setRigIkFkBlend(rig_name("upperArm_00_L_JNT"), blend=1), "not a TwoBoneIk or Limb")
+

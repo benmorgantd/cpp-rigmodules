@@ -54,7 +54,7 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
         {
             "limbModule", "Limb", LimbNode::id,
             LimbNode::creator, LimbNode::initialize,
-            {}, LimbNode::planFromJson, LimbNode::inverse, true, {}, TwoBoneIkNode::spaceDelta
+            {}, LimbNode::planFromJson, LimbNode::inverse, true, LimbNode::inverseChannels(), TwoBoneIkNode::spaceDelta
         },
         {
             "rigConstraint", "RigConstraint", RigConstraintNode::id,

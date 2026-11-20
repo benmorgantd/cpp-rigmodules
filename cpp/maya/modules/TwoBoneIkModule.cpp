@@ -107,10 +107,6 @@ void* TwoBoneIkNode::creator()
 MStatus TwoBoneIkNode::initialize()
 {
 	MStatus status;
-	MFnNumericAttribute nAttr;
-	MFnMatrixAttribute mAttr;
-	MFnTypedAttribute tAttr;
-	MFnUnitAttribute uAttr;
 
 	status = initializeSharedAttributes();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -118,39 +114,13 @@ MStatus TwoBoneIkNode::initialize()
 	status = TwoBoneIkPart<TwoBoneIkNode>::createAttributes();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Match outputs. Maya computes an output only when something pulls it, and nothing is connected to these.
-	for (MObject* pAttr : { &aFkMatchLocal, &aIkMatchLocal })
-	{
-		const char* name = pAttr == &aFkMatchLocal ? RigAttr::FkMatchLocal : RigAttr::IkMatchLocal;
-		*pAttr = mAttr.create(name, name, MFnMatrixAttribute::kDouble, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setArray(true));
-		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setWritable(false));
-		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(false));
-		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setUsesArrayDataBuilder(true));
-		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(*pAttr));
-	}
-	{
-		MFnStringData fnEmptyList;
-		const MObject oEmptyList = fnEmptyList.create("[]");
-		aMatchWarnings = tAttr.create(RigAttr::MatchWarnings, RigAttr::MatchWarnings, MFnData::kString, oEmptyList, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		CHECK_MSTATUS_AND_RETURN_IT(tAttr.setWritable(false));
-		CHECK_MSTATUS_AND_RETURN_IT(tAttr.setStorable(false));
-		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aMatchWarnings));
-	}
+	status = TwoBoneIkPart<TwoBoneIkNode>::createMatchAttributes();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// AFFECTS RELATIONSHIPS
 	declareStandardAffects();
 	TwoBoneIkPart<TwoBoneIkNode>::declareAffects();
-	// The match outputs read everything the pose does: the controls, the child plugs' parents and every setting.
-	for (const MObject& oInput : { aControlMatrix, aControlRestWorld, aChildPlugParentMatrix, aChildPlugParentRestMatrix,
-		aIkFkBlend, aStretch, aSoft, aPin, aRoll, aPoleSpace, aIkRestOffset, aRestBendNormal, aRestPlaneAngle, aLimbLengths })
-	{
-		attributeAffects(oInput, aFkMatchLocal);
-		attributeAffects(oInput, aIkMatchLocal);
-		attributeAffects(oInput, aMatchWarnings);
-	}
+	TwoBoneIkPart<TwoBoneIkNode>::declareMatchAffects();
 
 	return MStatus::kSuccess;
 }
@@ -170,7 +140,7 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 
 	if (oOutputAttr == aFkMatchLocal || oOutputAttr == aIkMatchLocal || oOutputAttr == aMatchWarnings)
 	{
-		return computeMatch(plug, data);
+		return TwoBoneIkPart<TwoBoneIkNode>::computeMatch(plug, data, &TwoBoneIkNode::inverse);
 	}
 
 	if (oOutputAttr != aControlOPM && oOutputAttr != aJointOPM && oOutputAttr != aOutputSocketMatrix)
@@ -192,77 +162,6 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 		writeSolvedSlot(outputs, slot, result.mControlOPM[slot], result.mJointWorld[slot]);
 	}
 	commitSolvedOutputs(data, plug, aJointOPM, outputs);
-	return MStatus::kSuccess;
-}
-
-namespace
-{
-	// Profiler event name, in ProfilerUtils' category. A profile of playback with no such event shows the match branch never ran.
-	constexpr const char* ProfileComputeMatch{ "twoBoneIk computeMatch" };
-}
-
-// The one branch of compute() that allocates (the inverse's vectors and warnings), against D36's rule. It runs only when a
-// tool pulls a match output: playback never does, and bench (D52 phase 8) checks that. The inverse is the restore's, run
-// on the joints this evaluation solved, so what a match command writes is what a restore of the same pose would.
-MStatus TwoBoneIkNode::computeMatch(const MPlug& plug, MDataBlock& data)
-{
-	MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorC_L2, ProfileComputeMatch);
-	MStatus status;
-	TwoBoneIkEval eval;
-	status = TwoBoneIkPart<TwoBoneIkNode>::readEval(data, eval);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	TwoBoneIkSolveResult pose;
-	TwoBoneIkSolve::evaluate(eval, pose);
-
-	ModuleInverseContext context;
-	ModuleInverseInput input;
-	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
-	{
-		context.controlRestWorld.push_back(eval.mRest[slot]);
-		input.fallbackLocal.push_back(eval.mLocal[slot]);
-		if (slot < TwoBoneIkSlot::LimbCount)
-		{
-			input.jointWorld.push_back(pose.mJointWorld[slot]);
-		}
-		else
-		{
-			input.jointWorld.emplace_back();
-		}
-	}
-	// The inverse reads the start, IK handle, pole (in Parent space) and settings deltas, and no other.
-	input.parentDelta.assign(TwoBoneIkSlot::Count, MMatrix::identity);
-	input.parentDelta[TwoBoneIkSlot::Upper] = eval.mUpperDelta;
-	input.parentDelta[TwoBoneIkSlot::Ik] = eval.mIkDelta;
-	input.parentDelta[TwoBoneIkSlot::Pole] = eval.mPoleParentDelta;
-	input.parentDelta[TwoBoneIkSlot::Settings] = eval.mSettingsDelta;
-	input.channels =
-	{
-		eval.soft, eval.stretch, eval.pin, eval.rollRadians,
-		eval.poleFollowsIk ? 1.0 : 0.0,
-		eval.blend
-	};
-	const ModuleInverseResult result = inverse(context, input);
-
-	MArrayDataHandle hFkMatch = data.outputArrayValue(aFkMatchLocal, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hIkMatch = data.outputArrayValue(aIkMatchLocal, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Settings && slot < result.controlLocal.size(); ++slot)
-	{
-		if (!result.controlLocal[slot].has_value())
-		{
-			continue;
-		}
-		writeOutputMatrix(slot < TwoBoneIkSlot::LimbCount ? hFkMatch : hIkMatch, slot, *result.controlLocal[slot]);
-	}
-
-	data.outputValue(aMatchWarnings).setString(JsonUtils::writeJsonString(result.warnings).c_str());
-
-	const MObject oNode = plug.node();
-	commitOutput(data, oNode, aFkMatchLocal, hFkMatch);
-	commitOutput(data, oNode, aIkMatchLocal, hIkMatch);
-	data.setClean(MPlug(oNode, aMatchWarnings));
-	data.setClean(plug);
 	return MStatus::kSuccess;
 }
 

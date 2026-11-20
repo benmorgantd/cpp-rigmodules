@@ -214,7 +214,7 @@ Undo restores both the enum and the control's values.
 
 ## setRigIkFkBlend
 
-Switches a [TwoBoneIk](modules.md#twoboneik) limb between IK and FK without a pop. It first writes the control values that reproduce the limb's current pose on both sides, then sets `ikFkBlend`.
+Switches a [TwoBoneIk](modules.md#twoboneik) or [Limb](modules.md#limb) between IK and FK without a pop. A Limb's ribbon and bind joints follow the matched joints and are not written. It first writes the control values that reproduce the limb's current pose on both sides, then sets `ikFkBlend`.
 
 ```python
 cmds.setRigIkFkBlend("hero_body:armSettings_00_L_CTRL", blend=0)    # to FK

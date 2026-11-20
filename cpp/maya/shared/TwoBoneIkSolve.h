@@ -81,6 +81,19 @@ namespace TwoBoneIkSlot
 	inline constexpr unsigned int LimbCount{ 3 };  // the slots that are limb joints
 }
 
+// The order of the scalar channels the two-bone inverse reads (TwoBoneIkNode::inverseChannels), which is the order of
+// ModuleInverseInput::channels. A Limb's list starts with these (D62). Append only: the order is not a name, but the inverse indexes by it.
+namespace TwoBoneIkInverseChannel
+{
+	inline constexpr unsigned int Soft{ 0 };
+	inline constexpr unsigned int Stretch{ 1 };
+	inline constexpr unsigned int Pin{ 2 };
+	inline constexpr unsigned int Roll{ 3 };
+	inline constexpr unsigned int Space{ 4 };
+	inline constexpr unsigned int IkFkBlend{ 5 };
+	inline constexpr unsigned int Count{ 6 };
+}
+
 struct TwoBoneIkSlotInput
 {
 	MObject oJoint;                // Null for the IK, pole and settings slots: they have no joint (D57)

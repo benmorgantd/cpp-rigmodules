@@ -17,19 +17,6 @@
 #include <maya/MTypeId.h>
 #include <maya/MVector.h>
 
-// The order of the scalar channels the inverse reads (inverseChannels), which is the order of ModuleInverseInput::channels.
-// Append only: the order is not a name, but the inverse indexes by it.
-namespace TwoBoneIkInverseChannel
-{
-	inline constexpr unsigned int Soft{ 0 };
-	inline constexpr unsigned int Stretch{ 1 };
-	inline constexpr unsigned int Pin{ 2 };
-	inline constexpr unsigned int Roll{ 3 };
-	inline constexpr unsigned int Space{ 4 };
-	inline constexpr unsigned int IkFkBlend{ 5 };
-	inline constexpr unsigned int Count{ 6 };
-}
-
 // COUPLED TO Limb (D62, design/limb.md): LimbNode runs this module's solve, channels, control derivation and inverse. A change here
 // changes Limb. Read design/limb.md and run test_limb_matches_parts before changing any of them.
 //
@@ -97,8 +84,4 @@ public:
 	// The pole's space deltas (ModuleSpaceDeltaFn): Parent is the pole child plug's parent motion, Ik is the IK handle's
 	// motion since rest. Slot Pole only.
 	static MStatus spaceDelta(const MObject& oModule, unsigned int slot, unsigned int label, MMatrix& outDelta);
-
-private:
-	// The match outputs' branch of compute(): the inverse run on the current evaluation. Allocates.
-	static MStatus computeMatch(const MPlug& plug, MDataBlock& data);
 };
