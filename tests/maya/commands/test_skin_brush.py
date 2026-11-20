@@ -153,31 +153,46 @@ class SkinBrushPicking(SkinBrushTestCase):
 
 
 class SkinBrushSurface(RigTestCase):
-    """The radius is a length over the surface, so a close surface the brush cannot walk to is left alone."""
+    """The radius is a length over the surface, so a close surface the brush cannot walk to is left alone. With the
+    volume falloff it is a distance in space, and that surface is reached."""
 
-    def test_the_brush_does_not_cross_to_another_shell_that_is_closer_in_space_than_in_length(self):
+    def setUp(self):
+        super().setUp()
         cmds.select(clear=True)
         joints = [cmds.joint(name="jointOne", position=(-1, 0, 0)), cmds.joint(name="jointTwo", position=(1, 0, 0))]
         low = cmds.polyPlane(name="low_geo", subdivisionsX=4, subdivisionsY=4, constructionHistory=False)[0]
         high = cmds.polyPlane(name="high_geo", subdivisionsX=4, subdivisionsY=4, constructionHistory=False)[0]
         cmds.move(0, 0.1, 0, high)
         cmds.makeIdentity(high, apply=True, translate=True)
-        united = cmds.polyUnite(low, high, name="united_geo", constructionHistory=False)[0]   # vertices 0-24 low, 25-49 high
-        cluster = cmds.skinCluster(joints, united, toSelectedBones=True)[0]
-        cmds.setAttr(cluster + ".normalizeWeights", 0)
+        self.united = cmds.polyUnite(low, high, name="united_geo", constructionHistory=False)[0]   # vertices 0-24 low, 25-49 high
+        self.cluster = cmds.skinCluster(joints, self.united, toSelectedBones=True)[0]
+        cmds.setAttr(self.cluster + ".normalizeWeights", 0)
         for vertex in range(50):
             one = 1.0 if vertex % 5 <= 1 else 0.0
-            cmds.skinPercent(cluster, "%s.vtx[%d]" % (united, vertex), normalize=False,
+            cmds.skinPercent(self.cluster, "%s.vtx[%d]" % (self.united, vertex), normalize=False,
                              transformValue=[(joints[0], one), (joints[1], 1.0 - one)])
-        cmds.setAttr(cluster + ".normalizeWeights", 1)
+        cmds.setAttr(self.cluster + ".normalizeWeights", 1)
 
-        def rows(first):
-            return [cmds.skinPercent(cluster, "%s.vtx[%d]" % (united, v), query=True, value=True) for v in range(first, first + 25)]
+    def rows(self, first):
+        return [cmds.skinPercent(self.cluster, "%s.vtx[%d]" % (self.united, v), query=True, value=True) for v in range(first, first + 25)]
 
-        high_before = rows(25)
-        cmds.skinBrushStroke(radius=0.3, strength=1.0, hitPoint=[(united, 5, 0, 0, 0)])
-        self.assertAlmostEqual(rows(0)[12][0], 0.2, places=5)       # the shell it landed on moved
-        self.assertEqual(rows(25), high_before)                     # 0.1 above it in space, but no way there over the surface
+    def test_the_brush_does_not_cross_to_another_shell_that_is_closer_in_space_than_in_length(self):
+        high_before = self.rows(25)
+        cmds.skinBrushStroke(radius=0.3, strength=1.0, hitPoint=[(self.united, 5, 0, 0, 0)])
+        self.assertAlmostEqual(self.rows(0)[12][0], 0.2, places=5)       # the shell it landed on moved
+        self.assertEqual(self.rows(25), high_before)                     # 0.1 above it in space, but no way there over the surface
+
+    def test_the_volume_falloff_reaches_the_other_shell(self):
+        # The vertex above the center is 0.1 away in a straight line: t = 1/3, scale (2/3)^2 * (3 - 4/3) = 20/27, and
+        # its neighbors' average is 1/5 (the one in column 1 is joint one's), so it becomes 20/27 * 1/5 = 4/27.
+        cmds.skinBrushStroke(radius=0.3, strength=1.0, falloff="volume", hitPoint=[(self.united, 5, 0, 0, 0)])
+        self.assertAlmostEqual(self.rows(0)[12][0], 0.2, places=5)
+        self.assertAlmostEqual(self.rows(25)[12][0], 4.0 / 27.0, places=5)
+
+    def test_surface_is_the_default_falloff(self):
+        high_before = self.rows(25)
+        cmds.skinBrushStroke(radius=0.3, strength=1.0, falloff="surface", hitPoint=[(self.united, 5, 0, 0, 0)])
+        self.assertEqual(self.rows(25), high_before)
 
 
 class SkinBrushUndo(SkinBrushTestCase):
@@ -208,6 +223,7 @@ class SkinBrushChecks(SkinBrushTestCase):
         self.assertMayaError(lambda: self.stroke(self.center_hit(), strength=0), "strength")
         self.assertMayaError(lambda: self.stroke(self.center_hit(), strength=1.5), "strength")
         self.assertMayaError(lambda: self.stroke(self.center_hit(), operation="paint"), "paint", "operation")
+        self.assertMayaError(lambda: self.stroke(self.center_hit(), falloff="smooth"), "smooth", "falloff")
 
     def test_a_stroke_needs_a_hit_or_a_ray(self):
         self.assertMayaError(lambda: cmds.skinBrushStroke(radius=0.3), "needs at least one")
@@ -230,9 +246,11 @@ class SkinBrushContext(RigTestCase):
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, radius=True), 5.0)
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, strength=True), 0.5)
         self.assertFalse(cmds.skinBrushCtx(self.ctx, query=True, throughMesh=True))
+        self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, falloff=True), "surface")
 
     def test_the_settings_can_be_edited_and_queried(self):
-        cmds.skinBrushCtx(self.ctx, edit=True, radius=8.0, strength=0.25, throughMesh=True)
+        cmds.skinBrushCtx(self.ctx, edit=True, radius=8.0, strength=0.25, throughMesh=True, falloff="volume")
+        self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, falloff=True), "volume")
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, radius=True), 8.0)
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, strength=True), 0.25)
         self.assertTrue(cmds.skinBrushCtx(self.ctx, query=True, throughMesh=True))
@@ -241,5 +259,6 @@ class SkinBrushContext(RigTestCase):
         self.assertMayaError(lambda: cmds.skinBrushCtx(self.ctx, edit=True, radius=0), "radius")
         self.assertMayaError(lambda: cmds.skinBrushCtx(self.ctx, edit=True, strength=2), "strength")
         self.assertMayaError(lambda: cmds.skinBrushCtx(self.ctx, edit=True, operation="paint"), "paint")
+        self.assertMayaError(lambda: cmds.skinBrushCtx(self.ctx, edit=True, falloff="smooth"), "smooth")
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, radius=True), 5.0)
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, strength=True), 0.5)

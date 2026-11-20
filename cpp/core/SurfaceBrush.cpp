@@ -97,6 +97,55 @@ const std::vector<double>& SurfaceDistance::distances() const
 	return fDistances;
 }
 
+const char* falloffName(FalloffMode mode)
+{
+	return mode == FalloffMode::Volume ? "volume" : "surface";
+}
+
+bool parseFalloff(const std::string& name, FalloffMode& mode)
+{
+	if (name == "surface")
+	{
+		mode = FalloffMode::Surface;
+		return true;
+	}
+	if (name == "volume")
+	{
+		mode = FalloffMode::Volume;
+		return true;
+	}
+	return false;
+}
+
+void volumeReach(const std::vector<float>& positions, const std::vector<Point3>& centers, double radius, std::vector<unsigned int>& vertices, std::vector<double>& distances)
+{
+	vertices.clear();
+	distances.clear();
+	const double radiusSquared = radius * radius;
+	for (std::size_t v = 0; 3 * v + 2 < positions.size(); ++v)
+	{
+		double nearest = radiusSquared;
+		bool isInside = false;
+		for (const Point3& center : centers)
+		{
+			const double dx = static_cast<double>(positions[3 * v]) - center.x;
+			const double dy = static_cast<double>(positions[3 * v + 1]) - center.y;
+			const double dz = static_cast<double>(positions[3 * v + 2]) - center.z;
+			const double squared = dx * dx + dy * dy + dz * dz;
+			if (squared <= nearest)
+			{
+				nearest = squared;
+				isInside = true;
+			}
+		}
+		if (isInside)
+		{
+			vertices.push_back(static_cast<unsigned int>(v));
+			distances.push_back(std::sqrt(nearest));
+		}
+	}
+}
+
 double brushFalloff(double t)
 {
 	if (t >= 1.0)

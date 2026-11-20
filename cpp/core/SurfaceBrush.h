@@ -11,6 +11,7 @@
 #include "SkinWeightSmooth.h"
 
 #include <cstddef>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -43,6 +44,30 @@ private:
 	std::vector<unsigned int> fVertices;
 	std::vector<double> fDistances;
 };
+
+// How a brush radius is measured. Surface: along the mesh edges from where the brush landed, so it never reaches across
+// a gap. Volume: in a straight line in space, a ball, which also reaches a part of the mesh that is close but not
+// connected (the other side of a thin wall, a lip against a lip).
+enum class FalloffMode
+{
+	Surface,
+	Volume
+};
+
+const char* falloffName(FalloffMode mode);
+// False, leaving mode alone, for a name that is not "surface" or "volume".
+bool parseFalloff(const std::string& name, FalloffMode& mode);
+
+struct Point3
+{
+	double x = 0.0;
+	double y = 0.0;
+	double z = 0.0;
+};
+
+// The vertices within radius of any of the centers in a straight line (positions: x, y, z per vertex), in vertex order,
+// and the distance of each to its nearest center. One pass over the vertices, with nothing built first.
+void volumeReach(const std::vector<float>& positions, const std::vector<Point3>& centers, double radius, std::vector<unsigned int>& vertices, std::vector<double>& distances);
 
 // 1 at the center, 0 at the radius and beyond, smooth between (smoothstep). t is distance divided by radius.
 double brushFalloff(double t);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/SkinWeightSmooth.h"
+#include "core/SurfaceBrush.h"
 #include "maya/shared/SkinWeightScene.h"
 
 #include <memory>
@@ -110,17 +111,20 @@ public:
 	unsigned int meshCount() const;
 	std::string meshName(unsigned int mesh) const;
 	MPoint vertexPosition(unsigned int mesh, unsigned int vertex) const;
+	// The diagonal of the box around every mesh's vertices in world space, 0 with no meshes. It is what a default
+	// brush radius is a fraction of, so the brush fits a mesh of any size.
+	double boundsDiagonal() const;
 
 	// The hits of a ray: the closest one over every mesh, or with throughMesh every surface the ray crosses.
 	void pick(const MPoint& origin, const MVector& direction, bool throughMesh, std::vector<BrushHit>& hits);
 
-	// What a brush of this radius (a length over the surface) at these hits reaches: the vertices within radius of a
-	// hit along the mesh, with falloff from the hit's face outwards.
-	void reach(const std::vector<BrushHit>& hits, double radius, std::vector<BrushReach>& reaches);
+	// What a brush of this radius at these hits reaches: the vertices within radius of a hit, with falloff from it.
+	// Surface: the radius is a length along the mesh from the hit's face. Volume: it is a distance in space.
+	void reach(const std::vector<BrushHit>& hits, double radius, FalloffMode mode, std::vector<BrushReach>& reaches);
 
 	// One dab at these hits. A mesh hit more than once (through a mesh) is dabbed once, the nearest hit setting each
 	// vertex's falloff.
-	MStatus dab(const std::vector<BrushHit>& hits, double radius, double strength);
+	MStatus dab(const std::vector<BrushHit>& hits, double radius, double strength, FalloffMode mode);
 
 	// Ends the stroke: moves what it changed into edit, and starts the next one empty.
 	MStatus finish(SkinBrushEdit& edit);

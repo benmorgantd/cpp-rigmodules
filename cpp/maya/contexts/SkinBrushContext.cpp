@@ -12,6 +12,8 @@
 #include <maya/MArgParser.h>
 #include <maya/MColor.h>
 #include <maya/MColorArray.h>
+#include <maya/MDagPath.h>
+#include <maya/MFnCamera.h>
 #include <maya/MFrameContext.h>
 #include <maya/MGlobal.h>
 #include <maya/MHWGeometry.h>
@@ -26,6 +28,7 @@ namespace
 	constexpr const char* kRadiusFlag{ "-radius" };
 	constexpr const char* kStrengthFlag{ "-strength" };
 	constexpr const char* kThroughMeshFlag{ "-throughMesh" };
+	constexpr const char* kFalloffFlag{ "-falloff" };
 	// Not "-hit" or "-ray": Maya rejects a three-letter long name, and the flag silently never registers.
 	constexpr const char* kHitFlag{ "-hitPoint" };
 	constexpr const char* kMeshFlag{ "-mesh" };
@@ -37,6 +40,12 @@ namespace
 	constexpr double kResizePerPixel = 1.01;
 	// A dab lands only after the brush moved this far (in radii) from the last one, so tiny moves don't pile up.
 	constexpr double kDabSpacing = 0.25;
+	// The default radius, as a fraction of the diagonal of the box around the selected meshes: 0.05 is a hand's width on
+	// a character, and it scales with whatever mesh is selected.
+	constexpr double kAutoRadiusFraction = 0.05;
+	// Dabs along a drag are never closer than this on screen, and one event lands at most this many.
+	constexpr double kMinimumStepPixels = 2.0;
+	constexpr int kMaxDabsPerEvent = 24;
 	// While the button is held and the brush is still, a dab lands this often (seconds). Maya skins the mesh after each
 	// one, which sets the real rate when that takes longer.
 	constexpr float kRepeatSeconds = 0.05f;
@@ -73,6 +82,7 @@ MSyntax SkinBrushStrokeCmd::newSyntax()
 	CHECK_MSTATUS(syntax.addFlag("-vr", kRayFlag, MSyntax::kDouble, MSyntax::kDouble, MSyntax::kDouble, MSyntax::kDouble, MSyntax::kDouble, MSyntax::kDouble));
 	CHECK_MSTATUS(syntax.makeFlagMultiUse(kRayFlag));
 	CHECK_MSTATUS(syntax.addFlag("-tm", kThroughMeshFlag, MSyntax::kBoolean));
+	CHECK_MSTATUS(syntax.addFlag("-fo", kFalloffFlag, MSyntax::kString));
 	syntax.enableQuery(false);
 	syntax.enableEdit(false);
 	return syntax;
@@ -109,6 +119,17 @@ MStatus SkinBrushStrokeCmd::doIt(const MArgList& args)
 	if (argData.isFlagSet(kStrengthFlag))
 	{
 		argData.getFlagArgument(kStrengthFlag, 0, fStrength);
+	}
+	fFalloff = FalloffMode::Surface;
+	if (argData.isFlagSet(kFalloffFlag))
+	{
+		MString falloff;
+		argData.getFlagArgument(kFalloffFlag, 0, falloff);
+		if (!parseFalloff(falloff.asChar(), fFalloff))
+		{
+			MGlobal::displayError(falloff + " is not a falloff: surface or volume.");
+			return MStatus::kInvalidParameter;
+		}
 	}
 	if (!isValidRadius(fRadius) || !isValidStrength(fStrength))
 	{
@@ -183,7 +204,7 @@ MStatus SkinBrushStrokeCmd::doIt(const MArgList& args)
 		brushHit.mesh = static_cast<unsigned int>(std::find(names.begin(), names.end(), hit.mesh) - names.begin());
 		brushHit.face = hit.face;
 		brushHit.point = hit.point;
-		status = stroke.dab({ brushHit }, fRadius, fStrength);
+		status = stroke.dab({ brushHit }, fRadius, fStrength, fFalloff);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
 	for (unsigned int i = 0; i < rayCount; ++i)
@@ -197,7 +218,7 @@ MStatus SkinBrushStrokeCmd::doIt(const MArgList& args)
 		{
 			continue;
 		}
-		status = stroke.dab(picked, fRadius, fStrength);
+		status = stroke.dab(picked, fRadius, fStrength, fFalloff);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
 	status = stroke.finish(fEdit);
@@ -217,8 +238,9 @@ MStatus SkinBrushStrokeCmd::undoIt()
 	return fEdit.undo();
 }
 
-void SkinBrushStrokeCmd::setStroke(SkinBrushEdit&& edit, const std::string& operation, double radius, double strength)
+void SkinBrushStrokeCmd::setStroke(SkinBrushEdit&& edit, const std::string& operation, double radius, double strength, FalloffMode falloff)
 {
+	fFalloff = falloff;
 	fEdit = std::move(edit);
 	fOperation = operation;
 	fRadius = radius;
@@ -236,6 +258,8 @@ MStatus SkinBrushStrokeCmd::finalize()
 	command.addArg(fRadius);
 	command.addArg(MString(kStrengthFlag));
 	command.addArg(fStrength);
+	command.addArg(MString(kFalloffFlag));
+	command.addArg(MString(falloffName(fFalloff)));
 	for (const BrushDab& dab : fEdit.dabs)
 	{
 		command.addArg(MString(kHitFlag));
@@ -280,6 +304,16 @@ bool SkinBrushContext::throughMesh() const
 	return fThroughMesh;
 }
 
+FalloffMode SkinBrushContext::falloff() const
+{
+	return fFalloff;
+}
+
+bool SkinBrushContext::setFalloff(const std::string& name)
+{
+	return parseFalloff(name, fFalloff);
+}
+
 bool SkinBrushContext::setOperation(const std::string& operation)
 {
 	const std::vector<std::string>& names = brushOperationNames();
@@ -299,6 +333,7 @@ bool SkinBrushContext::setRadius(double radius)
 		return false;
 	}
 	fRadius = radius;
+	fRadiusIsAuto = false;
 	return true;
 }
 
@@ -351,6 +386,7 @@ void SkinBrushContext::gather()
 	if (key == fSelectionKey)
 	{
 		fStroke.refresh();
+		applyAutoRadius();
 		return;
 	}
 	if (!fStroke.begin(meshes, fOperation))
@@ -366,10 +402,25 @@ void SkinBrushContext::gather()
 			fStroke.restrict(i, kept[i]->vertices);
 		}
 	}
+	applyAutoRadius();
 	if (kept.empty())
 	{
 		MGlobal::displayWarning("Skin brush: select one or more skinned meshes.");
 	}
+}
+
+void SkinBrushContext::applyAutoRadius()
+{
+	const double diagonal = fStroke.boundsDiagonal();
+	if (fRadiusIsAuto && diagonal > 0.0)
+	{
+		fRadius = std::max(kMinimumRadius, kAutoRadiusFraction * diagonal);
+	}
+}
+
+void SkinBrushContext::requestRedraw()
+{
+	M3dView::active3dView().scheduleRefresh();
 }
 
 void SkinBrushContext::toolOnSetup(MEvent& event)
@@ -445,7 +496,7 @@ void SkinBrushContext::repeatTick(float elapsedTime, float lastTime, void* clien
 		return;
 	}
 	context->dabAt(context->fPointerX, context->fPointerY, true);
-	M3dView::active3dView().refresh();
+	context->requestRedraw();
 }
 
 bool SkinBrushContext::pickAt(short x, short y)
@@ -460,27 +511,65 @@ bool SkinBrushContext::pickAt(short x, short y)
 		return false;
 	}
 	fStroke.pick(origin, direction, fThroughMesh, fHits);
-	fStroke.reach(fHits, fRadius, fReaches);
+	fStroke.reach(fHits, fRadius, fFalloff, fReaches);
 	return !fHits.empty();
+}
+
+bool SkinBrushContext::dabOnce(short x, short y)
+{
+	if (!pickAt(x, y))
+	{
+		return false;
+	}
+	const BrushHit& hit = fHits.front();
+	M3dView view = M3dView::active3dView();
+	MDagPath camera;
+	short x1 = 0;
+	short y1 = 0;
+	short x2 = 0;
+	short y2 = 0;
+	if (view.getCamera(camera) && view.worldToView(hit.point, x1, y1))
+	{
+		MFnCamera fnCamera(camera);
+		const MPoint edge = hit.point + fnCamera.rightDirection(MSpace::kWorld) * fRadius;
+		if (view.worldToView(edge, x2, y2))
+		{
+			fPixelRadius = std::hypot(static_cast<double>(x2 - x1), static_cast<double>(y2 - y1));
+		}
+	}
+	if (!fStroke.dab(fHits, fRadius, fStrength, fFalloff))
+	{
+		return false;
+	}
+	fHasLastDab = true;
+	fLastDabX = x;
+	fLastDabY = y;
+	return true;
 }
 
 void SkinBrushContext::dabAt(short x, short y, bool isRepeat)
 {
-	if (!pickAt(x, y))
+	if (isRepeat || !fHasLastDab)
+	{
+		dabOnce(x, y);
+		return;
+	}
+	const double step = std::max(kMinimumStepPixels, kDabSpacing * fPixelRadius);
+	const double startX = fLastDabX;
+	const double startY = fLastDabY;
+	const double dx = x - startX;
+	const double dy = y - startY;
+	const double distance = std::hypot(dx, dy);
+	if (distance < step)
 	{
 		return;
 	}
-	const MPoint& point = fHits.front().point;
-	if (!isRepeat && fHasLastDab && point.distanceTo(fLastDabPoint) < kDabSpacing * fRadius)
+	const int count = std::min(static_cast<int>(distance / step), kMaxDabsPerEvent);
+	for (int i = 1; i <= count; ++i)
 	{
-		return;
+		const double t = i * step / distance;
+		dabOnce(static_cast<short>(std::lround(startX + dx * t)), static_cast<short>(std::lround(startY + dy * t)));
 	}
-	if (!fStroke.dab(fHits, fRadius, fStrength))
-	{
-		return;
-	}
-	fHasLastDab = true;
-	fLastDabPoint = point;
 }
 
 void SkinBrushContext::endStroke()
@@ -495,13 +584,14 @@ void SkinBrushContext::endStroke()
 	}
 	// Maya owns the command from here: it sits on the undo queue.
 	SkinBrushStrokeCmd* command = static_cast<SkinBrushStrokeCmd*>(newToolCommand());
-	command->setStroke(std::move(edit), fOperation, fRadius, fStrength);
+	command->setStroke(std::move(edit), fOperation, fRadius, fStrength, fFalloff);
 	command->finalize();
 }
 
 MStatus SkinBrushContext::doPress(MEvent& event, MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
 {
-	if (event.mouseButton() != MEvent::kLeftMouse)
+	// Not the middle button, which pans. A trackpad click may not report as the left button, so anything else paints.
+	if (event.mouseButton() == MEvent::kMiddleMouse)
 	{
 		return MStatus::kSuccess;
 	}
@@ -518,7 +608,7 @@ MStatus SkinBrushContext::doPress(MEvent& event, MHWRender::MUIDrawManager& draw
 	event.getPosition(fPointerX, fPointerY);
 	dabAt(fPointerX, fPointerY, false);
 	startRepeat();
-	draw(drawMgr);
+	requestRedraw();
 	return MStatus::kSuccess;
 }
 
@@ -530,16 +620,18 @@ MStatus SkinBrushContext::doDrag(MEvent& event, MHWRender::MUIDrawManager& drawM
 		short y = 0;
 		event.getPosition(x, y);
 		fRadius = std::max(kMinimumRadius, fRadius * std::pow(kResizePerPixel, static_cast<double>(x - fResizeFromX)));
+		fRadiusIsAuto = false;
 		fResizeFromX = x;
-		fStroke.reach(fHits, fRadius, fReaches);
+		fStroke.reach(fHits, fRadius, fFalloff, fReaches);
 	}
 	else if (fIsStroking)
 	{
 		event.getPosition(fPointerX, fPointerY);
 		fMovedSinceTick = true;
 		dabAt(fPointerX, fPointerY, false);
+		pickAt(fPointerX, fPointerY);   // the ring follows the pointer, not the last dab
 	}
-	draw(drawMgr);
+	requestRedraw();
 	return MStatus::kSuccess;
 }
 
@@ -550,7 +642,7 @@ MStatus SkinBrushContext::doRelease(MEvent& event, MHWRender::MUIDrawManager& dr
 	{
 		endStroke();
 	}
-	draw(drawMgr);
+	requestRedraw();
 	return MStatus::kSuccess;
 }
 
@@ -560,7 +652,7 @@ MStatus SkinBrushContext::doPtrMoved(MEvent& event, MHWRender::MUIDrawManager& d
 	short y = 0;
 	event.getPosition(x, y);
 	pickAt(x, y);
-	draw(drawMgr);
+	requestRedraw();
 	return MStatus::kSuccess;
 }
 
@@ -629,6 +721,7 @@ MStatus SkinBrushCtxCmd::appendSyntax()
 	CHECK_MSTATUS(contextSyntax.addFlag("-rd", kRadiusFlag, MSyntax::kDouble));
 	CHECK_MSTATUS(contextSyntax.addFlag("-st", kStrengthFlag, MSyntax::kDouble));
 	CHECK_MSTATUS(contextSyntax.addFlag("-tm", kThroughMeshFlag, MSyntax::kBoolean));
+	CHECK_MSTATUS(contextSyntax.addFlag("-fo", kFalloffFlag, MSyntax::kString));
 	return MStatus::kSuccess;
 }
 
@@ -665,6 +758,16 @@ MStatus SkinBrushCtxCmd::doEditFlags()
 			return MStatus::kInvalidParameter;
 		}
 	}
+	if (argData.isFlagSet(kFalloffFlag))
+	{
+		MString falloff;
+		argData.getFlagArgument(kFalloffFlag, 0, falloff);
+		if (!fContext->setFalloff(falloff.asChar()))
+		{
+			MGlobal::displayError(falloff + " is not a falloff: surface or volume.");
+			return MStatus::kInvalidParameter;
+		}
+	}
 	if (argData.isFlagSet(kThroughMeshFlag))
 	{
 		bool throughMesh = false;
@@ -688,6 +791,10 @@ MStatus SkinBrushCtxCmd::doQueryFlags()
 	if (argData.isFlagSet(kStrengthFlag))
 	{
 		setResult(fContext->strength());
+	}
+	if (argData.isFlagSet(kFalloffFlag))
+	{
+		setResult(MString(falloffName(fContext->falloff())));
 	}
 	if (argData.isFlagSet(kThroughMeshFlag))
 	{

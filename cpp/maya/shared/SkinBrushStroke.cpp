@@ -248,6 +248,28 @@ MPoint SkinBrushStroke::vertexPosition(unsigned int mesh, unsigned int vertex) c
 	return MPoint(p[0], p[1], p[2]);
 }
 
+double SkinBrushStroke::boundsDiagonal() const
+{
+	double low[3] = { 0.0, 0.0, 0.0 };
+	double high[3] = { 0.0, 0.0, 0.0 };
+	bool isFirst = true;
+	for (const std::unique_ptr<MeshState>& mesh : fMeshes)
+	{
+		const std::vector<float>& positions = mesh->positions;
+		for (std::size_t i = 0; i + 2 < positions.size(); i += 3)
+		{
+			for (int axis = 0; axis < 3; ++axis)
+			{
+				const double value = positions[i + axis];
+				low[axis] = isFirst ? value : std::min(low[axis], value);
+				high[axis] = isFirst ? value : std::max(high[axis], value);
+			}
+			isFirst = false;
+		}
+	}
+	return std::sqrt((high[0] - low[0]) * (high[0] - low[0]) + (high[1] - low[1]) * (high[1] - low[1]) + (high[2] - low[2]) * (high[2] - low[2]));
+}
+
 void SkinBrushStroke::pick(const MPoint& origin, const MVector& direction, bool throughMesh, std::vector<BrushHit>& hits)
 {
 	hits.clear();
@@ -305,7 +327,7 @@ void SkinBrushStroke::pick(const MPoint& origin, const MVector& direction, bool 
 	}
 }
 
-void SkinBrushStroke::reach(const std::vector<BrushHit>& hits, double radius, std::vector<BrushReach>& reaches)
+void SkinBrushStroke::reach(const std::vector<BrushHit>& hits, double radius, FalloffMode mode, std::vector<BrushReach>& reaches)
 {
 	reaches.clear();
 	if (!(radius > 0.0))
@@ -316,10 +338,20 @@ void SkinBrushStroke::reach(const std::vector<BrushHit>& hits, double radius, st
 	{
 		MeshState& mesh = *fMeshes[m];
 		std::vector<SurfaceSeed> seeds;
+		std::vector<Point3> centers;
 		MIntArray corners;
 		for (const BrushHit& hit : hits)
 		{
-			if (hit.mesh != m || !mesh.fnMesh->getPolygonVertices(hit.face, corners))
+			if (hit.mesh != m)
+			{
+				continue;
+			}
+			if (mode == FalloffMode::Volume)
+			{
+				centers.push_back({ hit.point.x, hit.point.y, hit.point.z });
+				continue;
+			}
+			if (!mesh.fnMesh->getPolygonVertices(hit.face, corners))
 			{
 				continue;
 			}
@@ -329,16 +361,25 @@ void SkinBrushStroke::reach(const std::vector<BrushHit>& hits, double radius, st
 				seeds.push_back({ static_cast<unsigned int>(corners[c]), corner.distanceTo(hit.point) });
 			}
 		}
-		if (seeds.empty())
+		if (seeds.empty() && centers.empty())
 		{
 			continue;
 		}
 
-		mesh.field.reach(seeds, radius);
+		std::vector<unsigned int> volumeVertices;
+		std::vector<double> volumeDistances;
+		if (mode == FalloffMode::Volume)
+		{
+			volumeReach(mesh.positions, centers, radius, volumeVertices, volumeDistances);
+		}
+		else
+		{
+			mesh.field.reach(seeds, radius);
+		}
 		BrushReach found;
 		found.mesh = m;
-		const std::vector<unsigned int>& vertices = mesh.field.vertices();
-		const std::vector<double>& distances = mesh.field.distances();
+		const std::vector<unsigned int>& vertices = mode == FalloffMode::Volume ? volumeVertices : mesh.field.vertices();
+		const std::vector<double>& distances = mode == FalloffMode::Volume ? volumeDistances : mesh.field.distances();
 		for (std::size_t i = 0; i < vertices.size(); ++i)
 		{
 			const double scale = brushFalloff(distances[i] / radius);
@@ -360,7 +401,7 @@ void SkinBrushStroke::reach(const std::vector<BrushHit>& hits, double radius, st
 	}
 }
 
-MStatus SkinBrushStroke::dab(const std::vector<BrushHit>& hits, double radius, double strength)
+MStatus SkinBrushStroke::dab(const std::vector<BrushHit>& hits, double radius, double strength, FalloffMode mode)
 {
 	if (!(radius > 0.0) || !(strength > 0.0 && strength <= 1.0))
 	{
@@ -368,7 +409,7 @@ MStatus SkinBrushStroke::dab(const std::vector<BrushHit>& hits, double radius, d
 		return MStatus::kInvalidParameter;
 	}
 	std::vector<BrushReach> reaches;
-	reach(hits, radius, reaches);
+	reach(hits, radius, mode, reaches);
 	for (const BrushReach& found : reaches)
 	{
 		MeshState& mesh = *fMeshes[found.mesh];

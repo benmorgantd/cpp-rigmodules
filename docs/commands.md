@@ -918,14 +918,15 @@ cmds.skinBrushCtx(ctx, query=True, radius=True)    # 8.0
 | Flag | Type | Meaning |
 |---|---|---|
 | `operation` | string | What a dab does. `smooth` is the only one so far. Default `smooth`. |
-| `radius` | double | The brush radius, at least 0.001, a **length over the mesh surface** in scene units. Default 5. |
+| `radius` | double | The brush radius, at least 0.001, in scene units. With the `surface` falloff it is a **length over the mesh**. Until you set one (a flag or a Ctrl + drag), it is 5% of the diagonal of the box around the selected meshes, worked out when the tool starts, so the brush fits a mesh of any size. Queried before the tool has started it is 5. |
+| `falloff` | string | How the radius is measured. `surface` (default): along the mesh edges from where the brush landed, so it never reaches across a gap and two shells never share a dab. `volume`: in a straight line in space, a ball, which also reaches a part of the mesh that is close but not connected (the other side of a thin wall, a lip against a lip). |
 | `strength` | double | How strongly each dab acts at the center of the brush, above 0 and at most 1. Default 0.5. |
 | `throughMesh` | bool | Off: a dab lands on the closest surface under the pointer. On: it lands on every surface the ray crosses, so painting a body also paints its back. Default off. |
 
 - **Meshes:** the selected meshes with a skinCluster. The brush picks the closest surface across all of them, and a stroke may move from one mesh to another. A selection of vertices or faces limits the brush to them (their neighbors are still read). Select again, or move the pointer out of the viewport and back, to pick up a new selection.
-- **Falloff** is smooth, 1 at the center and 0 at the radius, and is measured along the mesh edges from where the brush landed. Two surfaces that are close in space but not connected (a lip against a lip, two shells, the far side of a thin wall) never share a dab unless `throughMesh` is on.
+- **Falloff** is smooth, 1 at the center and 0 at the radius, measured as `falloff` says. With `surface`, two surfaces that are close in space but not connected (a lip against a lip, two shells, the far side of a thin wall) never share a dab. Switch to `volume` when you want them to.
 - **Resize** with Ctrl + left drag sideways. The ring shows the radius; the colored points are the vertices the next dab reaches (blue at the edge, yellow at the center).
-- A dab lands each time the brush has moved a quarter of its radius. **Holding the button still repeats the dab** about 20 times a second, so the weights keep moving towards smooth while you hold. Maya skinning the mesh after each dab sets the real rate on a dense mesh.
+- A drag lands a dab every quarter of the brush radius along the pointer's path, so a fast drag leaves no gaps. **Holding the button still repeats the dab** about 20 times a second, so the weights keep moving towards smooth while you hold. Maya skinning the mesh after each dab sets the real rate on a dense mesh.
 - **Strength** is how far one dab goes at the center of the brush. At the default 0.5 a single dab is gentle, which is what holding the button is for. Raise it with `cmds.skinBrushCtx(ctx, edit=True, strength=0.8)`, or from the Skin Brush menu tool's `strength` argument.
 - **Undo:** one stroke, from press to release, is one undo step. Undo restores the weights from before the stroke exactly, however much the dabs overlapped.
 - Like Maya's other tools, the context is created in a GUI session: Maya creates no contexts in `mayapy`. The tests drive the same engine through `skinBrushStroke`.
@@ -946,7 +947,8 @@ cmds.skinBrushStroke(radius=0.3, mesh=["hero_body:body_geo", "hero_body:shirt_ge
 | Flag | Type | Meaning |
 |---|---|---|
 | `operation` | string | As on the context. Default `smooth`. |
-| `radius` | double | A length over the surface, at least 0.001. Default 5. |
+| `radius` | double | At least 0.001. With `falloff="surface"`, a length over the surface. Default 5. |
+| `falloff` | string | `surface` (default) or `volume`, as on the context. |
 | `strength` | double | Above 0 and at most 1. Default 0.5. |
 | `hitPoint` | string, int, 3 doubles | Multi-use. A mesh, a face of it and the point on it. Each is one dab. |
 | `mesh` | string | Multi-use. Meshes a `viewRay` may hit. A mesh named in a `hitPoint` is included too. |

@@ -39,13 +39,14 @@ public:
 	MStatus cancel() override;
 
 	// What the context hands over when a stroke ends.
-	void setStroke(SkinBrushEdit&& edit, const std::string& operation, double radius, double strength);
+	void setStroke(SkinBrushEdit&& edit, const std::string& operation, double radius, double strength, FalloffMode falloff);
 
 private:
 	SkinBrushEdit fEdit;
 	std::string fOperation;
 	double fRadius = 0.0;
 	double fStrength = 0.0;
+	FalloffMode fFalloff = FalloffMode::Surface;
 };
 
 class SkinBrushContext : public MPxContext
@@ -68,19 +69,29 @@ public:
 	double radius() const;
 	double strength() const;
 	bool throughMesh() const;
+	FalloffMode falloff() const;
 	// Each returns false (and keeps the old value) for one that is not valid.
 	bool setOperation(const std::string& operation);
 	bool setRadius(double radius);
 	bool setStrength(double strength);
 	void setThroughMesh(bool throughMesh);
+	bool setFalloff(const std::string& name);
 
 private:
 	// The selected skinned meshes. A selection of vertices or faces limits the brush to them. Rebuilds only what the
 	// selection changed; the vertex positions are read again every time.
 	void gather();
 	bool pickAt(short x, short y);
-	// isRepeat: a hold, which lands whatever the brush moved since the last dab.
+	// One dab at the surface under a screen position.
+	bool dabOnce(short x, short y);
+	// A drag lands a dab every quarter radius along the pointer's path since the last one, so a fast drag leaves no
+	// gaps. isRepeat: a hold, which lands one dab where the pointer is.
 	void dabAt(short x, short y, bool isRepeat);
+	// Sets the radius to a fraction of the meshes' size until the user sets one.
+	void applyAutoRadius();
+	// The brush ring and the reach are drawn in drawFeedback only, as Maya's own brush contexts do. Event handlers
+	// change the state and ask for a redraw, so nothing drawn is left behind.
+	void requestRedraw();
 	void endStroke();
 	void startRepeat();
 	void stopRepeat();
@@ -91,6 +102,7 @@ private:
 	double fRadius = 5.0;
 	double fStrength = 0.5;
 	bool fThroughMesh = false;
+	FalloffMode fFalloff = FalloffMode::Surface;
 
 	SkinBrushStroke fStroke;
 	std::string fSelectionKey;              // what the stroke was built from
@@ -104,7 +116,10 @@ private:
 	short fPointerY = 0;
 	bool fMovedSinceTick = false;           // a drag landed since the last tick, so the brush is not being held
 	MCallbackId fRepeatCallback = 0;
-	MPoint fLastDabPoint;
+	short fLastDabX = 0;                    // the screen position of the last dab
+	short fLastDabY = 0;
+	double fPixelRadius = 0.0;              // the brush radius on screen, from the last pick
+	bool fRadiusIsAuto = true;              // until the radius is set by a flag or a resize
 };
 
 // skinBrushCtx: creates the context and edits and queries its settings.
