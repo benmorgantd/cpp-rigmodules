@@ -246,8 +246,7 @@ MStatus LookSwap::apply()
 		{
 			continue;
 		}
-		MPlug pMessage = MFnDependencyNode(fMeshes[i].node()).findPlug("message", false, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
+		MPlug pMessage(fMeshes[i].node(), MPxNode::message);
 		MPlug pElement = pMembers.elementByLogicalIndex(nextIndex++, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		status = fSceneMod->connect(pMessage, pElement);

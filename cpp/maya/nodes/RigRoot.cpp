@@ -106,7 +106,6 @@ MStatus RigRootNode::initialize()
 	tAttr.setStorable(true);
 	addAttribute(aSkeletonHash);
 
-	// TODO: replace with constants references.
 	aRigVersion = nAttr.create(RigAttr::RigVersion, RigAttr::RigVersion, MFnNumericData::kLong, 0, &status);
 	nAttr.setStorable(true);
 	addAttribute(aRigVersion);
@@ -121,15 +120,15 @@ MStatus RigRootNode::initialize()
 	tAttr.setStorable(true);
 	addAttribute(aPublishVersion);
 
-	aRigTemplateName = tAttr.create("rigTemplateName", "rigTemplateName", MFnData::kString, MObject::kNullObj, &status);
+	aRigTemplateName = tAttr.create(RigAttr::RigTemplateName, RigAttr::RigTemplateName, MFnData::kString, MObject::kNullObj, &status);
 	tAttr.setStorable(true);
 	addAttribute(aRigTemplateName);
 
 	// Message attributes can't be storable since they don't contain data
-	aRigModules = msgAttr.create("rigModules", "rigModules", &status);
+	aRigModules = msgAttr.create(RigAttr::RigModules, RigAttr::RigModules, &status);
 	addAttribute(aRigModules);
 
-	aChildren = msgAttr.create("children", "cildren", &status);
+	aChildren = msgAttr.create(RigAttr::Children, RigAttr::Children, &status);
 	addAttribute(aChildren);
 
 	aConstraints = msgAttr.create(RigAttr::Constraints, RigAttr::Constraints, &status);
@@ -573,8 +572,7 @@ namespace
 		const MObject oSingleAttrs[] = { RigRootNode::aJointDisplayLayer, RigRootNode::aMeshDisplayLayer, RigRootNode::aControlDisplayLayer };
 		for (unsigned int i = 0; i < oLayers.length(); ++i)
 		{
-			MPlug pMessage = MFnDependencyNode(oLayers[i]).findPlug("message", false);
-			status = dagMod.connect(pMessage, MPlug(oRigRoot, oSingleAttrs[i]));
+			status = dagMod.connect(MPlug(oLayers[i], MPxNode::message), MPlug(oRigRoot, oSingleAttrs[i]));
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 		return dagMod.doIt();
@@ -668,8 +666,7 @@ namespace
 		MPlug pSets(oRigRoot, RigRootNode::aSelectionSets);
 		for (unsigned int i = 0; i < oSets.length(); ++i)
 		{
-			MPlug pMessage = MFnDependencyNode(oSets[i]).findPlug("message", false);
-			status = dagMod.connect(pMessage, pSets.elementByLogicalIndex(i));
+			status = dagMod.connect(MPlug(oSets[i], MPxNode::message), pSets.elementByLogicalIndex(i));
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 		return dagMod.doIt();
@@ -739,8 +736,7 @@ namespace
 		const MObject oAttrs[] = { RigRootNode::aAllGroup, RigRootNode::aMeshGroup };
 		for (int i = 0; i < 2; ++i)
 		{
-			MPlug pMessage = MFnDependencyNode(oGroups[i]).findPlug("message", false);
-			status = dagMod.connect(pMessage, MPlug(oRigRoot, oAttrs[i]));
+			status = dagMod.connect(MPlug(oGroups[i], MPxNode::message), MPlug(oRigRoot, oAttrs[i]));
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 		status = dagMod.doIt();

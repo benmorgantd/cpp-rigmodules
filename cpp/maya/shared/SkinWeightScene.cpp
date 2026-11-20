@@ -32,6 +32,17 @@
 
 namespace
 {
+	// The native skinCluster's attributes, read by name (core/Constants.h, MayaAttr, says when a name is file-local).
+	constexpr const char* kSkinningMethodAttr = "skinningMethod";
+	constexpr const char* kBindPreMatrixAttr = "bindPreMatrix";
+	constexpr const char* kMatrixAttr = "matrix";
+	constexpr const char* kNormalizeWeightsAttr = "normalizeWeights";
+	constexpr const char* kMaintainMaxInfluencesAttr = "maintainMaxInfluences";
+	constexpr const char* kMaxInfluencesAttr = "maxInfluences";
+	constexpr const char* kInputAttr = "input";
+	constexpr const char* kInputGeometryAttr = "inputGeometry";
+	constexpr const char* kGeomMatrixAttr = "geomMatrix";
+
 	// The skinCluster nearest the mesh shape in its history, or a null object.
 	MObject nearestSkinCluster(const MDagPath& shape)
 	{
@@ -66,7 +77,7 @@ namespace
 	{
 	public:
 		explicit ScopedNormalizeOff(const MFnSkinCluster& fnSkin)
-			: fPlug(fnSkin.findPlug("normalizeWeights", false))
+			: fPlug(fnSkin.findPlug(kNormalizeWeightsAttr, false))
 		{
 			fOriginal = fPlug.asShort();
 			fPlug.setShort(0);
@@ -277,7 +288,7 @@ MStatus SkinWeightScene::readSkinWeights(const MDagPath& mesh, SkinWeights& outW
 		}
 	}
 
-	const short methodIndex = fnSkin.findPlug("skinningMethod", false, &status).asShort();
+	const short methodIndex = fnSkin.findPlug(kSkinningMethodAttr, false, &status).asShort();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	if (methodIndex < 0 || methodIndex >= static_cast<short>(SkinMethods::All.size()))
 	{
@@ -513,7 +524,7 @@ MStatus SkinWeightLoad::apply()
 
 	// Bind new influences at rest and set the skinning method, through a modifier so undo restores both.
 	fSettingsMod = std::make_unique<MDGModifier>();
-	MPlug pBindPreMatrix = fnSkin.findPlug("bindPreMatrix", false, &status);
+	MPlug pBindPreMatrix = fnSkin.findPlug(kBindPreMatrixAttr, false, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	for (unsigned int i = 0; i < fInfluences.length(); ++i)
 	{
@@ -537,7 +548,7 @@ MStatus SkinWeightLoad::apply()
 		status = fSettingsMod->newPlugValue(pElement, oMatrixData);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
-	MPlug pSkinningMethod = fnSkin.findPlug("skinningMethod", false, &status);
+	MPlug pSkinningMethod = fnSkin.findPlug(kSkinningMethodAttr, false, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	status = fSettingsMod->newPlugValueShort(pSkinningMethod, static_cast<short>(SkinMethods::indexOf(fWeights.skinMethod)));
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -745,13 +756,13 @@ MStatus SkinWeightPass::bindCluster(const MDagPath& mesh)
 	for (unsigned int i = 0; i < fInfluenceCount; ++i)
 	{
 		const MFnDependencyNode fnJoint(influences[i].node());
-		fLocked[i] = fnJoint.hasAttribute("lockInfluenceWeights") && fnJoint.findPlug("lockInfluenceWeights", false).asBool();
+		fLocked[i] = fnJoint.hasAttribute(MayaAttr::LockInfluenceWeights) && fnJoint.findPlug(MayaAttr::LockInfluenceWeights, false).asBool();
 	}
 
 	fMaxInfluences = 0;
-	if (fnSkin.findPlug("maintainMaxInfluences", false).asBool())
+	if (fnSkin.findPlug(kMaintainMaxInfluencesAttr, false).asBool())
 	{
-		const int maxInfluences = fnSkin.findPlug("maxInfluences", false).asInt();
+		const int maxInfluences = fnSkin.findPlug(kMaxInfluencesAttr, false).asInt();
 		fMaxInfluences = maxInfluences > 0 ? static_cast<unsigned int>(maxInfluences) : 0;
 	}
 	return MStatus::kSuccess;
@@ -970,16 +981,16 @@ MStatus SkinWeightRestMatch::bind(const MDagPath& mesh, RestTarget target)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Linear blend skinning is the model the solve is built on (D66).
-	if (fnSkin.findPlug("skinningMethod", false).asShort() != 0)
+	if (fnSkin.findPlug(kSkinningMethodAttr, false).asShort() != 0)
 	{
 		MGlobal::displayError(mesh.partialPathName() + " must use classic linear skinning (skinningMethod 0) to paint towards its rest shape.");
 		return MStatus::kFailure;
 	}
 
 	// The rest shape is what the skinCluster is fed, taken to world space the way the skinCluster does (geomMatrix).
-	const MPlug pInputElement = fnSkin.findPlug("input", false).elementByLogicalIndex(0, &status);
+	const MPlug pInputElement = fnSkin.findPlug(kInputAttr, false).elementByLogicalIndex(0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MObject oInputGeometryAttr = fnSkin.attribute("inputGeometry", &status);
+	MObject oInputGeometryAttr = fnSkin.attribute(kInputGeometryAttr, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	const MPlug pInputGeometry = pInputElement.child(oInputGeometryAttr, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -998,7 +1009,7 @@ MStatus SkinWeightRestMatch::bind(const MDagPath& mesh, RestTarget target)
 		MGlobal::displayError(mesh.partialPathName() + ": the skinCluster's input has a different vertex count than the mesh.");
 		return MStatus::kFailure;
 	}
-	MFnMatrixData fnGeometryMatrix(fnSkin.findPlug("geomMatrix", false).asMObject(), &status);
+	MFnMatrixData fnGeometryMatrix(fnSkin.findPlug(kGeomMatrixAttr, false).asMObject(), &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	const MMatrix geometryMatrix = fnGeometryMatrix.matrix();
 	fRest.resize(3 * static_cast<std::size_t>(points.length()));
@@ -1023,8 +1034,8 @@ MStatus SkinWeightRestMatch::refreshPose()
 	MDagPathArray influences;
 	fnSkin.influenceObjects(influences, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	const MPlug pBindPre = fnSkin.findPlug("bindPreMatrix", false);
-	const MPlug pMatrix = fnSkin.findPlug("matrix", false);
+	const MPlug pBindPre = fnSkin.findPlug(kBindPreMatrixAttr, false);
+	const MPlug pMatrix = fnSkin.findPlug(kMatrixAttr, false);
 	fMatrices.assign(kRestMatrixSize * influences.length(), 0.0);
 	for (unsigned int i = 0; i < influences.length(); ++i)
 	{

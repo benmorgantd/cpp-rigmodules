@@ -76,9 +76,7 @@ MStatus SelectionSetScene::replaceSets(const std::vector<SelectionSetSpec>& spec
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		for (unsigned int c = 0; c < spec.children.size(); ++c)
 		{
-			MPlug pChildMessage = MFnDependencyNode(outSets[spec.children[c]]).findPlug("message", false, &status);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-			status = dagMod.connect(pChildMessage, pDnMembers.elementByLogicalIndex(c));
+			status = dagMod.connect(MPlug(outSets[spec.children[c]], MPxNode::message), pDnMembers.elementByLogicalIndex(c));
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 	}

@@ -123,8 +123,7 @@ MStatus JointMarkupScene::claimJoint(
 	oOutJoint = jointPath.node();
 
 	MFnDependencyNode fnJoint(oOutJoint);
-	MPlug pOffsetParentMatrix = fnJoint.findPlug("offsetParentMatrix", false, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MPlug pOffsetParentMatrix(oOutJoint, MPxTransform::offsetParentMatrix);
 	if (pOffsetParentMatrix.isDestination())
 	{
 		outError = "joint '" + std::string(fnJoint.name().asChar()) + "' already has an incoming offsetParentMatrix connection";

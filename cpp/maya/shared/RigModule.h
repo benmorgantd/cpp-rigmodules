@@ -859,9 +859,7 @@ MStatus RigModuleWithJointsNode<Derived>::wireJoint(
 	status = DagUtils::setMatrixPlug(pJointRestWorld, mRestWorld, dagMod);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MPlug pJointOpm = fnJoint.findPlug("offsetParentMatrix", false, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	return dagMod.connect(MPlug(oModule, aJointOPM).elementByLogicalIndex(index), pJointOpm);
+	return dagMod.connect(MPlug(oModule, aJointOPM).elementByLogicalIndex(index), MPlug(oJoint, MPxTransform::offsetParentMatrix));
 }
 
 // Every control/child-plug input affects every control OPM, joint OPM and socket output.

@@ -239,6 +239,34 @@ class SkeletonHashStamp(RigTestCase):
         self.assertNotEqual(stamp, before)
 
 
+class RigRootAttributes(RigTestCase):
+    """The rig root's attribute names (RigAttr). They are public: tools and saved scenes read them by name."""
+
+    def test_attribute_names(self):
+        self.build(TEMPLATE, self.make_skeleton(SKELETON))
+        (rig_root,) = cmds.ls(type="rigRootModule")
+        self.assertEqual(cmds.getAttr(rig_root + ".rigTemplateName"), "TestRig")
+        for name in ["rigTemplateName", "rigModules", "children"]:
+            self.assertEqual(cmds.attributeQuery(name, node=rig_root, shortName=True), name)
+
+
+class JointBake(RigTestCase):
+    """A module's joint keeps its rest world when the build moves it onto its offsetParentMatrix: jointOrient and the
+    local channels go to zero (DagUtils::bakeJointTransformsToOPM)."""
+
+    def test_joint_orient_moves_into_the_opm(self):
+        joints = self.make_skeleton(SKELETON)
+        joint = [j for j in joints if j.endswith("fkchain4_00_M_JNT")][0]
+        cmds.setAttr(joint + ".jointOrient", 10, 20, 30)
+        rest_world = cmds.xform(joint, query=True, matrix=True, worldSpace=True)
+        self.build(TEMPLATE, joints)
+        built = rig_name("fkchain4_00_M_JNT")
+        for value in cmds.getAttr(built + ".jointOrient")[0]:
+            self.assertAlmostEqual(value, 0.0, places=6)
+        for actual, expected in zip(cmds.xform(built, query=True, matrix=True, worldSpace=True), rest_world):
+            self.assertAlmostEqual(actual, expected, places=4)
+
+
 class RigNames(RigTestCase):
     """The rig name becomes a folder in the asset, so it is lowercase (D54). Without a rigName key it is the
     rigTemplateName in snake_case."""

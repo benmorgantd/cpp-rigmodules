@@ -95,7 +95,7 @@ MStatus AimModuleNode::initialize()
 	status = initializeSharedAttributes();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	aAimRestOffset = mAttr.create("aimRestOffset", "aimRestOffset", MFnMatrixAttribute::kDouble, &status);
+	aAimRestOffset = mAttr.create(RigAttr::AimRestOffset, RigAttr::AimRestOffset, MFnMatrixAttribute::kDouble, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	mAttr.setStorable(true);
 	status = addAttribute(aAimRestOffset);

@@ -496,9 +496,7 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 		if (slot >= controlCount)
 		{
 			// A tweaker is the residual layer: hidden, still keyable (section 3.2).
-			MPlug pVisibility = MFnDependencyNode(oControls[slot]).findPlug("visibility", false, &status);
-			CHECK_MSTATUS_AND_RETURN(status, result);
-			dagMod.newPlugValueBool(pVisibility, false);
+			dagMod.newPlugValueBool(MPlug(oControls[slot], MPxTransform::visibility), false);
 			continue;
 		}
 

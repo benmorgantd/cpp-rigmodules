@@ -92,6 +92,7 @@ Do not add a new module casually. Before proposing one:
 ### Shared constants and attribute lookup
 
 - Shared attribute names are string constants in `core/Constants.h` (namespace `RigAttr`). Node type names live in the `NodeCreateCommands` namespace.
+- Maya's own attributes: use the API's static `MObject` where one exists (`MPxTransform::translate`, `MPxTransform::offsetParentMatrix`, `MPxNode::message`). Joint attributes with none are in `MayaAttr`. The attributes of a node type that one scene file owns (display layer, object set, skinCluster) are file-local constants there.
 - Module-level code uses the module's own static `MObject` attributes. Shared rigmodule code looks attributes up by name (`findAttr`) and uses string-based `findPlug`.
 - Do not duplicate attribute name strings. Add them to `RigAttr`.
 - Structured data in a string attribute is JSON, read and written with `JsonUtils`. Do not invent delimited formats.

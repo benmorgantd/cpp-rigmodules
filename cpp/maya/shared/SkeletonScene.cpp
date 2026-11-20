@@ -1,4 +1,5 @@
 #include "maya/shared/SkeletonScene.h"
+#include "core/Constants.h"
 #include "core/RigTemplateValidation.h"
 #include "maya/shared/JointMarkupScene.h"
 #include "maya/shared/Utilities.h"
@@ -141,7 +142,7 @@ namespace
 		const MObject* translateAttrs[3]{ &MPxTransform::translateX, &MPxTransform::translateY, &MPxTransform::translateZ };
 		const MObject* scaleAttrs[3]{ &MPxTransform::scaleX, &MPxTransform::scaleY, &MPxTransform::scaleZ };
 		const MObject* shearAttrs[3]{ &MPxTransform::shearXY, &MPxTransform::shearXZ, &MPxTransform::shearYZ };
-		const char* orientNames[3]{ "jointOrientX", "jointOrientY", "jointOrientZ" };
+		const char* orientNames[3]{ MayaAttr::JointOrientX, MayaAttr::JointOrientY, MayaAttr::JointOrientZ };
 		const double orientValues[3]{ orient.x, orient.y, orient.z };
 		MFnDependencyNode fnJoint(oJoint, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);

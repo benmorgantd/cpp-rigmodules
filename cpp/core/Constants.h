@@ -249,6 +249,8 @@ namespace RigAttr
 
 	// RigRootNode
 	inline constexpr const char* RigModules{ "rigModules" };
+	inline constexpr const char* RigTemplateName{ "rigTemplateName" };
+	inline constexpr const char* Children{ "children" };
 	// Display layers the build creates (D38), one message attribute each, so a tool finds the joint, mesh or
 	// control layer without reading names.
 	inline constexpr const char* JointDisplayLayer{ "jointDisplayLayer" };
@@ -327,6 +329,26 @@ namespace RigAttr
 	inline constexpr const char* RibbonIkRestOffset{ "ribbonIkRestOffset" };
 	// Limb channel on the settings control: how round the elbow is. 0 is a sharp corner (the default), 1 the smooth curve.
 	inline constexpr const char* BendSoftness{ "bendSoftness" };
+
+	// TwoBoneIk rest data (D52), stored at build. Its ik controls' offsets are IkRestOffset above.
+	inline constexpr const char* RestBendNormal{ "restBendNormal" };
+	inline constexpr const char* RestPlaneAngle{ "restPlaneAngle" };
+	inline constexpr const char* LimbLengths{ "limbLengths" };
+
+	// Aim rest data, stored at build.
+	inline constexpr const char* AimRestOffset{ "aimRestOffset" };
+}
+
+// Maya's own joint attributes, which the API has no static MObject for. Where the API has one (MPxTransform::translate,
+// MPxTransform::offsetParentMatrix, MPxNode::message), use it instead: it needs no name lookup. The attributes of a node
+// type that one scene file owns stay file-local constants there (DisplayLayerScene, SelectionSetScene, SkinWeightScene).
+namespace MayaAttr
+{
+	inline constexpr const char* JointOrientX{ "jointOrientX" };
+	inline constexpr const char* JointOrientY{ "jointOrientY" };
+	inline constexpr const char* JointOrientZ{ "jointOrientZ" };
+	inline constexpr const char* SegmentScaleCompensate{ "segmentScaleCompensate" };
+	inline constexpr const char* LockInfluenceWeights{ "lockInfluenceWeights" };
 }
 
 // Labels of the pole control's module-owned space enum (D52 section 4.4). Append-only (D34): the index is the value.

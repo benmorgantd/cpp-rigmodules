@@ -419,8 +419,7 @@ bool TimeUtils::isSameFrameRate(double a, double b)
 
 void DagUtils::lockAndHideTranslate(MObject oControl)
 {
-	MFnTransform fnControl(oControl);
-	MPlug pTranslate = fnControl.findPlug("translate", false);
+	MPlug pTranslate(oControl, MPxTransform::translate);
 	pTranslate.setLocked(true);
 	pTranslate.setKeyable(false);
 	pTranslate.setChannelBox(false);
@@ -428,8 +427,7 @@ void DagUtils::lockAndHideTranslate(MObject oControl)
 
 void DagUtils::lockAndHideRotate(MObject oControl)
 {
-	MFnTransform fnControl(oControl);
-	MPlug pRotation = fnControl.findPlug("rotate", false);
+	MPlug pRotation(oControl, MPxTransform::rotate);
 	pRotation.setLocked(true);
 	pRotation.setKeyable(false);
 	pRotation.setChannelBox(false);
@@ -437,16 +435,15 @@ void DagUtils::lockAndHideRotate(MObject oControl)
 
 void DagUtils::lockAndHideScale(MObject oControl)
 {
-	MFnTransform fnControl(oControl);
-	MPlug pScale = fnControl.findPlug("scale", false);
+	MPlug pScale(oControl, MPxTransform::scale);
 	pScale.setLocked(true);
 	pScale.setKeyable(false);
 	pScale.setChannelBox(false);
 }
 
-// Bakes joint world transform relative to its parent into its opm and zeroes its transforms.
-// TODO: pass in transform matrix gathered from read phase.
-// NOTE: this is already happening when inheritsTransform has been turned off, so we just need to write the world matrix to OPM
+// Zeroes a joint's local channels and jointOrient and writes its rest world matrix to its OPM. The caller turns
+// inheritsTransform off in the same modifier, so the OPM alone places the joint in world space. mTransformWorld is the
+// rest from the read phase (every caller passes the plan's rest), never read back from the scene.
 MStatus DagUtils::bakeJointTransformsToOPM(const MObject& oJoint, const MMatrix& mTransformWorld, MDagModifier& dagMod)
 {
 	MStatus status;
@@ -459,27 +456,33 @@ MStatus DagUtils::bakeJointTransformsToOPM(const MObject& oJoint, const MMatrix&
 	
 	// NOTE: we can't do a verification pass here of the current value of inheritsTransform because dagMod hasn't run yet.
 
-	// First zero out the current local matrix joint orient so that we can position the joint in world space locally using OPM
-	// TODO: separate this into a fn
-	for (const char* axis : { "X", "Y", "Z" })
-	{
-		MPlug pJointOrient = fnTransform.findPlug(MString("jointOrient") + axis, false, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-		status = dagMod.newPlugValueDouble(pJointOrient, 0.0);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-	}
+	status = zeroJointOrient(oJoint, dagMod);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Zero out local matrix
 	status = zeroLocalTransforms(oJoint, dagMod);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// Now that we've zeroed out all transforms, we can place the joint in world space using its OPM (because inherits transforms is off)
-	MPlug pOffsetParentMatrix = fnTransform.findPlug("offsetParentMatrix", false, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MPlug pOffsetParentMatrix(oJoint, MPxTransform::offsetParentMatrix);
 	status = DagUtils::setMatrixPlug(pOffsetParentMatrix, mTransformWorld, dagMod);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	return status;
+}
+
+MStatus DagUtils::zeroJointOrient(const MObject& oJoint, MDagModifier& dagMod)
+{
+	MStatus status;
+	MFnDependencyNode fnJoint(oJoint, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	for (const char* name : { MayaAttr::JointOrientX, MayaAttr::JointOrientY, MayaAttr::JointOrientZ })
+	{
+		MPlug pJointOrient = fnJoint.findPlug(name, false, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = dagMod.newPlugValueDouble(pJointOrient, 0.0);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+	return MStatus::kSuccess;
 }
 
 MStatus DagUtils::zeroLocalTransforms(const MObject& oTransform, MDagModifier& dagMod)
@@ -516,14 +519,7 @@ MStatus DagUtils::setInheritsTransform(const MObject& transform, bool value, MDa
 		return MStatus::kFailure;
 	}
 
-	MFnDependencyNode fnTransform(transform);
-	MPlug pInheritsTransform = fnTransform.findPlug("inheritsTransform", false);
-
-	if (pInheritsTransform.isNull())
-	{
-		return MStatus::kFailure;
-	}
-
+	MPlug pInheritsTransform(transform, MPxTransform::inheritsTransform);
 	return dagMod.newPlugValueBool(pInheritsTransform, value);
 }
 
@@ -536,7 +532,7 @@ MStatus DagUtils::setSegmentScaleCompensate(MObject& oTransform, bool value, MDa
 	}
 
 	MFnDependencyNode fnTransform(oTransform);
-	MPlug pSegmentScaleCompensate = fnTransform.findPlug("segmentScaleCompensate", false);
+	MPlug pSegmentScaleCompensate = fnTransform.findPlug(MayaAttr::SegmentScaleCompensate, false);
 
 	if (pSegmentScaleCompensate.isNull())
 	{

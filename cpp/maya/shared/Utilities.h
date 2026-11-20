@@ -158,6 +158,8 @@ public:
 	static void lockAndHideRotate(MObject oControl);
 	static void lockAndHideScale(MObject oControl);
 	static MStatus bakeJointTransformsToOPM(const MObject& oTransform, const MMatrix& mTransformWorld, MDagModifier& dagMod);
+	// Queues jointOrientX, Y and Z to 0 on a joint.
+	static MStatus zeroJointOrient(const MObject& oJoint, MDagModifier& dagMod);
 	static MStatus zeroLocalTransforms(const MObject& oTransform, MDagModifier& dagMod);
 	static MStatus setInheritsTransform(const MObject& transform, bool value, MDagModifier& dagMod);
 	static MStatus setSegmentScaleCompensate(MObject& oTransform, bool value, MDagModifier& dagMod);

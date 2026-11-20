@@ -75,23 +75,23 @@ struct TwoBoneIkPart
 		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aPoleSpace));
 
 		// Stored at build, like Aim's aimRestOffset.
-		Node::aIkRestOffset = mAttr.create("ikRestOffset", "ikRestOffset", MFnMatrixAttribute::kDouble, &status);
+		Node::aIkRestOffset = mAttr.create(RigAttr::IkRestOffset, RigAttr::IkRestOffset, MFnMatrixAttribute::kDouble, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setArray(true));
 		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(true));
 		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aIkRestOffset));
 
-		Node::aRestBendNormal = nAttr.create("restBendNormal", "restBendNormal", MFnNumericData::k3Double, 0.0, &status);
+		Node::aRestBendNormal = nAttr.create(RigAttr::RestBendNormal, RigAttr::RestBendNormal, MFnNumericData::k3Double, 0.0, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
 		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aRestBendNormal));
 
-		Node::aRestPlaneAngle = nAttr.create("restPlaneAngle", "restPlaneAngle", MFnNumericData::kDouble, 0.0, &status);
+		Node::aRestPlaneAngle = nAttr.create(RigAttr::RestPlaneAngle, RigAttr::RestPlaneAngle, MFnNumericData::kDouble, 0.0, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
 		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aRestPlaneAngle));
 
-		Node::aLimbLengths = nAttr.create("limbLengths", "limbLengths", MFnNumericData::k2Double, 0.0, &status);
+		Node::aLimbLengths = nAttr.create(RigAttr::LimbLengths, RigAttr::LimbLengths, MFnNumericData::k2Double, 0.0, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
 		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aLimbLengths));
@@ -314,9 +314,7 @@ struct TwoBoneIkPart
 		};
 		for (const auto& [slot, oVisibleAttr] : visibility)
 		{
-			MPlug pVisibility = MFnDependencyNode(oControls[slot]).findPlug("visibility", false, &status);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-			status = dagMod.connect(MPlug(oModule, oVisibleAttr), pVisibility);
+			status = dagMod.connect(MPlug(oModule, oVisibleAttr), MPlug(oControls[slot], MPxTransform::visibility));
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 

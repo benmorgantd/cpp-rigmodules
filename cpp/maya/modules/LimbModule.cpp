@@ -389,9 +389,7 @@ RigModuleBuildResult LimbNode::createModule(
 			return result;
 		}
 		// A tweaker is the residual layer: hidden, still keyable (design/ribbon.md section 3.2).
-		MPlug pVisibility = MFnDependencyNode(oControl).findPlug("visibility", false, &status);
-		CHECK_MSTATUS_AND_RETURN(status, result);
-		dagMod.newPlugValueBool(pVisibility, false);
+		dagMod.newPlugValueBool(MPlug(oControl, MPxTransform::visibility), false);
 	}
 
 	// 4. The ribbon's rest data.
