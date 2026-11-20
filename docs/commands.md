@@ -922,6 +922,7 @@ cmds.skinBrushCtx(ctx, query=True, radius=True)    # 8.0
 | `falloff` | string | How the radius is measured. `surface` (default): along the mesh edges from where the brush landed, so it never reaches across a gap and two shells never share a dab. `volume`: in a straight line in space, a ball, which also reaches a part of the mesh that is close but not connected (the other side of a thin wall, a lip against a lip). |
 | `strength` | double | How strongly each dab acts at the center of the brush, above 0 and at most 1. Default 0.5. |
 | `throughMesh` | bool | Off: a dab lands on the closest surface under the pointer. On: it lands on every surface the ray crosses, so painting a body also paints its back. Default off. |
+| `debug` | bool | Prints a line to the Script Editor for the press, every repeat timer tick (and why it did or did not repeat) and the release, to see what a stroke is doing. Default off. |
 
 - **Meshes:** the selected meshes with a skinCluster. The brush picks the closest surface across all of them, and a stroke may move from one mesh to another. A selection of vertices or faces limits the brush to them (their neighbors are still read). Select again, or move the pointer out of the viewport and back, to pick up a new selection.
 - **Falloff** is smooth, 1 at the center and 0 at the radius, measured as `falloff` says. With `surface`, two surfaces that are close in space but not connected (a lip against a lip, two shells, the far side of a thin wall) never share a dab. Switch to `volume` when you want them to.

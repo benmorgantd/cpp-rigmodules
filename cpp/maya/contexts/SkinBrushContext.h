@@ -69,12 +69,14 @@ public:
 	double radius() const;
 	double strength() const;
 	bool throughMesh() const;
+	bool debug() const;
 	FalloffMode falloff() const;
 	// Each returns false (and keeps the old value) for one that is not valid.
 	bool setOperation(const std::string& operation);
 	bool setRadius(double radius);
 	bool setStrength(double strength);
 	void setThroughMesh(bool throughMesh);
+	void setDebug(bool debug);
 	bool setFalloff(const std::string& name);
 
 private:
@@ -92,6 +94,8 @@ private:
 	// The brush ring and the reach are drawn in drawFeedback only, as Maya's own brush contexts do. Event handlers
 	// change the state and ask for a redraw, so nothing drawn is left behind.
 	void requestRedraw();
+	// Prints to the Script Editor when debug is on, one line per event, to see what a stroke is doing.
+	void debugLog(const MString& message) const;
 	void endStroke();
 	void startRepeat();
 	void stopRepeat();
@@ -102,6 +106,11 @@ private:
 	double fRadius = 5.0;
 	double fStrength = 0.5;
 	bool fThroughMesh = false;
+	bool fDebug = false;
+	int fTicks = 0;                         // debug counters for the stroke in progress
+	int fDragEvents = 0;
+	int fDragEventsAtLastTick = 0;
+	int fDabs = 0;
 	FalloffMode fFalloff = FalloffMode::Surface;
 
 	SkinBrushStroke fStroke;

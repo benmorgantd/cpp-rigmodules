@@ -126,6 +126,10 @@ public:
 	// vertex's falloff.
 	MStatus dab(const std::vector<BrushHit>& hits, double radius, double strength, FalloffMode mode);
 
+	// What the last dab did, for the debug print: the vertices it reached and the ones whose weights changed.
+	unsigned int lastReachedCount() const;
+	unsigned int lastChangedCount() const;
+
 	// Ends the stroke: moves what it changed into edit, and starts the next one empty.
 	MStatus finish(SkinBrushEdit& edit);
 
@@ -133,4 +137,6 @@ private:
 	struct MeshState;
 	std::vector<std::unique_ptr<MeshState>> fMeshes;
 	std::vector<BrushDab> fDabs;
+	unsigned int fLastReached = 0;
+	unsigned int fLastChanged = 0;
 };

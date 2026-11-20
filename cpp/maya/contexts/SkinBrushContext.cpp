@@ -29,6 +29,7 @@ namespace
 	constexpr const char* kStrengthFlag{ "-strength" };
 	constexpr const char* kThroughMeshFlag{ "-throughMesh" };
 	constexpr const char* kFalloffFlag{ "-falloff" };
+	constexpr const char* kDebugFlag{ "-debug" };
 	// Not "-hit" or "-ray": Maya rejects a three-letter long name, and the flag silently never registers.
 	constexpr const char* kHitFlag{ "-hitPoint" };
 	constexpr const char* kMeshFlag{ "-mesh" };
@@ -304,6 +305,24 @@ bool SkinBrushContext::throughMesh() const
 	return fThroughMesh;
 }
 
+bool SkinBrushContext::debug() const
+{
+	return fDebug;
+}
+
+void SkinBrushContext::setDebug(bool debug)
+{
+	fDebug = debug;
+}
+
+void SkinBrushContext::debugLog(const MString& message) const
+{
+	if (fDebug)
+	{
+		MGlobal::displayInfo(MString("[skinBrush] ") + message);
+	}
+}
+
 FalloffMode SkinBrushContext::falloff() const
 {
 	return fFalloff;
@@ -464,11 +483,16 @@ void SkinBrushContext::startRepeat()
 	{
 		MStatus status;
 		fRepeatCallback = MTimerMessage::addTimerCallback(kRepeatSeconds, repeatTick, this, &status);
+		debugLog(MString("timer added, status ok = ") + (status ? "yes" : "NO") + ", period " + kRepeatSeconds + " s");
 		if (!status)
 		{
 			fRepeatCallback = 0;
 		}
 	}
+	fTicks = 0;
+	fDragEvents = 0;
+	fDragEventsAtLastTick = 0;
+	fDabs = 0;
 	fDabSinceTick = true;   // the press dabbed, so the first repeat is a tick later
 }
 
@@ -487,6 +511,12 @@ void SkinBrushContext::stopRepeat()
 void SkinBrushContext::repeatTick(float elapsedTime, float lastTime, void* clientData)
 {
 	SkinBrushContext* context = static_cast<SkinBrushContext*>(clientData);
+	++context->fTicks;
+	const int dragsSinceTick = context->fDragEvents - context->fDragEventsAtLastTick;
+	context->fDragEventsAtLastTick = context->fDragEvents;
+	context->debugLog(MString("tick ") + context->fTicks + ": stroking " + (context->fIsStroking ? "yes" : "no") + ", resizing " + (context->fIsResizing ? "yes" : "no") +
+		", dab since last tick " + (context->fDabSinceTick ? "yes" : "no") + ", drag events since last tick " + dragsSinceTick +
+		", pointer " + context->fPointerX + "," + context->fPointerY);
 	if (!context->fIsStroking || context->fIsResizing)
 	{
 		return;
@@ -496,7 +526,10 @@ void SkinBrushContext::repeatTick(float elapsedTime, float lastTime, void* clien
 		context->fDabSinceTick = false;
 		return;
 	}
+	const int dabsBefore = context->fDabs;
 	context->dabAt(context->fPointerX, context->fPointerY, true);
+	context->debugLog(MString("  repeat dab: ") + (context->fDabs > dabsBefore ? "landed" : "MISSED (no hit under the pointer, or the dab failed)") +
+		", hits under pointer " + static_cast<int>(context->fHits.size()));
 	context->fDabSinceTick = false;   // a repeat is not a drag's dab: the next tick repeats again
 	context->requestRedraw();
 }
@@ -545,6 +578,9 @@ bool SkinBrushContext::dabOnce(short x, short y)
 	}
 	fHasLastDab = true;
 	fDabSinceTick = true;
+	++fDabs;
+	debugLog(MString("  dab at ") + x + "," + y + ": radius " + fRadius + " (" + fPixelRadius + " px), strength " + fStrength + ", reached " +
+		fStroke.lastReachedCount() + " vertices, changed " + fStroke.lastChangedCount());
 	fLastDabX = x;
 	fLastDabY = y;
 	return true;
@@ -593,6 +629,7 @@ void SkinBrushContext::endStroke()
 
 MStatus SkinBrushContext::doPress(MEvent& event, MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
 {
+	debugLog(MString("press: button ") + static_cast<int>(event.mouseButton()) + ", ctrl " + (event.isModifierControl() ? "yes" : "no") + ", meshes " + fStroke.meshCount());
 	// Not the middle button, which pans. A trackpad click may not report as the left button, so anything else paints.
 	if (event.mouseButton() == MEvent::kMiddleMouse)
 	{
@@ -610,6 +647,7 @@ MStatus SkinBrushContext::doPress(MEvent& event, MHWRender::MUIDrawManager& draw
 	fHasLastDab = false;
 	event.getPosition(fPointerX, fPointerY);
 	dabAt(fPointerX, fPointerY, false);
+	debugLog(MString("press dab at ") + fPointerX + "," + fPointerY + ": hits " + static_cast<int>(fHits.size()) + ", dabs " + fDabs);
 	startRepeat();
 	requestRedraw();
 	return MStatus::kSuccess;
@@ -630,6 +668,7 @@ MStatus SkinBrushContext::doDrag(MEvent& event, MHWRender::MUIDrawManager& drawM
 	else if (fIsStroking)
 	{
 		event.getPosition(fPointerX, fPointerY);
+		++fDragEvents;
 		dabAt(fPointerX, fPointerY, false);
 		pickAt(fPointerX, fPointerY);   // the ring follows the pointer, not the last dab
 	}
@@ -640,6 +679,7 @@ MStatus SkinBrushContext::doDrag(MEvent& event, MHWRender::MUIDrawManager& drawM
 MStatus SkinBrushContext::doRelease(MEvent& event, MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
 {
 	fIsResizing = false;
+	debugLog(MString("release: stroking ") + (fIsStroking ? "yes" : "no") + ", ticks " + fTicks + ", drag events " + fDragEvents + ", dabs " + fDabs);
 	if (fIsStroking)
 	{
 		endStroke();
@@ -724,6 +764,7 @@ MStatus SkinBrushCtxCmd::appendSyntax()
 	CHECK_MSTATUS(contextSyntax.addFlag("-st", kStrengthFlag, MSyntax::kDouble));
 	CHECK_MSTATUS(contextSyntax.addFlag("-tm", kThroughMeshFlag, MSyntax::kBoolean));
 	CHECK_MSTATUS(contextSyntax.addFlag("-fo", kFalloffFlag, MSyntax::kString));
+	CHECK_MSTATUS(contextSyntax.addFlag("-db", kDebugFlag, MSyntax::kBoolean));
 	return MStatus::kSuccess;
 }
 
@@ -770,6 +811,12 @@ MStatus SkinBrushCtxCmd::doEditFlags()
 			return MStatus::kInvalidParameter;
 		}
 	}
+	if (argData.isFlagSet(kDebugFlag))
+	{
+		bool debug = false;
+		argData.getFlagArgument(kDebugFlag, 0, debug);
+		fContext->setDebug(debug);
+	}
 	if (argData.isFlagSet(kThroughMeshFlag))
 	{
 		bool throughMesh = false;
@@ -797,6 +844,10 @@ MStatus SkinBrushCtxCmd::doQueryFlags()
 	if (argData.isFlagSet(kFalloffFlag))
 	{
 		setResult(MString(falloffName(fContext->falloff())));
+	}
+	if (argData.isFlagSet(kDebugFlag))
+	{
+		setResult(fContext->debug());
 	}
 	if (argData.isFlagSet(kThroughMeshFlag))
 	{

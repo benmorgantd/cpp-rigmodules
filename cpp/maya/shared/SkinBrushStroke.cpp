@@ -410,11 +410,15 @@ MStatus SkinBrushStroke::dab(const std::vector<BrushHit>& hits, double radius, d
 	}
 	std::vector<BrushReach> reaches;
 	reach(hits, radius, mode, reaches);
+	fLastReached = 0;
+	fLastChanged = 0;
 	for (const BrushReach& found : reaches)
 	{
+		fLastReached += static_cast<unsigned int>(found.vertices.size());
 		MeshState& mesh = *fMeshes[found.mesh];
 		MStatus status = mesh.operation->prepare(found.vertices, found.scales, strength, mesh.adjacency);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
+		fLastChanged += static_cast<unsigned int>(mesh.operation->edit().vertices.size());
 		if (mesh.operation->edit().vertices.empty())
 		{
 			continue;
@@ -434,6 +438,16 @@ MStatus SkinBrushStroke::dab(const std::vector<BrushHit>& hits, double radius, d
 		fDabs.push_back(record);
 	}
 	return MStatus::kSuccess;
+}
+
+unsigned int SkinBrushStroke::lastReachedCount() const
+{
+	return fLastReached;
+}
+
+unsigned int SkinBrushStroke::lastChangedCount() const
+{
+	return fLastChanged;
 }
 
 MStatus SkinBrushStroke::finish(SkinBrushEdit& edit)

@@ -30,7 +30,7 @@ COMMAND_FLAGS = {
     "pruneToMaxInfluences": ["maxInfluences"],
     "smoothSkinWeights": ["iterations", "strength"],
     "skinBrushStroke": ["operation", "radius", "strength", "falloff", "hitPoint", "mesh", "viewRay", "throughMesh"],
-    "skinBrushCtx": ["operation", "radius", "strength", "falloff", "throughMesh"],
+    "skinBrushCtx": ["operation", "radius", "strength", "falloff", "throughMesh", "debug"],
     "saveRigSkeleton": ["file"],
     "loadRigSkeleton": ["file", "namespace"],
     "poseRigFromJointPose": ["jointPose", "sidecar", "mode"],
