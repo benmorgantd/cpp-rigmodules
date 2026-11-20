@@ -80,6 +80,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D64 | `smoothSkinWeights`: neighbor-average smoothing on a working set, built to be a brush later | Decided | Skinning |
 | D65 | The skin weight brush: one context for every skin painting command, falloff over the mesh surface | Decided | Skinning |
 | D66 | Rest-match brushes: paint weights in a pose so the mesh goes back towards its rest deltas or edge lengths | Decided | Skinning |
+| D67 | Attribute and node type names: RigAttr, Maya's static MObjects, MayaAttr, MayaNodeType; the rig root's children attribute removed | Decided | Conventions |
 
 ---
 
@@ -267,7 +268,7 @@ Any string attribute that holds structured data stores JSON text, read and writt
 - **Rules (read phase, D17):** every passed joint must carry valid markup, so an unmarked joint is an error, not skipped. Each joint's and module's target name in the rig namespace must be free in the scene and unique within the build. For example, `skel:a` and `other:a` cannot both be passed. A joint already in the rig namespace keeps its place. Joint name resolution fails before the read phase, like `rigJointMarkup`.
 - **Rejected:** skipping unmarked joints (it hides a missed markup pass), and leaving joints in their own namespace.
 - **Fixed with this change:** redo ran the modifier with the user's current namespace, so redone controls and modules landed in the root namespace. `doIt` and `redoIt` now both make the rig namespace current through `ScopedRigNamespace`. Control names strip the joint's namespace, so `skel:a_jnt` gives `a_ctrl_c` in the rig namespace, not `skel:a_ctrl_c`.
-- **Consequence:** the joint rename is part of the command's undo, but namespace creation is not, so undo leaves an empty rig namespace. Callers that passed a positional path or relied on the namespace scan must change. `JointMarkupScene::collectMarkedJoints` now takes a joint list and adds its errors to the `ValidationReport`.
+- **Consequence:** the joint rename is part of the command's undo, but namespace creation is not, so undo left an empty rig namespace. **Fixed 2026-11-20:** `CreatedNamespaces` records the namespaces `doIt` made, and `undoIt` removes them once empty (also for `loadRigSkeleton`); redo makes them again. Callers that passed a positional path or relied on the namespace scan must change. `JointMarkupScene::collectMarkedJoints` now takes a joint list and adds its errors to the `ValidationReport`.
 - **Changed by D29 (2026-11-08):** the command takes a required `asset` flag, and `namespace` defaults to the asset's last id token instead of `rig`.
 
 ---
@@ -1072,6 +1073,15 @@ The author wants a brush like a delta mush, painted: pose the rig, and paint wei
 - **Names and format:** additive: two operation names and the `smoothness` flag. Saved weights are unchanged.
 - **Maintenance surface added:** one core file pair, a base class and one class in `SkinWeightScene`, an operation class, `keepLargestWeights` shared.
 
+### D67. Attribute and node type names: where each kind lives, and the rig root's children attribute removed
+
+**Status:** Decided (author, 2026-11-20: asked for literals to become constants and for the unused attribute to go). Built.
+
+- **Our attributes** are `RigAttr` constants (D9 and CLAUDE.md, unchanged).
+- **Maya's own attributes:** the API's static `MObject` where one exists (`MPxTransform::translate`, `MPxTransform::offsetParentMatrix`, `MPxNode::message`), which needs no name lookup. Joint attributes with none are `MayaAttr` constants in `core/Constants.h`. The attributes of a node type that one scene file owns (display layer, object set, skinCluster) are file-local constants there. Rejected: one namespace for every Maya name, which would move file-local groups that only their file reads.
+- **Maya's node type names** passed to `createNode` are `MayaNodeType` constants. This plugin's node types stay registered in `ModuleRegistry`; whether their names move is D9's open question.
+- **The rig root's `children` message attribute is removed.** Nothing connected it or read it, here or in mayadev. Its short name had been the typo `cildren`. An unconnected message attribute writes nothing to a scene file, so saved scenes, poses, animation and exports are not affected; an older scene loads without it.
+
 ## Open items
 
 Checked against the repo on 2026-11-18. Items that were finished are not listed: the `compute()` review (2026-11-11), the pre-module checklist (weight commands, animation interface and tools, version update tables, channel naming, the IK limb: D33, D34, D35, D52), mirroring poses and animation (D34, D51), the selection highlight cost (D37), and the `python/` package and `.mod` files (D24, D30).
@@ -1087,7 +1097,6 @@ Checked against the repo on 2026-11-18. Items that were finished are not listed:
 - **Referenced rigs** (D32): the namespace strip in Save Rig, `getRigInfo` in a referenced file, the alias list and the shot update tool.
 - **Rebuild from template keeping rigger tweaks.** Shape files (D26) and weight files (D35) cover shapes and weights. Nothing covers other tweaked values.
 - **Plugin deployment** per Maya version (the `.mod` files in D24).
-- **Empty namespace after undo** (D18): undoing a build leaves the rig namespace behind.
 
 ## Adding an entry
 

@@ -151,6 +151,7 @@ MStatus LoadRigSkeletonCmd::doIt(const MArgList& args)
 	}
 
 	MObjectArray oJoints;
+	fCreatedNamespaces.captureBefore();
 	{
 		ScopedRigNamespace scopedNamespace(fNamespace);
 		status = scopedNamespace.status();
@@ -161,6 +162,7 @@ MStatus LoadRigSkeletonCmd::doIt(const MArgList& args)
 			return status;
 		}
 	}
+	fCreatedNamespaces.recordCreated();
 
 	MStringArray names;
 	for (unsigned int i = 0; i < oJoints.length(); ++i)
@@ -182,5 +184,8 @@ MStatus LoadRigSkeletonCmd::redoIt()
 
 MStatus LoadRigSkeletonCmd::undoIt()
 {
-	return fDagMod.undoIt();
+	const MStatus status = fDagMod.undoIt();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	fCreatedNamespaces.removeCreated();
+	return status;
 }

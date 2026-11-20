@@ -35,7 +35,7 @@ MStatus SelectionSetScene::replaceSets(const std::vector<SelectionSetSpec>& spec
 	for (const SelectionSetSpec& spec : specs)
 	{
 		MStatus status;
-		MObject oSet = dagMod.MDGModifier::createNode("objectSet", &status);
+		MObject oSet = dagMod.MDGModifier::createNode(MayaNodeType::ObjectSet, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		status = dagMod.renameNode(oSet, spec.name);
 		CHECK_MSTATUS_AND_RETURN_IT(status);

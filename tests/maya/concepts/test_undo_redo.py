@@ -1,4 +1,6 @@
 """Undo and redo of a full rig build. Per-module round trips are in the module contract tests."""
+import os
+
 from maya import cmds
 import maya.api.OpenMaya as om
 
@@ -18,6 +20,34 @@ class BuildUndoRedo(RigTestCase):
         cmds.undo()
         self.assertExists(":skel:fkchain1_00_M_JNT")
         self.assertNotExists(rig_name("fkchain1_00_M_JNT"))
+
+    def test_undo_removes_the_namespace_the_build_made(self):
+        # D18: the namespace is not part of the modifier, so undo used to leave it behind, empty.
+        self.build_standard("layout_rig", "layout_rig")
+        cmds.undo()
+        self.assertFalse(cmds.namespace(exists=":" + config.RIG_NAMESPACE))
+        cmds.redo()
+        self.assertTrue(cmds.namespace(exists=":" + config.RIG_NAMESPACE))
+        self.assertExists(rig_name("fkchain1_00_M_JNT"))
+
+    def test_undo_keeps_a_namespace_that_existed_before(self):
+        om.MNamespace.addNamespace(":" + config.RIG_NAMESPACE)
+        self.build_standard("layout_rig", "layout_rig")
+        cmds.undo()
+        self.assertTrue(cmds.namespace(exists=":" + config.RIG_NAMESPACE))
+
+    def test_undo_removes_nested_namespaces_the_build_made(self):
+        joints = self.make_skeleton("layout_rig")
+        self.build("layout_rig", joints, namespace="char:rig")
+        cmds.undo()
+        self.assertFalse(cmds.namespace(exists=":char"))
+
+    def test_undo_of_load_skeleton_removes_its_namespace(self):
+        path = os.path.join(config.WORK_DIR, "undo_skeleton.json")
+        cmds.saveRigSkeleton(*self.make_skeleton("layout_rig"), file=path)
+        cmds.loadRigSkeleton(file=path, namespace="loaded")
+        cmds.undo()
+        self.assertFalse(cmds.namespace(exists=":loaded"))
 
     def test_redo_rebuilds_identical_rig(self):
         self.build_standard("layout_rig", "layout_rig")
@@ -45,10 +75,3 @@ class BuildUndoRedo(RigTestCase):
         cmds.redo()
         cmds.setAttr(rig_name("fkchain1_00_M_CTRL") + ".rotateZ", 90)
         self.assertWorldTranslation(rig_name("fkchain2_00_M_JNT"), (-2, 0, 0))
-
-    def test_undo_leaves_empty_rig_namespace(self):
-        # Documented in D18: namespace creation is not part of the command's undo.
-        self.build_standard("layout_rig", "layout_rig")
-        cmds.undo()
-        self.assertTrue(cmds.namespace(exists=":rig"))
-        self.assertEqual(cmds.ls("rig:*"), [])

@@ -246,8 +246,10 @@ class RigRootAttributes(RigTestCase):
         self.build(TEMPLATE, self.make_skeleton(SKELETON))
         (rig_root,) = cmds.ls(type="rigRootModule")
         self.assertEqual(cmds.getAttr(rig_root + ".rigTemplateName"), "TestRig")
-        for name in ["rigTemplateName", "rigModules", "children"]:
+        for name in ["rigTemplateName", "rigModules"]:
             self.assertEqual(cmds.attributeQuery(name, node=rig_root, shortName=True), name)
+        # children was never connected or read, and was removed (D67).
+        self.assertFalse(cmds.attributeQuery("children", node=rig_root, exists=True))
 
 
 class JointBake(RigTestCase):

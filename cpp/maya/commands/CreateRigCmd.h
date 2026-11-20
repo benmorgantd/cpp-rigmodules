@@ -1,5 +1,7 @@
 #pragma once
 
+#include "maya/shared/Utilities.h"
+
 #include <maya/MArgList.h>
 #include <maya/MDagModifier.h>
 #include <maya/MPxCommand.h>
@@ -32,4 +34,5 @@ private:
 	MDagModifier fDagMod;
 	// Redo must run fDagMod with the rig namespace current, because its node names are relative to it.
 	MString fRigNamespace;
+	CreatedNamespaces fCreatedNamespaces;
 };

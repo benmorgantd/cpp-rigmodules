@@ -976,3 +976,59 @@ ScopedRigNamespace::~ScopedRigNamespace()
 {
 	MNamespace::setCurrentNamespace(fOriginalNamespace);
 }
+
+void CreatedNamespaces::captureBefore()
+{
+	fBefore = MNamespace::getNamespaces(":", true);
+	fCreated.clear();
+}
+
+void CreatedNamespaces::recordCreated()
+{
+	const MStringArray after = MNamespace::getNamespaces(":", true);
+	std::vector<MString> created;
+	for (unsigned int i = 0; i < after.length(); ++i)
+	{
+		if (fBefore.indexOf(after[i]) < 0)
+		{
+			created.push_back(after[i]);
+		}
+	}
+	// Children before parents, so a parent is empty when its turn comes.
+	auto depth = [](const MString& name)
+	{
+		return std::count(name.asChar(), name.asChar() + name.length(), ':');
+	};
+	std::sort(created.begin(), created.end(), [&](const MString& a, const MString& b)
+	{
+		return depth(a) > depth(b);
+	});
+	fCreated.clear();
+	for (const MString& name : created)
+	{
+		fCreated.append(name);
+	}
+}
+
+void CreatedNamespaces::removeCreated() const
+{
+	const MString current = MNamespace::currentNamespace();
+	for (unsigned int i = 0; i < fCreated.length(); ++i)
+	{
+		const MString absolute = fCreated[i].asChar()[0] == ':' ? fCreated[i] : MString(":") + fCreated[i];
+		if (!MNamespace::namespaceExists(absolute) || absolute == current)
+		{
+			continue;
+		}
+		// Nodes (or a child namespace) the user added since the build keep it.
+		if (MNamespace::getNamespaceObjects(absolute, false).length() > 0 || MNamespace::getNamespaces(absolute, false).length() > 0)
+		{
+			continue;
+		}
+		const MStatus status = MNamespace::removeNamespace(absolute, false);
+		if (!status)
+		{
+			MGlobal::displayWarning("Could not remove the namespace '" + absolute + "' after undo: " + status.errorString());
+		}
+	}
+}

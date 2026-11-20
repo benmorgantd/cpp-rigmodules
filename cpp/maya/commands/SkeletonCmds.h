@@ -1,5 +1,7 @@
 #pragma once
 
+#include "maya/shared/Utilities.h"
+
 #include <maya/MArgList.h>
 #include <maya/MDagModifier.h>
 #include <maya/MPxCommand.h>
@@ -44,4 +46,5 @@ public:
 private:
 	MDagModifier fDagMod;
 	MString fNamespace;   // without colons at its ends, "" for the root
+	CreatedNamespaces fCreatedNamespaces;
 };

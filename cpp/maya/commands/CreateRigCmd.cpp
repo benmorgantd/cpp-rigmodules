@@ -139,13 +139,16 @@ MStatus CreateRigCmd::doIt(const MArgList& args)
 		return status;
 	}
 
+	fCreatedNamespaces.captureBefore();
 	status = RigRootNode::createRig(inputs, fDagMod, fRigNamespace);
 	if (!status)
 	{
 		return status;
 	}
 
-	return redoIt();
+	status = redoIt();
+	fCreatedNamespaces.recordCreated();
+	return status;
 }
 
 MStatus CreateRigCmd::redoIt()
@@ -179,5 +182,8 @@ MStatus CreateRigCmd::redoIt()
 MStatus CreateRigCmd::undoIt()
 {
 	MGlobal::displayInfo("Undoing creating the rig.");
-	return fDagMod.undoIt();
+	const MStatus status = fDagMod.undoIt();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	fCreatedNamespaces.removeCreated();
+	return status;
 }

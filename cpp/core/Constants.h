@@ -250,7 +250,6 @@ namespace RigAttr
 	// RigRootNode
 	inline constexpr const char* RigModules{ "rigModules" };
 	inline constexpr const char* RigTemplateName{ "rigTemplateName" };
-	inline constexpr const char* Children{ "children" };
 	// Display layers the build creates (D38), one message attribute each, so a tool finds the joint, mesh or
 	// control layer without reading names.
 	inline constexpr const char* JointDisplayLayer{ "jointDisplayLayer" };
@@ -352,6 +351,15 @@ namespace MayaAttr
 	inline constexpr const char* JointOrientZ{ "jointOrientZ" };
 	inline constexpr const char* SegmentScaleCompensate{ "segmentScaleCompensate" };
 	inline constexpr const char* LockInfluenceWeights{ "lockInfluenceWeights" };
+}
+
+// Maya's own node types that the build creates by name (D67). This plugin's node types are registered in ModuleRegistry.
+namespace MayaNodeType
+{
+	inline constexpr const char* Transform{ "transform" };
+	inline constexpr const char* Joint{ "joint" };
+	inline constexpr const char* DisplayLayer{ "displayLayer" };
+	inline constexpr const char* ObjectSet{ "objectSet" };
 }
 
 // Labels of the pole control's module-owned space enum (D52 section 4.4). Append-only (D34): the index is the value.

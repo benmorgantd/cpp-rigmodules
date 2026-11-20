@@ -57,7 +57,6 @@ public:
 	static MObject aPublishVersion;
 	static MObject aRigModules;
 	static MObject aRigTemplateName;
-	static MObject aChildren;
 	static MObject aConstraints;
 	static MObject aJointDisplayLayer;
 	static MObject aMeshDisplayLayer;

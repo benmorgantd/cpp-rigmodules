@@ -272,8 +272,8 @@ public:
 // Nodes are created and renamed relative to the current namespace, so every dagMod.doIt of a rig (the build and
 // every redo) must run with the rig namespace current. RAII: the destructor restores the user's namespace on
 // every exit path. Absolute paths, so the result does not depend on which namespace the user had current.
-// The namespace is not part of the dagMod, so undo leaves it behind, empty.
-// Used by createRig and by CreateRigCmd::redoIt.
+// The namespace is not part of the dagMod, so a command's undo removes it with CreatedNamespaces.
+// Used by createRig, CreateRigCmd::redoIt and LoadRigSkeletonCmd.
 class ScopedRigNamespace
 {
 public:
@@ -291,4 +291,20 @@ public:
 private:
 	MString fOriginalNamespace;
 	MStatus fStatus;
+};
+
+// The namespaces a command's doIt created, so its undoIt can remove them (D18). MNamespace calls are not undoable, so
+// without this an undone build leaves its namespace behind. captureBefore() before anything is created,
+// recordCreated() after doIt, removeCreated() after the modifier's undo has emptied them. Redo makes them again
+// through ScopedRigNamespace. A namespace that existed before, or that still holds a node, is never removed.
+class CreatedNamespaces
+{
+public:
+	void captureBefore();
+	void recordCreated();
+	void removeCreated() const;
+
+private:
+	MStringArray fBefore;
+	MStringArray fCreated;   // deepest first
 };

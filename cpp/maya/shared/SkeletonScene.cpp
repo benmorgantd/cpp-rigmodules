@@ -180,7 +180,7 @@ MStatus SkeletonScene::createSkeleton(const Skeleton& skeleton, MDagModifier& da
 		{
 			oParent = oJoints[static_cast<std::size_t>(findSkeletonJoint(skeleton, joint.parent))];
 		}
-		oJoints[index] = dagMod.createNode("joint", oParent, &status);
+		oJoints[index] = dagMod.createNode(MayaNodeType::Joint, oParent, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		status = dagMod.renameNode(oJoints[index], joint.name.c_str());
 		CHECK_MSTATUS_AND_RETURN_IT(status);

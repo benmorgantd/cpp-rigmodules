@@ -1,4 +1,5 @@
 #include "maya/shared/DisplayLayerScene.h"
+#include "core/Constants.h"
 #include "maya/shared/Utilities.h"
 
 #include <algorithm>
@@ -96,7 +97,7 @@ MStatus DisplayLayerScene::replaceLayers(const std::vector<DisplayLayerSpec>& sp
 	for (const DisplayLayerSpec& spec : specs)
 	{
 		MStatus status;
-		MObject oLayer = dagMod.MDGModifier::createNode("displayLayer", &status);
+		MObject oLayer = dagMod.MDGModifier::createNode(MayaNodeType::DisplayLayer, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		status = dagMod.renameNode(oLayer, spec.name);
 		CHECK_MSTATUS_AND_RETURN_IT(status);

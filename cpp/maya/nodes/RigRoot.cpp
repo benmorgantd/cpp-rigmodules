@@ -34,7 +34,6 @@
 #include <maya/MFnDagNode.h>
 #include <maya/MFnData.h>
 #include <maya/MFnDependencyNode.h>
-#include <maya/MFnEnumAttribute.h>
 #include <maya/MFnMessageAttribute.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnNumericData.h>
@@ -58,7 +57,6 @@ MObject RigRootNode::aPluginVersion;
 MObject RigRootNode::aPublishVersion;
 MObject RigRootNode::aRigModules;
 MObject RigRootNode::aRigTemplateName;
-MObject RigRootNode::aChildren;
 MObject RigRootNode::aConstraints;
 MObject RigRootNode::aJointDisplayLayer;
 MObject RigRootNode::aMeshDisplayLayer;
@@ -89,85 +87,60 @@ MStatus RigRootNode::initialize()
 	MFnNumericAttribute nAttr;
 	MFnTypedAttribute tAttr;
 	MFnMessageAttribute msgAttr;
-    MFnEnumAttribute eAttr;
 	MStatus status;
 
+	// The rig root's data is strings and one number, all storable.
+	auto addString = [&](MObject& aAttr, const char* name) -> MStatus
+	{
+		MStatus result;
+		aAttr = tAttr.create(name, name, MFnData::kString, MObject::kNullObj, &result);
+		CHECK_MSTATUS_AND_RETURN_IT(result);
+		CHECK_MSTATUS_AND_RETURN_IT(tAttr.setStorable(true));
+		return addAttribute(aAttr);
+	};
+	// Links to the nodes the build makes. Message attributes hold no data, so they are not storable.
+	auto addMessage = [&](MObject& aAttr, const char* name, bool isArray) -> MStatus
+	{
+		MStatus result;
+		aAttr = msgAttr.create(name, name, &result);
+		CHECK_MSTATUS_AND_RETURN_IT(result);
+		CHECK_MSTATUS_AND_RETURN_IT(msgAttr.setArray(isArray));
+		return addAttribute(aAttr);
+	};
+
 	// The asset the rig belongs to (D29). It lived on a separate asset root node until D54 made a namespace hold one rig.
-	aAssetId = tAttr.create(RigAttr::AssetId, RigAttr::AssetId, MFnData::kString, MObject::kNullObj, &status);
-	tAttr.setStorable(true);
-	addAttribute(aAssetId);
-
-	aRigName = tAttr.create(RigAttr::RigName, RigAttr::RigName, MFnData::kString, MObject::kNullObj, &status);
-	tAttr.setStorable(true);
-	addAttribute(aRigName);
-
+	CHECK_MSTATUS_AND_RETURN_IT(addString(aAssetId, RigAttr::AssetId));
+	CHECK_MSTATUS_AND_RETURN_IT(addString(aRigName, RigAttr::RigName));
 	// The input joints' skeletonHash at build (D54), so looks, weights and library files can be matched to the skeleton.
-	aSkeletonHash = tAttr.create(RigAttr::SkeletonHash, RigAttr::SkeletonHash, MFnData::kString, MObject::kNullObj, &status);
-	tAttr.setStorable(true);
-	addAttribute(aSkeletonHash);
+	CHECK_MSTATUS_AND_RETURN_IT(addString(aSkeletonHash, RigAttr::SkeletonHash));
 
 	aRigVersion = nAttr.create(RigAttr::RigVersion, RigAttr::RigVersion, MFnNumericData::kLong, 0, &status);
-	nAttr.setStorable(true);
-	addAttribute(aRigVersion);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aRigVersion));
 
-	aPluginVersion = tAttr.create(RigAttr::PluginVersion, RigAttr::PluginVersion, MFnData::kString, MObject::kNullObj, &status);
-	tAttr.setStorable(true);
-	addAttribute(aPluginVersion);
-
+	CHECK_MSTATUS_AND_RETURN_IT(addString(aPluginVersion, RigAttr::PluginVersion));
 	// The publish id ("20261108T142012Z_bmorgan"), written by the publish step, never by the build. A string,
 	// because publish ids are a time and a user, so two people publishing never collide (D29).
-	aPublishVersion = tAttr.create(RigAttr::PublishVersion, RigAttr::PublishVersion, MFnData::kString, MObject::kNullObj, &status);
-	tAttr.setStorable(true);
-	addAttribute(aPublishVersion);
+	CHECK_MSTATUS_AND_RETURN_IT(addString(aPublishVersion, RigAttr::PublishVersion));
+	CHECK_MSTATUS_AND_RETURN_IT(addString(aRigTemplateName, RigAttr::RigTemplateName));
 
-	aRigTemplateName = tAttr.create(RigAttr::RigTemplateName, RigAttr::RigTemplateName, MFnData::kString, MObject::kNullObj, &status);
-	tAttr.setStorable(true);
-	addAttribute(aRigTemplateName);
-
-	// Message attributes can't be storable since they don't contain data
-	aRigModules = msgAttr.create(RigAttr::RigModules, RigAttr::RigModules, &status);
-	addAttribute(aRigModules);
-
-	aChildren = msgAttr.create(RigAttr::Children, RigAttr::Children, &status);
-	addAttribute(aChildren);
-
-	aConstraints = msgAttr.create(RigAttr::Constraints, RigAttr::Constraints, &status);
-	msgAttr.setArray(true);
-	addAttribute(aConstraints);
-
-	aJointDisplayLayer = msgAttr.create(RigAttr::JointDisplayLayer, RigAttr::JointDisplayLayer, &status);
-	addAttribute(aJointDisplayLayer);
-
-	aMeshDisplayLayer = msgAttr.create(RigAttr::MeshDisplayLayer, RigAttr::MeshDisplayLayer, &status);
-	addAttribute(aMeshDisplayLayer);
-
-	aControlDisplayLayer = msgAttr.create(RigAttr::ControlDisplayLayer, RigAttr::ControlDisplayLayer, &status);
-	addAttribute(aControlDisplayLayer);
-
-	aSelectionSets = msgAttr.create(RigAttr::SelectionSets, RigAttr::SelectionSets, &status);
-	msgAttr.setArray(true);
-	addAttribute(aSelectionSets);
-
-	aAllGroup = msgAttr.create(RigAttr::AllGroup, RigAttr::AllGroup, &status);
-	addAttribute(aAllGroup);
-
-	aMeshGroup = msgAttr.create(RigAttr::MeshGroup, RigAttr::MeshGroup, &status);
-	addAttribute(aMeshGroup);
-
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aRigModules, RigAttr::RigModules, false));
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aConstraints, RigAttr::Constraints, true));
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aJointDisplayLayer, RigAttr::JointDisplayLayer, false));
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aMeshDisplayLayer, RigAttr::MeshDisplayLayer, false));
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aControlDisplayLayer, RigAttr::ControlDisplayLayer, false));
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aSelectionSets, RigAttr::SelectionSets, true));
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aAllGroup, RigAttr::AllGroup, false));
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aMeshGroup, RigAttr::MeshGroup, false));
 	// The look the rig wears (D54): connects to a lookRoot node's rigRoot. None until a look is applied.
-	aLook = msgAttr.create(RigAttr::Look, RigAttr::Look, &status);
-	addAttribute(aLook);
-
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aLook, RigAttr::Look, false));
 	// The rig an attachment follows (D55). Only a record for tools: the follow itself is socket matrices connected
 	// across the two rigs, so these two add nothing to evaluation.
-	aParentRig = msgAttr.create(RigAttr::ParentRig, RigAttr::ParentRig, &status);
-	addAttribute(aParentRig);
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aParentRig, RigAttr::ParentRig, false));
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aAttachments, RigAttr::Attachments, true));
 
-	aAttachments = msgAttr.create(RigAttr::Attachments, RigAttr::Attachments, &status);
-	msgAttr.setArray(true);
-	addAttribute(aAttachments);
-
-	// In the case of this node, there are no attribute affect relationships.
+	// No attribute affects another: the node computes nothing.
 
 	return MStatus::kSuccess;
 }
@@ -701,11 +674,11 @@ namespace
 		MDagModifier& dagMod)
 	{
 		MStatus status;
-		MObject oAll = dagMod.createNode("transform", MObject::kNullObj, &status);
+		MObject oAll = dagMod.createNode(MayaNodeType::Transform, MObject::kNullObj, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		status = dagMod.renameNode(oAll, DagUtils::getAbsoluteName(rigNamespace, RigNaming::AllGroup));
 		CHECK_MSTATUS_AND_RETURN_IT(status);
-		MObject oMeshGroup = dagMod.createNode("transform", oAll, &status);
+		MObject oMeshGroup = dagMod.createNode(MayaNodeType::Transform, oAll, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		status = dagMod.renameNode(oMeshGroup, DagUtils::getAbsoluteName(rigNamespace, RigNaming::MeshGroup));
 		CHECK_MSTATUS_AND_RETURN_IT(status);
