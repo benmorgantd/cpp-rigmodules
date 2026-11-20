@@ -908,6 +908,8 @@ Objects: meshes with a skinCluster (every vertex), or vertex, edge or face compo
 
 The skin weight brush (D65): a context you paint with, on the selected skinned meshes. Drag over a mesh and the weights under the brush are smoothed, as strongly as the falloff there allows. The settings are edited and queried on the context.
 
+How a stroke is picked, dabbed and undone, and how each operation works, is in [skin-brush.md](skin-brush.md).
+
 ```python
 ctx = cmds.skinBrushCtx("skinBrushCtx1")    # create it: a context needs a name
 cmds.skinBrushCtx(ctx, edit=True, radius=8.0, strength=0.4)

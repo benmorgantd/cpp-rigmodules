@@ -24,6 +24,7 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 | [`modules.md`](modules.md) | Every module: `moduleType`, `moduleArgs`, joints, controls, child plugs, sockets, behaviour |
 | [`controls.md`](controls.md) | What every control carries: markup, shapes and the axis convention, the shape file format, mirroring shapes |
 | [`skinning.md`](skinning.md) | Skin weight files: what they match on (joint markup, `meshId`, topology), how loading works, the file format |
+| [`skin-brush.md`](skin-brush.md) | The skin weight brushes: layers, one stroke step by step, undo, the `smooth`, `restDelta` and `restEdge` operations, limits, tests, adding a brush |
 | [`looks.md`](looks.md) | Looks: `setRigLook`, the `lookRoot` node, what a swap deletes, the skeleton hash check |
 | [`attachments.md`](attachments.md) | Attachments: `parent:` ids in a template, `parentRig`, what a rig that follows another rig does, and what the animator sees |
 | [`skeletons.md`](skeletons.md) | Skeleton files: what makes two skeletons the same, the skeleton hash, the file format |
@@ -47,6 +48,7 @@ A change updates its owning page **in the same change** when it touches anything
 - A module, its `moduleArgs`, child plugs, sockets, controls or behaviour → `modules.md` and the README modules table
 - Control markup, a shape, or the shape file format → `controls.md`
 - The weight file format, `meshId`, or how weights load → `skinning.md`
+- A skin brush operation, its settings, or how a stroke is picked, dabbed or undone → `skin-brush.md`, and `commands.md` for flags
 - The skeleton file format or what the skeleton hash covers → `skeletons.md`
 - A look, the `lookRoot` node or the look swap → `looks.md`
 - A function in the `rigmodules` Python package, or `RigModules.mod` → `python.md`
