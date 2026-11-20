@@ -114,7 +114,7 @@ private:
 	bool fHasLastDab = false;
 	short fPointerX = 0;                    // where the pointer last was while stroking
 	short fPointerY = 0;
-	bool fMovedSinceTick = false;           // a drag landed since the last tick, so the brush is not being held
+	bool fDabSinceTick = false;             // a dab landed since the last tick, so the brush is moving and needs no repeat
 	MCallbackId fRepeatCallback = 0;
 	short fLastDabX = 0;                    // the screen position of the last dab
 	short fLastDabY = 0;

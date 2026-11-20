@@ -46,9 +46,9 @@ namespace
 	// Dabs along a drag are never closer than this on screen, and one event lands at most this many.
 	constexpr double kMinimumStepPixels = 2.0;
 	constexpr int kMaxDabsPerEvent = 24;
-	// While the button is held and the brush is still, a dab lands this often (seconds). Maya skins the mesh after each
+	// While the button is held and no drag lands a dab, one repeats this often (seconds). Maya skins the mesh after each
 	// one, which sets the real rate when that takes longer.
-	constexpr float kRepeatSeconds = 0.05f;
+	constexpr float kRepeatSeconds = 0.1f;   // 10 a second
 
 	bool isValidRadius(double radius)
 	{
@@ -469,7 +469,7 @@ void SkinBrushContext::startRepeat()
 			fRepeatCallback = 0;
 		}
 	}
-	fMovedSinceTick = true;
+	fDabSinceTick = true;   // the press dabbed, so the first repeat is a tick later
 }
 
 void SkinBrushContext::stopRepeat()
@@ -481,8 +481,9 @@ void SkinBrushContext::stopRepeat()
 	}
 }
 
-// Runs on Maya's main thread, so it is safe to touch the scene. A drag since the last tick already dabbed, so the
-// brush is only repeated when the pointer has been still for a whole interval.
+// Runs on Maya's main thread, so it is safe to touch the scene. A dab that landed since the last tick means
+// the brush is moving, so it is not repeated. Otherwise it repeats, however the pointer jitters: a held mouse or
+// trackpad sends small drag events that land no dab, and those must not stop the repeat.
 void SkinBrushContext::repeatTick(float elapsedTime, float lastTime, void* clientData)
 {
 	SkinBrushContext* context = static_cast<SkinBrushContext*>(clientData);
@@ -490,12 +491,13 @@ void SkinBrushContext::repeatTick(float elapsedTime, float lastTime, void* clien
 	{
 		return;
 	}
-	if (context->fMovedSinceTick)
+	if (context->fDabSinceTick)
 	{
-		context->fMovedSinceTick = false;
+		context->fDabSinceTick = false;
 		return;
 	}
 	context->dabAt(context->fPointerX, context->fPointerY, true);
+	context->fDabSinceTick = false;   // a repeat is not a drag's dab: the next tick repeats again
 	context->requestRedraw();
 }
 
@@ -542,6 +544,7 @@ bool SkinBrushContext::dabOnce(short x, short y)
 		return false;
 	}
 	fHasLastDab = true;
+	fDabSinceTick = true;
 	fLastDabX = x;
 	fLastDabY = y;
 	return true;
@@ -627,7 +630,6 @@ MStatus SkinBrushContext::doDrag(MEvent& event, MHWRender::MUIDrawManager& drawM
 	else if (fIsStroking)
 	{
 		event.getPosition(fPointerX, fPointerY);
-		fMovedSinceTick = true;
 		dabAt(fPointerX, fPointerY, false);
 		pickAt(fPointerX, fPointerY);   // the ring follows the pointer, not the last dab
 	}
