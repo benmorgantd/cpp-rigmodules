@@ -143,6 +143,11 @@ struct TwoBoneIkEval
 	MMatrix mIkDelta;
 	MMatrix mPoleParentDelta;    // used when the pole's space is Parent
 	MMatrix mSettingsDelta;
+	// Limb's ikTarget (D62 section 8): the end joint reaches the IK handle's rest carried by this motion instead of the handle's own
+	// world. The target's motion already holds whatever moved the handle (a foot hangs from the ik socket), so the handle's local and its
+	// parent's motion are not applied again. The pole and the ik socket still follow the handle, and never read the target.
+	bool hasTarget = false;
+	MMatrix mTargetDelta;
 	bool poleFollowsIk = false;
 	double blend = 1.0;
 	double stretch = 0.0;
@@ -165,6 +170,12 @@ namespace TwoBoneIkSolve
 
 	// The component of v perpendicular to the unit vector vAxis.
 	MVector perpendicularPart(const MVector& v, const MVector& vAxis);
+
+	// The slots whose sockets follow their own controls and never the IK solve: the handle, the pole and the settings control.
+	inline bool isHandleSocket(unsigned int slot)
+	{
+		return slot == TwoBoneIkSlot::Ik || slot == TwoBoneIkSlot::Pole || slot == TwoBoneIkSlot::Settings;
+	}
 
 	MMatrix makeFrame(const MVector& vX, const MVector& vY, const MVector& vZ, const MVector& vOrigin);
 

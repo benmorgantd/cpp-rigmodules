@@ -1,0 +1,92 @@
+{
+  "rigVersion": 1,
+  "rigAuthor": "tests",
+  "rigTemplateName": "LimbFoot",
+  "rigModules": [
+    {
+      "moduleType": "Limb",
+      "name": "arm_01_L_MOD",
+      "shapeType": "Box",
+      "side": "Left",
+      "moduleArgs": {
+        "joints": [
+          [
+            "Left",
+            "upperArm"
+          ],
+          [
+            "Left",
+            "lowerArm"
+          ],
+          [
+            "Left",
+            "hand"
+          ]
+        ],
+        "bindJoints": [
+          [
+            "Left",
+            "bind1"
+          ],
+          [
+            "Left",
+            "bind2"
+          ],
+          [
+            "Left",
+            "bind3"
+          ],
+          [
+            "Left",
+            "bind4"
+          ],
+          [
+            "Left",
+            "bind5"
+          ],
+          [
+            "Left",
+            "bind6"
+          ],
+          [
+            "Left",
+            "bind7"
+          ],
+          [
+            "Left",
+            "bind8"
+          ],
+          [
+            "Left",
+            "bind9"
+          ]
+        ],
+        "controlName": "arm",
+        "controlCount": 5
+      },
+      "parentStructure": {
+        "start": "layout_00_M_MOD.end",
+        "ik": "layout_00_M_MOD.end",
+        "pole": "layout_00_M_MOD.end",
+        "ikTarget": "foot_01_L_MOD.index_0"
+      }
+    },
+    {
+      "moduleType": "FkChain",
+      "name": "foot_01_L_MOD",
+      "shapeType": "Box",
+      "side": "Left",
+      "moduleArgs": {
+        "joints": [
+          [
+            "Left",
+            "foot"
+          ]
+        ]
+      },
+      "parentStructure": {
+        "start": "arm_01_L_MOD.ik"
+      }
+    }
+  ]
+}

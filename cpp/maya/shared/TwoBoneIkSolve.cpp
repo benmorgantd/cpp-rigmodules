@@ -155,9 +155,10 @@ void TwoBoneIkSolve::evaluate(const TwoBoneIkEval& eval, TwoBoneIkSolveResult& o
 	}
 
 	const MVector vRoot = MathUtils::translationOf(mFkWorld[TwoBoneIkSlot::Upper]);   // the start control's rotation does nothing in IK
+	const MMatrix mReach = eval.hasTarget ? eval.mRest[TwoBoneIkSlot::Ik] * eval.mTargetDelta : ikStep.mWorld;
 	TwoBoneIkInput input;
 	input.root = vRoot;
-	input.handle = MathUtils::translationOf(ikStep.mWorld);
+	input.handle = MathUtils::translationOf(mReach);
 	input.pole = MathUtils::translationOf(poleStep.mWorld);
 	input.length1 = eval.rest.length1;
 	input.length2 = eval.rest.length2;
@@ -170,7 +171,7 @@ void TwoBoneIkSolve::evaluate(const TwoBoneIkEval& eval, TwoBoneIkSolveResult& o
 	input.restAxis = MathUtils::translationOf(eval.mRest[TwoBoneIkSlot::Ik]) - MathUtils::translationOf(eval.mRest[TwoBoneIkSlot::Upper]);
 
 	MMatrix mFrames[TwoBoneIkSlot::LimbCount];
-	computeLimbFrames(computeTwoBoneIk(input), vRoot, ikStep.mWorld, mFrames);
+	computeLimbFrames(computeTwoBoneIk(input), vRoot, mReach, mFrames);
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::LimbCount; ++slot)
 	{
 		outResult.mJointWorld[slot] = MathUtils::blendMatrices(mFkWorld[slot], eval.rest.ikRestOffset[slot] * mFrames[slot], eval.blend);

@@ -314,6 +314,10 @@ namespace
 				{
 					it = moduleData.parentStructure.find(childPlugInfo.defaultsToPlug);
 				}
+				if (it == moduleData.parentStructure.end() && childPlugInfo.optional)
+				{
+					continue;   // the module falls back to its own behaviour
+				}
 				const std::string& socketIdentifier = it != moduleData.parentStructure.end() ? it->second : defaultSocket;
 
 				const RigModuleBuildResult* pParentModule = nullptr;

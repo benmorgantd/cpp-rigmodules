@@ -331,6 +331,13 @@ namespace RigAttr
 	inline constexpr const char* RibbonIkRestOffset{ "ribbonIkRestOffset" };
 	// Limb channel on the settings control: how round the elbow is. 0 is a sharp corner (the default), 1 the smooth curve.
 	inline constexpr const char* BendSoftness{ "bendSoftness" };
+	// Limb (D62 phase 4): whether the optional ikTarget child plug has a parent, set at build when the template wires it.
+	inline constexpr const char* IkTargetConnected{ "ikTargetConnected" };
+	// Limb's ikTarget input (a matrix and its rest) and the output array that holds the ik, pole and settings sockets apart from
+	// OutputSocketMatrix, so that nothing the target moves is on the same attribute as what the foot hangs from (see design/limb.md 8.1).
+	inline constexpr const char* IkTargetMatrix{ "ikTargetMatrix" };
+	inline constexpr const char* IkTargetRestMatrix{ "ikTargetRestMatrix" };
+	inline constexpr const char* HandleSocketMatrix{ "handleSocketMatrix" };
 
 	// TwoBoneIk rest data (D52), stored at build. Its ik controls' offsets are IkRestOffset above.
 	inline constexpr const char* RestBendNormal{ "restBendNormal" };
@@ -433,6 +440,8 @@ namespace PlugAndSocketNames
 	inline constexpr const char* Ik{ "ik" };
 	inline constexpr const char* Pole{ "pole" };
 	inline constexpr const char* Settings{ "settings" };
+	// Limb's optional child plug (D62 section 8): the world matrix the end joint should reach, left unparented for the IK handle's own.
+	inline constexpr const char* IkTarget{ "ikTarget" };
 }
 
 // JSON keys in a rig template. Public API: every saved template depends on them.

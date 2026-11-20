@@ -5,6 +5,7 @@
 #include "core/RigJsonStructs.h"
 #include "core/TemplateMirror.h"
 #include "maya/ModuleRegistry.h"
+#include "maya/shared/TwoBoneIkSolve.h"
 
 #include <algorithm>
 #include <cmath>
@@ -74,7 +75,7 @@ namespace
 		{
 			auto it = result.childPlugs.find(plug.name);
 			plugsMatch = plugsMatch && it != result.childPlugs.end() && plug.hasControl == !it->second.oTransform.isNull()
-				&& plug.followsPlug == it->second.followsPlug && plug.defaultsToPlug == it->second.defaultsToPlug;
+				&& plug.followsPlug == it->second.followsPlug && plug.defaultsToPlug == it->second.defaultsToPlug && plug.optional == it->second.optional;
 		}
 
 		bool socketsMatch = result.parentSockets.size() == moduleInterface.sockets.size();
@@ -338,7 +339,9 @@ MPlug RigModuleNodeBase::getSocketMatrixPlug(const MObject& oModule, unsigned in
 {
 	MStatus status;
 	MFnDependencyNode fnModule(oModule);
-	MPlug pSockets = fnModule.findPlug(RigAttr::OutputSocketMatrix, false, &status);
+	// A Limb keeps the sockets of its IK handle, pole and settings control on their own array (see LimbNode::aIkTargetMatrix).
+	const bool onHandleArray = fnModule.hasAttribute(RigAttr::HandleSocketMatrix) && TwoBoneIkSolve::isHandleSocket(socketIndex);
+	MPlug pSockets = fnModule.findPlug(onHandleArray ? RigAttr::HandleSocketMatrix : RigAttr::OutputSocketMatrix, false, &status);
 	MPlug pSocket;
 	if (status)
 	{

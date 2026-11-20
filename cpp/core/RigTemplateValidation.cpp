@@ -48,8 +48,15 @@ bool ModuleInterface::hasSocket(const std::string& name) const
 
 namespace
 {
-	// Directed edges parent module -> child module. std::map/std::set keep cycle messages in a stable order.
-	using ModuleGraph = std::map<std::string, std::set<std::string>>;
+	// Directed edges parent module -> child module, in the order they were found. An edge remembers the socket it leaves the parent by and
+	// the child plug it enters the child through, because a plug can declare sockets it does not reach (ModulePlugInfo::blindSockets).
+	struct ModuleEdge
+	{
+		std::string child;
+		std::string socket;
+		std::string plug;
+	};
+	using ModuleGraph = std::map<std::string, std::vector<ModuleEdge>>;
 
 	// For a "(has: ...)" list in a message, where an empty list still needs a word.
 	template <typename TNames>
@@ -144,19 +151,20 @@ namespace
 	class CycleFinder
 	{
 	public:
-		CycleFinder(const ModuleGraph& graph, ValidationReport& report)
+		CycleFinder(const ModuleGraph& graph, const ModuleInterfaceMap& interfaces, ValidationReport& report)
 			: fGraph(graph)
+			, fInterfaces(interfaces)
 			, fReport(report)
 		{
 		}
 
 		void run()
 		{
-			for (const auto& [moduleName, children] : fGraph)
+			for (const auto& [moduleName, edges] : fGraph)
 			{
-				if (fState[moduleName] == State::Unvisited)
+				if (fState[{ moduleName, std::string() }] == State::Unvisited)
 				{
-					visit(moduleName);
+					visit(moduleName, std::string());
 				}
 			}
 		}
@@ -169,47 +177,65 @@ namespace
 			Done
 		};
 
-		void visit(const std::string& moduleName)
+		// A visit is a module and the child plug it was entered through (empty where a search starts): a module entered through a plug that
+		// is blind to a socket does not depend on that plug for the socket, so a path may not leave by it.
+		using Visit = std::pair<std::string, std::string>;
+
+		bool isBlind(const Visit& visit, const std::string& socket) const
 		{
-			fState[moduleName] = State::OnStack;
-			fStack.push_back(moduleName);
+			const auto itInterface = fInterfaces.find(visit.first);
+			const ModulePlugInfo* pPlug = !visit.second.empty() && itInterface != fInterfaces.end() ? itInterface->second.findChildPlug(visit.second) : nullptr;
+			return pPlug != nullptr && isOneOf(socket, pPlug->blindSockets);
+		}
+
+		void visit(const std::string& moduleName, const std::string& enteredBy)
+		{
+			const Visit here{ moduleName, enteredBy };
+			fState[here] = State::OnStack;
+			fStack.push_back(here);
 
 			auto it = fGraph.find(moduleName);
 			if (it != fGraph.end())
 			{
-				for (const std::string& child : it->second)
+				for (const ModuleEdge& edge : it->second)
 				{
-					if (fState[child] == State::OnStack)
+					if (isBlind(here, edge.socket))
 					{
-						reportCycle(child);
+						continue;
 					}
-					else if (fState[child] == State::Unvisited)
+					const Visit next{ edge.child, edge.plug };
+					if (fState[next] == State::OnStack)
 					{
-						visit(child);
+						reportCycle(next);
+					}
+					else if (fState[next] == State::Unvisited)
+					{
+						visit(edge.child, edge.plug);
 					}
 				}
 			}
 
 			fStack.pop_back();
-			fState[moduleName] = State::Done;
+			fState[here] = State::Done;
 		}
 
-		void reportCycle(const std::string& cycleStart)
+		void reportCycle(const Visit& cycleStart)
 		{
 			auto it = std::find(fStack.begin(), fStack.end(), cycleStart);
 			std::string path;
 			for (; it != fStack.end(); ++it)
 			{
-				path += *it + " -> ";
+				path += it->first + " -> ";
 			}
-			path += cycleStart;
+			path += cycleStart.first;
 			fReport.addError("module graph", "cycle through parentStructure and constraint drivers: " + path);
 		}
 
 		const ModuleGraph& fGraph;
+		const ModuleInterfaceMap& fInterfaces;
 		ValidationReport& fReport;
-		std::map<std::string, State> fState;
-		std::vector<std::string> fStack;
+		std::map<Visit, State> fState;
+		std::vector<Visit> fStack;
 	};
 
 	void validateParentStructure(
@@ -271,7 +297,7 @@ namespace
 				continue;
 			}
 
-			graph[parentModule].insert(module.name);
+			graph[parentModule].push_back({ module.name, socketName, plugName });
 		}
 	}
 
@@ -409,7 +435,7 @@ namespace
 						report.addError(socketPath, "a module cannot drive its own child plug, it makes a DG cycle");
 						continue;
 					}
-					graph[driverModule].insert(targetModule);
+					graph[driverModule].push_back({ targetModule, socketName, targetPlug });
 				}
 			}
 
@@ -650,7 +676,7 @@ namespace RigTemplateValidation
 
 		validateConstraints(rigData.rigConstraints, declaredModules, interfaces, graph, report);
 
-		CycleFinder(graph, report).run();
+		CycleFinder(graph, interfaces, report).run();
 	}
 
 	bool isParentSocketId(const std::string& identifier)

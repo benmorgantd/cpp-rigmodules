@@ -24,6 +24,9 @@
 namespace LimbSlot
 {
 	inline constexpr unsigned int FirstRibbon{ TwoBoneIkSlot::Count };
+	// The ikTarget child plug is not a slot: it has no control, joint or socket and no element of childPlugs, so its RigModuleChildPlugInfo
+	// carries this in place of an index (the build callback tells it apart by it).
+	inline constexpr unsigned int IkTargetPlug{ 0xFFFFFFFFu };
 }
 
 // The order of the ribbon channels on the settings control, which is the order of LimbNode::aChannels and of limbChannelSpecs():
@@ -102,6 +105,15 @@ public:
 	static MObject aIkVisible;
 
 	// The match outputs (TwoBoneIkPart), pulled only by setRigIkFkBlend: the two-bone limb's control locals on each side and the warnings.
+	// The ikTarget child plug (D62 section 8) is its own pair of inputs, not an element of childPlugs, and the ik, pole and settings sockets
+	// are their own output array, not elements of outputSocketMatrix (getSocketMatrixPlug finds them there). Maya orders the graph by
+	// attribute, so with the target and the handle's sockets on shared attributes a foot that hangs from the handle and feeds the target
+	// would be a cycle. aIkTargetConnected is set at build when the template wires the plug: unset, the end joint reaches the IK handle.
+	static MObject aIkTargetMatrix;
+	static MObject aIkTargetRestMatrix;
+	static MObject aIkTargetConnected;
+	static MObject aHandleSocketMatrix;
+
 	static MObject aFkMatchLocal;
 	static MObject aIkMatchLocal;
 	static MObject aMatchWarnings;
@@ -145,4 +157,6 @@ public:
 
 private:
 	static RibbonSolve::RestAttrs restAttrs();
+	// The ik, pole and settings sockets (ModulePlugInfo::blindSockets of ikTarget): they follow their controls and never read the target.
+	static MStatus computeHandleSockets(const MPlug& plug, MDataBlock& data);
 };

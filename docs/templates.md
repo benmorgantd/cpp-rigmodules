@@ -80,7 +80,7 @@ A selector is a `[side, usage]` pair matched against each joint's `rigMarkup` at
 Each key is one of this module's child plugs. Each value is a socket id, `module.socket`, where `module` is another module's `name` or `layout_00_M_MOD`.
 
 - A bare socket name (`"end"`) is an error. Write `layout_00_M_MOD.end`.
-- Child plugs that are not listed attach to `layout_00_M_MOD.end`, as do all child plugs of a module with no `parentStructure`. The one exception is a [`Ribbon`](modules.md#ribbon)'s `end`, which takes the same parent as its `start` unless it is listed.
+- Child plugs that are not listed attach to `layout_00_M_MOD.end`, as do all child plugs of a module with no `parentStructure`. The exceptions are a [`Ribbon`](modules.md#ribbon)'s `end`, which takes the same parent as its `start` unless it is listed, and a [`Limb`](modules.md#limb)'s `ikTarget`, which stays unconnected when it is not listed.
 - A module cannot parent to itself, directly or through a loop of modules.
 - `parent:module.socket` names a socket of the rig this one is attached to, in a `parentStructure` value or a constraint driver. See [attachments.md](attachments.md).
 
@@ -105,7 +105,7 @@ Drivers:
 | `label` | no | Enum label shown on the control. Defaults to the socket id. Unique within the constraint. |
 | `weight` | no | 0 or more, default 0. The driver with the highest weight starts active. With a tie, the first of them starts active (and the build warns). With no weights, the first driver starts active. |
 
-A module cannot drive its own child plug, and no loop may run through `parentStructure` and constraint drivers together.
+A module cannot drive its own child plug, and no loop may run through `parentStructure` and constraint drivers together. One kind of loop is allowed: a plug may declare sockets its input does not reach, and a path that enters a module by that plug cannot leave it by one of them. A [`Limb`](modules.md#limb)'s `ikTarget` declares `ik`, `pole` and `settings`, so a foot that hangs from `ik` and feeds `ikTarget` is fine, and the same foot hanging from `end` is a cycle.
 
 A module can own a child plug's space, or take its parent from another plug of its own. [`TwoBoneIk`](modules.md#twoboneik)'s `pole` and `settings` take no constraint, and its `settings` takes no `parentStructure` entry either.
 

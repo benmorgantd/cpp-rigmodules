@@ -48,6 +48,8 @@ struct RigModuleChildPlugInfo
 	std::string followsPlug;
 	// ModulePlugInfo::defaultsToPlug: the plug whose parentStructure entry this one takes when the template lists none.
 	std::string defaultsToPlug;
+	// ModulePlugInfo::optional: with no parentStructure entry the plug is left unparented (and unconnected).
+	bool optional = false;
 };
 
 // Common struct for the args used when parenting module plugs.

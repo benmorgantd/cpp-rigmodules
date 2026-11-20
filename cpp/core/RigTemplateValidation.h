@@ -40,6 +40,13 @@ struct ModulePlugInfo
 	// Not empty for a plug the template may parent but need not: with no parentStructure entry it takes the parent of this
 	// plug of the same module, where any other unlisted plug takes layout_00_M_MOD.end (Ribbon's end follows its start).
 	std::string defaultsToPlug;
+	// True for a plug the template may leave unparented, and then it stays unconnected and the module falls back to its own behaviour
+	// (Limb's ikTarget: the end joint reaches the IK handle). Every other plug with no entry takes layout_00_M_MOD.end.
+	bool optional = false;
+	// The module's sockets whose value does not depend on this plug's input (D62 section 8: ikTarget leaves ik, pole and settings alone).
+	// The module-cycle check does not follow a path that enters the module through this plug and leaves by one of them, so a foot that
+	// hangs from the handle and feeds ikTarget is not a loop. The module's attributeAffects and compute() must really keep to this.
+	std::vector<std::string> blindSockets;
 };
 
 // The child plug and socket names a module will create, known before anything is built.
