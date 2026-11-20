@@ -31,43 +31,42 @@ namespace
 		}
 	}
 
-	// Keeps the limit largest weights of the row (ties keep the lower column), zeroes the rest and scales what is left
-	// to total. Same tie rule as pruneToMaxInfluences.
-	void keepLargest(double* row, std::size_t columns, std::size_t limit, double total, std::vector<std::size_t>& scratch)
+}
+
+void keepLargestWeights(double* row, std::size_t columns, std::size_t limit, double total, std::vector<std::size_t>& scratch)
+{
+	scratch.clear();
+	for (std::size_t k = 0; k < columns; ++k)
 	{
-		scratch.clear();
-		for (std::size_t k = 0; k < columns; ++k)
+		if (row[k] != 0.0)
 		{
-			if (row[k] != 0.0)
-			{
-				scratch.push_back(k);
-			}
+			scratch.push_back(k);
 		}
-		if (scratch.size() <= limit)
-		{
-			return;
-		}
-		const auto isKeptBefore = [row](std::size_t a, std::size_t b)
-		{
-			return row[a] != row[b] ? row[a] > row[b] : a < b;
-		};
-		std::nth_element(scratch.begin(), scratch.begin() + limit - 1, scratch.end(), isKeptBefore);
-		double keptSum = 0.0;
+	}
+	if (scratch.size() <= limit)
+	{
+		return;
+	}
+	const auto isKeptBefore = [row](std::size_t a, std::size_t b)
+	{
+		return row[a] != row[b] ? row[a] > row[b] : a < b;
+	};
+	std::nth_element(scratch.begin(), scratch.begin() + limit - 1, scratch.end(), isKeptBefore);
+	double keptSum = 0.0;
+	for (std::size_t k = 0; k < limit; ++k)
+	{
+		keptSum += row[scratch[k]];
+	}
+	for (std::size_t k = limit; k < scratch.size(); ++k)
+	{
+		row[scratch[k]] = 0.0;
+	}
+	if (keptSum > kMinimumSum)
+	{
+		const double scale = total / keptSum;
 		for (std::size_t k = 0; k < limit; ++k)
 		{
-			keptSum += row[scratch[k]];
-		}
-		for (std::size_t k = limit; k < scratch.size(); ++k)
-		{
-			row[scratch[k]] = 0.0;
-		}
-		if (keptSum > kMinimumSum)
-		{
-			const double scale = total / keptSum;
-			for (std::size_t k = 0; k < limit; ++k)
-			{
-				row[scratch[k]] *= scale;
-			}
+			row[scratch[k]] *= scale;
 		}
 	}
 }
@@ -326,7 +325,7 @@ SmoothedWeights smoothSkinWeights(std::size_t vertexCount, const std::vector<uns
 				lockedNonZero += table[selfRow[t] * influenceCount + i] != 0.0 ? 1 : 0;
 			}
 			const std::size_t limit = settings.maxInfluences > lockedNonZero ? settings.maxInfluences - lockedNonZero : 1;
-			keepLargest(current.data() + selfRow[t] * width, width, limit, total[t], scratch);
+			keepLargestWeights(current.data() + selfRow[t] * width, width, limit, total[t], scratch);
 		}
 	}
 

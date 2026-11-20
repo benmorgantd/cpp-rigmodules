@@ -27,6 +27,11 @@ class SkinBrushOperation
 public:
 	virtual ~SkinBrushOperation() = default;
 	virtual MStatus bind(const MDagPath& mesh) = 0;
+	// The pose changed between strokes: read again whatever the operation keeps of it. Most operations keep none.
+	virtual MStatus refresh()
+	{
+		return MStatus::kSuccess;
+	}
 	// vertices: sorted and unique. scales: parallel, each in (0, 1], the brush falloff there. strength: in (0, 1].
 	// adjacency is the mesh's neighbor map, built once per stroke.
 	virtual MStatus prepare(const std::vector<unsigned int>& vertices, const std::vector<double>& scales, double strength, const MeshAdjacency& adjacency) = 0;

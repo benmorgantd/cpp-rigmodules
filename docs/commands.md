@@ -917,7 +917,7 @@ cmds.skinBrushCtx(ctx, query=True, radius=True)    # 8.0
 
 | Flag | Type | Meaning |
 |---|---|---|
-| `operation` | string | What a dab does. `smooth` is the only one so far. Default `smooth`. |
+| `operation` | string | What a dab does. `smooth`: average the weights with the neighbors'. `restDelta`: move the weights so each vertex's offset from its neighbors' average matches the rest shape's, turned by the skin (what a delta mush keeps). `restEdge`: move them so each edge goes back towards its rest length. See [Painting towards the rest shape](#painting-towards-the-rest-shape). Default `smooth`. |
 | `radius` | double | The brush radius, at least 0.001, in scene units. With the `surface` falloff it is a **length over the mesh**. Until you set one (a flag or a Ctrl + drag), it is 5% of the diagonal of the box around the selected meshes, worked out when the tool starts, so the brush fits a mesh of any size. Queried before the tool has started it is 5. |
 | `falloff` | string | How the radius is measured. `surface` (default): along the mesh edges from where the brush landed, so it never reaches across a gap and two shells never share a dab. `volume`: in a straight line in space, a ball, which also reaches a part of the mesh that is close but not connected (the other side of a thin wall, a lip against a lip). |
 | `strength` | double | How strongly each dab acts at the center of the brush, above 0 and at most 1. Default 0.5. |
@@ -931,6 +931,17 @@ cmds.skinBrushCtx(ctx, query=True, radius=True)    # 8.0
 - **Strength** is how far one dab goes at the center of the brush. At the default 0.5 a single dab is gentle, which is what holding the button is for. Raise it with `cmds.skinBrushCtx(ctx, edit=True, strength=0.8)`, or from the Skin Brush menu tool's `strength` argument.
 - **Undo:** one stroke, from press to release, is one undo step. Undo restores the weights from before the stroke exactly, however much the dabs overlapped.
 - Like Maya's other tools, the context is created in a GUI session: Maya creates no contexts in `mayapy`. The tests drive the same engine through `skinBrushStroke`.
+
+### Painting towards the rest shape
+
+`restDelta` and `restEdge` (D66) are for painting weights in a pose so the mesh in that pose looks more like its rest shape: a delta mush, painted. Pose the rig where the skin is wrong, select the mesh, and paint.
+
+- **What a dab does.** For each vertex it reaches, the brush works out where the rest shape wants the vertex given where its neighbors are now, then moves the weights to the blend of the influences that gets closest. `restDelta` keeps each vertex's rest offset from its neighbors' average (turned by the skin's rotation there), so it restores local shape, volume and angles. `restEdge` keeps edge lengths. Strength and falloff mean what they mean for `smooth`: how far towards the answer one dab goes.
+- **It only blends influences the neighborhood already has**, never a joint that carries no weight there, and never below 0 or above 1. Locked influences and the cluster's maximum influences are respected. It cannot fix what no blend of the existing influences can reach (a candy wrapper needs another influence).
+- **One pass per dab.** The neighbors move as you paint, so hold the brush or stroke again to keep converging. At rest, or under a move that keeps the shape (every joint turned together), there is nothing to fix and a dab changes nothing.
+- **Weights are fitted to the pose you are in.** Paint in a few poses, not one.
+- **The rest shape is the geometry the skinCluster is fed** (its input), not a file. The skin must be classic linear skinning (`skinningMethod` 0), and the mesh must be what that skinCluster gives from its input: the bind checks a sample of vertices and fails with an error for dual quaternion skinning, or a deformer after the skinCluster, since the solve would paint towards the wrong pose.
+- The pose is read when a stroke starts (and when the pointer re-enters the viewport), so change the pose between strokes.
 
 ## skinBrushStroke
 

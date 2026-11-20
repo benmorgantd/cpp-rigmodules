@@ -26,7 +26,7 @@ Saving and loading copy weights exactly: a weight that goes through a file comes
 - **Unnormalized weights are an error.** If any vertex's weights don't sum to 1 (within 0.00001), saving fails and names the vertices and their sums. Fix them in Maya (Normalize Weights, or Prune Small Weights, which also normalizes), then save again. A file with an unnormalized vertex fails to load the same way.
 - **Pruning is a separate step.** Drop small weights with Maya's Prune Small Weights, and limit influences per vertex with [`pruneToMaxInfluences`](commands.md#prunetomaxinfluences), before saving. The save itself never does either.
 - **Smoothing is a separate step too.** [`smoothSkinWeights`](commands.md#smoothskinweights) averages vertices with their neighbors. It respects locked influences and the skinCluster's maximum influences.
-- **Painting is a context.** [`skinBrushCtx`](commands.md#skinbrushctx) smooths the weights under a brush as you drag over the selected meshes: the radius is a length over the surface, one stroke is one undo step, and `skinBrushStroke` repeats a stroke from a script (D65).
+- **Painting is a context.** [`skinBrushCtx`](commands.md#skinbrushctx) smooths the weights under a brush as you drag over the selected meshes: the radius is a length over the surface, one stroke is one undo step, and `skinBrushStroke` repeats a stroke from a script (D65). Besides `smooth`, the brush has two rest-match operations, `restDelta` and `restEdge`, that paint the weights in a pose towards the rest shape, like a delta mush (D66, [details](commands.md#painting-towards-the-rest-shape)).
 
 ## Clean diffs
 

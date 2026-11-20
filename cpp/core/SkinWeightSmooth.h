@@ -61,6 +61,10 @@ struct SmoothedWeights
 // Reads the weights of the sorted vertex ids it is given, row-major with influenceCount columns, into table.
 using WeightFetch = std::function<void(const std::vector<unsigned int>& vertices, std::vector<double>& table)>;
 
+// Keeps the limit largest weights of the row (ties keep the lower column), zeroes the rest and scales what is left to
+// total. Same tie rule as pruneToMaxInfluences. Shared by every weight brush that honors maxInfluences.
+void keepLargestWeights(double* row, std::size_t columns, std::size_t limit, double total, std::vector<std::size_t>& scratch);
+
 // Smooths the weights of vertices (null is every vertex) and returns the rows that changed, in vertex order. A vertex
 // with a locked influence keeps that weight, and its other weights keep their total. A vertex with no neighbor, a row
 // that moves by less than 1e-9 and a mesh with no weight in the working set are left out. iterations must be at least

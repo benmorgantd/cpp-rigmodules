@@ -79,6 +79,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D63 | `constraintWeight`: a baked 0..1 blend from "follow the parent" to the full constraint | Decided | Constraints |
 | D64 | `smoothSkinWeights`: neighbor-average smoothing on a working set, built to be a brush later | Decided | Skinning |
 | D65 | The skin weight brush: one context for every skin painting command, falloff over the mesh surface | Decided | Skinning |
+| D66 | Rest-match brushes: paint weights in a pose so the mesh goes back towards its rest deltas or edge lengths | Decided | Skinning |
 
 ---
 
@@ -1052,6 +1053,22 @@ A rigger paints skin weights by dragging a brush over a skinned mesh. The first 
 - **Tests:** `skinBrushStroke` replays a stroke from hit points or rays, which tests the falloff, the surface distance, the closest-surface and through-mesh picking, multi-mesh strokes and undo below the mouse. Maya creates no contexts in `mayapy`, so the `skinBrushCtx` settings test is skipped in the suite and runs in a GUI Maya. Not tested anywhere automatically: events, the drawing, Ctrl + drag, the selection restriction.
 - **Names:** additive. Flag names are not `hit` or `ray`, because Maya drops a three-letter long flag name without an error (`hitPoint`, `viewRay`).
 - **Maintenance surface added:** one core file, one engine file pair, one context file pair and a `maya/contexts/` folder, two commands, `vertexScale` on the smoothing settings.
+
+### D66. Rest-match brushes: paint weights in a pose so the mesh goes back towards its rest deltas or edge lengths
+
+**Status:** Decided (author, 2026-11-20: the skinCluster's input geometry is the rest shape, linear blend skinning only, two operations named `restDelta` and `restEdge`). Built. Brush feel in a GUI Maya is not verified.
+
+The author wants a brush like a delta mush, painted: pose the rig, and paint weights so the mesh in that pose matches its rest deltas or rest edge lengths, instead of smoothing (D64, D65).
+
+- **The model.** With linear blend skinning a vertex's posed position is `sum(w_k * c_k)`, where `c_k` is where it would sit if bound to influence `k` alone (rest point times `bindPreMatrix * joint matrix`). It is linear in the weights, so each vertex is a small least-squares problem over the simplex (weights at least 0, the row's unlocked total fixed), solved in `core/SkinWeightRestMatch` by projected gradient with a weak pull (1e-3 of the spread of the candidates) towards the starting weights, which only picks one answer when more than three influences fit equally.
+- **Where the vertex should sit.** `restDelta`: the average of the neighbors' posed positions plus the rest delta (rest position minus the average of the neighbors' rest) turned by the polar rotation of the skin's blended matrix at the vertex, as a delta mush does. Edge angles are inside the delta, so there is no angle operation. `restEdge`: the average over the edges of the point at the rest length from the neighbor along the edge's current direction (a position-based-dynamics distance constraint). A dab's strength is `strength * falloff` of the move from the old weights to the solved ones, the same meaning as smoothing.
+- **Same structure as smoothing.** One `SkinBrushOperation` class with a target, listed twice in `createBrushOperation`: no new flags, no new command, and the picking, falloff, visualizer, journal and undo come with it. Each vertex reads the neighbors' pose as the last pass left it (Jacobi). The pose of the working set is computed from the fetched weights and cached joint matrices, never by re-reading the deformed mesh, so a dab costs what a smooth dab costs and the neighbors are current within a stroke. Only influences with weight in the working set and not locked take part; `maxInfluences` uses the shared `keepLargestWeights`.
+- **Rest source (author): the skinCluster's `input[0].inputGeometry`**, taken to world space with `geomMatrix`. Rejected for now: a `restMesh` flag for a sculpted target.
+- **Linear blend only (author).** `bind` fails for `skinningMethod` other than 0, and it compares the model with `getPoints` on up to 2000 vertices (tolerance 1e-3 of the mesh's largest extent) and fails when they differ, so an unsupported setup (a deformer after the skinCluster, a bind that does not match the rest pose) is an error, not a silent wrong pose.
+- **Refactor with the change.** The plumbing of `SkinWeightSmooth` (binding the skinCluster, locks, the weight fetch, apply, undo) moved into a base class `SkinWeightPass`, which `SkinWeightSmooth` and `SkinWeightRestMatch` derive from. `keepLargest` became the shared `keepLargestWeights`. `SkinBrushOperation` gained a `refresh()` (default does nothing) that `SkinBrushStroke::refresh` calls at each press so the joint matrices follow the pose.
+- **Limits.** It blends the influences the neighborhood already has, so it cannot fix a candy wrapper that needs a new influence. Weights fitted to one pose can hurt another, so paint in several poses. One pass per dab, with neighbors fixed, converges over repeated dabs (hold to repeat).
+- **Names and format:** additive: two operation names. Saved weights are unchanged.
+- **Maintenance surface added:** one core file pair, a base class and one class in `SkinWeightScene`, an operation class, `keepLargestWeights` shared.
 
 ## Open items
 

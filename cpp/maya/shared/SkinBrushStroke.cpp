@@ -1,4 +1,5 @@
 #include "maya/shared/SkinBrushStroke.h"
+#include "core/SkinWeightRestMatch.h"
 #include "core/SurfaceBrush.h"
 #include "maya/shared/Utilities.h"
 
@@ -49,6 +50,46 @@ namespace
 		SkinWeightSmooth fSmooth;
 	};
 
+	// The rest-match brushes (D66): a dab moves the weights of the vertices it reaches towards the blend of influences
+	// that puts each vertex where the rest shape wants it in the current pose. One class, two ways to say where.
+	class RestBrushOperation : public SkinBrushOperation
+	{
+	public:
+		explicit RestBrushOperation(RestTarget target)
+			: fTarget(target)
+		{
+		}
+
+		MStatus bind(const MDagPath& mesh) override
+		{
+			return fRestMatch.bind(mesh, fTarget);
+		}
+
+		MStatus refresh() override
+		{
+			return fRestMatch.refreshPose();
+		}
+
+		MStatus prepare(const std::vector<unsigned int>& vertices, const std::vector<double>& scales, double strength, const MeshAdjacency& adjacency) override
+		{
+			return fRestMatch.prepare(vertices, strength, scales, adjacency);
+		}
+
+		MStatus apply() override
+		{
+			return fRestMatch.apply();
+		}
+
+		const SmoothedWeights& edit() const override
+		{
+			return fRestMatch.smoothed();
+		}
+
+	private:
+		RestTarget fTarget;
+		SkinWeightRestMatch fRestMatch;
+	};
+
 	struct BrushOperationEntry
 	{
 		const char* name;
@@ -60,6 +101,8 @@ namespace
 		static const std::vector<BrushOperationEntry> table =
 		{
 			{ "smooth", []() -> std::unique_ptr<SkinBrushOperation> { return std::make_unique<SmoothBrushOperation>(); } },
+				{ "restDelta", []() -> std::unique_ptr<SkinBrushOperation> { return std::make_unique<RestBrushOperation>(RestTarget::Delta); } },
+				{ "restEdge", []() -> std::unique_ptr<SkinBrushOperation> { return std::make_unique<RestBrushOperation>(RestTarget::Edge); } },
 		};
 		return table;
 	}
@@ -218,6 +261,8 @@ MStatus SkinBrushStroke::refresh()
 	{
 		mesh->fnMesh->freeCachedIntersectionAccelerator();
 		MStatus status = mesh->readPositions();
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		status = mesh->operation->refresh();
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
 	return MStatus::kSuccess;

@@ -102,6 +102,9 @@
     <ClCompile Include="core\SelectionSets.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\SkinWeightRestMatch.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\SkinWeightSmooth.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -351,6 +354,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\SelectionSets.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\SkinWeightRestMatch.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\SkinWeightSmooth.h">

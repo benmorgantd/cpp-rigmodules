@@ -12,6 +12,8 @@
 #include <string>
 #include <utility>
 
+#include <maya/MBoundingBox.h>
+#include <maya/MFnDagNode.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnMatrixData.h>
 #include <maya/MFnMesh.h>
@@ -24,6 +26,8 @@
 #include <maya/MNamespace.h>
 #include <maya/MObjectArray.h>
 #include <maya/MPlug.h>
+#include <maya/MPoint.h>
+#include <maya/MPointArray.h>
 #include <maya/MUuid.h>
 
 namespace
@@ -712,7 +716,7 @@ unsigned int SkinWeightPrune::changedVertexCount() const
 	return fChangedCount;
 }
 
-MStatus SkinWeightSmooth::bind(const MDagPath& mesh)
+MStatus SkinWeightPass::bindCluster(const MDagPath& mesh)
 {
 	MStatus status = MeshUtils::getMeshShape(mesh, fShape);
 	if (!status)
@@ -753,20 +757,10 @@ MStatus SkinWeightSmooth::bind(const MDagPath& mesh)
 	return MStatus::kSuccess;
 }
 
-MStatus SkinWeightSmooth::prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength, const std::vector<double>* vertexScale, const MeshAdjacency* adjacency)
+WeightFetch SkinWeightPass::makeWeightFetch(MStatus& status) const
 {
-	fSmoothed = SmoothedWeights();
-	fChangedVertices = MObject::kNullObj;
-	fInfluenceIndices.clear();
-	if (iterations < 1 || !(strength > 0.0 && strength <= 1.0))
-	{
-		MGlobal::displayError("Smoothing needs iterations of at least 1 and a strength above 0 and at most 1.");
-		return MStatus::kInvalidParameter;
-	}
-
-	MStatus status = MStatus::kSuccess;
 	const unsigned int vertexCount = fVertexCount;
-	const WeightFetch fetch = [this, vertexCount, &status](const std::vector<unsigned int>& working, std::vector<double>& table)
+	return [this, vertexCount, &status](const std::vector<unsigned int>& working, std::vector<double>& table)
 	{
 		table.clear();
 		MObject oVertices;
@@ -805,6 +799,57 @@ MStatus SkinWeightSmooth::prepare(const std::vector<unsigned int>* vertices, uns
 		table.resize(weights.length());
 		weights.get(table.data());
 	};
+}
+
+void SkinWeightPass::clearPrepared()
+{
+	fSmoothed = SmoothedWeights();
+	fChangedVertices = MObject::kNullObj;
+	fInfluenceIndices.clear();
+}
+
+MStatus SkinWeightPass::keepPrepared(SmoothedWeights&& result)
+{
+	fSmoothed = std::move(result);
+	if (fSmoothed.vertices.empty())
+	{
+		return MStatus::kSuccess;
+	}
+
+	MStatus status;
+	MFnSingleIndexedComponent fnChanged;
+	fChangedVertices = fnChanged.create(MFn::kMeshVertComponent, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const std::vector<int> changedIds(fSmoothed.vertices.begin(), fSmoothed.vertices.end());
+	MIntArray changedElements(changedIds.data(), static_cast<unsigned int>(changedIds.size()));
+	status = fnChanged.addElements(changedElements);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	fInfluenceIndices.setLength(static_cast<unsigned int>(fSmoothed.influences.size()));
+	for (unsigned int i = 0; i < fInfluenceIndices.length(); ++i)
+	{
+		fInfluenceIndices[i] = static_cast<int>(fSmoothed.influences[i]);
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus SkinWeightSmooth::bind(const MDagPath& mesh)
+{
+	return bindCluster(mesh);
+}
+
+MStatus SkinWeightSmooth::prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength, const std::vector<double>* vertexScale, const MeshAdjacency* adjacency)
+{
+	clearPrepared();
+	if (iterations < 1 || !(strength > 0.0 && strength <= 1.0))
+	{
+		MGlobal::displayError("Smoothing needs iterations of at least 1 and a strength above 0 and at most 1.");
+		return MStatus::kInvalidParameter;
+	}
+
+	MStatus status = MStatus::kSuccess;
+	const unsigned int vertexCount = fVertexCount;
+	const WeightFetch fetch = makeWeightFetch(status);
 
 	// Every vertex: the polygon loops give the whole map at once. Some: ask the mesh for just those vertices' neighbors.
 	MeshAdjacency bulk;
@@ -876,30 +921,12 @@ MStatus SkinWeightSmooth::prepare(const std::vector<unsigned int>* vertices, uns
 	{
 		settings.vertexScale = *vertexScale;
 	}
-	fSmoothed = smoothSkinWeights(vertexCount, vertices, fInfluenceCount, settings, fetchNeighbors, fetch);
+	SmoothedWeights smoothed = smoothSkinWeights(vertexCount, vertices, fInfluenceCount, settings, fetchNeighbors, fetch);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	if (fSmoothed.vertices.empty())
-	{
-		return MStatus::kSuccess;
-	}
-
-	MFnSingleIndexedComponent fnChanged;
-	fChangedVertices = fnChanged.create(MFn::kMeshVertComponent, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	const std::vector<int> changedIds(fSmoothed.vertices.begin(), fSmoothed.vertices.end());
-	MIntArray changedElements(changedIds.data(), static_cast<unsigned int>(changedIds.size()));
-	status = fnChanged.addElements(changedElements);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	fInfluenceIndices.setLength(static_cast<unsigned int>(fSmoothed.influences.size()));
-	for (unsigned int i = 0; i < fInfluenceIndices.length(); ++i)
-	{
-		fInfluenceIndices[i] = static_cast<int>(fSmoothed.influences[i]);
-	}
-	return MStatus::kSuccess;
+	return keepPrepared(std::move(smoothed));
 }
 
-MStatus SkinWeightSmooth::write(const std::vector<double>& rows)
+MStatus SkinWeightPass::write(const std::vector<double>& rows)
 {
 	if (fSmoothed.vertices.empty())
 	{
@@ -914,24 +941,195 @@ MStatus SkinWeightSmooth::write(const std::vector<double>& rows)
 	return fnSkin.setWeights(fShape, fChangedVertices, fInfluenceIndices, values, false);
 }
 
-MStatus SkinWeightSmooth::apply()
+MStatus SkinWeightPass::apply()
 {
 	return write(fSmoothed.newRows);
 }
 
-MStatus SkinWeightSmooth::undo()
+MStatus SkinWeightPass::undo()
 {
 	return write(fSmoothed.oldRows);
 }
 
-unsigned int SkinWeightSmooth::changedVertexCount() const
+unsigned int SkinWeightPass::changedVertexCount() const
 {
 	return static_cast<unsigned int>(fSmoothed.vertices.size());
 }
 
-const SmoothedWeights& SkinWeightSmooth::smoothed() const
+const SmoothedWeights& SkinWeightPass::smoothed() const
 {
 	return fSmoothed;
+}
+
+MStatus SkinWeightRestMatch::bind(const MDagPath& mesh, RestTarget target)
+{
+	fTarget = target;
+	MStatus status = bindCluster(mesh);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MFnSkinCluster fnSkin(fSkinCluster, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	// Linear blend skinning is the model the solve is built on (D66).
+	if (fnSkin.findPlug("skinningMethod", false).asShort() != 0)
+	{
+		MGlobal::displayError(mesh.partialPathName() + " must use classic linear skinning (skinningMethod 0) to paint towards its rest shape.");
+		return MStatus::kFailure;
+	}
+
+	// The rest shape is what the skinCluster is fed, taken to world space the way the skinCluster does (geomMatrix).
+	const MPlug pInputElement = fnSkin.findPlug("input", false).elementByLogicalIndex(0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MObject oInputGeometryAttr = fnSkin.attribute("inputGeometry", &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const MPlug pInputGeometry = pInputElement.child(oInputGeometryAttr, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const MObject oInputGeometry = pInputGeometry.asMObject();
+	MFnMesh fnInput(oInputGeometry, &status);
+	if (!status)
+	{
+		MGlobal::displayError(mesh.partialPathName() + ": the skinCluster's input is not a mesh.");
+		return status;
+	}
+	MPointArray points;
+	status = fnInput.getPoints(points, MSpace::kObject);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (points.length() != fVertexCount)
+	{
+		MGlobal::displayError(mesh.partialPathName() + ": the skinCluster's input has a different vertex count than the mesh.");
+		return MStatus::kFailure;
+	}
+	MFnMatrixData fnGeometryMatrix(fnSkin.findPlug("geomMatrix", false).asMObject(), &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const MMatrix geometryMatrix = fnGeometryMatrix.matrix();
+	fRest.resize(3 * static_cast<std::size_t>(points.length()));
+	for (unsigned int v = 0; v < points.length(); ++v)
+	{
+		const MPoint world = points[v] * geometryMatrix;
+		fRest[3 * v] = world.x;
+		fRest[3 * v + 1] = world.y;
+		fRest[3 * v + 2] = world.z;
+	}
+
+	status = refreshPose();
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	return verifyModel();
+}
+
+MStatus SkinWeightRestMatch::refreshPose()
+{
+	MStatus status;
+	MFnSkinCluster fnSkin(fSkinCluster, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MDagPathArray influences;
+	fnSkin.influenceObjects(influences, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const MPlug pBindPre = fnSkin.findPlug("bindPreMatrix", false);
+	const MPlug pMatrix = fnSkin.findPlug("matrix", false);
+	fMatrices.assign(kRestMatrixSize * influences.length(), 0.0);
+	for (unsigned int i = 0; i < influences.length(); ++i)
+	{
+		const unsigned int logical = fnSkin.indexForInfluenceObject(influences[i], &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		MFnMatrixData fnBindPre(pBindPre.elementByLogicalIndex(logical).asMObject(), &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		MFnMatrixData fnJoint(pMatrix.elementByLogicalIndex(logical).asMObject(), &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		const MMatrix combined = fnBindPre.matrix() * fnJoint.matrix();
+		double* out = fMatrices.data() + i * kRestMatrixSize;
+		for (unsigned int row = 0; row < 3; ++row)
+		{
+			for (unsigned int column = 0; column < 3; ++column)
+			{
+				out[3 * row + column] = combined[row][column];
+			}
+		}
+		out[9] = combined[3][0];
+		out[10] = combined[3][1];
+		out[11] = combined[3][2];
+	}
+	return MStatus::kSuccess;
+}
+
+// The linear blend model has to be the skin the mesh really has, or the solve paints towards the wrong pose. Compares
+// it with the deformed mesh on a sample of vertices, in world space.
+MStatus SkinWeightRestMatch::verifyModel()
+{
+	constexpr unsigned int kSampleCount = 2000;
+	constexpr double kRelativeTolerance = 1.0e-3;
+
+	MStatus status;
+	MFnMesh fnMesh(fShape, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MPointArray deformed;
+	status = fnMesh.getPoints(deformed, MSpace::kWorld);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (deformed.length() != fVertexCount || fVertexCount == 0)
+	{
+		return MStatus::kFailure;
+	}
+
+	std::vector<unsigned int> sample;
+	const unsigned int stride = fVertexCount / kSampleCount + 1;
+	for (unsigned int v = 0; v < fVertexCount; v += stride)
+	{
+		sample.push_back(v);
+	}
+	std::vector<double> table;
+	const WeightFetch fetch = makeWeightFetch(status);
+	fetch(sample, table);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (table.size() != sample.size() * fInfluenceCount)
+	{
+		return MStatus::kFailure;
+	}
+
+	RestMatchSkin skin;
+	skin.restPositions = &fRest;
+	skin.matrices = &fMatrices;
+	MBoundingBox bounds;
+	for (unsigned int v = 0; v < deformed.length(); ++v)
+	{
+		bounds.expand(deformed[v]);
+	}
+	const double tolerance = kRelativeTolerance * std::max(bounds.width(), std::max(bounds.height(), bounds.depth())) + 1.0e-9;
+	for (std::size_t s = 0; s < sample.size(); ++s)
+	{
+		double position[3];
+		restMatchPosition(skin, table.data() + s * fInfluenceCount, fInfluenceCount, sample[s], position);
+		const MPoint& actual = deformed[sample[s]];
+		const double error = std::max(std::abs(position[0] - actual.x), std::max(std::abs(position[1] - actual.y), std::abs(position[2] - actual.z)));
+		if (error > tolerance)
+		{
+			MGlobal::displayError(MFnDagNode(fShape).partialPathName() + ": the skin is not plain linear blend skinning of its input (a deformer after the skinCluster, or a bind that does not match the rest pose), so its weights cannot be painted towards a rest shape.");
+			return MStatus::kFailure;
+		}
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus SkinWeightRestMatch::prepare(const std::vector<unsigned int>& vertices, double strength, const std::vector<double>& vertexScale, const MeshAdjacency& adjacency)
+{
+	clearPrepared();
+	if (!(strength > 0.0 && strength <= 1.0))
+	{
+		MGlobal::displayError("Painting towards the rest shape needs a strength above 0 and at most 1.");
+		return MStatus::kInvalidParameter;
+	}
+
+	MStatus status = MStatus::kSuccess;
+	const WeightFetch fetch = makeWeightFetch(status);
+	RestMatchSettings settings;
+	settings.target = fTarget;
+	settings.strength = strength;
+	settings.maxInfluences = fMaxInfluences;
+	settings.locked = fLocked;
+	settings.vertexScale = vertexScale;
+	RestMatchSkin skin;
+	skin.restPositions = &fRest;
+	skin.matrices = &fMatrices;
+	SmoothedWeights solved = matchRestWeights(fVertexCount, vertices, fInfluenceCount, settings, skin, neighborsFromAdjacency(adjacency), fetch);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	return keepPrepared(std::move(solved));
 }
 
 bool SkinWeightRows::isSkinned(const MDagPath& mesh)

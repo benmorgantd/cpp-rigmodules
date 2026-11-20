@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/SkinWeightFile.h"
+#include "core/SkinWeightRestMatch.h"
 #include "core/SkinWeightSmooth.h"
 
 #include <memory>
@@ -97,23 +98,24 @@ private:
 // and undo each write the changed vertices' rows in one setWeights call, over only the influences that moved. Nothing
 // about the topology is kept, so a bound object never goes stale on a mesh edit. A locked influence is never written. prepare replaces the last
 // preparation, so a command prepares, applies and keeps the object for undo and redo.
-class SkinWeightSmooth
+class SkinWeightPass
 {
 public:
-	MStatus bind(const MDagPath& mesh);
-	// vertices null is every vertex. Fails (and changes nothing) on iterations below 1 or a strength outside (0, 1].
-	// vertexScale (D65, a brush): null, or parallel to sorted, unique vertices and each in (0, 1], a factor on strength
-	// per vertex. adjacency: null, or the mesh's neighbor map, which a brush builds once per stroke instead of asking
-	// the mesh for neighbors on every dab. It must outlive the call.
-	MStatus prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength, const std::vector<double>* vertexScale = nullptr, const MeshAdjacency* adjacency = nullptr);
 	MStatus apply();
 	MStatus undo();
 	unsigned int changedVertexCount() const;
 	// What the last prepare worked out, which a stroke journals.
 	const SmoothedWeights& smoothed() const;
 
-private:
-	MStatus write(const std::vector<double>& rows);
+protected:
+	// Finds the skinCluster and reads which influences are locked and the cluster's max influences.
+	MStatus bindCluster(const MDagPath& mesh);
+	// Reads the weights of the sorted vertices it is given. status gets the result of the read and must outlive the fetch.
+	WeightFetch makeWeightFetch(MStatus& status) const;
+	// Forgets the last preparation.
+	void clearPrepared();
+	// Keeps result as the preparation and builds what apply and undo write.
+	MStatus keepPrepared(SmoothedWeights&& result);
 
 	MDagPath fShape;
 	MObject fSkinCluster;
@@ -122,9 +124,45 @@ private:
 	std::vector<bool> fLocked;
 	unsigned int fMaxInfluences = 0;        // 0 when the cluster doesn't maintain a maximum
 
+private:
+	MStatus write(const std::vector<double>& rows);
+
 	SmoothedWeights fSmoothed;
 	MObject fChangedVertices;               // one component holding every changed vertex
 	MIntArray fInfluenceIndices;            // the influences fSmoothed lists
+};
+
+class SkinWeightSmooth : public SkinWeightPass
+{
+public:
+	MStatus bind(const MDagPath& mesh);
+	// vertices null is every vertex. Fails (and changes nothing) on iterations below 1 or a strength outside (0, 1].
+	// vertexScale (D65, a brush): null, or parallel to sorted, unique vertices and each in (0, 1], a factor on strength
+	// per vertex. adjacency: null, or the mesh's neighbor map, which a brush builds once per stroke instead of asking
+	// the mesh for neighbors on every dab. It must outlive the call.
+	MStatus prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength, const std::vector<double>* vertexScale = nullptr, const MeshAdjacency* adjacency = nullptr);
+};
+
+// Paints one mesh's skin weights back towards its rest shape (core matchRestWeights, D66), undoably, through the same
+// apply, undo and journal as smoothing. bind needs a skinCluster on classic linear skinning, reads the rest shape (the
+// geometry the skinCluster is fed) and checks that the linear blend model reproduces the deformed mesh, since the solve
+// is only as good as that model: dual quaternion skinning, or a deformer after the skinCluster's own, fails the bind.
+// refreshPose reads the joint matrices again, which a brush does when a stroke starts so it follows the pose.
+class SkinWeightRestMatch : public SkinWeightPass
+{
+public:
+	MStatus bind(const MDagPath& mesh, RestTarget target);
+	MStatus refreshPose();
+	// vertices: sorted and unique. vertexScale: parallel, each in (0, 1]. adjacency: the mesh's neighbor map, which must
+	// outlive the call.
+	MStatus prepare(const std::vector<unsigned int>& vertices, double strength, const std::vector<double>& vertexScale, const MeshAdjacency& adjacency);
+
+private:
+	MStatus verifyModel();
+
+	RestTarget fTarget = RestTarget::Delta;
+	std::vector<double> fRest;              // the rest positions in world space, x y z per vertex
+	std::vector<double> fMatrices;          // per influence, in the order of the weight columns: kRestMatrixSize numbers
 };
 
 // Reads and writes whole rows of one mesh's skinCluster for chosen vertices: every influence, as the cluster holds
