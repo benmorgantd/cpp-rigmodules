@@ -219,7 +219,7 @@ Each phase ends with the build, the full suite, the docs pass and one commit tha
 | 3 | **Built 2026-11-20.** The inverse and the matched switch through `setRigIkFkBlend` (section 7.1). The contract's three inverse tests run on `Limb` | `setRigIkFkBlend` and `find_ik_fk_limb` accept a Limb |
 | 4 | **Built 2026-11-20.** `ikTarget` and the validator exemption, with the foot-shaped test module (section 8.1) | `ikTarget` plug (a template key) |
 | 5 | **Built 2026-11-20.** 8 Limbs per rig in the complex perf rig (`limb_module_specs`) and one `bench` (D62 entry for the numbers) | none |
-| 6 | Move the solomon template to `Limb` for the arms and legs | solomon template |
+| 6 | **Found done 2026-11-20.** The solomon template already uses `Limb` for both arms and both legs (the author's hand edit, section 13 answer 5). Checked by building it (see the D62 entry); nothing in the repo changed | solomon template |
 
 ## 13. Answers recorded (author, 2026-11-19)
 
