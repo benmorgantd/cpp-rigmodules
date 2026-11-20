@@ -1,6 +1,6 @@
 # Derived controls: placement from the bind joints
 
-**Status:** D57. Signed off by the author on 2026-11-17. Nothing built. It reverses part of D52 and part of D56, so the reversals are listed first. Build phases are in section 10.
+**Status:** D57. Signed off by the author on 2026-11-17. Built: phases 0 to 5 (section 10) were committed on 2026-11-18. The solomon asset's own files are the author's to change (end of section 10). It reverses part of D52 and part of D56, so the reversals are listed first. Build phases are in section 10.
 
 ## 1. Problem
 
@@ -65,7 +65,7 @@ An error that names the bind joint and its selector when:
 - the sign of that dot differs from the first joint's. All joints must agree, so a chain is +X-down or -X-down, never mixed;
 - `controlCount` is outside 2 to the cap.
 
-A -X-down chain is accepted, so the ribbon needs a chain sign that flips the tangent. `RibbonMath` has no sign handling today (a search for one found none), and `ribbon-phase2-handoff.md` records that a joint whose X points away builds but gives a looped base curve. The author believes the built Ribbon already copes with a mirrored chain. Phase 0 (section 10) checks that with a probe on a -X-down chain before anything is built on it. The sign touches the base curve's tangent, the aim blend and the inverse.
+A -X-down chain is accepted, so the ribbon needs a chain sign that flips the tangent. `RibbonMath` has no sign handling today (a search for one found none), and the Ribbon's phase 2 handoff (deleted 2026-11-20, its open items are in `ribbon.md` section 15) recorded that a joint whose X points away builds but gives a looped base curve. The author believes the built Ribbon already copes with a mirrored chain. Phase 0 (section 10) checks that with a probe on a -X-down chain before anything is built on it. The sign touches the base curve's tangent, the aim blend and the inverse.
 
 The cap stays `RibbonMath::MaxControls`, 8 (author, 2026-11-17).
 

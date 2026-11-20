@@ -2,7 +2,7 @@
 
 > **Coupling warning (D62).** The `Limb` module (`limb.md`) runs this module's solve, `core/RibbonMath`, `core/SwingTwist`, its channel specs and its inverse. Changing any of them changes `Limb`. Read `limb.md` first, run the Limb contract, pose cases and `test_limb_matches_parts`, and say in the change summary what `Limb` does with it.
 
-**Status:** D56. Built in part on 2026-11-17: phases 1, 2, 3 and 5 and the docs. `fkStyle` was built on 2026-11-18 (D59, section 3.1 as amended below). Phase 6 (the perf rig and `bench`) was built after the first build. Section 14 lists what the build did differently from this page. Branch: `ribbon-module-planning`.
+**Status:** D56. Built in part on 2026-11-17: phases 1, 2, 3 and 5 and the docs. `fkStyle` was built on 2026-11-18 (D59, section 3.1 as amended below). Phase 6 (the perf rig and `bench`) was built after the first build. Section 14 lists what the build did differently from this page. All of it is merged into `main`. Section 15 lists what is still open.
 
 Sources: the author's note, the Claude-written handoff `maya_c_ik_ribbon_node_handoff.md` (a source of math, not of design: it conflicts with this repo in several places, section 10) and the author's answers.
 
@@ -178,3 +178,14 @@ Where the build differs from the sections above:
 - **A chain that runs back (D57 phase 0, 2026-11-18).** The first build assumed each control's +X pointed down the chain, so a mirrored limb whose joints keep the other side's axes (-X down the chain) took its end tangents backward and twisted against its controls. `RibbonMath::Setup::chainSign` (+1 or -1, stored on the node as `chainSign`) is read from the control rests at build. Every use of a control's X as a direction goes through it, and every twist about a control's X is turned about the forward tangent with its sign flipped. The inverse needed no change, since it rebuilds the setup. Tests: `negx_*` pose cases, `RibbonNegXContract`, and a mirror-symmetry test against the +X chain.
 
 Checked: the full suite (1151 tests, all passing on the build that holds this change), and `bench` (D56: 50 rigs 107 to 116 ms against a 66 ms floor, 20 rigs 20 to 21 fps). Not checked: viewport drawing of the controls, and `fkStyle`.
+
+## 15. Open items (2026-11-20)
+
+Moved here from the phase 2 handoff, which was deleted once its work was committed. `fkStyle` (D59) and the read-phase joint-axis check (D57) are done and are not listed.
+
+- **No DG cycle check is in the suite.** Add one if a reliable Maya query exists, otherwise say so in the docs.
+- **Viewport.** The ik controls and the hidden tweakers have not been looked at in a GUI Maya (`tests\ViewportGallery.cmd`).
+- **Arc length.** A bind joint's `u` is its share of the control polyline, not an arc length (section 14, "Parameters"). If animators see uneven spacing under big stretches, an arc-length table is the fix. It is cheap now (the math is 5.5 microseconds).
+- **A ribbon on `TwoBoneIk` sockets** (sections 3.4, 6). The plugs and sockets work (`test_the_end_follows_its_own_parent`), but no test chains a ribbon to `TwoBoneIk` sockets, and no test builds the author's `solomon` arm template (start a child of the shoulder, end point-constrained to the elbow, start orient-constrained to the shoulder's parent). `Limb` (D62) may replace that arm.
+- **Perf scene.** The perf rig keys only transforms. If a branch on a ribbon channel's value is ever added, key it in `key_ribbons` or the bench will flatter it.
+- **Public names** stay as they are without a decision entry and an updated golden (D34): the 15 channel names and their order (`RibbonChannel`, also the inverse's channel order), the moduleArgs keys, the child plug and socket names, `ikControlCount`, and the node type `ribbonModule` (0x002191).

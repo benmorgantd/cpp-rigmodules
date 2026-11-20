@@ -1,6 +1,6 @@
 # Design pages
 
-Which design page to read, and what state it is in. `decisions.md` is the log of what was decided and why (start with its Index). The pages below hold the long reasoning for one area. Read only the page for the area you are changing: most are 20 to 40 KB. Status is as of 2026-11-18, taken from each page's own status line, so check that line before relying on this table.
+Which design page to read, and what state it is in. `decisions.md` is the log of what was decided and why (start with its Index). The pages below hold the long reasoning for one area. Read only the page for the area you are changing: most are 20 to 40 KB. Status is as of 2026-11-20, taken from each page's own status line, so check that line before relying on this table.
 
 Design pages are history with dates, not user documentation. What a feature does now is in `README.md` and `docs/`.
 
@@ -30,8 +30,8 @@ Design pages are history with dates, not user documentation. What a feature does
 
 | Page | Decision | State |
 |---|---|---|
-| [`ribbon.md`](ribbon.md) | D56 | Built. `fkStyle` was added in D59 (2026-11-18) |
-| [`derived-controls.md`](derived-controls.md) | D57 | Signed off. Phases 0 and 1 built |
+| [`ribbon.md`](ribbon.md) | D56 | Built. `fkStyle` was added in D59 (2026-11-18). Open items are in its section 15 |
+| [`derived-controls.md`](derived-controls.md) | D57 | Built (phases 0 to 5, 2026-11-18). The solomon asset's own files are the author's to change |
 | [`ribbon-twist-follow.md`](ribbon-twist-follow.md) | D56 | Proposed, not signed off |
 | [`limb.md`](limb.md) | D62 | Signed off 2026-11-19, phases 0 to 2 built (the module, a sharp elbow with `bendSoftness`); the inverse is next: a Limb module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon. Changes to those modules affect it |
 | [`control-node-perf-handoff.md`](control-node-perf-handoff.md) | D36, D37 | Handoff, nothing built |
@@ -40,10 +40,7 @@ Design pages are history with dates, not user documentation. What a feature does
 
 A handoff says "delete when its work is committed". Where the work is built but not committed, the page stays.
 
-| Page | Delete when |
-|---|---|
-| [`ribbon-phase2-handoff.md`](ribbon-phase2-handoff.md) | The Ribbon's phase 2 work is committed |
-| [`derived-controls-phase2-handoff.md`](derived-controls-phase2-handoff.md) | D57 phase 2 is committed |
+None at present. `control-node-perf-handoff.md` (above) is a design handoff with nothing built, so it stays until that work is designed.
 
 ## Proposals and speculation (nothing built)
 
