@@ -8,7 +8,7 @@ Design pages are history with dates, not user documentation. What a feature does
 
 | Page | Read when |
 |---|---|
-| [`decisions.md`](decisions.md) | Before any architectural change. Read its Index, then the entries for your area |
+| [`decisions.md`](decisions.md) | Before any architectural change. Read its Index, then the entries it points to in [`decisions/`](decisions/) (one file per area) |
 
 ## Built: read for the reasoning
 

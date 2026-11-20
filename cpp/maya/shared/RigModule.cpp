@@ -37,11 +37,6 @@ RigModuleNodeBase::~RigModuleNodeBase()
 {
 }
 
-MStatus RigModuleNodeBase::compute(const MPlug& plug, MDataBlock& data) 
-{ 
-	return MStatus::kSuccess; 
-}
-
 
 // Networking functionality --------------------------------------------
 MStatus RigModuleNodeBase::connectModuleToRigRoot(MObject& oRigRoot, MDagModifier& dagMod, const MObject& oModule, MObject& aRigRoot)

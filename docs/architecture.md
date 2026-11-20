@@ -185,7 +185,7 @@ Then add one row to `ModuleRegistry.cpp`.
 
 ## Building a rig
 
-`createRigFromTemplate` (`commands/CreateRigCmd`) resolves its flags into `RigBuildInputs` and calls `RigRootNode::createRig` (`nodes/RigRoot.cpp`). The build has two phases so that a bad template leaves nothing behind (D17, D5).
+`createRigFromTemplate` (`commands/CreateRigCmd`) resolves its flags into `RigBuildInputs` and calls `RigBuild::createRig` (`shared/RigBuild.cpp`). The build has two phases so that a bad template leaves nothing behind (D17, D5).
 
 **Read phase** (`planRig`): reads the scene and never writes it.
 
@@ -238,7 +238,7 @@ Every command is an `MPxCommand` with the same shape (D14):
 
 | File | Commands | Calls into |
 |---|---|---|
-| `CreateRigCmd` | `createRigFromTemplate` | `RigRootNode::createRig` |
+| `CreateRigCmd` | `createRigFromTemplate` | `RigBuild::createRig` |
 | `ConstraintCmds` | `createRigConstraint`, `setRigConstraintSpace` | `RigConstraintNode` |
 | `JointMarkupCmd` | `rigJointMarkup` | `JointMarkupScene` |
 | `RenameRigNodesCmd` | `renameRigNodes` | `NamingConvention` (core) and `NamingScene` |

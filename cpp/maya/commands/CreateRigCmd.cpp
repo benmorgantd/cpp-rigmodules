@@ -1,7 +1,7 @@
 #include "maya/commands/CreateRigCmd.h"
 #include "core/AssetId.h"
 #include "core/StringUtils.h"
-#include "maya/nodes/RigRoot.h"
+#include "maya/shared/RigBuild.h"
 #include "maya/shared/Utilities.h"
 
 #include <filesystem>
@@ -140,7 +140,7 @@ MStatus CreateRigCmd::doIt(const MArgList& args)
 	}
 
 	fCreatedNamespaces.captureBefore();
-	status = RigRootNode::createRig(inputs, fDagMod, fRigNamespace);
+	status = RigBuild::createRig(inputs, fDagMod, fRigNamespace);
 	if (!status)
 	{
 		return status;

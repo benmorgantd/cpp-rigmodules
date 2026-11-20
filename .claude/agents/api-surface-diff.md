@@ -22,7 +22,7 @@ You find every change to the public names of this repo, because names are public
 1. Get the diff. Read the changed hunks in context, not whole files.
 2. For each public name that was added, removed, renamed, retyped or had its default changed, record the before and after.
 3. If a golden file changed, say whether the change is explained by a name change in the source diff. A golden change with no matching source change is a finding.
-4. Check that each intended change has an entry in `design/decisions.md` in the same diff.
+4. Check that each intended change has an entry in `design/decisions/` (and its Index row) in the same diff.
 5. For command or `rigmodules` changes, say that `mayadev-callsites` should be run, and list the names to give it.
 
 ## Report

@@ -19,7 +19,7 @@ A face, cape or prop has its own skeleton and its own controls, but it must ride
 Mostly. Two pieces already cross rigs or modules:
 
 - `RigConstraintNode::resolveSocket` takes `"namespace:module.socket"`, so a constraint driver can already name a module in another rig.
-- The parenting pass (`parentModuleControls`, `RigRoot.cpp`) connects a module's child plug to a parent socket, but only through the rig's own module map.
+- The parenting pass (`parentModuleControls`, `RigBuild.cpp`) connects a module's child plug to a parent socket, but only through the rig's own module map.
 
 The gap is therefore small: the parenting pass and the template validation only know one rig. So the proposal is **no new node** (author, 2026-11-17). It extends two existing things. This also avoids a new node's evaluation cost, which matters because the 20-rig target of 30 fps is already missed (22 to 28 fps, `control-node-perf-handoff.md`).
 

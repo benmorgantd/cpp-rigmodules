@@ -9,7 +9,7 @@ You check that a change to TwoBoneIk or Ribbon is accounted for in Limb. Limb is
 
 ## What to do
 
-1. Read `design/limb.md` and the D62 entry in `design/decisions.md` (find it with Grep, read only that entry and anything it links).
+1. Read `design/limb.md` and the D62 entry in `design/decisions/modules.md` (find it with Grep, read only that entry and anything it links).
 2. From the diff, list each change to: `core/RibbonMath`, `core/SwingTwist`, `maya/shared/TwoBoneIkSolve` and `TwoBoneIkPart.h`, `TwoBoneIkModule`, `RibbonModule`, and any channel, control-derivation or inverse-solve code they own.
 3. For each, find where Limb uses the changed function, struct or channel. Limb may not exist in code yet: if not, say which phase of `design/limb.md` consumes it and whether the design still holds.
 4. Decide, per change: Limb picks it up unchanged, Limb needs a matching change, Limb's design page is now wrong, or a new coupling was introduced.

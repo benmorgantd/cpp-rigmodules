@@ -218,6 +218,7 @@
     <ClCompile Include="maya\shared\RigDataFileScene.cpp" />
     <ClCompile Include="maya\shared\RigTraversal.cpp" />
     <ClCompile Include="maya\shared\RibbonSolve.cpp" />
+    <ClCompile Include="maya\shared\RigBuild.cpp" />
     <ClCompile Include="maya\shared\Side.cpp" />
     <ClCompile Include="maya\shared\TwoBoneIkSolve.cpp" />
     <ClCompile Include="maya\shared\SelectionSetScene.cpp" />
@@ -312,6 +313,7 @@
     <ClInclude Include="maya\modules\RibbonModule.h" />
     <ClInclude Include="maya\modules\TwoBoneIkModule.h" />
     <ClInclude Include="maya\shared\RibbonSolve.h" />
+    <ClInclude Include="maya\shared\RigBuild.h" />
     <ClInclude Include="maya\shared\TwoBoneIkPart.h" />
     <ClInclude Include="maya\shared\TwoBoneIkSolve.h" />
     <ClInclude Include="maya\nodes\Constraints.h" />

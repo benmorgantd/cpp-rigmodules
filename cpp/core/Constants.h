@@ -323,10 +323,10 @@ namespace RigAttr
 	inline constexpr const char* RestTangent{ "restTangent" };
 	inline constexpr const char* ChainSign{ "chainSign" };   // +1 when the controls' X axes run down the chain, -1 when they point back
 	inline constexpr const char* IkRestOffset{ "ikRestOffset" };
+	inline constexpr const char* BindRestOffset{ "bindRestOffset" };
 	// The fk chain's rest roll about the curve, one per fk control, stored so no evaluation rebuilds the rest curve to measure it.
 	inline constexpr const char* FkRollRest{ "fkRollRest" };
 	inline constexpr const char* FkRollRestIn{ "fkRollRestIn" };
-	inline constexpr const char* BindRestOffset{ "bindRestOffset" };
 	// Limb (D62): the ribbon ik controls' offsets from the curve, apart from IkRestOffset, which is the two-bone limb's.
 	inline constexpr const char* RibbonIkRestOffset{ "ribbonIkRestOffset" };
 	// Limb channel on the settings control: how round the elbow is. 0 is a sharp corner (the default), 1 the smooth curve.

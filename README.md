@@ -127,7 +127,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/mayadev.md](docs/mayadev.md) | The mayadev pipeline repo as a consumer: what it calls and how to check its call sites before changing a name |
 | [tests/README.md](tests/README.md) | Running and writing tests |
 | [design/README.md](design/README.md) | Which design page to read, and its state |
-| [design/decisions.md](design/decisions.md) | Why the system is built the way it is (decision log) |
+| [design/decisions.md](design/decisions.md) | Why the system is built the way it is (decision log: the Index, with the entries in `design/decisions/`) |
 | [design/asset-model.md](design/asset-model.md) | Asset id, namespaces and the file model (rigs and looks replace variants: [design/rigs-and-looks.md](design/rigs-and-looks.md)) |
 | [design/inverse-solve.md](design/inverse-solve.md) | Restoring controls from joints |
 | [design/control-library.md](design/control-library.md) | The pose and animation library design |

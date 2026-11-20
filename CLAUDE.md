@@ -8,7 +8,7 @@ Goal: excellent, efficient, scalable rig modules for Autodesk Maya 2026+, synthe
 
 The rigmodules PDF (`design/Rigging System Planning.pdf`) holds the author's design instructions, and the repo holds the actual code. The PDF may be slightly out of date. When it disagrees with the code, the code wins. Flag the discrepancy instead of silently picking one.
 
-Design decisions and their history are in `design/decisions.md`. Before proposing architectural changes, read its Index (one line per decision) and then the entries for the area you are changing. Do not read the whole file: it is about 200 KB.
+Design decisions and their history are in `design/decisions.md` (the Index, one line per decision, and the open items) and `design/decisions/` (the entries, one file per area, 16 to 47 KB each). Before proposing architectural changes, read the Index, then only the entries it points to for the area you are changing. Do not read whole entry files.
 
 Documentation has two homes (D21). `design/` is for people working on the system: why it is built the way it is. `README.md` and `docs/` are for people using it: what it does now. The process is in `docs/README.md`.
 
@@ -24,7 +24,7 @@ This file is what every session loads, so it holds only what every task needs. T
 ## Working style
 
 - Plan before code. For any new module or architectural change, propose the design first (inputs, outputs, child plugs, sockets, attributes, affects relationships, failure modes) and wait for sign-off before writing implementation.
-- When a design decision is made, changed, or reversed, add or update its entry in `design/decisions.md` in the same change.
+- When a design decision is made, changed, or reversed, add or update its entry in the area's file in `design/decisions/` and its Index row in `design/decisions.md` in the same change.
 - **Docs change with the code, in the same change.** Every change ends with a docs pass:
   1. List what the change touches that a user or maintainer can see: a command or flag, a template key, a module, its `moduleArgs`, child plugs, sockets or controls, a validation rule, a build or test step, the repo layout.
   2. Update the owning page for each one (`docs/README.md` maps topics to pages): `README.md`, a `docs/` page, `tests/README.md`, or this file.

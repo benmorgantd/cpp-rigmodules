@@ -29,7 +29,7 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
         {
             "layoutModule", "Layout", LayoutModuleNode::id,
             LayoutModuleNode::creator, LayoutModuleNode::initialize,
-            {}, nullptr, LayoutModuleNode::inverse, true   // built implicitly by RigRootNode::createRig, not from JSON
+            {}, nullptr, LayoutModuleNode::inverse, true   // built implicitly by RigBuild::createRig, not from JSON
         },
         {
             "fkChainModule", "FkChain", FkChainModuleNode::id,

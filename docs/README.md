@@ -35,7 +35,7 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 | [`mayadev.md`](mayadev.md) | The sibling mayadev repo as a consumer: which commands and `rigmodules` functions it calls, how to find its call sites, what to check before changing a name it uses |
 | [`../tests/README.md`](../tests/README.md) | Running tests, case-file formats, where new tests go |
 | [`../design/README.md`](../design/README.md) | Which design page to read, and its state |
-| [`../design/decisions.md`](../design/decisions.md) | Design decisions and their reasons |
+| [`../design/decisions.md`](../design/decisions.md) | Design decisions and their reasons: the Index, and the entries in `design/decisions/` |
 
 A new topic that fits no page (export, say) gets a new page here and a row in this table.
 

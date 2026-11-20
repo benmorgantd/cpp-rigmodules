@@ -164,7 +164,6 @@ class RigModuleNodeBase : public MPxNode
 public:
 	RigModuleNodeBase();
 	virtual ~RigModuleNodeBase() override;
-	virtual MStatus compute(const MPlug& plug, MDataBlock& data) override;
 public:
 	// Control rest carried by parent motion, then the control's local on top.
 	static ControlSolveStep solveControlStep(const MMatrix& mLocal, const MMatrix& mRestWorld, const MMatrix& mParentDelta);
