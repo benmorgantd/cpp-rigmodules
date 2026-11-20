@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <maya/MEvent.h>
+#include <maya/MMessage.h>
 #include <maya/MPoint.h>
 #include <maya/MPxContext.h>
 #include <maya/MPxContextCommand.h>
@@ -16,7 +17,8 @@
 // The skin weight brush (D65): drag over the selected skinned meshes to paint weights under the brush. What a dab does
 // is a SkinBrushOperation, so this context serves every skin painting command: it picks the hit (the closest surface
 // across the selected meshes, or every surface the ray crosses), reaches over the surface from it, draws the reach, and
-// hands the stroke to an undoable tool command. Ctrl + drag sideways resizes the brush.
+// hands the stroke to an undoable tool command. Ctrl + drag sideways resizes the brush. Holding the button still
+// repeats the dab, a timer ticking while the stroke is down.
 
 // One stroke as a command: undoable, and scriptable by replaying its hits, which is how the stroke engine is tested.
 //   cmds.skinBrushStroke(operation="smooth", radius=5.0, strength=0.5, hitPoint=[("plane_geo", 5, 0.0, 0.0, 0.0)])
@@ -50,6 +52,7 @@ class SkinBrushContext : public MPxContext
 {
 public:
 	SkinBrushContext();
+	~SkinBrushContext() override;
 
 	void toolOnSetup(MEvent& event) override;
 	void toolOffCleanup() override;
@@ -75,9 +78,13 @@ private:
 	// The selected skinned meshes. A selection of vertices or faces limits the brush to them. Rebuilds only what the
 	// selection changed; the vertex positions are read again every time.
 	void gather();
-	bool pickAt(MEvent& event);
-	void dabAt(MEvent& event);
+	bool pickAt(short x, short y);
+	// isRepeat: a hold, which lands whatever the brush moved since the last dab.
+	void dabAt(short x, short y, bool isRepeat);
 	void endStroke();
+	void startRepeat();
+	void stopRepeat();
+	static void repeatTick(float elapsedTime, float lastTime, void* clientData);
 	void draw(MHWRender::MUIDrawManager& drawMgr);
 
 	std::string fOperation = "smooth";
@@ -93,6 +100,10 @@ private:
 	bool fIsResizing = false;
 	short fResizeFromX = 0;
 	bool fHasLastDab = false;
+	short fPointerX = 0;                    // where the pointer last was while stroking
+	short fPointerY = 0;
+	bool fMovedSinceTick = false;           // a drag landed since the last tick, so the brush is not being held
+	MCallbackId fRepeatCallback = 0;
 	MPoint fLastDabPoint;
 };
 

@@ -17,6 +17,7 @@
 #include <maya/MHWGeometry.h>
 #include <maya/MPointArray.h>
 #include <maya/MSelectionList.h>
+#include <maya/MTimerMessage.h>
 
 namespace
 {
@@ -36,6 +37,9 @@ namespace
 	constexpr double kResizePerPixel = 1.01;
 	// A dab lands only after the brush moved this far (in radii) from the last one, so tiny moves don't pile up.
 	constexpr double kDabSpacing = 0.25;
+	// While the button is held and the brush is still, a dab lands this often (seconds). Maya skins the mesh after each
+	// one, which sets the real rate when that takes longer.
+	constexpr float kRepeatSeconds = 0.05f;
 
 	bool isValidRadius(double radius)
 	{
@@ -381,6 +385,7 @@ void SkinBrushContext::toolOffCleanup()
 	fSelectionKey.clear();
 	fHits.clear();
 	fReaches.clear();
+	stopRepeat();
 	fIsStroking = false;
 	fIsResizing = false;
 	MPxContext::toolOffCleanup();
@@ -397,11 +402,54 @@ MPxToolCommand* SkinBrushContext::newToolCommand()
 	return new SkinBrushStrokeCmd();
 }
 
-bool SkinBrushContext::pickAt(MEvent& event)
+SkinBrushContext::~SkinBrushContext()
 {
-	short x = 0;
-	short y = 0;
-	event.getPosition(x, y);
+	stopRepeat();
+}
+
+void SkinBrushContext::startRepeat()
+{
+	if (fRepeatCallback == 0)
+	{
+		MStatus status;
+		fRepeatCallback = MTimerMessage::addTimerCallback(kRepeatSeconds, repeatTick, this, &status);
+		if (!status)
+		{
+			fRepeatCallback = 0;
+		}
+	}
+	fMovedSinceTick = true;
+}
+
+void SkinBrushContext::stopRepeat()
+{
+	if (fRepeatCallback != 0)
+	{
+		MMessage::removeCallback(fRepeatCallback);
+		fRepeatCallback = 0;
+	}
+}
+
+// Runs on Maya's main thread, so it is safe to touch the scene. A drag since the last tick already dabbed, so the
+// brush is only repeated when the pointer has been still for a whole interval.
+void SkinBrushContext::repeatTick(float elapsedTime, float lastTime, void* clientData)
+{
+	SkinBrushContext* context = static_cast<SkinBrushContext*>(clientData);
+	if (!context->fIsStroking || context->fIsResizing)
+	{
+		return;
+	}
+	if (context->fMovedSinceTick)
+	{
+		context->fMovedSinceTick = false;
+		return;
+	}
+	context->dabAt(context->fPointerX, context->fPointerY, true);
+	M3dView::active3dView().refresh();
+}
+
+bool SkinBrushContext::pickAt(short x, short y)
+{
 	M3dView view = M3dView::active3dView();
 	MPoint origin;
 	MVector direction;
@@ -416,14 +464,14 @@ bool SkinBrushContext::pickAt(MEvent& event)
 	return !fHits.empty();
 }
 
-void SkinBrushContext::dabAt(MEvent& event)
+void SkinBrushContext::dabAt(short x, short y, bool isRepeat)
 {
-	if (!pickAt(event))
+	if (!pickAt(x, y))
 	{
 		return;
 	}
 	const MPoint& point = fHits.front().point;
-	if (fHasLastDab && point.distanceTo(fLastDabPoint) < kDabSpacing * fRadius)
+	if (!isRepeat && fHasLastDab && point.distanceTo(fLastDabPoint) < kDabSpacing * fRadius)
 	{
 		return;
 	}
@@ -437,6 +485,7 @@ void SkinBrushContext::dabAt(MEvent& event)
 
 void SkinBrushContext::endStroke()
 {
+	stopRepeat();
 	fIsStroking = false;
 	fHasLastDab = false;
 	SkinBrushEdit edit;
@@ -466,7 +515,9 @@ MStatus SkinBrushContext::doPress(MEvent& event, MHWRender::MUIDrawManager& draw
 	fStroke.refresh();
 	fIsStroking = true;
 	fHasLastDab = false;
-	dabAt(event);
+	event.getPosition(fPointerX, fPointerY);
+	dabAt(fPointerX, fPointerY, false);
+	startRepeat();
 	draw(drawMgr);
 	return MStatus::kSuccess;
 }
@@ -484,7 +535,9 @@ MStatus SkinBrushContext::doDrag(MEvent& event, MHWRender::MUIDrawManager& drawM
 	}
 	else if (fIsStroking)
 	{
-		dabAt(event);
+		event.getPosition(fPointerX, fPointerY);
+		fMovedSinceTick = true;
+		dabAt(fPointerX, fPointerY, false);
 	}
 	draw(drawMgr);
 	return MStatus::kSuccess;
@@ -503,7 +556,10 @@ MStatus SkinBrushContext::doRelease(MEvent& event, MHWRender::MUIDrawManager& dr
 
 MStatus SkinBrushContext::doPtrMoved(MEvent& event, MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
 {
-	pickAt(event);
+	short x = 0;
+	short y = 0;
+	event.getPosition(x, y);
+	pickAt(x, y);
 	draw(drawMgr);
 	return MStatus::kSuccess;
 }

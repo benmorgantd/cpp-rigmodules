@@ -925,7 +925,8 @@ cmds.skinBrushCtx(ctx, query=True, radius=True)    # 8.0
 - **Meshes:** the selected meshes with a skinCluster. The brush picks the closest surface across all of them, and a stroke may move from one mesh to another. A selection of vertices or faces limits the brush to them (their neighbors are still read). Select again, or move the pointer out of the viewport and back, to pick up a new selection.
 - **Falloff** is smooth, 1 at the center and 0 at the radius, and is measured along the mesh edges from where the brush landed. Two surfaces that are close in space but not connected (a lip against a lip, two shells, the far side of a thin wall) never share a dab unless `throughMesh` is on.
 - **Resize** with Ctrl + left drag sideways. The ring shows the radius; the colored points are the vertices the next dab reaches (blue at the edge, yellow at the center).
-- A dab lands each time the brush has moved a quarter of its radius, so holding still changes nothing.
+- A dab lands each time the brush has moved a quarter of its radius. **Holding the button still repeats the dab** about 20 times a second, so the weights keep moving towards smooth while you hold. Maya skinning the mesh after each dab sets the real rate on a dense mesh.
+- **Strength** is how far one dab goes at the center of the brush. At the default 0.5 a single dab is gentle, which is what holding the button is for. Raise it with `cmds.skinBrushCtx(ctx, edit=True, strength=0.8)`, or from the Skin Brush menu tool's `strength` argument.
 - **Undo:** one stroke, from press to release, is one undo step. Undo restores the weights from before the stroke exactly, however much the dabs overlapped.
 - Like Maya's other tools, the context is created in a GUI session: Maya creates no contexts in `mayapy`. The tests drive the same engine through `skinBrushStroke`.
 
