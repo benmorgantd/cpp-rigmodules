@@ -52,7 +52,7 @@ namespace
 		constexpr std::chrono::milliseconds kEventBudget{ 40 };
 	// While the button is held and no drag lands a dab, one repeats this often (seconds). Maya skins the mesh after each
 	// one, which sets the real rate when that takes longer.
-	constexpr float kRepeatSeconds = 0.1f;   // 10 a second
+	constexpr float kRepeatSeconds = 0.05f;   // 20 a second
 
 	bool isValidRadius(double radius)
 	{
