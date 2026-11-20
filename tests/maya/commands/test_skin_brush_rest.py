@@ -50,8 +50,9 @@ class RestMatchCases(object):
     def rows(self):
         return [self.row(v) for v in range(25)]
 
-    def stroke(self, radius=0.3, strength=1.0, **flags):
-        return cmds.skinBrushStroke(operation=self.OPERATION, radius=radius, strength=strength,
+    def stroke(self, radius=0.3, strength=1.0, smoothness=0.0, **flags):
+        """smoothness is 0 unless a test asks, so the hand-worked cases are the plain solve."""
+        return cmds.skinBrushStroke(operation=self.OPERATION, radius=radius, strength=strength, smoothness=smoothness,
                                     hitPoint=[(self.plane, 5) + self.hit], **flags)
 
     def stretch(self):
@@ -138,6 +139,36 @@ class RestMatchCases(object):
         self.assertEqual(self.rows(), before)
         cmds.redo()
         self.assertEqual(self.rows(), painted)
+
+    def test_nothing_changes_at_the_rest_pose_whatever_the_smoothness(self):
+        # Smoothness blends the changes of neighbors, not their weights, so a pose that already fits stays put.
+        before = self.rows()
+        self.assertEqual(self.stroke(radius=0.6, smoothness=1.0), 0)
+        self.assertEqual(self.rows(), before)
+
+    def test_smoothness_changes_the_result_and_keeps_the_weights_valid(self):
+        self.stretch()
+        self.stroke(radius=1.0)
+        plain = self.rows()
+        cmds.undo()
+        self.stroke(radius=1.0, smoothness=0.5)
+        blended = self.rows()
+        self.assertNotEqual(plain, blended)
+        for weights in blended:
+            self.assertAlmostEqual(sum(weights), 1.0, places=6)
+            self.assertTrue(all(w > -1e-9 for w in weights), weights)
+
+    def test_the_default_smoothness_is_0_15(self):
+        self.stretch()
+        cmds.skinBrushStroke(operation=self.OPERATION, radius=1.0, strength=1.0, hitPoint=[(self.plane, 5) + self.hit])
+        by_default = self.rows()
+        cmds.undo()
+        self.stroke(radius=1.0, smoothness=0.15)
+        self.assertEqual(self.rows(), by_default)
+
+    def test_smoothness_must_be_from_0_to_1(self):
+        self.assertMayaError(lambda: self.stroke(smoothness=1.5), "smoothness")
+        self.assertMayaError(lambda: self.stroke(smoothness=-0.1), "smoothness")
 
     def test_dual_quaternion_skinning_is_refused(self):
         cmds.setAttr(self.cluster + ".skinningMethod", 1)

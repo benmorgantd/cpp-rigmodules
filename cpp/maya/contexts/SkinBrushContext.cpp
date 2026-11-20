@@ -28,6 +28,7 @@ namespace
 	constexpr const char* kOperationFlag{ "-operation" };
 	constexpr const char* kRadiusFlag{ "-radius" };
 	constexpr const char* kStrengthFlag{ "-strength" };
+	constexpr const char* kSmoothnessFlag{ "-smoothness" };
 	constexpr const char* kThroughMeshFlag{ "-throughMesh" };
 	constexpr const char* kFalloffFlag{ "-falloff" };
 	constexpr const char* kDebugFlag{ "-debug" };
@@ -63,6 +64,14 @@ namespace
 	{
 		return strength > 0.0 && strength <= 1.0;
 	}
+
+	// The default smoothness of the rest-match operations (D66). 0 is none, 1 is all the neighbors' average.
+	constexpr double kDefaultSmoothness = 0.15;
+
+	bool isValidSmoothness(double smoothness)
+	{
+		return smoothness >= 0.0 && smoothness <= 1.0;
+	}
 }
 
 // skinBrushStroke --------------------------------------------------------------------------------
@@ -79,6 +88,7 @@ MSyntax SkinBrushStrokeCmd::newSyntax()
 	CHECK_MSTATUS(syntax.addFlag("-op", kOperationFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-rd", kRadiusFlag, MSyntax::kDouble));
 	CHECK_MSTATUS(syntax.addFlag("-st", kStrengthFlag, MSyntax::kDouble));
+	CHECK_MSTATUS(syntax.addFlag("-sm", kSmoothnessFlag, MSyntax::kDouble));
 	CHECK_MSTATUS(syntax.addFlag("-hp", kHitFlag, MSyntax::kString, MSyntax::kLong, MSyntax::kDouble, MSyntax::kDouble, MSyntax::kDouble));
 	CHECK_MSTATUS(syntax.makeFlagMultiUse(kHitFlag));
 	CHECK_MSTATUS(syntax.addFlag("-ms", kMeshFlag, MSyntax::kString));
@@ -110,6 +120,7 @@ MStatus SkinBrushStrokeCmd::doIt(const MArgList& args)
 	fOperation = "smooth";
 	fRadius = 5.0;
 	fStrength = 0.5;
+	fSmoothness = kDefaultSmoothness;
 	if (argData.isFlagSet(kOperationFlag))
 	{
 		MString operation;
@@ -124,6 +135,10 @@ MStatus SkinBrushStrokeCmd::doIt(const MArgList& args)
 	{
 		argData.getFlagArgument(kStrengthFlag, 0, fStrength);
 	}
+	if (argData.isFlagSet(kSmoothnessFlag))
+	{
+		argData.getFlagArgument(kSmoothnessFlag, 0, fSmoothness);
+	}
 	fFalloff = FalloffMode::Surface;
 	if (argData.isFlagSet(kFalloffFlag))
 	{
@@ -135,9 +150,9 @@ MStatus SkinBrushStrokeCmd::doIt(const MArgList& args)
 			return MStatus::kInvalidParameter;
 		}
 	}
-	if (!isValidRadius(fRadius) || !isValidStrength(fStrength))
+	if (!isValidRadius(fRadius) || !isValidStrength(fStrength) || !isValidSmoothness(fSmoothness))
 	{
-		MGlobal::displayError(MString(aCommandString) + " needs -radius of at least 0.001 and -strength above 0 and at most 1.");
+		MGlobal::displayError(MString(aCommandString) + " needs -radius of at least 0.001, -strength above 0 and at most 1 and -smoothness from 0 to 1.");
 		return MStatus::kInvalidParameter;
 	}
 
@@ -208,7 +223,7 @@ MStatus SkinBrushStrokeCmd::doIt(const MArgList& args)
 		brushHit.mesh = static_cast<unsigned int>(std::find(names.begin(), names.end(), hit.mesh) - names.begin());
 		brushHit.face = hit.face;
 		brushHit.point = hit.point;
-		status = stroke.dab({ brushHit }, fRadius, fStrength, fFalloff);
+		status = stroke.dab({ brushHit }, fRadius, fStrength, fSmoothness, fFalloff);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
 	for (unsigned int i = 0; i < rayCount; ++i)
@@ -222,7 +237,7 @@ MStatus SkinBrushStrokeCmd::doIt(const MArgList& args)
 		{
 			continue;
 		}
-		status = stroke.dab(picked, fRadius, fStrength, fFalloff);
+		status = stroke.dab(picked, fRadius, fStrength, fSmoothness, fFalloff);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
 	status = stroke.finish(fEdit);
@@ -242,13 +257,14 @@ MStatus SkinBrushStrokeCmd::undoIt()
 	return fEdit.undo();
 }
 
-void SkinBrushStrokeCmd::setStroke(SkinBrushEdit&& edit, const std::string& operation, double radius, double strength, FalloffMode falloff)
+void SkinBrushStrokeCmd::setStroke(SkinBrushEdit&& edit, const std::string& operation, double radius, double strength, double smoothness, FalloffMode falloff)
 {
 	fFalloff = falloff;
 	fEdit = std::move(edit);
 	fOperation = operation;
 	fRadius = radius;
 	fStrength = strength;
+	fSmoothness = smoothness;
 }
 
 MStatus SkinBrushStrokeCmd::finalize()
@@ -262,6 +278,8 @@ MStatus SkinBrushStrokeCmd::finalize()
 	command.addArg(fRadius);
 	command.addArg(MString(kStrengthFlag));
 	command.addArg(fStrength);
+	command.addArg(MString(kSmoothnessFlag));
+	command.addArg(fSmoothness);
 	command.addArg(MString(kFalloffFlag));
 	command.addArg(MString(falloffName(fFalloff)));
 	for (const BrushDab& dab : fEdit.dabs)
@@ -301,6 +319,11 @@ double SkinBrushContext::radius() const
 double SkinBrushContext::strength() const
 {
 	return fStrength;
+}
+
+double SkinBrushContext::smoothness() const
+{
+	return fSmoothness;
 }
 
 bool SkinBrushContext::throughMesh() const
@@ -366,6 +389,16 @@ bool SkinBrushContext::setStrength(double strength)
 		return false;
 	}
 	fStrength = strength;
+	return true;
+}
+
+bool SkinBrushContext::setSmoothness(double smoothness)
+{
+	if (!isValidSmoothness(smoothness))
+	{
+		return false;
+	}
+	fSmoothness = smoothness;
 	return true;
 }
 
@@ -582,7 +615,7 @@ bool SkinBrushContext::dabOnce(short x, short y)
 			fPixelRadius = std::hypot(static_cast<double>(x2 - x1), static_cast<double>(y2 - y1));
 		}
 	}
-	if (!fStroke.dab(fHits, fRadius, fStrength, fFalloff))
+	if (!fStroke.dab(fHits, fRadius, fStrength, fSmoothness, fFalloff))
 	{
 		return false;
 	}
@@ -645,7 +678,7 @@ void SkinBrushContext::endStroke()
 	}
 	// Maya owns the command from here: it sits on the undo queue.
 	SkinBrushStrokeCmd* command = static_cast<SkinBrushStrokeCmd*>(newToolCommand());
-	command->setStroke(std::move(edit), fOperation, fRadius, fStrength, fFalloff);
+	command->setStroke(std::move(edit), fOperation, fRadius, fStrength, fSmoothness, fFalloff);
 	command->finalize();
 }
 
@@ -802,6 +835,7 @@ MStatus SkinBrushCtxCmd::appendSyntax()
 	CHECK_MSTATUS(contextSyntax.addFlag("-op", kOperationFlag, MSyntax::kString));
 	CHECK_MSTATUS(contextSyntax.addFlag("-rd", kRadiusFlag, MSyntax::kDouble));
 	CHECK_MSTATUS(contextSyntax.addFlag("-st", kStrengthFlag, MSyntax::kDouble));
+	CHECK_MSTATUS(contextSyntax.addFlag("-sm", kSmoothnessFlag, MSyntax::kDouble));
 	CHECK_MSTATUS(contextSyntax.addFlag("-tm", kThroughMeshFlag, MSyntax::kBoolean));
 	CHECK_MSTATUS(contextSyntax.addFlag("-fo", kFalloffFlag, MSyntax::kString));
 	CHECK_MSTATUS(contextSyntax.addFlag("-db", kDebugFlag, MSyntax::kBoolean));
@@ -838,6 +872,16 @@ MStatus SkinBrushCtxCmd::doEditFlags()
 		if (!fContext->setStrength(strength))
 		{
 			MGlobal::displayError("The brush -strength must be above 0 and at most 1.");
+			return MStatus::kInvalidParameter;
+		}
+	}
+	if (argData.isFlagSet(kSmoothnessFlag))
+	{
+		double smoothness = 0.0;
+		argData.getFlagArgument(kSmoothnessFlag, 0, smoothness);
+		if (!fContext->setSmoothness(smoothness))
+		{
+			MGlobal::displayError("The brush -smoothness must be from 0 to 1.");
 			return MStatus::kInvalidParameter;
 		}
 	}
@@ -880,6 +924,10 @@ MStatus SkinBrushCtxCmd::doQueryFlags()
 	if (argData.isFlagSet(kStrengthFlag))
 	{
 		setResult(fContext->strength());
+	}
+	if (argData.isFlagSet(kSmoothnessFlag))
+	{
+		setResult(fContext->smoothness());
 	}
 	if (argData.isFlagSet(kFalloffFlag))
 	{

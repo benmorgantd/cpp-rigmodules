@@ -245,6 +245,7 @@ class SkinBrushContext(RigTestCase):
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, operation=True), "smooth")
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, radius=True), 5.0)
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, strength=True), 0.5)
+        self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, smoothness=True), 0.15)
         self.assertFalse(cmds.skinBrushCtx(self.ctx, query=True, throughMesh=True))
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, falloff=True), "surface")
 
@@ -253,11 +254,14 @@ class SkinBrushContext(RigTestCase):
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, falloff=True), "volume")
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, radius=True), 8.0)
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, strength=True), 0.25)
+        cmds.skinBrushCtx(self.ctx, edit=True, smoothness=0.4)
+        self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, smoothness=True), 0.4)
         self.assertTrue(cmds.skinBrushCtx(self.ctx, query=True, throughMesh=True))
 
     def test_settings_that_are_not_valid_are_refused_and_keep_the_old_value(self):
         self.assertMayaError(lambda: cmds.skinBrushCtx(self.ctx, edit=True, radius=0), "radius")
         self.assertMayaError(lambda: cmds.skinBrushCtx(self.ctx, edit=True, strength=2), "strength")
+        self.assertMayaError(lambda: cmds.skinBrushCtx(self.ctx, edit=True, smoothness=1.5), "smoothness")
         self.assertMayaError(lambda: cmds.skinBrushCtx(self.ctx, edit=True, operation="paint"), "paint")
         self.assertMayaError(lambda: cmds.skinBrushCtx(self.ctx, edit=True, falloff="smooth"), "smooth")
         self.assertEqual(cmds.skinBrushCtx(self.ctx, query=True, radius=True), 5.0)

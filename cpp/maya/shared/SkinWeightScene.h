@@ -153,9 +153,9 @@ class SkinWeightRestMatch : public SkinWeightPass
 public:
 	MStatus bind(const MDagPath& mesh, RestTarget target);
 	MStatus refreshPose();
-	// vertices: sorted and unique. vertexScale: parallel, each in (0, 1]. adjacency: the mesh's neighbor map, which must
-	// outlive the call.
-	MStatus prepare(const std::vector<unsigned int>& vertices, double strength, const std::vector<double>& vertexScale, const MeshAdjacency& adjacency);
+	// vertices: sorted and unique. smoothness: 0 to 1, how much each vertex's change is blended with its neighbors'.
+	// vertexScale: parallel, each in (0, 1]. adjacency: the mesh's neighbor map, which must outlive the call.
+	MStatus prepare(const std::vector<unsigned int>& vertices, double strength, double smoothness, const std::vector<double>& vertexScale, const MeshAdjacency& adjacency);
 
 private:
 	MStatus verifyModel();

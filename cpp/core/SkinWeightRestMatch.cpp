@@ -116,7 +116,7 @@ void restMatchPosition(const RestMatchSkin& skin, const double* weights, std::si
 SmoothedWeights matchRestWeights(std::size_t vertexCount, const std::vector<unsigned int>& vertices, std::size_t influenceCount, const RestMatchSettings& settings, const RestMatchSkin& skin, const NeighborFetch& fetchNeighbors, const WeightFetch& fetch)
 {
 	SmoothedWeights result;
-	if (influenceCount == 0 || vertices.empty() || !(settings.strength > 0.0 && settings.strength <= 1.0) || settings.vertexScale.size() != vertices.size())
+	if (influenceCount == 0 || vertices.empty() || !(settings.strength > 0.0 && settings.strength <= 1.0) || !(settings.smoothness >= 0.0 && settings.smoothness <= 1.0) || settings.vertexScale.size() != vertices.size())
 	{
 		return result;
 	}
@@ -214,6 +214,8 @@ SmoothedWeights matchRestWeights(std::size_t vertexCount, const std::vector<unsi
 	const std::size_t targetCount = vertices.size();
 	std::vector<double> before(targetCount * width);
 	std::vector<double> after(targetCount * width);
+	std::vector<double> delta(targetCount * width, 0.0);   // what the solve would change, before smoothing and strength
+	std::vector<bool> isSolved(targetCount, false);
 	std::vector<Vec3> candidates(width);
 	std::vector<double> solved(width);
 	std::vector<double> projectionScratch;
@@ -341,10 +343,59 @@ SmoothedWeights matchRestWeights(std::size_t vertexCount, const std::vector<unsi
 			projectToSimplex(solved.data(), width, total, projectionScratch);
 		}
 
+		double* change = delta.data() + t * width;
+		for (std::size_t k = 0; k < width; ++k)
+		{
+			change[k] = solved[k] - start[k];
+		}
+		isSolved[t] = true;
+	}
+
+	// Smoothing the update: each solved vertex's change is blended with the average change of its neighbors, a vertex
+	// that was not reached or not solved counting as no change. The solves are noisy because every vertex chases a target
+	// that depends on neighbors that are moving too, and the noise is the crunch. Blending the changes, not the weights,
+	// keeps a pose that already fits (no change anywhere) exactly where it is. A blend can leave the simplex, so the
+	// result is projected back onto it.
+	std::vector<double> blended(width);
+	for (std::size_t t = 0; t < targetCount; ++t)
+	{
+		if (!isSolved[t])
+		{
+			continue;
+		}
+		const double* start = before.data() + t * width;
+		const double* change = delta.data() + t * width;
+		double* out = after.data() + t * width;
+		const double* weights = table.data() + localOf(vertices[t]) * influenceCount;
+		double total = 0.0;
+		for (std::size_t k = 0; k < width; ++k)
+		{
+			total += start[k];
+			blended[k] = start[k] + change[k];
+		}
+		if (settings.smoothness > 0.0)
+		{
+			const double inverseCount = 1.0 / static_cast<double>(rowStart[t + 1] - rowStart[t]);
+			for (std::size_t k = 0; k < width; ++k)
+			{
+				double neighborChange = 0.0;
+				for (unsigned int n = rowStart[t]; n < rowStart[t + 1]; ++n)
+				{
+					const auto found = std::lower_bound(vertices.begin(), vertices.end(), neighborIds[n]);
+					if (found != vertices.end() && *found == neighborIds[n])
+					{
+						neighborChange += delta[static_cast<std::size_t>(found - vertices.begin()) * width + k];
+					}
+				}
+				blended[k] = start[k] + (1.0 - settings.smoothness) * change[k] + settings.smoothness * neighborChange * inverseCount;
+			}
+			projectToSimplex(blended.data(), width, total, projectionScratch);
+		}
+
 		const double strength = settings.strength * settings.vertexScale[t];
 		for (std::size_t k = 0; k < width; ++k)
 		{
-			out[k] = start[k] + strength * (solved[k] - start[k]);
+			out[k] = start[k] + strength * (blended[k] - start[k]);
 		}
 		if (settings.maxInfluences > 0)
 		{

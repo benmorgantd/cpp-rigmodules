@@ -33,8 +33,9 @@ public:
 		return MStatus::kSuccess;
 	}
 	// vertices: sorted and unique. scales: parallel, each in (0, 1], the brush falloff there. strength: in (0, 1].
-	// adjacency is the mesh's neighbor map, built once per stroke.
-	virtual MStatus prepare(const std::vector<unsigned int>& vertices, const std::vector<double>& scales, double strength, const MeshAdjacency& adjacency) = 0;
+	// smoothness: in [0, 1], used by the operations that solve a change per vertex (the rest-match ones, D66) and
+	// ignored by the rest. adjacency is the mesh's neighbor map, built once per stroke.
+	virtual MStatus prepare(const std::vector<unsigned int>& vertices, const std::vector<double>& scales, double strength, double smoothness, const MeshAdjacency& adjacency) = 0;
 	// Writes what prepare worked out.
 	virtual MStatus apply() = 0;
 	// The rows prepare changed: only influences and vertices that moved.
@@ -129,7 +130,7 @@ public:
 
 	// One dab at these hits. A mesh hit more than once (through a mesh) is dabbed once, the nearest hit setting each
 	// vertex's falloff.
-	MStatus dab(const std::vector<BrushHit>& hits, double radius, double strength, FalloffMode mode);
+	MStatus dab(const std::vector<BrushHit>& hits, double radius, double strength, double smoothness, FalloffMode mode);
 
 	// What the last dab did, for the debug print: the vertices it reached and the ones whose weights changed.
 	unsigned int lastReachedCount() const;

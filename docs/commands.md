@@ -921,6 +921,7 @@ cmds.skinBrushCtx(ctx, query=True, radius=True)    # 8.0
 | `radius` | double | The brush radius, at least 0.001, in scene units. With the `surface` falloff it is a **length over the mesh**. Until you set one (a flag or a Ctrl + drag), it is 5% of the diagonal of the box around the selected meshes, worked out when the tool starts, so the brush fits a mesh of any size. Queried before the tool has started it is 5. |
 | `falloff` | string | How the radius is measured. `surface` (default): along the mesh edges from where the brush landed, so it never reaches across a gap and two shells never share a dab. `volume`: in a straight line in space, a ball, which also reaches a part of the mesh that is close but not connected (the other side of a thin wall, a lip against a lip). |
 | `strength` | double | How strongly each dab acts at the center of the brush, above 0 and at most 1. Default 0.5. |
+| `smoothness` | double | From 0 to 1. For `restDelta` and `restEdge` only (`smooth` ignores it): how much each vertex's change is blended with its neighbors' changes, which damps the crunch. 0 is none. Default 0.15. See [Painting towards the rest shape](#painting-towards-the-rest-shape). |
 | `throughMesh` | bool | Off: a dab lands on the closest surface under the pointer. On: it lands on every surface the ray crosses, so painting a body also paints its back. Default off. |
 | `debug` | bool | Prints a line to the Script Editor for the press, every repeat timer tick (and why it did or did not repeat) and the release, to see what a stroke is doing. Default off. |
 
@@ -937,6 +938,7 @@ cmds.skinBrushCtx(ctx, query=True, radius=True)    # 8.0
 `restDelta` and `restEdge` (D66) are for painting weights in a pose so the mesh in that pose looks more like its rest shape: a delta mush, painted. Pose the rig where the skin is wrong, select the mesh, and paint.
 
 - **What a dab does.** For each vertex it reaches, the brush works out where the rest shape wants the vertex given where its neighbors are now, then moves the weights to the blend of the influences that gets closest. `restDelta` keeps each vertex's rest offset from its neighbors' average (turned by the skin's rotation there), so it restores local shape, volume and angles. `restEdge` keeps edge lengths. Strength and falloff mean what they mean for `smooth`: how far towards the answer one dab goes.
+- **`smoothness`** (0 to 1, default 0.15) blends each vertex's change with the average change of its neighbors. `restEdge` can crunch, because every vertex chases a target that depends on neighbors that are moving too, and the noise ends up in the weights. Raise it to calm that, at the cost of a slower fit. It blends the changes, not the weights, so a pose that already fits is left alone at any setting, and at 1 each vertex only follows its neighbors. `restDelta` smooths on its own and needs less.
 - **It only blends influences the neighborhood already has**, never a joint that carries no weight there, and never below 0 or above 1. Locked influences and the cluster's maximum influences are respected. It cannot fix what no blend of the existing influences can reach (a candy wrapper needs another influence).
 - **One pass per dab.** The neighbors move as you paint, so hold the brush or stroke again to keep converging. At rest, or under a move that keeps the shape (every joint turned together), there is nothing to fix and a dab changes nothing.
 - **Weights are fitted to the pose you are in.** Paint in a few poses, not one.
@@ -962,6 +964,7 @@ cmds.skinBrushStroke(radius=0.3, mesh=["hero_body:body_geo", "hero_body:shirt_ge
 | `radius` | double | At least 0.001. With `falloff="surface"`, a length over the surface. Default 5. |
 | `falloff` | string | `surface` (default) or `volume`, as on the context. |
 | `strength` | double | Above 0 and at most 1. Default 0.5. |
+| `smoothness` | double | From 0 to 1, as on the context. Default 0.15. Ignored by `smooth`. |
 | `hitPoint` | string, int, 3 doubles | Multi-use. A mesh, a face of it and the point on it. Each is one dab. |
 | `mesh` | string | Multi-use. Meshes a `viewRay` may hit. A mesh named in a `hitPoint` is included too. |
 | `viewRay` | 6 doubles | Multi-use. A ray, origin then direction. Each is one dab at what it picks, after the `hitPoint`s. A ray that hits nothing is skipped. |

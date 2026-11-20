@@ -31,7 +31,7 @@ namespace
 			return fSmooth.bind(mesh);
 		}
 
-		MStatus prepare(const std::vector<unsigned int>& vertices, const std::vector<double>& scales, double strength, const MeshAdjacency& adjacency) override
+		MStatus prepare(const std::vector<unsigned int>& vertices, const std::vector<double>& scales, double strength, double /*smoothness*/, const MeshAdjacency& adjacency) override
 		{
 			return fSmooth.prepare(&vertices, 1, strength, &scales, &adjacency);
 		}
@@ -70,9 +70,9 @@ namespace
 			return fRestMatch.refreshPose();
 		}
 
-		MStatus prepare(const std::vector<unsigned int>& vertices, const std::vector<double>& scales, double strength, const MeshAdjacency& adjacency) override
+		MStatus prepare(const std::vector<unsigned int>& vertices, const std::vector<double>& scales, double strength, double smoothness, const MeshAdjacency& adjacency) override
 		{
-			return fRestMatch.prepare(vertices, strength, scales, adjacency);
+			return fRestMatch.prepare(vertices, strength, smoothness, scales, adjacency);
 		}
 
 		MStatus apply() override
@@ -446,11 +446,11 @@ void SkinBrushStroke::reach(const std::vector<BrushHit>& hits, double radius, Fa
 	}
 }
 
-MStatus SkinBrushStroke::dab(const std::vector<BrushHit>& hits, double radius, double strength, FalloffMode mode)
+MStatus SkinBrushStroke::dab(const std::vector<BrushHit>& hits, double radius, double strength, double smoothness, FalloffMode mode)
 {
-	if (!(radius > 0.0) || !(strength > 0.0 && strength <= 1.0))
+	if (!(radius > 0.0) || !(strength > 0.0 && strength <= 1.0) || !(smoothness >= 0.0 && smoothness <= 1.0))
 	{
-		MGlobal::displayError("A brush needs a radius above 0 and a strength above 0 and at most 1.");
+		MGlobal::displayError("A brush needs a radius above 0, a strength above 0 and at most 1 and a smoothness from 0 to 1.");
 		return MStatus::kInvalidParameter;
 	}
 	std::vector<BrushReach> reaches;
@@ -461,7 +461,7 @@ MStatus SkinBrushStroke::dab(const std::vector<BrushHit>& hits, double radius, d
 	{
 		fLastReached += static_cast<unsigned int>(found.vertices.size());
 		MeshState& mesh = *fMeshes[found.mesh];
-		MStatus status = mesh.operation->prepare(found.vertices, found.scales, strength, mesh.adjacency);
+		MStatus status = mesh.operation->prepare(found.vertices, found.scales, strength, smoothness, mesh.adjacency);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		fLastChanged += static_cast<unsigned int>(mesh.operation->edit().vertices.size());
 		if (mesh.operation->edit().vertices.empty())

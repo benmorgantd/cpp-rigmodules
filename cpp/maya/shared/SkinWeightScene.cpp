@@ -1107,12 +1107,12 @@ MStatus SkinWeightRestMatch::verifyModel()
 	return MStatus::kSuccess;
 }
 
-MStatus SkinWeightRestMatch::prepare(const std::vector<unsigned int>& vertices, double strength, const std::vector<double>& vertexScale, const MeshAdjacency& adjacency)
+MStatus SkinWeightRestMatch::prepare(const std::vector<unsigned int>& vertices, double strength, double smoothness, const std::vector<double>& vertexScale, const MeshAdjacency& adjacency)
 {
 	clearPrepared();
-	if (!(strength > 0.0 && strength <= 1.0))
+	if (!(strength > 0.0 && strength <= 1.0) || !(smoothness >= 0.0 && smoothness <= 1.0))
 	{
-		MGlobal::displayError("Painting towards the rest shape needs a strength above 0 and at most 1.");
+		MGlobal::displayError("Painting towards the rest shape needs a strength above 0 and at most 1 and a smoothness from 0 to 1.");
 		return MStatus::kInvalidParameter;
 	}
 
@@ -1121,6 +1121,7 @@ MStatus SkinWeightRestMatch::prepare(const std::vector<unsigned int>& vertices, 
 	RestMatchSettings settings;
 	settings.target = fTarget;
 	settings.strength = strength;
+	settings.smoothness = smoothness;
 	settings.maxInfluences = fMaxInfluences;
 	settings.locked = fLocked;
 	settings.vertexScale = vertexScale;

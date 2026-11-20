@@ -39,13 +39,14 @@ public:
 	MStatus cancel() override;
 
 	// What the context hands over when a stroke ends.
-	void setStroke(SkinBrushEdit&& edit, const std::string& operation, double radius, double strength, FalloffMode falloff);
+	void setStroke(SkinBrushEdit&& edit, const std::string& operation, double radius, double strength, double smoothness, FalloffMode falloff);
 
 private:
 	SkinBrushEdit fEdit;
 	std::string fOperation;
 	double fRadius = 0.0;
 	double fStrength = 0.0;
+	double fSmoothness = 0.0;
 	FalloffMode fFalloff = FalloffMode::Surface;
 };
 
@@ -68,6 +69,7 @@ public:
 	const std::string& operation() const;
 	double radius() const;
 	double strength() const;
+	double smoothness() const;
 	bool throughMesh() const;
 	bool debug() const;
 	FalloffMode falloff() const;
@@ -75,6 +77,7 @@ public:
 	bool setOperation(const std::string& operation);
 	bool setRadius(double radius);
 	bool setStrength(double strength);
+	bool setSmoothness(double smoothness);
 	void setThroughMesh(bool throughMesh);
 	void setDebug(bool debug);
 	bool setFalloff(const std::string& name);
@@ -105,6 +108,7 @@ private:
 	std::string fOperation = "smooth";
 	double fRadius = 5.0;
 	double fStrength = 0.5;
+	double fSmoothness = 0.15;              // the rest-match operations only (D66)
 	bool fThroughMesh = false;
 	bool fDebug = false;
 	int fTicks = 0;                         // debug counters for the stroke in progress

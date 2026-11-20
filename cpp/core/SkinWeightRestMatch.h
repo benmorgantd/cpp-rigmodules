@@ -43,6 +43,7 @@ struct RestMatchSettings
 {
 	RestTarget target = RestTarget::Delta;
 	double strength = 1.0;         // above 0, at most 1
+	double smoothness = 0.0;       // 0 to 1: how much each vertex's change is blended with its neighbors' changes. 0 is none
 	std::size_t maxInfluences = 0; // above 0: a vertex keeps only this many non-zero weights, locked ones included
 	std::vector<bool> locked;      // per influence, empty for none. A locked influence keeps its weight on every vertex
 	std::vector<double> vertexScale; // parallel to the vertices, each in (0, 1]: a factor on strength, which is what lets a brush fall off
@@ -54,5 +55,5 @@ void restMatchPosition(const RestMatchSkin& skin, const double* weights, std::si
 // Works out new weights for the sorted, unique vertices and returns the rows that changed, in vertex order, in the
 // shape smoothing returns. The weights of the vertices and their neighbors are fetched, and only the influences that
 // carry weight there and are not locked take part. A vertex with no neighbor, no unlocked weight or no change is left
-// out. Empty for settings that are not valid: strength outside (0, 1], or vertexScale not parallel to the vertices.
+// out. Empty for settings that are not valid: strength outside (0, 1], smoothness outside [0, 1], or vertexScale not parallel to the vertices.
 SmoothedWeights matchRestWeights(std::size_t vertexCount, const std::vector<unsigned int>& vertices, std::size_t influenceCount, const RestMatchSettings& settings, const RestMatchSkin& skin, const NeighborFetch& fetchNeighbors, const WeightFetch& fetch);
