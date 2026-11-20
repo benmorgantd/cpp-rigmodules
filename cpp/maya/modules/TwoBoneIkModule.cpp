@@ -185,27 +185,13 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 	TwoBoneIkSolveResult result;
 	TwoBoneIkSolve::evaluate(eval, result);
 
-	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
+	SolvedOutputs outputs = openSolvedOutputs(data, aJointOPM, status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hJointOPM = data.outputArrayValue(aJointOPM, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hSocket = data.outputArrayValue(aOutputSocketMatrix, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// One solve writes all three outputs. Control OPM excludes the control's local matrix. Joint OPM and socket both want
-	// the solved world matrix. Elements that were never created (a socket nothing is connected to) are skipped.
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
 	{
-		writeOutputMatrix(hControlOPM, slot, result.mControlOPM[slot]);
-		writeOutputMatrix(hJointOPM, slot, result.mJointWorld[slot]);
-		writeOutputMatrix(hSocket, slot, result.mJointWorld[slot]);
+		writeSolvedSlot(outputs, slot, result.mControlOPM[slot], result.mJointWorld[slot]);
 	}
-
-	const MObject oNode = plug.node();
-	commitOutput(data, oNode, aControlOPM, hControlOPM);
-	commitOutput(data, oNode, aJointOPM, hJointOPM);
-	commitOutput(data, oNode, aOutputSocketMatrix, hSocket);
-	data.setClean(plug);
+	commitSolvedOutputs(data, plug, aJointOPM, outputs);
 	return MStatus::kSuccess;
 }
 
@@ -417,7 +403,7 @@ ModuleInverseResult TwoBoneIkNode::inverse(const ModuleInverseContext& context, 
 	ikInput.restPlaneAngle = eval.rest.restPlaneAngle;
 	ikInput.restAxis = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Ik]) - MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Upper]);
 	ikInput.restPoleOffset = MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Pole]) - MathUtils::translationOf(restWorlds[TwoBoneIkSlot::Upper]);
-	const TwoBoneIkInverseResult ik = MathUtils::computeTwoBoneIkInverse(ikInput);
+	const TwoBoneIkInverseResult ik = TwoBoneIkSolve::computeTwoBoneIkInverse(ikInput);
 
 	// The handle: at the solved position, turned the way the hand joint is (the frame the forward solve gives the end).
 	const MMatrix mEndFrame = eval.rest.ikRestOffset[TwoBoneIkSlot::End].inverse() * (*input.jointWorld[TwoBoneIkSlot::End]);
@@ -454,7 +440,7 @@ ModuleInverseResult TwoBoneIkNode::inverse(const ModuleInverseContext& context, 
 	check.restPlaneAngle = eval.rest.restPlaneAngle;
 	check.restBendNormal = eval.rest.restBendNormal;
 	check.restAxis = ikInput.restAxis;
-	const TwoBoneIkResult forward = MathUtils::computeTwoBoneIk(check);
+	const TwoBoneIkResult forward = TwoBoneIkSolve::computeTwoBoneIk(check);
 	const double tolerance = kMaxIkMismatch * (eval.rest.length1 + eval.rest.length2);
 	if ((forward.mid - vMid).length() > tolerance || (forward.end - vEnd).length() > tolerance)
 	{

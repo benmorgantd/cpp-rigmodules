@@ -7,7 +7,7 @@
 ## Where it is documented now
 
 - Using it: `docs/modules.md` (the `TwoBoneIk` section), `docs/commands.md` (`setRigIkFkBlend`, `setRigControlSpace`, `getRigControlSpace`), `docs/controls.md`.
-- The code: `docs/source-map.md` (`TwoBoneIkModule`, `TwoBoneIkCmds`, `MathUtils::computeTwoBoneIk`), `docs/architecture.md`.
+- The code: `docs/source-map.md` (`TwoBoneIkModule`, `TwoBoneIkCmds`, `TwoBoneIkSolve::computeTwoBoneIk`), `docs/architecture.md`.
 - The decision and its phases: D52 in `decisions.md`.
 - Tests: `tests/maya/modules/test_two_bone_ik.py`, `tests/maya/commands/test_two_bone_ik_cmds.py`, `tests/maya/commands/test_two_bone_ik_inverse.py`, the `twoboneik` pose cases and the golden snapshot.
 - Performance: 12 limbs in the complex rig (`tools/perf/perf_scenes.py`). `bench` is below D36's targets.
@@ -45,7 +45,7 @@ Changing one after the module ships changes a template key, a control markup or 
 - Six channel names (`ikFkBlend`, `stretch`, `soft`, `pin`, `roll`, and `space` on the pole with two labels), four child plug names (one internal), two socket families, three marker-joint markups per limb.
 - Two commands (`setRigIkFkBlend` and `setRigControlSpace`), and a `module` key on `getRigControlSpace` and `ControlSpace`.
 - Constants in `RigAttr` and `PlugAndSocketNames`, `ModulePlugInfo::allowsConstraint`, `ModuleDescriptor::spaceDelta`, and scalar channels in the inverse contract.
-- `MathUtils::computeTwoBoneIk` and `blendMatrices`, the shared custom-channel helper, the shared match formula, the shared matrix-to-channels conversion and two match output arrays on the node.
+- `TwoBoneIkSolve::computeTwoBoneIk` and `blendMatrices`, the shared custom-channel helper, the shared match formula, the shared matrix-to-channels conversion and two match output arrays on the node.
 - One golden snapshot, a pose case folder, two test files and fixtures, and a block in the performance rig.
 
 Complexity stated (CLAUDE.md, "Complexity checks"): the first custom channels, the first scalar module inputs, the first module-owned space (a concept with a descriptor hook), a visibility output, three marker joints per limb, a new plug flag in `core/`, a key on a command's result, and two commands. Rejected as simpler: an IK-only solve with no blend (the problem is the switch), a `poleFollow` slider (two controls for one idea), and a pole-only `setRigPoleSpace` (the rig panel couldn't find it).

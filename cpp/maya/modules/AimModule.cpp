@@ -155,28 +155,13 @@ MStatus AimModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	status = solveAim(data, solve);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
+	SolvedOutputs outputs = openSolvedOutputs(data, aJointOPM, status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hJointOPM = data.outputArrayValue(aJointOPM, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hSocket = data.outputArrayValue(aOutputSocketMatrix, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// One solve writes all three outputs. Control OPM excludes the control's local matrix. Joint OPM and socket
-	// both want the solved world matrix. Elements that were never created (e.g. controlOPM[0], there is no aim
-	// control) are skipped.
 	for (unsigned int i = 0; i < AimPart::Count; ++i)
 	{
-		writeOutputMatrix(hControlOPM, i, solve.mControlOPM[i]);
-		writeOutputMatrix(hJointOPM, i, solve.mPartWorld[i]);
-		writeOutputMatrix(hSocket, i, solve.mPartWorld[i]);
+		writeSolvedSlot(outputs, i, solve.mControlOPM[i], solve.mPartWorld[i]);   // controlOPM[0]: there is no aim control, so it is skipped
 	}
-
-	const MObject oNode = plug.node();
-	commitOutput(data, oNode, aControlOPM, hControlOPM);
-	commitOutput(data, oNode, aJointOPM, hJointOPM);
-	commitOutput(data, oNode, aOutputSocketMatrix, hSocket);
-	data.setClean(plug);
+	commitSolvedOutputs(data, plug, aJointOPM, outputs);
 	return MStatus::kSuccess;
 }
 

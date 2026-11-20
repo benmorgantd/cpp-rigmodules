@@ -58,6 +58,8 @@ MObject LimbNode::aRestUp;
 MObject LimbNode::aRestTangent;
 MObject LimbNode::aRibbonIkRestOffset;
 MObject LimbNode::aBindRestOffset;
+MObject LimbNode::aFkRollRest;
+MObject LimbNode::aFkRollRestIn;
 
 namespace
 {
@@ -132,7 +134,7 @@ namespace
 
 RibbonSolve::RestAttrs LimbNode::restAttrs()
 {
-	return { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aRibbonIkRestOffset, aBindRestOffset };
+	return { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aRibbonIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn };
 }
 
 LimbNode::LimbNode()
@@ -192,7 +194,7 @@ MStatus LimbNode::initialize()
 		attributeAffects(oInput, aControlOPM);
 	}
 	std::vector<MObject> ribbonInputs(aChannels.begin(), aChannels.end());
-	ribbonInputs.insert(ribbonInputs.end(), { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aRibbonIkRestOffset, aBindRestOffset });
+	ribbonInputs.insert(ribbonInputs.end(), { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aRibbonIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn });
 	for (const MObject& oInput : ribbonInputs)
 	{
 		attributeAffects(oInput, aControlOPM);
@@ -241,8 +243,7 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 
 	// 2. The ribbon's stored rest, with the limb's three joint rests as the anchors the curve passes through.
 	RibbonMath::Setup setup;
-	RibbonSolve::readSetup(data, restAttrs(), controlCount, bindCount, setup);
-	setup.fkCount = TwoBoneIkSlot::LimbCount;
+	RibbonSolve::readSetup(data, restAttrs(), controlCount, bindCount, TwoBoneIkSlot::LimbCount, setup);
 	setup.fkAnchors = true;
 	for (unsigned int k = 0; k < TwoBoneIkSlot::LimbCount; ++k)
 	{
@@ -253,24 +254,15 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
-	RibbonMath::fkRollRests(setup);
 	RibbonMath::markAnchorCorners(setup);
 
 	double channelValues[LimbChannel::Count];
-	const std::array<ChannelSpec, LimbChannel::Count>& specs = limbChannelSpecs();
-	for (unsigned int k = 0; k < LimbChannel::Count; ++k)
-	{
-		MDataHandle hChannel = data.inputValue(aChannels[k]);
-		channelValues[k] = specs[k].isAngle ? hChannel.asAngle().asRadians() : hChannel.asDouble();
-	}
+	RibbonSolve::readChannels(data, aChannels.data(), limbChannelSpecs().data(), LimbChannel::Count, channelValues);
 
 	MMatrix mRibbonLocal[RibbonSolve::MaxSlots];
 	MMatrix mRibbonRest[RibbonSolve::MaxSlots];
-	for (int i = 0; i < controlCount + bindCount; ++i)
-	{
-		status = readControlInput(hControlInputData, LimbSlot::FirstRibbon + static_cast<unsigned int>(i), mRibbonLocal[i], mRibbonRest[i]);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-	}
+	status = readControlInputs(hControlInputData, LimbSlot::FirstRibbon, static_cast<unsigned int>(controlCount + bindCount), mRibbonLocal, mRibbonRest);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// 3. The curve through the blended joints (D62): the start's swing, the mid joint, the end's twist on the mid's swing.
 	const MMatrix anchors[TwoBoneIkSlot::LimbCount] =
@@ -282,33 +274,18 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	RibbonSolve::Result solve;
 	RibbonSolve::evaluate(setup, paramsFromLimbChannels(channelValues), mRibbonRest, mRibbonLocal, MMatrix::identity, MMatrix::identity, solve, anchors);
 
-	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
+	SolvedOutputs outputs = openSolvedOutputs(data, aJointOPM, status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hJointOPM = data.outputArrayValue(aJointOPM, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hSocket = data.outputArrayValue(aOutputSocketMatrix, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// One solve writes all three outputs. Control OPM excludes the control's local matrix. Joint OPM and socket both want the solved
-	// world matrix. Elements that were never created (a control with no joint, a ribbon control with no socket) are skipped.
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
 	{
-		writeOutputMatrix(hControlOPM, slot, ik.mControlOPM[slot]);
-		writeOutputMatrix(hJointOPM, slot, ik.mJointWorld[slot]);
-		writeOutputMatrix(hSocket, slot, ik.mJointWorld[slot]);
+		writeSolvedSlot(outputs, slot, ik.mControlOPM[slot], ik.mJointWorld[slot]);
 	}
+	// The ribbon's controls and bind joints have no socket.
 	for (int i = 0; i < controlCount + bindCount; ++i)
 	{
-		const unsigned int slot = LimbSlot::FirstRibbon + static_cast<unsigned int>(i);
-		writeOutputMatrix(hControlOPM, slot, solve.mControlOPM[i]);
-		writeOutputMatrix(hJointOPM, slot, solve.mWorld[i]);
+		writeSolvedSlot(outputs, LimbSlot::FirstRibbon + static_cast<unsigned int>(i), solve.mControlOPM[i], solve.mWorld[i], false);
 	}
-
-	const MObject oNode = plug.node();
-	commitOutput(data, oNode, aControlOPM, hControlOPM);
-	commitOutput(data, oNode, aJointOPM, hJointOPM);
-	commitOutput(data, oNode, aOutputSocketMatrix, hSocket);
-	data.setClean(plug);
+	commitSolvedOutputs(data, plug, aJointOPM, outputs);
 	return MStatus::kSuccess;
 }
 

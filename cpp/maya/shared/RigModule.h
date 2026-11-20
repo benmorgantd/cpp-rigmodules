@@ -151,6 +151,14 @@ struct ControlSolveStep
 
 // This class is just a class with shared helper methods for rig module nodes. 
 // You CAN NOT have "inheritance" for Maya nodes because of MObject pointers.
+// The three output arrays a module's solve writes together, opened by RigModuleWithControlsNode::openSolvedOutputs.
+struct SolvedOutputs
+{
+	MArrayDataHandle hControlOPM;
+	MArrayDataHandle hJointOPM;
+	MArrayDataHandle hSocket;
+};   // MArrayDataHandle has no default constructor, so this is only built whole, by openSolvedOutputs
+
 class RigModuleNodeBase : public MPxNode
 {
 public:
@@ -387,6 +395,18 @@ public:
 
 	// Marks an output array and its elements clean after a compute wrote it.
 	static void commitOutput(MDataBlock& data, const MObject& oNode, const MObject& oAttr, MArrayDataHandle& hOutput);
+
+	// Reads `count` control inputs from `firstSlot` into mOutLocal[0..count) and mOutRestWorld[0..count). Fails on a missing element.
+	static MStatus readControlInputs(MArrayDataHandle& hControlInputData, unsigned int firstSlot, unsigned int count, MMatrix* mOutLocal, MMatrix* mOutRestWorld);
+
+	// For a module whose one solve writes controlOPM, jointOPM and the socket matrix together (Aim, TwoBoneIk, Ribbon, Limb): the three
+	// handles, one slot written to all three, and the commit of all three with the plug.
+	// `status` is the first failure, or success: check it before using the result.
+	static SolvedOutputs openSolvedOutputs(MDataBlock& data, const MObject& oJointOPM, MStatus& status);
+	// Control OPM excludes the control's local matrix. The joint OPM and the socket both want the solved world matrix. A slot with no
+	// socket (a tweaker) passes hasSocket false. Elements that were never created are skipped.
+	static void writeSolvedSlot(SolvedOutputs& outputs, unsigned int slot, const MMatrix& mControlOPM, const MMatrix& mWorld, bool hasSocket = true);
+	static void commitSolvedOutputs(MDataBlock& data, const MPlug& plug, const MObject& oJointOPM, SolvedOutputs& outputs);
 
 	// Module-side wiring for one control: local matrix in, rest world, message link, OPM out.
 	static MStatus wireControl(
@@ -763,6 +783,64 @@ void RigModuleWithControlsNode<Derived>::commitOutput(MDataBlock& data, const MO
 {
 	hOutput.setAllClean();
 	data.setClean(MPlug(oNode, oAttr));
+}
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::readControlInputs(
+	MArrayDataHandle& hControlInputData,
+	unsigned int firstSlot,
+	unsigned int count,
+	MMatrix* mOutLocal,
+	MMatrix* mOutRestWorld)
+{
+	for (unsigned int i = 0; i < count; ++i)
+	{
+		const MStatus status = readControlInput(hControlInputData, firstSlot + i, mOutLocal[i], mOutRestWorld[i]);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
+	return MStatus::kSuccess;
+}
+
+template <typename Derived>
+SolvedOutputs RigModuleWithControlsNode<Derived>::openSolvedOutputs(MDataBlock& data, const MObject& oJointOPM, MStatus& status)
+{
+	MStatus controlStatus;
+	MStatus jointStatus;
+	MStatus socketStatus;
+	SolvedOutputs outputs
+	{
+		data.outputArrayValue(aControlOPM, &controlStatus),
+		data.outputArrayValue(oJointOPM, &jointStatus),
+		data.outputArrayValue(aOutputSocketMatrix, &socketStatus)
+	};
+	status = !controlStatus ? controlStatus : !jointStatus ? jointStatus : socketStatus;
+	return outputs;
+}
+
+template <typename Derived>
+void RigModuleWithControlsNode<Derived>::writeSolvedSlot(
+	SolvedOutputs& outputs,
+	unsigned int slot,
+	const MMatrix& mControlOPM,
+	const MMatrix& mWorld,
+	bool hasSocket)
+{
+	RigModuleNodeBase::writeOutputMatrix(outputs.hControlOPM, slot, mControlOPM);
+	RigModuleNodeBase::writeOutputMatrix(outputs.hJointOPM, slot, mWorld);
+	if (hasSocket)
+	{
+		RigModuleNodeBase::writeOutputMatrix(outputs.hSocket, slot, mWorld);
+	}
+}
+
+template <typename Derived>
+void RigModuleWithControlsNode<Derived>::commitSolvedOutputs(MDataBlock& data, const MPlug& plug, const MObject& oJointOPM, SolvedOutputs& outputs)
+{
+	const MObject oNode = plug.node();
+	commitOutput(data, oNode, aControlOPM, outputs.hControlOPM);
+	commitOutput(data, oNode, oJointOPM, outputs.hJointOPM);
+	commitOutput(data, oNode, aOutputSocketMatrix, outputs.hSocket);
+	data.setClean(plug);
 }
 
 template <typename Derived>

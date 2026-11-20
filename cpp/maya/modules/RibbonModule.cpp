@@ -46,6 +46,8 @@ MObject RibbonModuleNode::aRestUp;
 MObject RibbonModuleNode::aRestTangent;
 MObject RibbonModuleNode::aIkRestOffset;
 MObject RibbonModuleNode::aBindRestOffset;
+MObject RibbonModuleNode::aFkRollRest;
+MObject RibbonModuleNode::aFkRollRestIn;
 
 namespace
 {
@@ -87,7 +89,7 @@ namespace
 
 RibbonSolve::RestAttrs RibbonModuleNode::restAttrs()
 {
-	return { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset };
+	return { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn };
 }
 
 RibbonModuleNode::RibbonModuleNode()
@@ -153,7 +155,7 @@ MStatus RibbonModuleNode::initialize()
 	// AFFECTS RELATIONSHIPS
 	declareStandardAffects();
 	std::vector<MObject> settings(aChannels.begin(), aChannels.end());
-	settings.insert(settings.end(), { aIkControlCount, aFkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset });
+	settings.insert(settings.end(), { aIkControlCount, aFkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn });
 	for (const MObject& oInput : settings)
 	{
 		attributeAffects(oInput, aControlOPM);
@@ -191,27 +193,19 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 
 	// Everything the evaluation reads, as plain values: the stored rest, the channels, the controls' locals.
 	RibbonMath::Setup setup;
-	RibbonSolve::readSetup(data, restAttrs(), controlCount, bindCount, setup);
+	RibbonSolve::readSetup(data, restAttrs(), controlCount, bindCount, fkCount, setup);
 
 	double channelValues[RibbonChannel::Count];
-	const std::array<ChannelSpec, RibbonChannel::Count>& specs = channelSpecs();
-	for (unsigned int k = 0; k < RibbonChannel::Count; ++k)
-	{
-		MDataHandle hChannel = data.inputValue(aChannels[k]);
-		channelValues[k] = specs[k].isAngle ? hChannel.asAngle().asRadians() : hChannel.asDouble();
-	}
+	RibbonSolve::readChannels(data, aChannels.data(), channelSpecs().data(), RibbonChannel::Count, channelValues);
 
 	MMatrix mLocal[MaxSlots];
 	MMatrix mRest[MaxSlots];
-	for (unsigned int slot = 0; slot < slotCount; ++slot)
-	{
-		status = readControlInput(hControlInputData, slot, mLocal[slot], mRest[slot]);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-	}
-	setup.fkCount = fkCount;
+	status = readControlInputs(hControlInputData, 0, slotCount, mLocal, mRest);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 	if (fkCount > 0)
 	{
-		// The fk chain's rests are the controls' own, and its parameters their chord shares, so neither is stored.
+		// The fk chain's rests are the controls' own, and its parameters their chord shares, so neither is stored. Its rest roll needs
+		// the rest curve built, so that is stored (fkRollRest).
 		for (int k = 0; k < fkCount; ++k)
 		{
 			setup.fkRest[k] = MathUtils::toMat4(mRest[controlCount + bindCount + k]);
@@ -221,7 +215,6 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 			data.setClean(plug);
 			return MStatus::kSuccess;
 		}
-		RibbonMath::fkRollRests(setup);
 	}
 
 	RibbonSolve::Result solve;
@@ -231,27 +224,13 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 		fkCount > 0 ? MMatrix::identity : readChildPlugParentDelta(hChildPlugs, controlCount - 1),
 		solve);
 
-	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
+	SolvedOutputs outputs = openSolvedOutputs(data, aJointOPM, status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hJointOPM = data.outputArrayValue(aJointOPM, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hSocket = data.outputArrayValue(aOutputSocketMatrix, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// One solve writes all three outputs. Control OPM excludes the control's local matrix. Joint OPM and socket both want
-	// the solved world matrix. Elements that were never created (the tweakers have no socket) are skipped.
 	for (unsigned int slot = 0; slot < slotCount; ++slot)
 	{
-		writeOutputMatrix(hControlOPM, slot, solve.mControlOPM[slot]);
-		writeOutputMatrix(hJointOPM, slot, solve.mWorld[slot]);
-		writeOutputMatrix(hSocket, slot, solve.mWorld[slot]);
+		writeSolvedSlot(outputs, slot, solve.mControlOPM[slot], solve.mWorld[slot]);   // a tweaker has no socket element: skipped
 	}
-
-	const MObject oNode = plug.node();
-	commitOutput(data, oNode, aControlOPM, hControlOPM);
-	commitOutput(data, oNode, aJointOPM, hJointOPM);
-	commitOutput(data, oNode, aOutputSocketMatrix, hSocket);
-	data.setClean(plug);
+	commitSolvedOutputs(data, plug, aJointOPM, outputs);
 	return MStatus::kSuccess;
 }
 

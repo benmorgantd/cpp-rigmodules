@@ -39,53 +39,6 @@ static const TransformAttrEntry kDefaultTransformValues[] =
 	{ MPxTransform::scaleX,     1.0 }, { MPxTransform::scaleY,     1.0 }, { MPxTransform::scaleZ,     1.0 }
 };
 
-// Inputs of MathUtils::computeTwoBoneIk. Positions are world space, lengths are the rest bone lengths.
-struct TwoBoneIkInput
-{
-	MVector root;
-	MVector handle;
-	MVector pole;
-	double length1 = 1.0;
-	double length2 = 1.0;
-	double stretch = 0.0;          // 0 to 1
-	double soft = 0.0;             // 0 to 1, a fraction of the limb's reach
-	double pin = 0.0;              // 0 to 1
-	double rollRadians = 0.0;
-	double restPlaneAngle = 0.0;   // radians: the rest mid's direction from the pole's, about the root-to-handle axis
-	MVector restBendNormal;        // the bend direction when the pole is on the root-to-handle line
-	MVector restAxis;              // the root-to-handle direction when the handle sits on the root
-};
-
-struct TwoBoneIkResult
-{
-	MVector mid;
-	MVector end;
-	MVector normal;   // unit bend direction, perpendicular to the root-to-handle axis (the solved plane)
-};
-
-// Inputs of MathUtils::computeTwoBoneIkInverse: the joints' world positions and the settings the forward solve will use.
-struct TwoBoneIkInverseInput
-{
-	MVector root;
-	MVector mid;
-	MVector end;
-	double length1 = 1.0;
-	double length2 = 1.0;
-	double stretch = 0.0;
-	double soft = 0.0;
-	double pin = 0.0;
-	double rollRadians = 0.0;
-	double restPlaneAngle = 0.0;
-	MVector restAxis;         // rest root to rest handle
-	MVector restPoleOffset;   // rest root to rest pole
-};
-
-struct TwoBoneIkInverseResult
-{
-	MVector handle;
-	MVector pole;
-};
-
 class MathUtils
 {
 public:
@@ -106,15 +59,6 @@ public:
 	{
 		return MMatrix(mat.m);
 	}
-
-	// Closed-form two-bone solve with stretch, soft reach, pin and roll (D52 section 4.2). Stateless: the same inputs
-	// give the same pose, so a pole that crosses the root-to-handle line flips the limb. Allocation-free.
-	static TwoBoneIkResult computeTwoBoneIk(const TwoBoneIkInput& input);
-
-	// The handle and pole that computeTwoBoneIk turns into these joint positions, for the settings given (D52 section 6).
-	// Exact for a pose the limb can make, pin included. Otherwise the nearest it can: the forward solve of the result
-	// differs from the joints, which is how a caller finds a pose IK can't reproduce.
-	static TwoBoneIkInverseResult computeTwoBoneIkInverse(const TwoBoneIkInverseInput& input);
 
 	// Blends two world matrices: translation and scale lerp, rotation slerps the short way round. t of exactly 0 or 1
 	// returns a or b unchanged. Rows are taken as scale times a rotation, so a shear is dropped. Allocation-free.

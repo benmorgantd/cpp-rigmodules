@@ -89,7 +89,7 @@ public:
 	);
 	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
 	// Control values from the limb joints (D52 section 6): the FK controls from the joint worlds, the IK handle and pole
-	// from the observed positions through MathUtils::computeTwoBoneIkInverse, for the channels in inverseChannels().
+	// from the observed positions through TwoBoneIkSolve::computeTwoBoneIkInverse, for the channels in inverseChannels().
 	// The sockets are the forward evaluation of those controls. Not solved when a limb joint is missing.
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
 	// The scalar channels the inverse reads, in TwoBoneIkInverseChannel order.

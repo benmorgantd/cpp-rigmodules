@@ -114,6 +114,8 @@ public:
 	static MObject aRestTangent;
 	static MObject aRibbonIkRestOffset;
 	static MObject aBindRestOffset;
+	static MObject aFkRollRest;
+	static MObject aFkRollRestIn;
 
 public:
 	static RigModuleBuildResult createModule(

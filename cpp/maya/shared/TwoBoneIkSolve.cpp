@@ -23,6 +23,65 @@ namespace
 	}
 }
 
+namespace
+{
+	// Below these the solve has no direction or no softness (centimeters).
+	constexpr double kMinIkReach{ 1.0e-4 };
+	constexpr double kMinIkSoftDistance{ 1.0e-6 };
+	constexpr double kMinIkFold{ 1.0e-6 };
+	constexpr double kMinIkPlaneNormal{ 1.0e-4 };
+	// The inverse: the end of a soft limb is held this fraction of the reach short of it, a pin below this is none, and
+	// the handle's distance is bisected in this many halvings.
+	constexpr double kInverseSoftMargin{ 1.0e-4 };
+	constexpr double kMinInversePin{ 1.0e-9 };
+	constexpr int kInverseSearchSteps{ 64 };
+
+	// Any unit vector perpendicular to a unit vector.
+	MVector perpendicularTo(const MVector& vUnit)
+	{
+		const MVector vReference = std::abs(vUnit.y) < 0.9 ? MVector(0.0, 1.0, 0.0) : MVector(0.0, 0.0, 1.0);
+		return (vReference - vUnit * (vReference * vUnit)).normal();
+	}
+
+	struct TwoBoneIkBones
+	{
+		double length1 = 0.0;   // after stretch
+		double length2 = 0.0;
+		double base = 0.0;      // the end's distance from the root before pin
+		double along = 0.0;     // the mid joint's distance along the root-to-handle axis
+		double height = 0.0;    // and off it
+	};
+
+	// The two bones after soft reach and stretch for a handle at this distance (sections 4.2 and 4.2a): their lengths,
+	// the distance from the root the end reaches before pin, and the mid joint's place along the axis and off it.
+	// The forward solve and its inverse both call this, so they can't drift.
+	TwoBoneIkBones solveTwoBoneIkBones(double length1, double length2, double stretch, double soft, double distance)
+	{
+		const double reach = length1 + length2;
+
+		// Soft reach: linear up to da, then an exponential that nears the full reach and never gets there.
+		const double softDistance = soft * reach;
+		double effective = std::min(distance, reach);
+		if (softDistance > kMinIkSoftDistance)
+		{
+			const double softStart = reach - softDistance;
+			effective = distance <= softStart ? distance : softStart + softDistance * (1.0 - std::exp(-(distance - softStart) / softDistance));
+		}
+
+		// Stretch scales both bones so the end still reaches the handle, with the softened bend.
+		const double scale = effective > kMinIkFold ? 1.0 + stretch * (distance / effective - 1.0) : 1.0;
+		TwoBoneIkBones bones;
+		bones.length1 = length1 * scale;
+		bones.length2 = length2 * scale;
+		bones.base = std::clamp(effective * scale, std::abs(bones.length1 - bones.length2) + kMinIkFold, bones.length1 + bones.length2);
+
+		// Law of cosines.
+		bones.along = (bones.base * bones.base + bones.length1 * bones.length1 - bones.length2 * bones.length2) / (2.0 * bones.base);
+		bones.height = std::sqrt(std::max(0.0, bones.length1 * bones.length1 - bones.along * bones.along));
+		return bones;
+	}
+}
+
 MVector TwoBoneIkSolve::perpendicularPart(const MVector& v, const MVector& vAxis)
 {
 	return v - vAxis * (v * vAxis);
@@ -111,7 +170,7 @@ void TwoBoneIkSolve::evaluate(const TwoBoneIkEval& eval, TwoBoneIkSolveResult& o
 	input.restAxis = MathUtils::translationOf(eval.mRest[TwoBoneIkSlot::Ik]) - MathUtils::translationOf(eval.mRest[TwoBoneIkSlot::Upper]);
 
 	MMatrix mFrames[TwoBoneIkSlot::LimbCount];
-	computeLimbFrames(MathUtils::computeTwoBoneIk(input), vRoot, ikStep.mWorld, mFrames);
+	computeLimbFrames(computeTwoBoneIk(input), vRoot, ikStep.mWorld, mFrames);
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::LimbCount; ++slot)
 	{
 		outResult.mJointWorld[slot] = MathUtils::blendMatrices(mFkWorld[slot], eval.rest.ikRestOffset[slot] * mFrames[slot], eval.blend);
@@ -164,7 +223,7 @@ TwoBoneIkRest TwoBoneIkSolve::computeRest(const std::array<MMatrix, TwoBoneIkSlo
 	input.restBendNormal = rest.restBendNormal;
 	input.restAxis = vAxis;
 	MMatrix mFrames[TwoBoneIkSlot::LimbCount];
-	computeLimbFrames(MathUtils::computeTwoBoneIk(input), vRoot, restWorlds[TwoBoneIkSlot::Ik], mFrames);
+	computeLimbFrames(computeTwoBoneIk(input), vRoot, restWorlds[TwoBoneIkSlot::Ik], mFrames);
 	for (unsigned int i = 0; i < TwoBoneIkSlot::LimbCount; ++i)
 	{
 		rest.ikRestOffset[i] = restWorlds[i] * mFrames[i].inverse();
@@ -365,4 +424,151 @@ bool TwoBoneIkSolve::planSlots(const TwoBoneIkArgs& ikArgs, PlanContext& ctx, st
 	}
 	outRest = computeRest(restWorlds);
 	return true;
+}
+
+TwoBoneIkResult TwoBoneIkSolve::computeTwoBoneIk(const TwoBoneIkInput& input)
+{
+	// 1. Reach and axis. A handle on the root has no direction, so the rest axis stands in.
+	const MVector vToHandle = input.handle - input.root;
+	const double distance = vToHandle.length();
+	const MVector vAxis = distance > kMinIkReach ? vToHandle / distance : input.restAxis.normal();
+
+	// 2. Soft reach and stretch (sections 4.2 and 4.2a), then the bones' triangle.
+	const TwoBoneIkBones bones = solveTwoBoneIkBones(input.length1, input.length2, input.stretch, input.soft, distance);
+
+	// 3. The bend plane: the pole's side of the axis, turned by the rest plane angle and the roll (which pin fades out).
+	// With the pole on the axis the rest bend normal stands in. It already holds the rest plane angle, so only the roll applies.
+	const MVector vToPole = input.pole - input.root;
+	MVector vBase = vToPole - vAxis * (vToPole * vAxis);
+	double angle = input.rollRadians * (1.0 - input.pin);
+	if (vBase.length() > kMinIkPlaneNormal)
+	{
+		vBase = vBase.normal();
+		angle += input.restPlaneAngle;
+	}
+	else
+	{
+		const MVector vRest = input.restBendNormal - vAxis * (input.restBendNormal * vAxis);
+		vBase = vRest.length() > kMinIkPlaneNormal ? vRest.normal() : perpendicularTo(vAxis);
+	}
+	const MVector vNormal = (vBase * std::cos(angle) + (vAxis ^ vBase) * std::sin(angle)).normal();
+
+	const MVector vMidFree = input.root + vAxis * bones.along + vNormal * bones.height;
+	const MVector vEndFree = input.root + vAxis * bones.base;
+
+	// 4. Pin pulls the elbow onto the pole and the wrist onto the handle. It wins over stretch and soft.
+	TwoBoneIkResult result;
+	result.mid = vMidFree + (input.pole - vMidFree) * input.pin;
+	result.end = vEndFree + (input.handle - vEndFree) * input.pin;
+	result.normal = vNormal;
+	return result;
+}
+
+TwoBoneIkInverseResult TwoBoneIkSolve::computeTwoBoneIkInverse(const TwoBoneIkInverseInput& input)
+{
+	const double reach = input.length1 + input.length2;
+
+	// 1. The end's direction is the handle's: with pin the end is on the root-to-handle ray too.
+	const MVector vToEnd = input.end - input.root;
+	double endDistance = vToEnd.length();
+	const MVector vAxis = endDistance > kMinIkReach ? vToEnd / endDistance : input.restAxis.normal();
+
+	// 2. The handle's distance. The end's distance is dc * (1 - pin) + d * pin, which never falls as d grows, so bisect.
+	// A limb that neither stretches nor pins stops at its reach, and soft reach only nears it: the end is clamped to
+	// 1e-4 of the reach short of it, so a soft handle lands a few soft distances past the wrist instead of at infinity.
+	if (input.stretch <= 0.0 && input.pin <= 0.0)
+	{
+		const bool isSoft = input.soft * reach > kMinIkSoftDistance;
+		endDistance = std::min(endDistance, isSoft ? reach * (1.0 - kInverseSoftMargin) : reach);
+	}
+	const auto endDistanceAt = [&input](double distance)
+	{
+		const TwoBoneIkBones bones = solveTwoBoneIkBones(input.length1, input.length2, input.stretch, input.soft, distance);
+		return bones.base * (1.0 - input.pin) + distance * input.pin;
+	};
+	double high = std::max(endDistance, reach);
+	for (int grow = 0; grow < kInverseSearchSteps && endDistanceAt(high) < endDistance; ++grow)
+	{
+		high *= 2.0;
+	}
+	double low = 0.0;
+	for (int step = 0; step < kInverseSearchSteps; ++step)
+	{
+		const double middle = 0.5 * (low + high);
+		(endDistanceAt(middle) < endDistance ? low : high) = middle;
+	}
+	const double distance = high;
+
+	TwoBoneIkInverseResult result;
+	result.handle = input.root + vAxis * distance;
+
+	// 3. The pole. The bones at that distance give the mid joint where the pole's plane would put it (midFree).
+	const TwoBoneIkBones bones = solveTwoBoneIkBones(input.length1, input.length2, input.stretch, input.soft, distance);
+	const MVector vMid = input.mid - input.root;
+	const double midAlong = vMid * vAxis;
+	const MVector vMidPerp = vMid - vAxis * midAlong;
+	const double angle = input.restPlaneAngle + input.rollRadians * (1.0 - input.pin);
+
+	// The plane perpendicular to the axis in complex form: e1 is 1 and e2 is i, so a rotation about the axis multiplies.
+	const MVector vE1 = perpendicularTo(vAxis);
+	const MVector vE2 = vAxis ^ vE1;
+	const auto planeAngleOf = [&](const MVector& vDirection)
+	{
+		return std::atan2(vDirection * vE2, vDirection * vE1);
+	};
+
+	double poleAlong = midAlong;
+	double poleHeight = 0.0;
+	double poleAngle = 0.0;
+	const MVector vRestAxis = input.restAxis.normal();
+	const MVector vRestPole = input.restPoleOffset - vRestAxis * (input.restPoleOffset * vRestAxis);
+	if (input.pin > kMinInversePin)
+	{
+		// mid = (1 - pin) * midFree + pin * pole, with midFree = along * a + height * rotate(n0, angle) and the pole at
+		// height q along n0. In the plane that is m = e^(i phi) * (pin * q + c * e^(i angle)) for c = (1 - pin) * height,
+		// so |m| fixes q (a quadratic: its positive root) and the argument fixes phi.
+		poleAlong = (midAlong - (1.0 - input.pin) * bones.along) / input.pin;
+		const double c = (1.0 - input.pin) * bones.height;
+		const double m = vMidPerp.length();
+		const double cosAngle = std::cos(angle);
+		const double sinAngle = std::sin(angle);
+		const double root = std::sqrt(std::max(0.0, m * m - c * c * sinAngle * sinAngle));
+		if (cosAngle <= 0.0)
+		{
+			poleHeight = (root - c * cosAngle) / input.pin;
+		}
+		else if (root + c * cosAngle > 0.0)
+		{
+			poleHeight = (m * m - c * c) / (input.pin * (root + c * cosAngle));   // the same root without the cancellation
+		}
+		poleHeight = std::max(0.0, poleHeight);
+
+		const double dReal = input.pin * poleHeight + c * cosAngle;
+		const double dImaginary = c * sinAngle;
+		const double mReal = vMidPerp * vE1;
+		const double mImaginary = vMidPerp * vE2;
+		if (std::hypot(dReal, dImaginary) > kMinIkPlaneNormal && m > kMinIkPlaneNormal)
+		{
+			poleAngle = std::atan2(mImaginary * dReal - mReal * dImaginary, mReal * dReal + mImaginary * dImaginary);
+		}
+		else if (vRestPole.length() > kMinIkPlaneNormal)
+		{
+			poleAngle = planeAngleOf(vRestPole);
+		}
+	}
+	else
+	{
+		// No pin: the pole only sets the plane, so it goes at its rest height on the side that gives the observed bend.
+		poleHeight = vRestPole.length();
+		if (vMidPerp.length() > kMinIkPlaneNormal)
+		{
+			poleAngle = planeAngleOf(vMidPerp) - angle;
+		}
+		else if (vRestPole.length() > kMinIkPlaneNormal)
+		{
+			poleAngle = planeAngleOf(vRestPole);   // a straight limb has no bend: keep the rest side
+		}
+	}
+	result.pole = input.root + vAxis * poleAlong + (vE1 * std::cos(poleAngle) + vE2 * std::sin(poleAngle)) * poleHeight;
+	return result;
 }

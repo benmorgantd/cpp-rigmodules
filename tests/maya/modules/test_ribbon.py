@@ -538,6 +538,26 @@ class RibbonFkStyle(RigTestCase):
         for control, x in zip([FIRST, INTERIOR, LAST], (0, 4, 8)):
             self.assertWorldTranslation(rig_name(control), [x, 0, 0], 1e-6)
 
+    def test_the_fk_rest_roll_is_stored_at_build_one_per_fk_control(self):
+        """The chain is straight along +X with no roll, so every fk control's rest roll is 0, arriving and leaving. Both arrays hold
+        one element per fk control, so compute() reads them and never rebuilds the rest curve to measure them."""
+        self._build()
+        module = rig_name("tail_01_M_MOD")
+        for name in ("fkRollRest", "fkRollRestIn"):
+            self.assertEqual(cmds.getAttr(module + "." + name, size=True), 3, name)
+            for k in range(3):
+                self.assertAlmostEqual(cmds.getAttr("%s.%s[%d]" % (module, name, k)), 0.0, places=6)
+
+    def test_compute_reads_the_stored_rest_roll(self):
+        """The ik controls' roll is the measured roll minus the stored rest roll. A stored rest of 0.5 radians on the first fk
+        control turns the first ik control about X by 0.5 radians (28.65 degrees) one way or the other."""
+        self._build()
+        module = rig_name("tail_01_M_MOD")
+        self.assertWorldRotation(rig_name(FIRST), [0, 0, 0], 1e-4)
+        cmds.setAttr(module + ".fkRollRest[0]", 0.5)
+        rotation = cmds.xform(rig_name(FIRST), query=True, worldSpace=True, rotation=True)
+        self.assertAlmostEqual(abs(rotation[0]), 28.6479, delta=0.01)
+
     def test_turning_the_first_fk_control_turns_the_whole_ribbon_about_it(self):
         """A rigid turn of 30 degrees about Z at the origin: a point at x goes to (x cos 30, x sin 30, 0), the ik controls and the
         joints with it."""

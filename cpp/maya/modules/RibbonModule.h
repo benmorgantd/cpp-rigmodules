@@ -82,6 +82,8 @@ public:
 	static MObject aRestTangent;
 	static MObject aIkRestOffset;    // matrix array, one per ik control (the interior ones are used)
 	static MObject aBindRestOffset;  // matrix array, one per bind joint
+	static MObject aFkRollRest;      // double array, one per fk control
+	static MObject aFkRollRestIn;    // double array, one per fk control
 
 public:
 	static RigModuleBuildResult createModule(

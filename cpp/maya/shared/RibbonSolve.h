@@ -74,6 +74,9 @@ namespace RibbonSolve
 	// In RibbonChannel order.
 	const std::array<ChannelSpec, RibbonChannel::Count>& channelSpecs();
 
+	// Reads `count` channel plugs into `outValues`, in the order of `attrs` and `specs`, angles in radians.
+	void readChannels(MDataBlock& data, const MObject* attrs, const ChannelSpec* specs, unsigned int count, double* outValues);
+
 	// The animator's channels in internal units, in RibbonChannel order, as the evaluation's parameters.
 	RibbonMath::Params paramsFromChannels(const double* values);
 
@@ -90,16 +93,19 @@ namespace RibbonSolve
 		MObject& restTangent;
 		MObject& ikRestOffset;
 		MObject& bindRestOffset;
+		MObject& fkRollRest;     // double array, one per fk control: RibbonMath::Setup::fkRollRest
+		MObject& fkRollRestIn;   // double array, one per fk control: RibbonMath::Setup::fkRollRestIn
 	};
 
 	// Creates and adds the rest attributes to the node being initialized (MPxNode::addAttribute). The offsets of the ik controls are
 	// named `ikRestOffsetName`.
 	MStatus createRestAttributes(const RestAttrs& attrs, const char* ikRestOffsetName);
 
-	// The stored rest into setup (knots, parameters, offsets, length, frame, chain sign). A saved scene keeps only the array elements
-	// that differ from their default, and an array with none has no handle, so a missing element is its default, which the Setup
-	// already holds.
-	void readSetup(MDataBlock& data, const RestAttrs& attrs, int controlCount, int bindCount, RibbonMath::Setup& setup);
+	// The stored rest into setup (knots, parameters, offsets, length, frame, chain sign, and the fk controls' rest roll for `fkCount`
+	// of them). A saved scene keeps only the array elements that differ from their default, and an array with none has no handle, so
+	// a missing element is its default, which the Setup already holds. The caller still sets the fk rest matrices and knots, which
+	// are cheap and come from the controls' own rests.
+	void readSetup(MDataBlock& data, const RestAttrs& attrs, int controlCount, int bindCount, int fkCount, RibbonMath::Setup& setup);
 
 	// Queues the same rest data from a built setup, for createModule.
 	void writeRestData(const MObject& oModule, const RestAttrs& attrs, const RibbonMath::Setup& setup, MDagModifier& dagMod);

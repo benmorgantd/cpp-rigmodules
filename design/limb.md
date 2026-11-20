@@ -126,7 +126,7 @@ The author asked for a very sharp elbow with a softness parameter at 0 by defaul
 
 | Part | Reused from |
 |---|---|
-| IK/FK solve, soft, stretch, pin, roll | the shared `TwoBoneIk` solve (`MathUtils::computeTwoBoneIk`, `blendMatrices`) |
+| IK/FK solve, soft, stretch, pin, roll | the shared `TwoBoneIk` solve (`TwoBoneIkSolve::computeTwoBoneIk`, `blendMatrices`) |
 | Spline, twist, sine, scale, volume, tweakers | the shared `Ribbon` solve and `core/RibbonMath` |
 | Swing and twist split | `core/SwingTwist`, as `rigConstraint` uses it |
 | Channel specs and defaults | `ribbonChannelSpecs()` and the TwoBoneIk channel list, merged |

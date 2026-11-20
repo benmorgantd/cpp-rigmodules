@@ -4,6 +4,7 @@
 
 #include <utility>
 
+#include <maya/MAngle.h>
 #include <maya/MArrayDataHandle.h>
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnNumericAttribute.h>
@@ -101,6 +102,15 @@ const std::array<RibbonSolve::ChannelSpec, RibbonChannel::Count>& RibbonSolve::c
 	return specs;
 }
 
+void RibbonSolve::readChannels(MDataBlock& data, const MObject* attrs, const ChannelSpec* specs, unsigned int count, double* outValues)
+{
+	for (unsigned int k = 0; k < count; ++k)
+	{
+		MDataHandle hChannel = data.inputValue(attrs[k]);
+		outValues[k] = specs[k].isAngle ? hChannel.asAngle().asRadians() : hChannel.asDouble();
+	}
+}
+
 RibbonMath::Params RibbonSolve::paramsFromChannels(const double* values)
 {
 	RibbonMath::Params params;
@@ -133,7 +143,8 @@ MStatus RibbonSolve::createRestAttributes(const RestAttrs& attrs, const char* ik
 	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
 	CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(attrs.ikControlCount));
 
-	for (const auto& [pAttr, name] : { std::pair<MObject*, const char*>{ &attrs.knotU, RigAttr::KnotU }, { &attrs.bindU, RigAttr::BindU } })
+	for (const auto& [pAttr, name] : { std::pair<MObject*, const char*>{ &attrs.knotU, RigAttr::KnotU }, { &attrs.bindU, RigAttr::BindU },
+		{ &attrs.fkRollRest, RigAttr::FkRollRest }, { &attrs.fkRollRestIn, RigAttr::FkRollRestIn } })
 	{
 		*pAttr = nAttr.create(name, name, MFnNumericData::kDouble, 0.0, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -171,10 +182,11 @@ MStatus RibbonSolve::createRestAttributes(const RestAttrs& attrs, const char* ik
 	return MStatus::kSuccess;
 }
 
-void RibbonSolve::readSetup(MDataBlock& data, const RestAttrs& attrs, int controlCount, int bindCount, RibbonMath::Setup& setup)
+void RibbonSolve::readSetup(MDataBlock& data, const RestAttrs& attrs, int controlCount, int bindCount, int fkCount, RibbonMath::Setup& setup)
 {
 	setup.controlCount = controlCount;
 	setup.bindCount = bindCount;
+	setup.fkCount = fkCount;
 	setup.restLength = data.inputValue(attrs.restLength).asDouble();
 	setup.chainSign = data.inputValue(attrs.chainSign).asDouble();
 	{
@@ -213,6 +225,24 @@ void RibbonSolve::readSetup(MDataBlock& data, const RestAttrs& attrs, int contro
 			setup.bindOffset[i] = MathUtils::toMat4(hBindOffset.inputValue().asMatrix());
 		}
 	}
+	if (fkCount > 0)
+	{
+		MStatus rollStatus;
+		MStatus rollInStatus;
+		MArrayDataHandle hRoll = data.inputArrayValue(attrs.fkRollRest, &rollStatus);
+		MArrayDataHandle hRollIn = data.inputArrayValue(attrs.fkRollRestIn, &rollInStatus);
+		for (int k = 0; k < fkCount; ++k)
+		{
+			if (rollStatus && hRoll.jumpToElement(k))
+			{
+				setup.fkRollRest[k] = hRoll.inputValue().asDouble();
+			}
+			if (rollInStatus && hRollIn.jumpToElement(k))
+			{
+				setup.fkRollRestIn[k] = hRollIn.inputValue().asDouble();
+			}
+		}
+	}
 }
 
 void RibbonSolve::writeRestData(const MObject& oModule, const RestAttrs& attrs, const RibbonMath::Setup& setup, MDagModifier& dagMod)
@@ -229,6 +259,11 @@ void RibbonSolve::writeRestData(const MObject& oModule, const RestAttrs& attrs, 
 		dagMod.newPlugValueDouble(MPlug(oModule, attrs.bindU).elementByLogicalIndex(i), setup.bindU[i]);
 		MPlug pOffset = MPlug(oModule, attrs.bindRestOffset).elementByLogicalIndex(i);
 		DagUtils::setMatrixPlug(pOffset, MathUtils::toMMatrix(setup.bindOffset[i]), dagMod);
+	}
+	for (int k = 0; k < setup.fkCount; ++k)
+	{
+		dagMod.newPlugValueDouble(MPlug(oModule, attrs.fkRollRest).elementByLogicalIndex(k), setup.fkRollRest[k]);
+		dagMod.newPlugValueDouble(MPlug(oModule, attrs.fkRollRestIn).elementByLogicalIndex(k), setup.fkRollRestIn[k]);
 	}
 	dagMod.newPlugValueDouble(MPlug(oModule, attrs.restLength), setup.restLength);
 	dagMod.newPlugValueDouble(MPlug(oModule, attrs.chainSign), setup.chainSign);
