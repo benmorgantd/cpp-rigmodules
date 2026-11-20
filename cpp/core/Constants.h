@@ -442,6 +442,8 @@ namespace PlugAndSocketNames
 	inline constexpr const char* Settings{ "settings" };
 	// Limb's optional child plug (D62 section 8): the world matrix the end joint should reach, left unparented for the IK handle's own.
 	inline constexpr const char* IkTarget{ "ikTarget" };
+	// A Limb's bind joint sockets: bind_0, bind_1, ... in bind joint order (D62), so a child can hang from a twist joint.
+	inline constexpr const char* Bind{ "bind_" };
 }
 
 // JSON keys in a rig template. Public API: every saved template depends on them.

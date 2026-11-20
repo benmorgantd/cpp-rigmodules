@@ -431,3 +431,52 @@ class LimbIkTargetRestore(SolveTestCase):
         sidecar = self.write_sidecar({})
         cmds.poseRigFromJointPose(rig_root(), jointPose=clip, sidecar=sidecar)
         self.assertJointsAt(rest)
+
+
+class LimbBindSockets(SolveTestCase):
+    """A Limb has a socket for every bind joint (bind_0 to bind_8 on limb_arm), so a child can hang from a twist joint. limb_bind_child has
+    a joint, extra, at the third bind joint (2, 0, 0), and the template hangs an FkChain of it from bind_2."""
+
+    EXTRA = "extra_00_L_JNT"
+    BIND = "bind3_00_L_JNT"
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard("limb_bind_child", "limb_bind_child")
+
+    def _pose(self):
+        """FK, the upper arm and the forearm turned, so the third bind joint (on the upper arm) moves and turns."""
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0)
+        cmds.setAttr(rig_name(START + ".rotateZ"), 25)
+        cmds.setAttr(rig_name(LOWER + ".rotateZ"), 30)
+        cmds.setAttr(rig_name(SETTINGS + ".startTwist"), 40)
+
+    def test_the_child_sits_on_its_bind_joint_at_rest(self):
+        self.assertWorldTranslation(rig_name(self.BIND), [2, 0, 0], 1e-4)
+        self.assertWorldTranslation(rig_name(self.EXTRA), [2, 0, 0], 1e-4)
+
+    def test_the_child_follows_its_bind_joint_through_a_pose_and_a_twist(self):
+        self._pose()
+        self.assertFalse(translation(self.BIND) == [2, 0, 0])
+        self.assertWorldTranslation(rig_name(self.EXTRA), translation(self.BIND), 1e-4)
+        a = cmds.xform(rig_name(self.BIND), query=True, worldSpace=True, matrix=True)
+        b = cmds.xform(rig_name(self.EXTRA), query=True, worldSpace=True, matrix=True)
+        for x, y in zip(a, b):
+            self.assertAlmostEqual(x, y, places=4)
+
+    def test_the_child_is_not_hidden_by_the_hidden_tweaker(self):
+        """The socket has no DAG transform, so the child's controls do not inherit the tweaker's hidden state."""
+        control = rig_name("extra_00_L_CTRL")
+        self.assertTrue(cmds.getAttr(control + ".visibility"))
+        parent = cmds.listRelatives(control, parent=True, fullPath=True)
+        self.assertNotIn(rig_name(TWEAKERS[2]), [p.split("|")[-1] for p in parent or []])
+
+    def test_a_restore_from_joints_carries_the_child_with_its_bind_joint(self):
+        rest = self.snapshot()
+        self._pose()
+        posed = self.snapshot()
+        clip = self.write_clip(rest, [posed])
+        sidecar = self.write_sidecar({"Left": {"armSettings": {"ikFkBlend": 0, "startTwist": 40}}})
+        cmds.zeroRigControls(rig_root())
+        cmds.poseRigFromJointPose(rig_root(), jointPose=clip, sidecar=sidecar)
+        self.assertJointsAt(posed)

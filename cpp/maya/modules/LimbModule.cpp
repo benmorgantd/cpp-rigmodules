@@ -354,10 +354,10 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	{
 		writeSolvedSlot(outputs, slot, ik.mControlOPM[slot], ik.mJointWorld[slot]);
 	}
-	// The ribbon's controls and bind joints have no socket.
+	// The ribbon's ik controls have no socket, and each bind joint has one (bind_<n>): the tweaker's world, which is the joint's.
 	for (int i = 0; i < controlCount + bindCount; ++i)
 	{
-		writeSolvedSlot(outputs, LimbSlot::FirstRibbon + static_cast<unsigned int>(i), solve.mControlOPM[i], solve.mWorld[i], false);
+		writeSolvedSlot(outputs, LimbSlot::FirstRibbon + static_cast<unsigned int>(i), solve.mControlOPM[i], solve.mWorld[i], i >= controlCount);
 	}
 	commitSolvedOutputs(data, plug, aJointOPM, outputs);
 	return MStatus::kSuccess;
@@ -492,11 +492,19 @@ ModuleInverseResult LimbNode::inverse(const ModuleInverseContext& context, const
 		if (slot < input.jointWorld.size() && input.jointWorld[slot].has_value())
 		{
 			result.controlLocal[slot] = *input.jointWorld[slot] * solve.mControlOPM[controlCount + i].inverse();
+			mLocal[controlCount + i] = *result.controlLocal[slot];
 		}
 		else
 		{
 			hasEveryBindJoint = false;
 		}
+	}
+
+	// The bind joints' sockets are what a child of one of them follows: the ribbon with the tweakers as they now are.
+	RibbonSolve::evaluate(setup, paramsFromLimbChannels(channelValues), mRest, mLocal, MMatrix::identity, MMatrix::identity, solve, anchors);
+	for (int i = 0; i < bindCount; ++i)
+	{
+		result.socketWorld[LimbSlot::FirstRibbon + static_cast<unsigned int>(controlCount + i)] = solve.mWorld[controlCount + i];
 	}
 
 	result.solved = ik.solved && hasEveryBindJoint;
@@ -578,6 +586,13 @@ RigModuleBuildResult LimbNode::createModule(
 			result.status = status;
 			return result;
 		}
+		// The bind joint's socket (bind_<n>). It has no DAG transform: the tweaker is hidden, and a child's controls would inherit that.
+		RigModuleSocketInfo bindSocket;
+		bindSocket.mRestWorld = input.mRestWorld;
+		bindSocket.outputIndex = slot;
+		const std::string bindSocketName = std::string(PlugAndSocketNames::Bind) + std::to_string(i);
+		result.parentSockets[bindSocketName] = bindSocket;
+		DagPlugAndSocketUtils::setParentSocketNames(oModule, slot, { bindSocketName }, dagMod);
 		const MObject oControl = RigControlNode::createRigControl(
 			dagMod, MFnDependencyNode(input.oJoint).name(), shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
 		dagMod.reparentNode(oControl, oRibbonControls[0]);
@@ -834,6 +849,10 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 	for (const TwoBoneIkSlotInput& slot : slots)
 	{
 		outPlan.moduleInterface.controls.push_back(slot.controlMarkup);
+	}
+	for (std::size_t i = 0; i < bindJoints.size(); ++i)
+	{
+		outPlan.moduleInterface.sockets.push_back(std::string(PlugAndSocketNames::Bind) + std::to_string(i));
 	}
 	for (const RibbonSlotInput& slot : ribbonControls)
 	{

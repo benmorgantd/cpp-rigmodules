@@ -82,7 +82,7 @@ Dropped: `startAimBlend`, `endAimBlend` and `bendRoundness`. The swing and twist
 ### 4.5 Child plugs and sockets
 
 - **Child plugs:** `start` (the FK start, the IK root and the ribbon start; the settings control and all ribbon controls follow its parent), `ik`, `pole`, and the new optional `ikTarget` (section 8). Their `parentStructure` keys and their spaces work as in `TwoBoneIk`.
-- **Sockets:** `index_0`, `index_1`, `index_2` (the blended joint worlds, which are `start`, `mid` and `end`), `ik`, `pole`, `settings`. A hand, a foot or a clavicle child hangs from `end`. The bind joints are leaves, so the ribbon controls have no sockets (`Ribbon`'s `index_k` sockets exist for chaining and nothing chains to a limb's ribbon).
+- **Sockets:** `index_0`, `index_1`, `index_2` (the blended joint worlds, which are `start`, `mid` and `end`), `ik`, `pole`, `settings`. A hand, a foot or a clavicle child hangs from `end`. The bind joints are leaves, so the ribbon's ik controls have no sockets. **Added 2026-11-20: `bind_0` to `bind_<n-1>`, one per bind joint**, carrying the bind joint's solved world, so a forearm prop, a twist-joint child or a sleeve can hang from the ribbon. Rejected: the bind joint's usage as the socket name (it would break if a joint were renamed, and the index is what the template reads). A socket has no DAG transform, as `index_0` to `index_2` have none, so a child's controls do not inherit the hidden tweaker's visibility. The restore gives them the solved bind joints' worlds, so a child follows in a restore too.
 
 ## 5. Evaluation
 
