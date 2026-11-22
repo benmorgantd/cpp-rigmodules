@@ -222,3 +222,16 @@ A look's model can hold meshes nobody has skinned yet (props, attachments in pro
 - **What it does not do:** nothing requires a mesh to be named this way. The build, the template validation and the look build do not check mesh names, and a module or constraint name ending in `GEO` is still refused (template validation asks for its own kind). Skin weights match by `meshId`, never by name (D35), so a rename cannot break weights. A look build names its meshes after the weight file's `meshName`, so a rename lasts across a rebuild only after the weights are saved again. A `rigidMesh` keeps its name.
 - **Rejected:** a catch-all kind for any other node (a group, a locator, a camera: no one asked, and each needs its own suffix and detection, add one when a case appears), renaming the shape node (Maya names a shape after its transform, and tools find the transform).
 - **Consequence:** public API grows by one kind and one suffix. No existing name changes, so no pose, animation or export impact. No D36 impact. mayadev: no call site breaks (it passes the leaf name to `rigmodules.naming.parse`, which now also reads `_GEO` names).
+
+### D70. A look build survives a changed skeleton, mesh or weights; strictness moves to the publish gate
+**Status:** Leaning (author's direction 2026-11-22, not signed off as a whole). Amends D54 (the skeleton hash gate) and D68 (rigid fallback, the `ignoreSkeletonHash` flag). Design: `asset-build-fallbacks.md`. Nothing is built.
+
+While an asset is in progress its skeleton, meshes and weights change independently, and a build that fails over the mismatch leaves nothing to repair.
+
+- **Decided direction (author, 2026-11-22):** a changed mesh gets its weights by **barycentric transfer** (closest point on the old surface, the triangle's three weight rows blended by barycentric coordinates), not nearest vertex. The "Ignore skeleton changes" checkbox is removed, so the fallback is always on.
+- **Proposed, awaiting sign-off:**
+  - The skeleton hash decides status, never success. A file loads whenever its topology matches and its influences resolve. An unresolved influence folds into its nearest resolvable skin ancestor.
+  - A per-mesh ladder (`loaded`, `folded`, `transferred`, `rigid`) and a per-mesh report returned by `setRigLook`. Mechanism is in RigModules, policy in mayadev.
+  - The weight file (version 3) stores its bind-pose surface and each influence's skin parent, so transfer and folding need no other file. Rejected: finding the old model by stamp in local versions or a publish (not shared across machines, absent in a draft).
+  - Draft (no publish) and checked out (a publish exists) build the same way. The difference is at the gates: the publish gate refuses any non-`loaded` mesh, and a checked-out skeleton is checked for breaking changes (a removed joint, a changed markup identity or parent) against the baseline. Rejected: a stricter build for checked-out assets.
+- **Consequence:** `ignoreSkeletonHash` is removed from `setRigLook` (and `loadRigSkinWeights`, pending open question 4 in the design page), which breaks mayadev callers, listed in the design page. A new weight file version with a version step (D33). No impact on poses, animation or exports.

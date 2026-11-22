@@ -48,6 +48,7 @@ None at present. `control-node-perf-handoff.md` (above) is a design handoff with
 |---|---|---|
 | [`module-directions.md`](module-directions.md) | D46 | Where the modules go after the IK limb |
 | [`asset-pipeline.md`](asset-pipeline.md) | D44, D45 | The art stages before the rig, face data |
+| [`asset-build-fallbacks.md`](asset-build-fallbacks.md) | D70 | Builds that survive a changed skeleton, mesh or weights: the fallback ladder, barycentric transfer, draft and baseline gates |
 | [`engine-rig.md`](engine-rig.md) | none | Running the rig in Unreal. Speculation, unverified |
 
 ## Archive

@@ -83,6 +83,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D67 | Attribute and node type names: RigAttr, Maya's static MObjects, MayaAttr, MayaNodeType; the rig root's children attribute removed | Decided | [foundations](decisions/foundations.md) |
 | D68 | A look build never fails over weights: marked meshes with no file bind rigidly to the topmost skin joint | Decided | [assets](decisions/assets.md) |
 | D69 | Meshes are named by the convention too, with the suffix `GEO`: `body_00_M_GEO` | Decided | [assets](decisions/assets.md) |
+| D70 | A look build survives a changed skeleton, mesh or weights: the hash is a status, a fallback ladder with barycentric transfer replaces `ignoreSkeletonHash`, and gates move to publish | Leaning | [assets](decisions/assets.md) |
 
 ---
 
