@@ -69,7 +69,7 @@ For each vertex of the new mesh, find the closest point on the old surface, take
 | **A. The weight file stores its bind-pose surface** (positions as floats, face counts and connects) | Self-contained: works on any machine, in a batch job, with no stamp lookups. Needs no baseline, so a draft works. | File size grows. Needs a file version step (D33). |
 | B. Find the old model by stamp in local versions or a publish | No new data | Local versions are per machine (D29). A publish exists only after publishing. A draft on a teammate's machine has neither. Fails when the transfer is most needed. |
 
-Recommendation: A. The weights file gains `surface` (version 3). A 100k vertex mesh adds roughly 2 to 3 MB of JSON next to weights that D35 measured at 0.75 s to load. Measure before settling (open question 1). It also gives rung 2 what it needs: the file stores each influence's ancestor chain (`parents`: the markup of its parent, then that parent's parent, to the root), so a missing joint folds into its parent, and a missing chain collapses upward, without the old skeleton file. The chain is stored whole because a removed parent may not be an influence itself, so its own parent would otherwise be unknown.
+Recommendation: A. The weights file gains `surface` (version 3). A 100k vertex mesh adds roughly 2 to 3 MB of JSON next to weights that D35 measured at 0.75 s to load. Measure before settling (open question 1). It also gives rung 2 what it needs: the file stores the skeleton's structure once, under one key (`skeleton`: every marked joint's `[side, usage]` selector and its parent's selector, with no rests and no names), so a missing joint folds into its parent, and a missing chain collapses upward, without the old skeleton file. It is every marked joint and not only the influences, because a removed parent may not be an influence. It is the `parent` field of the skeleton file's joints (`SkeletonFile.h`), so the writer and the reader can share that type's selector handling.
 
 **Split of the work** (the `core/` rule):
 
@@ -99,7 +99,7 @@ No saved asset file changes shape except the weight file's new version (a versio
 
 **Added:**
 
-- RigModules: `SkinWeights.surface` and `parents` (file version 3, with an update step), the transfer in `SkinWeightTable`, the fold, the per-mesh report, the changes in `LookSwap::prepare`.
+- RigModules: `SkinWeights.surface` and `skeleton` (file version 3, with an update step), the transfer in `SkinWeightTable`, the fold, the per-mesh report, the changes in `LookSwap::prepare`.
 - mayadev: the report in the Asset Editor (one row per mesh: result, reasons, a stale marker), a "Save weights as they are now" action that writes new files with the current hash and surface and so clears every stale mark, the publish gate, and the breaking-change check.
 
 **Complexity added:** one file version, two arrays in the weight file, one `core/` function, one Maya-layer lookup and one report shape. The ladder's rungs are data in one table, not branches spread over the build.
