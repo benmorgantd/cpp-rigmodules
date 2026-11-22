@@ -51,9 +51,9 @@ maya_ui/widgets.py         AssetPicker, FileStatusTable, MixedFieldForm (new)
 
 ## 5. The Files tab
 
-One row per file type of the chosen skeleton, rig and look: skeleton, model, skin weights, rig, control shapes, template, looks. Each row shows whether the file exists, when it changed, how many local versions exist, and has Save and Load. The rows come from the project's `fileTypes` and the handler registry: a new file type in `project.json` with a registered handler (textures, shaders and tracked high-res files, phase 4) gets a row with no window change. What Save needs from the scene (the selected joints or meshes, the rig) is a table in `maya/assetfiles.py`, data and not branches.
+One row per file type of the chosen skeleton, rig and look: skeleton, model, skin weights, rig, control shapes, template, looks. Each row shows whether the file exists, when it changed, how many local versions exist, and has Save and Load. The rows come from the project's `fileTypes` and the handler registry: a new file type in `project.json` with a registered handler (textures, shaders and tracked high-res files, phase 4) gets a row with no window change. What Save needs from the scene (every joint or every visible mesh, never the selection, and the rig) is a table in `maya/assetfiles.py`, data and not branches. Saves stopped using the selection after a stray selection replaced a skeleton, and later a model (solomon, 2026-11-21), with one node.
 
-Every save goes through `assethandlers`, which keeps the local version copy (`versions.version`), and asks to replace first. Build Rig is on this tab.
+Every save goes through `assethandlers`, which keeps the local version copy (`versions.version`), and asks to replace first. Right-clicking a row restores one of those copies (`handlers.restore`, a spin box for the number), keeping the replaced file as a new version so the restore can be undone. On the skin weights row the same menu has Load by Name, the repair for meshIds that changed (D68). Build Rig is on this tab.
 
 ## 6. The Markup tab
 

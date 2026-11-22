@@ -199,11 +199,14 @@ mesh = meshes[rigmodules.skinweights.read_file_mesh_id("C:/weights/body_geo.json
 |---|---|
 | `get_mesh_id(mesh)` | The mesh transform's `meshId`, or `None` |
 | `get_meshes(namespace)` | `{meshId: mesh transform}` for the meshes directly in the namespace (`""` for the root) that have a `meshId`. Raises `RuntimeError` when two share one |
+| `get_meshes_by_name(namespace)` | `{name without namespace: mesh transform}` for every mesh directly in the namespace, marked or not: the by-name fallback for a weight file whose `meshId` no mesh has (D68) |
 | `get_skinned_meshes(namespace)` | The mesh transforms in the namespace with a skinCluster in their history, sorted |
+| `set_mesh_id(mesh, mesh_id)` | Gives the mesh this `meshId`, adding the attribute when it has none. Undoable. For a mesh matched to a weight file by name taking the file's id (D68) |
 | `read_file_mesh_id(path)` | The `meshId` a weight file is for, read from the top of the file. Raises `ValueError` when it has none |
+| `read_file_mesh_name(path)` | The name, without a namespace, of the mesh a weight file was saved from, or `""`. Loading never matches on it, except the by-name fallback (D68) |
 | `read_file_skeleton_hash(path)` | The `skeletonHash` a weight file was saved from, read from the top of the file: 16 hex digits, or `""` for a file with none (version 1, or saved off a rig). A tool that holds one weights folder for a rig and its attachments uses it to give each rig the files of its own skeleton ([attachments.md](attachments.md)) |
 
-`MESH_ID_ATTR` is the attribute name, `"meshId"`. `SKELETON_HASH_ATTR` is `"skeletonHash"`.
+`MESH_ID_ATTR` is the attribute name, `"meshId"`. `MESH_NAME_KEY` is the weight file's `"meshName"`. `SKELETON_HASH_ATTR` is `"skeletonHash"`.
 
 ## rigmodules.jointclip
 

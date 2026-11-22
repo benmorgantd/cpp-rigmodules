@@ -115,6 +115,36 @@ int findSkeletonJoint(const Skeleton& skeleton, const JointSelector& selector)
 	return -1;
 }
 
+std::vector<std::size_t> findTopSkinJoints(const Skeleton& skeleton)
+{
+	std::vector<std::size_t> tops;
+	for (std::size_t i = 0; i < skeleton.joints.size(); ++i)
+	{
+		if (!skeleton.joints[i].markup.isSkinned)
+		{
+			continue;
+		}
+		// Walk up to the root. A valid skeleton has no loop, so the walk ends.
+		bool hasSkinAncestor = false;
+		const SkeletonJoint* joint = &skeleton.joints[i];
+		while (joint->hasParent && !hasSkinAncestor)
+		{
+			const int parent = findSkeletonJoint(skeleton, joint->parent);
+			if (parent < 0)
+			{
+				break;
+			}
+			joint = &skeleton.joints[static_cast<std::size_t>(parent)];
+			hasSkinAncestor = joint->markup.isSkinned;
+		}
+		if (!hasSkinAncestor)
+		{
+			tops.push_back(i);
+		}
+	}
+	return tops;
+}
+
 std::vector<std::string> describeSkeletonDifferences(const Skeleton& rig, const Skeleton& look)
 {
 	std::vector<std::string> lines;

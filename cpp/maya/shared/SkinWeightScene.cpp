@@ -322,6 +322,29 @@ MStatus SkinWeightScene::readSkinWeights(const MDagPath& mesh, SkinWeights& outW
 	return MStatus::kSuccess;
 }
 
+MStatus SkinWeightScene::makeRigidSkinWeights(const MDagPath& mesh, const JointSelector& influence, const std::string& skeletonHash, SkinWeights& outWeights)
+{
+	MStatus status = getMeshId(mesh, outWeights.meshId);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (outWeights.meshId.empty())
+	{
+		MGlobal::displayError(mesh.partialPathName() + " has no meshId. Give it one with setRigMeshId.");
+		return MStatus::kFailure;
+	}
+	MDagPath shape;
+	status = MeshUtils::getMeshShape(mesh, shape);
+	if (!status)
+	{
+		return status;
+	}
+	status = readTopology(shape, outWeights.vertexCount, outWeights.faceCount, outWeights.topologyHash);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	outWeights.meshName = MNamespace::stripNamespaceFromName(MFnDependencyNode(mesh.node()).name()).asChar();
+	outWeights.skeletonHash = skeletonHash;
+	setRigidSkinWeights(outWeights, influence);
+	return MStatus::kSuccess;
+}
+
 MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights, bool ignoreSkeletonHash)
 {
 	MStatus status;

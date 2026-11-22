@@ -66,6 +66,11 @@ std::uint64_t topologyHash(unsigned int vertexCount, const std::vector<int>& pol
 // pairs by index. Values are untouched.
 void sortSkinInfluences(SkinWeights& weights);
 
+// Fills weights with one influence that takes every vertex at weight 1, Linear: a rigid bind (D54, the look swap's
+// rigid meshes). The header fields (meshId, meshName, counts, topologyHash, skeletonHash) are the caller's and are
+// left alone; vertexCount must be set.
+void setRigidSkinWeights(SkinWeights& weights, const JointSelector& influence);
+
 // The vertices whose weights don't sum to 1 within NormalizeTolerance, a vertex with no weights included.
 std::vector<unsigned int> findUnnormalizedVertices(const SkinWeights& weights);
 

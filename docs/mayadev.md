@@ -19,7 +19,7 @@ The boundary is decided (D24, [`design/mayadev-integration.md`](../design/mayade
 | Poses | `zeroRigControls`, `mirrorRigPose`, `flipRigPose`, `saveRigPose`, `loadRigPose`, `rigmodules.pose.key_rig`, `key_modules` | `posetools`, `assethandlers.ControlPoseHandler`, `assettools` |
 | Animation | `saveRigAnimation`, `loadRigAnimation` | `assethandlers.ControlAnimHandler` and `AnimClipHandler`, `assettools` |
 | Clips | `poseRigFromJointPose`, `animateRigFromJointClip` (`jointPose`, `jointClip`, `sidecar`), `rigmodules.jointclip`: `capture_joint_clip`, `write_fbx`, `read_fbx`, `write_skeleton_fbx`, `check_skeleton_match` | `assethandlers.AnimClipHandler`, `save_skeleton_export`, `assettools` |
-| Skin weights | `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `rigmodules.skinweights`: `get_mesh_id`, `get_meshes`, `get_skinned_meshes`, `read_file_mesh_id`, `read_file_skeleton_hash` | `assethandlers.RigSkinWeightsHandler`, `assettools` |
+| Skin weights | `setRigMeshId`, `saveRigSkinWeights`, `loadRigSkinWeights`, `rigmodules.skinweights`: `get_mesh_id`, `get_meshes`, `get_meshes_by_name`, `get_skinned_meshes`, `set_mesh_id`, `read_file_mesh_id`, `read_file_mesh_name`, `read_file_skeleton_hash` | `assethandlers.RigSkinWeightsHandler`, `assettools` |
 | Imported model | `rigmodules.displaylayers.add_meshes`, `rigmodules.groups.parent_meshes` | `assettools.build_rig` |
 | Asset id | The id rules in `core/AssetId` and the `assetId` on a built rig | `bmaya.core.asset.assetid`, the same rules in Python |
 

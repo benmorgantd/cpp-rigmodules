@@ -199,3 +199,15 @@ One window where a modeler or rigger sets the asset they work on and creates, sa
 - **Files:** rows come from the project's file types and the handler registry, so textures, shaders and tracked files appear by adding a file type and a handler.
 - **Rejected:** role presets, a lazy tree over the projects root, editable control markup (the build owns it, D25), template hints (deferred to the template tool).
 - **Consequence:** mayadev only. No RigModules node, command or name change, no D36 impact.
+
+### D68. A look build never fails over weights: marked meshes with no file bind rigidly to the topmost skin joint
+**Status:** Decided (author, 2026-11-21). Amends D54's look swap. Design: `looks.md` ("Meshes not skinned yet"), mayadev `apply_look`.
+
+A look's model can hold meshes nobody has skinned yet (props, attachments in progress). Before this, mayadev's `apply_look` deleted a marked mesh with no weight file and failed the whole build on a weight file whose mesh was missing, which left the rigger nowhere to do the skinning.
+
+- **RigModules:** `setRigLook(rigidMesh=[...])` takes meshes with a `meshId` and no file. `LookSwap` makes in-memory weights (core `setRigidSkinWeights`: every vertex 1.0 to one influence, the rig's skeletonHash) and loads them through `SkinWeightLoad`, so undo, membership and deletion on the next swap are the same as a file mesh. A rigid mesh keeps its name.
+- **Which joint:** the topmost skin joint, core `findTopSkinJoints` (a `skin` joint with no `skin` ancestor). Several is a warning and the first is used. None is an error. The root is the usual answer.
+- **mayadev:** every marked mesh with no file goes to `rigidMesh` with a warning. An unmarked mesh is left in the scene, untracked, with a warning, because marking is how a mesh joins a look and binding every mesh would pull in blend shape targets. A weight file with no mesh is a warning, not an error, and points to Load Skin Weights by Name, which matches files to meshes by `meshName` and restamps the mesh's `meshId` from the file. A look that spans several skeletons (D55) keeps deleting meshes no rig has a file for, because there is no rig to bind them to.
+- **Why meshIds drift:** the id lives on the scene node. Marking a mesh in a scene that was not loaded from the model file (a re-import, the art source) gives that node a new id. Nothing re-stamps an id behind the rigger's back. The name load is the repair.
+- **Rejected:** creating weight files on disk for unskinned meshes (files nobody made, in source control), matching by name inside the build (silent, and it would hide the drift), deleting unweighted meshes (the old behaviour).
+- **Consequence:** one new `setRigLook` flag. No node, attribute or name change. No pose, animation or export impact: a rigid mesh exports skinned to the root until it is painted. No D36 impact (build time only).

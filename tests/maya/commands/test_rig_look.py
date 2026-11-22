@@ -337,3 +337,84 @@ class SetRigLookErrors(LookTestCase):
         box = new_box()
         self.assertMayaError(lambda: self.set_look([box], [os.path.join(config.WORK_DIR, "nothing.json").replace("\\", "/")]), "weight")
         self.assertUntouched(box)
+
+    def test_a_call_needs_a_mesh_or_a_rigid_mesh(self):
+        self.assertMayaError(lambda: cmds.setRigLook(self.rig_root, asset=config.ASSET_ID, look="boxy"), "at least one -mesh or -rigidMesh")
+        self.assertNoLook()
+
+
+class RigidMeshes(LookTestCase):
+    """A mesh with a meshId and no weight file yet is bound whole to the topmost skin joint (D54): fkchain_three's a."""
+
+    def set_rigid(self, rigid, meshes=(), files=(), look="boxy"):
+        kwargs = {"mesh": list(meshes), "file": list(files)} if meshes else {}
+        return cmds.setRigLook(self.rig_root, rigidMesh=rigid, asset=config.ASSET_ID, look=look, **kwargs)
+
+    def influences(self, mesh):
+        return sorted(cmds.skinCluster(skin_cluster(mesh), query=True, influence=True))
+
+    def test_a_rigid_mesh_is_bound_to_the_top_skin_joint_and_is_a_member(self):
+        ball = new_ball()
+        self.set_rigid([ball])
+        self.assertEqual(self.influences(ball), [rig_name("a_00_M_JNT").lstrip(":")])
+        self.assertEqual(self.members(), [ball])
+        self.assertEqual(ball, "%s:ball_geo" % RIG, "a rigid mesh keeps its own name")
+        self.assertEqual(self.look_info()["name"], "boxy")
+
+    def test_rigid_and_file_meshes_go_on_together(self):
+        box, ball = new_box(), new_ball()
+        self.set_rigid([ball], meshes=[box], files=[self.box_file])
+        self.assertEqual(self.members(), sorted([box, ball]))
+        self.assertEqual(len(self.influences(box)), 2)
+        self.assertEqual(self.influences(ball), [rig_name("a_00_M_JNT").lstrip(":")])
+
+    def test_a_non_skin_root_passes_to_the_first_skin_joint_below(self):
+        cmds.rigJointMarkup(rig_name("a_00_M_JNT"), edit=True, skin=False)
+        ball = new_ball()
+        self.set_rigid([ball])
+        self.assertEqual(self.influences(ball), [rig_name("b_00_M_JNT").lstrip(":")])
+
+    def test_a_weight_save_writes_the_rigid_meshes_first_file(self):
+        ball = new_ball()
+        self.set_rigid([ball])
+        path = os.path.join(config.WORK_DIR, "rigid_ball.json").replace("\\", "/")
+        cmds.saveRigSkinWeights(ball, file=path)
+        data = read_json(path)
+        self.assertEqual((data["meshId"], data["influences"], data["skeletonHash"]),
+                         (BALL_ID, [["Center", "a"]], cmds.getAttr(self.rig_root + ".skeletonHash")))
+
+    def test_a_swap_deletes_a_rigid_member(self):
+        ball = new_ball()
+        self.set_rigid([ball])
+        box = new_box()
+        self.set_look([box], [self.box_file], look="box")
+        self.assertNotExists(ball)
+        self.assertEqual(self.members(), [box])
+
+    def test_undo_takes_the_bind_and_the_look_back(self):
+        ball = new_ball()
+        self.set_rigid([ball])
+        cmds.undo()
+        self.assertNoLook()
+        self.assertIsNone(skin_cluster(ball))
+        cmds.redo()
+        self.assertEqual(self.members(), [ball])
+
+    def test_a_rigid_mesh_without_a_meshid_fails_and_changes_nothing(self):
+        bare = cmds.polyCube(name=":%s:bare_geo" % RIG, constructionHistory=False)[0]
+        self.assertMayaError(lambda: self.set_rigid([bare]), "has no meshId")
+        self.assertNoLook()
+        self.assertIsNone(skin_cluster(bare))
+
+    def test_a_mesh_passed_twice_fails(self):
+        box = new_box()
+        self.assertMayaError(lambda: self.set_rigid([box], meshes=[box], files=[self.box_file]), "as a rigid mesh")
+        self.assertNoLook()
+
+    def test_no_skin_joint_fails_and_changes_nothing(self):
+        for joint in ("a_00_M_JNT", "b_00_M_JNT", "c_00_M_JNT"):
+            cmds.rigJointMarkup(rig_name(joint), edit=True, skin=False)
+        ball = new_ball()
+        self.assertMayaError(lambda: self.set_rigid([ball]), "is marked skin")
+        self.assertNoLook()
+        self.assertIsNone(skin_cluster(ball))

@@ -518,6 +518,29 @@ class PythonSkinWeights(SkinWeightTestCase):
         self.write_file(data)
         self.assertEqual(self.module.read_file_skeleton_hash(self.path), "")
 
+    def test_read_file_mesh_name(self):
+        self.save_bound_box()
+        self.assertEqual(self.module.read_file_mesh_name(self.path), "box_geo")
+        data = self.read_file()
+        del data["meshName"]
+        self.write_file(data)
+        self.assertEqual(self.module.read_file_mesh_name(self.path), "")
+
+    def test_get_meshes_by_name_includes_unmarked_meshes(self):
+        cmds.setRigMeshId(self.box)
+        cmds.polyCube(name=":skel:no_id_geo", constructionHistory=False)
+        cmds.polyCube(name=":other_geo", constructionHistory=False)
+        self.assertEqual({k: v.split("|")[-1] for k, v in self.module.get_meshes_by_name("skel").items()},
+                         {"box_geo": "skel:box_geo", "no_id_geo": "skel:no_id_geo"})
+
+    def test_set_mesh_id_adds_or_replaces_the_id_and_undoes(self):
+        self.module.set_mesh_id(self.box, "first")
+        self.assertEqual(self.module.get_mesh_id(self.box), "first")
+        self.module.set_mesh_id(self.box, "second")
+        self.assertEqual(self.module.get_mesh_id(self.box), "second")
+        cmds.undo()
+        self.assertEqual(self.module.get_mesh_id(self.box), "first")
+
 
 class BindAtRest(RigTestCase):
     """Built into rig:, so a and b are driven by fkchain_1 and their rest comes from the module."""

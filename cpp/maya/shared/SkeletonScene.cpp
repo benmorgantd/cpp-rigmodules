@@ -112,6 +112,48 @@ void SkeletonScene::readSkeleton(const MDagPathArray& joints, Skeleton& outSkele
 	outSkeleton = std::move(skeleton);
 }
 
+MStatus SkeletonScene::findTopSkinJoint(const MString& absoluteNamespace, JointSelector& outJoint)
+{
+	MarkedJointSet joints;
+	ValidationReport report;
+	JointMarkupScene::collectNamespaceJoints(absoluteNamespace, joints, report);
+	Skeleton skeleton;
+	if (!report.hasErrors())
+	{
+		readSkeleton(joints.dagPaths, skeleton, report);
+	}
+	if (report.hasErrors())
+	{
+		ReportUtils::displayReport(report);
+		MGlobal::displayError(MString("The joints in namespace ") + absoluteNamespace + " could not be read, so there is no skin joint to bind to.");
+		return MStatus::kFailure;
+	}
+
+	const std::vector<std::size_t> tops = findTopSkinJoints(skeleton);
+	if (tops.empty())
+	{
+		MGlobal::displayError(MString("No joint in namespace ") + absoluteNamespace + " is marked skin, so there is no joint to bind to.");
+		return MStatus::kFailure;
+	}
+	const auto selectorOf = [&skeleton](std::size_t index)
+	{
+		const JointMarkup& markup = skeleton.joints[index].markup;
+		return JointSelector{ markup.side, markup.usage };
+	};
+	outJoint = selectorOf(tops.front());
+	if (tops.size() > 1)
+	{
+		std::string names;
+		for (const std::size_t index : tops)
+		{
+			names += (names.empty() ? "" : ", ") + formatJointSelector(selectorOf(index));
+		}
+		MGlobal::displayWarning(MString("Namespace ") + absoluteNamespace + " has more than one top skin joint (" + names.c_str()
+			+ "). Meshes with no weights are bound to the first, " + formatJointSelector(outJoint).c_str() + ".");
+	}
+	return MStatus::kSuccess;
+}
+
 namespace
 {
 	// Queues one joint's rest as channel values: restLocal = scale * shear * jointOrient * translate, with rotate and

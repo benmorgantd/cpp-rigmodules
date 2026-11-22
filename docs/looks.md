@@ -20,9 +20,24 @@ The command, as one undo step:
 
 1. Matches each mesh to the weight file with its `meshId`. Order and names are never used.
 2. Loads each file's weights onto the rig's joints ([skinning.md](skinning.md#loading)). A file whose `skeletonHash` is not the rig's fails the whole command with nothing changed.
-3. Deletes the previous look's meshes and their history.
-4. Names each new mesh after its file's `meshName`, so a look's meshes keep their names whatever Maya called them on import.
-5. Creates or updates the `lookRoot`.
+3. Binds each `rigidMesh` whole to the rig's topmost skin joint (below).
+4. Deletes the previous look's meshes and their history.
+5. Names each new mesh after its file's `meshName`, so a look's meshes keep their names whatever Maya called them on import. A rigid mesh keeps its own name.
+6. Creates or updates the `lookRoot`.
+
+### Meshes not skinned yet
+
+A mesh of the look that has a `meshId` but no weight file (a prop you haven't skinned) goes in `rigidMesh`:
+
+```python
+cmds.setRigLook("hero_body:rigRootModule1",
+                mesh=["hero_body:body_geo"],
+                file=["C:/assets/hero/looks/red/weights/body_geo.json"],
+                rigidMesh=["hero_body:cigarette_geo"],
+                asset="shooter\\characters\\hero", look="red")
+```
+
+It is bound with weight 1 to the topmost skin joint (the first `skin` joint with no `skin` joint above it, usually the root) and is a `lookRoot` member like the others. So it follows the rig, the next look swap deletes it, and you can paint it in the built rig. The next weight save writes its first file, and after that it is an ordinary look mesh. mayadev's `apply_look` passes every marked mesh with no file this way.
 
 ## What a look can delete
 

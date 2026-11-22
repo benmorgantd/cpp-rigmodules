@@ -7,6 +7,7 @@
 #include "maya/nodes/LookRoot.h"
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/RigTraversal.h"
+#include "maya/shared/SkeletonScene.h"
 #include "maya/shared/Utilities.h"
 
 #include <algorithm>
@@ -91,7 +92,7 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 		MGlobal::displayError(MString("Not a valid look name: ") + inputs.lookName.c_str());
 		return MStatus::kFailure;
 	}
-	if (inputs.meshes.length() == 0)
+	if (inputs.meshes.length() == 0 && inputs.rigidMeshes.length() == 0)
 	{
 		MGlobal::displayError("A look needs at least one mesh.");
 		return MStatus::kFailure;
@@ -150,6 +151,58 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 		if (!status)
 		{
 			hasErrors = true;
+		}
+	}
+
+	// A rigid mesh has no weight file yet. It is bound whole to the topmost skin joint, so it is skinned and a member
+	// like the others, and a weight save writes its first file. It keeps its own name.
+	if (inputs.rigidMeshes.length() > 0 && !hasErrors)
+	{
+		JointSelector topJoint;
+		MStatus status = SkeletonScene::findTopSkinJoint(expectedNamespace, topJoint);
+		if (!status)
+		{
+			MGlobal::displayError("The look was not applied.");
+			return status;
+		}
+		const std::string rigHash = MFnDependencyNode(fRigRoot).findPlug(RigAttr::SkeletonHash, false).asString().asChar();
+		std::vector<MObjectHandle> fileMeshes;
+		for (unsigned int i = 0; i < fMeshes.length(); ++i)
+		{
+			fileMeshes.emplace_back(fMeshes[i].node());
+		}
+		for (unsigned int i = 0; i < inputs.rigidMeshes.length(); ++i)
+		{
+			const MDagPath& mesh = inputs.rigidMeshes[i];
+			const MString meshName = mesh.partialPathName();
+			if (DagUtils::getAbsoluteNamespace(mesh.node()) != expectedNamespace)
+			{
+				MGlobal::displayError(meshName + " is not in the rig's namespace (" + expectedNamespace + "), so it would find no joint to bind to.");
+				hasErrors = true;
+				continue;
+			}
+			if (containsNode(fileMeshes, mesh.node()))
+			{
+				MGlobal::displayError(meshName + " is passed as a mesh with a weight file and as a rigid mesh.");
+				hasErrors = true;
+				continue;
+			}
+			SkinWeights weights;
+			status = SkinWeightScene::makeRigidSkinWeights(mesh, topJoint, rigHash, weights);
+			if (!status)
+			{
+				hasErrors = true;
+				continue;
+			}
+			fileMeshes.emplace_back(mesh.node());
+			fMeshes.append(mesh);
+			fMeshNames.push_back(weights.meshName);
+			fLoads.push_back(std::make_unique<SkinWeightLoad>());
+			status = fLoads.back()->prepare(mesh, weights, inputs.ignoreSkeletonHash);
+			if (!status)
+			{
+				hasErrors = true;
+			}
 		}
 	}
 	if (hasErrors)

@@ -81,6 +81,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D65 | The skin weight brush: one context for every skin painting command, falloff over the mesh surface | Decided | [skinning](decisions/skinning.md) |
 | D66 | Rest-match brushes: paint weights in a pose so the mesh goes back towards its rest deltas or edge lengths | Decided | [skinning](decisions/skinning.md) |
 | D67 | Attribute and node type names: RigAttr, Maya's static MObjects, MayaAttr, MayaNodeType; the rig root's children attribute removed | Decided | [foundations](decisions/foundations.md) |
+| D68 | A look build never fails over weights: marked meshes with no file bind rigidly to the topmost skin joint | Decided | [assets](decisions/assets.md) |
 
 ---
 

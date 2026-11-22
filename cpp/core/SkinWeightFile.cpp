@@ -90,6 +90,14 @@ std::uint64_t topologyHash(unsigned int vertexCount, const std::vector<int>& pol
 	return hash.value();
 }
 
+void setRigidSkinWeights(SkinWeights& weights, const JointSelector& influence)
+{
+	weights.skinMethod = SkinMethods::Linear;
+	weights.influences = { influence };
+	weights.weights.assign(weights.vertexCount, { { 0u, 1.0 } });
+	weights.blendWeights.clear();
+}
+
 void sortSkinInfluences(SkinWeights& weights)
 {
 	std::vector<unsigned int> order(weights.influences.size());

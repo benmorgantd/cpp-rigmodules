@@ -14,6 +14,7 @@ import maya.cmds as cmds
 import rigmodules._namespace
 
 MESH_ID_ATTR = "meshId"
+MESH_NAME_KEY = "meshName"            # the mesh's name without a namespace when the file was saved
 SKELETON_HASH_ATTR = "skeletonHash"   # a version 2 file's rig skeleton hash (D54), "" for the file of an unbound save
 
 # saveRigSkinWeights writes "meshId" near the top of the file, so its value can be read without parsing the
@@ -50,6 +51,20 @@ def get_meshes(namespace: str) -> dict[str, str]:
     return meshes
 
 
+def get_meshes_by_name(namespace: str) -> dict[str, str]:
+    """Name without the namespace -> mesh transform, for every mesh in namespace, marked or not. The fallback match
+    for a weight file whose meshId no mesh has (D68): the file's meshName against these keys."""
+    return {mesh.split("|")[-1].split(":")[-1]: mesh for mesh in _namespace_meshes(namespace)}
+
+
+def set_mesh_id(mesh: str, mesh_id: str) -> None:
+    """Gives the mesh transform this meshId, adding the attribute when it has none. Undoable. For taking a weight
+    file's id when the mesh was matched by name (D68): the next save of the model then carries it."""
+    if not cmds.attributeQuery(MESH_ID_ATTR, node=mesh, exists=True):
+        cmds.addAttr(mesh, longName=MESH_ID_ATTR, dataType="string")
+    cmds.setAttr(f"{mesh}.{MESH_ID_ATTR}", mesh_id, type="string")
+
+
 def get_skinned_meshes(namespace: str) -> list[str]:
     """The transforms of every mesh in namespace that has a skinCluster in its history, sorted."""
     return [mesh for mesh in _namespace_meshes(namespace) if cmds.ls(cmds.listHistory(mesh) or [], type="skinCluster")]
@@ -61,6 +76,12 @@ def read_file_mesh_id(path: str) -> str:
     if not mesh_id:
         raise ValueError(f"{path} is not a weight file: it has no {MESH_ID_ATTR}.")
     return mesh_id
+
+
+def read_file_mesh_name(path: str) -> str:
+    """The name, without a namespace, of the mesh a weight file was saved from. "" when the file has none. Loading
+    never matches on it, except the by-name fallback (D68)."""
+    return _read_header_value(path, MESH_NAME_KEY) or ""
 
 
 def read_file_skeleton_hash(path: str) -> str:

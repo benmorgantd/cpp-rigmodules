@@ -32,6 +32,10 @@ public:
 	// meshId or shares it with another mesh in its namespace, has no skinCluster, has an influence without joint
 	// markup or with skin false, or has a vertex whose weights aren't normalized.
 	static MStatus readSkinWeights(const MDagPath& mesh, SkinWeights& outWeights);
+
+	// Weights that bind every vertex of the mesh to one joint, as a weight file for it would hold them: its meshId,
+	// name and topology, and skeletonHash (D54, the look swap's rigid meshes). Fails when the mesh has no meshId.
+	static MStatus makeRigidSkinWeights(const MDagPath& mesh, const JointSelector& influence, const std::string& skeletonHash, SkinWeights& outWeights);
 };
 
 // Applies a weight file to a mesh, undoably. prepare checks everything and changes nothing. apply and undo then

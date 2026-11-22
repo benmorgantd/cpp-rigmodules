@@ -81,6 +81,11 @@ std::vector<std::size_t> skeletonParentsFirst(const Skeleton& skeleton);
 // The index of the joint with this (side, usage), or -1.
 int findSkeletonJoint(const Skeleton& skeleton, const JointSelector& selector);
 
+// The skin joints with no skin joint above them, in skeleton.joints order: the joints a mesh with no weights is bound
+// to (D54, the look swap's rigid meshes). A skeleton has one in the usual case, the root. skeleton must have passed
+// deserializeSkeleton's checks (every parent present, no loop).
+std::vector<std::size_t> findTopSkinJoints(const Skeleton& skeleton);
+
 // What differs between two skeletons, one line per joint and difference, for the message of a failed look swap
 // (D54): a joint only one has, a different name, parent or rotate order, and a rest that differs on the hash's grid.
 // Empty exactly when skeletonHash is equal. Lines read "<side> <usage>: ...", rig first and look second.

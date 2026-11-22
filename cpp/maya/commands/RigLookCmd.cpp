@@ -16,6 +16,7 @@ namespace
 	// Code reads flags by long name only. Short names appear only in newSyntax() (D14).
 	constexpr const char* kMeshFlag{ "-mesh" };
 	constexpr const char* kFileFlag{ "-file" };
+	constexpr const char* kRigidMeshFlag{ "-rigidMesh" };
 	constexpr const char* kAssetFlag{ "-asset" };
 	constexpr const char* kLookFlag{ "-look" };
 	constexpr const char* kPublishVersionFlag{ "-publishVersion" };
@@ -58,6 +59,8 @@ MSyntax SetRigLookCmd::newSyntax()
 	syntax.makeFlagMultiUse(kMeshFlag);
 	CHECK_MSTATUS(syntax.addFlag("-f", kFileFlag, MSyntax::kString));
 	syntax.makeFlagMultiUse(kFileFlag);
+	CHECK_MSTATUS(syntax.addFlag("-rm", kRigidMeshFlag, MSyntax::kString));
+	syntax.makeFlagMultiUse(kRigidMeshFlag);
 	CHECK_MSTATUS(syntax.addFlag("-a", kAssetFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-lk", kLookFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-pv", kPublishVersionFlag, MSyntax::kString));
@@ -82,11 +85,13 @@ MStatus SetRigLookCmd::doIt(const MArgList& args)
 
 	std::vector<std::string> meshNames;
 	std::vector<std::string> files;
+	std::vector<std::string> rigidMeshNames;
 	CHECK_MSTATUS_AND_RETURN_IT(CommandUtils::readStringList(argData, kMeshFlag, meshNames));
 	CHECK_MSTATUS_AND_RETURN_IT(CommandUtils::readStringList(argData, kFileFlag, files));
-	if (meshNames.empty() || meshNames.size() != files.size())
+	CHECK_MSTATUS_AND_RETURN_IT(CommandUtils::readStringList(argData, kRigidMeshFlag, rigidMeshNames));
+	if (meshNames.size() != files.size() || (meshNames.empty() && rigidMeshNames.empty()))
 	{
-		MGlobal::displayError(MString(aCommandString) + " needs one -file for each -mesh, and at least one of each.");
+		MGlobal::displayError(MString(aCommandString) + " needs one -file for each -mesh, and at least one -mesh or -rigidMesh.");
 		return MStatus::kFailure;
 	}
 	CHECK_MSTATUS_AND_RETURN_IT(readOptionalString(argData, kAssetFlag, inputs.assetId));
@@ -111,6 +116,16 @@ MStatus SetRigLookCmd::doIt(const MArgList& args)
 			return status;
 		}
 		inputs.meshes.append(mesh);
+	}
+	for (const std::string& meshName : rigidMeshNames)
+	{
+		MDagPath mesh;
+		status = DagUtils::getDagPathFromName(meshName.c_str(), mesh, DagUtils::NodeKind::kMesh);
+		if (!status)
+		{
+			return status;
+		}
+		inputs.rigidMeshes.append(mesh);
 	}
 
 	// Every file is read and validated before anything changes, so a bad file leaves the scene alone.

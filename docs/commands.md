@@ -841,8 +841,9 @@ cmds.setRigLook("hero_body:rigRootModule1",
 
 | Flag | Type | Meaning |
 |---|---|---|
-| `mesh` | string, multi-use | A mesh of the look, already imported into the rig's namespace. Required, one use per mesh |
-| `file` | string, multi-use | A weight file, one for each mesh, in any order: each goes to the mesh with its `meshId`. Required |
+| `mesh` | string, multi-use | A mesh of the look, already imported into the rig's namespace, one use per mesh. A call needs at least one `mesh` or `rigidMesh` |
+| `file` | string, multi-use | A weight file, one for each mesh, in any order: each goes to the mesh with its `meshId` |
+| `rigidMesh` | string, multi-use | A mesh of the look with a `meshId` and no weight file yet. It is bound whole to the rig's topmost skin joint and becomes a member like the others, keeping its name, so it can be skinned in the rig and saved |
 | `asset` | string | The look's asset id. Required |
 | `look` | string | The look's name, a lowercase name ([templates.md](templates.md)). Required |
 | `publishVersion` | string | The publish the look came from. Default `""` |
@@ -854,6 +855,7 @@ Object: one rig root. Returns the `lookRoot`'s name.
 
 - Every file is read and checked against its mesh and the rig before anything changes, so any error leaves the scene as it was. That includes a mesh outside the rig's namespace, a mesh whose `meshId` no file has, a file whose `skeletonHash` is not the rig's, and a `look` or `asset` that isn't a valid name.
 - Deletes only the previous look's meshes (the `lookRoot`'s members) and their history, never any other mesh. Names each new mesh after its file's `meshName`.
+- A `rigidMesh` binds to the topmost skin joint: the first `skin` joint with no `skin` joint above it. When the rig has more than one, it warns and uses the first. A `rigidMesh` with no `meshId`, a rig with no `skin` joint, or a mesh passed as both `mesh` and `rigidMesh` fails with nothing changed.
 - The controls and the animation are not touched.
 - Undoable, as one step: undo brings the previous look and its weights back and removes the `lookRoot` if this was the first look.
 

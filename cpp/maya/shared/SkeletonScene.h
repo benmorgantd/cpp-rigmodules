@@ -20,6 +20,11 @@ public:
 	// to that parent's. Adds every problem to report; outSkeleton is complete only when report has no errors.
 	static void readSkeleton(const MDagPathArray& joints, Skeleton& outSkeleton, ValidationReport& report);
 
+	// The topmost skin joint of the marked joints in the namespace (core findTopSkinJoints): where a mesh with no
+	// weights is bound. Several is a warning naming them, and the first is used. Fails, with an error, when the
+	// namespace's markup is invalid or no joint is marked skin. Only parents and markup are read, so a posed rig is fine.
+	static MStatus findTopSkinJoint(const MString& absoluteNamespace, JointSelector& outJoint);
+
 	// The inverse of readSkeleton: creates the skeleton's joints in the current namespace (the caller holds a
 	// ScopedRigNamespace), parents first, each with its name, rotate order, rest and rigMarkup. oOutJoints follows
 	// skeleton.joints. readSkeleton on the result gives the same skeleton and hash.
