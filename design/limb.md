@@ -190,7 +190,7 @@ The inverse runs only in tools and never in playback. If it is too expensive on 
 - **Names (D58, D34).** Module type `Limb`, node `limbModule`, `<base>FK`, `<base>IK`, `<base>Pole`, `<base>Settings`, `<base>RibbonIK_<nn>`, `<base>Tweak_<nn>`. Every control carries `controlMarkup` (D25), unique per rig.
 - **Mirroring.** By template (D28). The mirror modes are the existing channels' (D34). A chain with its -X down the limb works, as `RibbonMath::chainSign` handles it.
 - **Poses and animation.** `Limb` is a new module with new control names, so a saved pose from the old arm does not load onto it, and the library browser shows that. No legacy rig has to survive (author, 2026-11-19), so there is no migration step. The solomon template changes by hand in phase 5.
-- **Export.** One skeleton: the FK/IK joints and the leaf bind joints, as today. The controls are not exported.
+- **Export.** One skeleton: the FK/IK joints and the bind joints, as today. The controls are not exported.
 
 ## 10. Performance (D36)
 
@@ -202,7 +202,7 @@ The cost of a limb is its node count, not the solver (1.4 percent of node time i
 - Pose cases written by hand: IK, FK, a 0.5 blend, stretch, soft, pin, roll, the elbow control moved, a start twist, an end twist, the wrist's swing not reaching the forearm.
 - **`test_limb_matches_parts`**, the coupling check. On one set of inputs, `Limb`'s three joint worlds equal a `TwoBoneIk`'s, and with the elbow control at rest and no twist its bind joints equal a `Ribbon` over the same joints within a tolerance. It fails when a change to either module is not carried through.
 - DAG parenting: every ribbon ik control under the start plug's parent, every tweaker under the first ik control.
-- Validation errors: a stacked bind joint, no bind joint at the mid, fewer than 5 bind joints, a non-leaf bind joint, `controlCount` out of range.
+- Validation errors: a stacked bind joint, no bind joint at the mid, fewer than 5 bind joints, `controlCount` out of range.
 - The inverse round trip on the solomon pose, mirrored builds, and `ikTarget` (an `ikTarget` socket raised moves the end joint, a foot-shaped test module, the plug graph acyclic).
 - A golden snapshot, and a worked example in `docs/modules.md` with a test in `test_docs_examples.py`.
 - **From the phase 1 probe, to become pose cases through the `Limb` module** (`core/` has no test harness of its own, D20; the probe was a standalone program over a 3-anchor limb with joints at (0,0,0), (10,-3,0) and (20,0,0), 3 and 5 ik controls, 4 bind joints a side, and all 34 checks passed): the rest pose reproduces every bind frame, and every ik control rests on the curve with an identity offset. A rigid motion of the whole limb moves every bind frame with it. Bent (bone turns of 0.4 and 1.3 radians), the mid ik control and the elbow bind joint sit on the mid joint within 1e-6, the first and last bind joints sit on the start and end, and no step between neighbouring bind joints turns more than 65 percent of the joints' bend. A start-anchor roll of 0.8 gives 0.8 at the first bind joint, falling to 0 at the elbow and 0 past it, and an end-anchor roll of -0.9 gives 0 up to the elbow and -0.9 at the last bind joint. A mirrored chain (frames turned half a turn about Z) has the same bind positions, and its roll reads with the sign flipped about the forward tangent. Tier: the module tier, with `Limb`'s pose cases.

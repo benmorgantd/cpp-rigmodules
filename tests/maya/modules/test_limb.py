@@ -433,6 +433,15 @@ class LimbIkTargetRestore(SolveTestCase):
         self.assertJointsAt(rest)
 
 
+class LimbBindJointWithChild(RigTestCase):
+    """A bind joint may have a child joint (author, 2026-11-22): limb_arm_child has extra_00_L_JNT under bind3, and the build succeeds."""
+
+    def test_a_bind_joint_with_a_child_builds(self):
+        self.build_standard("limb_arm", "limb_arm_child")
+        self.assertTrue(cmds.objExists(rig_name("bind3_00_L_JNT")))
+        self.assertTrue(cmds.objExists(rig_name("extra_00_L_JNT")))
+
+
 class LimbBindSockets(SolveTestCase):
     """A Limb has a socket for every bind joint (bind_0 to bind_8 on limb_arm), so a child can hang from a twist joint. limb_bind_child has
     a joint, extra, at the third bind joint (2, 0, 0), and the template hangs an FkChain of it from bind_2."""

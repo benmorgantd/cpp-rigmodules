@@ -27,7 +27,6 @@
 #include <maya/MArrayDataHandle.h>
 #include <maya/MDagModifier.h>
 #include <maya/MDataBlock.h>
-#include <maya/MFnDagNode.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnNumericAttribute.h>
@@ -709,20 +708,14 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 		return false;
 	}
 
-	// Claim every joint even after a failure, so the report lists every bad selector at once. A bind joint is a leaf: the tweaker drives
-	// it by its offset parent matrix, and a child would be dragged along by a joint that is not one of the limb's.
+	// Claim every joint even after a failure, so the report lists every bad selector at once. A bind joint may have child joints: the
+	// tweaker drives it by its offset parent matrix and inheritsTransform is off, so a child is not dragged along.
 	std::vector<RibbonSlotInput> bindJoints;
 	for (const JointSelector& selector : limbArgs.bindJoints)
 	{
 		RibbonSlotInput slot;
 		if (!RigModuleNodeBase::claimJoint(ctx, selector, slot.oJoint, slot.mRestWorld))
 		{
-			valid = false;
-			continue;
-		}
-		if (MFnDagNode(slot.oJoint).childCount() != 0)
-		{
-			ctx.report.addError(argsPath + ".bindJoints", "'" + formatJointSelector(selector) + "' has child joints, and a bind joint must be a leaf");
 			valid = false;
 			continue;
 		}

@@ -74,7 +74,7 @@ The Ribbon places its ik controls evenly along its bind joints (`controlCount`, 
 
 An arm or leg built from `TwoBoneIk`, two or three `Ribbon` modules and `Swing` and `Twist` constraints has a crease at the elbow, 21 controls, five nodes and the ribbon channels repeated on two controls (checked on the solomon rig). `Limb` is one module with one spline through start, mid and end.
 
-- **Inputs:** three IK/FK joints and 5 or more leaf bind joints, with exactly one at the mid joint and none stacked. `controlCount` ribbon ik controls, default 5, minimum 3. No fk ribbon.
+- **Inputs:** three IK/FK joints and 5 or more bind joints (they may have child joints: inheritsTransform is off, so a child is not dragged; author, 2026-11-22), with exactly one at the mid joint and none stacked. `controlCount` ribbon ik controls, default 5, minimum 3. No fk ribbon.
 - **Channels:** every module-wide channel (`ikFkBlend`, `stretch`, `soft` and the ribbon's) is on the settings control, under the names already in use. `startAimBlend` and `endAimBlend` are dropped. `roll` and `pin` stay on the handle and the pole.
 - **Evaluation:** the IK/FK solve, then the ribbon's end frames from the blended joints (start: translation and swing of the start joint, as `Swing`; end: translation and twist of the end joint on the swing of the mid, as `Twist`), then the ribbon solve. No constraint nodes.
 - **DAG parenting (author):** the ribbon ik controls are leaf children of the start plug's DAG parent, and the tweakers are leaf children of the first ik control.
