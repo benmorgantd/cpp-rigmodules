@@ -1,6 +1,6 @@
 # Asset builds that survive change (D70)
 
-**Status:** proposal (D70, Leaning). Nothing here is built. It amends D54 (the skeleton hash gate) and D68 (rigid fallback), and fills in the "transfer" row of `asset-pipeline.md` section 5.1. The author's answers of 2026-11-22 are folded in. Open questions are in section 8.
+**Status:** phase 1 built (D70, 2026-11-22): the hash is a status, the fold, the report, the flag removed. The transfer and the gates are not built. It amends D54 (the skeleton hash gate) and D68 (rigid fallback), and fills in the "transfer" row of `asset-pipeline.md` section 5.1. **Changed 2026-11-22, later: no mesh data in the weight files for now, so section 5 (barycentric transfer from a stored surface) is dropped.** There is no transfer at all (author, later the same day): the only fallback is passing weight up to the closest skin parent, and a changed topology goes rigid. Rungs 3 and 4 of section 4, the surface and everything about transfer in sections 5 to 7 are superseded by that. Answers of 2026-11-22: a changed rest is a breaking change, the wrong-asset guard stays a warning, legacy files go rigid until saved, draft and checked out build the same, and a skeleton has one root joint (not necessarily a skin joint). Open questions are in section 8.
 
 ## 1. The problem
 
@@ -58,7 +58,7 @@ Rung 1 is the big change. Adding a joint or moving a rest no longer touches the 
 
 The report is one entry per mesh: `meshId`, `meshName`, result, reasons, `flaggedVertices`, `staleSkeleton`, `staleTopology`. `setRigLook` returns it as JSON next to the look root name. Today it returns only the look root name.
 
-## 5. Barycentric transfer
+## 5. Barycentric transfer (superseded: not planned, see the status line)
 
 For each vertex of the new mesh, find the closest point on the old surface, take the old triangle's three vertices and the point's barycentric coordinates `(u, v, w)`, and blend their weight rows: `row_new = u·row_a + v·row_b + w·row_c`. Then renormalize and prune to the project's max influences. This replaces nearest-vertex, which snaps to the old vertex pattern and shows it as a faceted weight map wherever the new topology is denser or differently flowed.
 

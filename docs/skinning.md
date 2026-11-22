@@ -42,14 +42,14 @@ The file is laid out so that version control shows only what changed:
 - **A mesh without one gets a new skinCluster** with the file's influences.
 - **New influences bind at rest.** For a joint a rig module drives, that is the pose the rig was built in, whatever the rig's current pose, so loading onto a posed rig gives the same result as loading at rest. For a joint with no rig, the skeleton's current pose is its rest.
 - The file's `skinMethod` is set on the skinCluster.
-- **The skeleton is checked** (D54). A file whose `skeletonHash` is not the hash of the rig that drives the influences fails, because it was made for another skeleton. `ignoreSkeletonHash=True` loads it with a warning. A file with no hash can't be checked and loads with a warning, and joints no rig drives are not checked. [`setRigLook`](looks.md) loads a look's files this way.
+- **The skeleton is a status, not a gate** (D54, D70). A file whose `skeletonHash` is not the hash of the rig that drives the influences was made for another skeleton, and loads with a warning: what the load needs is the topology and every influence to resolve to a marked joint. Save the weights again to clear the warning. A file with no hash loads with a warning too, and joints no rig drives are not checked. This command is exact: an influence with no joint is an error. [`setRigLook`](looks.md#when-things-changed) loads a look's files with fallbacks (a joint that is gone folds into the next skin joint up) and reports what it did.
 - The whole file and the match are checked first. Any error is reported and nothing changes. The load is one undo step.
 
 ## File format
 
 ```json
 {
-    "formatVersion": 2,
+    "formatVersion": 3,
     "meshId": "C214154A-43E0-A9E2-3CAA-22B52F9603E1",
     "meshName": "box_geo",
     "vertexCount": 8,
@@ -60,6 +60,10 @@ The file is laid out so that version control shows only what changed:
     "influences": [
         ["Center", "a"],
         ["Center", "b"]
+    ],
+    "skeleton": [
+        [["Center", "a"], null],
+        [["Center", "b"], ["Center", "a"]]
     ],
     "weights": [
         [0, 1],
@@ -78,7 +82,7 @@ This is a 2-unit-tall cube standing on the origin, skinned to joints marked `[Ce
 
 | Key | Meaning |
 |---|---|
-| `formatVersion` | `2`. A version 1 file has no `skeletonHash` and loads as one with `""` |
+| `formatVersion` | `3`. A version 1 file has no `skeletonHash` and loads as one with `""`. A file before version 3 has no `skeleton` and loads with `[]` |
 | `meshId` | The mesh's `meshId` |
 | `meshName` | The mesh's name without namespace, for people reading the file. Loading never matches on it. |
 | `vertexCount`, `faceCount` | The mesh's counts |
@@ -86,6 +90,7 @@ This is a 2-unit-tall cube standing on the origin, skinned to joints marked `[Ce
 | `skeletonHash` | The `skeletonHash` of the rig root that drives the influences, at save: the skeleton the weights were made on (D54). `""` when the influences belong to no rig, as in this example. A load compares it with the rig the influences belong to (see Loading) |
 | `skinMethod` | `Linear`, `DualQuaternion` or `WeightBlended` |
 | `influences` | `[side, usage]` per influence, sorted by side, then usage. A weight's influence index points into this list. |
+| `skeleton` | The structure of the skeleton the weights were made on (D70). Saving fails when the namespace's joints have more than one root, because a skeleton has one root joint: every marked joint of the namespace as `[[side, usage], parent]`, with `null` for a root, sorted by side, then usage. No rests and no names. It is what lets a joint that is gone give its weight to its parent when `setRigLook` folds it. `[]` for a file saved before version 3 and for a rigid bind, which can't fold |
 | `weights` | One list per vertex of influence index and weight pairs, in index order. Zero weights are left out. Each vertex must sum to 1. |
 | `blendWeights` | `WeightBlended` only: one number per vertex, one per line |
 

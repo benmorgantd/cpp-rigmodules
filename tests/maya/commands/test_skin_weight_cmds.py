@@ -64,11 +64,11 @@ def world_point(mesh, index):
 
 
 class SkinWeightTestCase(RigTestCase):
-    """The fk_three skeleton in 'skel', with no rig, and box_geo beside it."""
+    """The fk_three_parented skeleton in 'skel', with no rig, and box_geo beside it."""
 
     def setUp(self):
         super().setUp()
-        self.joints = self.make_skeleton("fk_three")
+        self.joints = self.make_skeleton("fk_three_parented")
         self.a, self.b, self.c = self.joints
         self.box = make_box(config.SKELETON_NAMESPACE)
         self.path = os.path.join(config.WORK_DIR, "box_weights.json").replace("\\", "/")
@@ -151,7 +151,7 @@ class SaveAndLoad(SkinWeightTestCase):
         self.bind()
         self.assertEqual(cmds.saveRigSkinWeights(self.box, file=self.path), 2)
         data = self.read_file()
-        self.assertEqual(data["formatVersion"], 2)
+        self.assertEqual(data["formatVersion"], 3)
         # The skel joints belong to no rig, so the file knows no skeleton (D54).
         self.assertEqual(data["skeletonHash"], "")
         self.assertEqual(data["meshId"], mesh_id)
@@ -183,14 +183,14 @@ class SaveAndLoad(SkinWeightTestCase):
         self.save_bound_box()
         with open(self.path, encoding="utf-8") as handle:
             before = handle.read().splitlines()
-        cmds.skinPercent(skin_cluster(self.box), self.box + ".vtx[2]", transformValue=[(self.a, 0.5), (self.b, 0.5)])
+        cmds.skinPercent(skin_cluster(self.box), self.box + ".vtx[2]", transformValue=[(self.a, 0.125), (self.b, 0.875)])
         cmds.saveRigSkinWeights(self.box, file=self.path)
         with open(self.path, encoding="utf-8") as handle:
             after = handle.read().splitlines()
         self.assertEqual(len(before), len(after))
         changed = [i for i, (old, new) in enumerate(zip(before, after)) if old != new]
         self.assertEqual(len(changed), 1)
-        self.assertEqual(json.loads(after[changed[0]].strip().rstrip(",")), [0, 0.5, 1, 0.5])
+        self.assertEqual(json.loads(after[changed[0]].strip().rstrip(",")), [0, 0.125, 1, 0.875])
 
     def test_topology_hash_of_the_fixture_cube(self):
         self.assertEqual(topology_hash(self.box), self.fixture_data()["topologyHash"])
@@ -360,7 +360,7 @@ class LoadErrors(SkinWeightTestCase):
 
     def test_unsupported_format_version(self):
         set_mesh_id(self.box, FIXTURE_ID)
-        self.assertNotLoaded(self.write_fixture_with(formatVersion=3), "formatVersion", "not supported")
+        self.assertNotLoaded(self.write_fixture_with(formatVersion=4), "formatVersion", "not supported")
 
     def test_bad_skeleton_hash(self):
         set_mesh_id(self.box, FIXTURE_ID)
@@ -547,7 +547,7 @@ class BindAtRest(RigTestCase):
 
     def setUp(self):
         super().setUp()
-        self.build_standard("fkchain_three", "fk_three")
+        self.build_standard("fkchain_three", "fk_three_parented")
         self.box = make_box(config.RIG_NAMESPACE)
         set_mesh_id(self.box, FIXTURE_ID)
 
@@ -578,12 +578,24 @@ class BindAtRest(RigTestCase):
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
         rig_root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
-        self.assertEqual(data["formatVersion"], 2)
+        self.assertEqual(data["formatVersion"], 3)
         self.assertEqual(data["skeletonHash"], cmds.getAttr(rig_root + ".skeletonHash"))
         self.assertRegex(data["skeletonHash"], r"^[0-9a-f]{16}$")
 
+    def test_a_version_2_file_loads_with_no_skeleton(self):
+        """The update step (D33) takes a file saved before version 3 to an empty skeleton."""
+        data = json.load(open(FIXTURE_PATH, encoding="utf-8"))
+        data["formatVersion"] = 2
+        data["skeletonHash"] = ""
+        data.pop("skeleton", None)
+        path = os.path.join(config.WORK_DIR, "box_v2.json").replace("\\", "/")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(data, handle)
+        cmds.loadRigSkinWeights(self.box, file=path)
+        self.assertIsNotNone(skin_cluster(self.box))
+
     def test_save_fails_for_influences_of_two_rigs(self):
-        self.build("fkchain_three", self.make_skeleton("fk_three", namespace="skel2"), namespace="other")
+        self.build("fkchain_three", self.make_skeleton("fk_three_parented", namespace="skel2"), namespace="other")
         cmds.skinCluster(rig_name("a_00_M_JNT"), "other:b_00_M_JNT", self.box, toSelectedBones=True)
         path = os.path.join(config.WORK_DIR, "rig_box_weights.json")
         if os.path.exists(path):

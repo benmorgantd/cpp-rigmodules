@@ -13,13 +13,13 @@ cmds.setRigLook("hero_body:rigRootModule1",
                 mesh=["hero_body:body_geo", "hero_body:hat_geo"],
                 file=["C:/assets/hero/looks/red/weights/body_geo.json", "C:/assets/hero/looks/red/weights/hat_geo.json"],
                 asset="shooter\\characters\\hero", look="red")
-# Returns 'hero_body:lookRoot'
+# Returns the report, JSON text: {"lookRoot": "hero_body:lookRoot", "skeletonStale": false, "meshes": [...]}
 ```
 
 The command, as one undo step:
 
 1. Matches each mesh to the weight file with its `meshId`. Order and names are never used.
-2. Loads each file's weights onto the rig's joints ([skinning.md](skinning.md#loading)). A file whose `skeletonHash` is not the rig's fails the whole command with nothing changed.
+2. Loads each file's weights onto the rig's joints ([skinning.md](skinning.md#loading)). A file that no longer fits is not an error: see [When things changed](#when-things-changed).
 3. Binds each `rigidMesh` whole to the rig's topmost skin joint (below).
 4. Deletes the previous look's meshes and their history.
 5. Names each new mesh after its file's `meshName`, so a look's meshes keep their names whatever Maya called them on import. A rigid mesh keeps its own name.
@@ -57,14 +57,23 @@ One per rig that has had a look applied, in the rig's namespace, connected by `r
 
 [`getRigInfo`](commands.md#getriginfo) returns the same three values as `look`, and `rigmodules.query.RigInfo.look` is a `LookInfo`, or `None` before a look is applied ([python.md](python.md)). The node has no inputs, outputs or `compute`, so it costs nothing to evaluate.
 
-## When the skeleton is different
+## When things changed
 
-Every weight file records the skeleton it was made on, and the rig records its own ([skeletons.md](skeletons.md)). `setRigLook` and `loadRigSkinWeights` compare them:
+While an asset is in progress its skeleton, meshes and weights change independently, so a build never fails over them (D70): the build is how you repair the data, and a failed build leaves nothing in the scene to repair. Each mesh with a file takes the first rung of this ladder that fits, and the report says which:
 
-- **Different:** an error, with nothing changed. `ignoreSkeletonHash=True` makes it a warning.
-- **A file that can't load on the changed skeleton** (it names a joint that is no longer marked, or the topology changed): with `ignoreSkeletonHash=True` the mesh is not dropped. It is bound whole to the topmost skin joint like a `rigidMesh`, with a warning, so it stays in the look to be skinned again. Save the weights afterwards to replace the old file. Without the flag it is an error.
-- **A file with no hash** (made before D54, or on joints no rig drove): loads with a warning, because it can't be checked.
-- **With `skeleton` and `rigSkeleton`** (the look's and the rig's `skeleton.json`), `setRigLook` compares them first and names every joint that differs (`[Center, b]: a different rest transform`).
+| Rung | When | Result |
+|---|---|---|
+| `loaded` | The topology matches and every influence is a joint of the rig | The file's weights, as saved. A `skeletonHash` that is not the rig's does not matter: the file is only marked `staleSkeleton`. Adding a joint or moving a rest does not touch the weights |
+| `folded` | The topology matches, and some influences are joints the rig no longer has (removed, renamed, unmarked) | Each missing influence's weight goes to its parent in the skeleton the file stored, and if the parent is gone or is not a `skin` joint, to the parent's parent, up to the first `skin` joint the rig has. Weights that land on one joint are added |
+| `rigid` | The topology changed, an influence has no `skin` joint above it, or the file has no stored skeleton (saved before weight file version 3) | The mesh stays in the look, bound whole to the topmost skin joint like a `rigidMesh`, with a warning, to be skinned again |
+
+A `rigidMesh` is reported as `rigid` with the reason "the mesh has no weight file yet".
+
+The rig's joints must be one skeleton: one root joint, which need not be a skin joint. Two roots is an error (the fold and the weight file's `skeleton` need a hierarchy). When the root is not a skin joint, the rigid fallback binds to the first skin joint below it and warns; with no skin joint at all it fails.
+
+`rigid` is a quiet failure: a mesh bound to the root exports skinned to the root. The report is how it shows, so a tool that calls `setRigLook` should show it, and saving the weights again replaces a stale or degraded file with one that fits the scene. The hash also does not gate the weight load commands: `loadRigSkinWeights` loads a stale file with a warning, and is exact about everything else.
+
+With `skeleton` and `rigSkeleton` (the look's and the rig's `skeleton.json`), `setRigLook` compares them first, warns with every joint that differs (`[Center, b]: a different rest transform`) and sets `skeletonStale`.
 
 ## Not here yet
 

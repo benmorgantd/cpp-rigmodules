@@ -4,6 +4,7 @@
 #include "core/Hash64.h"
 #include "core/RigTemplateValidation.h"
 #include "core/SkeletonFile.h"
+#include "core/SkinWeightFold.h"
 #include "maya/nodes/LookRoot.h"
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/RigTraversal.h"
@@ -11,6 +12,7 @@
 #include "maya/shared/Utilities.h"
 
 #include <algorithm>
+#include <memory>
 #include <set>
 #include <vector>
 
@@ -40,6 +42,58 @@ namespace
 		return std::find(handles.begin(), handles.end(), MObjectHandle(oNode)) != handles.end();
 	}
 
+	// What one mesh with a weight file gets (D70): a load ready to apply, or none when the mesh goes rigid, and the report
+	// entry either way.
+	struct LadderOutcome
+	{
+		std::unique_ptr<SkinWeightLoad> load;
+		LookMeshReport report;
+	};
+
+	// The ladder of D70, in order: a changed topology goes rigid, then each influence the rig no longer has folds into
+	// the next skin joint up the file's skeleton (rigid when one can't), then the weights load. The skeletonHash only
+	// sets staleSkeleton. Every fallback names its reason.
+	LadderOutcome runLadder(const MDagPath& mesh, const SkinWeights& file, const std::vector<CurrentJoint>& joints, const std::string& rigHash)
+	{
+		LadderOutcome outcome;
+		LookMeshReport& report = outcome.report;
+		report.meshId = file.meshId;
+		report.meshName = file.meshName;
+		report.result = LookResult::Rigid;
+		report.staleSkeleton = !file.skeletonHash.empty() && file.skeletonHash != rigHash;
+
+		if (!SkinWeightScene::topologyMatches(mesh, file))
+		{
+			report.reasons.push_back("the mesh's topology is not the one the weights were saved with");
+			return outcome;
+		}
+		SkinWeights weights = file;
+		const FoldResult fold = foldSkinWeights(weights, joints);
+		if (!fold.unfoldable.empty())
+		{
+			for (const JointSelector& influence : fold.unfoldable)
+			{
+				report.reasons.push_back(formatJointSelector(influence) + (file.skeleton.empty()
+					? " is not a joint of the rig, and the file records no skeleton to fold it with: save the weights again"
+					: " is not a joint of the rig, and no skin joint is above it in the saved skeleton"));
+			}
+			return outcome;
+		}
+		std::unique_ptr<SkinWeightLoad> load = std::make_unique<SkinWeightLoad>();
+		if (!load->prepare(mesh, weights))
+		{
+			report.reasons.push_back("the weights could not be loaded (the errors above say why)");
+			return outcome;
+		}
+		outcome.load = std::move(load);
+		report.result = fold.folded.empty() ? LookResult::Loaded : LookResult::Folded;
+		for (const FoldedInfluence& folded : fold.folded)
+		{
+			report.reasons.push_back(formatJointSelector(folded.from) + " is not a joint of the rig, so its weight went to " + formatJointSelector(folded.to));
+		}
+		return outcome;
+	}
+
 	// ":rig" for the namespace "rig" or ":rig", ":" for the root.
 	MString absoluteNamespace(const MString& rigNamespace)
 	{
@@ -51,8 +105,9 @@ namespace
 	}
 }
 
-MStatus LookScene::checkSkeleton(const MObject& oRigRoot, const std::string& lookSkeletonText, const std::string& rigSkeletonText)
+MStatus LookScene::checkSkeleton(const MObject& oRigRoot, const std::string& lookSkeletonText, const std::string& rigSkeletonText, bool& outStale)
 {
+	outStale = false;
 	Skeleton lookSkeleton;
 	if (!parseSkeleton(lookSkeletonText, "look's", lookSkeleton))
 	{
@@ -65,7 +120,9 @@ MStatus LookScene::checkSkeleton(const MObject& oRigRoot, const std::string& loo
 		return MStatus::kSuccess;
 	}
 
-	MGlobal::displayError(MString("The look's skeleton (") + lookHash.c_str() + ") is not the rig's (" + rigHash.c_str() + "), so the look was not applied.");
+	outStale = true;
+	MGlobal::displayWarning(MString("The look's skeleton (") + lookHash.c_str() + ") is not the rig's (" + rigHash.c_str()
+		+ "). The look is applied anyway and is stale until its weights are saved again.");
 	if (!rigSkeletonText.empty())
 	{
 		Skeleton rigSkeleton;
@@ -73,11 +130,11 @@ MStatus LookScene::checkSkeleton(const MObject& oRigRoot, const std::string& loo
 		{
 			for (const std::string& line : describeSkeletonDifferences(rigSkeleton, lookSkeleton))
 			{
-				MGlobal::displayError(line.c_str());
+				MGlobal::displayWarning(line.c_str());
 			}
 		}
 	}
-	return MStatus::kFailure;
+	return MStatus::kSuccess;
 }
 
 MStatus LookSwap::prepare(const LookSwapInputs& inputs)
@@ -110,6 +167,25 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 	fAssetId = inputs.assetId;
 	fLookName = inputs.lookName;
 	fPublishVersion = inputs.publishVersion;
+	fReport = LookReport();
+	fReport.skeletonStale = inputs.skeletonStale;
+
+	// The rig's joints as they are now, read once for every mesh.
+	const std::string rigHash = MFnDependencyNode(fRigRoot).findPlug(RigAttr::SkeletonHash, false).asString().asChar();
+	std::vector<CurrentJoint> joints;
+	if (inputs.meshes.length() > 0)
+	{
+		Skeleton skeleton;
+		ValidationReport jointReport;
+		SkeletonScene::readNamespaceSkeleton(expectedNamespace, skeleton, jointReport);
+		if (jointReport.hasErrors())
+		{
+			ReportUtils::displayReport(jointReport);
+			MGlobal::displayError(MString("The joints in namespace ") + expectedNamespace + " could not be read, so the look was not applied.");
+			return MStatus::kFailure;
+		}
+		joints = currentJoints(skeleton);
+	}
 
 	// Each mesh takes the file with its meshId. The look swap never guesses by order or by name.
 	fMeshes.clear();
@@ -118,6 +194,12 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 	std::set<std::size_t> usedFiles;
 	bool hasErrors = false;
 	MDagPathArray rigidMeshes = inputs.rigidMeshes;
+	std::vector<LookMeshReport> rigidReports(inputs.rigidMeshes.length());   // parallel to rigidMeshes
+	for (LookMeshReport& entry : rigidReports)
+	{
+		entry.result = LookResult::Rigid;
+		entry.reasons.push_back("the mesh has no weight file yet");
+	}
 	for (unsigned int i = 0; i < inputs.meshes.length(); ++i)
 	{
 		const MString meshName = inputs.meshes[i].partialPathName();
@@ -145,25 +227,25 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 			hasErrors = true;
 			continue;
 		}
-		fMeshes.append(inputs.meshes[i]);
-		fMeshNames.push_back(inputs.weights[file].meshName);
-		fLoads.push_back(std::make_unique<SkinWeightLoad>());
-		status = fLoads.back()->prepare(inputs.meshes[i], inputs.weights[file], inputs.ignoreSkeletonHash);
-		if (!status)
+		LadderOutcome outcome = runLadder(inputs.meshes[i], inputs.weights[file], joints, rigHash);
+		if (outcome.load)
 		{
-			if (inputs.ignoreSkeletonHash)
-			{
-				// The skeleton changed under the file (a joint it names is gone, say). The mesh stays in the look: it is
-				// bound like a mesh with no file, to be skinned again and saved over the old file.
-				MGlobal::displayWarning(meshName + ": its weight file can't be loaded on this skeleton, so it is bound to the top skin joint instead. Skin it and save the weights.");
-				fLoads.pop_back();
-				fMeshNames.pop_back();
-				fMeshes.remove(fMeshes.length() - 1);
-				rigidMeshes.append(inputs.meshes[i]);
-				continue;
-			}
-			hasErrors = true;
+			fMeshes.append(inputs.meshes[i]);
+			fMeshNames.push_back(inputs.weights[file].meshName);
+			fLoads.push_back(std::move(outcome.load));
+			fReport.meshes.push_back(std::move(outcome.report));
+			continue;
 		}
+		// The file no longer fits. The mesh stays in the look, bound like a mesh with no file, to be skinned again and saved
+		// over the old file (D70).
+		MString reasons;
+		for (const std::string& reason : outcome.report.reasons)
+		{
+			reasons += MString(" ") + reason.c_str() + ".";
+		}
+		MGlobal::displayWarning(meshName + ": its weight file doesn't fit, so it is bound to the top skin joint instead." + reasons + " Skin it and save the weights.");
+		rigidMeshes.append(inputs.meshes[i]);
+		rigidReports.push_back(std::move(outcome.report));
 	}
 
 	// A rigid mesh has no weight file yet. It is bound whole to the topmost skin joint, so it is skinned and a member
@@ -177,7 +259,6 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 			MGlobal::displayError("The look was not applied.");
 			return status;
 		}
-		const std::string rigHash = MFnDependencyNode(fRigRoot).findPlug(RigAttr::SkeletonHash, false).asString().asChar();
 		std::vector<MObjectHandle> fileMeshes;
 		for (unsigned int i = 0; i < fMeshes.length(); ++i)
 		{
@@ -210,11 +291,14 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 			fMeshes.append(mesh);
 			fMeshNames.push_back(weights.meshName);
 			fLoads.push_back(std::make_unique<SkinWeightLoad>());
-			status = fLoads.back()->prepare(mesh, weights, inputs.ignoreSkeletonHash);
+			status = fLoads.back()->prepare(mesh, weights);
 			if (!status)
 			{
 				hasErrors = true;
 			}
+			rigidReports[i].meshId = weights.meshId;
+			rigidReports[i].meshName = weights.meshName;
+			fReport.meshes.push_back(std::move(rigidReports[i]));
 		}
 	}
 	if (hasErrors)
@@ -346,6 +430,11 @@ MStatus LookSwap::undo()
 	}
 	fLoadsApplied = 0;
 	return result;
+}
+
+const LookReport& LookSwap::report() const
+{
+	return fReport;
 }
 
 MString LookSwap::lookRootName() const

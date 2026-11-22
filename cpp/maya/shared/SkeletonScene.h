@@ -20,6 +20,11 @@ public:
 	// to that parent's. Adds every problem to report; outSkeleton is complete only when report has no errors.
 	static void readSkeleton(const MDagPathArray& joints, Skeleton& outSkeleton, ValidationReport& report);
 
+	// Reads every marked joint of the namespace (a skeleton file's worth, D70). Adds every problem to report, including
+	// the namespace's markup problems and a skeleton with more than one root joint; outSkeleton is complete only when
+	// report has no errors.
+	static void readNamespaceSkeleton(const MString& absoluteNamespace, Skeleton& outSkeleton, ValidationReport& report);
+
 	// The topmost skin joint of the marked joints in the namespace (core findTopSkinJoints): where a mesh with no
 	// weights is bound. Several is a warning naming them, and the first is used. Fails, with an error, when the
 	// namespace's markup is invalid or no joint is marked skin. Only parents and markup are read, so a posed rig is fine.

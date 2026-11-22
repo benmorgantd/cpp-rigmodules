@@ -25,7 +25,7 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 | [`controls.md`](controls.md) | What every control carries: markup, shapes and the axis convention, the shape file format, mirroring shapes |
 | [`skinning.md`](skinning.md) | Skin weight files: what they match on (joint markup, `meshId`, topology), how loading works, the file format |
 | [`skin-brush.md`](skin-brush.md) | The skin weight brushes: layers, one stroke step by step, undo, the `smooth`, `restDelta` and `restEdge` operations, limits, tests, adding a brush |
-| [`looks.md`](looks.md) | Looks: `setRigLook`, the `lookRoot` node, what a swap deletes, the skeleton hash check |
+| [`looks.md`](looks.md) | Looks: `setRigLook`, the `lookRoot` node, what a swap deletes, the report and the fallbacks when weights no longer fit (D70) |
 | [`attachments.md`](attachments.md) | Attachments: `parent:` ids in a template, `parentRig`, what a rig that follows another rig does, and what the animator sees |
 | [`skeletons.md`](skeletons.md) | Skeleton files: what makes two skeletons the same, the skeleton hash, the file format |
 | [`library.md`](library.md) | The pose and animation library: control data vs skeleton data, the folders, the ControlAnim file, the paths to the engine |

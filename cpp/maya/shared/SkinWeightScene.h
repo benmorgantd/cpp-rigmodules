@@ -34,6 +34,10 @@ public:
 	// markup or with skin false, or has a vertex whose weights aren't normalized.
 	static MStatus readSkinWeights(const MDagPath& mesh, SkinWeights& outWeights);
 
+	// True when the mesh has the topology the weights were saved with (vertex count, face count and topologyHash). Says
+	// nothing on a mesh it can't read.
+	static bool topologyMatches(const MDagPath& mesh, const SkinWeights& weights);
+
 	// Weights that bind every vertex of the mesh to one joint, as a weight file for it would hold them: its meshId,
 	// name and topology, and skeletonHash (D54, the look swap's rigid meshes). Fails when the mesh has no meshId.
 	static MStatus makeRigidSkinWeights(const MDagPath& mesh, const JointSelector& influence, const std::string& skeletonHash, SkinWeights& outWeights);
@@ -45,13 +49,13 @@ public:
 // doesn't list are removed, missing ones are added, and every weight is set. A mesh without one gets a new one.
 // New influences bind at their joint's rest (RigTraversal::getJointRestWorld), so loading on a posed rig binds the
 // build pose.
-// The file's skeletonHash is checked against the rig the influences belong to (D54): a mismatch fails the load, unless
-// ignoreSkeletonHash is set, which makes it a warning. A file with no hash, or joints in no rig, can't be checked: the
-// first warns and the second says nothing.
+// The file's skeletonHash is compared with the rig the influences belong to (D54): a difference is a warning (D70, a
+// status, since the load only needs the topology and the influences to match). A file with no hash warns, and joints
+// in no rig say nothing.
 class SkinWeightLoad
 {
 public:
-	MStatus prepare(const MDagPath& mesh, const SkinWeights& weights, bool ignoreSkeletonHash = false);
+	MStatus prepare(const MDagPath& mesh, const SkinWeights& weights);
 	MStatus apply();
 	MStatus undo();
 	MString skinClusterName() const;

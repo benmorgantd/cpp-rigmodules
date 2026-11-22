@@ -819,11 +819,10 @@ cmds.loadRigSkinWeights("hero_body:body_geo", file="C:/assets/hero/weights/body_
 | Flag | Type | Meaning |
 |---|---|---|
 | `file` | string | The file to read. Required. |
-| `ignoreSkeletonHash` | bool | Load a file made for another skeleton, with a warning, instead of failing. Default false |
 
 Object: one mesh, by transform or shape name. Returns the skinCluster's name.
 
-- The whole file is validated first, including that every vertex's weights sum to 1, then checked against the mesh: its `meshId`, vertex and face counts and topology hash, and one marked joint in the mesh's namespace per influence. Any error is reported and nothing changes. The file's `skeletonHash` is compared with the rig the influences belong to (D54): a different one fails the load, a file with none loads with a warning, and joints in no rig are not checked.
+- The whole file is validated first, including that every vertex's weights sum to 1, then checked against the mesh: its `meshId`, vertex and face counts and topology hash, and one marked joint in the mesh's namespace per influence. Any error is reported and nothing changes. The file's `skeletonHash` is compared with the rig the influences belong to (D54, D70): a different one, or none, loads with a warning, because the hash is a status and the topology and the influences are what the load needs. Joints in no rig are not checked. This command is exact: a joint the file names that is not marked is an error, where `setRigLook` folds it up to the next skin joint.
 - Updates the mesh's skinCluster in place, or creates one. Sets exactly the file's weights. New influences bind at their joint's rest.
 - Undoable, as one step.
 
@@ -836,7 +835,7 @@ cmds.setRigLook("hero_body:rigRootModule1",
                 mesh=["hero_body:body_geo"],
                 file=["C:/assets/hero/looks/red/weights/body_geo.json"],
                 asset="shooter\\characters\\hero", look="red")
-# Returns 'hero_body:lookRoot'
+# Returns the look report, JSON text (below)
 ```
 
 | Flag | Type | Meaning |
@@ -847,13 +846,31 @@ cmds.setRigLook("hero_body:rigRootModule1",
 | `asset` | string | The look's asset id. Required |
 | `look` | string | The look's name, a lowercase name ([templates.md](templates.md)). Required |
 | `publishVersion` | string | The publish the look came from. Default `""` |
-| `skeleton` | string | The look's `skeleton.json`. When its hash is not the rig's the command fails before reading any weights |
-| `rigSkeleton` | string | The rig's `skeleton.json`. With `skeleton`, the error names every joint that differs |
-| `ignoreSkeletonHash` | bool | A weight file with another skeleton's hash loads with a warning. A file that still can't load (a joint it names is not marked, the topology changed) binds its mesh to the topmost skin joint instead, with a warning, like a `rigidMesh`. Default false |
+| `skeleton` | string | The look's `skeleton.json`. When its hash is not the rig's the command warns, and the report's `skeletonStale` is true |
+| `rigSkeleton` | string | The rig's `skeleton.json`. With `skeleton`, the warning names every joint that differs |
 
-Object: one rig root. Returns the `lookRoot`'s name.
+Object: one rig root. A weight file that no longer fits does not fail the command (D70, [looks.md](looks.md#when-things-changed)). The hash only marks it stale, a joint the rig no longer has folds into the next skin joint up, and a mesh that can't load is bound to the topmost skin joint. Returns the report as JSON text:
 
-- Every file is read and checked against its mesh and the rig before anything changes, so any error leaves the scene as it was. That includes a mesh outside the rig's namespace, a mesh whose `meshId` no file has, a file whose `skeletonHash` is not the rig's, and a `look` or `asset` that isn't a valid name.
+```python
+import json
+report = json.loads(cmds.setRigLook(...))
+# {"lookRoot": "hero_body:lookRoot", "skeletonStale": false,
+#  "meshes": [{"meshId": "...", "meshName": "body_geo", "result": "folded",
+#              "reasons": ["[Left, wristTwist] is not a joint of the rig, so its weight went to [Left, wrist]"],
+#              "staleSkeleton": true}]}
+```
+
+| Key | Meaning |
+|---|---|
+| `lookRoot` | The `lookRoot`'s name |
+| `skeletonStale` | `skeleton` was given and its hash is not the rig's |
+| `meshes` | One entry per mesh: the meshes with a file, then the `rigidMesh` ones |
+| `meshId`, `meshName` | The file's, or the mesh's own for a rigid mesh |
+| `result` | `loaded` (the file's weights as saved), `folded` (a joint the rig no longer has gave its weight to the next skin joint up the skeleton the file stored), or `rigid` (bound whole to the topmost skin joint) |
+| `reasons` | Why the result is not `loaded`, one line each. Empty for `loaded` |
+| `staleSkeleton` | The file's `skeletonHash` is not the rig's. The weights load anyway. Saving them again clears it |
+
+- Every file is read and validated, and every mesh checked against the rig, before anything changes, so an error leaves the scene as it was. That includes a file that fails validation, a mesh outside the rig's namespace, a mesh whose `meshId` no file has, a rig whose joints can't be read, and a `look` or `asset` that isn't a valid name. A file that is valid but no longer fits its mesh or the rig is not an error: it gets a `result` in the report.
 - Deletes only the previous look's meshes (the `lookRoot`'s members) and their history, never any other mesh. Names each new mesh after its file's `meshName`.
 - A `rigidMesh` binds to the topmost skin joint: the first `skin` joint with no `skin` joint above it. When the rig has more than one, it warns and uses the first. A `rigidMesh` with no `meshId`, a rig with no `skin` joint, or a mesh passed as both `mesh` and `rigidMesh` fails with nothing changed.
 - The controls and the animation are not touched.

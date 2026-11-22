@@ -112,16 +112,42 @@ void SkeletonScene::readSkeleton(const MDagPathArray& joints, Skeleton& outSkele
 	outSkeleton = std::move(skeleton);
 }
 
-MStatus SkeletonScene::findTopSkinJoint(const MString& absoluteNamespace, JointSelector& outJoint)
+void SkeletonScene::readNamespaceSkeleton(const MString& absoluteNamespace, Skeleton& outSkeleton, ValidationReport& report)
 {
 	MarkedJointSet joints;
-	ValidationReport report;
 	JointMarkupScene::collectNamespaceJoints(absoluteNamespace, joints, report);
-	Skeleton skeleton;
 	if (!report.hasErrors())
 	{
-		readSkeleton(joints.dagPaths, skeleton, report);
+		readSkeleton(joints.dagPaths, outSkeleton, report);
 	}
+	if (report.hasErrors())
+	{
+		return;
+	}
+	// A skeleton has one root joint (D70, author 2026-11-22): the structure a weight file stores, and the fold up it,
+	// need a hierarchy. The root need not be a skin joint.
+	std::string roots;
+	std::size_t rootCount = 0;
+	for (const SkeletonJoint& joint : outSkeleton.joints)
+	{
+		if (!joint.hasParent)
+		{
+			roots += (roots.empty() ? "" : ", ") + formatJointSelector({ joint.markup.side, joint.markup.usage });
+			++rootCount;
+		}
+	}
+	if (rootCount > 1)
+	{
+		report.addError(std::string("namespace ") + absoluteNamespace.asChar(),
+			"the joints have " + std::to_string(rootCount) + " roots (" + roots + "), and a skeleton has one root joint, which need not be a skin joint");
+	}
+}
+
+MStatus SkeletonScene::findTopSkinJoint(const MString& absoluteNamespace, JointSelector& outJoint)
+{
+	ValidationReport report;
+	Skeleton skeleton;
+	readNamespaceSkeleton(absoluteNamespace, skeleton, report);
 	if (report.hasErrors())
 	{
 		ReportUtils::displayReport(report);
@@ -130,6 +156,14 @@ MStatus SkeletonScene::findTopSkinJoint(const MString& absoluteNamespace, JointS
 	}
 
 	const std::vector<std::size_t> tops = findTopSkinJoints(skeleton);
+	for (const SkeletonJoint& joint : skeleton.joints)
+	{
+		if (!joint.hasParent && !joint.markup.isSkinned && !tops.empty())
+		{
+			MGlobal::displayWarning(MString("The root joint ") + formatJointSelector({ joint.markup.side, joint.markup.usage }).c_str()
+				+ " is not a skin joint, so meshes with no weights are bound to the first skin joint below it.");
+		}
+	}
 	if (tops.empty())
 	{
 		MGlobal::displayError(MString("No joint in namespace ") + absoluteNamespace + " is marked skin, so there is no joint to bind to.");

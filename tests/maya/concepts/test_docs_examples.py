@@ -233,7 +233,7 @@ class LooksDocExample(RigTestCase):
     and its weight file made from the rig, and the call as documented."""
 
     def test_set_rig_look_example(self):
-        self.build_standard("fkchain_three", "fk_three", namespace=DOC_NAMESPACE)
+        self.build_standard("fkchain_three", "fk_three_parented", namespace=DOC_NAMESPACE)
         rig_root = cmds.ls(type="rigRootModule")[0]
         self.assertEqual(rig_root, "hero_body:rigRootModule1")
         body = cmds.polyCube(name=":hero_body:body_geo", height=2, constructionHistory=False)[0]
@@ -251,7 +251,9 @@ class LooksDocExample(RigTestCase):
                                  mesh=["hero_body:body_geo"],
                                  file=[path],
                                  asset="shooter\\characters\\hero", look="red")
-        self.assertEqual(result, "hero_body:lookRoot")
+        report = json.loads(result)
+        self.assertEqual(report["lookRoot"], "hero_body:lookRoot")
+        self.assertEqual([(m["meshName"], m["result"], m["reasons"]) for m in report["meshes"]], [("body_geo", "loaded", [])])
         info = json.loads(cmds.getRigInfo(rig_root))
         self.assertEqual(info["look"], {"assetId": "shooter\\characters\\hero", "name": "red", "publishVersion": ""})
 

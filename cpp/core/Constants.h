@@ -157,6 +157,29 @@ namespace SkinWeightFileKey
 	inline constexpr const char* Influences{ "influences" };
 	inline constexpr const char* Weights{ "weights" };
 	inline constexpr const char* BlendWeights{ "blendWeights" };   // only for WeightBlended
+	inline constexpr const char* Skeleton{ "skeleton" };           // version 3 (D70): every marked joint and its parent
+}
+
+// Keys of the look report setRigLook returns, see LookReport.h (D70). Public API: mayadev reads them.
+namespace LookReportKey
+{
+	inline constexpr const char* LookRoot{ "lookRoot" };
+	inline constexpr const char* SkeletonStale{ "skeletonStale" };
+	inline constexpr const char* Meshes{ "meshes" };
+	inline constexpr const char* MeshId{ "meshId" };
+	inline constexpr const char* MeshName{ "meshName" };
+	inline constexpr const char* Result{ "result" };
+	inline constexpr const char* Reasons{ "reasons" };
+	inline constexpr const char* StaleSkeleton{ "staleSkeleton" };
+}
+
+// A mesh's result in the look report: how far down the fallback ladder it went (D70).
+namespace LookResult
+{
+	inline constexpr const char* Loaded{ "loaded" };           // the file's weights as saved
+	inline constexpr const char* Folded{ "folded" };           // some influences moved up to the next skin joint
+	inline constexpr const char* Transferred{ "transferred" }; // the weights of another surface, by closest vertices
+	inline constexpr const char* Rigid{ "rigid" };             // bound whole to the topmost skin joint
 }
 
 // skinCluster.skinningMethod, in Maya's enum order. Weight files store the names.

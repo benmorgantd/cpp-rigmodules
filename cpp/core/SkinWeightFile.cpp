@@ -21,6 +21,15 @@ namespace
 		}
 	}
 
+	// Version 3 added the skeleton's structure (D70). An older file has none, so a joint it names that is gone can't fold.
+	void addSkeleton(nlohmann::json& data)
+	{
+		if (data.is_object() && !data.contains(SkinWeightFileKey::Skeleton))
+		{
+			data[SkinWeightFileKey::Skeleton] = nlohmann::json::array();
+		}
+	}
+
 	bool isCount(const nlohmann::json& value)
 	{
 		return value.is_number_unsigned() || (value.is_number_integer() && value.get<long long>() >= 0);
@@ -168,8 +177,8 @@ std::string describeUnnormalizedVertices(const SkinWeights& weights, const std::
 // than a json value per number. Keys and strings go through json::dump, so escaping matches the parser.
 const UpdateTable& skinWeightUpdateTable()
 {
-	// Add a step here, and nowhere else, when the weight file changes shape or meaning. Step 0 takes version 1 to 2.
-	static const UpdateTable table{ 1, { &addSkeletonHash } };
+	// Add a step here, and nowhere else, when the weight file changes shape or meaning. Step 0 takes version 1 to 2, step 1 takes 2 to 3.
+	static const UpdateTable table{ 1, { &addSkeletonHash, &addSkeleton } };
 	return table;
 }
 
@@ -206,6 +215,15 @@ std::string serializeSkinWeights(const SkinWeights& weights)
 		out += std::string(i == 0 ? "" : ",") + "\n        " + nlohmann::json(weights.influences[i]).dump(-1, ' ', false);
 	}
 	out += std::string(weights.influences.empty() ? "" : "\n    ") + "],\n";
+
+	out += key(SkinWeightFileKey::Skeleton) + "[";
+	for (std::size_t i = 0; i < weights.skeleton.size(); ++i)
+	{
+		const SkeletonLink& link = weights.skeleton[i];
+		out += std::string(i == 0 ? "" : ",") + "\n        [" + nlohmann::json(link.joint).dump(-1, ' ', false) + ", "
+			+ (link.hasParent ? nlohmann::json(link.parent).dump(-1, ' ', false) : std::string("null")) + "]";
+	}
+	out += std::string(weights.skeleton.empty() ? "" : "\n    ") + "],\n";
 
 	// Room for about four pairs per vertex, so a dense mesh's text grows without repeated reallocation.
 	out.reserve(out.size() + weights.weights.size() * 96 + weights.blendWeights.size() * 32);
@@ -292,6 +310,7 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 			SkinWeightFileKey::SkeletonHash,
 			SkinWeightFileKey::SkinMethod,
 			SkinWeightFileKey::Influences,
+			SkinWeightFileKey::Skeleton,
 			SkinWeightFileKey::Weights
 		},
 		{ SkinWeightFileKey::BlendWeights }, where, report);
@@ -327,7 +346,7 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 	{
 		report.addError(path(SkinWeightFileKey::TopologyHash), "must be 16 lowercase hex digits");
 	}
-	// Recorded, not checked: the check against the rig comes with the look swap (D54 phase 5).
+	// Recorded, and a status only (D70): a load whose hash isn't the rig's still loads.
 	const nlohmann::json& skeletonHash = file.at(SkinWeightFileKey::SkeletonHash);
 	std::uint64_t parsedSkeletonHash = 0;
 	if (!skeletonHash.is_string()
@@ -377,6 +396,50 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 				report.addError(entryPath, formatJointSelector(selector) + " is listed twice");
 			}
 			parsedInfluences.push_back(selector);
+		}
+	}
+
+	const nlohmann::json& skeleton = file.at(SkinWeightFileKey::Skeleton);
+	const std::string skeletonPath = path(SkinWeightFileKey::Skeleton);
+	std::vector<SkeletonLink> parsedSkeleton;
+	if (!skeleton.is_array())
+	{
+		report.addError(skeletonPath, "must be a list of [[side, usage], [side, usage] or null]");
+	}
+	else
+	{
+		std::set<std::pair<std::string, std::string>> seenJoints;
+		const auto readSelector = [](const nlohmann::json& entry, JointSelector& out)
+		{
+			if (!entry.is_array() || entry.size() != 2 || !entry[0].is_string() || !entry[1].is_string())
+			{
+				return false;
+			}
+			out = { entry[0].get<std::string>(), entry[1].get<std::string>() };
+			return isValidSideName(out.side) && !out.usage.empty();
+		};
+		for (std::size_t i = 0; i < skeleton.size(); ++i)
+		{
+			const std::string entryPath = skeletonPath + "[" + std::to_string(i) + "]";
+			const nlohmann::json& entry = skeleton[i];
+			SkeletonLink link;
+			if (!entry.is_array() || entry.size() != 2 || !readSelector(entry[0], link.joint))
+			{
+				report.addError(entryPath, "must be [[side, usage], parent], got " + entry.dump());
+				continue;
+			}
+			link.hasParent = !entry[1].is_null();
+			if (link.hasParent && !readSelector(entry[1], link.parent))
+			{
+				report.addError(entryPath, "the parent must be [side, usage] or null, got " + entry[1].dump());
+				continue;
+			}
+			if (!seenJoints.insert({ link.joint.side, link.joint.usage }).second)
+			{
+				report.addError(entryPath, formatJointSelector(link.joint) + " is listed twice");
+				continue;
+			}
+			parsedSkeleton.push_back(link);
 		}
 	}
 
@@ -447,6 +510,7 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 	outWeights.skeletonHash = skeletonHash.get<std::string>();
 	outWeights.skinMethod = skinMethod.get<std::string>();
 	outWeights.influences = std::move(parsedInfluences);
+	outWeights.skeleton = std::move(parsedSkeleton);
 	outWeights.weights = std::move(parsedWeights);
 	outWeights.blendWeights = std::move(parsedBlend);
 

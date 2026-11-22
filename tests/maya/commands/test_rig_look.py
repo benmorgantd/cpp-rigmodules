@@ -1,4 +1,4 @@
-"""setRigLook, the lookRoot node and the skeletonHash check of loadRigSkinWeights (D54, rigs-and-looks.md 4.1).
+"""setRigLook, the lookRoot node, its report and the fallback ladder (D54, D70, rigs-and-looks.md 4.1).
 
 The rig is fkchain_three built into 'rig'. A look is a mesh in the rig's namespace plus a weight file saved from a skinned
 copy of it, so the files carry the rig's real skeletonHash. Look A is a box (meshId look-box), look B a ball (look-ball).
@@ -46,7 +46,7 @@ class LookTestCase(RigTestCase):
 
     def setUp(self):
         super().setUp()
-        self.build_standard("fkchain_three", "fk_three")
+        self.build_standard("fkchain_three", "fk_three_parented")
         self.rig_root = cmds.ls(type="rigRootModule")[0]
         self.box_file = self.make_weight_file(new_box, "look_box.json")
         self.ball_file = self.make_weight_file(new_ball, "look_ball.json")
@@ -61,7 +61,8 @@ class LookTestCase(RigTestCase):
         return path
 
     def set_look(self, meshes, files, look="boxy", **kwargs):
-        return cmds.setRigLook(self.rig_root, mesh=meshes, file=files, asset=config.ASSET_ID, look=look, **kwargs)
+        """setRigLook's report, parsed (D70). Its lookRoot is the look root's name."""
+        return json.loads(cmds.setRigLook(self.rig_root, mesh=meshes, file=files, asset=config.ASSET_ID, look=look, **kwargs))
 
     def apply_box(self, look="boxy", **kwargs):
         box = new_box()
@@ -81,6 +82,14 @@ class LookTestCase(RigTestCase):
         self.assertEqual(self.look_root(), [])
         self.assertIsNone(self.look_info())
 
+    def edit_file(self, change, name):
+        """The box weight file after change(data), written under a new name."""
+        data = read_json(self.box_file)
+        change(data)
+        path = os.path.join(config.WORK_DIR, name).replace("\\", "/")
+        write_json(path, data)
+        return path
+
     def hash_file(self, source, skeleton_hash, name):
         data = read_json(source)
         data["skeletonHash"] = skeleton_hash
@@ -97,7 +106,7 @@ class ApplyLook(LookTestCase):
 
     def test_first_look_creates_the_look_root(self):
         box = new_box()
-        result = self.set_look([box], [self.box_file], publishVersion="20261117T100000Z_bmorgan")
+        result = self.set_look([box], [self.box_file], publishVersion="20261117T100000Z_bmorgan")["lookRoot"]
         self.assertEqual(result, "%s:lookRoot" % RIG)
         self.assertEqual(self.look_root(), [result])
         self.assertEqual(cmds.listConnections(self.rig_root + ".look", source=False, destination=True), [result])
@@ -220,77 +229,174 @@ class SkeletonCheck(LookTestCase):
         self.set_look([box], [self.box_file], skeleton=path, rigSkeleton=path)
         self.assertEqual(self.members(), [box])
 
-    def test_another_skeleton_names_the_differing_joints(self):
+    def test_another_skeleton_is_stale_not_an_error(self):
+        """The skeleton hash is a status (D70): the look is applied, and the report says the look is stale."""
         rig_path = self.save_rig_skeleton("rig_skeleton.json")
         data = read_json(rig_path)
         data["joints"][1]["restLocal"][13] += 1.0   # one joint a unit higher
         look_path = os.path.join(config.WORK_DIR, "look_skeleton.json").replace("\\", "/")
         write_json(look_path, data)
         box = new_box()
-        message = self.assertMayaError(
-            lambda: self.set_look([box], [self.box_file], skeleton=look_path, rigSkeleton=rig_path),
-            "is not the rig's", "a different rest transform")
-        self.assertIn(data["joints"][1]["markup"][1], message)
-        self.assertNoLook()
-        self.assertIsNone(skin_cluster(box))
+        report = self.set_look([box], [self.box_file], skeleton=look_path, rigSkeleton=rig_path)
+        self.assertTrue(report["skeletonStale"])
+        self.assertEqual(self.members(), [box])
+        self.assertIsNotNone(skin_cluster(box))
 
-    def test_without_the_rigs_file_the_error_still_names_both_hashes(self):
-        rig_path = self.save_rig_skeleton("rig_skeleton.json")
-        data = read_json(rig_path)
-        data["joints"][1]["restLocal"][13] += 1.0
-        look_path = os.path.join(config.WORK_DIR, "look_skeleton.json").replace("\\", "/")
-        write_json(look_path, data)
-        self.assertMayaError(lambda: self.set_look([new_box()], [self.box_file], skeleton=look_path), "is not the rig's")
-        self.assertNoLook()
+    def test_the_rigs_own_skeleton_is_not_stale(self):
+        path = self.save_rig_skeleton("rig_skeleton.json")
+        report = self.set_look([new_box()], [self.box_file], skeleton=path, rigSkeleton=path)
+        self.assertFalse(report["skeletonStale"])
 
 
 class WeightHashCheck(LookTestCase):
+    """A weight file's skeletonHash is a mark, never a gate (D70)."""
 
-    def test_a_file_for_another_skeleton_fails_and_changes_nothing(self):
+    def test_a_file_for_another_skeleton_loads_and_is_marked_stale(self):
         bad = self.hash_file(self.box_file, ZERO_HASH, "look_box_bad_hash.json")
         box = new_box()
-        self.assertMayaError(lambda: self.set_look([box], [bad]), "weight file is for skeleton " + ZERO_HASH, "ignoreSkeletonHash")
-        self.assertNoLook()
-        self.assertIsNone(skin_cluster(box))
-
-    def test_ignore_skeleton_hash_loads_it_anyway(self):
-        bad = self.hash_file(self.box_file, ZERO_HASH, "look_box_bad_hash.json")
-        box = new_box()
-        self.set_look([box], [bad], ignoreSkeletonHash=True)
+        report = self.set_look([box], [bad])
         self.assertIsNotNone(skin_cluster(box))
+        mesh = report["meshes"][0]
+        self.assertEqual((mesh["result"], mesh["staleSkeleton"], mesh["reasons"]), ("loaded", True, []))
 
-    def test_ignore_skeleton_hash_binds_a_mesh_whose_file_cannot_load_rigidly(self):
-        """A joint the file names is gone (the author changed the markup): the mesh stays in the look, bound to the top joint."""
-        bad = self.hash_file(self.box_file, ZERO_HASH, "look_box_bad_hash.json")
-        data = read_json(bad)
-        data["influences"][0] = ["Center", "gone"]
-        with open(bad, "w", encoding="utf-8") as handle:
-            json.dump(data, handle)
-        box = new_box()
-        self.assertMayaError(lambda: self.set_look([box], [bad]), "weight file")
-        self.assertNoLook()
-        self.set_look([box], [bad], ignoreSkeletonHash=True)
-        self.assertEqual(sorted(cmds.skinCluster(skin_cluster(box), query=True, influence=True)), [rig_name("a_00_M_JNT").lstrip(":")])
-        self.assertEqual(self.members(), [box])
+    def test_a_file_with_the_rigs_hash_is_not_stale(self):
+        mesh = self.set_look([new_box()], [self.box_file])["meshes"][0]
+        self.assertEqual((mesh["result"], mesh["staleSkeleton"]), ("loaded", False))
 
-    def test_a_file_with_no_hash_loads_with_a_warning(self):
+    def test_a_file_with_no_hash_loads_and_is_not_stale(self):
         old = self.hash_file(self.box_file, "", "look_box_no_hash.json")
         box = new_box()
-        self.set_look([box], [old])
+        mesh = self.set_look([box], [old])["meshes"][0]
         self.assertIsNotNone(skin_cluster(box))
+        self.assertEqual((mesh["result"], mesh["staleSkeleton"]), ("loaded", False))
 
-    def test_load_rig_skin_weights_checks_the_hash_too(self):
+    def test_load_rig_skin_weights_loads_a_stale_file_too(self):
         bad = self.hash_file(self.box_file, ZERO_HASH, "look_box_bad_hash.json")
         box = new_box()
-        self.assertMayaError(lambda: cmds.loadRigSkinWeights(box, file=bad), "weight file is for skeleton " + ZERO_HASH)
-        self.assertIsNone(skin_cluster(box))
-        cmds.loadRigSkinWeights(box, file=bad, ignoreSkeletonHash=True)
+        cmds.loadRigSkinWeights(box, file=bad)
         self.assertIsNotNone(skin_cluster(box))
 
-    def test_load_rig_skin_weights_accepts_a_matching_hash(self):
+    def test_load_rig_skin_weights_is_exact_about_a_joint_that_is_gone(self):
+        bad = self.edit_file(lambda data: data["influences"].__setitem__(0, ["Center", "gone"]), "look_box_gone.json")
         box = new_box()
-        cmds.loadRigSkinWeights(box, file=self.box_file)
-        self.assertIsNotNone(skin_cluster(box))
+        self.assertMayaError(lambda: cmds.loadRigSkinWeights(box, file=bad), "No joint in namespace")
+        self.assertIsNone(skin_cluster(box))
+
+
+class FallbackLadder(LookTestCase):
+    """Each rung of D70: loaded, folded, rigid. The file's skeleton is written by hand, so the parents are the test's."""
+
+    def with_gone_joint(self, parent, extra_links=()):
+        """The box file with its first influence renamed to a joint the rig doesn't have, whose parent is `parent`."""
+        def change(data):
+            data["influences"][0] = ["Center", "gone"]
+            data["skeleton"] += [[["Center", "gone"], parent]] + [list(link) for link in extra_links]
+        return self.edit_file(change, "look_box_gone.json")
+
+    def influences(self, mesh):
+        return sorted(cmds.skinCluster(skin_cluster(mesh), query=True, influence=True))
+
+    def vertex_weights(self, mesh):
+        cluster = skin_cluster(mesh)
+        joints = (rig_name("a_00_M_JNT").lstrip(":"), rig_name("b_00_M_JNT").lstrip(":"))
+        return [[round(cmds.skinPercent(cluster, "%s.vtx[%d]" % (mesh, v), transform=j, query=True), 6) for j in joints]
+                for v in range(8)]
+
+    def test_the_saved_file_carries_the_skeleton_structure(self):
+        data = read_json(self.box_file)
+        self.assertEqual(data["formatVersion"], 3)
+        self.assertEqual(data["skeleton"], [[["Center", "a"], None], [["Center", "b"], ["Center", "a"]], [["Center", "c"], ["Center", "b"]]])
+
+    def test_a_joint_that_is_gone_folds_into_its_parent(self):
+        reference = new_box()
+        self.set_look([reference], [self.box_file])
+        expected = self.vertex_weights(reference)
+        cmds.delete(reference)
+
+        box = new_box()
+        mesh = self.set_look([box], [self.with_gone_joint(["Center", "a"])], look="folded")["meshes"][0]
+        self.assertEqual(mesh["result"], "folded")
+        self.assertEqual(len(mesh["reasons"]), 1)
+        self.assertIn("[Center, gone]", mesh["reasons"][0])
+        self.assertIn("[Center, a]", mesh["reasons"][0])
+        self.assertEqual(self.influences(box), sorted([rig_name("a_00_M_JNT").lstrip(":"), rig_name("b_00_M_JNT").lstrip(":")]))
+        self.assertEqual(self.vertex_weights(box), expected)
+
+    def test_a_chain_of_gone_joints_collapses_up_to_the_first_one_the_rig_has(self):
+        path = self.with_gone_joint(["Center", "gone2"], extra_links=[(["Center", "gone2"], ["Center", "a"])])
+        mesh = self.set_look([new_box()], [path])["meshes"][0]
+        self.assertEqual(mesh["result"], "folded")
+        self.assertIn("[Center, a]", mesh["reasons"][0])
+
+    def test_a_parent_that_is_not_a_skin_joint_is_passed_through(self):
+        """gone sits under b, b is in the rig but isn't a skin joint, so the weight goes on up to a (D70)."""
+        def change(data):
+            data["influences"] = [["Center", "gone"]]
+            data["weights"] = [[0, 1.0] for _ in data["weights"]]
+            data["skeleton"] += [[["Center", "gone"], ["Center", "b"]]]
+        path = self.edit_file(change, "look_box_gone_under_b.json")
+        cmds.rigJointMarkup(rig_name("b_00_M_JNT"), edit=True, skin=False)
+        box = new_box()
+        mesh = self.set_look([box], [path])["meshes"][0]
+        self.assertEqual(mesh["result"], "folded")
+        self.assertIn("went to [Center, a]", mesh["reasons"][0])
+        self.assertEqual(self.influences(box), [rig_name("a_00_M_JNT").lstrip(":")])
+
+    def test_a_gone_joint_with_no_skin_joint_above_it_goes_rigid(self):
+        box = new_box()
+        mesh = self.set_look([box], [self.with_gone_joint(None)])["meshes"][0]
+        self.assertEqual(mesh["result"], "rigid")
+        self.assertIn("no skin joint is above it", mesh["reasons"][0])
+        self.assertEqual(self.influences(box), [rig_name("a_00_M_JNT").lstrip(":")])
+        self.assertEqual(self.members(), [box])
+
+    def test_a_file_with_no_skeleton_cannot_fold_and_goes_rigid(self):
+        def change(data):
+            data["formatVersion"] = 2
+            data.pop("skeleton")
+            data["influences"][0] = ["Center", "gone"]
+        path = self.edit_file(change, "look_box_v2_gone.json")
+        box = new_box()
+        mesh = self.set_look([box], [path])["meshes"][0]
+        self.assertEqual(mesh["result"], "rigid")
+        self.assertIn("records no skeleton", mesh["reasons"][0])
+        self.assertEqual(self.influences(box), [rig_name("a_00_M_JNT").lstrip(":")])
+
+    def test_a_version_2_file_that_still_fits_loads_as_saved(self):
+        def change(data):
+            data["formatVersion"] = 2
+            data.pop("skeleton")
+        mesh = self.set_look([new_box()], [self.edit_file(change, "look_box_v2.json")])["meshes"][0]
+        self.assertEqual(mesh["result"], "loaded")
+
+    def test_a_changed_topology_goes_rigid_and_stays_in_the_look(self):
+        box = cmds.polyCube(name=":%s:box_geo" % RIG, subdivisionsX=2, constructionHistory=False)[0]
+        set_mesh_id(box, BOX_ID)
+        mesh = self.set_look([box], [self.box_file])["meshes"][0]
+        self.assertEqual((mesh["meshId"], mesh["result"]), (BOX_ID, "rigid"))
+        self.assertIn("topology", mesh["reasons"][0])
+        self.assertEqual(self.influences(box), [rig_name("a_00_M_JNT").lstrip(":")])
+        self.assertEqual(self.members(), [box])
+
+    def test_a_rigid_mesh_is_reported_with_its_reason(self):
+        ball = new_ball()
+        report = json.loads(cmds.setRigLook(self.rig_root, rigidMesh=[ball], asset=config.ASSET_ID, look="boxy"))
+        self.assertEqual(report["meshes"], [{"meshId": BALL_ID, "meshName": "ball_geo", "result": "rigid",
+                                             "reasons": ["the mesh has no weight file yet"], "staleSkeleton": False}])
+
+    def test_the_report_lists_file_meshes_then_rigid_ones(self):
+        box, ball = new_box(), new_ball()
+        report = json.loads(cmds.setRigLook(self.rig_root, mesh=[box], file=[self.box_file], rigidMesh=[ball],
+                                            asset=config.ASSET_ID, look="boxy"))
+        self.assertEqual(report["lookRoot"], "%s:lookRoot" % RIG)
+        self.assertEqual([(m["meshId"], m["result"]) for m in report["meshes"]], [(BOX_ID, "loaded"), (BALL_ID, "rigid")])
+
+    def test_a_fallback_look_undoes_like_any_other(self):
+        box = new_box()
+        self.set_look([box], [self.with_gone_joint(["Center", "a"])])
+        cmds.undo()
+        self.assertNoLook()
+        self.assertIsNone(skin_cluster(box))
 
 
 class SetRigLookErrors(LookTestCase):
@@ -336,8 +442,7 @@ class SetRigLookErrors(LookTestCase):
     def test_a_failed_swap_keeps_the_previous_look(self):
         box = self.apply_box()
         ball = new_ball()
-        bad = self.hash_file(self.ball_file, ZERO_HASH, "look_ball_bad_hash.json")
-        self.assertMayaError(lambda: self.set_look([ball], [bad], look="ball"), "weight file is for skeleton")
+        self.assertMayaError(lambda: self.set_look([ball], [self.box_file], look="ball"), "no weight file of its own")
         self.assertExists(box)
         self.assertIsNotNone(skin_cluster(box))
         self.assertEqual(self.look_info()["name"], "boxy")

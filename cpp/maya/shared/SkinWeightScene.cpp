@@ -1,10 +1,12 @@
 #include "maya/shared/SkinWeightScene.h"
 #include "core/Constants.h"
 #include "core/Hash64.h"
+#include "core/SkinWeightFold.h"
 #include "core/SkinWeightSmooth.h"
 #include "core/SkinWeightTable.h"
 #include "maya/shared/JointMarkupScene.h"
 #include "maya/shared/RigTraversal.h"
+#include "maya/shared/SkeletonScene.h"
 #include "maya/shared/Utilities.h"
 
 #include <algorithm>
@@ -262,6 +264,19 @@ MStatus SkinWeightScene::readSkinWeights(const MDagPath& mesh, SkinWeights& outW
 		outWeights.skeletonHash = MFnDependencyNode(oRigRoot).findPlug(RigAttr::SkeletonHash, false).asString().asChar();
 	}
 
+	// The skeleton's structure, so a joint that is gone later can fold into its parent (D70). A save never fails over it.
+	Skeleton skeleton;
+	ValidationReport skeletonReport;
+	SkeletonScene::readNamespaceSkeleton(meshNamespace, skeleton, skeletonReport);
+	outWeights.skeleton.clear();
+	if (skeletonReport.hasErrors())
+	{
+		ReportUtils::displayReport(skeletonReport);
+		MGlobal::displayError(meshName + "'s weights were not saved: the joints of namespace " + meshNamespace + " are not one skeleton.");
+		return MStatus::kFailure;
+	}
+	outWeights.skeleton = skeletonLinks(skeleton);
+
 	status = readTopology(shape, outWeights.vertexCount, outWeights.faceCount, outWeights.topologyHash);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	outWeights.meshName = MNamespace::stripNamespaceFromName(MFnDependencyNode(mesh.node()).name()).asChar();
@@ -345,7 +360,17 @@ MStatus SkinWeightScene::makeRigidSkinWeights(const MDagPath& mesh, const JointS
 	return MStatus::kSuccess;
 }
 
-MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights, bool ignoreSkeletonHash)
+bool SkinWeightScene::topologyMatches(const MDagPath& mesh, const SkinWeights& weights)
+{
+	MDagPath shape;
+	unsigned int vertexCount = 0;
+	unsigned int faceCount = 0;
+	std::uint64_t hash = 0;
+	return MeshUtils::getMeshShape(mesh, shape) && readTopology(shape, vertexCount, faceCount, hash)
+		&& vertexCount == weights.vertexCount && faceCount == weights.faceCount && hash == weights.topologyHash;
+}
+
+MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights)
 {
 	MStatus status;
 	fMesh = mesh;
@@ -419,7 +444,8 @@ MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights
 		return fail();
 	}
 
-	// A file made for another skeleton would deform wrongly, so it is reported before anything changes (D54).
+	// A file made for another skeleton is stale, not wrong (D70): its influences resolved, so it loads, and saving the
+	// weights again clears the warning.
 	MObjectArray oInfluences;
 	for (unsigned int i = 0; i < fInfluences.length(); ++i)
 	{
@@ -441,14 +467,8 @@ MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights
 		}
 		else if (weights.skeletonHash != rigHash)
 		{
-			const MString text = MString("The weight file is for skeleton ") + weights.skeletonHash.c_str() + ", and " + fnRigRoot.name() + " has "
-				+ rigHash.c_str() + ".";
-			if (!ignoreSkeletonHash)
-			{
-				MGlobal::displayError(text + " Pass ignoreSkeletonHash=True to load it anyway.");
-				return fail();
-			}
-			MGlobal::displayWarning(text + " Loading it anyway.");
+			MGlobal::displayWarning(MString("The weight file is for skeleton ") + weights.skeletonHash.c_str() + ", and " + fnRigRoot.name()
+				+ " has " + rigHash.c_str() + ". Loading it anyway: save the weights again to clear this.");
 		}
 	}
 

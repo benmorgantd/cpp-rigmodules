@@ -1,4 +1,5 @@
 #include "maya/commands/RigLookCmd.h"
+#include "core/LookReport.h"
 #include "core/RigTemplateValidation.h"
 #include "core/SkinWeightFile.h"
 #include "maya/shared/Utilities.h"
@@ -22,7 +23,6 @@ namespace
 	constexpr const char* kPublishVersionFlag{ "-publishVersion" };
 	constexpr const char* kSkeletonFlag{ "-skeleton" };
 	constexpr const char* kRigSkeletonFlag{ "-rigSkeleton" };
-	constexpr const char* kIgnoreSkeletonHashFlag{ "-ignoreSkeletonHash" };
 
 	// The string argument of an optional flag, empty when it isn't set.
 	MStatus readOptionalString(const MArgDatabase& argData, const char* flag, std::string& outValue)
@@ -66,7 +66,6 @@ MSyntax SetRigLookCmd::newSyntax()
 	CHECK_MSTATUS(syntax.addFlag("-pv", kPublishVersionFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-sk", kSkeletonFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-rs", kRigSkeletonFlag, MSyntax::kString));
-	CHECK_MSTATUS(syntax.addFlag("-ish", kIgnoreSkeletonHashFlag, MSyntax::kBoolean));
 	syntax.setObjectType(MSyntax::kStringObjects, 1, 1);
 	syntax.useSelectionAsDefault(false);
 	return syntax;
@@ -101,10 +100,6 @@ MStatus SetRigLookCmd::doIt(const MArgList& args)
 	{
 		MGlobal::displayError(MString(aCommandString) + " needs -asset and -look.");
 		return MStatus::kFailure;
-	}
-	if (argData.isFlagSet(kIgnoreSkeletonHashFlag))
-	{
-		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kIgnoreSkeletonHashFlag, 0, inputs.ignoreSkeletonHash));
 	}
 
 	for (const std::string& meshName : meshNames)
@@ -171,7 +166,7 @@ MStatus SetRigLookCmd::doIt(const MArgList& args)
 				return status;
 			}
 		}
-		status = LookScene::checkSkeleton(inputs.oRigRoot, lookText, rigText);
+		status = LookScene::checkSkeleton(inputs.oRigRoot, lookText, rigText, inputs.skeletonStale);
 		if (!status)
 		{
 			return status;
@@ -186,7 +181,9 @@ MStatus SetRigLookCmd::doIt(const MArgList& args)
 	status = redoIt();
 	if (status)
 	{
-		setResult(fSwap.lookRootName());
+		LookReport report = fSwap.report();
+		report.lookRoot = fSwap.lookRootName().asChar();
+		setResult(MString(serializeLookReport(report).c_str()));
 	}
 	return status;
 }

@@ -175,6 +175,8 @@
     <ClCompile Include="core\SkinWeightSmooth.cpp" />
     <ClCompile Include="core\SurfaceBrush.cpp" />
     <ClCompile Include="core\SkinWeightTable.cpp" />
+    <ClCompile Include="core\SkinWeightFold.cpp" />
+    <ClCompile Include="core\LookReport.cpp" />
     <ClCompile Include="core\NamingConvention.cpp" />
     <ClCompile Include="core\TemplateMirror.cpp" />
     <ClCompile Include="maya\CommandRegistry.cpp" />
@@ -285,6 +287,8 @@
     <ClInclude Include="core\SkinWeightSmooth.h" />
     <ClInclude Include="core\SurfaceBrush.h" />
     <ClInclude Include="core\SkinWeightTable.h" />
+    <ClInclude Include="core\SkinWeightFold.h" />
+    <ClInclude Include="core\LookReport.h" />
     <ClInclude Include="core\NamingConvention.h" />
     <ClInclude Include="core\StringUtils.h" />
     <ClInclude Include="core\TemplateMirror.h" />

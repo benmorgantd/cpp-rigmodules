@@ -4,7 +4,7 @@ A skeleton file describes a skeleton's marked joints and carries its **skeleton 
 
 The file is the only stored form of a skeleton. There is no Maya scene beside it: `saveRigSkeleton` writes the file from joints, and `loadRigSkeleton` creates the joints from the file.
 
-The rig build stamps the same hash on the rig root (`skeletonHash`, from the joints it was given), and it goes into weight files and the `meta` of poses and animations ([commands.md](commands.md#createrigfromtemplate)). Nothing checks a file against the rig's hash yet: that comes with the look swap.
+The rig build stamps the same hash on the rig root (`skeletonHash`, from the joints it was given), and it goes into weight files and the `meta` of poses and animations ([commands.md](commands.md#createrigfromtemplate)). A hash that differs is a status and never an error (D70): a weight file or a look made for another skeleton is marked stale, and [`setRigLook`](looks.md#when-things-changed) reports it.
 
 ## What makes two skeletons the same
 

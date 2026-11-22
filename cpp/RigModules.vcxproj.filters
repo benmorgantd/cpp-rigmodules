@@ -114,6 +114,12 @@
     <ClCompile Include="core\SkinWeightTable.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\SkinWeightFold.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\LookReport.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\NamingConvention.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -369,6 +375,12 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\SkinWeightTable.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\SkinWeightFold.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\LookReport.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\NamingConvention.h">
