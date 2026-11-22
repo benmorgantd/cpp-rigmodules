@@ -49,7 +49,7 @@ Per mesh, in order, in `setRigLook`. Each rung records its result.
 |---|---|---|---|
 | 0 | The mesh has a `meshId` and no file | Rigid to the topmost skin joint (D68, built) | `rigid` |
 | 1 | Topology hash matches and every influence resolves | Load as saved. A different `skeletonHash` is not a failure. | `loaded` (and `staleSkeleton` when the hash differs) |
-| 2 | Topology matches, some influences no longer resolve | Fold each missing influence's weight into its nearest resolvable skin ancestor, merge, renormalize | `folded` |
+| 2 | Topology matches, some influences no longer resolve | Fold each missing influence's weight into its parent, merge, renormalize. If the parent is missing too, its weight folds into its parent in turn, so a removed chain collapses upward | `folded` |
 | 3 | Topology differs, the file holds its source surface | Barycentric transfer from the file's surface (section 5), after rung 2 on the table's columns | `transferred` |
 | 4 | Topology differs, and the file has no surface (a file saved before this change) | Rigid to the topmost skin joint, warning "save once to enable transfer" | `rigid` |
 | 5 | No influence in the file resolves, or a vertex cannot be transferred | That mesh, or that vertex, goes to the topmost skin joint | `rigid` |
@@ -69,7 +69,7 @@ For each vertex of the new mesh, find the closest point on the old surface, take
 | **A. The weight file stores its bind-pose surface** (positions as floats, face counts and connects) | Self-contained: works on any machine, in a batch job, with no stamp lookups. Needs no baseline, so a draft works. | File size grows. Needs a file version step (D33). |
 | B. Find the old model by stamp in local versions or a publish | No new data | Local versions are per machine (D29). A publish exists only after publishing. A draft on a teammate's machine has neither. Fails when the transfer is most needed. |
 
-Recommendation: A. The weights file gains `surface` (version 3). A 100k vertex mesh adds roughly 2 to 3 MB of JSON next to weights that D35 measured at 0.75 s to load. Measure before settling (open question 1). It also gives rung 2 what it needs: the file stores each influence's nearest skin ancestor (`parents`), so a missing joint can fold without the old skeleton file.
+Recommendation: A. The weights file gains `surface` (version 3). A 100k vertex mesh adds roughly 2 to 3 MB of JSON next to weights that D35 measured at 0.75 s to load. Measure before settling (open question 1). It also gives rung 2 what it needs: the file stores each influence's ancestor chain (`parents`: the markup of its parent, then that parent's parent, to the root), so a missing joint folds into its parent, and a missing chain collapses upward, without the old skeleton file. The chain is stored whole because a removed parent may not be an influence itself, so its own parent would otherwise be unknown.
 
 **Split of the work** (the `core/` rule):
 
