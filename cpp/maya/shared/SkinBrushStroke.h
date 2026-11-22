@@ -114,6 +114,10 @@ public:
 	// Only these vertices may change on a mesh (sorted, unique). Without a call, every vertex may.
 	void restrict(unsigned int mesh, std::vector<unsigned int> sortedVertices);
 
+	// Whether every bound mesh and its skinCluster are still in the scene with the topology they were bound with.
+	// Anything else here reads them, so a caller that keeps a stroke between events checks this first. True with no
+	// meshes.
+	bool isAlive() const;
 	unsigned int meshCount() const;
 	std::string meshName(unsigned int mesh) const;
 	MPoint vertexPosition(unsigned int mesh, unsigned int vertex) const;

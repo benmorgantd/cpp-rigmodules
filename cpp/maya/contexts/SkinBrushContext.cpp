@@ -407,8 +407,28 @@ void SkinBrushContext::setThroughMesh(bool throughMesh)
 	fThroughMesh = throughMesh;
 }
 
+bool SkinBrushContext::checkStroke()
+{
+	if (fStroke.isAlive())
+	{
+		return true;
+	}
+	debugLog("the brushed meshes are gone from the scene: stroke dropped");
+	stopRepeat();
+	fIsStroking = false;
+	fIsResizing = false;
+	fHasLastDab = false;
+	fStroke.begin(MDagPathArray(), fOperation);
+	fSelectionKey.clear();
+	fHits.clear();
+	fReaches.clear();
+	requestRedraw();
+	return false;
+}
+
 void SkinBrushContext::gather()
 {
+	checkStroke();   // a dead stroke clears the key, so the selection is bound again below
 	MSelectionList selection;
 	MGlobal::getActiveSelectionList(selection);
 	std::vector<MeshVertexTarget> targets;
@@ -547,6 +567,10 @@ void SkinBrushContext::stopRepeat()
 void SkinBrushContext::repeatTick(float elapsedTime, float lastTime, void* clientData)
 {
 	SkinBrushContext* context = static_cast<SkinBrushContext*>(clientData);
+	if (!context->checkStroke())
+	{
+		return;   // checkStroke removed this timer
+	}
 	++context->fTicks;
 	const int dragsSinceTick = context->fDragEvents - context->fDragEventsAtLastTick;
 	context->fDragEventsAtLastTick = context->fDragEvents;
@@ -690,6 +714,10 @@ MStatus SkinBrushContext::doPress(MEvent& event, MHWRender::MUIDrawManager& draw
 	{
 		return MStatus::kSuccess;
 	}
+	if (!checkStroke())
+	{
+		gather();
+	}
 	if (event.isModifierControl())
 	{
 		short y = 0;
@@ -710,6 +738,10 @@ MStatus SkinBrushContext::doPress(MEvent& event, MHWRender::MUIDrawManager& draw
 
 MStatus SkinBrushContext::doDrag(MEvent& event, MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
 {
+	if (!checkStroke())
+	{
+		return MStatus::kSuccess;
+	}
 	if (fIsResizing)
 	{
 		short x = 0;
@@ -753,7 +785,7 @@ MStatus SkinBrushContext::doRelease(MEvent& event, MHWRender::MUIDrawManager& dr
 {
 	fIsResizing = false;
 	debugLog(MString("release: stroking ") + (fIsStroking ? "yes" : "no") + ", ticks " + fTicks + ", drag events " + fDragEvents + ", dabs " + fDabs);
-	if (fIsStroking)
+	if (fIsStroking && checkStroke())
 	{
 		endStroke();
 	}
@@ -763,6 +795,10 @@ MStatus SkinBrushContext::doRelease(MEvent& event, MHWRender::MUIDrawManager& dr
 
 MStatus SkinBrushContext::doPtrMoved(MEvent& event, MHWRender::MUIDrawManager& drawMgr, const MHWRender::MFrameContext& context)
 {
+	if (!checkStroke())
+	{
+		return MStatus::kSuccess;
+	}
 	short x = 0;
 	short y = 0;
 	event.getPosition(x, y);

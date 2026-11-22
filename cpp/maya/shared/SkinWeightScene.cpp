@@ -1195,7 +1195,21 @@ MStatus SkinWeightRows::bind(const MDagPath& mesh)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	fInfluenceCount = influences.length();
 	fVertexCount = static_cast<unsigned int>(fnMesh.numVertices());
+	fShapeHandle = MObjectHandle(fShape.node());
+	fSkinClusterHandle = MObjectHandle(fSkinCluster);
 	return MStatus::kSuccess;
+}
+
+bool SkinWeightRows::isAlive() const
+{
+	// isValid, not isAlive: a deleted node waiting on the undo queue is alive but not in the scene.
+	if (!fShapeHandle.isValid() || !fSkinClusterHandle.isValid())
+	{
+		return false;
+	}
+	MStatus status;
+	MFnMesh fnMesh(fShape, &status);
+	return status && static_cast<unsigned int>(fnMesh.numVertices()) == fVertexCount;
 }
 
 unsigned int SkinWeightRows::influenceCount() const

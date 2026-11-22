@@ -33,7 +33,7 @@ core/                       SurfaceBrush, SkinWeightSmooth, SkinWeightRestMatch 
 | core | `core/SurfaceBrush` | `SurfaceDistance` (shortest paths over the mesh edges), `volumeReach`, `brushFalloff`, `FalloffMode`, `StrokeJournal` |
 | core | `core/SkinWeightSmooth` | `MeshAdjacency` and the neighbor-average pass. `SkinSmoothSettings::vertexScale` is the per-vertex factor a brush uses |
 | core | `core/SkinWeightRestMatch` | `matchRestWeights`: the rest-match solve (D66) |
-| shared | `maya/shared/SkinWeightScene` | `SkinWeightPass` (binds the skinCluster, locks, max influences, weight fetch, write, undo), `SkinWeightSmooth`, `SkinWeightRestMatch`, `SkinWeightRows` (whole rows for a stroke's undo) |
+| shared | `maya/shared/SkinWeightScene` | `SkinWeightPass` (binds the skinCluster, locks, max influences, weight fetch, write, undo), `SkinWeightSmooth`, `SkinWeightRestMatch`, `SkinWeightRows` (whole rows for a stroke's undo, and `isAlive`) |
 | shared | `maya/shared/SkinBrushStroke` | The engine below the mouse. It knows nothing about events, so a script can drive it |
 | contexts | `maya/contexts/SkinBrushContext` | `SkinBrushContext` (`MPxContext`), `SkinBrushCtxCmd` (`skinBrushCtx`), `SkinBrushStrokeCmd` (`skinBrushStroke`, an `MPxToolCommand`) |
 
@@ -53,6 +53,10 @@ The context holds no weight logic. It turns events into hits and hands them to `
 7. **Drag**: a dab lands every quarter of the brush radius along the pointer's path, measured on screen (at least 2 px). One drag event handles at most 24 dabs and spends at most 40 ms on them, then skips to the pointer, so a fast drag leaves a gap instead of lagging behind. After a drag or repeat dab that landed, the viewport refreshes at once.
 8. **Hold**: an `MTimerMessage` callback ticks 20 times a second on the main thread. A tick dabs again at the last pointer position unless a drag dab landed since the previous tick. Only a dab that landed counts as movement, so the jitter of a held mouse does not stop the repeat. The timer stops at release, tool change and context deletion.
 9. **Release**: `finish()` reads the final rows of every touched vertex, pairs them with the journal's rows from before the stroke, and returns a `SkinBrushEdit`. The context hands it to a new `skinBrushStroke` tool command and calls `finalize()`, which puts the stroke on the undo queue as **one step**.
+
+### When the meshes leave the scene
+
+The stroke keeps bindings to the meshes between events, and reading a deleted mesh crashes Maya. A new scene, a delete or an undo can remove a mesh or its skinCluster while the tool is active, with the pointer still in the viewport. So every event (press, drag, release, pointer move, entering the viewport) and every repeat tick first calls `checkStroke()`, which asks `SkinBrushStroke::isAlive()`: each shape and skinCluster still valid (`MObjectHandle::isValid`, so a node waiting on the undo queue counts as gone) with the vertex count it was bound with. A dead stroke is dropped: the timer stops, a stroke in progress ends without an undo step, and the next press binds the selection again.
 
 ### Undo
 
@@ -114,7 +118,7 @@ The ring and the reach are drawn in `drawFeedback` only, as Maya's own brush con
 | `tests/maya/commands/test_skin_brush_rest.py` | `restDelta` and `restEdge`: a stretched vertex's weights worked by hand, nothing moves at rest or under a rigid move, strength, edge error falling, locks, max influences, undo, the dual quaternion refusal |
 | `tests/maya/commands/test_smooth_skin_weights.py` | The smoothing pass the brush reuses |
 
-Not tested automatically: mouse events, drawing, Ctrl + drag, the repeat timer, the selection restriction, and the feel of the brushes in a GUI Maya.
+Not tested automatically: mouse events, drawing, Ctrl + drag, the repeat timer, a stroke dropped when its meshes leave the scene, the selection restriction, and the feel of the brushes in a GUI Maya.
 
 ## Adding a brush
 

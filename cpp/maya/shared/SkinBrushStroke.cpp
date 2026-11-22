@@ -277,6 +277,18 @@ void SkinBrushStroke::restrict(unsigned int mesh, std::vector<unsigned int> sort
 	}
 }
 
+bool SkinBrushStroke::isAlive() const
+{
+	for (const std::unique_ptr<MeshState>& mesh : fMeshes)
+	{
+		if (!mesh->rows.isAlive())
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 unsigned int SkinBrushStroke::meshCount() const
 {
 	return static_cast<unsigned int>(fMeshes.size());

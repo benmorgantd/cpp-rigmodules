@@ -86,6 +86,10 @@ private:
 	// The selected skinned meshes. A selection of vertices or faces limits the brush to them. Rebuilds only what the
 	// selection changed; the vertex positions are read again every time.
 	void gather();
+	// The scene can change under the tool between events (a new scene, a delete, an undo) while the stroke keeps
+	// bindings to the meshes, and reading a deleted mesh crashes Maya. Every event and the repeat timer call this
+	// before they touch the stroke: a dead stroke is dropped, with any stroke in progress, and false returned.
+	bool checkStroke();
 	bool pickAt(short x, short y);
 	// One dab at the surface under a screen position.
 	bool dabOnce(short x, short y);

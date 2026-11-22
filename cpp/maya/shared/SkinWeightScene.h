@@ -14,6 +14,7 @@
 #include <maya/MDoubleArray.h>
 #include <maya/MIntArray.h>
 #include <maya/MObject.h>
+#include <maya/MObjectHandle.h>
 #include <maya/MStatus.h>
 #include <maya/MString.h>
 
@@ -179,6 +180,10 @@ public:
 	static bool isSkinned(const MDagPath& mesh);
 
 	MStatus bind(const MDagPath& mesh);
+	// Whether the shape and skinCluster bound are still in the scene (not deleted, undone or gone with a new
+	// scene) and the shape has the vertex count it was bound with. A context that keeps a binding between events
+	// checks it first: reading a deleted node crashes Maya.
+	bool isAlive() const;
 	unsigned int influenceCount() const;
 	unsigned int vertexCount() const;
 	// sortedVertices: ascending and unique. rows: row-major, influenceCount() columns.
@@ -190,6 +195,8 @@ private:
 
 	MDagPath fShape;
 	MObject fSkinCluster;
+	MObjectHandle fShapeHandle;
+	MObjectHandle fSkinClusterHandle;
 	unsigned int fInfluenceCount = 0;
 	unsigned int fVertexCount = 0;
 };
