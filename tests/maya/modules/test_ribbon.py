@@ -600,6 +600,21 @@ class RibbonFkStyle(RigTestCase):
         for control in (FIRST, INTERIOR, LAST):
             self.assertWorldRotation(rig_name(control), [30, 0, 0], 1e-4)
 
+    def test_an_fk_roll_reaches_the_bind_joints_not_only_the_ik_controls(self):
+        """The ik controls roll with the fk chain, and the bind joints must follow them: the detail curve's twist profile runs
+        through the ik controls' rolls. The middle fk control rolls 50, so the ik controls are at 0, 50 and 50, and the joints at
+        x = 0, 2, 4, 6 and 8 are at 0, 25, 50, 50 and 50 (linear between the controls). Hand-worked."""
+        self._build()
+        set_attr(FK_CONTROLS[1], "rotateX", 50)
+        for joint, expected in zip(BIND_JOINTS, (0, 25, 50, 50, 50)):
+            self.assertWorldRotation(rig_name(joint), [expected, 0, 0], 1e-4)
+
+    def test_rolling_the_first_fk_control_rolls_every_bind_joint(self):
+        self._build()
+        set_attr(FK_CONTROLS[0], "rotateX", 30)
+        for joint in BIND_JOINTS:
+            self.assertWorldRotation(rig_name(joint), [30, 0, 0], 1e-4)
+
     def test_an_ik_control_moves_the_curve_without_moving_the_fk_chain(self):
         self._build()
         before = translation(FK_CONTROLS[2])

@@ -630,10 +630,12 @@ namespace RibbonMath
 			detail.twistIn[0] = detail.twistOut[0];
 			detail.twistOut[count - 1] = setup.chainSign * twists.end;
 			detail.twistIn[count - 1] = detail.twistOut[count - 1];
-			if (setup.fkAnchors)
+			if (setup.fkCount > 0)
 			{
-				// A Limb's anchors are real joints, so their roll about the curve is twist the skin must follow: it eases between them
-				// like the ends' ramp. fkRoll is already about the forward tangent, so chainSign is not applied again.
+				// The fk chain's roll about the curve is twist the skin must follow, a Limb's anchors and a fkStyle ribbon's fk controls
+				// alike: it eases between them like the ends' ramp. The ik controls' own frames already carry it (evaluateControlsInternal),
+				// but the detail curve starts from the rest up, so without this the bind joints stay untwisted while the ik controls turn.
+				// fkRoll is already about the forward tangent, so chainSign is not applied again.
 				for (int j = 0; j < count; ++j)
 				{
 					detail.twistOut[j] += fkRollAt(setup, base.fkRollOut, base.fkRollIn, setup.knotU[j], true);
