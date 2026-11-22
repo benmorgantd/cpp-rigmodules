@@ -47,7 +47,7 @@ The attribute holds JSON: `{"markupVersion": 1, "usage": "upperArm", "side": "Le
 
 ## renameRigNodes
 
-Renames joints, rig controls, rig modules and rig constraints into the [naming convention](naming.md), `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>`. The nodes are the ones passed, else the selection. The index counts up in that order, so the first node gets `startIndex` and each one after it one more.
+Renames joints, rig controls, rig modules, rig constraints and meshes into the [naming convention](naming.md), `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO>`. The nodes are the ones passed, else the selection. The index counts up in that order, so the first node gets `startIndex` and each one after it one more.
 
 ```python
 # Three joints in selection order (or in the order passed): upperArm_00_L_JNT, upperArm_01_L_JNT, upperArm_02_L_JNT
@@ -70,7 +70,7 @@ cmds.renameRigNodes("skel:upperArm_00_L_JNT", query=True)   # ['{"base":"upperAr
 | `startIndex` | int | The index of the first node. Default 0. |
 | `query` | bool | Return the parts of each object name instead of renaming. |
 
-- **The kind comes from the node's type:** a joint is `JNT`, a rig control `CTRL`, a rig module `MOD` and a rig constraint `CON`. Any other node is an error.
+- **The kind comes from the node's type:** a joint is `JNT`, a rig control `CTRL`, a rig module `MOD`, a rig constraint `CON` and the transform of a polygon mesh `GEO` (D69). Any other node, a mesh's shape node included, is an error.
 - **Nothing changes unless every name is free.** A target that another node holds, or that two of the nodes would share, fails the command and lists each one. Nodes can swap names among themselves, so renumbering a selection never collides with itself.
 - **Namespaces stay.** A node keeps its namespace.
 - **Selection order needs Maya to track it** (`cmds.selectPref(trackSelectionOrder=True)`, then select again). The command fails on a selection of more than one node while it is off. Passing the nodes by name never depends on it.

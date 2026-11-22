@@ -1,4 +1,4 @@
-"""The naming convention (D58): <camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>, such as upperArm_00_L_JNT.
+"""The naming convention (D58): <camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO>, such as upperArm_00_L_JNT.
 
 Both functions call renameRigNodes, so the rules live in the plugin's NamingConvention class and nowhere else.
 """
@@ -18,7 +18,7 @@ class RigName:
     base: str    # camelCase, "upperArm"
     index: int   # 0 for "_00_"
     side: str    # "Left", "Right" or "Center"
-    kind: str    # "Joint", "Control", "Module" or "Constraint"
+    kind: str    # "Joint", "Control", "Module", "Constraint" or "Mesh"
 
 
 def parse(name: str) -> RigName | None:
@@ -30,7 +30,7 @@ def parse(name: str) -> RigName | None:
 
 
 def rename_nodes(nodes: list[str] | None = None, base: str | None = None, side: str | None = None, start_index: int = 0) -> list[str]:
-    """Renames joints, rig controls, rig modules and rig constraints into the convention and returns the new names, in order.
+    """Renames joints, rig controls, rig modules, rig constraints and meshes into the convention and returns the new names, in order.
 
     The nodes are the ones passed, else the selection, and the index counts up in that order from start_index: ``base="finger"``
     on three nodes gives finger_00_..., finger_01_..., finger_02_.... Leave base out to keep each node's own base and renumber

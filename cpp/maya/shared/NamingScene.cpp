@@ -3,6 +3,7 @@
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigModule.h"
 
+#include <maya/MDagPath.h>
 #include <maya/MFn.h>
 #include <maya/MFnDependencyNode.h>
 
@@ -34,6 +35,14 @@ bool NamingScene::getKind(const MObject& oNode, NamingConvention::Kind& outKind)
 	if (RigModuleNodeBase::isRigModule(oNode))
 	{
 		outKind = NamingConvention::Kind::Module;
+		return true;
+	}
+
+	// A mesh is its transform. The shape under it is named by Maya, and a skinned mesh's intermediate shape is skipped.
+	MDagPath meshPath;
+	if (oNode.hasFn(MFn::kTransform) && MDagPath::getAPathTo(oNode, meshPath) && meshPath.extendToShape() && meshPath.hasFn(MFn::kMesh))
+	{
+		outKind = NamingConvention::Kind::Mesh;
 		return true;
 	}
 	return false;

@@ -8,6 +8,7 @@
 class NamingScene
 {
 public:
-	// The kind a node is named as: a joint, a rigControlNode, a rig module or a rigConstraint. False for any other node.
+	// The kind a node is named as: a joint, a rigControlNode, a rig module, a rigConstraint or the transform of a mesh.
+	// False for any other node.
 	static bool getKind(const MObject& oNode, NamingConvention::Kind& outKind);
 };

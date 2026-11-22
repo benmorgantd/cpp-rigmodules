@@ -3,7 +3,7 @@
 Every joint, control, module and constraint in a rig has a name in one form:
 
 ```
-<camelCaseName>_<##>_<L|R|M>_<JNT|CTRL|MOD|CON>
+<camelCaseName>_<##>_<L|R|M>_<JNT|CTRL|MOD|CON|GEO>
 ```
 
 For example `upperArm_00_L_JNT`, `upperArm_00_L_CTRL`, `fkChain_00_L_MOD` and `armSpace_00_L_CON`. The name is public: saved poses, animation and exports, template socket ids and tools depend on it, so rename with care.
@@ -13,7 +13,7 @@ For example `upperArm_00_L_JNT`, `upperArm_00_L_CTRL`, `fkChain_00_L_MOD` and `a
 | `camelCaseName` | A lowercase letter, then letters and digits. No underscore, so a name splits cleanly on its underscores. `spine1` is a valid base. |
 | `##` | The index, at least two digits (`00`, `01`, ... `99`, `100`). It numbers things that share a base, such as the joints of a chain. |
 | `L`, `R`, `M` | The side: `Left`, `Right` or `Center` (middle). |
-| `JNT`, `CTRL`, `MOD`, `CON` | The kind: a joint, a rig control, a rig module, a rig constraint. |
+| `JNT`, `CTRL`, `MOD`, `CON`, `GEO` | The kind: a joint, a rig control, a rig module, a rig constraint, a mesh. |
 
 Only the canonical text is a name: `arm_0_L_JNT` (one digit) and `arm_000_L_JNT` (a leading zero past two digits) are not.
 
@@ -23,6 +23,8 @@ Only the canonical text is a name: `arm_0_L_JNT` (one digit) and `arm_000_L_JNT`
 - **Controls** are named by the build: the joint's base and index, the module's side and `CTRL`. `skel:upperArm_00_M_JNT` in a `Left` module gives `upperArm_00_L_CTRL`. A control with no joint takes its [markup](controls.md) usage: a trailing `_NN` becomes the index, so the Layout's `layout_0` gives `layout_00_M_CTRL`, and a TwoBoneIk's `armIK` gives `armIK_00_L_CTRL`. The usage's base must be camelCase, which a module reports when its `controlName` is not.
 - **Modules** are named in the template, `"name": "arm_00_L_MOD"`. The side letter must match the module's `side`. The Layout is always `layout_00_M_MOD`, so a template refers to its sockets as `layout_00_M_MOD.end`.
 - **Constraints** are named in the template (`armSpace_00_L_CON`). [`createRigConstraint`](commands.md#createrigconstraint) without `name` takes the control's name with `CON`, so `arm_00_L_CTRL` gives `arm_00_L_CON`. A `name` it is given must be in the convention too.
+
+- **Meshes** are named by you, with [`renameRigNodes`](commands.md#renamerignodes) (D69): `body_00_M_GEO`. The name goes on the mesh's transform. Nothing requires it: the build and the look build do not check mesh names. Skin weights match by `meshId`, so renaming a mesh never breaks them, but a look build names its meshes after the weight file's `meshName`, so save the weights again after renaming if the name should survive a rebuild.
 
 ## Mirroring
 

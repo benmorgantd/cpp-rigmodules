@@ -89,7 +89,7 @@ namespace
 				continue;
 			}
 
-			static const char* kKindNames[] = { "Joint", "Control", "Module", "Constraint" };
+			static const char* kKindNames[] = { "Joint", "Control", "Module", "Constraint", "Mesh" };
 			nlohmann::json parts;
 			parts["base"] = name.base;
 			parts["index"] = name.index;
@@ -125,7 +125,7 @@ namespace
 			NamingConvention::Kind kind;
 			if (!NamingScene::getKind(oNodes[i], kind))
 			{
-				MGlobal::displayError(fnNode.name() + " is not a joint, rig control, rig module or rig constraint.");
+				MGlobal::displayError(fnNode.name() + " is not a joint, rig control, rig module, rig constraint or mesh.");
 				isValid = false;
 				continue;
 			}

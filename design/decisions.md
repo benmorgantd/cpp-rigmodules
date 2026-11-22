@@ -71,7 +71,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D55 | An attachment follows another rig through `parent:` ids, with no attach node | Decided | [assets](decisions/assets.md) |
 | D56 | Ribbon module: a virtual ribbon with ik controls, tweakers and stateless twist | Leaning | [modules](decisions/modules.md) |
 | D57 | Control placement is derived from the bind joints, with no control joints in the skeleton | Decided | [modules](decisions/modules.md) |
-| D58 | One naming convention for joints, controls, modules and constraints: `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>` | Decided | [assets](decisions/assets.md) |
+| D58 | One naming convention for joints, controls, modules and constraints: `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>` | Decided (meshes added by D69) | [assets](decisions/assets.md) |
 | D59 | TwoBoneIk and Ribbon template keys for defaults, orientation and an FK layer | Decided | [modules](decisions/modules.md) |
 | D60 | The build is faster through parallel compiles and two precompiled headers, not by splitting the project | Decided | [foundations](decisions/foundations.md) |
 | D61 | The Asset Editor is a dockable asset context over files, markup and shapes | Decided | [assets](decisions/assets.md) |
@@ -82,6 +82,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D66 | Rest-match brushes: paint weights in a pose so the mesh goes back towards its rest deltas or edge lengths | Decided | [skinning](decisions/skinning.md) |
 | D67 | Attribute and node type names: RigAttr, Maya's static MObjects, MayaAttr, MayaNodeType; the rig root's children attribute removed | Decided | [foundations](decisions/foundations.md) |
 | D68 | A look build never fails over weights: marked meshes with no file bind rigidly to the topmost skin joint | Decided | [assets](decisions/assets.md) |
+| D69 | Meshes are named by the convention too, with the suffix `GEO`: `body_00_M_GEO` | Decided | [assets](decisions/assets.md) |
 
 ---
 

@@ -63,6 +63,14 @@ Shows the markup of the selected joints (`usage`, `side`, `export`, `skin`) or r
 
 Shows `shapeType`, `filled`, `wireframeAlpha`, and translate, rotate and scale taken from `shapeTransform`, for the selected controls, with `Mixed`. Two modes: *Set* writes an absolute value to every selected control, *Adjust* multiplies (scale) or adds (translate, rotate, alpha) to each control's own value. Mirror Left to Right and Right to Left, Save Shapes and Load Shapes are buttons over the existing commands. The attributes are plain attributes on `rigControlNode`, so the edits are `setAttr` inside one undo chunk and RigModules changes nothing.
 
+## 7a. The Naming tab (author request, 2026-11-22)
+
+Renames the selected joints, rig controls, modules, constraints and meshes into the D58 convention without scripting `renameRigNodes`. Meshes were added to the convention for this (D69, suffix `GEO`). Fields: a name root (filled from the first selected node already in the convention), a side combo (Left, Right, Center) and a start-number spin box (default 0). **Rename** numbers the selection from the start number in selection order. **Mirror Names** swaps Left and Right in each selected name and keeps its root and number, refusing Center and unconventional names, and rolling the whole selection back when a target is taken. All rules stay in `renameRigNodes` (no second copy of the convention in mayadev), and one undo step per action.
+
+Decisions: the model asks `parse` with the leaf name, because the query returns nothing for a long path (found by test). Activating the tab turns on `selectPref(trackSelectionOrder=True)`, a Maya preference the numbering depends on, and the command refuses a multi-node selection without it. Mirror Names is per node (`rename_nodes([node], base, opposite side, own index)`) in one undo chunk, since each node has its own root. Rejected: a live preview of the new names (it would copy the kind suffixes and the format from `NamingConvention`), and renaming other nodes such as groups and locators (the command errors on them, and each would need its own suffix: add a kind when a case appears).
+
+Not verified: the tab docked in a GUI Maya (the offscreen window tests and real-Maya model tests pass).
+
 ## 8. Maintenance surface, cost and what was rejected
 
 Adds one catalog, one context class, three view-models, three widgets and a registry entry, all in mayadev. RigModules has no C++ or command change, no D36 impact.
@@ -103,7 +111,7 @@ Found on `test\character\solomon`: its rig scene and template have very few loca
 - A **template** edited by hand in a text editor is never versioned. Without a tool there is no local history for templates at all.
 - A **rig scene** saved with Maya's own File > Save, and not through Save Rig, is never versioned either. Saving a rig scene is awkward enough that it is not done often.
 
-This is part of the problem the Asset Editor addresses. The Files tab's Save Rig covers the scene. The template is still written by hand, so the rig template editor tool (not designed) must save through `handlers.save`, so each save keeps a local version copy, and its design should say how it lists and restores them. Until then, the Template row shows only its status, with no Save.
+This is part of the problem the Asset Editor addresses. The Files tab's Save Rig covers the scene. The template is still written by hand, so the rig template editor tool (not designed) must save through `handlers.save`, so each save keeps a local version copy, and its design should say how it lists and restores them. Until then, the Template row has a Load that opens the file in the OS's default `.json` application and a Save that checks it and writes it through `handlers.save` (2026-11-22, below).
 
-Possible earlier help, not built: a Snapshot button on the Template row that copies the file into the versions folder, so a hand edit can be kept before it is made.
+Built 2026-11-22, in place of the Snapshot button: the Template row's **Load** keeps a local version of `template.json` as it is (`versions.version_if_changed`: skipped when it equals the newest copy), then opens it with `os.startfile`. **Save**, after the hand edit, checks the file is a JSON object (refused before any version is made when it is not), then runs `handlers.save` with the file itself as `source`, which keeps a version and sets `rigName`. So the state before an edit and each saved edit are restorable through Restore Version.... Rejected: a Save that asks a confirmation (it replaces nothing the user has not already edited), and a working copy outside the asset (a second file to keep in step). Not covered: an edit saved in the editor and never followed by Save or Load again is not versioned until one of them runs.
 

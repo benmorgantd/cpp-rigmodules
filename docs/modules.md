@@ -4,7 +4,7 @@ A module is a node that takes joints and controls and computes the joints' world
 
 Controls and joints have `inheritsTransform` off. The module node computes every result, and the DAG hierarchy under the rig is only for organization.
 
-Every name follows the [naming convention](naming.md), `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON>`. A control's name is its joint's name with the module's side and `CTRL`: the namespace is dropped, so `skel:arm_00_L_JNT` in a `Left` module gives `arm_00_L_CTRL`. A control with no joint is named from its usage: the Layout's `layout_0` gives `layout_00_M_CTRL`, and TwoBoneIk's `armIK` gives `armIK_00_L_CTRL`.
+Every name follows the [naming convention](naming.md), `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO>`. A control's name is its joint's name with the module's side and `CTRL`: the namespace is dropped, so `skel:arm_00_L_JNT` in a `Left` module gives `arm_00_L_CTRL`. A control with no joint is named from its usage: the Layout's `layout_0` gives `layout_00_M_CTRL`, and TwoBoneIk's `armIK` gives `armIK_00_L_CTRL`.
 
 Each control also carries markup, `(side, usage)`, taken from its joint. Tools and shape files find controls by markup instead of by name (see [controls.md](controls.md)).
 

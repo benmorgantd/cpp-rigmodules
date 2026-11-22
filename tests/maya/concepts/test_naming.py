@@ -44,7 +44,7 @@ class ControlNames(RigTestCase):
 
 
 class Convention(RigTestCase):
-    """The rules of <camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON> (D58), read through rigmodules.naming.parse."""
+    """The rules of <camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO> (D58), read through rigmodules.naming.parse."""
 
     def test_a_name_gives_its_parts(self):
         parse = rigmodules.naming.parse
@@ -139,6 +139,36 @@ class RenameRigNodes(RigTestCase):
         self.assertEqual(cmds.renameRigNodes(joint, base="arm"), ["arm_00_M_JNT"])
         self.assertEqual(cmds.renameRigNodes(control, base="arm"), ["arm_00_M_CTRL"])
 
+    def test_a_mesh_is_named_on_its_transform_with_geo(self):
+        cube = cmds.polyCube(name="box")[0]
+        self.assertEqual(cmds.renameRigNodes(cube, base="body", side="Left"), ["body_00_L_GEO"])
+        self.assertEqual(cmds.listRelatives("body_00_L_GEO", shapes=True), ["body_00_L_GEOShape"])   # Maya names the shape after it
+        self.assertEqual(json.loads(cmds.renameRigNodes("body_00_L_GEO", query=True)[0]),
+                         {"base": "body", "index": 0, "side": "Left", "kind": "Mesh"})
+
+    def test_meshes_are_numbered_in_order_with_the_other_kinds(self):
+        a, b = cmds.polyCube(name="a")[0], cmds.polySphere(name="b")[0]
+        (joint,) = self.joints("j")
+        self.assertEqual(cmds.renameRigNodes(b, a, base="prop", startIndex=2), ["prop_02_M_GEO", "prop_03_M_GEO"])
+        self.assertEqual(cmds.renameRigNodes(joint, base="prop", startIndex=2), ["prop_02_M_JNT"])   # the kind keeps them apart
+
+    def test_a_skinned_meshs_intermediate_shape_does_not_stop_it_being_a_mesh(self):
+        (joint,) = self.joints("j")
+        cube = cmds.polyCube(name="box")[0]
+        cmds.skinCluster(joint, cube)
+        self.assertEqual(cmds.renameRigNodes(cube, base="body"), ["body_00_M_GEO"])
+
+    def test_a_mesh_shape_and_an_empty_transform_are_not_meshes(self):
+        cube = cmds.polyCube(name="box")[0]
+        shape = cmds.listRelatives(cube, shapes=True)[0]
+        self.assertMayaError(lambda: cmds.renameRigNodes(shape, base="body"), "is not a joint")
+        self.assertMayaError(lambda: cmds.renameRigNodes(cmds.group(empty=True, name="grp"), base="body"), "grp is not a joint")
+        self.assertEqual(cmds.ls(cube), ["box"])
+
+    def test_geo_is_a_kind_and_only_the_exact_token(self):
+        self.assertEqual(rigmodules.naming.parse("body_00_L_GEO"), rigmodules.naming.RigName("body", 0, "Left", "Mesh"))
+        self.assertIsNone(rigmodules.naming.parse("body_00_L_GEOM"))
+
     def test_modules_and_constraints_are_named_by_their_kind_and_keep_their_namespace(self):
         self.build_standard("layout_rig", "layout_rig")
         module = rig_name("fkchain_01_M_MOD")
@@ -149,7 +179,7 @@ class RenameRigNodes(RigTestCase):
     def test_a_node_that_is_not_a_rig_node_fails_and_nothing_changes(self):
         (joint,) = self.joints("a")
         group = cmds.createNode("transform", name="group")
-        self.assertMayaError(lambda: cmds.renameRigNodes(joint, group, base="arm"), "group is not a joint, rig control, rig module or rig constraint")
+        self.assertMayaError(lambda: cmds.renameRigNodes(joint, group, base="arm"), "group is not a joint, rig control, rig module, rig constraint or mesh")
         self.assertEqual(cmds.ls(joint, group), ["a", "group"])
 
     def test_a_name_another_node_holds_fails_and_nothing_changes(self):
