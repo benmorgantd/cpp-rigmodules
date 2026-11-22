@@ -459,7 +459,9 @@ MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights
 	const int methodIndex = SkinMethods::indexOf(weights.skinMethod);
 	if (fCreatesSkinCluster)
 	{
-		MString command = MString("skinCluster -toSelectedBones -bindMethod 0 -normalizeWeights 1 -obeyMaxInfluences false -skinMethod ")
+		// -weightDistribution 1 is "neighbors" (0 is "distance"). Maximum influences is 4 with maintain off, so the cluster
+		// never limits a stroke or a load by itself: pruneToMaxInfluences is the explicit way to limit.
+		MString command = MString("skinCluster -toSelectedBones -bindMethod 0 -normalizeWeights 1 -weightDistribution 1 -maximumInfluences 4 -obeyMaxInfluences false -skinMethod ")
 			+ std::to_string(methodIndex).c_str();
 		for (unsigned int i = 0; i < fInfluences.length(); ++i)
 		{
