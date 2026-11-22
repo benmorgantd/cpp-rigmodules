@@ -849,7 +849,7 @@ cmds.setRigLook("hero_body:rigRootModule1",
 | `publishVersion` | string | The publish the look came from. Default `""` |
 | `skeleton` | string | The look's `skeleton.json`. When its hash is not the rig's the command fails before reading any weights |
 | `rigSkeleton` | string | The rig's `skeleton.json`. With `skeleton`, the error names every joint that differs |
-| `ignoreSkeletonHash` | bool | A weight file with another skeleton's hash loads with a warning. Default false |
+| `ignoreSkeletonHash` | bool | A weight file with another skeleton's hash loads with a warning. A file that still can't load (a joint it names is not marked, the topology changed) binds its mesh to the topmost skin joint instead, with a warning, like a `rigidMesh`. Default false |
 
 Object: one rig root. Returns the `lookRoot`'s name.
 

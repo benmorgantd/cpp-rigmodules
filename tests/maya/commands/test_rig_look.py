@@ -259,6 +259,20 @@ class WeightHashCheck(LookTestCase):
         self.set_look([box], [bad], ignoreSkeletonHash=True)
         self.assertIsNotNone(skin_cluster(box))
 
+    def test_ignore_skeleton_hash_binds_a_mesh_whose_file_cannot_load_rigidly(self):
+        """A joint the file names is gone (the author changed the markup): the mesh stays in the look, bound to the top joint."""
+        bad = self.hash_file(self.box_file, ZERO_HASH, "look_box_bad_hash.json")
+        data = read_json(bad)
+        data["influences"][0] = ["Center", "gone"]
+        with open(bad, "w", encoding="utf-8") as handle:
+            json.dump(data, handle)
+        box = new_box()
+        self.assertMayaError(lambda: self.set_look([box], [bad]), "weight file")
+        self.assertNoLook()
+        self.set_look([box], [bad], ignoreSkeletonHash=True)
+        self.assertEqual(sorted(cmds.skinCluster(skin_cluster(box), query=True, influence=True)), [rig_name("a_00_M_JNT").lstrip(":")])
+        self.assertEqual(self.members(), [box])
+
     def test_a_file_with_no_hash_loads_with_a_warning(self):
         old = self.hash_file(self.box_file, "", "look_box_no_hash.json")
         box = new_box()

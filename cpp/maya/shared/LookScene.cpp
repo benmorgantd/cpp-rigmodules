@@ -117,6 +117,7 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 	fLoads.clear();
 	std::set<std::size_t> usedFiles;
 	bool hasErrors = false;
+	MDagPathArray rigidMeshes = inputs.rigidMeshes;
 	for (unsigned int i = 0; i < inputs.meshes.length(); ++i)
 	{
 		const MString meshName = inputs.meshes[i].partialPathName();
@@ -150,13 +151,24 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 		status = fLoads.back()->prepare(inputs.meshes[i], inputs.weights[file], inputs.ignoreSkeletonHash);
 		if (!status)
 		{
+			if (inputs.ignoreSkeletonHash)
+			{
+				// The skeleton changed under the file (a joint it names is gone, say). The mesh stays in the look: it is
+				// bound like a mesh with no file, to be skinned again and saved over the old file.
+				MGlobal::displayWarning(meshName + ": its weight file can't be loaded on this skeleton, so it is bound to the top skin joint instead. Skin it and save the weights.");
+				fLoads.pop_back();
+				fMeshNames.pop_back();
+				fMeshes.remove(fMeshes.length() - 1);
+				rigidMeshes.append(inputs.meshes[i]);
+				continue;
+			}
 			hasErrors = true;
 		}
 	}
 
 	// A rigid mesh has no weight file yet. It is bound whole to the topmost skin joint, so it is skinned and a member
 	// like the others, and a weight save writes its first file. It keeps its own name.
-	if (inputs.rigidMeshes.length() > 0 && !hasErrors)
+	if (rigidMeshes.length() > 0 && !hasErrors)
 	{
 		JointSelector topJoint;
 		MStatus status = SkeletonScene::findTopSkinJoint(expectedNamespace, topJoint);
@@ -171,9 +183,9 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 		{
 			fileMeshes.emplace_back(fMeshes[i].node());
 		}
-		for (unsigned int i = 0; i < inputs.rigidMeshes.length(); ++i)
+		for (unsigned int i = 0; i < rigidMeshes.length(); ++i)
 		{
-			const MDagPath& mesh = inputs.rigidMeshes[i];
+			const MDagPath& mesh = rigidMeshes[i];
 			const MString meshName = mesh.partialPathName();
 			if (DagUtils::getAbsoluteNamespace(mesh.node()) != expectedNamespace)
 			{

@@ -62,6 +62,7 @@ One per rig that has had a look applied, in the rig's namespace, connected by `r
 Every weight file records the skeleton it was made on, and the rig records its own ([skeletons.md](skeletons.md)). `setRigLook` and `loadRigSkinWeights` compare them:
 
 - **Different:** an error, with nothing changed. `ignoreSkeletonHash=True` makes it a warning.
+- **A file that can't load on the changed skeleton** (it names a joint that is no longer marked, or the topology changed): with `ignoreSkeletonHash=True` the mesh is not dropped. It is bound whole to the topmost skin joint like a `rigidMesh`, with a warning, so it stays in the look to be skinned again. Save the weights afterwards to replace the old file. Without the flag it is an error.
 - **A file with no hash** (made before D54, or on joints no rig drove): loads with a warning, because it can't be checked.
 - **With `skeleton` and `rigSkeleton`** (the look's and the rig's `skeleton.json`), `setRigLook` compares them first and names every joint that differs (`[Center, b]: a different rest transform`).
 
