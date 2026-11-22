@@ -49,7 +49,7 @@ Per mesh, in order, in `setRigLook`. Each rung records its result.
 |---|---|---|---|
 | 0 | The mesh has a `meshId` and no file | Rigid to the topmost skin joint (D68, built) | `rigid` |
 | 1 | Topology hash matches and every influence resolves | Load as saved. A different `skeletonHash` is not a failure. | `loaded` (and `staleSkeleton` when the hash differs) |
-| 2 | Topology matches, some influences no longer resolve | Fold each missing influence's weight into its parent, merge, renormalize. If the parent is missing too, its weight folds into its parent in turn, so a removed chain collapses upward | `folded` |
+| 2 | Topology matches, some influences no longer resolve | Fold each missing influence's weight up the stored skeleton, parent by parent, to the first joint that is a skin joint in the current rig, merge, renormalize. A parent that is gone or is not a skin joint is passed through, so the weight is never given to a joint the mesh isn't bound to | `folded` |
 | 3 | Topology differs, the file holds its source surface | Barycentric transfer from the file's surface (section 5), after rung 2 on the table's columns | `transferred` |
 | 4 | Topology differs, and the file has no surface (a file saved before this change) | Rigid to the topmost skin joint, warning "save once to enable transfer" | `rigid` |
 | 5 | No influence in the file resolves, or a vertex cannot be transferred | That mesh, or that vertex, goes to the topmost skin joint | `rigid` |
