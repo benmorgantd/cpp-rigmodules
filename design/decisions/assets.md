@@ -224,7 +224,7 @@ A look's model can hold meshes nobody has skinned yet (props, attachments in pro
 - **Consequence:** public API grows by one kind and one suffix. No existing name changes, so no pose, animation or export impact. No D36 impact. mayadev: no call site breaks (it passes the leaf name to `rigmodules.naming.parse`, which now also reads `_GEO` names).
 
 ### D70. A look build survives a changed skeleton, mesh or weights; strictness moves to the publish gate
-**Status:** Decided (author, 2026-11-22). Phase 1 built: the hash is a status, the fold, the report, the flag removed. There is no transfer: a changed topology goes rigid. The gates (phases 3 and 4) are not built. Amends D54 (the skeleton hash gate) and D68 (rigid fallback, the `ignoreSkeletonHash` flag). Design: `asset-build-fallbacks.md`.
+**Status:** Decided (author, 2026-11-22). Phase 1 built: the hash is a status, the fold, the report, the flag removed. There is no transfer: a changed topology goes rigid. The editor status (phase 3, mayadev) is built. The gates (phase 4) are not built. Amends D54 (the skeleton hash gate) and D68 (rigid fallback, the `ignoreSkeletonHash` flag). Design: `asset-build-fallbacks.md`.
 
 While an asset is in progress its skeleton, meshes and weights change independently, and a build that fails over the mismatch leaves nothing to repair.
 
