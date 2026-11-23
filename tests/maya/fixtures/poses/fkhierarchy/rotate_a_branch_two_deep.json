@@ -1,0 +1,12 @@
+{
+  "description": "Rotating the grip control (the handle's child) 90 degrees about X carries only gripEnd. gripEnd is (0,-1,0) from the grip, and a quarter turn about X sends (y, z) to (-z, y), so it goes to (0,0,-1) from the grip, which is (0,-1,1) in the world. The handle does not move",
+  "skeleton": "fk_hierarchy",
+  "template": "fk_hierarchy",
+  "set": { "grip_00_M_CTRL.rotateX": 90 },
+  "expect": {
+    "handle_00_M_JNT": { "translate": [0, 0, 2], "rotate": [0, 0, 0] },
+    "grip_00_M_JNT": { "translate": [0, -1, 2], "rotate": [90, 0, 0] },
+    "gripEnd_00_M_JNT": { "translate": [0, -1, 1], "rotate": [90, 0, 0] },
+    "mag_00_M_JNT": { "translate": [0, -2, 0], "rotate": [0, 0, 0] }
+  }
+}

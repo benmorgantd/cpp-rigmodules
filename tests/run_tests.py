@@ -59,6 +59,7 @@ TIERS = [
     ("modules", True, [                    # what each module does, and the rig structure around it
         "modules.test_layout",
         "modules.test_fkchain",
+        "modules.test_fk_hierarchy",        # FkHierarchy: contract, pose cases, terminators, added joints, mirroring (D71)
         "modules.test_aim",
         "modules.test_two_bone_ik",         # TwoBoneIk: contract, pose cases, behaviour, the settings and pole channels (D52)
         "modules.test_ribbon",              # Ribbon: contract, pose cases, behaviour, the plan step checks (D56)

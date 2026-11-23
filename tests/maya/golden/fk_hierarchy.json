@@ -1,0 +1,63 @@
+{
+  "description": "Public names of an FkHierarchy over a gun: a root with a mag, a trigger and a handle, and a grip below the handle",
+  "template": "fk_hierarchy",
+  "skeleton": "fk_hierarchy",
+  "interface": {
+    "modules": {
+      "gun_00_M_MOD": {
+        "type": "fkHierarchyModule",
+        "sockets": [["center_root", "start"], ["center_mag"], ["center_magTip"], ["center_trigger"], ["center_handle"], ["center_grip"], ["center_gripEnd"]],
+        "childPlugs": ["start"]
+      },
+      "layout_00_M_MOD": {
+        "type": "layoutModule",
+        "sockets": [["index_0"], ["index_1"], ["index_2", "end"]],
+        "childPlugs": []
+      }
+    },
+    "controls": {
+      "gripEnd_00_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "gripEnd"]
+      },
+      "grip_00_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "grip"]
+      },
+      "handle_00_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "handle"]
+      },
+      "layout_00_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_0"]
+      },
+      "layout_01_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_1"]
+      },
+      "layout_02_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "layout_2"]
+      },
+      "magTip_00_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "magTip"]
+      },
+      "mag_00_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "mag"]
+      },
+      "root_00_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "root"]
+      },
+      "trigger_00_M_CTRL": {
+        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "markup": ["Center", "trigger"]
+      }
+    },
+    "joints": ["gripEnd_00_M_JNT", "grip_00_M_JNT", "handle_00_M_JNT", "magTip_00_M_JNT", "mag_00_M_JNT", "root_00_M_JNT", "trigger_00_M_JNT"],
+    "constraints": {}
+  }
+}

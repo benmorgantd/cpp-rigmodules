@@ -84,6 +84,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D68 | A look build never fails over weights: marked meshes with no file bind rigidly to the topmost skin joint | Decided | [assets](decisions/assets.md) |
 | D69 | Meshes are named by the convention too, with the suffix `GEO`: `body_00_M_GEO` | Decided | [assets](decisions/assets.md) |
 | D70 | A look build survives a changed skeleton, mesh or weights: the hash is a status, a fallback ladder (loaded, folded, rigid) with a JSON report replaces `ignoreSkeletonHash`, a skeleton has one root, and gates move to publish. Phase 1 built; no weight transfer; gates not built | Decided | [assets](decisions/assets.md) |
+| D71 | FkHierarchy: a separate module that builds an FK control for every joint under one root (optional terminators), with sockets named from joint markup. FkChain is unchanged. Built 2026-11-23 | Decided | [modules](decisions/modules.md) |
 
 ---
 
@@ -95,6 +96,12 @@ Checked against the repo on 2026-11-18. Items that were finished are not listed:
 - **D13:** `core/` and `maya/` are split by folder, but `core/` is not yet its own library and has no tests that run without Maya.
 - **D29, D30:** the template authoring UI (after a module interface query), building a second variant into a namespace, the publish step, the out-of-date check, and a Perforce adapter when a project uses Perforce.
 - **D29 (potential):** asset GUIDs for references between assets, if renames and moves become common. Not needed now: ids are relative to the projects root, so they survive branching. See "Potential TODO: asset GUIDs" in `asset-model.md`.
+
+- **D29, D30 (asset editor, New > Rig):** the workflow asks for a template file first, which is backwards for an asset that has none yet. Offer a starting point instead: a generated simple template (one FkChain per joint in the skeleton) or an empty one, with browsing to an existing file as the third choice. Noted 2026-11-22; needs a design pass (generation rule for branching skeletons, where the generated file is saved) before building.
+- **D55 (attachment layout):** an attachment whose child plugs all take `parent:` sockets still gets `layout_00_M_MOD` and its 3 controls, which nothing uses (`RigBuild.cpp`, `makeLayoutPlan`). Noted 2026-11-22. Add a template key (`"layout": false`, name to be decided) that skips the layout, and have validation reject any `layout_00_M_MOD.*` id or unlisted child plug (which defaults to the layout) when it is off. The alternative, skipping it automatically when nothing refers to it, was set aside in favour of the explicit key. Needs a design pass and an amendment to D55 before building. Also affects building a prop without its parent.
+- **FkChain (branching):** answered by D71 (2026-11-23): a separate `FkHierarchy` module, not an extension of FkChain. The design is `design/fk-hierarchy.md`, with every question answered and sign-off pending. Built 2026-11-23. The tommygun asset (`root_00` with five children) is the first use, and its template is the author's to change.
+
+- **D71 (consolidate the FK solves):** FkChain's `solveFkChain` and FkHierarchy's `computeHierarchyOutputs` do the same walk, and a chain is a tree where each control's parent is the one before it. If FkChain gets a `controlParentIndex` (`-1`, `0`, `1`, ...) the two can share one solve, and `ModuleInverse::solveChain` already takes a parent index, so its chain branch could go too. Noted 2026-11-23 as likely, not decided. Before doing it: FkChain would gain an attribute and need a rebuild (a saved rig has none, and no migration is promised, D24); the chain's loop would pay for a parent lookup and the scratch vector, so run the D36 benchmark on it; and its goldens and inverse tests must pass unchanged. FkHierarchy kept a separate solve so FkChain's hot loop did not change when it was built.
 
 ### Design now, build later
 

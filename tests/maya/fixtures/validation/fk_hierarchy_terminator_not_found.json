@@ -1,0 +1,7 @@
+{
+  "description": "A terminator the walk never meets is an error, to catch a typo",
+  "base": "fk_hierarchy_terminated",
+  "skeleton": "fk_hierarchy",
+  "edits": [ { "set": "/rigModules/0/moduleArgs/terminators", "value": [["Center", "nothing"]] } ],
+  "expectErrors": [ { "contains": "terminator [Center, nothing] is not at or below the root" } ]
+}

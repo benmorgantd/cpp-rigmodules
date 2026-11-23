@@ -1,5 +1,5 @@
-"""Checks the complex performance rig (tools/perf/perf_scenes.py): a generated 360 joint skeleton, a template with
-103 constraints, Aim modules, TwoBoneIk limbs, Limbs and Ribbons, and a range of motion. They keep the benchmark's rig valid when the plugin changes,
+"""Checks the complex performance rig (tools/perf/perf_scenes.py): a generated 408 joint skeleton, a template with
+103 constraints, Aim modules, TwoBoneIk limbs, Limbs, Ribbons and FkHierarchies, and a range of motion. They keep the benchmark's rig valid when the plugin changes,
 so a slow result is never a broken build.
 
 Not part of the suite, so RigTests.cmd never runs it. Run it on demand, after changing the rig generator or
@@ -27,13 +27,28 @@ class ComplexTemplateData(RigTestCase):
 
     def test_counts(self):
         template = perf_scenes.build_template()
-        self.assertEqual(len(perf_scenes.joint_layout()), 360)      # 236 for the chains, aim sets and limbs, 60 for the ribbons and 64 for the Limbs (8 x 3 limb joints and 5 bind joints)
-        self.assertEqual(len(template["rigModules"]), 44)           # 8 Center chains, 19 Left chains, 3 Aim modules, 6 limbs, 4 Limbs, 1 Center and 3 Left ribbons
+        self.assertEqual(len(perf_scenes.joint_layout()), 408)      # 236 for the chains, aim sets and limbs, 60 for the ribbons, 64 for the Limbs (8 x 3 limb joints and 5 bind joints) and 48 for the FkHierarchies (6 x 8)
+        self.assertEqual(len(template["rigModules"]), 48)           # 8 Center chains, 19 Left chains, 3 Aim modules, 6 limbs, 4 Limbs, 1 Center and 3 Left ribbons, 2 Center and 2 Left FkHierarchies
         self.assertEqual(perf_scenes.built_constraint_count(template), 103)  # 7 Center, 48 mirrored (22 + 12 limb spaces + 8 Limb spaces + 3 arm ribbon swings + 3 twists)
 
     def test_every_module_type_is_used(self):
         types = {module["moduleType"] for module in perf_scenes.build_template()["rigModules"]}
-        self.assertEqual(types, {"FkChain", "Aim", "TwoBoneIk", "Ribbon", "Limb"})
+        self.assertEqual(types, {"FkChain", "FkHierarchy", "Aim", "TwoBoneIk", "Ribbon", "Limb"})
+
+    def test_hierarchies_are_six_with_eight_joints_each_in_three_levels(self):
+        specs = perf_scenes.hierarchy_specs()
+        self.assertEqual(len(specs), 4)   # the Left ones are built on both sides: 6 modules
+        self.assertEqual(len(perf_scenes.HIERARCHY_TREE), 8)
+        layout = {j["name"]: j for j in perf_scenes.joint_layout()}
+        for spec in specs:
+            for side in perf_scenes._sides(spec):
+                chain = perf_scenes.module_name(spec["base"], side)
+                joints = [j for j in layout.values() if j["chain"] == chain]
+                self.assertEqual(len(joints), 8, chain)
+                depth = lambda j: 0 if j["parent"] not in {k["name"] for k in joints} else 1 + depth(layout[j["parent"]])
+                self.assertEqual(max(depth(j) for j in joints), 3, chain)
+                root = [j for j in joints if depth(j) == 0]
+                self.assertEqual([j["usage"] for j in root], [perf_scenes.usage_name(spec["base"], 0)], chain)
 
     def test_every_constraint_type_is_used(self):
         types = {entry["type"] for entry in perf_scenes.build_template()["constraints"]}
@@ -94,8 +109,8 @@ class ComplexTemplateData(RigTestCase):
         end = [j for j in perf_scenes.joint_layout() if j["name"] == perf_scenes.joint_name("limbA", 2, "Left")][0]["position"]
         ik = [d for d in derived if d["chain"] == perf_scenes.module_name("limbA", "Left") and d["role"] == "ik"][0]
         self.assertEqual(ik["position"], end)
-        # 12 limbs + 22 ribbon controls + 64 Limb controls + 354 joint controls = 476 controls, as the rig has
-        self.assertEqual(len(derived) + len(perf_scenes.joint_layout()) - 6, 476)
+        # 12 limbs + 22 ribbon controls + 64 Limb controls + 402 joint controls = 524 controls, as the rig has
+        self.assertEqual(len(derived) + len(perf_scenes.joint_layout()) - 6, 524)
 
     def test_markup_is_unique(self):
         pairs = [(j["side"], j["usage"]) for j in perf_scenes.joint_layout()]
@@ -148,13 +163,14 @@ class ComplexRig(RigTestCase):
                 self.assertAlmostEqual(a, e, places=3, msg=joint["name"])
 
     def test_builds_every_control_and_constraint(self):
-        # 360 joints, less the 6 aim joints (no control), plus the 122 controls with no joint (12 limbs x 3, the ribbons' 22, 8 Limbs x 8)
-        self.assertEqual(len(self.instances[0].controls), 476)
+        # 408 joints, less the 6 aim joints (no control), plus the 122 controls with no joint (12 limbs x 3, the ribbons' 22, 8 Limbs x 8)
+        self.assertEqual(len(self.instances[0].controls), 524)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="rigConstraint")), 103)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="limbModule")), 8)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="aimModule")), 6)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="twoBoneIkModule")), 12)
         self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="ribbonModule")), 7)
+        self.assertEqual(len(cmds.ls(NAMESPACE + ":*", type="fkHierarchyModule")), 6)
 
     def test_every_limb_is_built_with_six_controls_in_ik(self):
         limbs = self.instances[0].limbs

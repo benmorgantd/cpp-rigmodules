@@ -183,6 +183,24 @@ def ribbon_specs():
     ]
 
 
+# The shape every FkHierarchy of the perf rig takes (D71): (parent index in this list, offset from the parent), root first. A root with three
+# children, two joints below the first and one below the second, and one below that: 8 joints, three levels deep and four leaves.
+HIERARCHY_TREE = [(None, (0, 0, 0)), (0, (0.3, 0, 0)), (0, (0, 0.3, 0)), (0, (0, -0.3, 0)),
+                  (1, (0.3, 0, 0.1)), (1, (0.3, 0, -0.1)), (4, (0.3, 0, 0)), (3, (0, -0.3, 0))]
+
+
+def hierarchy_specs():
+    """FkHierarchy modules (D71), a Left one built on both sides and a Center one, each with the joints of HIERARCHY_TREE. `at`: (chain
+    base, joint index) the root is placed from, `parent`: (module base, socket) its start hangs from, as for a ribbon. No terminators:
+    each takes every joint below its root."""
+    return [
+        {"base": "hierA", "side": "Center", "at": ("spine", 2), "parent": ("spine", "index_2"), "offset": (0.0, 0.0, -0.5)},
+        {"base": "hierB", "side": "Center", "at": ("spine", 3), "parent": ("spine", "index_3"), "offset": (0.0, 0.0, 0.5)},
+        {"base": "hierC", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"), "offset": (0.3, 0.6, -0.4)},
+        {"base": "hierD", "side": "Left", "at": ("clavicle", 0), "parent": ("clavicle", "end"), "offset": (0.3, 0.9, -0.8)},
+    ]
+
+
 def aim_specs():
     """Aim modules, written for the Left side. Offsets are from the parent joint. The aim joint has no
     control, so each set has two controls (target and up) and a constraint on the target."""
@@ -354,6 +372,22 @@ def joint_layout():
                                "usage": usage_name(ribbon["base"], i), "chain": chain, "aim_next": i < count - 1,
                                "secondary": secondary})
                 previous = name
+    for hierarchy in hierarchy_specs():
+        at_base, at_index = hierarchy["at"]
+        for side in _sides(hierarchy):
+            at_side = side if spec_side[at_base] == "Left" else "Center"
+            parent = names[(at_base, at_side)][at_index]
+            origin = _add(positions[(at_base, at_side)][at_index], _flip(hierarchy["offset"], side))
+            tree_positions = []
+            tree_names = []
+            for i, (tree_parent, offset) in enumerate(HIERARCHY_TREE):
+                position = origin if tree_parent is None else _add(tree_positions[tree_parent], _flip(offset, side))
+                name = joint_name(hierarchy["base"], i, side)
+                joints.append({"name": name, "parent": parent if tree_parent is None else tree_names[tree_parent], "position": position,
+                               "side": side, "usage": usage_name(hierarchy["base"], i), "chain": module_name(hierarchy["base"], side),
+                               "aim_next": False, "secondary": "yup"})
+                tree_positions.append(position)
+                tree_names.append(name)
     return joints
 
 
@@ -542,6 +576,19 @@ def build_template(fk_style=False):
             twist_base, twist_socket = ribbon["twist"]
             constraints.append(_constraint_entry(constraint_name(ribbon["base"] + "Twist", "Left"), "Twist", "%s.end" % module_name(ribbon["base"], side),
                                                  [(twist_base, twist_socket, "Wrist")], side, side_of))
+    for hierarchy in hierarchy_specs():
+        side = hierarchy["side"]
+        parent_base, parent_socket = hierarchy["parent"]
+        module = {
+            "moduleType": "FkHierarchy",
+            "name": module_name(hierarchy["base"], side),
+            "side": side,
+            "moduleArgs": {"root": [side, usage_name(hierarchy["base"], 0)]},
+            "parentStructure": {"start": "%s.%s" % (module_name(parent_base, side_of[parent_base]), parent_socket)},
+        }
+        if side == "Left":
+            module["mirror"] = True
+        modules.append(module)
     return {
         "formatVersion": 1,
         "rigName": "complex272",
@@ -854,7 +901,7 @@ def make_complex(args):
     template = build_template(args.fk_style)
     constraints = built_constraint_count(template)
     joints = joint_layout()
-    assert len(joints) == 360, len(joints)
+    assert len(joints) == 408, len(joints)
     assert constraints == 103, constraints
     template_file = os.path.join(out, "complex_template.json").replace("\\", "/")
     with open(template_file, "w", encoding="utf-8") as handle:

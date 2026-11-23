@@ -14,6 +14,7 @@ Design pages are history with dates, not user documentation. What a feature does
 
 | Page | Decision | Area |
 |---|---|---|
+| [`fk-hierarchy.md`](fk-hierarchy.md) | D71 | `FkHierarchy`: an FK control per joint under one root, terminators, sockets named from markup. Section 16 lists where the build differs from the draft |
 | [`two-bone-ik.md`](two-bone-ik.md) | D52 | The IK limb: the signed-off decisions and what it adds to maintenance. The full design is in [`archive/`](archive/) |
 | [`inverse-solve.md`](inverse-solve.md) | D41 | Restoring controls from joints: the module-owned inverse. The USD part was withdrawn |
 | [`control-library.md`](control-library.md) | D42 | The pose and animation library: ControlPose and ControlAnim, FBX and the bone map |

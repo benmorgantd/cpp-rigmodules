@@ -1,0 +1,11 @@
+{
+  "joints": [
+    { "name": "root_00_M_JNT", "side": "Center", "usage": "root", "translate": [0, 0, 0] },
+    { "name": "mag_00_M_JNT", "side": "Center", "usage": "mag", "translate": [0, -2, 0], "parent": "root_00_M_JNT" },
+    { "name": "magTip_00_M_JNT", "side": "Center", "usage": "magTip", "translate": [0, -4, 0], "parent": "mag_00_M_JNT" },
+    { "name": "trigger_00_M_JNT", "side": "Center", "usage": "trigger", "translate": [1, 0, 0], "parent": "root_00_M_JNT" },
+    { "name": "handle_00_M_JNT", "side": "Center", "usage": "handle", "translate": [0, 0, 2], "parent": "root_00_M_JNT" },
+    { "name": "grip_00_M_JNT", "side": "Center", "usage": "grip", "translate": [0, -1, 2], "parent": "handle_00_M_JNT" },
+    { "name": "gripEnd_00_M_JNT", "side": "Center", "usage": "gripEnd", "translate": [0, -2, 2], "parent": "grip_00_M_JNT" }
+  ]
+}

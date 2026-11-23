@@ -658,3 +658,17 @@ class LimbDocExample(RigTestCase):
         moved = cmds.xform(rig_name("bind6_00_L_JNT"), query=True, worldSpace=True, translation=True)
         self.assertGreater(math.dist(moved, on_the_bone), 0.05)
 
+
+class FkHierarchyDocExample(RigTestCase):
+    """The FkHierarchy entry in docs/modules.md builds on the fk_hierarchy skeleton, and what the section says about it holds (D71)."""
+
+    def test_modules_doc_entry_builds_the_controls_and_sockets_it_describes(self):
+        entry = json.loads(doc_code_block(MODULES_DOC, "## FkHierarchy", "json"))
+        self.build({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": [entry]}, self.make_skeleton("fk_hierarchy"))
+        controls = sorted(n.split(":")[-1] for n in cmds.ls(rig_name("*"), type="rigControlNode") if not n.split(":")[-1].startswith("layout_"))
+        # The handle is a terminator: it has a control, and the grip and gripEnd below it do not.
+        self.assertEqual(controls, ["handle_00_M_CTRL", "magTip_00_M_CTRL", "mag_00_M_CTRL", "root_00_M_CTRL", "trigger_00_M_CTRL"])
+        module = rig_name(entry["name"])
+        names = [json.loads(cmds.getAttr("%s.socketNames[%d]" % (module, i))) for i in cmds.getAttr(module + ".socketNames", multiIndices=True)]
+        self.assertIn(["center_handle"], names)
+        self.assertEqual(names[0], ["center_root", "start"])

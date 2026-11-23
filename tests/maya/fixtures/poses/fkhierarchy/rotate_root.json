@@ -1,0 +1,16 @@
+{
+  "description": "Rotating the root control 90 degrees about Z swings every branch around the origin. A quarter turn about Z sends (x, y) to (-y, x): mag (0,-2) goes to (2,0), magTip (0,-4) to (4,0), trigger (1,0) to (0,1), grip (0,-1,2) to (1,0,2) and gripEnd (0,-2,2) to (2,0,2). The handle is on the Z axis and stays put",
+  "skeleton": "fk_hierarchy",
+  "template": "fk_hierarchy",
+  "set": { "root_00_M_CTRL.rotateZ": 90 },
+  "expect": {
+    "root_00_M_JNT": { "translate": [0, 0, 0], "rotate": [0, 0, 90] },
+    "mag_00_M_JNT": { "translate": [2, 0, 0], "rotate": [0, 0, 90] },
+    "magTip_00_M_JNT": { "translate": [4, 0, 0], "rotate": [0, 0, 90] },
+    "trigger_00_M_JNT": { "translate": [0, 1, 0], "rotate": [0, 0, 90] },
+    "handle_00_M_JNT": { "translate": [0, 0, 2], "rotate": [0, 0, 90] },
+    "grip_00_M_JNT": { "translate": [1, 0, 2], "rotate": [0, 0, 90] },
+    "gripEnd_00_M_JNT": { "translate": [2, 0, 2], "rotate": [0, 0, 90] },
+    "mag_00_M_CTRL": { "translate": [2, 0, 0] }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "FkHierarchyTerminated",
+  "rigModules": [
+    { "moduleType": "FkHierarchy", "name": "gun_00_M_MOD", "shapeType": "Box", "side": "Center",
+      "moduleArgs": { "root": ["Center", "root"], "terminators": [["Center", "handle"], ["Center", "mag"]] } }
+  ]
+}

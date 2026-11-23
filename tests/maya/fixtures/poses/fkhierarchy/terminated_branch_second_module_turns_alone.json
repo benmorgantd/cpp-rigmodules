@@ -1,0 +1,11 @@
+{
+  "description": "The same split. Rotating the second module's grip control 90 degrees about Z turns gripEnd (0,-1,0) from the grip to (1,0,0) from it, so (1,-1,2) in the world, and leaves the handle where it is",
+  "skeleton": "fk_hierarchy",
+  "template": "fk_hierarchy_split",
+  "set": { "grip_00_M_CTRL.rotateZ": 90 },
+  "expect": {
+    "handle_00_M_JNT": { "translate": [0, 0, 2], "rotate": [0, 0, 0] },
+    "grip_00_M_JNT": { "translate": [0, -1, 2], "rotate": [0, 0, 90] },
+    "gripEnd_00_M_JNT": { "translate": [1, -1, 2], "rotate": [0, 0, 90] }
+  }
+}

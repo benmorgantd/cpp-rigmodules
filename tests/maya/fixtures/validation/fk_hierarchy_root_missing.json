@@ -1,0 +1,7 @@
+{
+  "description": "moduleArgs needs a root",
+  "base": "fk_hierarchy",
+  "skeleton": "fk_hierarchy",
+  "edits": [ { "remove": "/rigModules/0/moduleArgs/root" } ],
+  "expectErrors": [ { "contains": "root" } ]
+}

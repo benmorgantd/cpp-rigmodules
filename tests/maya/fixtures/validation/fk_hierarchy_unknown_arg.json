@@ -1,0 +1,7 @@
+{
+  "description": "An unknown FkHierarchy moduleArgs key is an error",
+  "base": "fk_hierarchy",
+  "skeleton": "fk_hierarchy",
+  "edits": [ { "set": "/rigModules/0/moduleArgs/exclude", "value": [["Center", "mag"]] } ],
+  "expectErrors": [ { "contains": "exclude" } ]
+}

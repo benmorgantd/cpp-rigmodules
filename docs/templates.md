@@ -54,11 +54,11 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 
 | Key | Required | Value |
 |---|---|---|
-| `moduleType` | yes | A module type from [modules.md](modules.md): `FkChain`, `Aim`, `TwoBoneIk` or `Ribbon` |
+| `moduleType` | yes | A module type from [modules.md](modules.md): `FkChain`, `FkHierarchy`, `Aim`, `TwoBoneIk`, `Ribbon` or `Limb` |
 | `name` | yes | The module's id, in the [naming convention](naming.md): `<camelCaseName>_##_<L|R|M>_MOD`, such as `arm_00_L_MOD`. Unique in the template, its side letter must match `side`, and it is not `layout_00_M_MOD`. The module node gets this name in the rig namespace. |
 | `side` | no | `Center` (default), `Left` or `Right`. Sets the controls' side letter (`M`, `L`, `R`) and color, and must match the side letter in `name`. |
 | `shapeType` | no | Control shape for the module's controls: `Box` (default) or any shape in [controls.md](controls.md#shapes) |
-| `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Layout, FkChain and Aim are at version 1, and TwoBoneIk and Ribbon at version 2. A `moduleArgs` written for an older version is updated before the module reads it. |
+| `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Layout, FkChain, FkHierarchy and Aim are at version 1, and TwoBoneIk and Ribbon at version 2. A `moduleArgs` written for an older version is updated before the module reads it. |
 | `moduleArgs` | no | Module-specific arguments, mostly joint selectors. See [modules.md](modules.md). |
 | `parentStructure` | no | Maps this module's child plugs to parent sockets (below) |
 | `mirror` | no | `true` also builds this module on the other side. Only `Left` and `Right` modules. See [Mirroring](#mirroring). |
@@ -195,7 +195,7 @@ The mirror is the source entry with:
 - **`side`** swapped, `Left` and `Right`.
 - **`name`** with its side letter swapped: `arm_00_L_MOD` becomes `arm_00_R_MOD`. A mirrored module's or constraint's name must be in the naming convention with a side of `L` or `R`.
 - **Every selector side** in `moduleArgs` swapped (a module that has world-space vectors in its `moduleArgs`, as TwoBoneIk does, mirrors those itself): `["Left", "upperArm"]` becomes `["Right", "upperArm"]`. `Center` selectors stay `Center`.
-- **Socket ids** in `parentStructure`, `target` and `drivers` pointing at the other side's module when the named module is `Left` or `Right`: `clavicle_00_L_MOD.end` becomes `clavicle_00_R_MOD.end`. Ids on `Center` modules and `layout_00_M_MOD` stay as they are. The socket or child plug name never changes. Such a `Left` or `Right` module needs a side letter in its name.
+- **Socket ids** in `parentStructure`, `target` and `drivers` pointing at the other side's module when the named module is `Left` or `Right`: `clavicle_00_L_MOD.end` becomes `clavicle_00_R_MOD.end`. Ids on `Center` modules and `layout_00_M_MOD` stay as they are. The socket or child plug name never changes, with one exception: a socket named from joint markup (an [FkHierarchy](modules.md#fkhierarchy)'s `left_upperArm`) swaps its leading `left_` or `right_`, so a mirrored module attached to `arm_00_L_MOD.left_hand` attaches to `arm_00_R_MOD.right_hand`. This holds for ids on `Center` modules too. Such a `Left` or `Right` module needs a side letter in its name.
 - **Driver labels** unchanged, except a label left out, which defaults to the mirror's own socket id.
 - **`mirror`** removed. Everything else is copied.
 

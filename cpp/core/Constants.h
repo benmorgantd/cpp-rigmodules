@@ -263,6 +263,8 @@ namespace RigAttr
 	// RigModuleWithJointsNode layer
 	inline constexpr const char* JointOPM{ "jointOPM" };
 	inline constexpr const char* JointRestWorld{ "jointRestWorld" };
+	// FkHierarchy (D71): int array, one per control slot: the slot of the control's parent, or -1 for the root. A parent's slot is always lower.
+	inline constexpr const char* ControlParentIndex{ "controlParentIndex" };
 
 	// Skin weights (D35): a GUID string on a mesh transform, stamped once by setRigMeshId
 	inline constexpr const char* MeshId{ "meshId" };

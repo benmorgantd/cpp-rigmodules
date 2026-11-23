@@ -50,6 +50,39 @@ A forward-kinematics chain: one control per joint, each control's rotation and t
 
 With a single joint, `index_0`, `start` and `end` are the same socket.
 
+## FkHierarchy
+
+An FK control for a root joint and every joint below it, branches included: a prop or weapon with many joints under one root, or any skeleton that is a tree rather than a chain. You name the root, and the module walks the joints below it. A joint added to the skeleton later gets a control the next time the rig is built, and the template does not change. Each control is carried by its own parent's motion, so a new joint follows its parent.
+
+```json
+{
+  "moduleType": "FkHierarchy",
+  "name": "gun_00_M_MOD",
+  "moduleArgs": { "root": ["Center", "root"], "terminators": [["Center", "handle"]] },
+  "parentStructure": { "start": "layout_00_M_MOD.end" }
+}
+```
+
+| `moduleArgs` key | Required | Value |
+|---|---|---|
+| `root` | yes | Selector for the top joint. Its control is the module's one child plug. |
+| `terminators` | no | Selectors for joints that end a branch. A terminator gets a control, and the joints below it do not. With none, the walk goes to every leaf. |
+
+| | |
+|---|---|
+| Node type | `fkHierarchyModule` |
+| Controls | One per joint, named from the joint, with the joint's markup. Their order is depth first, in the order the joints are in the hierarchy. |
+| Child plugs | `start`: the root's control's parent |
+| Sockets | One per joint, named from its markup: the side in lowercase, then the usage as written (`center_handle`, `left_upperArm`). The root's is also `start`. There is no `end` and no `index_<n>`: attach to a joint through its own socket. |
+
+The rules:
+
+- **Every joint the walk reaches needs markup**, and a joint's `(side, usage)` is unique in the rig as always. A joint with no markup, or one another module already drives, is an error that names it. To stop above it, list a terminator; to keep the rest of its branch, give that branch its own `FkHierarchy` rooted at it and attach it to the first module's socket for the joint above (`"start": "gun_00_M_MOD.center_handle"`).
+- **Only joint-to-joint edges count.** A joint under a locator or group between two joints is not reached.
+- **A terminator the walk never meets is an error**, to catch a typo.
+- **One root per module.** A second root is a second `FkHierarchy`.
+- **Mirroring** follows [templates.md](templates.md): `"mirror": true` copies the module to the other side with the selectors swapped. The other side's hierarchy may differ below the root. A mirrored terminator that matches no joint on the other side is dropped, with a warning, and that side then walks to every leaf. To give the other side its own terminators, write that module out yourself, without `mirror`.
+
 ## Aim
 
 Points a joint at a target control, with an up control setting its roll. The aim joint's +X points at the target, and its +Z points toward the up control. The joint keeps its rest orientation at rest.

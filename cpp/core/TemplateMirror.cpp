@@ -39,11 +39,27 @@ namespace
 		}
 	}
 
+	// A socket named from joint markup (FkHierarchy, D71) starts with its joint's side: "left_upperArm" mirrors to
+	// "right_upperArm". No other module names a socket that way, so every other socket name stays as it is.
+	std::string swapSocketSide(const std::string& socket)
+	{
+		for (const auto& [from, to] : { std::pair<const char*, const char*>{ "left_", "right_" }, { "right_", "left_" } })
+		{
+			if (socket.rfind(from, 0) == 0)
+			{
+				return to + socket.substr(std::string(from).size());
+			}
+		}
+		return socket;
+	}
+
 	// Template module name -> side, for the modules written in the file.
 	using ModuleSides = std::map<std::string, std::string>;
 
 	// "clavicle_00_L_MOD.end" -> "clavicle_00_R_MOD.end" when clavicle_00_L_MOD is a Left or Right module. Center modules,
-	// layout and unknown names stay as they are, and a malformed id is left for validateConnections to report.
+	// layout and unknown names stay as they are, and a malformed id is left for validateConnections to report. A socket
+	// named from markup swaps its side in every case, so a mirrored module on a Center FkHierarchy's "left_shoulder"
+	// attaches to its "right_shoulder".
 	std::string mirrorIdentifier(const std::string& identifier, const ModuleSides& moduleSides, const std::string& where, ValidationReport& report)
 	{
 		// A parent rig's module is not in this template, so only its name's side token says which side it is (D55).
@@ -58,7 +74,7 @@ namespace
 				return identifier;
 			}
 			const std::string swapped = NamingConvention::swapSide(parentModule);
-			return swapped.empty() ? identifier : std::string(ParentRigId::Prefix) + swapped + "." + parentMember;
+			return std::string(ParentRigId::Prefix) + (swapped.empty() ? parentModule : swapped) + "." + swapSocketSide(parentMember);
 		}
 
 		std::string moduleName;
@@ -71,7 +87,7 @@ namespace
 		auto it = moduleSides.find(moduleName);
 		if (it == moduleSides.end() || !isMirrorableSide(it->second))
 		{
-			return identifier;
+			return moduleName + "." + swapSocketSide(memberName);
 		}
 
 		const std::string mirrorModule = NamingConvention::swapSide(moduleName);
@@ -81,7 +97,7 @@ namespace
 				+ " with a side of L or R, so its mirror can't be found");
 			return identifier;
 		}
-		return mirrorModule + "." + memberName;
+		return mirrorModule + "." + swapSocketSide(memberName);
 	}
 }
 

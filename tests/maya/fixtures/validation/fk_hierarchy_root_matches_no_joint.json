@@ -1,0 +1,7 @@
+{
+  "description": "A root selector that matches no joint is the ordinary selector error",
+  "base": "fk_hierarchy",
+  "skeleton": "fk_hierarchy",
+  "edits": [ { "set": "/rigModules/0/moduleArgs/root", "value": ["Center", "nothing"] } ],
+  "expectErrors": [ { "contains": "no joint has side Center, usage nothing" } ]
+}

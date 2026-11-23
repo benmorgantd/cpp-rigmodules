@@ -44,7 +44,7 @@ rigmodules.query.get_rigs("hero_body")    # the rig built into the hero_body nam
 
 `IkFkLimb` is a frozen dataclass: `module` (the `twoBoneIkModule` or `limbModule` node), `controls` (all the module's controls: six for a TwoBoneIk, and for a Limb the six plus its ribbon's ik controls and tweakers), `settings` (the control that holds `ikFkBlend`, found by that channel, not by name) and `blend` (its `ikFkBlend` now: 0 is FK, 1 is IK, between is a blend).
 
-`RigControl` is a frozen dataclass: `node`, `module` (the module node that owns it), `module_type` (`"Layout"`, `"FkChain"`, `"Aim"` or `"TwoBoneIk"`), `side`, `usage` and `mirror` (the control on the other side, itself for a Center control, `None` when a side control has none).
+`RigControl` is a frozen dataclass: `node`, `module` (the module node that owns it), `module_type` (`"Layout"`, `"FkChain"`, `"FkHierarchy"`, `"Aim"`, `"TwoBoneIk"`, `"Ribbon"` or `"Limb"`), `side`, `usage` and `mirror` (the control on the other side, itself for a Center control, `None` when a side control has none).
 
 `ControlChannel` is a frozen dataclass: `name`, `type` (Maya's attribute type, such as `doubleAngle` or `enum`), `rest` (the attribute default), `min` and `max` (`None` for no limit) and `mirror` (`"copy"` or `"negate"`). Values are in the scene's UI units.
 

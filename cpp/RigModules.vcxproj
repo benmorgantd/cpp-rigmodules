@@ -156,6 +156,7 @@
     <ClCompile Include="core\ControlShapeLibrary.cpp" />
     <ClCompile Include="core\ControlShapes.cpp" />
     <ClCompile Include="core\FormatUpdate.cpp" />
+    <ClCompile Include="core\HierarchyPlan.cpp" />
     <ClCompile Include="core\JointMarkup.cpp" />
     <ClCompile Include="core\RigControlFilter.cpp" />
     <ClCompile Include="core\JointClipFile.cpp" />
@@ -200,6 +201,7 @@
     <ClCompile Include="maya\commands\TwoBoneIkCmds.cpp" />
     <ClCompile Include="maya\modules\AimModule.cpp" />
     <ClCompile Include="maya\modules\FkChainModule.cpp" />
+    <ClCompile Include="maya\modules\FkHierarchyModule.cpp" />
     <ClCompile Include="maya\modules\LayoutModule.cpp" />
     <ClCompile Include="maya\modules\LimbModule.cpp" />
     <ClCompile Include="maya\modules\RibbonModule.cpp" />
@@ -266,6 +268,7 @@
     <ClInclude Include="core\ControlShapeLibrary.h" />
     <ClInclude Include="core\ControlShapes.h" />
     <ClInclude Include="core\FormatUpdate.h" />
+    <ClInclude Include="core\HierarchyPlan.h" />
     <ClInclude Include="core\JointMarkup.h" />
     <ClInclude Include="core\JsonUtils.h" />
     <ClInclude Include="core\RigControlFilter.h" />
@@ -312,6 +315,7 @@
     <ClInclude Include="maya\commands\TwoBoneIkCmds.h" />
     <ClInclude Include="maya\modules\AimModule.h" />
     <ClInclude Include="maya\modules\FkChainModule.h" />
+    <ClInclude Include="maya\modules\FkHierarchyModule.h" />
     <ClInclude Include="maya\modules\LayoutModule.h" />
     <ClInclude Include="maya\modules\LimbModule.h" />
     <ClInclude Include="maya\modules\RibbonModule.h" />

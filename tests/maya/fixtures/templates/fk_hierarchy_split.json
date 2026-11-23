@@ -1,0 +1,11 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "FkHierarchySplit",
+  "rigModules": [
+    { "moduleType": "FkHierarchy", "name": "gun_00_M_MOD", "shapeType": "Box", "side": "Center",
+      "moduleArgs": { "root": ["Center", "root"], "terminators": [["Center", "handle"]] } },
+    { "moduleType": "FkHierarchy", "name": "grip_00_M_MOD", "shapeType": "Circle", "side": "Center",
+      "moduleArgs": { "root": ["Center", "grip"] },
+      "parentStructure": { "start": "gun_00_M_MOD.center_handle" } }
+  ]
+}

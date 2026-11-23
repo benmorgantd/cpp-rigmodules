@@ -1,0 +1,15 @@
+{
+  "description": "Rotating the mag control 90 degrees about Z turns only its own branch, about the mag joint at (0,-2,0). magTip, 2 below it, goes to (2,-2,0). The trigger, the handle and everything under it stay at rest, siblings do not follow each other",
+  "skeleton": "fk_hierarchy",
+  "template": "fk_hierarchy",
+  "set": { "mag_00_M_CTRL.rotateZ": 90 },
+  "expect": {
+    "root_00_M_JNT": { "translate": [0, 0, 0], "rotate": [0, 0, 0] },
+    "mag_00_M_JNT": { "translate": [0, -2, 0], "rotate": [0, 0, 90] },
+    "magTip_00_M_JNT": { "translate": [2, -2, 0], "rotate": [0, 0, 90] },
+    "trigger_00_M_JNT": { "translate": [1, 0, 0], "rotate": [0, 0, 0] },
+    "handle_00_M_JNT": { "translate": [0, 0, 2], "rotate": [0, 0, 0] },
+    "grip_00_M_JNT": { "translate": [0, -1, 2], "rotate": [0, 0, 0] },
+    "gripEnd_00_M_JNT": { "translate": [0, -2, 2], "rotate": [0, 0, 0] }
+  }
+}

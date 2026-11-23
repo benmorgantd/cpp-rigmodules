@@ -1,0 +1,12 @@
+{
+  "description": "The handle ends the first module and the grip is the root of a second one, hung from the first's center_handle socket. Rotating the handle 90 degrees about Z turns the second module with it: the grip (0,-1,0) from the handle goes to (1,0,2), gripEnd (0,-2,0) from it goes to (2,0,2)",
+  "skeleton": "fk_hierarchy",
+  "template": "fk_hierarchy_split",
+  "set": { "handle_00_M_CTRL.rotateZ": 90 },
+  "expect": {
+    "handle_00_M_JNT": { "translate": [0, 0, 2], "rotate": [0, 0, 90] },
+    "grip_00_M_JNT": { "translate": [1, 0, 2], "rotate": [0, 0, 90] },
+    "gripEnd_00_M_JNT": { "translate": [2, 0, 2], "rotate": [0, 0, 90] },
+    "mag_00_M_JNT": { "translate": [0, -2, 0], "rotate": [0, 0, 0] }
+  }
+}

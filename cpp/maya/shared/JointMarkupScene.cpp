@@ -93,6 +93,62 @@ void JointMarkupScene::collectMarkedJoints(const MDagPathArray& joints, MarkedJo
 	}
 }
 
+MStatus JointMarkupScene::collectJointSubtree(const MDagPath& rootPath, std::vector<HierarchyJoint>& outJoints)
+{
+	MStatus status;
+	outJoints.clear();
+
+	// The index in outJoints of the last joint seen at each path length, or -1 when that joint was not collected. In a
+	// depth-first walk the last joint seen one level up is the parent of a joint when the parent is a joint at all.
+	std::vector<int> lastAtLength;
+	MItDag itDag(MItDag::kDepthFirst, MFn::kJoint, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(itDag.reset(rootPath, MItDag::kDepthFirst, MFn::kJoint));
+
+	for (; !itDag.isDone(); itDag.next())
+	{
+		MDagPath jointPath;
+		CHECK_MSTATUS_AND_RETURN_IT(itDag.getPath(jointPath));
+
+		const std::size_t length = jointPath.length();
+		lastAtLength.resize(length + 1, -1);
+		lastAtLength[length] = -1;   // Set below if this joint is collected
+
+		// The first joint the walk returns is the root itself.
+		int parent = -1;
+		if (!outJoints.empty())
+		{
+			MDagPath parentPath(jointPath);
+			parentPath.pop();
+			parent = parentPath.hasFn(MFn::kJoint) ? lastAtLength[length - 1] : -1;
+			if (parent < 0)
+			{
+				continue;
+			}
+		}
+
+		HierarchyJoint joint;
+		joint.label = jointPath.partialPathName().asChar();
+		joint.parent = parent;
+
+		JointMarkup markup;
+		std::string error;
+		const MStatus markupStatus = readMarkupAttr(jointPath.node(), joint.hasMarkup, markup, error);
+		if (markupStatus && joint.hasMarkup)
+		{
+			joint.selector = JointSelector{ markup.side, markup.usage };
+		}
+		else
+		{
+			joint.hasMarkup = false;
+		}
+
+		lastAtLength[length] = static_cast<int>(outJoints.size());
+		outJoints.push_back(joint);
+	}
+	return MStatus::kSuccess;
+}
+
 MStatus JointMarkupScene::readMarkup(const MObject& oJoint, bool& outHasMarkup, JointMarkup& outMarkup)
 {
 	std::string error;

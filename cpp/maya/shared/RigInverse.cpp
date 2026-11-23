@@ -612,6 +612,19 @@ namespace
 			{
 				module.context.fkControlCount = static_cast<unsigned int>(pFkControlCount.asInt());
 			}
+			MPlug pParentIndex = fnModule.findPlug(RigAttr::ControlParentIndex, false, &status);
+			if (status)
+			{
+				// An unset element is a root: a build writes every one.
+				module.context.parentIndex.assign(slotCount, -1);
+				for (const unsigned int slot : elementIndices(pParentIndex))
+				{
+					if (slot < slotCount)
+					{
+						module.context.parentIndex[slot] = pParentIndex.elementByLogicalIndex(slot).asInt();
+					}
+				}
+			}
 
 			status = readJoints(module, slotCount, clipJointByMarkup);
 			CHECK_MSTATUS_AND_RETURN_IT(status);

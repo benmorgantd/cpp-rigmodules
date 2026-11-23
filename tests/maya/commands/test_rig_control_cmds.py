@@ -99,7 +99,7 @@ class GetRigControls(RigControlTestCase):
         self.assertMayaError(lambda: cmds.getRigControls(self.root, side="Middle"), "Middle", "Center, Left, Right")
 
     def test_bad_module_type_is_an_error(self):
-        self.assertMayaError(lambda: cmds.getRigControls(self.root, moduleType="RigRoot"), "RigRoot", "Layout, FkChain, Aim")
+        self.assertMayaError(lambda: cmds.getRigControls(self.root, moduleType="RigRoot"), "RigRoot", "Layout, FkChain, FkHierarchy, Aim")
 
     def test_object_must_be_a_rig_root(self):
         self.assertMayaError(lambda: cmds.getRigControls(rig_name("fkchain_01_M_MOD")), "Not a rig root")

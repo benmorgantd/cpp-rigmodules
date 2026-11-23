@@ -1,0 +1,13 @@
+{
+  "joints": [
+    { "name": "chest_00_M_JNT", "side": "Center", "usage": "chest", "translate": [0, 4, 0] },
+    { "name": "clavicle_00_L_JNT", "side": "Left", "usage": "clavicle", "translate": [1, 5, 0], "parent": "chest_00_M_JNT" },
+    { "name": "upperArm_00_L_JNT", "side": "Left", "usage": "upperArm", "translate": [2, 5, 0], "parent": "clavicle_00_L_JNT" },
+    { "name": "lowerArm_00_L_JNT", "side": "Left", "usage": "lowerArm", "translate": [4, 5, 0], "parent": "upperArm_00_L_JNT" },
+    { "name": "shoulderPad_00_L_JNT", "side": "Left", "usage": "shoulderPad", "translate": [2, 6, 0], "parent": "clavicle_00_L_JNT" },
+    { "name": "clavicle_00_R_JNT", "side": "Right", "usage": "clavicle", "translate": [-1, 5, 0], "parent": "chest_00_M_JNT" },
+    { "name": "upperArm_00_R_JNT", "side": "Right", "usage": "upperArm", "translate": [-2, 5, 0], "parent": "clavicle_00_R_JNT" },
+    { "name": "lowerArm_00_R_JNT", "side": "Right", "usage": "lowerArm", "translate": [-4, 5, 0], "parent": "upperArm_00_R_JNT" },
+    { "name": "shoulderPad_00_R_JNT", "side": "Right", "usage": "shoulderPad", "translate": [-2, 6, 0], "parent": "clavicle_00_R_JNT" }
+  ]
+}

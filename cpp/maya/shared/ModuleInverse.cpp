@@ -11,10 +11,20 @@ ModuleInverseResult ModuleInverse::solveChain(const ModuleInverseContext& contex
 	result.socketWorld.resize(count);
 	result.solved = true;
 
-	MMatrix mParentDelta = input.parentDelta.empty() ? MMatrix::identity : input.parentDelta[0];
+	const MMatrix mRootDelta = input.parentDelta.empty() ? MMatrix::identity : input.parentDelta[0];
+	MMatrix mParentDelta = mRootDelta;
+
+	// A hierarchy keeps each control's motion for its children. A chain only carries it to the next control.
+	const bool isHierarchy = context.parentIndex.size() == count;
+	std::vector<MMatrix> motion(isHierarchy ? count : 0);
 	for (std::size_t i = 0; i < count; ++i)
 	{
 		const MMatrix& mRestWorld = context.controlRestWorld[i];
+		if (isHierarchy)
+		{
+			const int parent = context.parentIndex[i];
+			mParentDelta = parent < 0 ? mRootDelta : motion[static_cast<std::size_t>(parent)];
+		}
 
 		MMatrix mLocal = input.fallbackLocal[i];
 		if (useJoints && input.jointWorld[i].has_value())
@@ -30,7 +40,15 @@ ModuleInverseResult ModuleInverse::solveChain(const ModuleInverseContext& contex
 
 		const ControlSolveStep step = RigModuleNodeBase::solveControlStep(mLocal, mRestWorld, mParentDelta);
 		result.socketWorld[i] = step.mWorld;
-		mParentDelta = MathUtils::computeDeltaFromRest(mRestWorld, step.mWorld);
+		const MMatrix mDelta = MathUtils::computeDeltaFromRest(mRestWorld, step.mWorld);
+		if (isHierarchy)
+		{
+			motion[i] = mDelta;
+		}
+		else
+		{
+			mParentDelta = mDelta;
+		}
 	}
 	return result;
 }

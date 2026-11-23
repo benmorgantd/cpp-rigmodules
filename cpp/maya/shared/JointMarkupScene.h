@@ -1,8 +1,10 @@
 #pragma once
 
+#include "core/HierarchyPlan.h"
 #include "core/JointMarkup.h"
 
 #include <string>
+#include <vector>
 
 #include <maya/MDagPathArray.h>
 #include <maya/MDGModifier.h>
@@ -33,6 +35,11 @@ public:
 	// collectMarkedJoints, so invalid markup and two joints sharing a (side, usage) go into report. Unmarked joints
 	// are skipped. Walks MItDag filtered to joints, which hands over each path.
 	static void collectNamespaceJoints(const MString& absoluteNamespace, MarkedJointSet& outSet, ValidationReport& report);
+
+	// The root joint and every joint below it, in depth-first order (the order MItDag visits children, D71), for
+	// HierarchyPlanner. Only a joint whose parent is a collected joint counts: a joint under a locator or group between
+	// two joints is not reached. Markup that is missing or invalid gives hasMarkup false. Read-only.
+	static MStatus collectJointSubtree(const MDagPath& rootPath, std::vector<HierarchyJoint>& outJoints);
 
 	// outHasMarkup is false, with success, when the joint has no markup attribute.
 	static MStatus readMarkup(const MObject& oJoint, bool& outHasMarkup, JointMarkup& outMarkup);

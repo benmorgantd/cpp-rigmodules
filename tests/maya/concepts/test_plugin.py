@@ -7,7 +7,7 @@ from maya import cmds, mel
 
 from rigtest.case import RigTestCase
 
-NODE_TYPES = ["rigRootModule","layoutModule", "fkChainModule", "aimModule",
+NODE_TYPES = ["rigRootModule","layoutModule", "fkChainModule", "fkHierarchyModule", "aimModule",
               "twoBoneIkModule", "ribbonModule", "limbModule", "rigConstraint", "lookRoot", "rigControlNode"]
 
 COMMAND_FLAGS = {

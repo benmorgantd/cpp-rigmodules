@@ -20,7 +20,8 @@ namespace TemplateMirror
 	//   selector in moduleArgs swapped
 	//   (Center selectors stay, so they fail later as joints claimed twice);
 	//   each "module.x" id in parentStructure, target and drivers pointing at the other side's module when the
-	//   named module is Left or Right (the socket or child plug name never changes);
+	//   named module is Left or Right, and a socket named from joint markup swapping its leading left_ or right_
+	//   (FkHierarchy: left_upperArm <-> right_upperArm). Every other socket or child plug name never changes;
 	//   mirror false and mirrorOf set to the source's index.
 	// Mirrors go after every source entry, so the source indices in error paths still match the file.
 	void expandMirrors(RigRootData& rigData, ValidationReport& report);

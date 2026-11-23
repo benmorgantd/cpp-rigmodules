@@ -1,0 +1,13 @@
+{
+  "description": "Moving the handle control 1 along X carries the grip and gripEnd with it, 1 along X each, and nothing on the other branches",
+  "skeleton": "fk_hierarchy",
+  "template": "fk_hierarchy",
+  "set": { "handle_00_M_CTRL.translateX": 1 },
+  "expect": {
+    "handle_00_M_JNT": { "translate": [1, 0, 2] },
+    "grip_00_M_JNT": { "translate": [1, -1, 2] },
+    "gripEnd_00_M_JNT": { "translate": [1, -2, 2] },
+    "mag_00_M_JNT": { "translate": [0, -2, 0] },
+    "trigger_00_M_JNT": { "translate": [1, 0, 0] }
+  }
+}

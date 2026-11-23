@@ -69,6 +69,9 @@
     <ClCompile Include="core\FormatUpdate.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\HierarchyPlan.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\JointMarkup.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -184,6 +187,9 @@
       <Filter>maya\modules</Filter>
     </ClCompile>
     <ClCompile Include="maya\modules\FkChainModule.cpp">
+      <Filter>maya\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\modules\FkHierarchyModule.cpp">
       <Filter>maya\modules</Filter>
     </ClCompile>
     <ClCompile Include="maya\modules\LayoutModule.cpp">
@@ -326,6 +332,9 @@
     <ClInclude Include="core\FormatUpdate.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="core\HierarchyPlan.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\JointMarkup.h">
       <Filter>core</Filter>
     </ClInclude>
@@ -447,6 +456,9 @@
       <Filter>maya\modules</Filter>
     </ClInclude>
     <ClInclude Include="maya\modules\FkChainModule.h">
+      <Filter>maya\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\modules\FkHierarchyModule.h">
       <Filter>maya\modules</Filter>
     </ClInclude>
     <ClInclude Include="maya\modules\LayoutModule.h">

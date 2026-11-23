@@ -11,7 +11,7 @@ Contents: [Layers](#layers) · [Source map](#source-map) · [Plugin startup](#pl
         |  cmds.*
  Commands (cpp/maya/commands)    parse flags, delegate, report
         |
- Nodes and scene code            cpp/maya/modules   module nodes (Layout, FkChain, Aim, TwoBoneIk, Ribbon)
+ Nodes and scene code            cpp/maya/modules   module nodes (Layout, FkChain, FkHierarchy, Aim, TwoBoneIk, Ribbon, Limb)
                                  cpp/maya/contexts  interactive tools: the skin brush
  (cpp/maya)                      cpp/maya/nodes     rig root, constraint, control
                                  cpp/maya/shared    module base, scene helpers, traversal, utilities
@@ -48,7 +48,7 @@ Paths are relative to `cpp/`. Include lines use the same paths (`"maya/shared/Ri
 | Folder | Files | What they hold |
 |---|---|---|
 | `maya/` | `PluginMain.cpp`, `ModuleRegistry`, `CommandRegistry` | Plugin entry, and the only files that include every module or command header. |
-| `modules/` | `LayoutModule`, `FkChainModule`, `AimModule`, `TwoBoneIkModule`, `RibbonModule` | One file pair per module node. FkChainModule is the reference. |
+| `modules/` | `LayoutModule`, `FkChainModule`, `FkHierarchyModule`, `AimModule`, `TwoBoneIkModule`, `RibbonModule`, `LimbModule` | One file pair per module node. FkChainModule is the reference. |
 | `nodes/` | `RigRoot`, `Constraints`, `RigControlNode` | The rig root (it also runs the build), the constraint node, and the control transform with its VP2 draw override. |
 | `commands/` | one file pair per command, or per closely related set | Flag parsing and delegation. See [Commands](#commands). |
 | `contexts/` | `SkinBrushContext` | Interactive tools (`MPxContext`): events in, a stroke out. A context holds no weight logic: it picks, draws and hands the stroke to `shared/SkinBrushStroke` and an undoable tool command (D65). |
@@ -147,6 +147,7 @@ MPxNode
 |---|---|---|---|---|---|
 | `LayoutModuleNode` | WithControls | none | 3 | none | `index_0`..`index_2`, `end` |
 | `FkChainModuleNode` | WithJoints | n | n | `start` | `index_<n>`, `start`, `end` |
+| `FkHierarchyModuleNode` | WithJoints | n | n | `start` | `<side>_<usage>` per joint, `start` |
 | `AimModuleNode` | WithJoints | 1 | 2 (target, up) | `aim`, `target`, `up` | `aim`, `target`, `up` |
 | `TwoBoneIkNode` | WithJoints | 3 (the limb joints, slots 0 to 2; the other three controls have none) | 6 | `start`, `ik`, `pole`, `settings` (internal) | `index_0`..`index_2` (with `start`, `end`), `ik`, `pole`, `settings` |
 | `RibbonModuleNode` | WithJoints | n (the bind joints, at slots j to j+n-1) | j + n (j ik, n tweakers) | `start`, `end` | `index_<k>` over the ik controls (with `start`, `end`) |

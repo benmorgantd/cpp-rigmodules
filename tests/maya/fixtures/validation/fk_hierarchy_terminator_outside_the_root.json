@@ -1,0 +1,7 @@
+{
+  "description": "A terminator that exists but is not at or below the root is not met by the walk, so it is an error. The second module's root is the grip, and the handle is above it",
+  "base": "fk_hierarchy_split",
+  "skeleton": "fk_hierarchy",
+  "edits": [ { "set": "/rigModules/1/moduleArgs/terminators", "value": [["Center", "handle"]] } ],
+  "expectErrors": [ { "contains": "terminator [Center, handle] is not at or below the root" } ]
+}

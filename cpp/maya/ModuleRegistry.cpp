@@ -2,6 +2,7 @@
 #include "maya/ModuleRegistry.h"
 #include "maya/modules/AimModule.h"
 #include "maya/modules/FkChainModule.h"
+#include "maya/modules/FkHierarchyModule.h"
 #include "maya/modules/LayoutModule.h"
 #include "maya/modules/LimbModule.h"
 #include "maya/modules/RibbonModule.h"
@@ -35,6 +36,11 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
             "fkChainModule", "FkChain", FkChainModuleNode::id,
             FkChainModuleNode::creator, FkChainModuleNode::initialize,
             {}, FkChainModuleNode::planFromJson, FkChainModuleNode::inverse, true
+        },
+        {
+            "fkHierarchyModule", "FkHierarchy", FkHierarchyModuleNode::id,
+            FkHierarchyModuleNode::creator, FkHierarchyModuleNode::initialize,
+            {}, FkHierarchyModuleNode::planFromJson, FkHierarchyModuleNode::inverse, true
         },
         {
             "aimModule", "Aim", AimModuleNode::id,

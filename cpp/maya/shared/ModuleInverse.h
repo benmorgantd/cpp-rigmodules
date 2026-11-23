@@ -21,6 +21,9 @@ struct ModuleInverseContext
 	unsigned int ikControlCount = 0;
 	// How many of the trailing slots are fk controls, from the module's fkControlCount attribute when it has one (Ribbon, D59).
 	unsigned int fkControlCount = 0;
+	// By slot, from the module's controlParentIndex attribute (FkHierarchy, D71): the slot of each control's parent, -1 for
+	// the root. Empty for every module whose controls form one chain.
+	std::vector<int> parentIndex;
 };
 
 // A scalar channel a module's inverse needs and the joints can't give (D41 amendment, D52 section 6): the name of
@@ -65,6 +68,7 @@ namespace ModuleInverse
 
 	// A chain of controls where each is the parent of the next and the first hangs from parentDelta[0]: FkChain, and
 	// Layout (no joints, identity rests, no parent). With useJoints, a control whose joint is present takes the local
-	// that reproduces the joint, and the others use fallbackLocal.
+	// that reproduces the joint, and the others use fallbackLocal. With context.parentIndex (FkHierarchy), each control
+	// hangs from its own parent's motion instead of the previous control's, and the root from parentDelta[0].
 	ModuleInverseResult solveChain(const ModuleInverseContext& context, const ModuleInverseInput& input, bool useJoints);
 }

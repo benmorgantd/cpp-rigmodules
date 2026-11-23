@@ -1,0 +1,10 @@
+{
+  "description": "The first module takes every joint below the root, the grip included, so the second module's root is already driven. The error says to end the walk with a terminator or give the branch its own module",
+  "base": "fk_hierarchy_split",
+  "skeleton": "fk_hierarchy",
+  "edits": [ { "remove": "/rigModules/0/moduleArgs/terminators" } ],
+  "expectErrors": [
+    { "contains": "already driven by module 'gun_00_M_MOD'" },
+    { "contains": "give that branch its own FkHierarchy" }
+  ]
+}

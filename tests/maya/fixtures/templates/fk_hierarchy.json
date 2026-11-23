@@ -1,0 +1,8 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "FkHierarchyGun",
+  "rigModules": [
+    { "moduleType": "FkHierarchy", "name": "gun_00_M_MOD", "shapeType": "Box", "side": "Center",
+      "moduleArgs": { "root": ["Center", "root"] } }
+  ]
+}

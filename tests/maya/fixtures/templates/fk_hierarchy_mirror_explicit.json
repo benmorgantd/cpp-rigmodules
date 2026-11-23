@@ -1,0 +1,14 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "FkHierarchyMirrorExplicit",
+  "rigModules": [
+    { "moduleType": "FkChain", "name": "spine_00_M_MOD", "shapeType": "Box", "side": "Center",
+      "moduleArgs": { "joints": [ ["Center", "chest"] ] } },
+    { "moduleType": "FkHierarchy", "name": "clavicle_00_L_MOD", "shapeType": "Box", "side": "Left",
+      "moduleArgs": { "root": ["Left", "clavicle"], "terminators": [["Left", "lowerArm"], ["Left", "shoulderPad"]] },
+      "parentStructure": { "start": "spine_00_M_MOD.end" } },
+    { "moduleType": "FkHierarchy", "name": "clavicle_00_R_MOD", "shapeType": "Box", "side": "Right",
+      "moduleArgs": { "root": ["Right", "clavicle"], "terminators": [["Right", "upperArm"]] },
+      "parentStructure": { "start": "spine_00_M_MOD.end" } }
+  ]
+}
