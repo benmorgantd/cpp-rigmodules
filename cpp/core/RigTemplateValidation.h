@@ -5,6 +5,7 @@
 // before createRig queues its first dagMod operation.
 
 #include "ControlMarkup.h"
+#include "JointMarkup.h"
 #include "RigJsonStructs.h"
 
 #include <nlohmann/json.hpp>
@@ -83,6 +84,10 @@ namespace RigTemplateValidation
 		std::initializer_list<const char*> optionalKeys,
 		const std::string& where,
 		ValidationReport& report);
+
+	// A [side, usage] pair with a known side and a usage, as the skeleton and marker files write a joint or marker
+	// selector. False, with what is wrong reported at `where`, for anything else.
+	bool parseSelector(const nlohmann::json& entry, const std::string& where, JointSelector& outSelector, ValidationReport& report);
 
 	// Keys at the top level and on every module, constraint and driver. Each module's plan step checks its own moduleArgs.
 	void checkTemplateKeys(const nlohmann::json& templateJson, ValidationReport& report);

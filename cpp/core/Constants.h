@@ -219,6 +219,17 @@ namespace SkeletonFileKey
 	inline constexpr const char* RestLocal{ "restLocal" };
 }
 
+// Keys in a markers file, see MarkerFile.h (D73). Public API: marker files and the hashes stamped from them depend on
+// them. A marker's flag reuses JointMarkupKey::Export, its markup and name SkeletonFileKey::Markup and Name.
+namespace MarkerFileKey
+{
+	inline constexpr const char* FormatVersion{ "formatVersion" };
+	inline constexpr const char* MarkersHash{ "markersHash" };
+	inline constexpr const char* Markers{ "markers" };
+	inline constexpr const char* Joint{ "joint" };
+	inline constexpr const char* OffsetLocal{ "offsetLocal" };
+}
+
 // A transform's rotateOrder, in Maya's enum order. Skeleton files store the names.
 namespace RotateOrders
 {

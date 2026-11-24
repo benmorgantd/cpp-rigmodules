@@ -107,6 +107,7 @@ PLAIN_PYTHON = [
     "concepts.test_mayalaunch",        # the launcher every script that starts Maya uses (D48)
     "concepts.test_source_layout",     # core/ stays Maya-free; reads files, not the scene
     "concepts.test_python_template",   # rigmodules.template reads a file, builds nothing
+    "concepts.test_core_cpp",          # tests/core: the Maya-free C++ of core/, built with cl.exe into one program and run (D20, D73)
 ]
 PLAIN_TIER = "plain"
 PLAIN_LABEL = "plain python    "

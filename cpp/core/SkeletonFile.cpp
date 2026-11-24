@@ -234,27 +234,7 @@ std::vector<std::size_t> skeletonParentsFirst(const Skeleton& skeleton)
 
 namespace
 {
-	// A [side, usage] pair with a known side and a usage. Reports what is wrong at where.
-	bool parseSelector(const nlohmann::json& entry, const std::string& where, JointSelector& outSelector, ValidationReport& report)
-	{
-		if (!entry.is_array() || entry.size() != 2 || !entry[0].is_string() || !entry[1].is_string())
-		{
-			report.addError(where, "must be [side, usage], got " + entry.dump());
-			return false;
-		}
-		outSelector = JointSelector{ entry[0].get<std::string>(), entry[1].get<std::string>() };
-		if (!isValidSideName(outSelector.side))
-		{
-			report.addError(where, "'" + outSelector.side + "' is not one of " + SideNames::Center + ", " + SideNames::Left + ", " + SideNames::Right);
-			return false;
-		}
-		if (outSelector.usage.empty())
-		{
-			report.addError(where, "usage is empty");
-			return false;
-		}
-		return true;
-	}
+	using RigTemplateValidation::parseSelector;
 
 	// One entry of "joints". False, with every problem reported, when the joint can't be used.
 	bool parseSkeletonJoint(const nlohmann::json& entry, const std::string& where, SkeletonJoint& outJoint, ValidationReport& report)

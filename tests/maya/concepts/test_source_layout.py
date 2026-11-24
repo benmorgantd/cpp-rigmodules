@@ -16,6 +16,8 @@ MAYA_DIR = os.path.join(CPP_DIR, "maya")
 SOURCE_EXTENSIONS = (".h", ".cpp")
 # Every folder that may hold source, relative to cpp/. A new folder is a layout decision, so it is added here on purpose.
 SOURCE_FOLDERS = {"core", "maya", "maya/commands", "maya/contexts", "maya/modules", "maya/nodes", "maya/shared"}
+# C++ outside cpp/: the Maya-free tests of core/ (D20 amendment, D73 phase 0).
+TEST_SOURCE_FOLDERS = {"tests/core"}
 
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]', re.MULTILINE)
 # Third-party headers core may use. The standard library is matched separately (no folder, no extension).
@@ -59,7 +61,7 @@ class SourceLayout(unittest.TestCase):
 
     def test_source_only_in_known_folders(self):
         # Walks the whole repo, so a .h or .cpp outside cpp/ is caught too. cpp/include is vendored code.
-        allowed = {"cpp/" + f for f in SOURCE_FOLDERS}
+        allowed = {"cpp/" + f for f in SOURCE_FOLDERS} | TEST_SOURCE_FOLDERS
         stray = []
         for root, dirs, files in os.walk(REPO_DIR):
             folder = os.path.relpath(root, REPO_DIR).replace("\\", "/")

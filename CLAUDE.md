@@ -117,7 +117,7 @@ cpp/                 the C++ root and include root: RigModules.vcxproj + .filter
   x64/Release/       build output (ignored)
 python/rigmodules/   the Python package that wraps the commands (D24)
 RigModules.mod       Maya module file: puts python/ on PYTHONPATH
-tests/               mayapy suite, plus the manual viewport gallery
+tests/               mayapy suite, plus the manual viewport gallery; tests/core holds the Maya-free C++ tests of core/ (cl.exe, D20)
 tools/               developer scripts (the control shape generator)
 docs/, design/       user docs, design docs
 RigTemplates/        example template

@@ -99,6 +99,9 @@
     <ClCompile Include="core\Hash64.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\MarkerFile.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\SkeletonFile.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -369,6 +372,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\Hash64.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\MarkerFile.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\SkeletonFile.h">
