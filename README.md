@@ -92,7 +92,7 @@ cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end
 cmds.setRigConstraintSpace("hero_body:arm_00_L_CON", label="Chest")
 ```
 
-Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`](RigTemplates/LayoutRig.json) is a larger example that does that and uses all three modules.
+Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`](RigTemplates/LayoutRig.json) is a larger example that does that and uses several modules.
 
 ## Modules
 
@@ -104,6 +104,8 @@ Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`
 | Aim | `Aim` | `aim`, `target`, `up` | `aim`, `target`, `up` |
 | TwoBoneIk | `TwoBoneIk` | `start`, `ik`, `pole` | `index_0`, `index_1`, `index_2` (with `start` and `end`), `ik`, `pole`, `settings` |
 | Ribbon | `Ribbon` | `start`, `end` | `index_0` to `index_<j-1>`, one per ik control (with `start` and `end`) |
+| Limb | `Limb` | `start`, `ik`, `pole`, `settings` (internal), optional `ikTarget` | TwoBoneIk's, plus `bind_<n>` per bind joint |
+| ReverseFoot | `ReverseFoot` | `ik`, `ankle` | `ankle` (the IK ankle target, wired to a Limb's `ikTarget`) |
 
 Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 

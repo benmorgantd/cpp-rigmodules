@@ -42,7 +42,7 @@ public:
 public:
 	static MTypeId id;
 
-	// The animator's channels, in FootChannel order, each an angle on the foot control and an input of the module.
+	// The animator's channels, in the order of the module's channel table, each an angle on the foot control and an input of the module.
 	static std::array<MObject, 11> aChannels;
 	static MObject aPivotRoles;         // array of int: a FootSolve::Role per pivot, in chain order
 	static MObject aPivotPositions;     // array of matrix: the translation row is the pivot's rest position
@@ -84,7 +84,8 @@ public:
 	static ModuleInterface makeInterface();
 
 private:
-	MStatus computeStage1(const MPlug& plug, MDataBlock& data);
+	MStatus computeControl(const MPlug& plug, MDataBlock& data);
+	MStatus computeAnkle(const MPlug& plug, MDataBlock& data);
 };
 
 // The module's arguments (design/reverse-foot.md section 5). Field names are the template keys the macro maps.

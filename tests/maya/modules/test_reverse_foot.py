@@ -60,16 +60,26 @@ class ReverseFootContract(ModuleContract, RigTestCase):
         self.assertEqual(built, [FOOT_MODULE])
 
     def test_contract_one_solve_fills_every_output(self):
-        """The foot control's offset and the ankle socket come from one solve: pulling both after a change computes the module once."""
+        """Each output computes for what it reads. A channel changes the ankle socket only, so pulling both after it computes once. The
+        handle moving changes both, which are two outputs of their own, so it computes twice (D36: no output is solved for another)."""
         self._build()
         module = rig_name(FOOT_MODULE)
         cmds.evaluationManager(mode="off")
+        cmds.getAttr(module + ".controlOPM[0]")
+        cmds.getAttr(module + ".ankleSocketMatrix[0]")
         cmds.setAttr(rig_name(FOOT + ".footRoll"), 7.0)
         cmds.dgtimer(on=True, reset=True)
         cmds.getAttr(module + ".controlOPM[0]")
         cmds.getAttr(module + ".ankleSocketMatrix[0]")
         cmds.dgtimer(off=True)
-        self.assertEqual(_compute_count(module), 1)
+        self.assertEqual(_compute_count(module), 1, "a channel recomputes only the ankle socket")
+
+        cmds.setAttr(rig_name(HANDLE + ".translateY"), 0.5)
+        cmds.dgtimer(on=True, reset=True)
+        cmds.getAttr(module + ".controlOPM[0]")
+        cmds.getAttr(module + ".ankleSocketMatrix[0]")
+        cmds.dgtimer(off=True)
+        self.assertEqual(_compute_count(module), 2, "the handle moves the control and the ankle socket, one compute each")
 
     def test_contract_inverse_round_trip(self):
         self.skipTest("the foot's inverse, and the Limb's handle matching a raised foot, are phase 5 (design/reverse-foot.md section 10)")

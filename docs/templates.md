@@ -62,7 +62,7 @@ A module can select a point that no joint marks, a [marker](markers.md), with a 
 | `name` | yes | The module's id, in the [naming convention](naming.md): `<camelCaseName>_##_<L|R|M>_MOD`, such as `arm_00_L_MOD`. Unique in the template, its side letter must match `side`, and it is not `layout_00_M_MOD`. The module node gets this name in the rig namespace. |
 | `side` | no | `Center` (default), `Left` or `Right`. Sets the controls' side letter (`M`, `L`, `R`) and color, and must match the side letter in `name`. |
 | `shapeType` | no | Control shape for the module's controls: `Box` (default) or any shape in [controls.md](controls.md#shapes) |
-| `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Layout, FkChain, FkHierarchy and Aim are at version 1, and TwoBoneIk and Ribbon at version 2. A `moduleArgs` written for an older version is updated before the module reads it. |
+| `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Layout, FkChain, FkHierarchy, Aim, Limb and ReverseFoot are at version 1, and TwoBoneIk and Ribbon at version 2. A `moduleArgs` written for an older version is updated before the module reads it. |
 | `moduleArgs` | no | Module-specific arguments, mostly joint selectors. See [modules.md](modules.md). |
 | `parentStructure` | no | Maps this module's child plugs to parent sockets (below) |
 | `mirror` | no | `true` also builds this module on the other side. Only `Left` and `Right` modules. See [Mirroring](#mirroring). |

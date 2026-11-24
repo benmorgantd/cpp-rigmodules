@@ -527,6 +527,8 @@ namespace ReverseFootSlot
 {
 	inline constexpr unsigned int Foot{ 0 };
 	inline constexpr unsigned int IkPlug{ 0 };
+	// The ankle plug is not an element of childPlugs, so this only says which plug the pass 2 callback is connecting.
+	inline constexpr unsigned int AnklePlug{ 1 };
 	inline constexpr unsigned int AnkleSocket{ 0 };
 	inline constexpr unsigned int PivotCap{ 6 };   // one pivot per FootSolve::Role
 }

@@ -55,7 +55,7 @@ class RigControl:
 
     node: str              # the control's name
     module: str            # the module node that owns it
-    module_type: str       # the template moduleType: "Layout", "FkChain", "Aim"
+    module_type: str       # the template moduleType: "Layout", "FkChain", "FkHierarchy", "Aim", "TwoBoneIk", "Ribbon", "Limb", "ReverseFoot"
     side: str              # "Center", "Left" or "Right"
     usage: str             # the control markup usage. (side, usage) is unique in a rig.
     mirror: str | None     # the control on the other side. A Center control is its own mirror. None when it has none.

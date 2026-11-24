@@ -196,8 +196,8 @@ public:
 	static bool readModuleArgs(const nlohmann::json& args, std::initializer_list<const char*> knownKeys, PlanContext& ctx, TArgs& outArgs,
 		std::initializer_list<const char*> optionalKeys = {});
 	static bool claimJoint(PlanContext& ctx, const JointSelector& selector, MObject& oOutJoint, MMatrix& mOutRestWorld);
-	// A marker a module selects with a [side, usage] pair (D73): the marker's rest world matrix, the joint's rest world times its offset,
-	// and its export flag. An error naming the marker and the module, and false, when the build was given no markers file, the file has
+	// A marker a module selects with a [side, usage] pair (D73): the marker as the file has it (markup, joint, export flag, name) and its
+	// rest world matrix, the joint's rest world times its offset. An error naming the marker and the module, and false, when the build was given no markers file, the file has
 	// no such marker, or the marker's joint is not among the build's joints. Claims nothing: a marker is not driven.
 	static bool resolveMarker(PlanContext& ctx, const JointSelector& selector, ResolvedMarker& outMarker);
 	// The rest world of a marked joint the module only reads, without claiming it (the ReverseFoot's ankle, which its Limb drives). An

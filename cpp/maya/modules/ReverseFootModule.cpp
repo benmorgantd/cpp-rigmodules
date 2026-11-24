@@ -39,62 +39,30 @@ MObject ReverseFootModuleNode::aIkFkDriver;
 
 namespace
 {
-	// The ankle child plug has no element of childPlugs, so its plugIndex only says which plug the pass 2 callback is connecting.
-	constexpr unsigned int kAnklePlug{ 1 };
-
-	// The 11 channels, in the order of ReverseFootModuleNode::aChannels: name, rest in degrees, and whether a mirror negates it (D74
-	// section 8). Names are the animator's, public API.
+	// The 11 channels, in the order of ReverseFootModuleNode::aChannels: name, the FootSolve field it is, its rest in degrees, and whether
+	// a mirror negates it (D74 section 8). The member pointer is what ties a channel to its field, so reordering this table cannot swap
+	// two channels in the solve. Names are the animator's, public API.
 	struct ChannelSpec
 	{
 		const char* name;
+		double FootSolve::Channels::* field;
 		double restDegrees;
 		bool negate;
 	};
 	constexpr std::array<ChannelSpec, 11> kChannels
 	{
-		ChannelSpec{ RigAttr::FootRoll, 0.0, false },
-		ChannelSpec{ RigAttr::BreakAngle, 30.0, false },
-		ChannelSpec{ RigAttr::HeelRaise, 0.0, false },
-		ChannelSpec{ RigAttr::HeelSwivel, 0.0, true },
-		ChannelSpec{ RigAttr::BallRaise, 0.0, false },
-		ChannelSpec{ RigAttr::BallSwivel, 0.0, true },
-		ChannelSpec{ RigAttr::BallRoll, 0.0, true },
-		ChannelSpec{ RigAttr::FootBank, 0.0, true },
-		ChannelSpec{ RigAttr::ToeRaise, 0.0, false },
-		ChannelSpec{ RigAttr::ToeSwivel, 0.0, true },
-		ChannelSpec{ RigAttr::ToeTap, 0.0, false },
+		ChannelSpec{ RigAttr::FootRoll, &FootSolve::Channels::footRoll, 0.0, false },
+		ChannelSpec{ RigAttr::BreakAngle, &FootSolve::Channels::breakAngle, 30.0, false },
+		ChannelSpec{ RigAttr::HeelRaise, &FootSolve::Channels::heelRaise, 0.0, false },
+		ChannelSpec{ RigAttr::HeelSwivel, &FootSolve::Channels::heelSwivel, 0.0, true },
+		ChannelSpec{ RigAttr::BallRaise, &FootSolve::Channels::ballRaise, 0.0, false },
+		ChannelSpec{ RigAttr::BallSwivel, &FootSolve::Channels::ballSwivel, 0.0, true },
+		ChannelSpec{ RigAttr::BallRoll, &FootSolve::Channels::ballRoll, 0.0, true },
+		ChannelSpec{ RigAttr::FootBank, &FootSolve::Channels::bank, 0.0, true },
+		ChannelSpec{ RigAttr::ToeRaise, &FootSolve::Channels::toeRaise, 0.0, false },
+		ChannelSpec{ RigAttr::ToeSwivel, &FootSolve::Channels::toeSwivel, 0.0, true },
+		ChannelSpec{ RigAttr::ToeTap, &FootSolve::Channels::toeTap, 0.0, false },
 	};
-
-	// The channels in the order above, as FootSolve takes them (degrees).
-	FootSolve::Channels channelsFromRadians(const double* values)
-	{
-		const auto degrees = [values](std::size_t k)
-		{
-			return MAngle(values[k], MAngle::kRadians).asDegrees();
-		};
-		FootSolve::Channels channels;
-		channels.footRoll = degrees(0);
-		channels.breakAngle = degrees(1);
-		channels.heelRaise = degrees(2);
-		channels.heelSwivel = degrees(3);
-		channels.ballRaise = degrees(4);
-		channels.ballSwivel = degrees(5);
-		channels.ballRoll = degrees(6);
-		channels.bank = degrees(7);
-		channels.toeRaise = degrees(8);
-		channels.toeSwivel = degrees(9);
-		channels.toeTap = degrees(10);
-		return channels;
-	}
-
-	MMatrix translationMatrix(const VectorMath::Vec3& position)
-	{
-		MMatrix mMatrix;
-		mMatrix(3, 0) = position.x;
-		mMatrix(3, 1) = position.y;
-		mMatrix(3, 2) = position.z;
-		return mMatrix;
-	}
 }
 
 ReverseFootModuleNode::ReverseFootModuleNode()
@@ -174,14 +142,17 @@ MStatus ReverseFootModuleNode::initialize()
 	CHECK_MSTATUS_AND_RETURN_IT(tAttr.setStorable(true));
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkFkDriver));
 
-	// AFFECTS RELATIONSHIPS
-	declareControlAffects();
-	// The ankle socket follows the foot control, the ik plug, the channels and the pivots, and never the ankle plug: that is what lets the
-	// foot feed the Limb's ikTarget and take the Limb's end socket (blindSockets in makeInterface). compute() keeps to it.
-	std::vector<MObject> oInputs(aChannels.begin(), aChannels.end());
-	oInputs.insert(oInputs.end(), { aControlMatrix, aControlRestWorld, aChildPlugParentMatrix, aChildPlugParentRestMatrix,
-		aPivotRoles, aPivotPositions, aAnkleRestWorld });
-	for (const MObject& oInput : oInputs)
+	// AFFECTS RELATIONSHIPS. Not declareControlAffects: it wires the inputs to the base outputSocketMatrix, which this module never writes.
+	// Each output is affected by exactly what its compute reads (the control by the control and the ik plug, the ankle socket by the ik
+	// plug, the channels and the pivots), and the ankle socket never sees the ankle plug: that is what lets the foot feed the Limb's
+	// ikTarget and take the Limb's end socket (blindSockets in makeInterface).
+	for (const MObject& oInput : { aControlMatrix, aControlRestWorld, aChildPlugParentMatrix, aChildPlugParentRestMatrix })
+	{
+		attributeAffects(oInput, aControlOPM);
+	}
+	std::vector<MObject> oAnkleInputs(aChannels.begin(), aChannels.end());
+	oAnkleInputs.insert(oAnkleInputs.end(), { aChildPlugParentMatrix, aChildPlugParentRestMatrix, aPivotRoles, aPivotPositions, aAnkleRestWorld });
+	for (const MObject& oInput : oAnkleInputs)
 	{
 		attributeAffects(oInput, aAnkleSocketMatrix);
 	}
@@ -191,16 +162,50 @@ MStatus ReverseFootModuleNode::initialize()
 MStatus ReverseFootModuleNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	const MObject oOutputAttr = plug.attribute();
-	if (oOutputAttr == aControlOPM || oOutputAttr == aAnkleSocketMatrix)
+	if (oOutputAttr == aControlOPM)
 	{
-		return computeStage1(plug, data);
+		return computeControl(plug, data);
+	}
+	if (oOutputAttr == aAnkleSocketMatrix)
+	{
+		return computeAnkle(plug, data);
 	}
 	return MStatus::kUnknownParameter;
 }
 
-// Stage 1: where the foot control is, and where the Limb's end joint should reach (the ankle socket). One solve writes both, so Maya
-// computes it once. Reads the ik plug and the foot control, never the ankle plug.
-MStatus ReverseFootModuleNode::computeStage1(const MPlug& plug, MDataBlock& data)
+// Where the foot control sits: its rest carried by the handle's motion, with its own local on top. Reads the control and the ik plug only.
+MStatus ReverseFootModuleNode::computeControl(const MPlug& plug, MDataBlock& data)
+{
+	MStatus status;
+	MArrayDataHandle hControlInputData = data.inputArrayValue(aControlInputData, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MMatrix mControlLocal = MMatrix::identity;
+	MMatrix mControlRest = MMatrix::identity;
+	if (readControlInput(hControlInputData, ReverseFootSlot::Foot, mControlLocal, mControlRest) != MStatus::kSuccess)
+	{
+		// Not built yet: the build creates the control after the node.
+		data.setClean(plug);
+		return MStatus::kSuccess;
+	}
+
+	MArrayDataHandle hChildPlugs = data.inputArrayValue(aChildPlugs, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const MMatrix mHandleDelta = readChildPlugParentDelta(hChildPlugs, ReverseFootSlot::IkPlug);
+	const ControlSolveStep step = solveControlStep(mControlLocal, mControlRest, mHandleDelta);
+
+	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	writeOutputMatrix(hControlOPM, ReverseFootSlot::Foot, step.mOPM);
+	commitOutput(data, plug.node(), aControlOPM, hControlOPM);
+	data.setClean(plug);
+	return MStatus::kSuccess;
+}
+
+// Where the Limb's end joint should reach (the ankle socket): the ankle at rest, turned by the pivots for the channels, carried by the
+// handle's motion. Reads the ik plug, the channels and the pivots, never the ankle plug and never the control (its transform is locked).
+// The pivots are read from their stored arrays on every evaluation: six elements are cheaper than a cache that the evaluation manager's
+// parallel mode would not invalidate, because it does not call setDependentsDirty.
+MStatus ReverseFootModuleNode::computeAnkle(const MPlug& plug, MDataBlock& data)
 {
 	MStatus status;
 
@@ -210,56 +215,44 @@ MStatus ReverseFootModuleNode::computeStage1(const MPlug& plug, MDataBlock& data
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	std::array<FootSolve::Pivot, ReverseFootSlot::PivotCap> pivots;
 	std::size_t pivotCount = 0;
-	for (unsigned int i = 0; i < hRoles.elementCount() && pivotCount < pivots.size(); ++i)
+	bool isWhole = hRoles.elementCount() == hPositions.elementCount() && hRoles.elementCount() <= pivots.size();
+	for (unsigned int i = 0; isWhole && i < hRoles.elementCount(); ++i)
 	{
-		if (hRoles.jumpToElement(i) != MStatus::kSuccess || hPositions.jumpToElement(i) != MStatus::kSuccess)
+		isWhole = hRoles.jumpToElement(i) == MStatus::kSuccess && hPositions.jumpToElement(i) == MStatus::kSuccess;
+		if (isWhole)
 		{
-			break;
+			const MMatrix mPosition = hPositions.inputValue().asMatrix();
+			pivots[pivotCount].role = static_cast<FootSolve::Role>(hRoles.inputValue().asInt());
+			pivots[pivotCount].position = { mPosition(3, 0), mPosition(3, 1), mPosition(3, 2) };
+			++pivotCount;
 		}
-		const MMatrix mPosition = hPositions.inputValue().asMatrix();
-		pivots[pivotCount].role = static_cast<FootSolve::Role>(hRoles.inputValue().asInt());
-		pivots[pivotCount].position = { mPosition(3, 0), mPosition(3, 1), mPosition(3, 2) };
-		++pivotCount;
 	}
-
-	MArrayDataHandle hControlInputData = data.inputArrayValue(aControlInputData, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MMatrix mControlLocal = MMatrix::identity;
-	MMatrix mControlRest = MMatrix::identity;
-	if (pivotCount == 0 || readControlInput(hControlInputData, ReverseFootSlot::Foot, mControlLocal, mControlRest) != MStatus::kSuccess)
+	if (!isWhole || pivotCount == 0)
 	{
-		// Not built yet: the build sets the pivots and the control after it creates the node.
+		// Not built yet, or the roles and the positions do not pair up: the foot is left unbuilt rather than solved from half a chain.
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
 
-	double values[kChannels.size()];
+	FootSolve::Channels channels;
 	for (std::size_t k = 0; k < kChannels.size(); ++k)
 	{
-		values[k] = data.inputValue(aChannels[k]).asDouble();
+		channels.*(kChannels[k].field) = VectorMath::toDegrees(data.inputValue(aChannels[k]).asDouble());
 	}
 	const std::span<const FootSolve::Pivot> chain(pivots.data(), pivotCount);
 	const FootSolve::Frame frame = FootSolve::footFrame(chain);
-	const MMatrix mFoot = MathUtils::toMMatrix(FootSolve::ankleMotion(chain, frame, channelsFromRadians(values)));
+	const MMatrix mFoot = MathUtils::toMMatrix(FootSolve::ankleMotion(chain, frame, channels));
 
 	// The foot hangs from the handle: its pivots turn the ankle first, and the handle's motion carries the result.
 	MArrayDataHandle hChildPlugs = data.inputArrayValue(aChildPlugs, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	const MMatrix mHandleDelta = readChildPlugParentDelta(hChildPlugs, ReverseFootSlot::IkPlug);
-
-	const ControlSolveStep step = solveControlStep(mControlLocal, mControlRest, mHandleDelta);
 	const MMatrix mAnkleWorld = data.inputValue(aAnkleRestWorld).asMatrix() * mFoot * mHandleDelta;
 
-	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
 	MArrayDataHandle hAnkle = data.outputArrayValue(aAnkleSocketMatrix, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	writeOutputMatrix(hControlOPM, ReverseFootSlot::Foot, step.mOPM);
 	writeOutputMatrix(hAnkle, ReverseFootSlot::AnkleSocket, mAnkleWorld);
-
-	const MObject oNode = plug.node();
-	commitOutput(data, oNode, aControlOPM, hControlOPM);
-	commitOutput(data, oNode, aAnkleSocketMatrix, hAnkle);
+	commitOutput(data, plug.node(), aAnkleSocketMatrix, hAnkle);
 	data.setClean(plug);
 	return MStatus::kSuccess;
 }
@@ -308,7 +301,7 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 		const unsigned int index = static_cast<unsigned int>(i);
 		dagMod.newPlugValueInt(MPlug(oModule, aPivotRoles).elementByLogicalIndex(index), static_cast<int>(plan.chain[i].role));
 		MPlug pPosition = MPlug(oModule, aPivotPositions).elementByLogicalIndex(index);
-		DagUtils::setMatrixPlug(pPosition, translationMatrix(plan.chain[i].position), dagMod);
+		DagUtils::setMatrixPlug(pPosition, MathUtils::translationMatrix(plan.chain[i].position), dagMod);
 	}
 	MPlug pAnkleRest(oModule, aAnkleRestWorld);
 	DagUtils::setMatrixPlug(pAnkleRest, plan.mAnkleRestWorld, dagMod);
@@ -327,7 +320,7 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	DagPlugAndSocketUtils::setParentSocketNames(oModule, ReverseFootSlot::AnkleSocket, { PlugAndSocketNames::Ankle }, dagMod);
 	result.childPlugs[PlugAndSocketNames::Ik] = RigModuleChildPlugInfo{ MObject::kNullObj, ReverseFootSlot::IkPlug };
 	DagPlugAndSocketUtils::setChildPlugName(oModule, ReverseFootSlot::IkPlug, PlugAndSocketNames::Ik, dagMod);
-	result.childPlugs[PlugAndSocketNames::Ankle] = RigModuleChildPlugInfo{ MObject::kNullObj, kAnklePlug };
+	result.childPlugs[PlugAndSocketNames::Ankle] = RigModuleChildPlugInfo{ MObject::kNullObj, ReverseFootSlot::AnklePlug };
 
 	// 4. The channels, all on the foot control. The control must exist before an attribute can be added to it, and the attribute before it
 	// can be wired, so the build runs the modifier between the steps, as TwoBoneIk does.
@@ -340,9 +333,10 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	}
 	status = dagMod.doIt();
 	CHECK_MSTATUS_AND_RETURN(status, result);
+	const MFnDependencyNode fnControl(oControl);
 	for (std::size_t k = 0; k < kChannels.size(); ++k)
 	{
-		const MPlug pControlAttr = MFnDependencyNode(oControl).findPlug(kChannels[k].name, false, &status);
+		const MPlug pControlAttr = fnControl.findPlug(kChannels[k].name, false, &status);
 		CHECK_MSTATUS_AND_RETURN(status, result);
 		status = dagMod.connect(pControlAttr, MPlug(oModule, aChannels[k]));
 		CHECK_MSTATUS_AND_RETURN(status, result);
@@ -370,7 +364,7 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	result.dagParentCallback = [](const RigModuleDagReparentArgs& args)
 	{
 		// The ankle plug is a matrix connection only: it has no control to reparent, and nothing reads it in stage 1.
-		if (args.childPlug.plugIndex == kAnklePlug)
+		if (args.childPlug.plugIndex == ReverseFootSlot::AnklePlug)
 		{
 			MStatus plugStatus;
 			const MPlug pSocket = ReverseFootModuleNode::getSocketMatrixPlug(args.oParentTargetModuleNode, args.parentSocket.outputIndex, &plugStatus);
@@ -423,6 +417,11 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 		ctx.report.addError(argsPath + ".reverseHierarchy", problem);
 		valid = false;
 	}
+	if (roles.size() > ReverseFootSlot::PivotCap)
+	{
+		ctx.report.addError(argsPath + ".reverseHierarchy", "has " + std::to_string(roles.size()) + " pivots and the module stores at most " + std::to_string(ReverseFootSlot::PivotCap));
+		valid = false;
+	}
 	if (std::find(roles.begin(), roles.end(), FootSolve::Role::Ball) == roles.end())
 	{
 		ctx.report.addError(argsPath + ".reverseHierarchy", "needs a ball pivot: the foot control is placed at it and the foot rolls over it");
@@ -463,21 +462,25 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 		ctx.report.addError(argsPath + ".controlName", "'" + footArgs.controlName + "' must be camelCase, with an optional _NN: it names the foot control");
 		valid = false;
 	}
-	if (!valid)
-	{
-		return false;
-	}
-
 	// A mirrored foot follows the other side's limb (D28). The selectors' sides were swapped when the template expanded.
 	plan.ikFkDriver = footArgs.ikFkDriver;
 	if (ctx.moduleData.isMirror())
 	{
 		const std::string mirrored = NamingConvention::swapSide(footArgs.ikFkDriver);
-		plan.ikFkDriver = mirrored.empty() ? footArgs.ikFkDriver : mirrored;
+		if (mirrored.empty())
+		{
+			ctx.report.addError(argsPath + ".ikFkDriver", "'" + footArgs.ikFkDriver + "' has no other side to follow on a mirrored foot: it must be a module name in the naming convention with a Left or Right side");
+			valid = false;
+		}
+		plan.ikFkDriver = mirrored;
+	}
+	if (!valid)
+	{
+		return false;
 	}
 
 	const int ballIndex = FootSolve::findPivot(plan.chain, FootSolve::Role::Ball);
-	plan.mFootControlRest = translationMatrix(plan.chain[static_cast<std::size_t>(ballIndex)].position);
+	plan.mFootControlRest = MathUtils::translationMatrix(plan.chain[static_cast<std::size_t>(ballIndex)].position);
 	plan.controlUsage = footArgs.controlName;
 	plan.controlMarkup = makeControlMarkup(ctx.moduleData.side, footArgs.controlName);
 

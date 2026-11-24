@@ -269,7 +269,7 @@ class ModuleContract:
         joints = self.make_skeleton(self.MIRROR_SKELETON)
         self._mirror_joint_rest = {j.split(":")[-1]: _world_matrix(j) for j in joints}
         self.build(self.MIRROR_TEMPLATE, joints, markers=self.MIRROR_MARKERS)
-        root =cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
         controls = [c for c in rigmodules.query.get_rig_controls(root) if cmds.nodeType(c.module) == self.MODULE_TYPE]
         self.assertTrue(controls, "%s built no %s controls" % (self.MIRROR_TEMPLATE, self.MODULE_TYPE))
         return root, controls

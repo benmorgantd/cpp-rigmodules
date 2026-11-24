@@ -187,7 +187,7 @@ The inverse runs only in tools and never in playback. If it is too expensive on 
 - **`ModulePlugInfo::blindSockets`** (ikTarget lists `ik`, `pole` and `settings`). The cycle finder now tracks, for each module on a path, the plug it was entered through, and skips an edge that leaves by one of that plug's blind sockets. This is narrower than the first sketch (skip the `ikTarget` edge): a foot on `end` still reports the loop, because `end` does see the target. Rejected: skipping the edge outright, which would hide that loop.
 - **The sockets really are independent.** `LimbNode::computeHandleSockets` solves the three handle sockets from their own controls and never reads the target. A suite test evaluates the foot-shaped rig cold in DG and in parallel mode and checks Maya reports no cycle.
 - **The restore ignores `ikTarget`.** The plug is not in `childPlugs`, so `RigInverse` never sees it and orders a Limb and its foot as ordinary parent and child; the Limb's inverse matches the limb as if the foot were at rest. The match with a raised foot is still the `ReverseFoot` design's problem (section 8, last paragraph). A scene walk of `childPlugs` does not list `ikTarget` either, so the golden interface snapshot is unchanged.
-- **Not built:** `ReverseFoot` itself. The tests use a one-joint `FkChain` (`limb_foot`) as the foot-shaped module.
+- **The foot-shaped consumer is now the real one (2026-11-24, D74).** The tests that stood in a one-joint `FkChain` (`limb_foot`) for the foot still do; `ReverseFoot` (`reverse-foot.md`) feeds `ikTarget` for real, and its cycle test is `test_reverse_foot`. What stays open is the match from FK with a raised foot, which is the foot's inverse (phase 5).
 
 ## 9. Names, mirroring, versions, export, libraries
 
@@ -237,5 +237,5 @@ Each phase ends with the build, the full suite, the docs pass and one commit tha
 
 - **The ribbon through the mid joint** needed two changes beyond an anchors array and has one open choice (section 5.1). It is answered before the node exists.
 - **The coupling.** The shared-solve extraction makes it deliberate, and `test_limb_matches_parts` makes it tested.
-- **The `ReverseFoot` match problem** is open and belongs to that design.
+- **The `ReverseFoot` match problem** is answered in `reverse-foot.md` section 10 (the inverse pre-pass, D74 phase 5) and still to build.
 - **Size.** About 21 channels and 16 controls per limb. If `bench` is far below target, section 7's trim list applies before any structural change.

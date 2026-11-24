@@ -1,0 +1,17 @@
+{
+  "description": "A mirrored foot follows the other side's limb, so its ikFkDriver must be a module name with a side to swap",
+  "base": "reverse_foot_mirror",
+  "skeleton": "reverse_foot_mirror",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/ikFkDriver",
+      "value": "arm"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "has no other side to follow on a mirrored foot"
+    }
+  ],
+  "markers": "reverse_foot_mirror"
+}

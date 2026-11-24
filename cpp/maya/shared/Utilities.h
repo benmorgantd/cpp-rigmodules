@@ -73,6 +73,15 @@ public:
 		}
 		return result;
 	}
+	// A matrix that only moves by this position.
+	static inline MMatrix translationMatrix(const VectorMath::Vec3& position)
+	{
+		MMatrix result;
+		result(3, 0) = position.x;
+		result(3, 1) = position.y;
+		result(3, 2) = position.z;
+		return result;
+	}
 	static inline std::array<double, 16> toArray(const MMatrix& mMatrix)
 	{
 		std::array<double, 16> result{};

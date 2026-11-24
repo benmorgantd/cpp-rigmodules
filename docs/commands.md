@@ -248,7 +248,7 @@ cmds.getRigControls("hero_body:rigRootModule1", usage=["spine1", "spine2"])
 
 | Flag | Type | Meaning |
 |---|---|---|
-| `moduleType` | string, multi-use | A template `moduleType`: `Layout`, `FkChain`, `FkHierarchy`, `Aim`, `TwoBoneIk`, `Ribbon` or `Limb` |
+| `moduleType` | string, multi-use | A template `moduleType`: `Layout`, `FkChain`, `FkHierarchy`, `Aim`, `TwoBoneIk`, `Ribbon`, `Limb` or `ReverseFoot` |
 | `side` | string, multi-use | `Center`, `Left` or `Right` |
 | `usage` | string, multi-use | A control markup usage |
 
