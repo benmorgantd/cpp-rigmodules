@@ -4,13 +4,13 @@
 // The `meta` object of a pose file and a ControlAnim file (D51): what a library browser searches and shows beyond the
 // control data. Every field is optional.
 // {
-//     "assetId": "characters\\hero", "rigName": "body", "skeletonHash": "16 hex digits", "pluginVersion": "0.1",
+//     "assetId": "characters\\hero", "rigName": "body", "skeletonHash": "16 hex digits", "markersHash": "16 hex digits", "pluginVersion": "0.1",
 //     "created": "2026-11-14T10:22:00Z",
 //     "template": "Human", "skeleton": "body", "author": "bmorgan",
 //     "tags": ["hands", "fist"], "description": "Clenched right hand", "category": "Expressions",
 //     "rigRegions": ["hands"], "status": "scratch"
 // }
-// The first five are filled from the rig when a file is saved, and a caller can't set them. The rest come from the
+// The first six are filled from the rig when a file is saved (markersHash is empty and omitted for a rig built with no markers file), and a caller can't set them. The rest come from the
 // caller. RigModules checks the shape of a value (a string, or a list of strings), never the vocabulary: the lists of
 // regions and statuses are project data that the library browser checks.
 
@@ -27,6 +27,7 @@ struct LibraryMeta
 	std::string assetId;
 	std::string rigName;
 	std::string skeletonHash;   // the rig root's stamp (D54), Hash64::format text
+	std::string markersHash;    // the rig root's stamp (D73), "" for a rig built with no markers file and for a file saved before markers
 	std::string pluginVersion;
 	std::string created;
 
@@ -50,7 +51,7 @@ void parseLibraryMeta(const nlohmann::json& metaJson, const std::string& where, 
 
 // Applies the caller's JSON object text onto meta: each key it has replaces that field, and an empty string or empty
 // list clears one. Reports bad JSON, a value of the wrong shape, an unknown key, and a key the rig fills (assetId,
-// rigName, skeletonHash, pluginVersion, created). meta is unchanged when report has errors.
+// rigName, skeletonHash, markersHash, pluginVersion, created). meta is unchanged when report has errors.
 void applyCallerMeta(const std::string& jsonText, LibraryMeta& meta, ValidationReport& report);
 
 // The version 2 to 3 update step of the pose and ControlAnim formats (D33, D54), which both keep their meta under

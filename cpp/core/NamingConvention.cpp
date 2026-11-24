@@ -60,7 +60,7 @@ namespace
 	bool kindFromToken(const std::string& token, NamingConvention::Kind& outKind)
 	{
 		using NamingConvention::Kind;
-		for (Kind kind : { Kind::Joint, Kind::Control, Kind::Module, Kind::Constraint, Kind::Mesh })
+		for (Kind kind : { Kind::Joint, Kind::Control, Kind::Module, Kind::Constraint, Kind::Mesh, Kind::Marker })
 		{
 			if (token == NamingConvention::kindToken(kind))
 			{
@@ -106,6 +106,7 @@ namespace NamingConvention
 			case Kind::Module: return "MOD";
 			case Kind::Constraint: return "CON";
 			case Kind::Mesh: return "GEO";
+			case Kind::Marker: return "MRK";
 		}
 		return "";
 	}

@@ -734,6 +734,33 @@ MStatus CommandUtils::readJoints(const MArgDatabase& argData, const char* comman
 	return MStatus::kSuccess;
 }
 
+MStatus CommandUtils::readTransforms(const MArgDatabase& argData, const char* commandName, MDagPathArray& outNodes)
+{
+	MStringArray names;
+	MStatus status = argData.getObjects(names);
+	if (!status || names.length() == 0)
+	{
+		MGlobal::displayError(MString(commandName) + " needs at least one node name.");
+		return MStatus::kFailure;
+	}
+	for (unsigned int i = 0; i < names.length(); ++i)
+	{
+		MDagPath path;
+		status = DagUtils::getDagPathFromName(names[i], path);
+		if (!status)
+		{
+			return status;   // the helper reported which name failed
+		}
+		if (!path.hasFn(MFn::kTransform))
+		{
+			MGlobal::displayError(MString(commandName) + ": " + names[i] + " is not a transform.");
+			return MStatus::kFailure;
+		}
+		outNodes.append(path);
+	}
+	return MStatus::kSuccess;
+}
+
 MStatus CommandUtils::readMeshesOrSelection(const MArgDatabase& argData, const char* commandName, MDagPathArray& outMeshes)
 {
 	MStringArray objects;

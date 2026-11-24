@@ -25,7 +25,8 @@ class GetRigInfo(RigTestCase):
     def test_rig_root_reports_its_rig_and_asset(self):
         info = self.info(self.rig_root)
         self.assertEqual(set(info), {"rigRoot", "assetId", "rigName", "skeletonHash", "namespace", "rigVersion",
-                                     "pluginVersion", "publishVersion", "look", "parentRigRoot"})
+                                     "pluginVersion", "publishVersion", "look", "parentRigRoot", "markersHash"})
+        self.assertEqual(info["markersHash"], "")   # built with no markers file (D73)
         self.assertEqual(info["rigRoot"], self.rig_root)
         self.assertEqual(info["assetId"], config.ASSET_ID)
         self.assertEqual(info["rigName"], "fktest")

@@ -76,6 +76,7 @@ namespace LibraryMetaKey
 	inline constexpr const char* AssetId{ "assetId" };
 	inline constexpr const char* RigName{ "rigName" };
 	inline constexpr const char* SkeletonHash{ "skeletonHash" };
+	inline constexpr const char* MarkersHash{ "markersHash" };   // D73. An older file has none and reads as unknown
 	inline constexpr const char* PluginVersion{ "pluginVersion" };
 	inline constexpr const char* Created{ "created" };
 
@@ -228,6 +229,7 @@ namespace MarkerFileKey
 	inline constexpr const char* Markers{ "markers" };
 	inline constexpr const char* Joint{ "joint" };
 	inline constexpr const char* OffsetLocal{ "offsetLocal" };
+	inline constexpr const char* World{ "world" };   // in getRigMarkers' result and the rig root's markers, see ResolvedMarker
 }
 
 // A transform's rotateOrder, in Maya's enum order. Skeleton files store the names.
@@ -282,6 +284,12 @@ namespace RigAttr
 
 	// Joint markup: one JSON string per joint, see JointMarkup.h
 	inline constexpr const char* JointMarkup{ "rigMarkup" };
+	// Marker markup (D73): one JSON string per marker locator, see MarkerFile.h. Only editing scenes have them.
+	inline constexpr const char* MarkerMarkup{ "rigMarkerMarkup" };
+	// The hash of the markers file a rig was built with, as Hash64::format text, "" when the build was given none (D73).
+	inline constexpr const char* MarkersHash{ "markersHash" };
+	// Every marker the rig was built with and its world at rest, as JSON text (D73). getRigMarkers returns it.
+	inline constexpr const char* Markers{ "markers" };
 
 	// RigRootNode
 	inline constexpr const char* RigModules{ "rigModules" };
@@ -570,6 +578,14 @@ namespace JointMarkupKey
 	inline constexpr const char* Usage{ "usage" };
 	inline constexpr const char* Export{ "export" };
 	inline constexpr const char* Skin{ "skin" };
+}
+
+// Keys inside the RigAttr::MarkerMarkup JSON, beside JointMarkupKey::Usage, JointMarkupKey::Export and RigAttr::Side.
+// Public API: the markup on every marker locator in a saved editing scene depends on them.
+namespace MarkerMarkupKey
+{
+	inline constexpr const char* JointSide{ "jointSide" };
+	inline constexpr const char* JointUsage{ "jointUsage" };
 }
 
 // Keys and values of a selection set's setMarkup (D39). Public API: tools find sets through them.

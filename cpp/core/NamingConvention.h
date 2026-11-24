@@ -2,7 +2,7 @@
 
 // Maya-free core: no Maya headers in this file or its .cpp.
 // The name every joint, control, module, constraint and mesh in a rig carries (D58, D69 for meshes):
-//   <camelCaseName>_<##>_<L|R|M>_<JNT|CTRL|MOD|CON|GEO>  upperArm_00_L_JNT, upperArm_00_L_CTRL, fkChain_00_L_MOD, body_00_M_GEO
+//   <camelCaseName>_<##>_<L|R|M>_<JNT|CTRL|MOD|CON|GEO|MRK>  upperArm_00_L_JNT, upperArm_00_L_CTRL, fkChain_00_L_MOD, body_00_M_GEO, heel_00_L_MRK
 // The base is camelCase with no underscore, so a name splits on its underscores. The index is two digits, or more
 // when it needs them. Sides are the SideNames strings ("Left", "Right", "Center"), which markup also uses.
 
@@ -17,6 +17,7 @@ namespace NamingConvention
 		Module,
 		Constraint,
 		Mesh,
+		Marker,
 	};
 
 	struct Name
@@ -28,12 +29,12 @@ namespace NamingConvention
 	};
 
 	// The form, for error messages.
-	inline constexpr const char* Form{ "<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO>" };
+	inline constexpr const char* Form{ "<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO|MRK>" };
 
 	// "L", "R" or "M" for a SideNames string. Empty for anything else.
 	std::string sideToken(const std::string& side);
 
-	// "JNT", "CTRL", "MOD", "CON" or "GEO".
+	// "JNT", "CTRL", "MOD", "CON", "GEO" or "MRK".
 	const char* kindToken(Kind kind);
 
 	// A lowercase letter, then letters and digits: "upperArm", "spineIK". No underscore.

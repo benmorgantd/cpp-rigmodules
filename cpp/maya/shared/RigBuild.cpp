@@ -3,6 +3,7 @@
 #include "core/AssetId.h"
 #include "core/Constants.h"
 #include "core/Hash64.h"
+#include "core/MarkerFile.h"
 #include "core/NamingConvention.h"
 #include "core/RigControlFilter.h"
 #include "core/RigJsonStructs.h"
@@ -16,6 +17,7 @@
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/DisplayLayerScene.h"
 #include "maya/shared/JointMarkupScene.h"
+#include "maya/shared/MarkerScene.h"
 #include "maya/shared/RigModule.h"
 #include "maya/shared/RigTraversal.h"
 #include "maya/shared/SelectionSetScene.h"
@@ -50,6 +52,43 @@ namespace
 {
 	// Fixed until templates can configure the layout.
 	constexpr unsigned short kLayoutControlCount = 3;
+
+	// What the read phase works out about the input data, stamped on the rig root: the skeleton's hash (D54), and the
+	// hash and the placed markers of the markers file when one was passed (D73), "" and "[]" when none was.
+	struct RigStamps
+	{
+		MString skeletonHash;
+		MString markersHash;
+		MString markersJson{ "[]" };
+	};
+
+	// Read phase. Reads and validates the markers file and places every marker on the input joints. A marker whose joint is
+	// not among them is a warning, because the file may belong to a larger skeleton. A module that selects a marker
+	// resolves it itself and reports a missing one as an error (D73).
+	void readMarkersFile(const RigBuildInputs& inputs, const MarkedJointSet& markedJoints, RigStamps& outStamps, ValidationReport& report)
+	{
+		if (inputs.markersPath.length() == 0)
+		{
+			return;
+		}
+		std::string text;
+		if (!CommandUtils::readTextFile(inputs.markersPath, "markers", text))
+		{
+			report.addError(inputs.markersPath.asChar(), "the markers file could not be read");
+			return;
+		}
+		MarkerSet markers;
+		const std::size_t errorCount = report.errors.size();
+		deserializeMarkers(text, markers, report);
+		if (report.errors.size() != errorCount)
+		{
+			return;
+		}
+		std::vector<ResolvedMarker> placed;
+		MarkerScene::placeMarkers(markers, markedJoints, placed, report);
+		outStamps.markersHash = Hash64::format(markersHash(markers)).c_str();
+		outStamps.markersJson = serializeResolvedMarkers(placed).c_str();
+	}
 
 	// renameNode silently makes a clashing name unique, so a module would no longer match its template name
 	// and a joint would no longer match its skeleton name. Checks each target name against the scene and the others.
@@ -226,7 +265,7 @@ namespace
 		RigRootData& rigData,
 		MString& outRigNamespace,
 		MString& outParentNamespace,
-		MString& outSkeletonHash,
+		RigStamps& outStamps,
 		std::vector<ModulePlan>& plans,
 		ValidationReport& report)
 	{
@@ -263,7 +302,12 @@ namespace
 		{
 			return;
 		}
-		outSkeletonHash = Hash64::format(skeletonHash(skeleton)).c_str();
+		outStamps.skeletonHash = Hash64::format(skeletonHash(skeleton)).c_str();
+		readMarkersFile(inputs, markedJoints, outStamps, report);
+		if (report.errors.size() > errorCountBeforeMarkup)
+		{
+			return;
+		}
 
 		plans.push_back(makeLayoutPlan());
 		for (ModulePlan& plan : RigModuleNodeBase::planModules(rigData.rigModules, markedJoints, inputs.checkMirrorPositions, report))
@@ -637,7 +681,7 @@ namespace
 	MStatus buildRig(
 		const RigBuildInputs& inputs,
 		const MString& rigNamespace,
-		const MString& skeletonHashText,
+		const RigStamps& stamps,
 		const MString& parentNamespace,
 		const RigRootData& rigData,
 		const std::vector<ModulePlan>& plans,
@@ -648,7 +692,9 @@ namespace
 		MObject oRigRoot = RigRootNode::createRigRoot(
 			inputs.assetId.c_str(),
 			rigData.rigName.c_str(),
-			skeletonHashText,
+			stamps.skeletonHash,
+			stamps.markersHash,
+			stamps.markersJson,
 			rigData.rigVersion,
 			rigData.rigTemplateName.c_str(),
 			dagMod
@@ -752,10 +798,10 @@ MStatus RigBuild::createRig(const RigBuildInputs& inputs, MDagModifier& dagMod, 
 	RigRootData rigData;
 	MString rigNamespace;
 	MString parentNamespace;
-	MString skeletonHashText;
+	RigStamps stamps;
 	std::vector<ModulePlan> plans;
 	ValidationReport report;
-	planRig(inputs, rigData, rigNamespace, parentNamespace, skeletonHashText, plans, report);
+	planRig(inputs, rigData, rigNamespace, parentNamespace, stamps, plans, report);
 
 	ReportUtils::displayReport(report);
 	if (report.hasErrors())
@@ -775,7 +821,7 @@ MStatus RigBuild::createRig(const RigBuildInputs& inputs, MDagModifier& dagMod, 
 
 	try
 	{
-		status = buildRig(inputs, rigNamespace, skeletonHashText, parentNamespace, rigData, plans, dagMod);
+		status = buildRig(inputs, rigNamespace, stamps, parentNamespace, rigData, plans, dagMod);
 	}
 	catch (const std::exception& e)
 	{

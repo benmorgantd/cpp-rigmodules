@@ -1,9 +1,9 @@
 # Naming convention
 
-Every joint, control, module and constraint in a rig has a name in one form:
+Every joint, control, module, constraint and marker in a rig has a name in one form:
 
 ```
-<camelCaseName>_<##>_<L|R|M>_<JNT|CTRL|MOD|CON|GEO>
+<camelCaseName>_<##>_<L|R|M>_<JNT|CTRL|MOD|CON|GEO|MRK>
 ```
 
 For example `upperArm_00_L_JNT`, `upperArm_00_L_CTRL`, `fkChain_00_L_MOD` and `armSpace_00_L_CON`. The name is public: saved poses, animation and exports, template socket ids and tools depend on it, so rename with care.
@@ -13,7 +13,7 @@ For example `upperArm_00_L_JNT`, `upperArm_00_L_CTRL`, `fkChain_00_L_MOD` and `a
 | `camelCaseName` | A lowercase letter, then letters and digits. No underscore, so a name splits cleanly on its underscores. `spine1` is a valid base. |
 | `##` | The index, at least two digits (`00`, `01`, ... `99`, `100`). It numbers things that share a base, such as the joints of a chain. |
 | `L`, `R`, `M` | The side: `Left`, `Right` or `Center` (middle). |
-| `JNT`, `CTRL`, `MOD`, `CON`, `GEO` | The kind: a joint, a rig control, a rig module, a rig constraint, a mesh. |
+| `JNT`, `CTRL`, `MOD`, `CON`, `GEO`, `MRK` | The kind: a joint, a rig control, a rig module, a rig constraint, a mesh, a [marker](markers.md). |
 
 Only the canonical text is a name: `arm_0_L_JNT` (one digit) and `arm_000_L_JNT` (a leading zero past two digits) are not.
 
@@ -25,6 +25,8 @@ Only the canonical text is a name: `arm_0_L_JNT` (one digit) and `arm_000_L_JNT`
 - **Constraints** are named in the template (`armSpace_00_L_CON`). [`createRigConstraint`](commands.md#createrigconstraint) without `name` takes the control's name with `CON`, so `arm_00_L_CTRL` gives `arm_00_L_CON`. A `name` it is given must be in the convention too.
 
 - **Meshes** are named by you, with [`renameRigNodes`](commands.md#renamerignodes) (D69): `body_00_M_GEO`. The name goes on the mesh's transform. Nothing requires it: the build and the look build do not check mesh names. Skin weights match by `meshId`, so renaming a mesh never breaks them, but a look build names its meshes after the weight file's `meshName`, so save the weights again after renaming if the name should survive a rebuild.
+
+- **Markers** are named by you, on the locators you place (D73): `heel_00_L_MRK`. [`saveRigMarkers`](commands.md#saverigmarkers) requires it, and the name goes into the [markers file](markers.md). [`renameRigNodes`](commands.md#renamerignodes) renames a marker locator into it, and [`mirrorRigMarkers`](commands.md#mirrorrigmarkers) swaps its side.
 
 ## Mirroring
 

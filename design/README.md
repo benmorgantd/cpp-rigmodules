@@ -50,7 +50,7 @@ Otherwise none. `control-node-perf-handoff.md` (above) is a design handoff with 
 | Page | Decision | Area |
 |---|---|---|
 | [`reverse-foot.md`](reverse-foot.md) | D74 | `ReverseFoot`: roll, pivot and toe channels on a Limb, an FK toe, the inverse. Signed off 2026-11-24, not built |
-| [`markers.md`](markers.md) | D73 | Markers: placed points that follow a joint, in a `markers.json` of their own. The foot's pivots need it. Signed off 2026-11-24, not built |
+| [`markers.md`](markers.md) | D73 | Markers: placed points that follow a joint, in a `markers.json` of their own. The foot's pivots need it. Signed off 2026-11-24. Phases 0 and 1 built (no axis visualizer yet), user page `docs/markers.md` |
 | [`module-directions.md`](module-directions.md) | D46 | Where the modules go after the IK limb |
 | [`asset-pipeline.md`](asset-pipeline.md) | D44, D45 | The art stages before the rig, face data |
 | [`asset-build-fallbacks.md`](asset-build-fallbacks.md) | D70 | Builds that survive a changed skeleton, mesh or weights: the fallback ladder (phase 1 built), the transfer (open, no mesh data in the weight files), draft and baseline gates |

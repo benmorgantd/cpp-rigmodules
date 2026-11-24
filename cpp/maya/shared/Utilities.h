@@ -18,6 +18,7 @@
 #include <maya/MSyntax.h>
 #include <maya/MVector.h>
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -58,6 +59,31 @@ public:
 	static inline MMatrix toMMatrix(const VectorMath::Mat4& mat)
 	{
 		return MMatrix(mat.m);
+	}
+	// Between Maya's matrix and the 16 numbers a file stores, row by row.
+	static inline MMatrix toMMatrix(const std::array<double, 16>& values)
+	{
+		MMatrix result;
+		for (unsigned int r = 0; r < 4; ++r)
+		{
+			for (unsigned int c = 0; c < 4; ++c)
+			{
+				result(r, c) = values[r * 4 + c];
+			}
+		}
+		return result;
+	}
+	static inline std::array<double, 16> toArray(const MMatrix& mMatrix)
+	{
+		std::array<double, 16> result{};
+		for (unsigned int r = 0; r < 4; ++r)
+		{
+			for (unsigned int c = 0; c < 4; ++c)
+			{
+				result[r * 4 + c] = mMatrix(r, c);
+			}
+		}
+		return result;
 	}
 
 	// Blends two world matrices: translation and scale lerp, rotation slerps the short way round. t of exactly 0 or 1
@@ -216,6 +242,10 @@ public:
 	// The joints the command's string objects name, in order. Reports "<command> needs at least one joint name." for
 	// none, and the first name that isn't a joint.
 	static MStatus readJoints(const MArgDatabase& argData, const char* commandName, MDagPathArray& outJoints);
+
+	// The transforms the command's string objects name, in order. Reports "<command> needs at least one node name." for
+	// none, and the first name that isn't a transform.
+	static MStatus readTransforms(const MArgDatabase& argData, const char* commandName, MDagPathArray& outNodes);
 
 	// The mesh transforms of the command's string objects, or with none named, of every selected mesh (D35: only
 	// commands that document it read the selection). Selected nodes that aren't meshes are skipped; a named one that

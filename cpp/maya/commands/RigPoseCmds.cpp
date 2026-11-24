@@ -43,7 +43,7 @@ namespace
 	}
 
 	// Reads and validates a whole pose file before anything is queued, so a bad file changes nothing.
-	MStatus readPoseFile(const MString& path, PoseMap& outPose)
+	MStatus readPoseFile(const MString& path, PoseMap& outPose, LibraryMeta* pMeta = nullptr)
 	{
 		std::string text;
 		MStatus status = CommandUtils::readTextFile(path, "pose", text);
@@ -53,7 +53,7 @@ namespace
 		}
 
 		ValidationReport report;
-		deserializePose(text, outPose, report);
+		deserializePose(text, outPose, report, pMeta);
 		if (report.hasErrors())
 		{
 			ReportUtils::displayReport(report);
@@ -359,11 +359,13 @@ MStatus LoadRigPoseCmd::doIt(const MArgList& args)
 	}
 
 	PoseMap pose;
-	status = readPoseFile(path, pose);
+	LibraryMeta fileMeta;
+	status = readPoseFile(path, pose, &fileMeta);
 	if (!status)
 	{
 		return status;
 	}
+	RigDataFileScene::warnIfMarkersDiffer(scope.oRigRoot, fileMeta, aCommandString);
 
 	// The mirror is made on the file's data, before any write, so the rig is written once (D51).
 	if (isMirrored)

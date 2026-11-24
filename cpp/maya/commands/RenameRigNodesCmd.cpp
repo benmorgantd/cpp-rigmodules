@@ -89,7 +89,7 @@ namespace
 				continue;
 			}
 
-			static const char* kKindNames[] = { "Joint", "Control", "Module", "Constraint", "Mesh" };
+			static const char* kKindNames[] = { "Joint", "Control", "Module", "Constraint", "Mesh", "Marker" };
 			nlohmann::json parts;
 			parts["base"] = name.base;
 			parts["index"] = name.index;

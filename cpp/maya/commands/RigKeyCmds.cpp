@@ -306,6 +306,7 @@ MStatus LoadRigAnimationCmd::doIt(const MArgList& args)
 		MGlobal::displayError(MString("The ControlAnim file failed validation, so nothing was keyed: ") + path);
 		return MStatus::kFailure;
 	}
+	RigDataFileScene::warnIfMarkersDiffer(scope.oRigRoot, anim.meta, aCommandString);
 	if (!TimeUtils::isSameFrameRate(anim.frameRate, TimeUtils::getSceneFrameRate()))
 	{
 		MGlobal::displayError(MString(aCommandString) + ": the animation runs at " + anim.frameRate + " fps and the scene at "

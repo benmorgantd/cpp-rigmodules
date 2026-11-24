@@ -33,6 +33,7 @@ class RigInfo:
     publish_version: str   # the publish id the rig came from, "" until published
     look: LookInfo | None = None   # the look the rig wears, None until setRigLook has applied one (D54)
     parent_rig_root: str | None = None   # the rig root an attachment follows, None for a rig that is not attached (D55)
+    markers_hash: str = ""   # the hash of the markers file the rig was built with, "" when it was built with none (D73)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -117,6 +118,7 @@ def find_rig_info(node: str) -> RigInfo | None:
         publish_version=data["publishVersion"],
         look=LookInfo(asset_id=look["assetId"], name=look["name"], publish_version=look["publishVersion"]) if look else None,
         parent_rig_root=data.get("parentRigRoot"),
+        markers_hash=data.get("markersHash", ""),
     )
 
 

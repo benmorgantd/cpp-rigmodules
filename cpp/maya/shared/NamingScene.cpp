@@ -1,4 +1,5 @@
 #include "maya/shared/NamingScene.h"
+#include "core/Constants.h"
 #include "maya/nodes/Constraints.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigModule.h"
@@ -22,6 +23,13 @@ bool NamingScene::getKind(const MObject& oNode, NamingConvention::Kind& outKind)
 		return false;
 	}
 
+	// A marker locator (D73) is a transform carrying markup. loadRigMarkers makes them rigControlNodes, so this comes before
+	// the control test.
+	if (fnNode.hasAttribute(RigAttr::MarkerMarkup))
+	{
+		outKind = NamingConvention::Kind::Marker;
+		return true;
+	}
 	if (fnNode.typeId() == RigControlNode::id)
 	{
 		outKind = NamingConvention::Kind::Control;

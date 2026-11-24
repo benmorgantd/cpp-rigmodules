@@ -21,6 +21,7 @@ namespace
 	constexpr const char* kNamespaceFlag{ "-namespace" };
 	constexpr const char* kCheckMirrorPositionsFlag{ "-checkMirrorPositions" };
 	constexpr const char* kParentRigFlag{ "-parentRig" };
+	constexpr const char* kMarkersFlag{ "-markers" };
 
 	// Resolves every joint name before createRig runs, so a bad name fails before the read phase.
 	MStatus readBuildInputs(const MArgDatabase& argData, RigBuildInputs& inputs)
@@ -71,6 +72,18 @@ namespace
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 
+		// The markers file (D73). A missing file is an error here, so a typo is not a rig built with no markers.
+		if (argData.isFlagSet(kMarkersFlag))
+		{
+			status = CommandUtils::readFilePath(argData, kMarkersFlag, "createRigFromTemplate", inputs.markersPath);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			if (!std::filesystem::exists(inputs.markersPath.asChar()))
+			{
+				MGlobal::displayError("Markers file does not exist: " + inputs.markersPath);
+				return MStatus::kFailure;
+			}
+		}
+
 		// The rig this one attaches to (D55). The root's own type is checked in the read phase, with the sockets.
 		if (argData.isFlagSet(kParentRigFlag))
 		{
@@ -117,6 +130,7 @@ MSyntax CreateRigCmd::newSyntax()
 	CHECK_MSTATUS(syntax.addFlag("-ns", kNamespaceFlag, MSyntax::kString));
 	CHECK_MSTATUS(syntax.addFlag("-cmp", kCheckMirrorPositionsFlag, MSyntax::kBoolean));
 	CHECK_MSTATUS(syntax.addFlag("-pr", kParentRigFlag, MSyntax::kString));
+	CHECK_MSTATUS(syntax.addFlag("-mk", kMarkersFlag, MSyntax::kString));
 	syntax.setObjectType(MSyntax::kStringObjects, 1);
 	syntax.useSelectionAsDefault(false);
 	return syntax;

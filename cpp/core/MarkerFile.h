@@ -68,3 +68,21 @@ void deserializeMarkers(const std::string& text, MarkerSet& outSet, ValidationRe
 
 // The index of the marker with this (side, usage), or -1.
 int findMarker(const MarkerSet& set, const JointSelector& selector);
+
+// The markup text on a marker locator in an editing scene (RigAttr::MarkerMarkup): the marker's markup, joint and
+// export flag as a JSON object. name and offsetLocal are not in it: the node's name and place give them.
+std::string serializeMarkerMarkup(const Marker& marker);
+// False, with the reason in outError, for bad JSON or a missing, mistyped or invalid key. outMarker's other fields
+// are left as they were.
+bool parseMarkerMarkup(const std::string& text, Marker& outMarker, std::string& outError);
+
+// A marker placed on a build's joints: its world matrix at rest, the joint's rest world times offsetLocal.
+struct ResolvedMarker
+{
+	Marker marker;
+	std::array<double, 16> world{ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 };
+};
+
+// The text getRigMarkers returns and the rig root stores: a JSON list in file order of {markup, joint, export, name,
+// world}. Empty list text, "[]", for no markers. Written whole, so it reads back through nlohmann::json::parse.
+std::string serializeResolvedMarkers(const std::vector<ResolvedMarker>& markers);

@@ -22,6 +22,12 @@ public:
 	// fields the rig fills. Reports a bad flag value and returns a failure status, so nothing is written.
 	static MStatus readSaveMeta(const MArgDatabase& argData, const char* metaFlag, const char* commandName, const MObject& oRigRoot, LibraryMeta& outMeta);
 
+	// A status, never an error (D70, D73): warns when a file was saved from a rig built with a markers file (its meta has a
+	// markersHash) and this rig was built with another one, or with none. The values are still valid, but a foot rolls
+	// about other pivots, so the result may look different. A file with no markersHash (made before markers, or from a rig
+	// with none) reads as unknown and gets no warning. Returns true when it warned.
+	static bool warnIfMarkersDiffer(const MObject& oRigRoot, const LibraryMeta& fileMeta, const char* commandName);
+
 	// The (side, usage) entries of a file that no control of the rig has, in the file's order.
 	static MStatus findUnmatchedControls(
 		const MObject& oRigRoot,

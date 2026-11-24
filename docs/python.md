@@ -56,6 +56,7 @@ rigmodules.query.get_rigs("hero_body")    # the rig built into the hero_body nam
 | `asset_id` | The asset id the rig was built for |
 | `rig_name` | The rig root's `rigName` |
 | `skeleton_hash` | The rig root's `skeletonHash`: the hash of its input joints at build (D54) |
+| `markers_hash` | The rig root's `markersHash`: the hash of the markers file it was built with, `""` when it had none ([markers.md](markers.md), D73) |
 | `namespace` | The namespace the rig was built into, without a leading `:` |
 | `rig_version` | The template's `rigVersion` |
 | `plugin_version` | The RigModules version that built the rig |

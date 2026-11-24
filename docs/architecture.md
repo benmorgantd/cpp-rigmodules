@@ -100,7 +100,7 @@ Node ids are listed in `CLAUDE.md`. Check that list before picking an id for a n
 ## A rig in the scene
 
 ```
-rigRootModule                one per namespace (D54): assetId, rigName, skeletonHash, version stamps
+rigRootModule                one per namespace (D54): assetId, rigName, skeletonHash, markersHash and markers (D73), version stamps
   .rigModules[] --> layoutModule, fkChainModule, aimModule, twoBoneIkModule ...
   .constraints[] --> rigConstraint ...
   .jointDisplayLayer, .meshDisplayLayer, .controlDisplayLayer  (D38)
@@ -200,7 +200,7 @@ Every problem goes into one `ValidationReport` with its JSON path, and `createRi
 
 **Write phase** (`buildRig`): runs only on a clean report, inside a `ScopedRigNamespace`, through one `MDagModifier` so undo and redo replay it.
 
-1. The rig root, with `assetId`, `rigName`, `skeletonHash` and the version stamps.
+1. The rig root, with `assetId`, `rigName`, `skeletonHash`, `markersHash` and `markers` (the markers file's hash and its placed markers, D73) and the version stamps.
 2. **Pass 1**: `buildModules` calls every plan's `build` closure, layout first, and checks each result against the plan's interface.
 3. **Pass 2**: `parentModuleControls` connects every child plug to its `parentStructure` socket, or to `layout_00_M_MOD.end`. It reparents controls in the DAG for organization and connects the socket matrix to the child plug's `parentMatrix`. A `parent:` entry resolves in the parent rig's namespace through `findSocketById`, connects the matrix across, and skips the DAG reparent (`RigModuleDagReparentArgs::reparentDag`).
 4. Moves the input joints into the rig namespace, then the first `doIt`.

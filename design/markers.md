@@ -1,6 +1,6 @@
 # Markers: placed points that follow a joint, kept in their own file
 
-**Status:** Signed off by the author, 2026-11-24 (D73). Nothing built. Written from the author's answers on the reverse foot (`reverse-foot.md`), with the same day's review folded in: markers are per asset, authoring goes through an Asset Editor tab, and a marker comes with an axis visualizer. The author chose option C: a real marker type, separate from the skeleton file.
+**Status:** Signed off by the author, 2026-11-24 (D73). Phases 0 and 1 built 2026-11-24 (file, hash, five commands, build flag, stamps, `MRK`), except the axis visualizer and module-side marker resolution, which are not built (see D73). Written from the author's answers on the reverse foot (`reverse-foot.md`), with the same day's review folded in: markers are per asset, authoring goes through an Asset Editor tab, and a marker comes with an axis visualizer. The author chose option C: a real marker type, separate from the skeleton file.
 
 ## 1. The problem
 

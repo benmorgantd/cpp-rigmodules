@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId`, `pruneToMaxInfluences` and `smoothSkinWeights` when nothing is named.
-- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `getRigMirrorControl`, `getRigKeys` and `getRigInfo`, and `saveRigControlShapes`, `saveRigSkinWeights` and `saveRigSkeleton` (they write a file and change nothing in the scene).
+- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `getRigMirrorControl`, `getRigKeys`, `getRigInfo` and `getRigMarkers`, and `saveRigControlShapes`, `saveRigSkinWeights`, `saveRigSkeleton` and `saveRigMarkers` (they write a file and change nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -47,7 +47,7 @@ The attribute holds JSON: `{"markupVersion": 1, "usage": "upperArm", "side": "Le
 
 ## renameRigNodes
 
-Renames joints, rig controls, rig modules, rig constraints and meshes into the [naming convention](naming.md), `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO>`. The nodes are the ones passed, else the selection. The index counts up in that order, so the first node gets `startIndex` and each one after it one more.
+Renames joints, rig controls, rig modules, rig constraints, meshes and [marker](markers.md) locators into the [naming convention](naming.md), `<camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO|MRK>`. The nodes are the ones passed, else the selection. The index counts up in that order, so the first node gets `startIndex` and each one after it one more.
 
 ```python
 # Three joints in selection order (or in the order passed): upperArm_00_L_JNT, upperArm_01_L_JNT, upperArm_02_L_JNT
@@ -92,6 +92,7 @@ cmds.createRigFromTemplate(*joints, template="C:/rigs/spine_arm.json", asset="sh
 | `asset` | string | The asset the rig belongs to: its folder path below the projects root, `\` between folders (`shooter\characters\hero`), any depth. Each folder name is lowercase letters, digits and `_`: uppercase is an error, not converted (D54). Required. Templates name no asset, so one template builds many assets. |
 | `namespace` | string | The rig's namespace. Defaults to the asset's last folder name and the template's `rigName`, `{asset name}_{rigName}` (`hero_body`), with no special case for an asset with one rig (D54). `":"` is the root, nested paths such as `char:rig` work, and an existing namespace with no rig in it is reused. |
 | `parentRig` | string | The rig root this rig is attached to ([attachments.md](attachments.md)). A template with `parent:module.socket` ids needs it, and a template without them refuses it. It must be a rig root in another namespace, and every socket the template takes from it must exist, or the read phase fails and lists them all. Optional. |
+| `markers` | string | The [markers file](markers.md) to build with. Optional. A missing file is an error, and a file that fails validation builds nothing. Its hash is stamped on the rig root. Every marker is placed on the input joints (the joint's rest world times the marker's offset) and stored on the rig root for [`getRigMarkers`](#getrigmarkers). A marker whose joint is not among the input joints is left out with a warning, because the file may belong to a larger skeleton. Without the flag the rig is built with no markers. |
 | `checkMirrorPositions` | bool | Default `False`. With `True`, a mirrored module ([templates.md](templates.md#mirroring)) fails the build when one of its joints is more than 0.001 from its source joint reflected across X = 0. |
 
 Objects: one or more joint names, with their namespace (`skel:arm_00_L_JNT`).
@@ -144,6 +145,7 @@ The rig root records what built it, so tools can find out-of-date rigs in a scen
 | `assetId` | The `asset` flag |
 | `rigName` | The rig, from the template: its folder name in the asset |
 | `skeletonHash` | The hash of the input joints as they were handed in, the same one [`saveRigSkeleton`](#saverigskeleton) returns for them (D54). Looks, weight files and library files that carry it can be matched to the skeleton |
+| `markersHash` | The hash of the `markers` file the build was given, as [`saveRigMarkers`](#saverigmarkers) returns it, `""` when it was given none (D73). Poses and animations carry it, and [`loadRigPose`](#loadrigpose) and [`loadRigAnimation`](#loadriganimation) warn when it differs. Looks and weight files do not read it |
 | `rigVersion` | The template's `rigVersion` |
 | `pluginVersion` | The RigModules plugin version that ran the build |
 | `publishVersion` | The id of the asset publish the rig came from, for example `20261108T142012Z_bmorgan` (UTC time and user). A build leaves it empty, and the publish step sets it |
@@ -306,13 +308,13 @@ Object: one control.
 
 ## getRigInfo
 
-Returns what a rig node belongs to, as JSON text: its rig root, the asset id, the rig name, the skeleton hash, the namespace, the rig root's version stamps and the look it wears. Python tools use it through `rigmodules.query` ([python.md](python.md)).
+Returns what a rig node belongs to, as JSON text: its rig root, the asset id, the rig name, the skeleton hash, the markers hash, the namespace, the rig root's version stamps and the look it wears. Python tools use it through `rigmodules.query` ([python.md](python.md)).
 
 ```python
 cmds.getRigInfo("hero_body:arm_00_L_CTRL")
 # Returns '{"assetId":"shooter\\main\\characters\\hero","namespace":"hero_body","pluginVersion":"0.1",
 #           "publishVersion":"","rigName":"body","rigRoot":"hero_body:rigRootModule1","rigVersion":1,
-#           "skeletonHash":"3f2a9c0b7d4e1f68"}'
+#           "skeletonHash":"3f2a9c0b7d4e1f68","markersHash":""}'
 ```
 
 Object: one rig root, rig module, rig control, or joint driven by a rig. A joint belongs to the rig whose module drives its `offsetParentMatrix`.
@@ -323,6 +325,7 @@ Object: one rig root, rig module, rig control, or joint driven by a rig. A joint
 | `assetId` | The rig root's `assetId` |
 | `rigName` | The rig root's `rigName` |
 | `skeletonHash` | The rig root's `skeletonHash` |
+| `markersHash` | The rig root's `markersHash`, `""` for a rig built with no markers file |
 | `namespace` | The namespace the rig root is in, without a leading `:` |
 | `rigVersion` | The template's `rigVersion` |
 | `pluginVersion` | The RigModules version that built the rig |
@@ -531,6 +534,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 | `blend` | double | Optional. Blends from a reference pose by this weight instead of writing the file's values (D72). 0 is the reference and 1 is exactly the pose. Between them it is a straight blend. Past 1 the pose's offset from rest is added again, so 1.5 is half as much again. Any finite weight from 0 up is accepted (a negative one is an error), and every result is clamped to the channel's min and max. A bool, int or enum channel keeps the reference value below 0.5 and takes the pose's from 0.5 up. |
 | `blendReference` | string | Optional, and only with `blend`. A pose file (save it with [`saveRigPose`](#saverigpose)) to blend from. Without it the blend starts from the scope's current pose, so repeated calls compound. A slider drag saves the start pose once and passes it on every call, so every value of the drag starts from the same pose. The reference is never mirrored. A channel it lacks starts at its rest. |
 
+- A file saved from a rig built with a [markers file](markers.md) carries its `markersHash` in `meta`. When the rig was built with another file, or with none, the load warns and goes on: a foot rolls about other pivots, so the result may look different (D70, D73). A file with no `markersHash` reads as unknown and gets no warning.
 - Controls match the file by markup. A control the file lacks keeps its values, and so does a channel it lacks. With the rig root, a control or channel the file has and the rig lacks is skipped with a warning. With controls, the rest of the file is ignored without one.
 - The whole file is checked before anything is applied (bad JSON, an unknown side, a value that isn't a number, a `formatVersion` this build doesn't read), so a bad file changes nothing. An older `formatVersion` is updated on load.
 - Sets values and keys nothing: use [`rigmodules.pose`](python.md#rigmodulespose) to key. Undoable.
@@ -641,6 +645,7 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 | `offset` | float | Moves every key by this many frames. Default 0. |
 | `mirror` | bool | `True` puts each side's keys on the other side (a flip, below). Default `False`. |
 
+- A file whose `meta.markersHash` differs from the rig's warns and still loads, as [`loadRigPose`](#loadrigpose) does.
 - Matching, replacing and undo are those of [`setRigKeys`](#setrigkeys): a control the file lacks keeps its keys, a control or channel only one side has is skipped with a warning, and the whole load is one undo step.
 - The file is checked whole before anything is written. A file that fails validation, one with a newer `formatVersion` than this build reads, and one whose frame rate isn't the scene's change nothing. A resample is not built.
 - **Mirror** is a flip. Left keys go onto the Right control of the same usage and the Right keys onto Left. A channel the mirror negates (a custom channel declared `mirrorNegate`, [D34](../design/decisions.md)) has its values negated and its fixed tangent angles with it, and the other tangent types recompute from the negated keys and come out mirrored. A Center control reflects through its flip axis, as [`flipRigPose`](#fliprigpose) does. Frames, weights, curve flags and tangent types don't change. With controls as the objects, only those controls are keyed: the keys that mirror onto them.
@@ -690,7 +695,7 @@ cmds.setRigDataFileMeta(file="C:/lib/fist.controlpose.json", meta=json.dumps({"d
 | `file` | string | The file to edit. Required. |
 | `meta` | string | A JSON object. Each key it has replaces that field, and an empty string or empty list clears it. The others stay. Required. |
 
-- The fields the rig fills (`assetId`, `rigName`, `skeletonHash`, `pluginVersion`, `created`) can't be set. A value of the wrong shape, an unknown key, and a file that fails validation are errors, and the file is left as it was.
+- The fields the rig fills (`assetId`, `rigName`, `skeletonHash`, `markersHash`, `pluginVersion`, `created`) can't be set. A value of the wrong shape, an unknown key, and a file that fails validation are errors, and the file is left as it was.
 - The file is read in full and written again at the current format version, so an older file is brought forward. Controls, keys and everything else in it are unchanged.
 - Edits a file, so it isn't undoable and doesn't version or check the file out: the caller does that first, as for a save.
 
@@ -1040,3 +1045,78 @@ Objects: none.
 - A node in the namespace that already has a joint's name is an error, and nothing is created: Maya would rename the joint, and the name is part of the skeleton.
 - A stored `skeletonHash` that doesn't match the joints is a warning, not an error.
 - Undoable. Undo removes the joints. A namespace the command made stays, empty.
+
+## rigMarkerMarkup
+
+Marks transforms as [markers](markers.md): the point a locator is, following one joint. Create, edit, query and remove work as [`rigJointMarkup`](#rigjointmarkup) does.
+
+```python
+cmds.rigMarkerMarkup("skel:heel_00_L_MRK", usage="heel", side="Left", joint="skel:ankle_00_L_JNT", export=False)   # create
+cmds.rigMarkerMarkup("skel:heel_00_L_MRK", edit=True, export=True)                                             # change one value
+cmds.rigMarkerMarkup("skel:heel_00_L_MRK", query=True, joint=True)                                              # ["[Left, ankle]"]
+cmds.rigMarkerMarkup("skel:heel_00_L_MRK", remove=True)
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `usage` | string | The marker's usage. Create needs it. |
+| `side` | string | `Left`, `Right` or `Center`. Create needs it. |
+| `joint` | string | The marked joint the marker follows. Default on create: the nearest marked joint above the node. |
+| `export` | bool | Default `False` on create. `True` for a marker the engine needs. |
+| `remove` | flag | Deletes the markup. Not combined with `edit` or a value flag. |
+
+Objects: one or more transforms. A query returns one string per node, `""` for a node with no markup, and takes at most one of `usage`, `side`, `joint` (as `[side, usage]` text) and `export`. With none it returns the markup as JSON. The markup is stored in a `rigMarkerMarkup` string attribute. Everything is checked before anything changes. Undoable, except a query.
+
+## saveRigMarkers
+
+Writes marker locators to a [markers file](markers.md) and returns its hash.
+
+```python
+cmds.saveRigMarkers("skel:heel_00_L_MRK", "skel:ball_00_L_MRK", file="C:/assets/hero/markers/body/markers.json")
+# Returns "9a31c04d7e2b6f55", the markers hash
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The file to write. Required. |
+
+Objects: one or more marked nodes. Each marker's `offsetLocal` is the node's world matrix times the inverse of its joint's world matrix, so the joints should be at rest. The joint is found among the marked joints of the node's own namespace. Nothing is written, and every problem is reported, for: a node with no markup, a name outside the [naming convention](naming.md) (`heel_00_L_MRK`), a followed joint that is not a marked joint in the namespace, or two nodes with one `[side, usage]`. Not undoable: it writes a file and changes nothing in the scene.
+
+## loadRigMarkers
+
+Creates a marked locator for each marker of a file, at its place on the joints, for editing.
+
+```python
+cmds.loadRigMarkers(file="C:/assets/hero/markers/body/markers.json", namespace="skel", displaySize=2.0)
+# Returns ["skel:heel_00_L_MRK", "skel:ball_00_L_MRK"], in the file's order
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `file` | string | The markers file. Required. |
+| `namespace` | string | The namespace holding the marked joints, and the one the locators go into. The current namespace when left out. |
+| `displaySize` | double | How large the locators are drawn. Default 2.0, above 0. |
+
+Objects: none. The whole file is checked first. A file that fails validation, a marker whose joint is not a marked joint in the namespace, and a node in the namespace that has a marker's name are errors and create nothing. A stored `markersHash` that does not match is a warning. Undoable. The locators are `rigControlNode`s in the `Pivot` shape, outside every rig, and they are throwaway: they are never part of a built rig.
+
+## mirrorRigMarkers
+
+The authoring mirror of markers: writes the other side's marker, so a file holds both sides.
+
+```python
+cmds.mirrorRigMarkers("skel:heel_00_L_MRK")
+# Returns ["skel:heel_00_R_MRK"]
+```
+
+Objects: one or more marker locators in one namespace. Each one's world matrix is reflected across X = 0 (the position's X negated, the rotation reflected so a right-handed frame stays right-handed) and put on a node for the other side: the same usage, the name with its side swapped, following the same usage of joint on the other side. A node already there moves and keeps its markup updated, otherwise one is made. Saved, its offset is in the other side's joint frame, so a mirrored limb's turned joint frames need no rule. A Center marker, a name outside the convention, or a missing joint on the other side is an error and changes nothing. Undoable. The build never mirrors markers: a template's `"mirror": true` only swaps the selector's side.
+
+## getRigMarkers
+
+Returns every marker a rig was built with and where each sits at rest, as JSON text.
+
+```python
+cmds.getRigMarkers("hero_body:rigRootModule1")
+# Returns '[{"markup": ["Left", "heel"], "joint": ["Left", "ankle"], "export": false, "name": "heel_00_L_MRK", "world": [1, 0, 0, 0, ..., 0, -9.5, -1.2, 1]}]'
+```
+
+Object: any node of the rig. `world` is the 16 numbers of the marker's matrix row by row, as it was at the build. A rig built with no markers file returns `"[]"`, and a marker whose joint was not among the build's joints is not listed. Not undoable.

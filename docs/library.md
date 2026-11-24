@@ -80,6 +80,7 @@ Every pose file and ControlAnim file has a `meta` object that says where the fil
 | `assetId` | string | The rig, when the file is saved: the asset the rig was built for |
 | `rigName` | string | The rig: its `rigName`, the rig's folder in the asset |
 | `skeletonHash` | string | The rig: its `skeletonHash`, the skeleton it was built on (D54) |
+| `markersHash` | string | The rig: its `markersHash`, the [markers file](markers.md) it was built with (D73). Left out when the rig was built with none, and absent from a file saved before markers, so an older file reads as unknown and never as a difference. `loadRigPose` and `loadRigAnimation` warn when it differs from the rig's |
 | `pluginVersion` | string | The rig: the RigModules version that built it |
 | `created` | string | The save: the time in UTC, `2026-11-14T10:22:00Z` |
 | `template` | string | The caller: the template the rig was built from, for example `Human` |

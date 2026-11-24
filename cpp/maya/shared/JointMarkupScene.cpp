@@ -190,6 +190,35 @@ MStatus JointMarkupScene::claimJoint(
 	return status;
 }
 
+MStatus JointMarkupScene::selectorOfJoint(const MObject& oJoint, JointSelector& outSelector)
+{
+	bool hasMarkup = false;
+	JointMarkup markup;
+	if (!oJoint.hasFn(MFn::kJoint) || !readMarkup(oJoint, hasMarkup, markup) || !hasMarkup)
+	{
+		MGlobal::displayError(MFnDependencyNode(oJoint).name() + " is not a marked joint.");
+		return MStatus::kFailure;
+	}
+	outSelector = JointSelector{ markup.side, markup.usage };
+	return MStatus::kSuccess;
+}
+
+bool JointMarkupScene::findMarkedAncestor(const MDagPath& node, JointSelector& outSelector)
+{
+	MDagPath ancestor(node);
+	while (ancestor.pop() && ancestor.length() > 0)
+	{
+		bool hasMarkup = false;
+		JointMarkup markup;
+		if (ancestor.hasFn(MFn::kJoint) && readMarkup(ancestor.node(), hasMarkup, markup) && hasMarkup)
+		{
+			outSelector = JointSelector{ markup.side, markup.usage };
+			return true;
+		}
+	}
+	return false;
+}
+
 MStatus JointMarkupScene::queueAddMarkupAttribute(const MObject& oJoint, MDGModifier& dgMod, MObject& oOutMarkupAttr)
 {
 	MStatus status;

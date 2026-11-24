@@ -43,7 +43,7 @@ def get_data_file_info(rig_root: str, files: list[str]) -> list[DataFileInfo]:
 
 def set_data_file_meta(file: str, meta: dict[str, object]) -> None:
     """Edits a file's meta and nothing else: each key replaces that field, and an empty string or list clears one. The
-    fields the rig fills (assetId, rigName, skeletonHash, pluginVersion, created) can't be set. Raises RuntimeError, leaving the file
+    fields the rig fills (assetId, rigName, skeletonHash, markersHash, pluginVersion, created) can't be set. Raises RuntimeError, leaving the file
     unchanged, for a bad value, an unknown key or a file that fails validation. The caller versions and checks the file
     out first, as for a save."""
     cmds.setRigDataFileMeta(file=file, meta=json.dumps(meta))

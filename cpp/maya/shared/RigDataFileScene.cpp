@@ -16,6 +16,7 @@ MStatus RigDataFileScene::fillRigMeta(const MObject& oRigRoot, LibraryMeta& meta
 	meta.assetId = MPlug(oRigRoot, RigRootNode::aAssetId).asString().asChar();
 	meta.rigName = MPlug(oRigRoot, RigRootNode::aRigName).asString().asChar();
 	meta.skeletonHash = MPlug(oRigRoot, RigRootNode::aSkeletonHash).asString().asChar();
+	meta.markersHash = MPlug(oRigRoot, RigRootNode::aMarkersHash).asString().asChar();
 	meta.pluginVersion = MPlug(oRigRoot, RigRootNode::aPluginVersion).asString().asChar();
 	meta.created = utcTimestampNow();
 	return MStatus::kSuccess;
@@ -37,6 +38,19 @@ MStatus RigDataFileScene::readSaveMeta(const MArgDatabase& argData, const char* 
 		}
 	}
 	return fillRigMeta(oRigRoot, outMeta);
+}
+
+bool RigDataFileScene::warnIfMarkersDiffer(const MObject& oRigRoot, const LibraryMeta& fileMeta, const char* commandName)
+{
+	const std::string rigHash = MPlug(oRigRoot, RigRootNode::aMarkersHash).asString().asChar();
+	if (fileMeta.markersHash.empty() || fileMeta.markersHash == rigHash)
+	{
+		return false;
+	}
+	MGlobal::displayWarning(MString(commandName) + ": the file was saved from a rig built with markers " + fileMeta.markersHash.c_str()
+		+ ", and this rig " + (rigHash.empty() ? MString("was built with none") : MString("has ") + rigHash.c_str())
+		+ ". It loads, but the pivots differ, so it may not play back the same.");
+	return true;
 }
 
 MStatus RigDataFileScene::findUnmatchedControls(

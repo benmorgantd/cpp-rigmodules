@@ -3,6 +3,7 @@
 #include "maya/commands/ConstraintCmds.h"
 #include "maya/commands/CreateRigCmd.h"
 #include "maya/commands/JointMarkupCmd.h"
+#include "maya/commands/MarkerCmds.h"
 #include "maya/commands/RenameRigNodesCmd.h"
 #include "maya/commands/RigControlCmds.h"
 #include "maya/commands/RigDataFileCmds.h"
@@ -57,7 +58,12 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ SaveRigAnimationCmd::aCommandString, SaveRigAnimationCmd::creator, SaveRigAnimationCmd::newSyntax },
 		{ LoadRigAnimationCmd::aCommandString, LoadRigAnimationCmd::creator, LoadRigAnimationCmd::newSyntax },
 		{ SetRigIkFkBlendCmd::aCommandString, SetRigIkFkBlendCmd::creator, SetRigIkFkBlendCmd::newSyntax },
-		{ RenameRigNodesCmd::aCommandString, RenameRigNodesCmd::creator, RenameRigNodesCmd::newSyntax }
+		{ RenameRigNodesCmd::aCommandString, RenameRigNodesCmd::creator, RenameRigNodesCmd::newSyntax },
+		{ MarkerMarkupCmd::aCommandString, MarkerMarkupCmd::creator, MarkerMarkupCmd::newSyntax },
+		{ SaveRigMarkersCmd::aCommandString, SaveRigMarkersCmd::creator, SaveRigMarkersCmd::newSyntax },
+		{ LoadRigMarkersCmd::aCommandString, LoadRigMarkersCmd::creator, LoadRigMarkersCmd::newSyntax },
+		{ MirrorRigMarkersCmd::aCommandString, MirrorRigMarkersCmd::creator, MirrorRigMarkersCmd::newSyntax },
+		{ GetRigMarkersCmd::aCommandString, GetRigMarkersCmd::creator, GetRigMarkersCmd::newSyntax }
 	};
 	return descriptors;
 }

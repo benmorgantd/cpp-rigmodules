@@ -672,3 +672,35 @@ class FkHierarchyDocExample(RigTestCase):
         names = [json.loads(cmds.getAttr("%s.socketNames[%d]" % (module, i))) for i in cmds.getAttr(module + ".socketNames", multiIndices=True)]
         self.assertIn(["center_handle"], names)
         self.assertEqual(names[0], ["center_root", "start"])
+
+
+MARKERS_DOC = os.path.join(config.REPO_DIR, "docs", "markers.md")
+
+
+def markers_doc_file_text():
+    """The first ```json block under '## The file' in docs/markers.md."""
+    with open(MARKERS_DOC, encoding="utf-8") as handle:
+        section = handle.read().split("## The file", 1)[1]
+    match = re.search(r"```json\s*\n(.*?)```", section, re.S)
+    if not match:
+        raise AssertionError("docs/markers.md '## The file' has no ```json block")
+    return match.group(1)
+
+
+class MarkersDocExample(RigTestCase):
+    """The markers file in docs/markers.md loads onto the Left ankle it follows, and saves back to the same hash."""
+
+    def test_markers_file_example_loads_and_its_hash_is_right(self):
+        cmds.namespace(add=":skel")
+        cmds.select(clear=True)
+        ankle = cmds.joint(name=":skel:ankle_00_L_JNT", position=(0, 0, 0))
+        cmds.rigJointMarkup(ankle, usage="ankle", side="Left", export=True, skin=True)
+        path = os.path.join(config.WORK_DIR, "doc_markers.json").replace("\\", "/")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(markers_doc_file_text())
+        nodes = cmds.loadRigMarkers(file=path, namespace="skel")
+        self.assertEqual([node.split("|")[-1] for node in nodes], ["skel:ball_00_L_MRK", "skel:heel_00_L_MRK"])
+        self.assertWorldTranslation("skel:ball_00_L_MRK", (0, 10, -8.7))
+        self.assertWorldTranslation("skel:heel_00_L_MRK", (0, -9.5, -1.2))
+        saved = cmds.saveRigMarkers(*nodes, file=path.replace("doc_markers", "doc_markers_saved"))
+        self.assertEqual(json.loads(markers_doc_file_text())["markersHash"], saved)

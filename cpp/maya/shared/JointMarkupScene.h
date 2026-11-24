@@ -44,6 +44,12 @@ public:
 	// outHasMarkup is false, with success, when the joint has no markup attribute.
 	static MStatus readMarkup(const MObject& oJoint, bool& outHasMarkup, JointMarkup& outMarkup);
 
+	// The [side, usage] of a marked joint. Reports, and fails, for a node that is not a joint or has no valid markup.
+	static MStatus selectorOfJoint(const MObject& oJoint, JointSelector& outSelector);
+
+	// The nearest marked joint above the node in the DAG. False when there is none.
+	static bool findMarkedAncestor(const MDagPath& node, JointSelector& outSelector);
+
 	// Queues adding the rigMarkup attribute to a joint that has none. The attribute must exist before its plug takes
 	// a value, so the caller runs dgMod.doIt() and then queues newPlugValueString on MPlug(oJoint, oOutMarkupAttr).
 	static MStatus queueAddMarkupAttribute(const MObject& oJoint, MDGModifier& dgMod, MObject& oOutMarkupAttr);

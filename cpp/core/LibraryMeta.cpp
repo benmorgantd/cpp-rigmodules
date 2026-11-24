@@ -28,6 +28,7 @@ namespace
 		{ LibraryMetaKey::AssetId, &LibraryMeta::assetId, true },
 		{ LibraryMetaKey::RigName, &LibraryMeta::rigName, true },
 		{ LibraryMetaKey::SkeletonHash, &LibraryMeta::skeletonHash, true },
+		{ LibraryMetaKey::MarkersHash, &LibraryMeta::markersHash, true },
 		{ LibraryMetaKey::PluginVersion, &LibraryMeta::pluginVersion, true },
 		{ LibraryMetaKey::Created, &LibraryMeta::created, true },
 		{ LibraryMetaKey::Template, &LibraryMeta::templateName, false },

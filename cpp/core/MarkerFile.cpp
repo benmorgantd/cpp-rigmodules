@@ -109,6 +109,90 @@ int findMarker(const MarkerSet& set, const JointSelector& selector)
 	return -1;
 }
 
+std::string serializeMarkerMarkup(const Marker& marker)
+{
+	nlohmann::json json = nlohmann::json::object();
+	json[JointMarkupKey::Usage] = marker.markup.usage;
+	json[RigAttr::Side] = marker.markup.side;
+	json[JointMarkupKey::Export] = marker.isExported;
+	json[MarkerMarkupKey::JointSide] = marker.joint.side;
+	json[MarkerMarkupKey::JointUsage] = marker.joint.usage;
+	return json.dump();
+}
+
+bool parseMarkerMarkup(const std::string& text, Marker& outMarker, std::string& outError)
+{
+	nlohmann::json json;
+	try
+	{
+		json = nlohmann::json::parse(text);
+	}
+	catch (const nlohmann::json::exception& e)
+	{
+		outError = e.what();
+		return false;
+	}
+
+	const auto readString = [&json, &outError](const char* key, std::string& outValue)
+	{
+		const auto it = json.is_object() ? json.find(key) : json.end();
+		if (it == json.end() || !it->is_string())
+		{
+			outError = std::string("'") + key + "' must be a string";
+			return false;
+		}
+		outValue = it->get<std::string>();
+		return true;
+	};
+
+	Marker marker;
+	if (!readString(JointMarkupKey::Usage, marker.markup.usage) || !readString(RigAttr::Side, marker.markup.side)
+		|| !readString(MarkerMarkupKey::JointSide, marker.joint.side) || !readString(MarkerMarkupKey::JointUsage, marker.joint.usage))
+	{
+		return false;
+	}
+	const auto itExport = json.find(JointMarkupKey::Export);
+	if (itExport == json.end() || !itExport->is_boolean())
+	{
+		outError = std::string("'") + JointMarkupKey::Export + "' must be true or false";
+		return false;
+	}
+	marker.isExported = itExport->get<bool>();
+
+	if (marker.markup.usage.empty() || marker.joint.usage.empty())
+	{
+		outError = "usage is empty";
+		return false;
+	}
+	if (!isValidSideName(marker.markup.side) || !isValidSideName(marker.joint.side))
+	{
+		outError = std::string("side must be one of ") + SideNames::Center + ", " + SideNames::Left + ", " + SideNames::Right;
+		return false;
+	}
+
+	outMarker.markup = marker.markup;
+	outMarker.joint = marker.joint;
+	outMarker.isExported = marker.isExported;
+	return true;
+}
+
+std::string serializeResolvedMarkers(const std::vector<ResolvedMarker>& markers)
+{
+	nlohmann::json list = nlohmann::json::array();
+	for (const ResolvedMarker& resolved : markers)
+	{
+		const Marker& marker = resolved.marker;
+		nlohmann::json entry = nlohmann::json::object();
+		entry[SkeletonFileKey::Markup] = { marker.markup.side, marker.markup.usage };
+		entry[MarkerFileKey::Joint] = { marker.joint.side, marker.joint.usage };
+		entry[JointMarkupKey::Export] = marker.isExported;
+		entry[SkeletonFileKey::Name] = marker.name;
+		entry[MarkerFileKey::World] = resolved.world;
+		list.push_back(entry);
+	}
+	return list.dump();
+}
+
 namespace
 {
 	// One entry of "markers". False, with every problem reported, when the marker can't be used.

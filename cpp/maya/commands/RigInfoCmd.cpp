@@ -79,6 +79,7 @@ MStatus GetRigInfoCmd::doIt(const MArgList& args)
 	info[RigAttr::AssetId] = MPlug(oRigRoot, RigRootNode::aAssetId).asString().asChar();
 	info[RigAttr::RigName] = MPlug(oRigRoot, RigRootNode::aRigName).asString().asChar();
 	info[RigAttr::SkeletonHash] = MPlug(oRigRoot, RigRootNode::aSkeletonHash).asString().asChar();
+	info[RigAttr::MarkersHash] = MPlug(oRigRoot, RigRootNode::aMarkersHash).asString().asChar();
 	info[RigAttr::RigVersion] = MPlug(oRigRoot, RigRootNode::aRigVersion).asInt();
 	info[RigAttr::PluginVersion] = MPlug(oRigRoot, RigRootNode::aPluginVersion).asString().asChar();
 	info[RigAttr::PublishVersion] = MPlug(oRigRoot, RigRootNode::aPublishVersion).asString().asChar();

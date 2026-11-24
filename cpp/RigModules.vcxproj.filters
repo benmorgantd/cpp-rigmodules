@@ -183,6 +183,9 @@
     <ClCompile Include="maya\commands\RigPoseCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
+    <ClCompile Include="maya\commands\MarkerCmds.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
     <ClCompile Include="maya\commands\SkeletonCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
@@ -271,6 +274,9 @@
       <Filter>maya\shared</Filter>
     </ClCompile>
     <ClCompile Include="maya\shared\SelectionSetScene.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\shared\MarkerScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
     <ClCompile Include="maya\shared\SkeletonScene.cpp">
@@ -458,6 +464,9 @@
     <ClInclude Include="maya\commands\RigPoseCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
+    <ClInclude Include="maya\commands\MarkerCmds.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
     <ClInclude Include="maya\commands\SkeletonCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
@@ -552,6 +561,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\SelectionSetScene.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\MarkerScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\SkeletonScene.h">

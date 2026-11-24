@@ -50,6 +50,10 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 | `rigName` | no | Names the rig: its folder in the asset (`body`, `face`, `cine`), and with the asset's name the default namespace, `{asset name}_{rigName}` (D54). Lowercase letters, digits and `_`, because it names a folder in the asset: `Human` is an error, not converted. Defaults to `rigTemplateName` in snake_case (`HumanRigTest` becomes `human_rig_test`). A namespace holds one rig, whatever its name |
 | `constraints` | no | Array of constraints (below) |
 
+## Markers
+
+A module can select a point that no joint marks, a [marker](markers.md), with a `[side, usage]` pair in a `moduleArgs` key that names markers. The markers come from the file passed to [`createRigFromTemplate`](commands.md#createrigfromtemplate) as `markers`, and a template that selects a marker when no file was passed is a read-phase error naming the marker. A mirrored module swaps the selector's side, as it does a joint selector. No module selects markers yet.
+
 ## Modules
 
 | Key | Required | Value |

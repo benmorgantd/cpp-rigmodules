@@ -21,6 +21,9 @@ struct RigBuildInputs
 	std::optional<MString> rigNamespace;
 	// Every joint must carry markup. Names may be in any namespace.
 	MDagPathArray joints;
+	// The markers file to build with (D73), or empty for none. A template that selects a marker needs one. Its hash is
+	// stamped on the rig root, and an empty path stamps "".
+	MString markersPath;
 	// Fail a mirrored module whose joint is more than 0.001 from its reflected source joint (D28).
 	bool checkMirrorPositions = false;
 	// The rig root this rig is attached to (D55), or null. A template with "parent:" ids needs one, and one without

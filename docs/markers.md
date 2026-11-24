@@ -11,7 +11,7 @@ A module that needs a point no bind joint marks selects a marker with a `[side, 
 ```json
 {
     "formatVersion": 1,
-    "markersHash": "9a31c04d7e2b6f55",
+    "markersHash": "61a75a97adb11637",
     "markers": [
         {"markup": ["Left", "ball"], "joint": ["Left", "ankle"], "export": false, "name": "ball_00_L_MRK", "offsetLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 10, -8.7, 1]},
         {"markup": ["Left", "heel"], "joint": ["Left", "ankle"], "export": false, "name": "heel_00_L_MRK", "offsetLocal": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -9.5, -1.2, 1]}
@@ -33,7 +33,7 @@ An offset is in the joint's own space, in absolute lengths. Markers belong to an
 
 `markersHash` (16 hex digits) covers the marker count, then for each marker in sorted order its side, usage, joint side and usage, `export`, name and the 16 offset values rounded to steps of 0.0001. It uses the same 64-bit hash as the skeleton hash. The stored value is never trusted: loading recomputes it, and a difference is a warning.
 
-The skeleton hash does not cover markers. Moving a heel pivot does not mark a weight file or a look stale, because no skin depends on it. It does change how a foot rolls, so the **rig root** stamps `markersHash` at build (empty when the build was given no file), `getRigInfo` returns it as `markersHash`, and the `meta` of poses and animations records it. `loadRigPose` and `loadRigAnimation` warn when a file's hash and the rig's are both known and differ (D70: a status, never an error), and the file still loads. A file saved before markers existed has no value and reads as unknown, never as a difference.
+The skeleton hash does not cover markers. Moving a heel pivot does not mark a weight file or a look stale, because no skin depends on it. It does change how a foot rolls, so the **rig root** stamps `markersHash` at build (empty when the build was given no file) and the placed markers as a `markers` string, [`getRigInfo`](commands.md#getriginfo) returns the hash as `markersHash`, and the `meta` of poses and animations records it. `loadRigPose` and `loadRigAnimation` warn when a file's hash and the rig's are both known and differ (D70: a status, never an error), and the file still loads. A file saved before markers existed has no value and reads as unknown, never as a difference.
 
 ## Authoring
 
@@ -48,9 +48,9 @@ cmds.saveRigMarkers(locator, file="C:/assets/hero/markers/body/markers.json")
 # Returns the markers hash, "9a31c04d7e2b6f55"
 ```
 
-`loadRigMarkers` puts a marked locator, drawn with an axis visualizer, at each marker of an existing file. `mirrorRigMarkers` writes the other side's marker. All five commands are in [commands.md](commands.md#markers).
+`loadRigMarkers` puts a marked locator at each marker of an existing file, sized by its `displaySize`. `mirrorRigMarkers` writes the other side's marker. All five commands are in [commands.md](commands.md#rigmarkermarkup).
 
-**The axis visualizer** is a mesh in the generated control shape library: a thin cylinder and a cone for each of X, Y and Z, coloured red, green and blue as Maya's manipulator is, with a display size so a small point on a gun is not lost in a big scene. It is drawn on the editing locators.
+**The locators** are `rigControlNode`s in the `Pivot` shape, outside every rig. They show where a marker is but not which way it faces. The planned axis visualizer (a thin cylinder and a cone for each of X, Y and Z, coloured red, green and blue as Maya's manipulator is) is not built yet.
 
 **Mirroring is an authoring step, not a build step.** A marker's offset is in its joint's frame, and a mirrored limb's joint frames are turned, so negating one axis of an offset depends on the chain's convention. `mirrorRigMarkers` reflects the world position across X = 0 and writes the other side's marker as an offset in that side's joint frame. The file holds both sides, and the template's `"mirror": true` only swaps the selector's side.
 
@@ -61,6 +61,8 @@ cmds.createRigFromTemplate("skel:root_00_M_JNT", template="C:/rigs/hero.json", a
                            namespace="hero", markers="C:/assets/hero/markers/body/markers.json")
 ```
 
-`markers` is optional. A template that selects a marker when no file was passed is a read-phase error that names the marker and the module. For each selected marker the build finds its `joint` among the joints it was given, takes that joint's rest world matrix and multiplies it by `offsetLocal`. A joint that is not in the build, or a marker the file lacks, is an error naming the marker and the module, and every error is listed at once.
+`markers` is optional. The build reads and validates the file, finds each marker's `joint` among the joints it was given, takes that joint's rest world matrix and multiplies it by `offsetLocal`. [`getRigMarkers`](commands.md#getrigmarkers) returns the result. A marker whose joint is not among the build's joints is left out with a warning, because the file may belong to a larger skeleton.
+
+A module that selects a marker resolves it the same way and fails the build when the marker or its joint is missing, or no file was passed, naming the marker and the module, with every error listed at once. No module selects markers yet (the ReverseFoot is the first, [design/reverse-foot.md](../design/reverse-foot.md)).
 
 A rig-only marker has no node: the module that selected it stores its rest matrix. A module that needs the point to move with a part of the rig takes that motion from its own child plug, never from a marker.

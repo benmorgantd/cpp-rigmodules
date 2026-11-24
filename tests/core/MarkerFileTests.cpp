@@ -369,3 +369,44 @@ CORE_TEST(findMarkerBySelector)
 	CHECK(findMarker(set, { "Right", "heel" }) == 2);
 	CHECK(findMarker(set, { "Right", "ball" }) == -1);
 }
+
+CORE_TEST(markerMarkupRoundTrips)
+{
+	Marker marker = makeMarker("Left", "heel", "Left", "ankle", "heel_00_L_MRK", 0.0);
+	marker.isExported = true;
+	Marker read;
+	std::string error;
+	CHECK(parseMarkerMarkup(serializeMarkerMarkup(marker), read, error));
+	CHECK(read.markup.side == "Left" && read.markup.usage == "heel");
+	CHECK(read.joint.side == "Left" && read.joint.usage == "ankle");
+	CHECK(read.isExported);
+}
+
+CORE_TEST(markerMarkupRefusesBadText)
+{
+	Marker read;
+	std::string error;
+	CHECK(!parseMarkerMarkup("{ usage", read, error));
+	CHECK(!parseMarkerMarkup("[1]", read, error));
+	CHECK(!parseMarkerMarkup("{\"usage\": \"a\", \"side\": \"Left\", \"export\": false, \"jointSide\": \"Left\"}", read, error));
+	CHECK(error.find("jointUsage") != std::string::npos);
+	CHECK(!parseMarkerMarkup("{\"usage\": \"a\", \"side\": \"Up\", \"export\": false, \"jointSide\": \"Left\", \"jointUsage\": \"b\"}", read, error));
+	CHECK(!parseMarkerMarkup("{\"usage\": \"\", \"side\": \"Left\", \"export\": false, \"jointSide\": \"Left\", \"jointUsage\": \"b\"}", read, error));
+	CHECK(!parseMarkerMarkup("{\"usage\": \"a\", \"side\": \"Left\", \"export\": 1, \"jointSide\": \"Left\", \"jointUsage\": \"b\"}", read, error));
+}
+
+CORE_TEST(resolvedMarkersSerialize)
+{
+	CHECK(serializeResolvedMarkers({}) == "[]");
+	ResolvedMarker resolved;
+	resolved.marker = makeMarker("Left", "heel", "Left", "ankle", "heel_00_L_MRK", 0.0);
+	resolved.world[13] = 4.5;
+	const nlohmann::json list = nlohmann::json::parse(serializeResolvedMarkers({ resolved }));
+	CHECK(list.size() == 1);
+	CHECK(list[0]["markup"][1] == "heel");
+	CHECK(list[0]["joint"][1] == "ankle");
+	CHECK(list[0]["export"] == false);
+	CHECK(list[0]["name"] == "heel_00_L_MRK");
+	CHECK(list[0]["world"].size() == 16);
+	CHECK_CLOSE(list[0]["world"][13].get<double>(), 4.5, 0.0);
+}

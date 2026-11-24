@@ -8,6 +8,8 @@ The rig build stamps the same hash on the rig root (`skeletonHash`, from the joi
 
 ## What makes two skeletons the same
 
+Markers are not part of it: they live in their own [markers file](markers.md) with their own hash, so moving a heel pivot does not mark a weight file or a look stale (D73). It changes how a foot rolls, so the rig, poses and animations carry the markers hash instead.
+
 The hash covers every marked joint the save is given, marker joints included (joints marked `export: false`), and for each one:
 
 - its markup: side, usage, `export` and `skin`

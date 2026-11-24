@@ -30,6 +30,8 @@ public:
 	static MObject aAssetId;
 	static MObject aRigName;
 	static MObject aSkeletonHash;
+	static MObject aMarkersHash;   // the markers file's hash at build (D73), "" when none was passed
+	static MObject aMarkers;       // every marker and its rest world as JSON text (D73), "" when none was passed
 	static MObject aRigVersion;
 	static MObject aPluginVersion;
 	static MObject aPublishVersion;
@@ -50,6 +52,8 @@ public:
 		const MString& assetId,
 		const MString& name,
 		const MString& skeletonHash,
+		const MString& markersHash,
+		const MString& markersJson,
 		int version,
 		const MString& templateName,
 		MDagModifier& dagMod);

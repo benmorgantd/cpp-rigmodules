@@ -21,6 +21,8 @@ MTypeId RigRootNode::id(0x00218);
 MObject RigRootNode::aAssetId;
 MObject RigRootNode::aRigName;
 MObject RigRootNode::aSkeletonHash;
+MObject RigRootNode::aMarkersHash;
+MObject RigRootNode::aMarkers;
 MObject RigRootNode::aRigVersion;
 MObject RigRootNode::aPluginVersion;
 MObject RigRootNode::aPublishVersion;
@@ -82,6 +84,10 @@ MStatus RigRootNode::initialize()
 	CHECK_MSTATUS_AND_RETURN_IT(addString(aRigName, RigAttr::RigName));
 	// The input joints' skeletonHash at build (D54), so looks, weights and library files can be matched to the skeleton.
 	CHECK_MSTATUS_AND_RETURN_IT(addString(aSkeletonHash, RigAttr::SkeletonHash));
+	// The markers file the build was given (D73): its hash, and the markers with their rest worlds. Markers change how a
+	// module behaves, so animation and poses are stamped with the hash, but skin weights and looks are not.
+	CHECK_MSTATUS_AND_RETURN_IT(addString(aMarkersHash, RigAttr::MarkersHash));
+	CHECK_MSTATUS_AND_RETURN_IT(addString(aMarkers, RigAttr::Markers));
 
 	aRigVersion = nAttr.create(RigAttr::RigVersion, RigAttr::RigVersion, MFnNumericData::kLong, 0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -120,6 +126,8 @@ MObject RigRootNode::createRigRoot(
     const MString& assetId,
     const MString& name,
     const MString& skeletonHash,
+    const MString& markersHash,
+    const MString& markersJson,
     int version,
     const MString& templateName,
     MDagModifier& dagMod)
@@ -137,6 +145,12 @@ MObject RigRootNode::createRigRoot(
 
     MPlug pSkeletonHash(oRigRoot, RigRootNode::aSkeletonHash);
     dagMod.newPlugValueString(pSkeletonHash, skeletonHash);
+
+    MPlug pMarkersHash(oRigRoot, RigRootNode::aMarkersHash);
+    dagMod.newPlugValueString(pMarkersHash, markersHash);
+
+    MPlug pMarkers(oRigRoot, RigRootNode::aMarkers);
+    dagMod.newPlugValueString(pMarkers, markersJson);
 
     MPlug pRigVersion(oRigRoot, RigRootNode::aRigVersion);
     dagMod.newPlugValueInt(pRigVersion, version);
