@@ -162,6 +162,7 @@
     <ClCompile Include="core\JointClipFile.cpp" />
     <ClCompile Include="core\ControlAnimFile.cpp" />
     <ClCompile Include="core\RigKeys.cpp" />
+    <ClCompile Include="core\PoseBlend.cpp" />
     <ClCompile Include="core\PoseFile.cpp" />
     <ClCompile Include="core\RigJsonStructs.cpp" />
     <ClCompile Include="core\RigTemplateValidation.cpp" />
@@ -275,6 +276,7 @@
     <ClInclude Include="core\JointClipFile.h" />
     <ClInclude Include="core\ControlAnimFile.h" />
     <ClInclude Include="core\RigKeys.h" />
+    <ClInclude Include="core\PoseBlend.h" />
     <ClInclude Include="core\PoseFile.h" />
     <ClInclude Include="core\RigJsonStructs.h" />
     <ClInclude Include="core\RigTemplateValidation.h" />

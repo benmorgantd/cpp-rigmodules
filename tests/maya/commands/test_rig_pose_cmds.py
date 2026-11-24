@@ -617,3 +617,121 @@ class KeyControls(PoseTestCase):
         cmds.flipRigPose(rig_root())
         cmds.zeroRigControls(rig_root())
         self.assertEqual(cmds.ls(type="animCurve"), [])
+
+
+class PoseBlend(PoseTestCase):
+    """loadRigPose with blend (D72): below 0 the pose's offset from rest comes off the reference, 0 to 1 is a lerp
+    from the reference to the pose, past 1 the pose's offset from rest is added again. Expectations are by hand."""
+
+    pose_path = PoseFiles.pose_path
+
+    def save_pose(self, scope, **attrs):
+        """Sets attrs on ARM_L, saves scope to a new file, then puts ARM_L back to rest."""
+        set_values(ARM_L, **attrs)
+        path = self.pose_path()
+        cmds.saveRigPose(scope, file=path)
+        cmds.zeroRigControls(rig_root())
+        return path
+
+    def test_blend_lerps_from_the_current_pose_to_the_pose(self):
+        path = self.save_pose(ARM_L, rotateY=30)
+        set_values(ARM_L, rotateY=10)
+        cmds.loadRigPose(ARM_L, file=path, blend=0.5)
+        self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+
+    def test_blend_one_is_a_plain_load_and_zero_changes_nothing(self):
+        path = self.save_pose(ARM_L, rotateY=30, translateX=2)
+        set_values(ARM_L, rotateY=10)
+        self.assertEqual(cmds.loadRigPose(ARM_L, file=path, blend=0) or [], [])
+        self.assertEqual(values(ARM_L, ["rotateY", "translateX"]), [10, 0])
+        cmds.loadRigPose(ARM_L, file=path, blend=1)
+        self.assertEqual(values(ARM_L, ["rotateY", "translateX"]), [30, 2])
+
+    def test_negative_blend_takes_the_poses_offset_from_rest_off(self):
+        path = self.save_pose(ARM_L, rotateY=30, scaleX=2)
+        set_values(ARM_L, rotateY=10)
+        cmds.loadRigPose(ARM_L, file=path, blend=-1)
+        # rotateY: 10 - (30 - 0). scaleX: 1 - (2 - 1), its rest is 1.
+        self.assertEqual(values(ARM_L, ["rotateY", "scaleX"]), [-20, 0])
+
+    def test_blend_past_one_adds_more_of_the_poses_offset_from_rest(self):
+        path = self.save_pose(ARM_L, rotateY=30, scaleX=2)
+        set_values(ARM_L, rotateY=10)
+        cmds.loadRigPose(ARM_L, file=path, blend=1.5)
+        # rotateY: 30 + 0.5 * 30, whatever the start. scaleX: 2 + 0.5 * (2 - 1).
+        self.assertEqual(values(ARM_L, ["rotateY", "scaleX"]), [45, 2.5])
+
+    def test_a_reference_file_makes_every_call_start_from_the_same_pose(self):
+        path = self.save_pose(ARM_L, rotateY=30)
+        set_values(ARM_L, rotateY=10)
+        reference = self.pose_path("reference.json")
+        cmds.saveRigPose(ARM_L, file=reference)
+        for _ in range(3):
+            cmds.loadRigPose(ARM_L, file=path, blend=0.5, blendReference=reference)
+            self.assertEqual(values(ARM_L, ["rotateY"]), [20])
+        cmds.loadRigPose(ARM_L, file=path, blend=0, blendReference=reference)
+        self.assertEqual(values(ARM_L, ["rotateY"]), [10])
+
+    def test_without_a_reference_repeated_blends_compound(self):
+        path = self.save_pose(ARM_L, rotateY=40)
+        cmds.loadRigPose(ARM_L, file=path, blend=0.5)
+        cmds.loadRigPose(ARM_L, file=path, blend=0.5)
+        self.assertEqual(values(ARM_L, ["rotateY"]), [30])
+
+    def test_an_enum_jumps_to_the_pose_at_one_half(self):
+        path = self.save_pose(ARM_L, space=1)
+        for blend, expected in ((0.49, 0), (0.5, 1), (1.5, 1), (-1, 0)):
+            cmds.setAttr(ARM_L + ".space", 0)
+            cmds.loadRigPose(ARM_L, file=path, blend=blend)
+            self.assertEqual(cmds.getAttr(ARM_L + ".space"), expected, blend)
+
+    def test_results_are_clamped_to_the_channel_range(self):
+        add_channel(ARM_L, "squash", "mirrorCopy", attributeType="double", defaultValue=0, minValue=0, maxValue=1)
+        path = self.save_pose(ARM_L, squash=1)
+        cmds.loadRigPose(ARM_L, file=path, blend=1.5)
+        self.assertEqual(values(ARM_L, ["squash"]), [1])
+        cmds.loadRigPose(ARM_L, file=path, blend=-1)
+        self.assertEqual(values(ARM_L, ["squash"]), [0])
+
+    def test_an_angle_rest_is_in_ui_units(self):
+        # addAttr takes an angle's default and range in radians: rest 90 degrees, max 180.
+        add_channel(ARM_L, "twist", "mirrorNegate", attributeType="doubleAngle",
+                    defaultValue=math.radians(90), maxValue=math.radians(180))
+        path = self.save_pose(ARM_L, twist=120)
+        cmds.setAttr(ARM_L + ".twist", 90)
+        cmds.loadRigPose(ARM_L, file=path, blend=2)
+        self.assertEqual(values(ARM_L, ["twist"]), [150])
+        cmds.loadRigPose(ARM_L, file=path, blend=-1, blendReference=self.reference_at_rest(ARM_L))
+        self.assertEqual(values(ARM_L, ["twist"]), [60])
+        cmds.loadRigPose(ARM_L, file=path, blend=4)
+        self.assertEqual(values(ARM_L, ["twist"]), [180])
+
+    def reference_at_rest(self, control):
+        cmds.zeroRigControls(control)
+        reference = self.pose_path("rest.json")
+        cmds.saveRigPose(control, file=reference)
+        return reference
+
+    def test_a_selection_scope_blends_only_those_controls(self):
+        set_values(ARM_R, rotateY=30)
+        path = self.save_pose(rig_root(), rotateY=30)
+        cmds.loadRigPose(ARM_L, file=path, blend=0.5)
+        self.assertEqual(values(ARM_L, ["rotateY"]), [15])
+        self.assertEqual(values(ARM_R, ["rotateY"]), [0])
+
+    def test_mirror_then_blend(self):
+        path = self.save_pose(ARM_L, rotateY=30)
+        cmds.loadRigPose(ARM_R, file=path, mirror=True, blend=0.5)
+        self.assertEqual(values(ARM_R, ["rotateY"]), [15])
+        self.assertEqual(values(ARM_L, ["rotateY"]), [0])
+
+    def test_undo_restores_the_start(self):
+        path = self.save_pose(ARM_L, rotateY=30)
+        set_values(ARM_L, rotateY=10)
+        cmds.loadRigPose(ARM_L, file=path, blend=1.5)
+        cmds.undo()
+        self.assertEqual(values(ARM_L, ["rotateY"]), [10])
+
+    def test_blend_reference_needs_blend(self):
+        path = self.save_pose(ARM_L, rotateY=30)
+        self.assertMayaError(lambda: cmds.loadRigPose(ARM_L, file=path, blendReference=path), "blendReference needs blend")

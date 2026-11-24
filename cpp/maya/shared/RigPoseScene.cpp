@@ -814,9 +814,17 @@ MStatus RigPoseScene::flipRigPose(const RigControlScope& scope, MDGModifier& dgM
 	return MStatus::kSuccess;
 }
 
-MStatus RigPoseScene::getRigPose(const RigControlScope& scope, PoseMap& outPose, MStringArray& outControlNames)
+MStatus RigPoseScene::getRigPose(
+	const RigControlScope& scope,
+	PoseMap& outPose,
+	MStringArray& outControlNames,
+	PoseChannelInfo* pOutChannels)
 {
 	outPose.clear();
+	if (pOutChannels != nullptr)
+	{
+		pOutChannels->clear();
+	}
 	MObjectArray oControls;
 	MStatus status = RigTraversal::getScopeControls(scope, oControls);
 	if (!status)
@@ -839,11 +847,17 @@ MStatus RigPoseScene::getRigPose(const RigControlScope& scope, PoseMap& outPose,
 		}
 
 		PoseChannels values;
+		std::vector<ControlChannel> infos;
 		for (const Channel& channel : channels)
 		{
 			values.emplace_back(channel.info.name, toUiUnits(channel, getValue(channel)));
+			infos.push_back(channel.info);
 		}
 		outPose[markup.side][markup.usage] = values;
+		if (pOutChannels != nullptr)
+		{
+			(*pOutChannels)[markup.side][markup.usage] = infos;
+		}
 		outControlNames.append(DagUtils::getPartialPathName(oControls[i]));
 	}
 	return MStatus::kSuccess;

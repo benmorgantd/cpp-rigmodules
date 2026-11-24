@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/ControlChannels.h"
+#include "core/PoseBlend.h"
 #include "core/PoseFile.h"
 #include "maya/shared/RigTraversal.h"
 
@@ -142,8 +143,13 @@ public:
 	static bool isNegatedByFlip(const Channel& channel, int flipAxis);
 
 	// The channel values of every control in the scope, keyed by markup (PoseFile.h). outControlNames lists the controls
-	// read, in scope order.
-	static MStatus getRigPose(const RigControlScope& scope, PoseMap& outPose, MStringArray& outControlNames);
+	// read, in scope order. pOutChannels, when given, receives each control's channel info (rest, range, type) keyed the
+	// same way, for PoseBlend.
+	static MStatus getRigPose(
+		const RigControlScope& scope,
+		PoseMap& outPose,
+		MStringArray& outControlNames,
+		PoseChannelInfo* pOutChannels = nullptr);
 
 	// Writes a pose onto the controls in the scope, matched by markup. A control the pose lacks keeps its values, and
 	// so does a channel it lacks. A control or channel the pose has and the rig lacks is skipped with a warning (a

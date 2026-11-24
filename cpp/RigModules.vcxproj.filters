@@ -42,6 +42,9 @@
     <ClCompile Include="core\RigKeys.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\PoseBlend.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\PoseFile.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -303,6 +306,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\RigKeys.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\PoseBlend.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\PoseFile.h">

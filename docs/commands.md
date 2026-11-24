@@ -516,6 +516,9 @@ Applies a pose file to controls.
 cmds.loadRigPose("hero_body:rigRootModule1", file="C:/poses/idle.controlpose.json")
 cmds.loadRigPose("hero_body:upperArm_00_L_CTRL", file="C:/poses/idle.controlpose.json")   # only this control
 cmds.loadRigPose("hero_body:rigRootModule1", file="C:/poses/idle.controlpose.json", mirror=True)   # the pose on the other side
+cmds.loadRigPose("hero_body:rigRootModule1", file="C:/poses/idle.controlpose.json", blend=0.25)   # a quarter of the way there
+cmds.loadRigPose("hero_body:rigRootModule1", file="C:/poses/idle.controlpose.json", blend=0.5,
+                 blendReference="C:/temp/dragStart.controlpose.json")   # halfway from the saved start pose
 # Returns the controls that changed
 ```
 
@@ -525,6 +528,8 @@ Objects: the rig root node, or one or more controls of one rig. Flags:
 |---|---|---|
 | `file` | string | The pose file. Required. |
 | `mirror` | bool | Default `False`. `True` mirrors the file's data before it is written, so the rig is written once: each entry goes to its mirror control, with a channel negated where the mirror says (the rules of [`flipRigPose`](#fliprigpose)). It is a flip: a pose saved from one side lands on the other. An entry whose control has no mirror is skipped with a warning. With controls, only those controls are written. |
+| `blend` | double | Optional. Blends from a reference pose by this weight instead of writing the file's values (D72). 0 is the reference and 1 is exactly the pose. Between them it is a straight blend. Below 0 the pose's offset from rest comes off the reference, so -1 removes the pose. Past 1 the pose's offset from rest is added again, so 1.5 is half as much again. Any finite weight is accepted, and every result is clamped to the channel's min and max. A bool, int or enum channel keeps the reference value below 0.5 and takes the pose's from 0.5 up. |
+| `blendReference` | string | Optional, and only with `blend`. A pose file (save it with [`saveRigPose`](#saverigpose)) to blend from. Without it the blend starts from the scope's current pose, so repeated calls compound. A slider drag saves the start pose once and passes it on every call, so every value of the drag starts from the same pose. The reference is never mirrored. A channel it lacks starts at its rest. |
 
 - Controls match the file by markup. A control the file lacks keeps its values, and so does a channel it lacks. With the rig root, a control or channel the file has and the rig lacks is skipped with a warning. With controls, the rest of the file is ignored without one.
 - The whole file is checked before anything is applied (bad JSON, an unknown side, a value that isn't a number, a `formatVersion` this build doesn't read), so a bad file changes nothing. An older `formatVersion` is updated on load.

@@ -1,10 +1,12 @@
 #include "maya/commands/RigPoseCmds.h"
 #include "core/Constants.h"
+#include "core/PoseBlend.h"
 #include "core/PoseFile.h"
 #include "maya/shared/RigDataFileScene.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/Utilities.h"
 
+#include <cmath>
 #include <string>
 
 #include <maya/MArgDatabase.h>
@@ -18,6 +20,8 @@ namespace
 	constexpr const char* kFileFlag{ "-file" };
 	constexpr const char* kMetaFlag{ "-meta" };
 	constexpr const char* kMirrorFlag{ "-mirror" };
+	constexpr const char* kBlendFlag{ "-blend" };
+	constexpr const char* kBlendReferenceFlag{ "-blendReference" };
 
 	// The syntax of a command that takes a control scope, with the pose file flag.
 	MSyntax fileScopeSyntax()
@@ -36,6 +40,27 @@ namespace
 			MGlobal::displayError(MString(commandName) + " failed to apply: " + status.errorString());
 		}
 		return status;
+	}
+
+	// Reads and validates a whole pose file before anything is queued, so a bad file changes nothing.
+	MStatus readPoseFile(const MString& path, PoseMap& outPose)
+	{
+		std::string text;
+		MStatus status = CommandUtils::readTextFile(path, "pose", text);
+		if (!status)
+		{
+			return status;
+		}
+
+		ValidationReport report;
+		deserializePose(text, outPose, report);
+		if (report.hasErrors())
+		{
+			ReportUtils::displayReport(report);
+			MGlobal::displayError(MString("The pose file failed validation, so nothing was loaded: ") + path);
+			return MStatus::kFailure;
+		}
+		return MStatus::kSuccess;
 	}
 }
 
@@ -278,6 +303,8 @@ MSyntax LoadRigPoseCmd::newSyntax()
 {
 	MSyntax syntax = fileScopeSyntax();
 	CHECK_MSTATUS(syntax.addFlag("-m", kMirrorFlag, MSyntax::kBoolean));
+	CHECK_MSTATUS(syntax.addFlag("-b", kBlendFlag, MSyntax::kDouble));
+	CHECK_MSTATUS(syntax.addFlag("-br", kBlendReferenceFlag, MSyntax::kString));
 	return syntax;
 }
 
@@ -303,22 +330,39 @@ MStatus LoadRigPoseCmd::doIt(const MArgList& args)
 		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kMirrorFlag, 0, isMirrored));
 	}
 
-	std::string text;
-	status = CommandUtils::readTextFile(path, "pose", text);
+	// Any finite weight is valid (D72): the results are clamped to each channel's range, and the UI sets the
+	// practical range.
+	const bool isBlended = argData.isFlagSet(kBlendFlag);
+	double blend = 1.0;
+	if (isBlended)
+	{
+		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kBlendFlag, 0, blend));
+		if (!std::isfinite(blend))
+		{
+			MGlobal::displayError(MString(aCommandString) + ": the blend weight must be a finite number.");
+			return MStatus::kFailure;
+		}
+	}
+	MString referencePath;
+	if (argData.isFlagSet(kBlendReferenceFlag))
+	{
+		if (!isBlended)
+		{
+			MGlobal::displayError(MString(aCommandString) + ": blendReference needs blend.");
+			return MStatus::kFailure;
+		}
+		status = CommandUtils::readFilePath(argData, kBlendReferenceFlag, aCommandString, referencePath);
+		if (!status)
+		{
+			return status;
+		}
+	}
+
+	PoseMap pose;
+	status = readPoseFile(path, pose);
 	if (!status)
 	{
 		return status;
-	}
-
-	// Validate the whole file before queueing anything, so a bad file changes nothing.
-	PoseMap pose;
-	ValidationReport report;
-	deserializePose(text, pose, report);
-	if (report.hasErrors())
-	{
-		ReportUtils::displayReport(report);
-		MGlobal::displayError(MString("The pose file failed validation, so nothing was loaded: ") + path);
-		return MStatus::kFailure;
 	}
 
 	// The mirror is made on the file's data, before any write, so the rig is written once (D51).
@@ -331,6 +375,38 @@ MStatus LoadRigPoseCmd::doIt(const MArgList& args)
 			return status;
 		}
 		pose = mirrored;
+	}
+
+	// The blend starts from the reference file when there is one, so every call of a slider drag starts from the same
+	// pose instead of compounding on the last call's result (D72). Without one it starts from the scope's current pose.
+	if (isBlended)
+	{
+		PoseMap current;
+		PoseChannelInfo channels;
+		MStringArray readNames;
+		status = RigPoseScene::getRigPose(scope, current, readNames, &channels);
+		if (!status)
+		{
+			return status;
+		}
+
+		PoseMap reference;
+		if (referencePath.length() > 0)
+		{
+			status = readPoseFile(referencePath, reference);
+			if (!status)
+			{
+				return status;
+			}
+		}
+		else
+		{
+			reference = current;
+		}
+
+		PoseMap blended;
+		blendPoses(reference, pose, channels, blend, blended);
+		pose = blended;
 	}
 
 	MStringArray changedNames;
