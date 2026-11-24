@@ -34,7 +34,7 @@ Design pages are history with dates, not user documentation. What a feature does
 | [`ribbon.md`](ribbon.md) | D56 | Built. `fkStyle` was added in D59 (2026-11-18). Open items are in its section 15 |
 | [`derived-controls.md`](derived-controls.md) | D57 | Built (phases 0 to 5, 2026-11-18). The solomon asset's own files are the author's to change |
 | [`ribbon-twist-follow.md`](ribbon-twist-follow.md) | D56 | Proposed, not signed off |
-| [`limb.md`](limb.md) | D62 | Signed off 2026-11-19, phases 0 to 2 built (the module, a sharp elbow with `bendSoftness`); the inverse is next: a Limb module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon. Changes to those modules affect it |
+| [`limb.md`](limb.md) | D62 | Signed off 2026-11-19, phases 0 to 6 built (the module, the inverse, `ikTarget`, the perf rig); `ReverseFoot` is the open piece, see `reverse-foot.md`: a Limb module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon. Changes to those modules affect it |
 | [`control-node-perf-handoff.md`](control-node-perf-handoff.md) | D36, D37 | Handoff, nothing built |
 
 ## Handoffs
@@ -47,6 +47,8 @@ None at present. `control-node-perf-handoff.md` (above) is a design handoff with
 
 | Page | Decision | Area |
 |---|---|---|
+| [`reverse-foot.md`](reverse-foot.md) | D74 | `ReverseFoot`: roll, pivot and toe channels on a Limb, an FK toe, the inverse. Signed off 2026-11-24, not built |
+| [`markers.md`](markers.md) | D73 | Markers: placed points that follow a joint, in a `markers.json` of their own. The foot's pivots need it. Signed off 2026-11-24, not built |
 | [`module-directions.md`](module-directions.md) | D46 | Where the modules go after the IK limb |
 | [`asset-pipeline.md`](asset-pipeline.md) | D44, D45 | The art stages before the rig, face data |
 | [`asset-build-fallbacks.md`](asset-build-fallbacks.md) | D70 | Builds that survive a changed skeleton, mesh or weights: the fallback ladder (phase 1 built), the transfer (open, no mesh data in the weight files), draft and baseline gates |
