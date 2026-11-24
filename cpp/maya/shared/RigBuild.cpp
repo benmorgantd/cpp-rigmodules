@@ -386,6 +386,7 @@ namespace
 
 		std::vector<DisplayLayerSpec> specs(3);
 		specs[0].name = DagUtils::getAbsoluteName(rigNamespace, RigNaming::JointLayer);
+		specs[0].visible = false;
 		for (unsigned int i = 0; i < inputs.joints.length(); ++i)
 		{
 			specs[0].members.append(inputs.joints[i].node());

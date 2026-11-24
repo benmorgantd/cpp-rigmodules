@@ -25,6 +25,7 @@ namespace
 	constexpr const char* kDisplayTypeAttr = "displayType";
 	constexpr const char* kLayerManagerName = "layerManager";
 	constexpr const char* kLayerIdsAttr = "displayLayerId";
+	constexpr const char* kVisibilityAttr = "visibility";
 
 	bool isDeleted(const std::vector<MObjectHandle>& deletedLayers, const MObject& oLayer)
 	{
@@ -130,6 +131,14 @@ MStatus DisplayLayerScene::replaceLayers(const std::vector<DisplayLayerSpec>& sp
 		{
 			MPlug pDisplayType = fnLayer.findPlug(kDisplayTypeAttr, false);
 			status = dagMod.newPlugValueInt(pDisplayType, static_cast<int>(spec.displayType));
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+
+		if (!spec.visible)
+		{
+			// Visibility is on by default, so only run this if it's false.
+			MPlug pVisibility = fnLayer.findPlug(kVisibilityAttr, false);
+			status = dagMod.newPlugValueBool(pVisibility, spec.visible);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 

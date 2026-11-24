@@ -25,6 +25,7 @@ struct DisplayLayerSpec
 	MObjectArray members;
 	bool hideOnPlayback{ false };
 	DisplayLayerDisplayType displayType{ DisplayLayerDisplayType::Normal };
+	bool visible{ true };
 };
 
 class DisplayLayerScene
