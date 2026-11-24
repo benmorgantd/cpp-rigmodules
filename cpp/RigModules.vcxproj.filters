@@ -96,6 +96,9 @@
     <ClCompile Include="core\SwingTwist.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\FootSolve.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\Hash64.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -375,6 +378,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\VectorMath.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\FootSolve.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\Hash64.h">

@@ -90,6 +90,8 @@ All in `core/FootSolve` (Maya-free, tested in the suite), the node is a thin rea
 
 **Chain.** For each pivot in list order, `pivot_i = pivot_{i-1} * rotation_i * restOffset_i`. The channels in the table give each pivot's rotation. The end of the chain is the ankle: `ankleTarget = chain end`, delivered to the Limb as a motion from rest, like every child plug. Because the chain carries the ankle, **raising the ball pushes the ankle up** with no special rule.
 
+**As built in phase 2 (`core/FootSolve`, author's answer 2026-11-24).** The chain is the literal hierarchy with the heel as root: a pivot is carried by the pivots before it. That equals turning the ankle about REST pivots and rest axes, the last pivot first: `ankle' = Rot_heel(Rot_ball(Rot_bank(Rot_toeTip(ankle))))`. Past the break angle this carries the toe tip below the ground (the roll about the ball moves it); the author chose this over rotations about fixed ground pivots, which keep the tip down. Signs and the order of the turns within one pivot are in D74. The rule "pivot angles about parallel axes add" holds only while no roll sits between them: with a bank between the ball and the toe tip, the inverse's pitch and roll are not `footRoll` and `bank`, and the handle absorbs the rest.
+
 **Peel** (`footRoll`, degrees, positive rolls forward, the heel lifts; negative lifts the toes about the heel):
 
 ```

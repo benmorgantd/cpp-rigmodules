@@ -94,6 +94,26 @@ namespace VectorMath
 		return normalized(cross(v, axis), { 0.0, 1.0, 0.0 });
 	}
 
+	inline constexpr double kPi{ 3.14159265358979323846 };
+
+	inline double toRadians(double degrees)
+	{
+		return degrees * kPi / 180.0;
+	}
+
+	inline double toDegrees(double radians)
+	{
+		return radians * 180.0 / kPi;
+	}
+
+	// v turned by `angle` radians about the unit vector `axis`, right-handed (Rodrigues).
+	inline Vec3 rotateAboutAxis(const Vec3& v, const Vec3& axis, double angle)
+	{
+		const double c = std::cos(angle);
+		const double s = std::sin(angle);
+		return add(add(scale(v, c), scale(cross(axis, v), s)), scale(axis, dot(axis, v) * (1.0 - c)));
+	}
+
 	// v turned by the shortest arc that takes unit vector `from` to unit vector `to` (Rodrigues). Antiparallel is
 	// a half turn about v's own perpendicular, so v is kept as it is.
 	inline Vec3 rotateByArc(const Vec3& v, const Vec3& from, const Vec3& to)

@@ -166,6 +166,7 @@
     <ClCompile Include="core\PoseFile.cpp" />
     <ClCompile Include="core\RigJsonStructs.cpp" />
     <ClCompile Include="core\RigTemplateValidation.cpp" />
+    <ClCompile Include="core\FootSolve.cpp" />
     <ClCompile Include="core\Hash64.cpp" />
     <ClCompile Include="core\RibbonMath.cpp" />
     <ClCompile Include="core\ControlPlacement.cpp" />
@@ -283,6 +284,7 @@
     <ClInclude Include="core\PoseFile.h" />
     <ClInclude Include="core\RigJsonStructs.h" />
     <ClInclude Include="core\RigTemplateValidation.h" />
+    <ClInclude Include="core\FootSolve.h" />
     <ClInclude Include="core\Hash64.h" />
     <ClInclude Include="core\RibbonMath.h" />
     <ClInclude Include="core\ControlPlacement.h" />
