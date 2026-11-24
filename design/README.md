@@ -41,7 +41,9 @@ Design pages are history with dates, not user documentation. What a feature does
 
 A handoff says "delete when its work is committed". Where the work is built but not committed, the page stays.
 
-None at present. `control-node-perf-handoff.md` (above) is a design handoff with nothing built, so it stays until that work is designed.
+[`reverse-foot-handoff.md`](reverse-foot-handoff.md) (D73, D74): the build phases for markers and `ReverseFoot`, written for a fresh session. Delete it when the phases are committed.
+
+Otherwise none. `control-node-perf-handoff.md` (above) is a design handoff with nothing built, so it stays until that work is designed.
 
 ## Proposals and speculation (nothing built)
 
