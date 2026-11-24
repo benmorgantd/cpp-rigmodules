@@ -55,10 +55,10 @@ class RigTestCase(unittest.TestCase):
         cmds.select(clear=True)
         return created
 
-    def build(self, template, joints, namespace=config.RIG_NAMESPACE, label="template", asset=config.ASSET_ID):
+    def build(self, template, joints, namespace=config.RIG_NAMESPACE, label="template", asset=config.ASSET_ID, markers=None):
         """Runs createRigFromTemplate. template is a fixture name, a 'RigTemplates/..' path or a dict. Every test
         builds into RIG_NAMESPACE unless it passes another. None leaves the flag out, for the default
-        "{asset name}_{rigName}" (D54)."""
+        "{asset name}_{rigName}" (D54). markers is a fixtures/markers name, passed as the markers file (D73)."""
         if isinstance(template, dict):
             path = fixtures.write_template(template, label)
         else:
@@ -66,12 +66,14 @@ class RigTestCase(unittest.TestCase):
         kwargs = {"template": path, "asset": asset}
         if namespace is not None:
             kwargs["namespace"] = namespace
+        if markers is not None:
+            kwargs["markers"] = fixtures.markers_path(markers)
         return cmds.createRigFromTemplate(*joints, **kwargs)
 
-    def build_standard(self, template, skeleton, namespace=config.RIG_NAMESPACE):
+    def build_standard(self, template, skeleton, namespace=config.RIG_NAMESPACE, markers=None):
         """The common case: build skeleton in 'skel', then the template into the rig namespace."""
         joints = self.make_skeleton(skeleton)
-        self.build(template, joints, namespace=namespace)
+        self.build(template, joints, namespace=namespace, markers=markers)
         return joints
 
     # ---- assertions --------------------------------------------------------------------------

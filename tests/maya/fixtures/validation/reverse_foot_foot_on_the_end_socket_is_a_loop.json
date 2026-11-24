@@ -1,0 +1,17 @@
+{
+  "description": "A foot whose ik plug takes the limb's end socket is a real loop: the end follows the ankle target, which follows the ik plug",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "set": "/rigModules/1/parentStructure/ik",
+      "value": "arm_01_L_MOD.end"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "cycle"
+    }
+  ],
+  "markers": "reverse_foot"
+}

@@ -1,0 +1,19 @@
+{
+  "description": "ballRaise 20 alone turns the ball 20, the same as a roll of 20 in the ball regime: the ankle goes up by 4.989863 (a tenth of that for the hand). The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.ballRaise": 20
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.4989863,
+        0.3701079
+      ]
+    }
+  }
+}

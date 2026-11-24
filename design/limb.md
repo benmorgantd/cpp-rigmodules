@@ -174,6 +174,8 @@ The inverse runs only in tools and never in playback. If it is too expensive on 
 
 **Update 2026-11-24:** the `ReverseFoot` design is `reverse-foot.md` (D74, proposed). It hangs from two sockets, `ik` for its IK half and `end` for the toe, so the foot follows the FK ankle too. Its blend is driven by this module's `ikFkBlend`, and its inverse gives the Limb an offset through a new `RigInverse` pre-pass, which answers the match question below. Limb and the foot are then a coupled pair: a change to Limb's blend, `ikTarget` or inverse changes the foot.
 
+**Coupled pair (2026-11-24, D74 phase 3):** `ReverseFoot` stage 1 is built (`reverse-foot.md`, `ReverseFootModule`). It reads this module's `ik` socket (the handle, through its `ik` plug) and `end` socket (through its `ankle` plug), and its `ankle` socket is what a template wires to `ikTarget`. **A change to the Limb's blend, sockets, `ikTarget` or inverse changes the foot**, and `test_reverse_foot` (a foot at rest leaves the Limb as it is alone, and the graph has no cycle in either evaluation mode) is the guard. Read `reverse-foot.md` before changing any of them.
+
 **Left to the `ReverseFoot` design, and the only open thing about `ikTarget`:** matching an IK pose from FK (`setRigIkFkBlend`) while a foot channel is raised. The match puts the handle where the end joint is, which pops if the foot's channels are not zero, so the foot needs an inverse or the match needs to zero the foot's channels.
 
 ### 8.1 What phase 4 built (2026-11-20)

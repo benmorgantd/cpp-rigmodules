@@ -1,0 +1,19 @@
+{
+  "description": "toeRaise 10 turns the toe tip pivot by plus 10, about the toe tip. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.toeRaise": 10
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.4046018,
+        0.1753799
+      ]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "description": "ballSwivel 30 turns +30 about up through the ball. Offset (0, -16): x' = -16 sin 30 = -8, z' = -16 cos 30 = -13.856406. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.ballSwivel": 30
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        3.2,
+        4.0,
+        0.2143594
+      ]
+    }
+  }
+}

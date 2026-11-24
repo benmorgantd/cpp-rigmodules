@@ -5,6 +5,7 @@
 #include "core/RigJsonStructs.h"
 #include "core/TemplateMirror.h"
 #include "maya/ModuleRegistry.h"
+#include "maya/shared/MarkerScene.h"
 #include "maya/shared/TwoBoneIkSolve.h"
 
 #include <algorithm>
@@ -114,6 +115,7 @@ std::vector<ModulePlan> RigModuleNodeBase::planModules(
 	const std::vector<RigModuleData>& modules,
 	MarkedJointSet& markedJoints,
 	bool checkMirrorPositions,
+	const MarkerSet* markers,
 	ValidationReport& report)
 {
 	std::vector<ModulePlan> plans;
@@ -140,7 +142,7 @@ std::vector<ModulePlan> RigModuleNodeBase::planModules(
 			continue;
 		}
 
-		PlanContext ctx{ moduleData, where, markedJoints, report, checkMirrorPositions };
+		PlanContext ctx{ moduleData, where, markedJoints, report, checkMirrorPositions, markers };
 		ModulePlan plan;
 		plan.name = moduleData.name;
 		if (pDescriptor->plan(moduleArgs, ctx, plan))
@@ -187,6 +189,43 @@ bool RigModuleNodeBase::claimJoint(PlanContext& ctx, const JointSelector& select
 			+ " reflects to across X = 0 (checkMirrorPositions allows " + std::to_string(kMirrorPositionTolerance) + ")");
 		return false;
 	}
+	return true;
+}
+
+bool RigModuleNodeBase::resolveMarker(PlanContext& ctx, const JointSelector& selector, ResolvedMarker& outMarker)
+{
+	const std::string where = ctx.where + "." + TemplateKey::ModuleArgs;
+	if (ctx.markers == nullptr)
+	{
+		ctx.report.addError(where, "selects the marker " + formatJointSelector(selector) + ", but createRigFromTemplate was given no markers file");
+		return false;
+	}
+	const int index = findMarker(*ctx.markers, selector);
+	if (index < 0)
+	{
+		ctx.report.addError(where, "the markers file has no marker " + formatJointSelector(selector));
+		return false;
+	}
+	const Marker& marker = ctx.markers->markers[static_cast<std::size_t>(index)];
+	std::string error;
+	if (!MarkerScene::placeMarker(marker, ctx.markedJoints, outMarker.world, error))
+	{
+		ctx.report.addError(where, error);
+		return false;
+	}
+	outMarker.marker = marker;
+	return true;
+}
+
+bool RigModuleNodeBase::findJointRest(PlanContext& ctx, const JointSelector& selector, MMatrix& mOutRestWorld)
+{
+	std::size_t entry = 0;
+	if (!ctx.markedJoints.index.find(selector, entry))
+	{
+		ctx.report.addError(ctx.where + "." + TemplateKey::ModuleArgs, "no joint is marked " + formatJointSelector(selector));
+		return false;
+	}
+	mOutRestWorld = ctx.markedJoints.dagPaths[static_cast<unsigned int>(entry)].inclusiveMatrix();
 	return true;
 }
 
@@ -341,7 +380,10 @@ MPlug RigModuleNodeBase::getSocketMatrixPlug(const MObject& oModule, unsigned in
 	MFnDependencyNode fnModule(oModule);
 	// A Limb keeps the sockets of its IK handle, pole and settings control on their own array (see LimbNode::aIkTargetMatrix).
 	const bool onHandleArray = fnModule.hasAttribute(RigAttr::HandleSocketMatrix) && TwoBoneIkSolve::isHandleSocket(socketIndex);
-	MPlug pSockets = fnModule.findPlug(onHandleArray ? RigAttr::HandleSocketMatrix : RigAttr::OutputSocketMatrix, false, &status);
+	// A ReverseFoot's ankle socket, which feeds a Limb's ikTarget, is on an array of its own for the same reason (D74).
+	const bool onAnkleArray = fnModule.hasAttribute(RigAttr::AnkleSocketMatrix) && socketIndex == ReverseFootSlot::AnkleSocket;
+	const char* socketArray = onAnkleArray ? RigAttr::AnkleSocketMatrix : onHandleArray ? RigAttr::HandleSocketMatrix : RigAttr::OutputSocketMatrix;
+	MPlug pSockets = fnModule.findPlug(socketArray, false, &status);
 	MPlug pSocket;
 	if (status)
 	{

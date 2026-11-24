@@ -25,6 +25,7 @@
 #include "VectorMath.h"
 
 #include <cstddef>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -88,7 +89,7 @@ namespace FootSolve
 
 	// The foot frame of a chain at rest: forward runs from the heel pivot to the toe tip pivot, projected onto the ground. A chain
 	// with no heel starts at its first pivot, and one with no toe tip ends at its last, each end on its own. A foot with no length along the ground faces +Z.
-	Frame footFrame(const std::vector<Pivot>& chain);
+	Frame footFrame(std::span<const Pivot> chain);
 
 	struct Peel
 	{
@@ -105,24 +106,24 @@ namespace FootSolve
 	// The index in the chain of the pivot a signed bank turns about: for bank above 0 the bankOut or bankIn pivot with the
 	// larger lateral position, for bank below 0 the other, so a left foot's positive bank uses bankOut and a right foot's uses
 	// bankIn with no side branch. -1 when bank is 0 or the chain has no bank pivots.
-	int bankPivotIndex(const std::vector<Pivot>& chain, const Frame& frame, double bank);
+	int bankPivotIndex(std::span<const Pivot> chain, const Frame& frame, double bank);
 
 	// The motion of a point carried by the end of the first `count` pivots, for these channels: each pivot's turn, with the
 	// last pivot's applied first and the first pivot's last (the hierarchy in the header). count is the chain's size for the
 	// ankle, and a larger one counts as the whole chain. The Toe role turns nothing here (toeTap moves the toe bone alone,
 	// see toeMotion).
-	Mat4 foldChain(const std::vector<Pivot>& chain, std::size_t count, const Frame& frame, const Channels& channels);
+	Mat4 foldChain(std::span<const Pivot> chain, std::size_t count, const Frame& frame, const Channels& channels);
 
 	// The ankle's motion with every pivot folded.
-	Mat4 ankleMotion(const std::vector<Pivot>& chain, const Frame& frame, const Channels& channels);
+	Mat4 ankleMotion(std::span<const Pivot> chain, const Frame& frame, const Channels& channels);
 
 	// The motion of a point carried by the toe pivot (the toe bone): toeTap about the toe pivot, then the pivots before it.
 	// toeIndex is the Toe pivot's index in the chain (findPivot, which is -1 for none: check it first). An index past the
 	// chain gives the identity.
-	Mat4 toeMotion(const std::vector<Pivot>& chain, std::size_t toeIndex, const Frame& frame, const Channels& channels);
+	Mat4 toeMotion(std::span<const Pivot> chain, std::size_t toeIndex, const Frame& frame, const Channels& channels);
 
 	// The index of the first pivot with this role, or -1.
-	int findPivot(const std::vector<Pivot>& chain, Role role);
+	int findPivot(std::span<const Pivot> chain, Role role);
 
 	// A rotation of `degrees` about `axis` through `point`, as a motion. Right-handed.
 	Mat4 rotationAbout(const Vec3& point, const Vec3& axis, double degrees);

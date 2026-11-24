@@ -40,9 +40,9 @@ def _add_case_methods(cls, pattern, run_case, keep=None):
 
 def _run_pose_case(test, path):
     case = fixtures.read_json(path)
-    fixtures.check_keys(case, path, ["description", "skeleton", "template", "expect"], ["set", "tolerance"])
+    fixtures.check_keys(case, path, ["description", "skeleton", "template", "expect"], ["set", "tolerance", "markers"])
     tolerance = case.get("tolerance", 1e-4)
-    test.build_standard(case["template"], case["skeleton"])
+    test.build_standard(case["template"], case["skeleton"], markers=case.get("markers"))
     for plug, value in case.get("set", {}).items():
         cmds.setAttr(rig_name(plug), value)
     for node, channels in case["expect"].items():
@@ -66,17 +66,17 @@ def add_pose_cases(cls, module_folder):
 
 def _run_validation_case(test, path):
     case = fixtures.read_json(path)
-    fixtures.check_keys(case, path, ["description", "base", "skeleton", "expectErrors"], ["edits"])
+    fixtures.check_keys(case, path, ["description", "base", "skeleton", "expectErrors"], ["edits", "markers"])
     template = fixtures.apply_edits(fixtures.load_template(case["base"]), case.get("edits", []))
     joints = test.make_skeleton(case["skeleton"])
     label = os.path.splitext(os.path.basename(path))[0]
 
     if not case["expectErrors"]:
-        test.build(template, joints, label=label)
+        test.build(template, joints, label=label, markers=case.get("markers"))
         test.assertExists(rig_name("layout_00_M_MOD"))
         return
 
-    message = test.assertMayaError(lambda: test.build(template, joints, label=label), "Nothing was built")
+    message = test.assertMayaError(lambda: test.build(template, joints, label=label, markers=case.get("markers")), "Nothing was built")
     lines = message.splitlines()
     for index, expected in enumerate(case["expectErrors"]):
         fixtures.check_keys(expected, "%s expectErrors[%d]" % (path, index), ["contains"], ["path"])
@@ -103,7 +103,7 @@ def add_validation_cases(cls, expect_build):
 
 # ---- golden interface snapshots --------------------------------------------------------------
 
-MODULE_TYPES = ["layoutModule", "fkChainModule", "fkHierarchyModule", "aimModule", "twoBoneIkModule", "ribbonModule", "limbModule"]
+MODULE_TYPES = ["layoutModule", "fkChainModule", "fkHierarchyModule", "aimModule", "twoBoneIkModule", "ribbonModule", "limbModule", "reverseFootModule"]
 
 
 def _short(node):
@@ -159,8 +159,8 @@ def _readable_json(value, depth=0):
 
 def _run_golden_case(test, path):
     case = fixtures.read_json(path)
-    fixtures.check_keys(case, path, ["description", "template", "skeleton"], ["interface"])
-    test.build_standard(case["template"], case["skeleton"])
+    fixtures.check_keys(case, path, ["description", "template", "skeleton"], ["interface", "markers"])
+    test.build_standard(case["template"], case["skeleton"], markers=case.get("markers"))
     actual = rig_interface()
 
     if config.UPDATE_GOLDEN:
@@ -186,7 +186,7 @@ def add_golden_cases(cls):
 
 def _run_smoke_case(test, path):
     case = fixtures.read_json(path)
-    test.build_standard(case["template"], case["skeleton"])
+    test.build_standard(case["template"], case["skeleton"], markers=case.get("markers"))
     test.assertExists(rig_name("layout_00_M_MOD"))
 
 

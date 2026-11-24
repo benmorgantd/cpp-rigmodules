@@ -63,6 +63,6 @@ cmds.createRigFromTemplate("skel:root_00_M_JNT", template="C:/rigs/hero.json", a
 
 `markers` is optional. The build reads and validates the file, finds each marker's `joint` among the joints it was given, takes that joint's rest world matrix and multiplies it by `offsetLocal`. [`getRigMarkers`](commands.md#getrigmarkers) returns the result. A marker whose joint is not among the build's joints is left out with a warning, because the file may belong to a larger skeleton.
 
-A module that selects a marker resolves it the same way and fails the build when the marker or its joint is missing, or no file was passed, naming the marker and the module, with every error listed at once. No module selects markers yet (the ReverseFoot is the first, [design/reverse-foot.md](../design/reverse-foot.md)).
+A module that selects a marker resolves it the same way and fails the build when the marker or its joint is missing, or no file was passed, naming the marker and the module, with every error listed at once. The [ReverseFoot](modules.md#reversefoot) is the first module that does.
 
 A rig-only marker has no node: the module that selected it stores its rest matrix. A module that needs the point to move with a part of the rig takes that motion from its own child plug, never from a marker.

@@ -1,0 +1,38 @@
+{
+  "description": "A bankOut with no bankIn is an error",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/reverseHierarchy",
+      "value": [
+        [
+          "Left",
+          "heel"
+        ],
+        [
+          "Left",
+          "ball"
+        ],
+        [
+          "Left",
+          "bankOut"
+        ],
+        [
+          "Left",
+          "toeTip"
+        ],
+        [
+          "Left",
+          "toe"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "bankOut needs a bankIn"
+    }
+  ],
+  "markers": "reverse_foot"
+}

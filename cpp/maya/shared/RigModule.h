@@ -2,6 +2,7 @@
 
 #include "core/Constants.h"
 #include "core/FormatUpdate.h"
+#include "core/MarkerFile.h"
 #include "core/RigJsonStructs.h"
 #include "core/RigTemplateValidation.h"
 #include "maya/nodes/RigControlNode.h"
@@ -99,6 +100,9 @@ struct PlanContext
 	// createRigFromTemplate checkMirrorPositions: claimJoint fails a mirror's joint that is not where its source
 	// joint reflects to (D28). Off by default, because a skeleton may be asymmetric where the rig is not.
 	bool checkMirrorPositions = false;
+	// The markers file the build was given (createRigFromTemplate markers=, D73), or null when it was given none. A plan step
+	// resolves a marker it selects through RigModuleNodeBase::resolveMarker.
+	const MarkerSet* markers = nullptr;
 };
 
 // One module's read-phase result. Only build touches the dagMod, and it runs after the whole template validated.
@@ -179,6 +183,7 @@ public:
 		const std::vector<RigModuleData>& modules,
 		MarkedJointSet& markedJoints,
 		bool checkMirrorPositions,
+		const MarkerSet* markers,
 		ValidationReport& report);
 	// Write phase, pass 1. Fails if a module fails, or builds child plugs or sockets that differ from its plan.
 	static MStatus buildModules(const std::vector<ModulePlan>& plans, MObject oRigRoot, MDagModifier& dagMod, RigModuleMap& outModuleMap);
@@ -191,6 +196,13 @@ public:
 	static bool readModuleArgs(const nlohmann::json& args, std::initializer_list<const char*> knownKeys, PlanContext& ctx, TArgs& outArgs,
 		std::initializer_list<const char*> optionalKeys = {});
 	static bool claimJoint(PlanContext& ctx, const JointSelector& selector, MObject& oOutJoint, MMatrix& mOutRestWorld);
+	// A marker a module selects with a [side, usage] pair (D73): the marker's rest world matrix, the joint's rest world times its offset,
+	// and its export flag. An error naming the marker and the module, and false, when the build was given no markers file, the file has
+	// no such marker, or the marker's joint is not among the build's joints. Claims nothing: a marker is not driven.
+	static bool resolveMarker(PlanContext& ctx, const JointSelector& selector, ResolvedMarker& outMarker);
+	// The rest world of a marked joint the module only reads, without claiming it (the ReverseFoot's ankle, which its Limb drives). An
+	// error, and false, when no joint has this markup.
+	static bool findJointRest(PlanContext& ctx, const JointSelector& selector, MMatrix& mOutRestWorld);
 	
 	// Returns a pointer to the entry for the given name, or nullptr if the name isn't in the map.
 	template <typename TInfo>

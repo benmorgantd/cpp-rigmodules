@@ -383,6 +383,34 @@ namespace RigAttr
 	inline constexpr const char* IkTargetRestMatrix{ "ikTargetRestMatrix" };
 	inline constexpr const char* HandleSocketMatrix{ "handleSocketMatrix" };
 
+	// ReverseFoot (D74). The ankle socket is on its own output array, apart from OutputSocketMatrix, and the ankle child plug on inputs of
+	// its own, apart from ChildPlugs, so the foot's two stages are on separate attributes and Maya sees no loop (design/reverse-foot.md
+	// section 6, the same reason as Limb's ikTarget above).
+	inline constexpr const char* AnkleSocketMatrix{ "ankleSocketMatrix" };
+	inline constexpr const char* AnklePlugMatrix{ "anklePlugMatrix" };
+	inline constexpr const char* AnklePlugRestMatrix{ "anklePlugRestMatrix" };
+	inline constexpr const char* AnklePlugConnected{ "anklePlugConnected" };
+	// The module id the foot's blend follows (moduleArgs ikFkDriver), stored for the connection phase 4 makes.
+	inline constexpr const char* IkFkDriver{ "ikFkDriver" };
+	// The foot's pivots at rest, by chain index: a FootSolve::Role as an int, and the marker's world position.
+	inline constexpr const char* PivotRoles{ "pivotRoles" };
+	inline constexpr const char* PivotPositions{ "pivotPositions" };
+	// The ankle joint's rest world, which the ankle socket carries.
+	inline constexpr const char* AnkleRestWorld{ "ankleRestWorld" };
+
+	// ReverseFoot channels on the foot control (D74): the animator's names, public API (saved poses and animation key on them).
+	inline constexpr const char* FootRoll{ "footRoll" };
+	inline constexpr const char* BreakAngle{ "breakAngle" };
+	inline constexpr const char* HeelRaise{ "heelRaise" };
+	inline constexpr const char* HeelSwivel{ "heelSwivel" };
+	inline constexpr const char* BallRaise{ "ballRaise" };
+	inline constexpr const char* BallSwivel{ "ballSwivel" };
+	inline constexpr const char* BallRoll{ "ballRoll" };
+	inline constexpr const char* FootBank{ "bank" };
+	inline constexpr const char* ToeRaise{ "toeRaise" };
+	inline constexpr const char* ToeSwivel{ "toeSwivel" };
+	inline constexpr const char* ToeTap{ "toeTap" };
+
 	// TwoBoneIk rest data (D52), stored at build. Its ik controls' offsets are IkRestOffset above.
 	inline constexpr const char* RestBendNormal{ "restBendNormal" };
 	inline constexpr const char* RestPlaneAngle{ "restPlaneAngle" };
@@ -486,8 +514,21 @@ namespace PlugAndSocketNames
 	inline constexpr const char* Settings{ "settings" };
 	// Limb's optional child plug (D62 section 8): the world matrix the end joint should reach, left unparented for the IK handle's own.
 	inline constexpr const char* IkTarget{ "ikTarget" };
+	// ReverseFoot (D74): the child plug that takes the ankle as it is (the Limb's end socket), and the socket that carries the IK ankle
+	// target into the Limb's ikTarget. Both are named "ankle", and plugs and sockets are separate lists.
+	inline constexpr const char* Ankle{ "ankle" };
 	// A Limb's bind joint sockets: bind_0, bind_1, ... in bind joint order (D62), so a child can hang from a twist joint.
 	inline constexpr const char* Bind{ "bind_" };
+}
+
+// A ReverseFoot's slots (D74). The foot control is control slot 0, and the ik child plug is childPlugs[0]. The ankle socket is element 0 of the
+// foot's own AnkleSocketMatrix array, which getSocketMatrixPlug finds there, the way a Limb's handle sockets are found on HandleSocketMatrix.
+namespace ReverseFootSlot
+{
+	inline constexpr unsigned int Foot{ 0 };
+	inline constexpr unsigned int IkPlug{ 0 };
+	inline constexpr unsigned int AnkleSocket{ 0 };
+	inline constexpr unsigned int PivotCap{ 6 };   // one pivot per FootSolve::Role
 }
 
 // JSON keys in a rig template. Public API: every saved template depends on them.

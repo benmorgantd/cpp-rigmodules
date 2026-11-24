@@ -1,0 +1,19 @@
+{
+  "description": "footRoll 20 is under the 30 degree break, so the ball takes all of it: +20 about the ball (0, 0, 10). Offset (dy 8, dz -16): y' = 8 cos 20 + 16 sin 20 = 12.989863, z' = 8 sin 20 - 16 cos 20 = -12.298921, so z = -2.298921. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.footRoll": 20
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.4989863,
+        0.3701079
+      ]
+    }
+  }
+}

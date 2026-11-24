@@ -1,0 +1,14 @@
+{
+  "description": "A template that selects markers with no markers file passed names each marker",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [],
+  "expectErrors": [
+    {
+      "contains": "selects the marker [Left, heel], but createRigFromTemplate was given no markers file"
+    },
+    {
+      "contains": "selects the marker [Left, toe], but createRigFromTemplate was given no markers file"
+    }
+  ]
+}

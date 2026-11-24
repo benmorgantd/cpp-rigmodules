@@ -1,0 +1,19 @@
+{
+  "description": "ballRoll 20 turns -20 about forward through the ball: the ankle goes toward +X. Offset (dx 0, dy 8): x' = -8 sin(-20) = 2.736161, y' = 8 cos(-20) = 7.517541. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.ballRoll": 20
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.2736161,
+        3.9517541,
+        0.0
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "description": "A mirrored foot selects the Right markers, and a file with the Left ones only lacks every one of them",
+  "base": "reverse_foot_mirror",
+  "skeleton": "reverse_foot_mirror",
+  "edits": [],
+  "expectErrors": [
+    {
+      "contains": "the markers file has no marker [Right, heel]"
+    },
+    {
+      "contains": "the markers file has no marker [Right, toe]"
+    }
+  ],
+  "markers": "reverse_foot"
+}

@@ -60,6 +60,8 @@ namespace
 		MString skeletonHash;
 		MString markersHash;
 		MString markersJson{ "[]" };
+		MarkerSet markers;          // what the file holds, for the modules that select a marker
+		bool hasMarkers = false;    // false when the build was given no file
 	};
 
 	// Read phase. Reads and validates the markers file and places every marker on the input joints. A marker whose joint is
@@ -88,6 +90,8 @@ namespace
 		MarkerScene::placeMarkers(markers, markedJoints, placed, report);
 		outStamps.markersHash = Hash64::format(markersHash(markers)).c_str();
 		outStamps.markersJson = serializeResolvedMarkers(placed).c_str();
+		outStamps.markers = std::move(markers);
+		outStamps.hasMarkers = true;
 	}
 
 	// renameNode silently makes a clashing name unique, so a module would no longer match its template name
@@ -310,7 +314,7 @@ namespace
 		}
 
 		plans.push_back(makeLayoutPlan());
-		for (ModulePlan& plan : RigModuleNodeBase::planModules(rigData.rigModules, markedJoints, inputs.checkMirrorPositions, report))
+		for (ModulePlan& plan : RigModuleNodeBase::planModules(rigData.rigModules, markedJoints, inputs.checkMirrorPositions, outStamps.hasMarkers ? &outStamps.markers : nullptr, report))
 		{
 			plans.push_back(std::move(plan));
 		}

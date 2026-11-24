@@ -118,7 +118,7 @@ namespace FootSolve
 		return problems;
 	}
 
-	int findPivot(const std::vector<Pivot>& chain, Role role)
+	int findPivot(std::span<const Pivot> chain, Role role)
 	{
 		for (std::size_t i = 0; i < chain.size(); ++i)
 		{
@@ -130,7 +130,7 @@ namespace FootSolve
 		return -1;
 	}
 
-	Frame footFrame(const std::vector<Pivot>& chain)
+	Frame footFrame(std::span<const Pivot> chain)
 	{
 		Frame frame;
 		if (chain.size() < 2)
@@ -158,7 +158,7 @@ namespace FootSolve
 		return peel;
 	}
 
-	int bankPivotIndex(const std::vector<Pivot>& chain, const Frame& frame, double bank)
+	int bankPivotIndex(std::span<const Pivot> chain, const Frame& frame, double bank)
 	{
 		if (bank == 0.0)
 		{
@@ -208,7 +208,7 @@ namespace FootSolve
 		return result;
 	}
 
-	Mat4 foldChain(const std::vector<Pivot>& chain, std::size_t count, const Frame& frame, const Channels& channels)
+	Mat4 foldChain(std::span<const Pivot> chain, std::size_t count, const Frame& frame, const Channels& channels)
 	{
 		const Peel peel = splitPeel(channels.footRoll, channels.breakAngle);
 		const int bankIndex = bankPivotIndex(chain, frame, channels.bank);
@@ -221,12 +221,12 @@ namespace FootSolve
 		return motion;
 	}
 
-	Mat4 ankleMotion(const std::vector<Pivot>& chain, const Frame& frame, const Channels& channels)
+	Mat4 ankleMotion(std::span<const Pivot> chain, const Frame& frame, const Channels& channels)
 	{
 		return foldChain(chain, chain.size(), frame, channels);
 	}
 
-	Mat4 toeMotion(const std::vector<Pivot>& chain, std::size_t toeIndex, const Frame& frame, const Channels& channels)
+	Mat4 toeMotion(std::span<const Pivot> chain, std::size_t toeIndex, const Frame& frame, const Channels& channels)
 	{
 		if (toeIndex >= chain.size())
 		{

@@ -73,12 +73,14 @@ public:
 		bool negate,
 		MDagModifier& dagMod);
 
-	// The same for an unbounded angle (a roll) with a rest of 0. Shown in degrees, stored in radians like any angle.
+	// The same for an unbounded angle (a roll) with a rest of restDegrees, 0 unless given (a foot's breakAngle rests at 30). Shown in
+	// degrees, stored in radians like any angle.
 	static MStatus addAngleChannel(
 		const MObject& oControl,
 		const char* name,
 		bool negate,
-		MDagModifier& dagMod);
+		MDagModifier& dagMod,
+		double restDegrees = 0.0);
 
 	// A channel's value between internal units (radians, centimeters) and the UI units a pose file holds.
 	static double toUiUnits(const Channel& channel, double internal);

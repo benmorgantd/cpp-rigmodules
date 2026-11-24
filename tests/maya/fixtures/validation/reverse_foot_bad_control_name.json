@@ -1,0 +1,17 @@
+{
+  "description": "controlName is the control's usage and must be camelCase",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/controlName",
+      "value": "Foot_Roll"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "controlName"
+    }
+  ],
+  "markers": "reverse_foot"
+}

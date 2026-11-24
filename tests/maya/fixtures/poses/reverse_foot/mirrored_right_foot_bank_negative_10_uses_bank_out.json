@@ -1,0 +1,19 @@
+{
+  "description": "bank -10 on the right foot turns about the pivot on the -X side, bankOut (-4, 0, 10), +10 about forward: the left foot's bank -10 about bankIn. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot_mirror",
+  "template": "reverse_foot_mirror",
+  "markers": "reverse_foot_mirror",
+  "set": {
+    "foot_00_R_CTRL.bank": -10
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_R_JNT": {
+      "translate": [
+        -4.1449954,
+        4.0573055,
+        0.0
+      ]
+    }
+  }
+}

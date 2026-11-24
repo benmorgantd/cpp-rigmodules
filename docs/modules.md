@@ -417,4 +417,63 @@ There is no fk ribbon: the ribbon follows the blended joints.
 
 **`ikTarget`: where the end joint reaches.** An optional child plug. Wire a module's socket to it in `parentStructure` (`"ikTarget": "foot_01_L_MOD.index_0"`) and the end joint reaches that socket's motion since rest instead of the IK handle's own. Leave it out and nothing changes: an arm reaches its handle. It is meant for a foot that hangs from the handle (`"start": "leg_01_L_MOD.ik"`) and pushes the ankle target up when the ball rises, so the handle stays the foot's root. The target moves the end joint and what follows it (the sockets `index_0` to `index_2`, `start`, `end`, the ribbon and its bind joints). The `ik`, `pole` and `settings` sockets do not read it, which is what makes a foot on `ik` feeding `ikTarget` acyclic; a foot on `end` would be a real loop and is a read-phase error. At `ikFkBlend` 0 the target is ignored, and `setRigIkFkBlend` and a restore from joints match the limb as if the target were at rest (they do not read it). It takes no constraint and has no control. A `ReverseFoot` module is not built yet; `limb_foot` in the tests is a one-joint FkChain standing in for it. See `design/limb.md` section 8.
 
+The [ReverseFoot](#reversefoot) is the module meant for it: its `ankle` socket carries the foot's roll and pivots into `ikTarget`. A Limb and its foot are a coupled pair, so a change to the Limb's blend, sockets, `ikTarget` or inverse changes the foot.
+
 A change to the IK/FK solve, the ribbon solve or their channels changes the Limb too.
+
+## ReverseFoot
+
+Foot roll, pivots and bank as **channels on one control**, on top of a [Limb](#limb) (D74, `design/reverse-foot.md`). The animator rolls the foot over the heel, the ball and the toe tip with `footRoll`, banks it onto an edge, swivels it about a pivot and pushes the ankle up with the raise channels. The foot never drives the ankle bind joint: the Limb owns it. The foot works out where the ankle should be, and the Limb's `ikTarget` takes it from there.
+
+> **Built so far (stage 1).** The foot control, its 11 channels, the `ik` and `ankle` child plugs and the `ankle` socket that feeds the Limb's `ikTarget`. The foot **claims the toe and the toe tip and does not drive them yet**: they stay at rest until stage 2 (the toe and toe tip, the toe FK control, the blend with the limb's `ikFkBlend`, the visibility output), and `ikFkDriver` is stored and checked for being given but not used. The foot has no inverse yet, so restoring a rig from joints leaves its channels at the sidecar's value or the rest, and does not match a Limb's handle to a raised foot.
+
+The pivots are [markers](markers.md), so the template says which marker is which role and the build needs the markers file:
+
+```json
+{
+  "moduleType": "ReverseFoot", "name": "foot_00_L_MOD", "shapeType": "Box", "side": "Left",
+  "moduleArgs": {
+    "joints": [ ["Left", "hand"], ["Left", "toe"], ["Left", "toeTip"] ],
+    "reverseHierarchy": [ ["Left", "heel"], ["Left", "ball"], ["Left", "bankOut"], ["Left", "bankIn"], ["Left", "toeTip"], ["Left", "toe"] ],
+    "ikFkDriver": "arm_01_L_MOD"
+  },
+  "parentStructure": { "ik": "arm_01_L_MOD.ik", "ankle": "arm_01_L_MOD.end" }
+}
+```
+
+The Limb takes the foot's `ankle` socket in its own `parentStructure`: `"ikTarget": "foot_00_L_MOD.ankle"`. Build with `createRigFromTemplate(..., markers="C:/assets/hero/markers/body/markers.json")` ([commands.md](commands.md#createrigfromtemplate)).
+
+| `moduleArgs` key | Default | Meaning |
+|---|---|---|
+| `joints` | required | Three joint selectors: the ankle, the toe (the ball joint) and the toe tip. The foot will drive the toe and the toe tip. The ankle is a reference only: the Limb drives it, so a template that lists the Limb's end joint as the toe fails with a joint driven by two modules |
+| `reverseHierarchy` | required | Marker selectors in chain order, root first. Each entry's **usage names its role**: `heel`, `ball`, `bankOut`, `bankIn`, `toeTip` or `toe`. Any other usage is an error that lists these. A role listed twice, a `bankOut` without a `bankIn` (or the reverse) and a chain with no `ball` are errors. Every marker must be in the markers file, and its joint among the build's joints |
+| `ikFkDriver` | required | The id, as written in the template, of the Limb or TwoBoneIk whose `ikFkBlend` the foot follows. A mirrored foot swaps its side |
+| `controlName` | `foot` | The channel control's usage, so `foot_00_L_CTRL`. camelCase, with an optional `_NN` |
+
+**The chain.** The pivots turn the ankle one after another, the last in the list first and the first last, each about its own marker position. Everything is in the foot's frame, which comes from the markers' positions alone (a marker's own axes are not read): **forward** runs from the heel to the toe tip along the ground, **up** is world +Y and **lateral** is up crossed with forward, so a character facing +Z has lateral +X, its left. The order is the template's, so a rig with no bank pivots, or with the pivots in another order, is a different list and no code change. Past the break angle this carries the toe tip below the ground (D74 records the choice and the alternative).
+
+**The peel.** `footRoll` rolls forward when it is positive and lifts the toes about the heel when it is negative. It is split over three pivots: the heel takes the negative part, the ball takes the positive part up to `breakAngle` (30 degrees), and the toe tip takes what is over it. The raise channels are added to their pivot's angle after the split, so `ballRaise` moves the foot and never starts the toe tip.
+
+**Channels** on the foot control, all angles in degrees, with the mirror mode a mirrored pose uses:
+
+| Channel | Rest | Mirror | Acts on |
+|---|---|---|---|
+| `footRoll` | 0 | copy | The peel: the heel (negative), then the ball, then the toe tip |
+| `breakAngle` | 30 | copy | Where the ball hands the roll over to the toe tip |
+| `heelRaise` | 0 | copy | The heel pivot, toes up |
+| `heelSwivel` | 0 | negate | The heel pivot, about up (positive turns the toes toward lateral) |
+| `ballRaise` | 0 | copy | The ball pivot, heel up |
+| `ballSwivel` | 0 | negate | The ball pivot, about up |
+| `ballRoll` | 0 | negate | The ball pivot, about forward: the ankle goes toward lateral for a positive value |
+| `bank` | 0 | negate | Signed. Positive banks the foot onto its lateral (+X) edge, about `bankOut` on a left foot and `bankIn` on a right foot, chosen from the pivots' positions with no side branch |
+| `toeRaise` | 0 | copy | The toe tip pivot, heel and ball up |
+| `toeSwivel` | 0 | negate | The toe tip pivot, about up |
+| `toeTap` | 0 | copy | The toe bone about the toe pivot (stage 2: it does not reach the ankle) |
+
+These names are public: saved poses and animation key on them.
+
+**The control** `<controlName>` is derived from the `ball` marker: it sits at the marker's position and keeps the world's axes. Its translate, rotate and scale are locked and hidden, so it carries channels only. It follows the IK handle (the foot hangs from it), so the control moves with the leg. Whether it is easy to select next to the foot is not checked until the viewport gallery is.
+
+**Child plugs and sockets.** Two child plugs, `ik` (the Limb's `ik` socket: the handle, which carries the foot) and `ankle` (the Limb's `end` socket: the ankle as it is). Neither has a control, so a constraint on either is an error. One socket, `ankle`: the IK ankle target, the world the Limb's `ikTarget` takes. The two plugs are on separate attributes from the socket (D62 phase 4: Maya orders the graph by attribute), and the template validator knows the `ankle` plug cannot see the `ankle` socket, so a foot wired in a loop (its `ik` plug on the Limb's `end` socket) is still reported as a cycle.
+
+**Coupled to Limb.** The foot reads the Limb's sockets and feeds its `ikTarget`, so a change to the Limb's blend, sockets, `ikTarget` or inverse changes the foot, and the foot changes where the Limb's end joint reaches. At `ikFkBlend` 0 the Limb ignores `ikTarget`, so the channels that move the ankle do nothing in FK. A Limb with a foot at rest gives the joints of the same Limb alone.

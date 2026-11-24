@@ -1,0 +1,19 @@
+{
+  "description": "footRoll 30 equals the break: the ball takes all 30 and the toe tip none. Offset (8, -16) turned 30: y' = 8 cos 30 + 16 sin 30 = 14.928203, z' = 8 sin 30 - 16 cos 30 = -9.856406, so z = 0.143594. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.footRoll": 30
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.6928203,
+        0.6143594
+      ]
+    }
+  }
+}

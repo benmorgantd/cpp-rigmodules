@@ -208,6 +208,7 @@
     <ClCompile Include="maya\modules\FkHierarchyModule.cpp" />
     <ClCompile Include="maya\modules\LayoutModule.cpp" />
     <ClCompile Include="maya\modules\LimbModule.cpp" />
+    <ClCompile Include="maya\modules\ReverseFootModule.cpp" />
     <ClCompile Include="maya\modules\RibbonModule.cpp" />
     <ClCompile Include="maya\modules\TwoBoneIkModule.cpp" />
     <ClCompile Include="maya\nodes\Constraints.cpp" />
@@ -327,6 +328,7 @@
     <ClInclude Include="maya\modules\FkHierarchyModule.h" />
     <ClInclude Include="maya\modules\LayoutModule.h" />
     <ClInclude Include="maya\modules\LimbModule.h" />
+    <ClInclude Include="maya\modules\ReverseFootModule.h" />
     <ClInclude Include="maya\modules\RibbonModule.h" />
     <ClInclude Include="maya\modules\TwoBoneIkModule.h" />
     <ClInclude Include="maya\shared\RibbonSolve.h" />

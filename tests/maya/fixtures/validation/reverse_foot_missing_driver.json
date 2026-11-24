@@ -1,0 +1,16 @@
+{
+  "description": "ikFkDriver is required",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "remove": "/rigModules/1/moduleArgs/ikFkDriver"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "missing required key 'ikFkDriver'"
+    }
+  ],
+  "markers": "reverse_foot"
+}

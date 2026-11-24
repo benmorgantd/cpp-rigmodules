@@ -53,6 +53,13 @@ def load_skeleton(name):
     return joints
 
 
+# ---- markers ---------------------------------------------------------------------------------
+
+def markers_path(name):
+    """fixtures/markers/<name>.json as a forward-slash path, the markers file a build is given (D73)."""
+    return os.path.join(config.FIXTURES_DIR, "markers", name + ".json").replace("\\", "/")
+
+
 # ---- templates -------------------------------------------------------------------------------
 
 def template_path(name):

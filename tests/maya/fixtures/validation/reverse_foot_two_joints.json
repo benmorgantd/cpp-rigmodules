@@ -1,0 +1,26 @@
+{
+  "description": "The joints are the ankle, the toe and the toe tip",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/joints",
+      "value": [
+        [
+          "Left",
+          "hand"
+        ],
+        [
+          "Left",
+          "toe"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "needs three joints, the ankle, the toe and the toe tip, got 2"
+    }
+  ],
+  "markers": "reverse_foot"
+}

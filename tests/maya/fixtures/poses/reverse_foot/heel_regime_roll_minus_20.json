@@ -1,0 +1,19 @@
+{
+  "description": "footRoll -20: the heel takes 20, so the whole foot turns -20 about the heel (0, 0, -10). Offset from it (dy 8, dz 4): y' = 8 cos(-20) - 4 sin(-20) = 8.885622, z' = 8 sin(-20) + 4 cos(-20) = 1.022609, so z = -8.977391. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.footRoll": -20
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.0885622,
+        -0.2977391
+      ]
+    }
+  }
+}

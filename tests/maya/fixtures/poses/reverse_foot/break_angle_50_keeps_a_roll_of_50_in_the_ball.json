@@ -1,0 +1,20 @@
+{
+  "description": "breakAngle 50 with footRoll 50: the ball takes all 50. +50 about the ball: y' = 8 cos 50 + 16 sin 50, z' = 8 sin 50 - 16 cos 50. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.footRoll": 50,
+    "foot_00_L_CTRL.breakAngle": 50
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.9399012,
+        1.1843754
+      ]
+    }
+  }
+}

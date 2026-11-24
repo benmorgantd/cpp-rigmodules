@@ -1,0 +1,20 @@
+{
+  "description": "A role listed twice is an error",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/reverseHierarchy/0",
+      "value": [
+        "Left",
+        "ball"
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "the role ball is listed twice"
+    }
+  ],
+  "markers": "reverse_foot"
+}

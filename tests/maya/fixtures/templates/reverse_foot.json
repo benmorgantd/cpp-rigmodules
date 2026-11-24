@@ -1,0 +1,53 @@
+{
+  "rigVersion": 1,
+  "rigAuthor": "tests",
+  "rigTemplateName": "ReverseFoot",
+  "rigModules": [
+    {
+      "moduleType": "Limb",
+      "name": "arm_01_L_MOD",
+      "shapeType": "Box",
+      "side": "Left",
+      "moduleArgs": {
+        "joints": [["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"]],
+        "bindJoints": [["Left", "bind1"], ["Left", "bind2"], ["Left", "bind3"], ["Left", "bind4"], ["Left", "bind5"],
+                       ["Left", "bind6"], ["Left", "bind7"], ["Left", "bind8"], ["Left", "bind9"]],
+        "controlName": "arm",
+        "controlCount": 5
+      },
+      "parentStructure": {
+        "start": "layout_00_M_MOD.end",
+        "ik": "layout_00_M_MOD.end",
+        "pole": "layout_00_M_MOD.end",
+        "ikTarget": "foot_00_L_MOD.ankle"
+      }
+    },
+    {
+      "moduleType": "ReverseFoot",
+      "name": "foot_00_L_MOD",
+      "shapeType": "Box",
+      "side": "Left",
+      "moduleArgs": {
+        "joints": [["Left", "hand"], ["Left", "toe"], ["Left", "toeTip"]],
+        "reverseHierarchy": [["Left", "heel"], ["Left", "ball"], ["Left", "bankOut"], ["Left", "bankIn"], ["Left", "toeTip"], ["Left", "toe"]],
+        "ikFkDriver": "arm_01_L_MOD"
+      },
+      "parentStructure": {
+        "ik": "arm_01_L_MOD.ik",
+        "ankle": "arm_01_L_MOD.end"
+      }
+    },
+    {
+      "moduleType": "FkChain",
+      "name": "dummy_00_L_MOD",
+      "shapeType": "Box",
+      "side": "Left",
+      "moduleArgs": {
+        "joints": [["Left", "dummy"]]
+      },
+      "parentStructure": {
+        "start": "arm_01_L_MOD.end"
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "description": "heelSwivel 30 turns +30 about up through the heel. Offset (dx 0, dz 4): x' = 4 sin 30 = 2, z' = 4 cos 30 = 3.464102, so z = -6.535898. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.heelSwivel": 30
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.2,
+        4.0,
+        -0.0535898
+      ]
+    }
+  }
+}

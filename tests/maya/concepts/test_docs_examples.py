@@ -704,3 +704,29 @@ class MarkersDocExample(RigTestCase):
         self.assertWorldTranslation("skel:heel_00_L_MRK", (0, -9.5, -1.2))
         saved = cmds.saveRigMarkers(*nodes, file=path.replace("doc_markers", "doc_markers_saved"))
         self.assertEqual(json.loads(markers_doc_file_text())["markersHash"], saved)
+
+
+MODULES_DOC = os.path.join(config.REPO_DIR, "docs", "modules.md")
+
+
+def modules_doc_foot_module():
+    """The first ```json block under '## ReverseFoot' in docs/modules.md: the foot's template entry."""
+    with open(MODULES_DOC, encoding="utf-8") as handle:
+        section = handle.read().split("## ReverseFoot", 1)[1]
+    match = re.search(r"```json\s*\n(.*?)```", section, re.S)
+    if not match:
+        raise AssertionError("docs/modules.md '## ReverseFoot' has no ```json block")
+    return json.loads(match.group(1))
+
+
+class ReverseFootDocExample(RigTestCase):
+    """The ReverseFoot entry in docs/modules.md builds on the Limb it names, with the markers it selects, and a roll of 20 puts the
+    Limb's hand where the hand-worked table says (tests/core/FootSolveTests.cpp, at a tenth of the size): (4, 4, 0) + 0.1 * (4.989863, 3.701079)."""
+
+    def test_foot_module_example_builds_and_rolls(self):
+        template = fixtures.load_template("reverse_foot")
+        template["rigModules"][1] = modules_doc_foot_module()
+        joints = self.make_skeleton("reverse_foot")
+        self.build(template, joints, markers="reverse_foot", label="doc_reverse_foot")
+        cmds.setAttr(rig_name("foot_00_L_CTRL.footRoll"), 20)
+        self.assertWorldTranslation(rig_name("hand_00_L_JNT"), [4.0, 4.4989863, 0.3701079], 1e-4)

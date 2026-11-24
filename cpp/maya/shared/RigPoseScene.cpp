@@ -489,11 +489,12 @@ MStatus RigPoseScene::addAngleChannel(
 	const MObject& oControl,
 	const char* name,
 	bool negate,
-	MDagModifier& dagMod)
+	MDagModifier& dagMod,
+	double restDegrees)
 {
 	MStatus status;
 	MFnUnitAttribute fnUnit;
-	MObject oAttr = fnUnit.create(name, name, MFnUnitAttribute::kAngle, 0.0, &status);
+	MObject oAttr = fnUnit.create(name, name, MFnUnitAttribute::kAngle, MAngle(restDegrees, MAngle::kDegrees).asRadians(), &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	return queueChannel(fnUnit, oControl, negate, dagMod);
 }

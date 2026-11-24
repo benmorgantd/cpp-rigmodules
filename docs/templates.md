@@ -52,13 +52,13 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 
 ## Markers
 
-A module can select a point that no joint marks, a [marker](markers.md), with a `[side, usage]` pair in a `moduleArgs` key that names markers. The markers come from the file passed to [`createRigFromTemplate`](commands.md#createrigfromtemplate) as `markers`, and a template that selects a marker when no file was passed is a read-phase error naming the marker. A mirrored module swaps the selector's side, as it does a joint selector. No module selects markers yet.
+A module can select a point that no joint marks, a [marker](markers.md), with a `[side, usage]` pair in a `moduleArgs` key that names markers. The markers come from the file passed to [`createRigFromTemplate`](commands.md#createrigfromtemplate) as `markers`, and a template that selects a marker when no file was passed is a read-phase error naming the marker. A mirrored module swaps the selector's side, as it does a joint selector. The [ReverseFoot](modules.md#reversefoot) selects them in `reverseHierarchy`, and its `ikFkDriver` module id swaps its side when the foot is mirrored.
 
 ## Modules
 
 | Key | Required | Value |
 |---|---|---|
-| `moduleType` | yes | A module type from [modules.md](modules.md): `FkChain`, `FkHierarchy`, `Aim`, `TwoBoneIk`, `Ribbon` or `Limb` |
+| `moduleType` | yes | A module type from [modules.md](modules.md): `FkChain`, `FkHierarchy`, `Aim`, `TwoBoneIk`, `Ribbon`, `Limb` or `ReverseFoot` |
 | `name` | yes | The module's id, in the [naming convention](naming.md): `<camelCaseName>_##_<L|R|M>_MOD`, such as `arm_00_L_MOD`. Unique in the template, its side letter must match `side`, and it is not `layout_00_M_MOD`. The module node gets this name in the rig namespace. |
 | `side` | no | `Center` (default), `Left` or `Right`. Sets the controls' side letter (`M`, `L`, `R`) and color, and must match the side letter in `name`. |
 | `shapeType` | no | Control shape for the module's controls: `Box` (default) or any shape in [controls.md](controls.md#shapes) |
@@ -109,7 +109,7 @@ Drivers:
 | `label` | no | Enum label shown on the control. Defaults to the socket id. Unique within the constraint. |
 | `weight` | no | 0 or more, default 0. The driver with the highest weight starts active. With a tie, the first of them starts active (and the build warns). With no weights, the first driver starts active. |
 
-A module cannot drive its own child plug, and no loop may run through `parentStructure` and constraint drivers together. One kind of loop is allowed: a plug may declare sockets its input does not reach, and a path that enters a module by that plug cannot leave it by one of them. A [`Limb`](modules.md#limb)'s `ikTarget` declares `ik`, `pole` and `settings`, so a foot that hangs from `ik` and feeds `ikTarget` is fine, and the same foot hanging from `end` is a cycle.
+A module cannot drive its own child plug, and no loop may run through `parentStructure` and constraint drivers together. One kind of loop is allowed: a plug may declare sockets its input does not reach, and a path that enters a module by that plug cannot leave it by one of them. A [`Limb`](modules.md#limb)'s `ikTarget` declares `ik`, `pole` and `settings`, so a foot that hangs from `ik` and feeds `ikTarget` is fine, and the same foot hanging from `end` is a cycle. A [`ReverseFoot`](modules.md#reversefoot) declares the same for its own `ankle` plug (the Limb's `end` socket) and its `ankle` socket, so a foot that takes `end` in that plug is fine and one that takes `end` in its `ik` plug is a cycle. Neither of its plugs has a control, so a constraint on either is an error.
 
 A module can own a child plug's space, or take its parent from another plug of its own. [`TwoBoneIk`](modules.md#twoboneik)'s `pole` and `settings` take no constraint, and its `settings` takes no `parentStructure` entry either.
 

@@ -1,0 +1,20 @@
+{
+  "description": "footRoll 25 with ballRaise 10: the peel gives the ball 25 and the raise adds 10 after, so the ball turns 35 and the toe tip nothing (35 is past the break, but the raise never starts the toe tip). +35 about the ball only. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.footRoll": 25,
+    "foot_00_L_CTRL.ballRaise": 10
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.7730439,
+        0.7482179
+      ]
+    }
+  }
+}

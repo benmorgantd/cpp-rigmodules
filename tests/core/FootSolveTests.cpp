@@ -144,7 +144,8 @@ CORE_TEST(footFrameWithNoLengthFacesPlusZ)
 {
 	const std::vector<Pivot> straightUp{ { Role::Heel, { 1.0, 0.0, 1.0 } }, { Role::ToeTip, { 1.0, 5.0, 1.0 } } };
 	checkPoint(FootSolve::footFrame(straightUp).forward, 0.0, 0.0, 1.0);
-	checkPoint(FootSolve::footFrame({}).forward, 0.0, 0.0, 1.0);
+	const std::vector<Pivot> none;
+	checkPoint(FootSolve::footFrame(none).forward, 0.0, 0.0, 1.0);
 }
 
 CORE_TEST(footPeelSplit)
@@ -398,7 +399,8 @@ CORE_TEST(footFindPivot)
 	const std::vector<Pivot> chain = leftFoot();
 	CHECK(FootSolve::findPivot(chain, Role::Heel) == 0);
 	CHECK(FootSolve::findPivot(chain, Role::Toe) == 5);
-	CHECK(FootSolve::findPivot({ { Role::Ball, {} } }, Role::Heel) == -1);
+	const std::vector<Pivot> ballOnly{ { Role::Ball, {} } };
+	CHECK(FootSolve::findPivot(ballOnly, Role::Heel) == -1);
 }
 
 CORE_TEST(footDecomposesPitchAndRoll)

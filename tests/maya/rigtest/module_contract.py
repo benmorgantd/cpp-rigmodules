@@ -66,9 +66,11 @@ class ModuleContract:
     JOINT_OWNERS = {}     # joint short name -> module name that must drive its offsetParentMatrix
     MIRROR_TEMPLATE = None  # fixture template with a "mirror": true entry of this module, or False for a Center-only module
     MIRROR_SKELETON = None  # fixture skeleton for MIRROR_TEMPLATE, with joints for both sides
+    MARKERS = None        # fixtures/markers name a module that selects markers is built with (D73), else None
+    MIRROR_MARKERS = None  # the same for MIRROR_TEMPLATE
 
     def _build(self):
-        return self.build_standard(self.TEMPLATE, self.SKELETON)
+        return self.build_standard(self.TEMPLATE, self.SKELETON, markers=self.MARKERS)
 
     def test_contract_builds_module(self):
         self._build()
@@ -79,7 +81,7 @@ class ModuleContract:
     def test_contract_joints_keep_rest_pose(self):
         joints = self.make_skeleton(self.SKELETON)
         before = {j.split(":")[-1]: _world_matrix(j) for j in joints}
-        self.build(self.TEMPLATE, joints)
+        self.build(self.TEMPLATE, joints, markers=self.MARKERS)
         for short, matrix in before.items():
             after = _world_matrix(rig_name(short))
             if not after.isEquivalent(matrix, 1e-4):
@@ -266,8 +268,8 @@ class ModuleContract:
         self.assertIsNotNone(self.MIRROR_TEMPLATE, "set MIRROR_TEMPLATE and MIRROR_SKELETON, or MIRROR_TEMPLATE = False if %s can't mirror" % self.MODULE_TYPE)
         joints = self.make_skeleton(self.MIRROR_SKELETON)
         self._mirror_joint_rest = {j.split(":")[-1]: _world_matrix(j) for j in joints}
-        self.build(self.MIRROR_TEMPLATE, joints)
-        root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
+        self.build(self.MIRROR_TEMPLATE, joints, markers=self.MIRROR_MARKERS)
+        root =cmds.ls(rig_name("*"), type="rigRootModule")[0]
         controls = [c for c in rigmodules.query.get_rig_controls(root) if cmds.nodeType(c.module) == self.MODULE_TYPE]
         self.assertTrue(controls, "%s built no %s controls" % (self.MIRROR_TEMPLATE, self.MODULE_TYPE))
         return root, controls
