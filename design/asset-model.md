@@ -2,16 +2,16 @@
 
 **Status:** decided 2026-11-08 (D29 in `decisions.md`), amended by D54 (2026-11-16). The scene side is built in RigModules (see "Built in RigModules"). The file model, local versions, registry, publishes, source-control adapter and handlers are built in mayadev (see "Built in mayadev"). Its user guide is mayadev's `docs/assets.md`.
 
-**The file model is the D54 one (built on mayadev branch `rigs-and-looks-phase4`, 2026-11-16):** an asset holds skeletons, rigs and looks, replacing D29's variants. See `rigs-and-looks.md` for the reasons and `rigs-and-looks-phase4.md` for the phase 4 design. Where a section below still says "variant", it describes the old model and is kept for its history in "Built in mayadev (2026-11-08)".
+**The file model is the D54 one (built in mayadev 2026-11-16, merged into its `main` as `f81b84b`):** an asset holds skeletons, rigs and looks, replacing D29's variants. See `rigs-and-looks.md` for the reasons and `rigs-and-looks-phase4.md` for the phase 4 design. Where a section below still says "variant", it describes the old model and is kept for its history in "Built in mayadev (2026-11-08)".
 
-An asset is the top-level container for one thing in the game: a character, prop, vehicle, weapon, vfx element or environment piece. It owns its files on disk, its rig variants, and the namespace it lives under in a Maya scene. This page covers the asset id, the scene structure, the file model, and how tools answer questions about assets without opening Maya, all under Perforce without shared files that everyone has to check out.
+An asset is the top-level container for one thing in the game: a character, prop, vehicle, weapon, vfx element or environment piece. It owns its files on disk, its skeletons, rigs and looks, and the namespace it lives under in a Maya scene. This page covers the asset id, the scene structure, the file model, and how tools answer questions about assets without opening Maya, all under Perforce without shared files that everyone has to check out.
 
 ## Split between the repos (D24 stands)
 
 | Piece | Home | Why |
 |---|---|---|
-| Asset id checks, asset root node, namespace ownership, rig variant and version stamps on the rig root | RigModules C++ | Nodes, attributes and the build command |
-| Query from a scene node to its asset root, id, variant and stamps | RigModules `python/` (not started) | Walks rig nodes |
+| Asset id checks, namespace ownership, the asset id, rig name and version stamps on the rig root | RigModules C++ | Nodes, attributes and the build command |
+| Query from a scene node to its rig root, asset id, rig name, look and stamps | RigModules `python/` (`rigmodules.query`, D30) | Walks rig nodes |
 | Project root, file model, file types, local versions, registry, publishes, source control, the out-of-date check | mayadev | Pipeline layout. No C++ code needs a path from an asset id: every command takes an explicit `file=` |
 | Save and load handlers per file type | mayadev, calling RigModules commands where RigModules owns the format (shapes) | Loading belongs to whoever owns the format |
 
@@ -20,9 +20,9 @@ The file model has one implementation, in Python, with the layout stored as data
 ## Asset id
 
 - Backslash-separated (it was `|` until 2026-11-12, D29): `shooter\main\characters\hero`.
-- The id is the asset folder's path relative to `RIGGING_PROJECT_DIR`, with `\` replaced by `|`. Depth varies, because assets end up everywhere.
+- The id is the asset folder's path relative to `RIGGING_PROJECT_DIR`, with `\` between folders. Depth varies, because assets end up everywhere.
 - A folder is an asset when it holds an `asset.json`, which keeps variable depth unambiguous. Assets never nest: no asset folder sits inside another.
-- Each token is lowercase letters, digits and `_`, and none is empty. Uppercase is rejected, not converted (D54, built in RigModules 2026-11-16), so ids compare exactly and no two ids differ only in case: Windows paths ignore case, and Perforce and engines don't. Until then ids compared case-insensitively and were stored as authored. mayadev's `assetid` still does, so it accepts ids the plugin rejects (`docs/mayadev.md`).
+- Each token is lowercase letters, digits and `_`, and none is empty. Uppercase is rejected, not converted (D54, built in RigModules 2026-11-16), so ids compare exactly and no two ids differ only in case: Windows paths ignore case, and Perforce and engines don't. Until then ids compared case-insensitively and were stored as authored. mayadev's `assetid` has the same rule (`[a-z0-9_]+`, mayadev `866f7ae`).
 - The id is relative to the projects root, so it means the same asset in every workspace and every branch.
 
 `RIGGING_PROJECT_DIR` is the projects root. The first levels under it are the game and its project (`<game>\<project>\characters\<name>`). The file model doesn't hard-code those levels: it finds the project from the nearest `project.json` above the asset.
@@ -34,7 +34,7 @@ The file model has one implementation, in Python, with the layout stored as data
 - **The default namespace is `{asset name}_{rigName}`** (`hero_body`), with no special case for an asset with one rig. `namespace` overrides it, for a second instance. Nothing reads the rig from the namespace.
 - **The rig root stores the id in `assetId`.** The separate `assetRootModule` node (D29) was merged into it, because with one rig per namespace it was one-to-one with the rig root. Its type id 0x00219 is retired. A scene saved with one is not migrated: rebuild it.
 - **The rig name is the rig root's `rigName`,** from the template's `rigName`.
-- **Variants share one skeleton.** A variant may add joints, never remove them (a cinematic rig adding face or cloth joints). Meshes, weights, textures and shaders are per variant.
+- **A rig is built on one skeleton, and a look names the skeletons it binds to** (`rig.json`, `look.json`). The skeleton can be another asset's, so NPCs and crowds share one. Meshes, weights, textures and shaders are per look.
 - **Files are imported into a unique namespace, never referenced.** Animation files keep working as long as they're baked, or as long as RigModules gives the rig an update path. The version stamps are what make that path findable.
 
 ### Version stamps
@@ -48,9 +48,9 @@ Each rig root records what built it:
 | `skeletonHash` | build | The input joints' skeleton hash at build (D54, `rigs-and-looks.md` section 5) |
 | `rigVersion` | build | The template's `rigVersion` |
 | `pluginVersion` | build | The RigModules plugin version that ran the build |
-| `publishVersion` | publish step (mayadev) | The id of the publish the rig came from (`20261108T142012Z_bmorgan`). Empty until published |
+| `publishVersion` | publish step (mayadev) | The id of the publish the rig came from (`20261108T142012Z_bmorgan`). Empty until published. Nothing sets it yet: the publish step (D70 phase 4) writes `publish.json` and copies of the inputs, not the built rig scene |
 
-The out-of-date check runs in mayadev. For each rig root in a scene, it compares `publishVersion` with the latest publish of that asset and variant in the workspace, and `pluginVersion` with the loaded plugin. A scene full of imported rigs can then be listed as current, stale (newer publish exists) or built with an older plugin, without opening any other file.
+The out-of-date check runs in mayadev. For each rig root in a scene, it compares `publishVersion` with the latest publish of that rig in the workspace (`Registry.latest_publish(id, "rig", rig)`), and `pluginVersion` with the loaded plugin. A scene full of imported rigs can then be listed as current, stale (newer publish exists) or built with an older plugin, without opening any other file.
 
 ## Source control and branches
 
@@ -61,8 +61,8 @@ The out-of-date check runs in mayadev. For each rig root in a scene, it compares
 | Data | Where it lives | Changes when |
 |---|---|---|
 | `project.json` | Depot, one per project | Someone changes the project's asset types or file layout |
-| `asset.json` | Depot, one per asset | Someone changes the asset's type or skeleton |
-| Variants | Depot: a folder per variant with its `template.json` | A variant is added: new files only |
+| `asset.json` | Depot, one per asset | Someone changes the asset's type |
+| Skeletons, rigs, looks | Depot: a folder each, with its `skeleton.json`, `rig.json` or `look.json` | One is added: new files only |
 | Publishes | Depot: a new folder per publish | Never edited: each publish adds a folder |
 | Registry | Memory only | Never written |
 | Local versions | `%LOCALAPPDATA%\bmaya\versions` | Never submitted |
@@ -153,7 +153,7 @@ Paths are relative to the asset folder. The tokens are `{name}` (the id's last t
 
 ### Publishes
 
-Each rig and each look has its own `publish` folder, and each publish is a new folder in it, named by its id: the UTC time and the user, `20261108T142012Z_bmorgan`. It holds a `publish.json` (its id, user and whatever the publish step records: plugin version, template `rigVersion`, inputs), the built rig and copies of its inputs. Ids sort in time order, so the latest publish is the last folder. A folder is never edited after it is made. A publish is separate from a local version: it is the build output other files import, and its id is what `publishVersion` stores.
+Each rig and each look has its own `publish` folder, and each publish is a new folder in it, named by its id: the UTC time and the user, `20261108T142012Z_bmorgan`. It holds a `publish.json` (its id, user and whatever the publish step records: plugin version, template `rigVersion`, inputs) and copies of its inputs, and is meant to hold the built rig too (not written yet, see Next). Ids sort in time order, so the latest publish is the last folder. A folder is never edited after it is made. A publish is separate from a local version: it is the build output other files import, and its id is what `publishVersion` stores.
 
 ### Local versions
 
@@ -194,9 +194,9 @@ Tests: `tests/asset/run.bat` runs 44 plain Python tests, then 3 mayapy tests aga
 The proposed extension upstream of the rig (art stages, status, intake, face data, mesh markup) is in `asset-pipeline.md` (D44, D45).
 
 1. The template authoring UI, after a module interface query command.
-2. Building a second variant into a namespace that already holds the shared skeleton.
+2. Dropped by D54: a namespace holds one rig, so a second rig on a shared skeleton builds into its own namespace, or follows the first as an attachment (D55).
 3. Build Rig from Asset… with a file browser on `asset.json`, loading shapes and weights after the build (`decisions.md`, "Before adding more modules").
-4. A publish step: build the rig, write it and its input copies into `publishes.create`'s folder, and set `publishVersion`.
+4. Finish the publish step. Built (D70 phase 4, mayadev `6ae0473`): `publish_rig` and `publish_look` with their gates, writing `publish.json` and copies of the inputs. Not built: writing the built rig into the folder and setting `publishVersion` on its rig root.
 5. Handlers for postops, poses and anims. The weights handler is built (2026-11-09, D35).
 6. A Perforce source-control adapter, when a project uses Perforce.
 

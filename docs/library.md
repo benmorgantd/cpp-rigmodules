@@ -17,14 +17,16 @@ A TwoBoneIk limb's channels (`ikFkBlend`, `stretch`, `soft`, `pin`, `roll`, and 
 
 ## Folders
 
-One folder, one data type. An asset gets these (mayadev's asset tools make them):
+One folder, one data type. Control data belongs to a rig, because control markup is unique per rig. A clip is skeleton data, so it belongs to a skeleton and every rig on that skeleton shares it. mayadev's asset tools make these folders, at these paths in the asset folder ([`design/asset-model.md`](../design/asset-model.md#file-types-in-projectjson)):
 
 | Folder | Holds |
 |---|---|
-| `controlposes/` | ControlPoses: `<name>.controlpose.json` |
-| `controlanims/` | ControlAnims: `<name>.controlanim.json` |
-| `exports/<name>/` | One engine export: `<name>.fbx`, `<name>.animproperties.json`, a copy of the ControlAnim it was made from, `<name>.controlanim.json` |
-| `sources/` | Skeleton data brought in for a remap: mocap or an engine export as FBX, with a bone map when the skeleton has no markup |
+| `rigs/{rig}/controlposes/` | The rig's approved ControlPoses: `<name>.controlpose.json` |
+| `rigs/{rig}/controlanims/` | The rig's approved ControlAnims: `<name>.controlanim.json` |
+| `skeletons/{skeleton}/exports/<name>/` | One engine export: `<name>.fbx`, `<name>.animproperties.json`, and `<name>.controlanim.json`, a copy of the ControlAnim it was made from. The skeleton export sits in `exports/` itself |
+| `sources/` | The asset's skeleton data brought in for a remap: mocap or an engine export as FBX, with a bone map when the skeleton has no markup |
+
+An animator's saves don't go into the rig's folders. They go to their own library outside the asset, `<projects root>\user\<login>\animlibrary\<asset id>\<rig>\`, and the rig's folders hold the approved set (mayadev's `docs/assets.md`, "Library").
 
 ## ControlAnim files
 
