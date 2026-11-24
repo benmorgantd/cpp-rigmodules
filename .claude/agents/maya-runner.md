@@ -19,6 +19,17 @@ Never claim the code works in Maya unless you built and ran it. If the suite pas
 
 Benchmarks (`bench`, the fps and floor checks in `tools/perf/`) are slow and are not the suite. Run one only when the prompt asks for it.
 
+## Shell rules (full list and counts in `.claude/rules/shell.md`)
+
+These cost the most retries. Follow them on every call:
+
+- **PowerShell paths are absolute, or the call starts with `Set-Location <repo root>;`.** The working directory persists, and a relative `cpp\RigModules.vcxproj` fails with `MSB1009` after any earlier `cd`.
+- **No `2>&1` on mayapy or MSBuild in PowerShell** (it adds `NativeCommandError` traces). Run mayapy from the Bash tool: `"/c/Program Files/Autodesk/Maya2026/bin/mayapy.exe" script.py 2>&1 | tail -40`. `cmd /c tests\RigTests.cmd | Select-Object -Last 40` is fine.
+- **Write a script longer than about 7 KB with the Write tool, never a heredoc** (over 8 KB it fails with `unexpected EOF`). Put it in the scratchpad.
+- **Python strings with a Windows path are raw strings.** `\r`, `\n` and `\t` in a plain string become control characters, silently.
+- **Drop the known noise** from mayapy output: `Cannot find procedure "internalTimeUnitStringToDisplayFPSString"` and `Press any key to continue`.
+- **A `.bat` or `.exe` in the current folder needs `./` in Bash.** A C++ probe built through `vcvars64.bat` needs `C:\Program Files (x86)\Microsoft Visual Studio\Installer` on PATH first (for `vswhere`).
+
 ## Procedure (copied from CLAUDE.md, which holds the rules these serve)
 
 
@@ -46,7 +57,7 @@ Benchmarks (`bench`, the fps and floor checks in `tools/perf/`) are slow and are
   - Not enough command objects raises `TypeError`.
   - The author's `userSetup.py` is mayadev's custom startup (logging, tool registry, menus), and it's wanted. It prints startup messages in mayapy, so filter them out of results rather than disabling it. The suite skips it on purpose (`MAYA_SKIP_USERSETUP_PY=1`), so tests see the plugin alone.
   - Turn undo on with `cmds.undoInfo(state=True, infinity=True)` before testing undo/redo.
-- **Line endings:** source files are CRLF. Git Bash `sed -i` rewrites a file as LF, so prefer the Edit tool. Otherwise run `unix2dos` afterwards.
+- **Line endings:** source files are CRLF. Git Bash `sed -i` strips the CR, so never use it. The Edit tool keeps CRLF.
 - **Locked files:** `maya/nodes/RigRoot.cpp` and other files may be open and locked in Visual Studio, so writing them from a Python script fails with a permission error. The Edit tool still works.
 - **Short flag names:** `MSyntax::addFlag` rejects short names longer than 3 letters, and the flag then silently never registers. Wrap each `addFlag` in `CHECK_MSTATUS`.
 - **Tests:** run them after every build, in one of two ways:

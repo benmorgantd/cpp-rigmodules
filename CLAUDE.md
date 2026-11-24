@@ -18,6 +18,7 @@ This file is what every session loads, so it holds only what every task needs. T
 
 - `.claude/rules/cpp.md` loads for `cpp/`: reuse, formatting, naming, Maya API rules.
 - `.claude/rules/mayadev-boundary.md` loads for commands, `python/` and the mayadev pages.
+- `.claude/rules/shell.md` loads always: Bash and PowerShell failures that recur (heredoc size, escapes, relative paths, `2>&1`).
 - `.claude/agents/`: `maya-runner` (build and suite; the full procedure is in its file), `docs-auditor` (the docs pass on a diff), `convention-reviewer` (the review checklist on a diff, not a bug hunt) and `mayadev-callsites` (the call-site search), `decisions-lookup` (what `design/decisions.md` says about a topic, without reading its 200 KB), `module-explorer` (one module's plugs, channels, affects and tests), `api-surface-diff` (public-name changes and their pose, animation and export impact), `limb-coupling-check` (what Limb does with a TwoBoneIk or Ribbon change), `compute-reviewer` (evaluation cost and `attributeAffects`), `module-scaffolder` (the mechanical files of a signed-off new module) and `mayadev-explorer` (questions about mayadev code). Agents start with a clean context, so give each a self-contained brief with the diff range or file list.
 - `.claude/skills/`: `asset-flowchart` (recreate or update the asset system flowchart artifact from the docs of both repos, with its generator).
 - `docs/source-map.md` (per-file reference), `design/README.md` (which design page to read and its state), `docs/architecture.md` are read on demand.
@@ -180,7 +181,8 @@ The full procedure (building, mayapy scripts, GUI Maya, crash windows, reading r
 - **Never** start Maya or write a `maya.exe -command` string by hand: use `python/mayalaunch` (D48). Set `MAYA_DISABLE_CER=1` for your own mayapy runs and end them with `maya.standalone.uninitialize()` then `os._exit(0)`.
 - **Build speed (D60):** compiles are parallel (`/MP`) and each of `core/` and `maya/` has a precompiled header (`CorePch.h`, `MayaPch.h`), force-included by the project. A full rebuild takes about 20 s. After editing a PCH header expect its folder to recompile.
 - **Copy the .mll** before loading it, because a loaded plugin locks the file.
-- **Line endings:** source files are CRLF. Prefer the Edit tool, since `sed -i` in Git Bash rewrites a file as LF.
+- **Line endings:** source files are CRLF. Use the Edit tool: it keeps CRLF, including on multi-line matches. Never `sed -i` (it strips the CR) and never a Python heredoc edit script (see `.claude/rules/shell.md`).
+- **Shell commands:** read `.claude/rules/shell.md` before writing a long heredoc, a Python edit script, or a PowerShell call to mayapy or MSBuild. It lists the failures that cost the most retries (a heredoc over about 7 KB fails; a hook in `.claude/settings.json` blocks it).
 - **Adding tests:** assign every new test file a tier in `TIERS` in `tests/run_tests.py`, follow `tests/README.md`, and write pose expectations by hand, never recorded from the rig.
 - Stop only the processes you started, by PID. Never kill `maya.exe` by name: the author's own Maya may be open.
 
