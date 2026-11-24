@@ -620,8 +620,8 @@ class KeyControls(PoseTestCase):
 
 
 class PoseBlend(PoseTestCase):
-    """loadRigPose with blend (D72): below 0 the pose's offset from rest comes off the reference, 0 to 1 is a lerp
-    from the reference to the pose, past 1 the pose's offset from rest is added again. Expectations are by hand."""
+    """loadRigPose with blend (D72): 0 to 1 is a lerp from the reference to the pose, past 1 the pose's offset from
+    rest is added again, and a negative weight is an error. Expectations are by hand."""
 
     pose_path = PoseFiles.pose_path
 
@@ -647,12 +647,11 @@ class PoseBlend(PoseTestCase):
         cmds.loadRigPose(ARM_L, file=path, blend=1)
         self.assertEqual(values(ARM_L, ["rotateY", "translateX"]), [30, 2])
 
-    def test_negative_blend_takes_the_poses_offset_from_rest_off(self):
-        path = self.save_pose(ARM_L, rotateY=30, scaleX=2)
+    def test_a_negative_blend_is_an_error_and_changes_nothing(self):
+        path = self.save_pose(ARM_L, rotateY=30)
         set_values(ARM_L, rotateY=10)
-        cmds.loadRigPose(ARM_L, file=path, blend=-1)
-        # rotateY: 10 - (30 - 0). scaleX: 1 - (2 - 1), its rest is 1.
-        self.assertEqual(values(ARM_L, ["rotateY", "scaleX"]), [-20, 0])
+        self.assertMayaError(lambda: cmds.loadRigPose(ARM_L, file=path, blend=-0.5), "from 0 up")
+        self.assertEqual(values(ARM_L, ["rotateY"]), [10])
 
     def test_blend_past_one_adds_more_of_the_poses_offset_from_rest(self):
         path = self.save_pose(ARM_L, rotateY=30, scaleX=2)
@@ -680,17 +679,18 @@ class PoseBlend(PoseTestCase):
 
     def test_an_enum_jumps_to_the_pose_at_one_half(self):
         path = self.save_pose(ARM_L, space=1)
-        for blend, expected in ((0.49, 0), (0.5, 1), (1.5, 1), (-1, 0)):
+        for blend, expected in ((0, 0), (0.49, 0), (0.5, 1), (1.5, 1)):
             cmds.setAttr(ARM_L + ".space", 0)
             cmds.loadRigPose(ARM_L, file=path, blend=blend)
             self.assertEqual(cmds.getAttr(ARM_L + ".space"), expected, blend)
 
     def test_results_are_clamped_to_the_channel_range(self):
-        add_channel(ARM_L, "squash", "mirrorCopy", attributeType="double", defaultValue=0, minValue=0, maxValue=1)
-        path = self.save_pose(ARM_L, squash=1)
-        cmds.loadRigPose(ARM_L, file=path, blend=1.5)
+        add_channel(ARM_L, "squash", "mirrorCopy", attributeType="double", defaultValue=0.5, minValue=0, maxValue=1)
+        high = self.save_pose(ARM_L, squash=1)
+        low = self.save_pose(ARM_L, squash=0)
+        cmds.loadRigPose(ARM_L, file=high, blend=1.5)   # 1 + 0.5 * (1 - 0.5) = 1.25
         self.assertEqual(values(ARM_L, ["squash"]), [1])
-        cmds.loadRigPose(ARM_L, file=path, blend=-1)
+        cmds.loadRigPose(ARM_L, file=low, blend=1.5)    # 0 + 0.5 * (0 - 0.5) = -0.25
         self.assertEqual(values(ARM_L, ["squash"]), [0])
 
     def test_an_angle_rest_is_in_ui_units(self):
@@ -701,16 +701,8 @@ class PoseBlend(PoseTestCase):
         cmds.setAttr(ARM_L + ".twist", 90)
         cmds.loadRigPose(ARM_L, file=path, blend=2)
         self.assertEqual(values(ARM_L, ["twist"]), [150])
-        cmds.loadRigPose(ARM_L, file=path, blend=-1, blendReference=self.reference_at_rest(ARM_L))
-        self.assertEqual(values(ARM_L, ["twist"]), [60])
         cmds.loadRigPose(ARM_L, file=path, blend=4)
         self.assertEqual(values(ARM_L, ["twist"]), [180])
-
-    def reference_at_rest(self, control):
-        cmds.zeroRigControls(control)
-        reference = self.pose_path("rest.json")
-        cmds.saveRigPose(control, file=reference)
-        return reference
 
     def test_a_selection_scope_blends_only_those_controls(self):
         set_values(ARM_R, rotateY=30)

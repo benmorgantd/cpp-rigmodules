@@ -61,10 +61,6 @@ double blendPoseValue(double ref, double pose, double rest, double t, bool stepp
 	{
 		return t < 0.5 ? ref : pose;
 	}
-	if (t <= 0.0)
-	{
-		return ref + t * (pose - rest);
-	}
 	if (t >= 1.0)
 	{
 		return pose + (t - 1.0) * (pose - rest);

@@ -330,16 +330,16 @@ MStatus LoadRigPoseCmd::doIt(const MArgList& args)
 		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kMirrorFlag, 0, isMirrored));
 	}
 
-	// Any finite weight is valid (D72): the results are clamped to each channel's range, and the UI sets the
-	// practical range.
+	// Any finite weight from 0 up is valid (D72): the results are clamped to each channel's range, and the UI sets
+	// the practical top.
 	const bool isBlended = argData.isFlagSet(kBlendFlag);
 	double blend = 1.0;
 	if (isBlended)
 	{
 		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kBlendFlag, 0, blend));
-		if (!std::isfinite(blend))
+		if (!std::isfinite(blend) || blend < 0.0)
 		{
-			MGlobal::displayError(MString(aCommandString) + ": the blend weight must be a finite number.");
+			MGlobal::displayError(MString(aCommandString) + ": the blend weight must be a finite number from 0 up.");
 			return MStatus::kFailure;
 		}
 	}

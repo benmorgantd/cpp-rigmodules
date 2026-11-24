@@ -1,16 +1,15 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// Pose blending (D72): moves a rig from a reference pose towards, past or away from a library pose by a weight t, on
-// pose data alone. All values are in the scene's UI units, like the pose file (PoseFile.h).
+// Pose blending (D72): moves a rig from a reference pose towards or past a library pose by a weight t >= 0, on pose
+// data alone. All values are in the scene's UI units, like the pose file (PoseFile.h).
 //
-//   t < 0        ref + t * (pose - rest)          -1 takes the pose's offset from rest off the reference
 //   0 <= t <= 1  ref + t * (pose - ref)           0 is the reference, 1 is exactly the pose
 //   t > 1        pose + (t - 1) * (pose - rest)   past 1 adds more of the pose's own offset from rest
 //
-// The three pieces meet at 0 and 1, so a slider never jumps. A stepped channel (bool, int, enum) can't take a value
-// in between: it is the reference below t = 0.5 and the pose from 0.5 up. Every result is clamped to the channel's
-// min and max.
+// The two pieces meet at 1, so a slider never jumps. A stepped channel (bool, int, enum) can't take a value in
+// between: it is the reference below t = 0.5 and the pose from 0.5 up. Every result is clamped to the channel's min
+// and max. A negative t is the caller's error (loadRigPose rejects it).
 
 #include "ControlChannels.h"
 #include "PoseFile.h"
