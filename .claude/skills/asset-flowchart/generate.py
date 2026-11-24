@@ -357,7 +357,7 @@ svg text { font-family: var(--f-body); fill: var(--fg); }
 <header>
   <div class="eyebrow">RigModules + mayadev · D29, D42, D54, D70</div>
   <h1>RigModules Asset Flow</h1>
-  <p class="lede">The files an asset holds, the commands and tools that move each one between disk and the Maya scene, and where poses, animation and clips go once they leave the rig. Drawn from the user docs on <code>main</code> of both repos (RigModules <code>__RM_SHA__</code>, mayadev <code>__MD_SHA__</code>).</p>
+  <p class="lede">The files an asset holds, the commands and tools that move each one between disk and the Maya scene, and where poses, animation and clips go once they leave the rig. Drawn from the docs at RigModules <code>__RM_SHA__</code> and mayadev <code>__MD_SHA__</code>.</p>
 </header>
 
 <div class="legend" aria-label="Legend">
