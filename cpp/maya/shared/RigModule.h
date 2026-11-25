@@ -81,6 +81,10 @@ struct RigModuleBuildResult
 
 	std::function<MStatus(RigModuleDagReparentArgs args)> dagParentCallback;
 
+	// For a module that follows another module's ik/fk blend (the ReverseFoot, D74): that module's name. Pass 2 connects the driver's
+	// RigAttr::IkFkBlend attribute to this module's, once every module exists. Empty for the others.
+	std::string blendDriver;
+
 	// Evaluates directly as a bool in conditional checks
 	explicit operator bool() const
 	{

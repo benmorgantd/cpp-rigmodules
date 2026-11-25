@@ -25,6 +25,7 @@
 #include <maya/MFnUnitAttribute.h>
 #include <maya/MMatrix.h>
 #include <maya/MPlug.h>
+#include <maya/MVector.h>
 
 MTypeId ReverseFootModuleNode::id(0x002194);
 std::array<MObject, 11> ReverseFootModuleNode::aChannels;
@@ -36,9 +37,19 @@ MObject ReverseFootModuleNode::aAnklePlugMatrix;
 MObject ReverseFootModuleNode::aAnklePlugRestMatrix;
 MObject ReverseFootModuleNode::aAnklePlugConnected;
 MObject ReverseFootModuleNode::aIkFkDriver;
+MObject ReverseFootModuleNode::aIkFkBlend;
+MObject ReverseFootModuleNode::aFkVisible;
+MObject ReverseFootModuleNode::aIkVisible;
 
 namespace
 {
+	// The toe FK control hides at blend 1 and the foot control at blend 0, the rule TwoBoneIk uses for its FK and IK controls. The foot's
+	// channels have nothing to move at blend 0: the Limb ignores ikTarget, and the toe is the FK toe.
+	bool isVisible(bool fk, double blend)
+	{
+		return fk ? blend < 1.0 : blend > 0.0;
+	}
+
 	// The 11 channels, in the order of ReverseFootModuleNode::aChannels: name, the FootSolve field it is, its rest in degrees, and whether
 	// a mirror negates it (D74 section 8). The member pointer is what ties a channel to its field, so reordering this table cannot swap
 	// two channels in the solve. Names are the animator's, public API.
@@ -142,11 +153,38 @@ MStatus ReverseFootModuleNode::initialize()
 	CHECK_MSTATUS_AND_RETURN_IT(tAttr.setStorable(true));
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkFkDriver));
 
-	// AFFECTS RELATIONSHIPS. Not declareControlAffects: it wires the inputs to the base outputSocketMatrix, which this module never writes.
-	// Each output is affected by exactly what its compute reads (the control by the control and the ik plug, the ankle socket by the ik
-	// plug, the channels and the pivots), and the ankle socket never sees the ankle plug: that is what lets the foot feed the Limb's
-	// ikTarget and take the Limb's end socket (blindSockets in makeInterface).
+	// The blend the foot follows: the driver's ikFkBlend is connected to it in pass 2. Not keyable and not in the channel box, and a connected
+	// attribute can't be set, so an animator reaches the blend only through the limb (one switch for one limb, D59 step 3).
+	aIkFkBlend = nAttr.create(RigAttr::IkFkBlend, RigAttr::IkFkBlend, MFnNumericData::kDouble, 1.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMin(0.0));
+	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMax(1.0));
+	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setKeyable(false));
+	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setChannelBox(false));
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkFkBlend));
+
+	// The outputs that drive the controls' visibility, a function of the blend alone.
+	for (MObject* pAttr : { &aFkVisible, &aIkVisible })
+	{
+		const char* name = pAttr == &aFkVisible ? RigAttr::FkVisible : RigAttr::IkVisible;
+		*pAttr = nAttr.create(name, name, MFnNumericData::kDouble, 1.0, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setWritable(false));
+		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(false));
+		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(*pAttr));
+	}
+
+	// AFFECTS RELATIONSHIPS. Not declareStandardAffects: it wires the inputs to every output, and each output here is affected by exactly what
+	// its compute reads. The ankle socket (stage 1) is affected by the ik plug, the channels and the pivots, and never by the ankle plug: that
+	// is what lets the foot feed the Limb's ikTarget and take the Limb's end socket (blindSockets in makeInterface). The controls' offsets and
+	// the toe (stage 2) read the ankle plug too.
+	const MObject oAnklePlug[] = { aAnklePlugMatrix, aAnklePlugRestMatrix, aAnklePlugConnected };
 	for (const MObject& oInput : { aControlMatrix, aControlRestWorld, aChildPlugParentMatrix, aChildPlugParentRestMatrix })
+	{
+		attributeAffects(oInput, aControlOPM);
+	}
+	for (const MObject& oInput : oAnklePlug)
 	{
 		attributeAffects(oInput, aControlOPM);
 	}
@@ -156,6 +194,15 @@ MStatus ReverseFootModuleNode::initialize()
 	{
 		attributeAffects(oInput, aAnkleSocketMatrix);
 	}
+	std::vector<MObject> oToeInputs(oAnkleInputs);
+	oToeInputs.insert(oToeInputs.end(), { aControlMatrix, aControlRestWorld, aIkFkBlend, oAnklePlug[0], oAnklePlug[1], oAnklePlug[2] });
+	for (const MObject& oInput : oToeInputs)
+	{
+		attributeAffects(oInput, aJointOPM);
+		attributeAffects(oInput, aOutputSocketMatrix);
+	}
+	attributeAffects(aIkFkBlend, aFkVisible);
+	attributeAffects(aIkFkBlend, aIkVisible);
 	return MStatus::kSuccess;
 }
 
@@ -170,20 +217,68 @@ MStatus ReverseFootModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	{
 		return computeAnkle(plug, data);
 	}
+	if (oOutputAttr == aJointOPM || oOutputAttr == aOutputSocketMatrix)
+	{
+		return computeToe(plug, data);
+	}
+	if (oOutputAttr == aFkVisible || oOutputAttr == aIkVisible)
+	{
+		const bool isVisibleNow = isVisible(oOutputAttr == aFkVisible, data.inputValue(aIkFkBlend).asDouble());
+		data.outputValue(oOutputAttr).setDouble(isVisibleNow ? 1.0 : 0.0);
+		data.setClean(plug);
+		return MStatus::kSuccess;
+	}
 	return MStatus::kUnknownParameter;
 }
 
-// Where the foot control sits: its rest carried by the handle's motion, with its own local on top. Reads the control and the ik plug only.
+bool ReverseFootModuleNode::readPivots(MDataBlock& data, std::array<FootSolve::Pivot, ReverseFootSlot::PivotCap>& outPivots, std::size_t& outCount)
+{
+	MStatus status;
+	outCount = 0;
+	MArrayDataHandle hRoles = data.inputArrayValue(aPivotRoles, &status);
+	CHECK_MSTATUS_AND_RETURN(status, false);
+	MArrayDataHandle hPositions = data.inputArrayValue(aPivotPositions, &status);
+	CHECK_MSTATUS_AND_RETURN(status, false);
+	bool isWhole = hRoles.elementCount() == hPositions.elementCount() && hRoles.elementCount() <= outPivots.size();
+	for (unsigned int i = 0; isWhole && i < hRoles.elementCount(); ++i)
+	{
+		isWhole = hRoles.jumpToElement(i) == MStatus::kSuccess && hPositions.jumpToElement(i) == MStatus::kSuccess;
+		if (isWhole)
+		{
+			const MMatrix mPosition = hPositions.inputValue().asMatrix();
+			outPivots[outCount].role = static_cast<FootSolve::Role>(hRoles.inputValue().asInt());
+			outPivots[outCount].position = { mPosition(3, 0), mPosition(3, 1), mPosition(3, 2) };
+			++outCount;
+		}
+	}
+	return isWhole && outCount > 0;
+}
+
+FootSolve::Channels ReverseFootModuleNode::readChannels(MDataBlock& data)
+{
+	FootSolve::Channels channels;
+	for (std::size_t k = 0; k < kChannels.size(); ++k)
+	{
+		channels.*(kChannels[k].field) = VectorMath::toDegrees(data.inputValue(aChannels[k]).asDouble());
+	}
+	return channels;
+}
+
+// Where the controls sit. The foot control is its rest carried by the handle's motion (the ik plug), the toe FK control its rest carried by
+// the actual ankle's motion (the ankle plug), each with its own local on top. Reads the controls, the ik plug and the ankle plug only.
 MStatus ReverseFootModuleNode::computeControl(const MPlug& plug, MDataBlock& data)
 {
 	MStatus status;
 	MArrayDataHandle hControlInputData = data.inputArrayValue(aControlInputData, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MMatrix mControlLocal = MMatrix::identity;
-	MMatrix mControlRest = MMatrix::identity;
-	if (readControlInput(hControlInputData, ReverseFootSlot::Foot, mControlLocal, mControlRest) != MStatus::kSuccess)
+	MMatrix mFootLocal = MMatrix::identity;
+	MMatrix mFootRest = MMatrix::identity;
+	MMatrix mToeLocal = MMatrix::identity;
+	MMatrix mToeRest = MMatrix::identity;
+	if (readControlInput(hControlInputData, ReverseFootSlot::Foot, mFootLocal, mFootRest) != MStatus::kSuccess
+		|| readControlInput(hControlInputData, ReverseFootSlot::ToeFk, mToeLocal, mToeRest) != MStatus::kSuccess)
 	{
-		// Not built yet: the build creates the control after the node.
+		// Not built yet: the build creates the controls after the node.
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
@@ -191,11 +286,14 @@ MStatus ReverseFootModuleNode::computeControl(const MPlug& plug, MDataBlock& dat
 	MArrayDataHandle hChildPlugs = data.inputArrayValue(aChildPlugs, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	const MMatrix mHandleDelta = readChildPlugParentDelta(hChildPlugs, ReverseFootSlot::IkPlug);
-	const ControlSolveStep step = solveControlStep(mControlLocal, mControlRest, mHandleDelta);
+	const MMatrix mAnkleDelta = data.inputValue(aAnklePlugConnected).asBool()
+		? MathUtils::computeDeltaFromRest(data.inputValue(aAnklePlugRestMatrix).asMatrix(), data.inputValue(aAnklePlugMatrix).asMatrix())
+		: MMatrix::identity;
 
 	MArrayDataHandle hControlOPM = data.outputArrayValue(aControlOPM, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	writeOutputMatrix(hControlOPM, ReverseFootSlot::Foot, step.mOPM);
+	writeOutputMatrix(hControlOPM, ReverseFootSlot::Foot, solveControlStep(mFootLocal, mFootRest, mHandleDelta).mOPM);
+	writeOutputMatrix(hControlOPM, ReverseFootSlot::ToeFk, solveControlStep(mToeLocal, mToeRest, mAnkleDelta).mOPM);
 	commitOutput(data, plug.node(), aControlOPM, hControlOPM);
 	data.setClean(plug);
 	return MStatus::kSuccess;
@@ -209,36 +307,16 @@ MStatus ReverseFootModuleNode::computeAnkle(const MPlug& plug, MDataBlock& data)
 {
 	MStatus status;
 
-	MArrayDataHandle hRoles = data.inputArrayValue(aPivotRoles, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MArrayDataHandle hPositions = data.inputArrayValue(aPivotPositions, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
 	std::array<FootSolve::Pivot, ReverseFootSlot::PivotCap> pivots;
 	std::size_t pivotCount = 0;
-	bool isWhole = hRoles.elementCount() == hPositions.elementCount() && hRoles.elementCount() <= pivots.size();
-	for (unsigned int i = 0; isWhole && i < hRoles.elementCount(); ++i)
-	{
-		isWhole = hRoles.jumpToElement(i) == MStatus::kSuccess && hPositions.jumpToElement(i) == MStatus::kSuccess;
-		if (isWhole)
-		{
-			const MMatrix mPosition = hPositions.inputValue().asMatrix();
-			pivots[pivotCount].role = static_cast<FootSolve::Role>(hRoles.inputValue().asInt());
-			pivots[pivotCount].position = { mPosition(3, 0), mPosition(3, 1), mPosition(3, 2) };
-			++pivotCount;
-		}
-	}
-	if (!isWhole || pivotCount == 0)
+	if (!readPivots(data, pivots, pivotCount))
 	{
 		// Not built yet, or the roles and the positions do not pair up: the foot is left unbuilt rather than solved from half a chain.
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
 
-	FootSolve::Channels channels;
-	for (std::size_t k = 0; k < kChannels.size(); ++k)
-	{
-		channels.*(kChannels[k].field) = VectorMath::toDegrees(data.inputValue(aChannels[k]).asDouble());
-	}
+	const FootSolve::Channels channels = readChannels(data);
 	const std::span<const FootSolve::Pivot> chain(pivots.data(), pivotCount);
 	const FootSolve::Frame frame = FootSolve::footFrame(chain);
 	const MMatrix mFoot = MathUtils::toMMatrix(FootSolve::ankleMotion(chain, frame, channels));
@@ -257,10 +335,104 @@ MStatus ReverseFootModuleNode::computeAnkle(const MPlug& plug, MDataBlock& data)
 	return MStatus::kSuccess;
 }
 
+// Stage 2: the toe and toe tip joints, their sockets and the pivot sockets (design/reverse-foot.md section 7). Reads the ankle plug, the ik
+// plug, the channels, the pivots, the toe FK control and the blend. Two toes are made and blended by ikFkBlend with MathUtils::blendMatrices,
+// the function TwoBoneIk blends its joints with:
+//  IK: the toe's rest carried by the toe pivot's motion (the pivots before it, then toeTap) and the handle's motion, and then pulled toward
+//      the ankle as it really is, so it keeps the ankle-to-toe distance of the rest. A limb that reaches puts the actual ankle exactly where the
+//      foot wanted it, the toe is exactly where the motion put it and the pull changes nothing. A limb that can't reach keeps the bone length
+//      and aims at where the toe pivot is.
+//  FK: the toe's rest carried by the actual ankle's motion since rest, with the toe FK control's local on top.
+// The toe tip rides the blended toe rigidly.
+MStatus ReverseFootModuleNode::computeToe(const MPlug& plug, MDataBlock& data)
+{
+	MStatus status;
+
+	std::array<FootSolve::Pivot, ReverseFootSlot::PivotCap> pivots;
+	std::size_t pivotCount = 0;
+	MArrayDataHandle hJointRest = data.inputArrayValue(aJointRestWorld, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MArrayDataHandle hControlInputData = data.inputArrayValue(aControlInputData, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MMatrix mToeFkLocal = MMatrix::identity;
+	MMatrix mToeFkRest = MMatrix::identity;
+	if (!readPivots(data, pivots, pivotCount)
+		|| hJointRest.jumpToElement(ReverseFootSlot::ToeJoint) != MStatus::kSuccess
+		|| readControlInput(hControlInputData, ReverseFootSlot::ToeFk, mToeFkLocal, mToeFkRest) != MStatus::kSuccess)
+	{
+		// Not built yet: the build stores the pivots, the joints' rests and the controls after it creates the node.
+		data.setClean(plug);
+		return MStatus::kSuccess;
+	}
+	const MMatrix mToeRest = hJointRest.inputValue().asMatrix();
+	if (hJointRest.jumpToElement(ReverseFootSlot::ToeTipJoint) != MStatus::kSuccess)
+	{
+		data.setClean(plug);
+		return MStatus::kSuccess;
+	}
+	const MMatrix mToeTipRest = hJointRest.inputValue().asMatrix();
+
+	const FootSolve::Channels channels = readChannels(data);
+	const std::span<const FootSolve::Pivot> chain(pivots.data(), pivotCount);
+	const FootSolve::Frame frame = FootSolve::footFrame(chain);
+
+	MArrayDataHandle hChildPlugs = data.inputArrayValue(aChildPlugs, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	const MMatrix mHandleDelta = readChildPlugParentDelta(hChildPlugs, ReverseFootSlot::IkPlug);
+	const MMatrix mAnkleRest = data.inputValue(aAnkleRestWorld).asMatrix();
+	const MMatrix mAnkleDelta = data.inputValue(aAnklePlugConnected).asBool()
+		? MathUtils::computeDeltaFromRest(data.inputValue(aAnklePlugRestMatrix).asMatrix(), data.inputValue(aAnklePlugMatrix).asMatrix())
+		: MMatrix::identity;
+
+	// IK. A foot with no toe pivot has the toe ride the ankle's motion, with no tap.
+	const int toeIndex = FootSolve::findPivot(chain, FootSolve::Role::Toe);
+	const MMatrix mToeMotion = MathUtils::toMMatrix(toeIndex >= 0
+		? FootSolve::toeMotion(chain, static_cast<std::size_t>(toeIndex), frame, channels)
+		: FootSolve::ankleMotion(chain, frame, channels));
+	MMatrix mIkToe = mToeRest * mToeMotion * mHandleDelta;
+	const MVector vRestBone(mToeRest(3, 0) - mAnkleRest(3, 0), mToeRest(3, 1) - mAnkleRest(3, 1), mToeRest(3, 2) - mAnkleRest(3, 2));
+	const MMatrix mActualAnkle = mAnkleRest * mAnkleDelta;
+	const MVector vActualAnkle(mActualAnkle(3, 0), mActualAnkle(3, 1), mActualAnkle(3, 2));
+	const MVector vToAim = MVector(mIkToe(3, 0), mIkToe(3, 1), mIkToe(3, 2)) - vActualAnkle;
+	if (vToAim.length() > VectorMath::kTiny)
+	{
+		const MVector vPulled = vActualAnkle + vToAim.normal() * vRestBone.length();
+		mIkToe(3, 0) = vPulled.x;
+		mIkToe(3, 1) = vPulled.y;
+		mIkToe(3, 2) = vPulled.z;
+	}
+
+	// FK, then the blend and the toe tip.
+	const MMatrix mFkToe = solveControlStep(mToeFkLocal, mToeRest, mAnkleDelta).mWorld;
+	const double blend = std::clamp(data.inputValue(aIkFkBlend).asDouble(), 0.0, 1.0);
+	const MMatrix mToe = MathUtils::blendMatrices(mFkToe, mIkToe, blend);
+	const MMatrix mToeTip = mToeTipRest * mToeRest.inverse() * mToe;
+
+	MArrayDataHandle hJointOPM = data.outputArrayValue(aJointOPM, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MArrayDataHandle hSocket = data.outputArrayValue(aOutputSocketMatrix, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	writeOutputMatrix(hJointOPM, ReverseFootSlot::ToeJoint, mToe);
+	writeOutputMatrix(hJointOPM, ReverseFootSlot::ToeTipJoint, mToeTip);
+	writeOutputMatrix(hSocket, ReverseFootSlot::ToeSocket, mToe);
+	writeOutputMatrix(hSocket, ReverseFootSlot::ToeTipSocket, mToeTip);
+	// A pivot's world: where its marker sits, turned by the pivots up to and including its own, and carried by the handle.
+	for (std::size_t i = 0; i < pivotCount; ++i)
+	{
+		const MMatrix mPivot = MathUtils::translationMatrix(pivots[i].position) * MathUtils::toMMatrix(FootSolve::foldChain(chain, i + 1, frame, channels)) * mHandleDelta;
+		writeOutputMatrix(hSocket, ReverseFootSlot::FirstPivotSocket + static_cast<unsigned int>(i), mPivot);
+	}
+	commitOutput(data, plug.node(), aJointOPM, hJointOPM);
+	commitOutput(data, plug.node(), aOutputSocketMatrix, hSocket);
+	data.setClean(plug);
+	return MStatus::kSuccess;
+}
+
 ModuleInverseResult ReverseFootModuleNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput&)
 {
-	// The one control is derived and locked, so the joints give it nothing: it keeps the sidecar's channels or the rest, which the driver
-	// writes from fallbackLocal and the sidecar. The ankle socket feeds a Limb's ikTarget, which the sweep does not follow.
+	// The foot control is derived and locked, and the toe FK control is rotate only. The joints give neither a value yet: they keep the
+	// sidecar's channels or the rest, which the driver writes from fallbackLocal and the sidecar. The ankle socket feeds a Limb's ikTarget,
+	// which the sweep does not follow. Solving footRoll, bank, toeTap and the toe FK control from the joints is phase 5.
 	ModuleInverseResult result;
 	result.controlLocal.resize(context.controlRestWorld.size());
 	result.socketWorld.assign(context.controlRestWorld.size(), MMatrix::identity);
@@ -268,7 +440,13 @@ ModuleInverseResult ReverseFootModuleNode::inverse(const ModuleInverseContext& c
 	return result;
 }
 
-ModuleInterface ReverseFootModuleNode::makeInterface()
+std::string ReverseFootModuleNode::pivotSocketName(FootSolve::Role role)
+{
+	const std::string name = FootSolve::roleName(role);
+	return role == FootSolve::Role::Toe || role == FootSolve::Role::ToeTip ? name + PlugAndSocketNames::PivotSuffix : name;
+}
+
+ModuleInterface ReverseFootModuleNode::makeInterface(const std::vector<FootSolve::Pivot>& chain)
 {
 	ModuleInterface moduleInterface;
 	// Neither plug has a control, so a template constraint on either is an error (author, 2026-11-24). The ankle plug takes the Limb's end
@@ -276,6 +454,12 @@ ModuleInterface ReverseFootModuleNode::makeInterface()
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Ik, false, false });
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Ankle, false, false, "", "", false, { PlugAndSocketNames::Ankle } });
 	moduleInterface.sockets.push_back(PlugAndSocketNames::Ankle);
+	moduleInterface.sockets.push_back(PlugAndSocketNames::Toe);
+	moduleInterface.sockets.push_back(PlugAndSocketNames::ToeTip);
+	for (const FootSolve::Pivot& pivot : chain)
+	{
+		moduleInterface.sockets.push_back(pivotSocketName(pivot.role));
+	}
 	return moduleInterface;
 }
 
@@ -312,12 +496,33 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	status = wireControl(oModule, oControl, ReverseFootSlot::Foot, plan.mFootControlRest, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
 
+	// The toe FK control (phase 4): rotate only, at the toe's rest, carried by the actual ankle. It is named from the toe's usage and FK, so it
+	// does not take the toe joint's own name, and its joints are the module's: the control has no joint of its own.
+	const MObject oToeFk = RigControlNode::createRigControl(dagMod, MString(plan.toeFkUsage.c_str()), shapeType, side, plan.toeFkMarkup, MEulerRotation::kXYZ);
+	status = wireControl(oModule, oToeFk, ReverseFootSlot::ToeFk, plan.mToeJointRests[0], dagMod);
+	CHECK_MSTATUS_AND_RETURN(status, result);
+
 	// 3. The ankle socket (no DAG transform: nothing hangs from it by DAG) and the two plugs, neither with a control.
 	RigModuleSocketInfo ankleSocket;
 	ankleSocket.mRestWorld = plan.mAnkleRestWorld;
 	ankleSocket.outputIndex = ReverseFootSlot::AnkleSocket;
 	result.parentSockets[PlugAndSocketNames::Ankle] = ankleSocket;
 	DagPlugAndSocketUtils::setParentSocketNames(oModule, ReverseFootSlot::AnkleSocket, { PlugAndSocketNames::Ankle }, dagMod);
+	// The solved toe joints and the pivots, on the base outputSocketMatrix from index 1. They carry worlds and have no DAG transform either.
+	const auto addSocket = [&](const std::string& name, unsigned int index, const MMatrix& mRestWorld)
+	{
+		RigModuleSocketInfo socket;
+		socket.mRestWorld = mRestWorld;
+		socket.outputIndex = index;
+		result.parentSockets[name] = socket;
+		DagPlugAndSocketUtils::setParentSocketNames(oModule, index, { name }, dagMod);
+	};
+	addSocket(PlugAndSocketNames::Toe, ReverseFootSlot::ToeSocket, plan.mToeJointRests[0]);
+	addSocket(PlugAndSocketNames::ToeTip, ReverseFootSlot::ToeTipSocket, plan.mToeJointRests[1]);
+	for (std::size_t i = 0; i < plan.chain.size(); ++i)
+	{
+		addSocket(pivotSocketName(plan.chain[i].role), ReverseFootSlot::FirstPivotSocket + static_cast<unsigned int>(i), MathUtils::translationMatrix(plan.chain[i].position));
+	}
 	result.childPlugs[PlugAndSocketNames::Ik] = RigModuleChildPlugInfo{ MObject::kNullObj, ReverseFootSlot::IkPlug };
 	DagPlugAndSocketUtils::setChildPlugName(oModule, ReverseFootSlot::IkPlug, PlugAndSocketNames::Ik, dagMod);
 	result.childPlugs[PlugAndSocketNames::Ankle] = RigModuleChildPlugInfo{ MObject::kNullObj, ReverseFootSlot::AnklePlug };
@@ -341,19 +546,25 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 		status = dagMod.connect(pControlAttr, MPlug(oModule, aChannels[k]));
 		CHECK_MSTATUS_AND_RETURN(status, result);
 	}
-	// The control carries channels only: its transform is locked and hidden.
+	// The foot control carries channels only: its transform is locked and hidden. The toe FK control turns and nothing else.
 	status = DagUtils::queueLockAndHideTransform(oControl, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
+	status = DagUtils::queueLockAndHideTransform(oToeFk, dagMod, { "rx", "ry", "rz" });
+	CHECK_MSTATUS_AND_RETURN(status, result);
 
-	// The claimed toe joints are not driven yet. Freeze each at its rest with nothing inherited, which is what wiring it does first.
-	for (std::size_t i = 0; i < 2; ++i)
+	// The blend decides which control is visible: the toe FK control below blend 1, the foot control above blend 0.
+	status = dagMod.connect(MPlug(oModule, aFkVisible), MPlug(oToeFk, MPxTransform::visibility));
+	CHECK_MSTATUS_AND_RETURN(status, result);
+	status = dagMod.connect(MPlug(oModule, aIkVisible), MPlug(oControl, MPxTransform::visibility));
+	CHECK_MSTATUS_AND_RETURN(status, result);
+
+	// The toe and toe tip are the module's: it drives their offset parent matrices.
+	for (unsigned int i = 0; i < 2; ++i)
 	{
-		MObject oToeJoint = plan.oToeJoints[i];
-		DagUtils::setInheritsTransform(oToeJoint, false, dagMod);
-		DagUtils::setSegmentScaleCompensate(oToeJoint, false, dagMod);
-		status = DagUtils::bakeJointTransformsToOPM(oToeJoint, plan.mToeJointRests[i], dagMod);
+		status = wireJoint(oModule, plan.oToeJoints[i], i, plan.mToeJointRests[i], dagMod);
 		CHECK_MSTATUS_AND_RETURN(status, result);
 	}
+	result.blendDriver = plan.ikFkDriver;
 
 	// 5. Network
 	if (!oRigRoot.isNull())
@@ -462,6 +673,14 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 		ctx.report.addError(argsPath + ".controlName", "'" + footArgs.controlName + "' must be camelCase, with an optional _NN: it names the foot control");
 		valid = false;
 	}
+	// The toe FK control is named from the toe's usage and FK ("toe" gives "toeFK"), so it is a camelCase usage of its own.
+	plan.toeFkUsage = footArgs.joints[1].usage + "FK";
+	NamingConvention::Name toeFkName;
+	if (!NamingConvention::fromUsage(plan.toeFkUsage, ctx.moduleData.side, NamingConvention::Kind::Control, toeFkName))
+	{
+		ctx.report.addError(argsPath + ".joints", "the toe's usage '" + footArgs.joints[1].usage + "' with FK ('" + plan.toeFkUsage + "') must be camelCase: it names the toe FK control");
+		valid = false;
+	}
 	// A mirrored foot follows the other side's limb (D28). The selectors' sides were swapped when the template expanded.
 	plan.ikFkDriver = footArgs.ikFkDriver;
 	if (ctx.moduleData.isMirror())
@@ -484,8 +703,13 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 	plan.controlUsage = footArgs.controlName;
 	plan.controlMarkup = makeControlMarkup(ctx.moduleData.side, footArgs.controlName);
 
-	outPlan.moduleInterface = makeInterface();
+	plan.toeFkMarkup = makeControlMarkup(ctx.moduleData.side, plan.toeFkUsage);
+
+	outPlan.moduleInterface = makeInterface(plan.chain);
 	outPlan.moduleInterface.controls.push_back(plan.controlMarkup);
+	outPlan.moduleInterface.controls.push_back(plan.toeFkMarkup);
+	// The foot follows the blend of the module it hangs from, which validateBlendDrivers checks.
+	outPlan.moduleInterface.blendDriver = plan.ikFkDriver;
 
 	const MString moduleName = ctx.moduleData.name.c_str();
 	const Side side = getSideFromString(ctx.moduleData.side);

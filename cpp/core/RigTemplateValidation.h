@@ -56,6 +56,11 @@ struct ModuleInterface
 	std::vector<ModulePlugInfo> childPlugs;
 	std::vector<std::string> sockets;
 	std::vector<ControlMarkup> controls;   // One per control the module creates, in creation order
+	// The module's attribute that carries its ik/fk blend, which another module can follow (TwoBoneIk and Limb: "ikFkBlend"), or empty for a
+	// module with none (D74). The default is no blend to follow.
+	std::string blendSource;
+	// For a module that follows another module's blend (the ReverseFoot): the name of that module, or empty. validateBlendDrivers checks it.
+	std::string blendDriver;
 
 	const ModulePlugInfo* findChildPlug(const std::string& name) const;
 	bool hasSocket(const std::string& name) const;
@@ -119,6 +124,11 @@ namespace RigTemplateValidation
 	// Every distinct "module.socket" the template takes from its parent rig (parentStructure values and constraint
 	// drivers), sorted, without the prefix. Empty for a template that is not an attachment.
 	std::vector<std::string> parentSocketIds(const RigRootData& rigData);
+
+	// A module that follows another's blend (ModuleInterface::blendDriver, D74) needs: that module to be in the template, to have a blend to
+	// follow (ModuleInterface::blendSource), and to be the module every child plug of the follower hangs from, so the foot follows the limb
+	// it stands on. A driver that failed its own plan step is skipped, since that error is already reported.
+	void validateBlendDrivers(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report);
 
 	// (side, usage) must be unique across every control in the rig, because shape files and pose data key on it.
 	// Joint markup is already unique, so this only fails when a joint's usage matches a layout control's (layout_N).

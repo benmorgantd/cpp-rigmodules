@@ -17,19 +17,21 @@
 #include <maya/MString.h>
 #include <maya/MTypeId.h>
 
-// The ReverseFoot (D74, design/reverse-foot.md): foot roll, pivots and bank as channels on one control, on top of a Limb.
+// The ReverseFoot (D74, design/reverse-foot.md): foot roll, pivots and bank as channels on one control, an FK toe, on top of a Limb.
 //
-// COUPLED TO Limb (D62, design/limb.md section 8): the foot hangs from a Limb's ik and end sockets and feeds its ikTarget. A change to
-// the Limb's blend, sockets, ikTarget or inverse changes the foot, and a change here changes where the Limb's end joint reaches.
+// COUPLED TO Limb (D62, design/limb.md section 8): the foot hangs from a Limb's ik and end sockets, feeds its ikTarget and follows its
+// ikFkBlend. A change to the Limb's blend, sockets, ikTarget or inverse changes the foot, and a change here changes where the Limb's end joint
+// reaches.
 //
-// Stage 1 (built): the foot control and its channels, the ik child plug, and the ankle socket, the IK ankle target the Limb's ikTarget
-// takes. Stage 2 (the toe and toe tip joints, the toe FK control, the blend, the visibility output) is not built yet, so the module
-// claims the toe and toe tip joints and does not drive them.
-//
-// Two stages, two attribute groups (D62 phase 4): Maya orders the graph by attribute, and a socket and a plug on one attribute is a loop
-// in the legacy DG. The ik plug is childPlugs[0], like every plug. The ankle plug is three inputs of its own and the ankle socket an
-// output array of its own, the way a Limb's ikTarget and handle sockets are, so the ankle socket does not see the ankle plug.
-class ReverseFootModuleNode : public RigModuleWithControlsNode<ReverseFootModuleNode>
+// Two stages, in separate attribute groups (D62 phase 4): Maya orders the graph by attribute, and a socket and a plug on one attribute is a loop
+// in the legacy DG.
+//  Stage 1 reads the ik plug (childPlugs[0], the Limb's ik socket), the channels and the pivots, and writes the ankle socket, the IK ankle
+//  target the Limb's ikTarget takes. It never reads the ankle plug.
+//  Stage 2 reads the ankle plug (three inputs of its own, the Limb's end socket: the ankle as it really is), the ik plug, the channels, the
+//  pivots, the toe FK control and the blend, and writes the toe and toe tip joints, their sockets, the pivot sockets and the foot control's and
+//  toe FK control's offsets. The ankle socket is an output array of its own (ankleSocketMatrix), so it does not see the ankle plug.
+// The module drives the toe and toe tip. The ankle joint is the Limb's: the foot only reads it.
+class ReverseFootModuleNode : public RigModuleWithJointsNode<ReverseFootModuleNode>
 {
 public:
 	ReverseFootModuleNode();
@@ -48,10 +50,13 @@ public:
 	static MObject aPivotPositions;     // array of matrix: the translation row is the pivot's rest position
 	static MObject aAnkleRestWorld;     // the ankle joint's rest world, which the ankle socket carries
 	static MObject aAnkleSocketMatrix;  // output array, element 0 is the ankle socket
-	static MObject aAnklePlugMatrix;    // the ankle child plug: the ankle as it is (phase 4 reads it)
+	static MObject aAnklePlugMatrix;    // the ankle child plug: the ankle as it is
 	static MObject aAnklePlugRestMatrix;
 	static MObject aAnklePlugConnected;
-	static MObject aIkFkDriver;         // the module id the blend follows (phase 4 connects it)
+	static MObject aIkFkDriver;         // the module id the blend follows
+	static MObject aIkFkBlend;          // 0 is FK and 1 is IK. Connected from the driver's ikFkBlend in pass 2, never keyed
+	static MObject aFkVisible;          // 1 below blend 1: the toe FK control is visible
+	static MObject aIkVisible;          // 1 above blend 0: the foot control is visible
 
 public:
 	// The foot's input for one build, from the plan step.
@@ -59,13 +64,14 @@ public:
 	{
 		std::vector<FootSolve::Pivot> chain;   // in template order, root first
 		MMatrix mAnkleRestWorld;
-		// The toe and toe tip joints the foot claims. Stage 1 does not drive them: createModule only freezes each at its rest, so it keeps
-		// its place with nothing inherited, and stage 2 wires them to the module's joint outputs.
+		// The toe and toe tip joints the foot drives, and their rests.
 		MObject oToeJoints[2];
 		MMatrix mToeJointRests[2];
 		MMatrix mFootControlRest;              // world aligned, at the ball pivot
 		std::string controlUsage;              // also the control's base name
 		ControlMarkup controlMarkup;
+		std::string toeFkUsage;                // the toe's usage and FK, also the toe FK control's base name
+		ControlMarkup toeFkMarkup;
 		std::string ikFkDriver;
 	};
 
@@ -77,15 +83,23 @@ public:
 		MObject& oRigRoot,
 		MDagModifier& dagMod);
 	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
-	// The foot's control is derived and locked, so the joints give it nothing: it takes the sidecar's channels and the rest. The match with
-	// a raised foot is phase 5 (design/reverse-foot.md section 10).
+	// The foot's controls are derived and locked, or rotate only, so the joints give them nothing yet: they take the sidecar's channels and
+	// the rest. The solve from the joints and the match with a raised foot are phase 5 (design/reverse-foot.md section 10).
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
 
-	static ModuleInterface makeInterface();
+	// The interface for a chain of pivots: the ik and ankle plugs, and the sockets ankle, toe, toeTip and one per pivot. Names, not rests.
+	static ModuleInterface makeInterface(const std::vector<FootSolve::Pivot>& chain);
+
+	// The socket a pivot's world is on: its role, and for the roles toe and toeTip (which name the bind joints' sockets) the role and Pivot.
+	static std::string pivotSocketName(FootSolve::Role role);
 
 private:
 	MStatus computeControl(const MPlug& plug, MDataBlock& data);
 	MStatus computeAnkle(const MPlug& plug, MDataBlock& data);
+	MStatus computeToe(const MPlug& plug, MDataBlock& data);
+	// The pivots from their stored arrays. False when the roles and positions do not pair up or there are none (not built yet).
+	static bool readPivots(MDataBlock& data, std::array<FootSolve::Pivot, ReverseFootSlot::PivotCap>& outPivots, std::size_t& outCount);
+	static FootSolve::Channels readChannels(MDataBlock& data);
 };
 
 // The module's arguments (design/reverse-foot.md section 5). Field names are the template keys the macro maps.

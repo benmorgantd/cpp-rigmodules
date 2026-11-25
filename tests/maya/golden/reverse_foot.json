@@ -17,7 +17,7 @@
       },
       "foot_00_L_MOD": {
         "type": "reverseFootModule",
-        "sockets": [["ankle"]],
+        "sockets": [["ankle"], ["toe"], ["toeTip"], ["heel"], ["ball"], ["bankOut"], ["bankIn"], ["toeTipPivot"], ["toePivot"]],
         "childPlugs": ["ik"]
       },
       "layout_00_M_MOD": {
@@ -123,6 +123,10 @@
       "lowerArm_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Left", "lowerArm"]
+      },
+      "toeFK_00_L_CTRL": {
+        "keyable": ["visibility", "rotateX", "rotateY", "rotateZ"],
+        "markup": ["Left", "toeFK"]
       },
       "upperArm_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],

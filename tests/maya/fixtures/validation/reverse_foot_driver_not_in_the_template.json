@@ -1,0 +1,17 @@
+{
+  "description": "ikFkDriver must be a module of the template",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/ikFkDriver",
+      "value": "nothing_00_L_MOD"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "'nothing_00_L_MOD' is not a module in the template"
+    }
+  ],
+  "markers": "reverse_foot"
+}

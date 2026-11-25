@@ -1,0 +1,17 @@
+{
+  "description": "The foot follows the blend of the module it hangs from, so every child plug must hang from the driver: the ankle plug on the layout is an error",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "set": "/rigModules/1/parentStructure/ankle",
+      "value": "layout_00_M_MOD.end"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "the child plug 'ankle' hangs from 'layout_00_M_MOD.end'"
+    }
+  ],
+  "markers": "reverse_foot"
+}

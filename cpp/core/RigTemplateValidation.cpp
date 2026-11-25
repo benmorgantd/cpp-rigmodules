@@ -745,6 +745,55 @@ namespace RigTemplateValidation
 		return std::vector<std::string>(ids.begin(), ids.end());
 	}
 
+	void validateBlendDrivers(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report)
+	{
+		for (std::size_t i = 0; i < rigData.rigModules.size(); ++i)
+		{
+			const RigModuleData& module = rigData.rigModules[i];
+			const auto follower = interfaces.find(module.name);
+			if (follower == interfaces.end() || follower->second.blendDriver.empty())
+			{
+				continue;
+			}
+			const std::string& driverName = follower->second.blendDriver;
+			const std::string where = modulePath(i, module) + "." + TemplateKey::ModuleArgs + ".ikFkDriver";
+
+			const bool isInTemplate = std::any_of(rigData.rigModules.begin(), rigData.rigModules.end(), [&driverName](const RigModuleData& other)
+			{
+				return other.name == driverName;
+			});
+			if (!isInTemplate)
+			{
+				report.addError(where, "'" + driverName + "' is not a module in the template");
+				continue;
+			}
+			const auto driver = interfaces.find(driverName);
+			if (driver == interfaces.end())
+			{
+				continue;   // failed planning, already reported
+			}
+			if (driver->second.blendSource.empty())
+			{
+				report.addError(where, "'" + driverName + "' has no ik/fk blend to follow: it must be a Limb or a TwoBoneIk");
+				continue;
+			}
+
+			// The follower stands on the driver: each of its child plugs must hang from one of the driver's sockets (a plug with no
+			// parentStructure entry takes layout_00_M_MOD.end, which is not).
+			for (const ModulePlugInfo& plug : follower->second.childPlugs)
+			{
+				const auto entry = module.parentStructure.find(plug.name);
+				const std::string parentId = entry != module.parentStructure.end() ? entry->second : std::string(RigNaming::LayoutModule) + ".end";
+				const std::string parentModule = isParentSocketId(parentId) ? parentId : parentId.substr(0, parentId.find('.'));
+				if (parentModule != driverName)
+				{
+					report.addError(where, "the child plug '" + plug.name + "' hangs from '" + parentId + "', and the foot follows the blend of the module it hangs from, "
+						+ "so it must hang from a socket of '" + driverName + "'");
+				}
+			}
+		}
+	}
+
 	void validateControlMarkup(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report)
 	{
 		// (side, usage) -> where the first control with it came from. The layout goes first, as it is built first.

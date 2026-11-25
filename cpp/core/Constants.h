@@ -326,6 +326,9 @@ namespace RigAttr
 	// TwoBoneIk channels (D52). Each is the attribute on its control and the input of the same name on the module.
 	// Public API: saved poses and animation key on them.
 	inline constexpr const char* IkFkBlend{ "ikFkBlend" };   // settings control: 0 is FK, 1 is IK
+	// The outputs that drive visibility, a function of the blend alone (TwoBoneIk and ReverseFoot).
+	inline constexpr const char* FkVisible{ "fkVisible" };
+	inline constexpr const char* IkVisible{ "ikVisible" };
 	inline constexpr const char* Stretch{ "stretch" };       // settings control
 	inline constexpr const char* Soft{ "soft" };             // settings control
 	inline constexpr const char* Pin{ "pin" };               // pole control
@@ -517,6 +520,11 @@ namespace PlugAndSocketNames
 	// ReverseFoot (D74): the child plug that takes the ankle as it is (the Limb's end socket), and the socket that carries the IK ankle
 	// target into the Limb's ikTarget. Both are named "ankle", and plugs and sockets are separate lists.
 	inline constexpr const char* Ankle{ "ankle" };
+	// ReverseFoot's solved bind joints as sockets (D74 phase 4). A pivot whose role is also one of these (the marker roles toe and toeTip) has
+	// its socket named <role>Pivot, so the names stay unique.
+	inline constexpr const char* Toe{ "toe" };
+	inline constexpr const char* ToeTip{ "toeTip" };
+	inline constexpr const char* PivotSuffix{ "Pivot" };
 	// A Limb's bind joint sockets: bind_0, bind_1, ... in bind joint order (D62), so a child can hang from a twist joint.
 	inline constexpr const char* Bind{ "bind_" };
 }
@@ -531,6 +539,15 @@ namespace ReverseFootSlot
 	inline constexpr unsigned int AnklePlug{ 1 };
 	inline constexpr unsigned int AnkleSocket{ 0 };
 	inline constexpr unsigned int PivotCap{ 6 };   // one pivot per FootSolve::Role
+	// Stage 2 (phase 4). The toe FK control is control slot 1, and the toe and toe tip bind joints are joint slots 0 and 1. The sockets other than
+	// ankle are on the base outputSocketMatrix from index 1 (index 0 of that array is never used: getSocketMatrixPlug sends index 0 to the ankle
+	// array): the toe, the toe tip, then one per pivot in chain order.
+	inline constexpr unsigned int ToeFk{ 1 };
+	inline constexpr unsigned int ToeJoint{ 0 };
+	inline constexpr unsigned int ToeTipJoint{ 1 };
+	inline constexpr unsigned int ToeSocket{ 1 };
+	inline constexpr unsigned int ToeTipSocket{ 2 };
+	inline constexpr unsigned int FirstPivotSocket{ 3 };
 }
 
 // JSON keys in a rig template. Public API: every saved template depends on them.

@@ -49,7 +49,7 @@ class ReverseFootContract(ModuleContract, RigTestCase):
     SKELETON = "reverse_foot"
     MARKERS = "reverse_foot"
     MODULE_TYPE = "reverseFootModule"
-    JOINT_OWNERS = {}   # stage 1 drives no joints
+    JOINT_OWNERS = {"toe_00_L_JNT": FOOT_MODULE, "toeTip_00_L_JNT": FOOT_MODULE}   # the ankle is the Limb's
     MIRROR_TEMPLATE = "reverse_foot_mirror"
     MIRROR_SKELETON = "reverse_foot_mirror"
     MIRROR_MARKERS = "reverse_foot_mirror"
@@ -60,8 +60,9 @@ class ReverseFootContract(ModuleContract, RigTestCase):
         self.assertEqual(built, [FOOT_MODULE])
 
     def test_contract_one_solve_fills_every_output(self):
-        """Each output computes for what it reads. A channel changes the ankle socket only, so pulling both after it computes once. The
-        handle moving changes both, which are two outputs of their own, so it computes twice (D36: no output is solved for another)."""
+        """Each output computes for what it reads (D36: no output is solved for another). A channel changes the ankle socket by itself, and
+        the controls' offsets and the toe only when the Limb's end moves in answer (they read the ankle plug), so pulling the ankle socket
+        computes once. The handle moving changes the control and the ankle socket, so pulling both computes twice."""
         self._build()
         module = rig_name(FOOT_MODULE)
         cmds.evaluationManager(mode="off")
@@ -69,10 +70,9 @@ class ReverseFootContract(ModuleContract, RigTestCase):
         cmds.getAttr(module + ".ankleSocketMatrix[0]")
         cmds.setAttr(rig_name(FOOT + ".footRoll"), 7.0)
         cmds.dgtimer(on=True, reset=True)
-        cmds.getAttr(module + ".controlOPM[0]")
         cmds.getAttr(module + ".ankleSocketMatrix[0]")
         cmds.dgtimer(off=True)
-        self.assertEqual(_compute_count(module), 1, "a channel recomputes only the ankle socket")
+        self.assertEqual(_compute_count(module), 1, "a channel recomputes the ankle socket and nothing else")
 
         cmds.setAttr(rig_name(HANDLE + ".translateY"), 0.5)
         cmds.dgtimer(on=True, reset=True)
@@ -83,6 +83,9 @@ class ReverseFootContract(ModuleContract, RigTestCase):
 
     def test_contract_inverse_round_trip(self):
         self.skipTest("the foot's inverse, and the Limb's handle matching a raised foot, are phase 5 (design/reverse-foot.md section 10)")
+
+    def test_contract_inverse_without_a_joint_falls_back_to_the_sidecar(self):
+        self.skipTest("the foot's inverse is phase 5 (design/reverse-foot.md section 10)")
 
     def test_contract_inverse_round_trip_mirrored(self):
         self.skipTest("the foot's inverse, and the Limb's handle matching a raised foot, are phase 5 (design/reverse-foot.md section 10)")

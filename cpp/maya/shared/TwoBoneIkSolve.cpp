@@ -271,6 +271,8 @@ std::vector<std::string> TwoBoneIkSolve::socketNamesAt(unsigned int slot)
 ModuleInterface TwoBoneIkSolve::makeInterface()
 {
 	ModuleInterface moduleInterface;
+	// Both TwoBoneIk and Limb build this: their ik/fk blend is what a ReverseFoot's ikFkDriver follows (D74).
+	moduleInterface.blendSource = RigAttr::IkFkBlend;
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Start, true, true, "" });
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Ik, true, true, "" });
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Pole, true, false, "" });

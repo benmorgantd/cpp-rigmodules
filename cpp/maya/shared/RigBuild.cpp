@@ -325,6 +325,7 @@ namespace
 			interfaces.emplace(plan.name, plan.moduleInterface);
 		}
 		RigTemplateValidation::validateConnections(rigData, interfaces, report);
+		RigTemplateValidation::validateBlendDrivers(rigData, interfaces, report);
 		RigTemplateValidation::validateControlMarkup(rigData, interfaces, report);
 
 		for (const std::string& jointName : markedJoints.index.unclaimedExportedJoints())
@@ -415,6 +416,34 @@ namespace
 					return status;
 				}
 			}
+		}
+		return MStatus::kSuccess;
+	}
+
+	// Pass 2, after the child plugs: a module that follows another module's ik/fk blend (the ReverseFoot, D74) gets it connected, driver's
+	// ikFkBlend attribute to its own. The validator checked that the driver exists and has one, so a miss here is a module that built
+	// something its plan did not declare.
+	MStatus connectBlendDrivers(const RigModuleMap& rigModuleMap, MDagModifier& dagMod)
+	{
+		for (const auto& [moduleName, built] : rigModuleMap)
+		{
+			if (built.blendDriver.empty())
+			{
+				continue;
+			}
+			const RigModuleBuildResult* pDriver = RigModuleNodeBase::findInfo(rigModuleMap, built.blendDriver);
+			if (pDriver == nullptr)
+			{
+				MGlobal::displayError(MString("Module '") + moduleName.c_str() + "' follows the blend of '" + built.blendDriver.c_str() + "', which was not built.");
+				return MStatus::kFailure;
+			}
+			MStatus status;
+			const MPlug pSource = MFnDependencyNode(pDriver->moduleNode).findPlug(RigAttr::IkFkBlend, false, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			const MPlug pFollower = MFnDependencyNode(built.moduleNode).findPlug(RigAttr::IkFkBlend, false, &status);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			status = dagMod.connect(pSource, pFollower);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 		return MStatus::kSuccess;
 	}
@@ -713,6 +742,11 @@ namespace
 		}
 
 		status = parentModuleControls(rigModuleMap, rigData.rigModules, parentNamespace, dagMod);
+		if (!status)
+		{
+			return status;
+		}
+		status = connectBlendDrivers(rigModuleMap, dagMod);
 		if (!status)
 		{
 			return status;

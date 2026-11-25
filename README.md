@@ -4,7 +4,7 @@ A C++ rigging plugin for Autodesk Maya 2026+. You mark up a skeleton, describe t
 
 The rig it builds is aimed at animation and game export: predictable controls, stable names, and a clean split between controls and export joints.
 
-> **Status:** early development. Eight modules exist (Layout, FkChain, FkHierarchy, Aim, TwoBoneIk, Ribbon, Limb, and ReverseFoot, whose stage 1 is built). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has the rig queries, display layers and selection sets, skin weight helpers, `rigmodules.pose` (key controls), and JointClip capture with FBX files and bone maps. Beyond building, the plugin has a pose and animation library (poses, keys, animation files, mirror and flip), skin weight files, and a solve that restores control values from joint data.
+> **Status:** early development. Eight modules exist (Layout, FkChain, FkHierarchy, Aim, TwoBoneIk, Ribbon, Limb, and ReverseFoot, built except its inverse). The build is Windows and Visual Studio only. The Python package (`python/rigmodules`) has the rig queries, display layers and selection sets, skin weight helpers, `rigmodules.pose` (key controls), and JointClip capture with FBX files and bone maps. Beyond building, the plugin has a pose and animation library (poses, keys, animation files, mirror and flip), skin weight files, and a solve that restores control values from joint data.
 
 ## How it works
 
@@ -105,7 +105,7 @@ Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`
 | TwoBoneIk | `TwoBoneIk` | `start`, `ik`, `pole` | `index_0`, `index_1`, `index_2` (with `start` and `end`), `ik`, `pole`, `settings` |
 | Ribbon | `Ribbon` | `start`, `end` | `index_0` to `index_<j-1>`, one per ik control (with `start` and `end`) |
 | Limb | `Limb` | `start`, `ik`, `pole`, `settings` (internal), optional `ikTarget` | TwoBoneIk's, plus `bind_<n>` per bind joint |
-| ReverseFoot | `ReverseFoot` | `ik`, `ankle` | `ankle` (the IK ankle target, wired to a Limb's `ikTarget`) |
+| ReverseFoot | `ReverseFoot` | `ik`, `ankle` | `ankle` (the IK ankle target, wired to a Limb's `ikTarget`), `toe`, `toeTip` and one per pivot |
 
 Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 
