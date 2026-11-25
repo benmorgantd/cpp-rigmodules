@@ -612,6 +612,19 @@ namespace
 			{
 				module.context.fkControlCount = static_cast<unsigned int>(pFkControlCount.asInt());
 			}
+			MPlug pFkRollShare = fnModule.findPlug(RigAttr::FkRollShare, false, &status);
+			if (status)
+			{
+				// An unset element is the default, 1: the scene file keeps only the shares a twistRamp changed.
+				module.context.fkRollShare.assign(module.context.ikControlCount, 1.0);
+				for (const unsigned int index : elementIndices(pFkRollShare))
+				{
+					if (index < module.context.ikControlCount)
+					{
+						module.context.fkRollShare[index] = pFkRollShare.elementByLogicalIndex(index).asDouble();
+					}
+				}
+			}
 			MPlug pParentIndex = fnModule.findPlug(RigAttr::ControlParentIndex, false, &status);
 			if (status)
 			{

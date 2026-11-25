@@ -69,6 +69,7 @@ MObject LimbNode::aRibbonIkRestOffset;
 MObject LimbNode::aBindRestOffset;
 MObject LimbNode::aFkRollRest;
 MObject LimbNode::aFkRollRestIn;
+MObject LimbNode::aFkRollShare;
 
 namespace
 {
@@ -161,7 +162,7 @@ namespace
 
 RibbonSolve::RestAttrs LimbNode::restAttrs()
 {
-	return { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aRibbonIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn };
+	return { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aRibbonIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn, aFkRollShare };
 }
 
 LimbNode::LimbNode()
@@ -257,7 +258,7 @@ MStatus LimbNode::initialize()
 		attributeAffects(oInput, aHandleSocketMatrix);
 	}
 	std::vector<MObject> ribbonInputs(aChannels.begin(), aChannels.end());
-	ribbonInputs.insert(ribbonInputs.end(), { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aRibbonIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn });
+	ribbonInputs.insert(ribbonInputs.end(), { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aRibbonIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn, aFkRollShare });
 	for (const MObject& oInput : ribbonInputs)
 	{
 		attributeAffects(oInput, aControlOPM);
@@ -463,6 +464,7 @@ ModuleInverseResult LimbNode::inverse(const ModuleInverseContext& context, const
 		result.reason = pReason[0] != '\0' ? pReason : "the Limb's joints sit on each other, so its ribbon has no curve";
 		return result;
 	}
+	RibbonSolve::applyStoredShares(context.fkRollShare, setup);
 
 	MMatrix mRest[RibbonSolve::MaxSlots];
 	MMatrix mLocal[RibbonSolve::MaxSlots];
@@ -684,7 +686,7 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 {
 	LimbArgs limbArgs;
 	if (!readModuleArgs(args, { "joints", "bindJoints" }, ctx, limbArgs,
-		{ "controlCount", "controlName", "poleOffset", "settingsOffset", RigAttr::IkFkBlend, "ikOrientToWorld", "ikAlignToPole" }))
+		{ "controlCount", "controlName", "poleOffset", "settingsOffset", RigAttr::IkFkBlend, "ikOrientToWorld", "ikAlignToPole", "twistRamp" }))
 	{
 		return false;
 	}
@@ -695,6 +697,12 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 	{
 		ctx.report.addError(argsPath + ".controlCount", "a limb's ribbon has between 3 and " + std::to_string(RibbonMath::MaxControls)
 			+ " ik controls (the start, the mid joint, the end and the ones between), got " + std::to_string(limbArgs.controlCount));
+		valid = false;
+	}
+	std::string rampReason;
+	if (!limbArgs.twistRamp.empty() && !RibbonMath::validateTwistRamp(limbArgs.twistRamp, rampReason))
+	{
+		ctx.report.addError(argsPath + ".twistRamp", rampReason);
 		valid = false;
 	}
 	if (limbArgs.bindJoints.size() < 5 || limbArgs.bindJoints.size() > static_cast<std::size_t>(RibbonMath::MaxBindJoints))
@@ -815,6 +823,7 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 		ctx.report.addError(argsPath + ".bindJoints", pReason);
 		return false;
 	}
+	RibbonMath::applyTwistRamp(setup, limbArgs.twistRamp);
 
 	// Names (D57): <base>RibbonIK_<nn> for the ik controls and <base>Tweak_<nn> for the tweakers (nn is the bind joint's index), the base
 	// being the one the two-bone limb's derived controls use.

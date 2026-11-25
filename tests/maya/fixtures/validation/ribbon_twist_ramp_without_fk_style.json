@@ -1,0 +1,17 @@
+{
+  "description": "twistRamp shares out the fk chain's roll (D75), so it needs fkStyle",
+  "base": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/twistRamp",
+      "value": [[0, 0.0], [1, 1.0]]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "needs fkStyle",
+      "path": "rigModules[0] 'tail_01_M_MOD'.moduleArgs.twistRamp"
+    }
+  ]
+}

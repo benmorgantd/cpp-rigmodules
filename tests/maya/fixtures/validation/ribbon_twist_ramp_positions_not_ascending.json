@@ -1,0 +1,17 @@
+{
+  "description": "twistRamp positions must increase (D75)",
+  "base": "ribbon_fk",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/twistRamp",
+      "value": [[0, 0.0], [0.5, 0.35], [0.5, 1.0]]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "pair 2",
+      "path": "rigModules[0] 'tail_01_M_MOD'.moduleArgs.twistRamp"
+    }
+  ]
+}

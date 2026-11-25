@@ -3,6 +3,7 @@
 #include "core/RibbonMath.h"
 
 #include <array>
+#include <vector>
 
 #include <maya/MDagModifier.h>
 #include <maya/MDataBlock.h>
@@ -95,6 +96,7 @@ namespace RibbonSolve
 		MObject& bindRestOffset;
 		MObject& fkRollRest;     // double array, one per fk control: RibbonMath::Setup::fkRollRest
 		MObject& fkRollRestIn;   // double array, one per fk control: RibbonMath::Setup::fkRollRestIn
+		MObject& fkRollShare;    // double array, one per ik control, default 1: RibbonMath::Setup::fkRollShare (the template's twistRamp)
 	};
 
 	// Creates and adds the rest attributes to the node being initialized (MPxNode::addAttribute). The offsets of the ik controls are
@@ -106,6 +108,10 @@ namespace RibbonSolve
 	// a missing element is its default, which the Setup already holds. The caller still sets the fk rest matrices and knots, which
 	// are cheap and come from the controls' own rests.
 	void readSetup(MDataBlock& data, const RestAttrs& attrs, int controlCount, int bindCount, int fkCount, RibbonMath::Setup& setup);
+
+	// The stored shares of the fk roll (ModuleInverseContext::fkRollShare) into a setup the inverse rebuilt from the rests, so the
+	// inverse runs the forward solve the template's twistRamp made. A short list leaves the rest at 1.
+	void applyStoredShares(const std::vector<double>& shares, RibbonMath::Setup& setup);
 
 	// Queues the same rest data from a built setup, for createModule.
 	void writeRestData(const MObject& oModule, const RestAttrs& attrs, const RibbonMath::Setup& setup, MDagModifier& dagMod);

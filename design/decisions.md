@@ -88,6 +88,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D72 | Pose blend: `loadRigPose` `blend` (a weight from 0 up: 0 to 1 lerps, past 1 adds more of the pose's offset from rest; amended 2026-11-24: no negative weights) from a `blendReference` pose file, in `core/PoseBlend`. RigModules side built; the mayadev slider is not | Decided | [pipeline](decisions/pipeline.md) |
 | D73 | Markers: placed points that follow a joint, in a `markers.json` of their own, stamped on the rig and on animation | Decided | [data](decisions/data.md) |
 | D74 | ReverseFoot: a foot module on a Limb, with roll, pivot and toe channels, an FK toe, a blend driven by the limb (`ikFkDriver`) and an inverse that solves `footRoll`, `bank` and `toeTap` | Decided | [modules](decisions/modules.md) |
+| D75 | `twistRamp`: a template-set `[position, share]` ramp for how much of the fk roll each Ribbon (`fkStyle`) or Limb ik control takes. Default 1:1. Not a channel. Amends D59 and D62. Built 2026-11-25 | Decided | [modules](decisions/modules.md) |
 
 ---
 

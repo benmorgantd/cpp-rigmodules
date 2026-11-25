@@ -147,6 +147,50 @@ class LimbBehaviour(RigTestCase):
         for control, point in zip(RIBBON_IK, [(0, 0, 0), (2, 0, 0), (4, 0, 0), (4, 2, 0), (4, 4, 0)]):
             self.assertWorldTranslation(rig_name(control), list(point), 1e-4)
 
+    # ---- twistRamp (D75) -------------------------------------------------------------------------
+
+    def _build_with_ramp(self, ramp):
+        data = copy.deepcopy(fixtures.load_template("limb_arm"))
+        data["rigModules"][0]["moduleArgs"]["twistRamp"] = ramp
+        self.build(data, self.make_skeleton("limb_arm"), label="limb_twist_ramp")
+
+    def _y_axis(self, node):
+        matrix = cmds.xform(rig_name(node), query=True, worldSpace=True, matrix=True)
+        return matrix[4:7]
+
+    def _hand_roll_turn_of_last_ribbon_control(self, ramp):
+        """The angle in degrees the last ribbon ik control's Y axis turns when the FK hand rolls 35 degrees about X, which runs down
+        the forearm. The roll turns the hand about the forearm and nothing else moves, so the curve stays where it is and only the
+        control's roll can show it."""
+        if ramp is None:
+            self._build()
+        else:
+            self._build_with_ramp(ramp)
+        cmds.setAttr(rig_name(SETTINGS) + ".ikFkBlend", 0)
+        before = self._y_axis(RIBBON_IK[4])
+        cmds.setAttr(rig_name(HAND) + ".rotateX", 35)
+        after = self._y_axis(RIBBON_IK[4])
+        cosine = sum(a * b for a, b in zip(before, after))
+        return math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
+
+    def test_without_a_ramp_the_hands_roll_turns_the_last_ribbon_control_all_of_the_way(self):
+        self.assertAlmostEqual(self._hand_roll_turn_of_last_ribbon_control(None), 35.0, delta=0.01)
+
+    def test_a_ramp_that_is_zero_at_the_end_keeps_the_hands_roll_off_the_last_ribbon_control(self):
+        self.assertAlmostEqual(self._hand_roll_turn_of_last_ribbon_control([[0, 1.0], [1, 0.0]]), 0.0, delta=0.01)
+
+    def test_a_ramp_that_is_one_half_at_the_end_turns_it_half_of_the_roll(self):
+        self.assertAlmostEqual(self._hand_roll_turn_of_last_ribbon_control([[0, 1.0], [1, 0.5]]), 17.5, delta=0.01)
+
+    def test_the_ramp_is_stored_as_one_share_per_ribbon_ik_control(self):
+        """[[0, 1], [1, 0]] is 1 - u at each control, and u is the control's stored parameter."""
+        self._build_with_ramp([[0, 1.0], [1, 0.0]])
+        module = rig_name("arm_01_L_MOD")
+        self.assertEqual(cmds.getAttr(module + ".fkRollShare", size=True), 5)
+        for j in range(5):
+            knot = cmds.getAttr("%s.knotU[%d]" % (module, j))
+            self.assertAlmostEqual(cmds.getAttr("%s.fkRollShare[%d]" % (module, j)), 1.0 - knot, places=9)
+
     # ---- the elbow -------------------------------------------------------------------------------
 
     def _pose_fk_lower_45(self, softness):

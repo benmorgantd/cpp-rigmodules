@@ -242,6 +242,7 @@ A bendy, stretchy run of bind joints driven by a few controls: a tail, a spine, 
 | `startAimBlend`, `endAimBlend` | no | A number from 0 to 1, default 0: the default, and so the rest, of the channel of the same name (below). Set `startAimBlend` to 1 on a shoulder or thigh so its start aims down the limb on every build. A value outside 0 to 1 fails the build |
 | `fkStyle` | no | `true` adds an **fk chain** under the ik controls (below). Default `false` |
 | `fkControlCount` | no | 2 to 8, default `controlCount`: how many fk controls, placed the same way as the ik controls. Needs `fkStyle`. Setting it without `fkStyle`, or outside 2 to 8, fails the build |
+| `twistRamp` | no | `[position, share]` pairs: how much of the fk chain's roll each ik control takes (below). Needs `fkStyle`. Default: all of it everywhere |
 
 There are **no control joints**. The ik controls are placed from the bind joints (D57): a smooth spline runs through the bind joints' rest positions, and control `k` of `c` sits at the share `k / (c - 1)` of its length. Its orientation is the rotation of the two bind joints either side of it, blended by how far between them it sits, so the first and last controls take the first and last joints' frames. A bind joint's X axis must run along the chain, either toward the tip (+X down the chain, +Y up, the way an FK chain's do) or back up it (-X down the chain, as on a mirrored limb that keeps the other side's axes). The build reads which from the bind joints and every control's twist keeps its sign about its own X. The build fails, naming the joint, when a joint's X axis is more than 60 degrees off the line to the next joint (the last uses the line from the one before), when joints disagree about the direction, or when two neighbouring joints sit on each other. Every joint belongs to this module alone.
 
@@ -255,6 +256,18 @@ There are **no control joints**. The ik controls are placed from the bind joints
 | Sockets | `index_0` to `index_<j-1>` for the ik controls (`j` is `controlCount`), with `start` the same socket as `index_0` and `end` the last. The tweakers and the fk controls have none. |
 
 **The fk chain (`fkStyle`).** `fkControlCount` more controls, usage `<base>FK_<nn>` (`tailFK_00`, ...), a real chain: each rides the one before, so turning one carries the rest, as in an [FkChain](#fkchain). The first follows the `start` plug. The ribbon's base curve passes through the chain's positions, and every ik control, the start and end too, floats on that curve and keeps its own local offset, so animators pose the shape with the ik controls on top of the chain they keep as a pose. Each ik control follows the fk chain 1:1: it takes the curve's direction and the chain's roll about it, interpolated between the fk controls at its place along the chain, so rolling an fk control rolls the ik control there, and the bind joints between the ik controls ease through those rolls, as they do for a roll on the ik controls themselves. The chain's own controls never move the ik controls' channels. The fk controls have no joints, so a restore from joints leaves them at the sidecar or rest values and the ik end controls and tweakers carry the joints exactly, as for the interior ik controls. The ik controls' rest is placed at the same spots as without `fkStyle`, so a rest rig is the same.
+
+**`twistRamp`: how much of the fk roll the ik controls take.** By default every ik control takes all of the fk chain's roll at its place (1:1, above). `twistRamp` lets the template turn that down along the ribbon, so an fk control's twist can ease in instead of arriving at the first ik control. It is a list of `[position, share]` pairs: the position is a place along the ribbon from 0 (the start) to 1 (the end) and the share is how much of the roll an ik control takes there, from 0 (none) to 1 (all). Positions must increase. An ik control takes the line between the two pairs either side of its place, and the first and last shares hold before and after the pairs. A neck whose twist should not reach its first ik control, and arrive in full at the head:
+
+```json
+"moduleArgs": {
+  "joints": [["Center", "neckTwist_00"], ["Center", "neckTwist_01"], ["Center", "neckTwist_02"]],
+  "fkStyle": true,
+  "twistRamp": [[0, 0.0], [0.5, 0.35], [1, 1.0]]
+}
+```
+
+With three ik controls (at 0, 0.5 and 1) that is 0, 0.35 and 1 of the roll. Roll the first fk control 30 degrees and the ik controls roll 0, 10.5 and 30, and the bind joints between them ease through those rolls. The fk controls themselves still roll the whole 30, the ramp shares only the roll about the curve (a bend is never turned down), and the same shares reach the bind joints and the ik controls, so the skin never disagrees with a control. The ramp is rig data: it is stored on the module when it is built, it is not a channel and so is in no pose or animation, and changing it means rebuilding. Without `fkStyle` there is no fk roll to share, so `twistRamp` without it fails the build, as does a position or a share outside 0 to 1, or positions that do not increase.
 
 **How it moves.**
 
@@ -400,6 +413,7 @@ The limb's own joints (`joints`) are the IK/FK chain and are not skin joints. Ea
 | `bindJoints` | required | 5 to 64 skin joints, root to tip (above) |
 | `controlCount` | 5 | The ribbon's ik controls, 3 to 8: one at the root, one at the mid joint, one at the end, and the rest spread between. 5 gives the upper and the lower arm a middle control each |
 | `controlName`, `poleOffset`, `settingsOffset`, `ikFkBlend`, `ikOrientToWorld`, `ikAlignToPole` | as TwoBoneIk | See [TwoBoneIk](#twoboneik) |
+| `twistRamp` | all of the roll | `[position, share]` pairs, as the [Ribbon's](#ribbon): how much of the roll of the blended joints each ribbon ik control takes. Positions run from 0 at the root joint to 1 at the end joint, with the mid joint at its share of the limb's length. `[[0, 1.0], [1, 0.0]]` keeps the hand's roll off the last ribbon control. The controls' shares reach the bind joints too |
 
 There is no fk ribbon: the ribbon follows the blended joints.
 

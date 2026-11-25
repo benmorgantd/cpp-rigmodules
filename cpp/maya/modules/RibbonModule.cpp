@@ -48,6 +48,7 @@ MObject RibbonModuleNode::aIkRestOffset;
 MObject RibbonModuleNode::aBindRestOffset;
 MObject RibbonModuleNode::aFkRollRest;
 MObject RibbonModuleNode::aFkRollRestIn;
+MObject RibbonModuleNode::aFkRollShare;
 
 namespace
 {
@@ -89,7 +90,7 @@ namespace
 
 RibbonSolve::RestAttrs RibbonModuleNode::restAttrs()
 {
-	return { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn };
+	return { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn, aFkRollShare };
 }
 
 RibbonModuleNode::RibbonModuleNode()
@@ -155,7 +156,7 @@ MStatus RibbonModuleNode::initialize()
 	// AFFECTS RELATIONSHIPS
 	declareStandardAffects();
 	std::vector<MObject> settings(aChannels.begin(), aChannels.end());
-	settings.insert(settings.end(), { aIkControlCount, aFkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn });
+	settings.insert(settings.end(), { aIkControlCount, aFkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn, aFkRollShare });
 	for (const MObject& oInput : settings)
 	{
 		attributeAffects(oInput, aControlOPM);
@@ -284,6 +285,7 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 		result.reason = pReason;
 		return result;
 	}
+	RibbonSolve::applyStoredShares(context.fkRollShare, setup);
 
 	const std::vector<ModuleInverseChannel> wanted = inverseChannels();
 	double channelValues[RibbonChannel::Count];
@@ -547,7 +549,7 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	RibbonArgs ribbonArgs;
-	if (!readModuleArgs(args, { "joints" }, ctx, ribbonArgs, { "controlCount", "controlName", RigAttr::StartAimBlend, RigAttr::EndAimBlend, "fkStyle", "fkControlCount" }))
+	if (!readModuleArgs(args, { "joints" }, ctx, ribbonArgs, { "controlCount", "controlName", RigAttr::StartAimBlend, RigAttr::EndAimBlend, "fkStyle", "fkControlCount", "twistRamp" }))
 	{
 		return false;
 	}
@@ -581,6 +583,21 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 		ctx.report.addError(argsPath + ".fkControlCount", "an fk chain has between 2 and " + std::to_string(RibbonMath::MaxControls)
 			+ " controls, got " + std::to_string(ribbonArgs.fkControlCount));
 		valid = false;
+	}
+	// twistRamp shares out the fk chain's roll, so it means nothing without the chain.
+	if (!ribbonArgs.twistRamp.empty())
+	{
+		std::string rampReason;
+		if (!ribbonArgs.fkStyle)
+		{
+			ctx.report.addError(argsPath + ".twistRamp", "shares out the fk chain's roll, so it needs fkStyle set to true as well");
+			valid = false;
+		}
+		else if (!RibbonMath::validateTwistRamp(ribbonArgs.twistRamp, rampReason))
+		{
+			ctx.report.addError(argsPath + ".twistRamp", rampReason);
+			valid = false;
+		}
 	}
 	if (ribbonArgs.joints.size() < 2 || ribbonArgs.joints.size() > static_cast<std::size_t>(RibbonMath::MaxBindJoints))
 	{
@@ -649,6 +666,7 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 		ctx.report.addError(argsPath + ".joints", pReason);
 		return false;
 	}
+	RibbonMath::applyTwistRamp(setup, ribbonArgs.twistRamp);
 
 	// Names (D57): <base>IK_<nn> for the ik controls, <base>Tweak_<nn> for the tweakers (nn is the bind joint's index). The base
 	// is controlName, else the first bind joint's usage without its trailing _NN. A usage another module already uses is

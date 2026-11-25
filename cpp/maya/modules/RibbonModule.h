@@ -35,6 +35,8 @@ struct RibbonSlotInput
 // plug, so a fkStyle ribbon has no end child plug. "fkControlCount" without fkStyle is an error.
 // "startAimBlend" and "endAimBlend" (optional, 0 to 1, default 0): the default, and so the rest (D34), of the channels of the same
 // names, for a ribbon whose ends should aim down the chain on every build (a shoulder or thigh, design/ribbon-twist-follow.md).
+// "twistRamp" (optional, needs fkStyle, D75): [position, share] pairs, positions strictly increasing in 0 to 1 along the ribbon and shares
+// 0 to 1. Each ik control takes that share of the fk chain's roll at its place, linear between the pairs. Left out, every share is 1.
 struct RibbonArgs
 {
 	std::vector<JointSelector> joints;
@@ -44,8 +46,9 @@ struct RibbonArgs
 	double endAimBlend{ 0.0 };
 	bool fkStyle{ false };
 	int fkControlCount{ -1 };
+	RibbonMath::TwistRamp twistRamp;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(RibbonArgs, joints, controlCount, controlName, startAimBlend, endAimBlend, fkStyle, fkControlCount)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(RibbonArgs, joints, controlCount, controlName, startAimBlend, endAimBlend, fkStyle, fkControlCount, twistRamp)
 
 // COUPLED TO Limb (D62, design/limb.md): LimbNode runs this module's solve, channels, control derivation and inverse. A change here
 // changes Limb. Read design/limb.md and run test_limb_matches_parts before changing any of them.
@@ -84,6 +87,7 @@ public:
 	static MObject aBindRestOffset;  // matrix array, one per bind joint
 	static MObject aFkRollRest;      // double array, one per fk control
 	static MObject aFkRollRestIn;    // double array, one per fk control
+	static MObject aFkRollShare;     // double array, one per ik control, default 1: the template's twistRamp at each (D75)
 
 public:
 	static RigModuleBuildResult createModule(

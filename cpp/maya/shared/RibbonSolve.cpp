@@ -153,6 +153,13 @@ MStatus RibbonSolve::createRestAttributes(const RestAttrs& attrs, const char* ik
 		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(*pAttr));
 	}
 
+	// Its default is 1 (all of the roll), so a scene file keeps only the shares a twistRamp changed.
+	attrs.fkRollShare = nAttr.create(RigAttr::FkRollShare, RigAttr::FkRollShare, MFnNumericData::kDouble, 1.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setArray(true));
+	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+	CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(attrs.fkRollShare));
+
 	attrs.restLength = nAttr.create(RigAttr::RestLength, RigAttr::RestLength, MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
@@ -227,6 +234,15 @@ void RibbonSolve::readSetup(MDataBlock& data, const RestAttrs& attrs, int contro
 	}
 	if (fkCount > 0)
 	{
+		MStatus shareStatus;
+		MArrayDataHandle hShare = data.inputArrayValue(attrs.fkRollShare, &shareStatus);
+		for (int j = 0; j < controlCount; ++j)
+		{
+			if (shareStatus && hShare.jumpToElement(j))
+			{
+				setup.fkRollShare[j] = hShare.inputValue().asDouble();
+			}
+		}
 		MStatus rollStatus;
 		MStatus rollInStatus;
 		MArrayDataHandle hRoll = data.inputArrayValue(attrs.fkRollRest, &rollStatus);
@@ -245,6 +261,15 @@ void RibbonSolve::readSetup(MDataBlock& data, const RestAttrs& attrs, int contro
 	}
 }
 
+void RibbonSolve::applyStoredShares(const std::vector<double>& shares, RibbonMath::Setup& setup)
+{
+	const std::size_t count = std::min<std::size_t>(shares.size(), RibbonMath::MaxControls);
+	for (std::size_t j = 0; j < count; ++j)
+	{
+		setup.fkRollShare[j] = shares[j];
+	}
+}
+
 void RibbonSolve::writeRestData(const MObject& oModule, const RestAttrs& attrs, const RibbonMath::Setup& setup, MDagModifier& dagMod)
 {
 	dagMod.newPlugValueInt(MPlug(oModule, attrs.ikControlCount), setup.controlCount);
@@ -259,6 +284,13 @@ void RibbonSolve::writeRestData(const MObject& oModule, const RestAttrs& attrs, 
 		dagMod.newPlugValueDouble(MPlug(oModule, attrs.bindU).elementByLogicalIndex(i), setup.bindU[i]);
 		MPlug pOffset = MPlug(oModule, attrs.bindRestOffset).elementByLogicalIndex(i);
 		DagUtils::setMatrixPlug(pOffset, MathUtils::toMMatrix(setup.bindOffset[i]), dagMod);
+	}
+	if (setup.fkCount > 0)
+	{
+		for (int j = 0; j < setup.controlCount; ++j)
+		{
+			dagMod.newPlugValueDouble(MPlug(oModule, attrs.fkRollShare).elementByLogicalIndex(j), setup.fkRollShare[j]);
+		}
 	}
 	for (int k = 0; k < setup.fkCount; ++k)
 	{
