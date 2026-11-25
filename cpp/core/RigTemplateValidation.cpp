@@ -791,6 +791,31 @@ namespace RigTemplateValidation
 						+ "so it must hang from a socket of '" + driverName + "'");
 				}
 			}
+
+			// The driver must read the follower's output, or nothing the animator does on the follower reaches the joints.
+			const std::string& driverPlug = follower->second.driverPlug;
+			if (driverPlug.empty())
+			{
+				continue;
+			}
+			const std::string expectedParent = module.name + "." + follower->second.driverPlugSocket;
+			if (driver->second.findChildPlug(driverPlug) == nullptr)
+			{
+				report.addError(where, "'" + driverName + "' has no child plug '" + driverPlug + "' to take '" + expectedParent
+					+ "', so the foot could not move its ankle: it must be a Limb");
+				continue;
+			}
+			const auto driverModule = std::find_if(rigData.rigModules.begin(), rigData.rigModules.end(), [&driverName](const RigModuleData& other)
+			{
+				return other.name == driverName;
+			});
+			const auto entry = driverModule->parentStructure.find(driverPlug);
+			if (entry == driverModule->parentStructure.end() || entry->second != expectedParent)
+			{
+				const std::string has = entry == driverModule->parentStructure.end() ? "has no '" + driverPlug + "' entry" : "takes '" + entry->second + "'";
+				report.addError(where, "'" + driverName + "' " + has + " in its parentStructure, so the foot's channels would not move the ankle. Add \""
+					+ driverPlug + "\": \"" + expectedParent + "\" to the parentStructure of '" + driverName + "'");
+			}
 		}
 	}
 

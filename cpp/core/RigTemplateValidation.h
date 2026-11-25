@@ -61,6 +61,10 @@ struct ModuleInterface
 	std::string blendSource;
 	// For a module that follows another module's blend (the ReverseFoot): the name of that module, or empty. validateBlendDrivers checks it.
 	std::string blendDriver;
+	// For a follower whose output the driver must read, or it does nothing (the ReverseFoot's ankle socket feeds the Limb's ikTarget):
+	// the driver's child plug, and this module's socket that must be its parent. Empty for none. validateBlendDrivers checks it.
+	std::string driverPlug;
+	std::string driverPlugSocket;
 
 	const ModulePlugInfo* findChildPlug(const std::string& name) const;
 	bool hasSocket(const std::string& name) const;
@@ -127,7 +131,9 @@ namespace RigTemplateValidation
 
 	// A module that follows another's blend (ModuleInterface::blendDriver, D74) needs: that module to be in the template, to have a blend to
 	// follow (ModuleInterface::blendSource), and to be the module every child plug of the follower hangs from, so the foot follows the limb
-	// it stands on. A driver that failed its own plan step is skipped, since that error is already reported.
+	// it stands on. A follower with a driverPlug needs the driver to have that child plug, parented to the follower's driverPlugSocket
+	// (the Limb's ikTarget on the foot's ankle), or the follower's channels move nothing. A driver that failed its own plan step is
+	// skipped, since that error is already reported.
 	void validateBlendDrivers(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report);
 
 	// (side, usage) must be unique across every control in the rig, because shape files and pose data key on it.

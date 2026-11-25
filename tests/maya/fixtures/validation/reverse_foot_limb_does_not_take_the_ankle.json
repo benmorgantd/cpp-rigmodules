@@ -1,0 +1,16 @@
+{
+  "description": "The Limb must take the foot's ankle as its ikTarget, or the foot's channels move nothing (the solomon build: the ankle stayed still). The error names the line to add",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "remove": "/rigModules/0/parentStructure/ikTarget"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "'arm_01_L_MOD' has no 'ikTarget' entry in its parentStructure, so the foot's channels would not move the ankle. Add \"ikTarget\": \"foot_00_L_MOD.ankle\""
+    }
+  ],
+  "markers": "reverse_foot"
+}

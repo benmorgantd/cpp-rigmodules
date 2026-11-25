@@ -712,6 +712,9 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 	outPlan.moduleInterface.controls.push_back(plan.toeFkMarkup);
 	// The foot follows the blend of the module it hangs from, which validateBlendDrivers checks.
 	outPlan.moduleInterface.blendDriver = plan.ikFkDriver;
+	// The Limb must take the foot's ankle as its ikTarget, or the channels move nothing (the author's solomon build did exactly that).
+	outPlan.moduleInterface.driverPlug = PlugAndSocketNames::IkTarget;
+	outPlan.moduleInterface.driverPlugSocket = PlugAndSocketNames::Ankle;
 
 	const MString moduleName = ctx.moduleData.name.c_str();
 	const Side side = getSideFromString(ctx.moduleData.side);
