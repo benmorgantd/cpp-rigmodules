@@ -11,12 +11,13 @@ toe tip and does not drive them yet, so the contract's joint tests are the ones 
 import copy
 import json
 import math
+import os
 
 from maya import cmds
 
 import rigmodules.query
 from commands.test_two_bone_ik_inverse import CapturedWarnings
-from rigtest import fixtures
+from rigtest import config, fixtures
 from rigtest.case import RigTestCase, rig_name
 from rigtest.cases import add_pose_cases
 from rigtest.module_contract import ModuleContract, _compute_count
@@ -206,6 +207,33 @@ class ReverseFootBehaviour(RigTestCase):
         for markup, position in expected.items():
             for got, want in zip(listed[markup], position):
                 self.assertAlmostEqual(got, want, places=5, msg=str(markup))
+
+    def test_rotated_pivot_markers_are_a_warning_because_only_their_positions_are_read(self):
+        """The fixture's markers have an identity offset on the hand, which is turned Rz 90, so none is world aligned. The foot reads
+        positions only (its axes come from heel to toe tip and world up, D74), so the build warns once, naming every rotated marker."""
+        with CapturedWarnings() as warnings:
+            self._build()
+        found = [m for m in warnings.messages if "not world aligned" in m]
+        self.assertEqual(len(found), 1, warnings.messages)
+        for role in ("heel", "ball", "bankOut", "bankIn", "toeTip", "toe"):
+            self.assertIn("[Left, %s]" % role, found[0])
+
+    def test_world_aligned_pivot_markers_build_without_the_warning(self):
+        """The same markers with the offset rotation Rz -90 (rows (0, -1, 0), (1, 0, 0), (0, 0, 1)) undo the hand's Rz 90, so each marker is
+        world aligned. The positions do not change: the offset's translation row is what places a marker."""
+        data = fixtures.read_json(fixtures.markers_path("reverse_foot"))
+        for marker in data["markers"]:
+            marker["offsetLocal"][0:3] = [0, -1, 0]
+            marker["offsetLocal"][4:7] = [1, 0, 0]
+        path = os.path.join(config.WORK_DIR, "reverse_foot_world_aligned_markers.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(data, handle)
+        joints = self.make_skeleton("reverse_foot")
+        with CapturedWarnings() as warnings:
+            cmds.createRigFromTemplate(*joints, template=fixtures.template_path("reverse_foot").replace("\\", "/"), asset=config.ASSET_ID,
+                                       namespace=config.RIG_NAMESPACE, markers=path.replace("\\", "/"))
+        self.assertFalse(warnings.contain("not world aligned"), warnings.messages)
+        self.assertAlmostEqual(translation(FOOT)[2], 1.6, places=5)   # the foot control still sits at the ball marker
 
     def test_the_mirrored_right_foots_markers_resolve_through_the_turned_right_hand(self):
         """The right hand is Rx(180) Rz(90): local = (wy, wx, -wz). The right foot's pivots are the left's mirrored across X = 0."""

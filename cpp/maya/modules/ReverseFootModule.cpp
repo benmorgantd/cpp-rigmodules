@@ -50,6 +50,10 @@ namespace
 		return fk ? blend < 1.0 : blend > 0.0;
 	}
 
+	// A pivot marker whose rotation differs from the world's by more than this (per matrix element, about 0.06 degrees)
+	// is reported as not world aligned.
+	constexpr double kWorldAlignedTolerance{ 1e-3 };
+
 	// The 11 channels, in the order of ReverseFootModuleNode::aChannels: name, the FootSolve field it is, its rest in degrees, and whether
 	// a mirror negates it (D74 section 8). The member pointer is what ties a channel to its field, so reordering this table cannot swap
 	// two channels in the solve. Names are the animator's, public API.
@@ -640,7 +644,10 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 	}
 
 	// The pivots' rest positions, from the markers. Every missing marker or joint is reported.
+	// Only positions are read (D74): the axes come from the foot frame. A rotated marker is a warning, because a rigger
+	// who turned one (to match a slanted ball line, say) would otherwise expect the roll to follow it.
 	Plan plan;
+	std::string rotatedMarkers;
 	for (std::size_t i = 0; i < roles.size(); ++i)
 	{
 		ResolvedMarker marker;
@@ -650,6 +657,20 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 			continue;
 		}
 		plan.chain.push_back(FootSolve::Pivot{ roles[i], { marker.world[12], marker.world[13], marker.world[14] } });
+
+		MMatrix mOrientation = MathUtils::toMMatrix(marker.world);
+		mOrientation(3, 0) = 0.0;
+		mOrientation(3, 1) = 0.0;
+		mOrientation(3, 2) = 0.0;
+		if (!mOrientation.isEquivalent(MMatrix::identity, kWorldAlignedTolerance))
+		{
+			rotatedMarkers += (rotatedMarkers.empty() ? "" : ", ") + formatJointSelector(roleSelectors[i]);
+		}
+	}
+	if (!rotatedMarkers.empty())
+	{
+		ctx.report.addWarning(argsPath + ".reverseHierarchy", "the markers " + rotatedMarkers + " are not world aligned, and their rotation is not used: "
+			"the foot reads marker positions only, and its roll, bank and swivel axes come from the heel to toe tip direction and world up");
 	}
 
 	// The foot drives the toe and the toe tip. The ankle is a reference only: the Limb drives it, and a joint two modules drive is an error.
