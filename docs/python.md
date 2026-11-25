@@ -183,6 +183,28 @@ joints = rigmodules.selection.get_missing_influences("hero_body:rigRootModule1",
 | `get_missing_influences(rig_root, mesh)` | The rig's skin joints that are not influences of the mesh's skinCluster. All of them when the mesh has none |
 | `get_extra_influences(rig_root, mesh)` | The influences of the mesh's skinCluster that are not skin joints of the rig |
 
+## rigmodules.markers
+
+The marker locators in a scene ([markers.md](markers.md)), for a tool that saves them all. The commands do the work. This module knows the attribute that marks a marker, so tools don't hard-code it.
+
+```python
+import rigmodules.markers
+
+nodes = rigmodules.markers.get_markers("skel")
+cmds.saveRigMarkers(*nodes, file="C:/assets/hero/markers/markers.json")
+```
+
+| Function | Returns |
+|---|---|
+| `get_markers(namespace)` | The marked nodes directly in the namespace (`""` or `":"` for the root), as long names, sorted |
+| `add_markers(joint, usages, side, display_size=2.0)` | One marker locator per usage at the joint, following it, in the joint's namespace: the `Axis` locators `loadRigMarkers` makes, named in the convention by `renameRigNodes` (`heel_00_L_MRK`). Move them into place, then save. A usage that already has a marker on that side in the namespace raises `RuntimeError` and nothing is made. One undo step |
+
+`MARKUP_ATTR` is the attribute name, `"rigMarkerMarkup"`. `DEFAULT_DISPLAY_SIZE` is the size `loadRigMarkers` draws at.
+
+```python
+nodes = rigmodules.markers.add_markers("skel:ball_00_L_JNT", ["heel", "ball", "bankIn", "bankOut", "toeTip", "toe"], "Left")
+```
+
 ## rigmodules.skinweights
 
 Helpers for tools that save or load the weights of many meshes at once. The commands do the work ([skinning.md](skinning.md)). This module knows the `meshId` attribute and where a weight file keeps its `meshId`, so tools don't hard-code either. Folders and file names are the tool's choice.

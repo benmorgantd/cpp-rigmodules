@@ -256,6 +256,37 @@ class Load(MarkerTestCase):
         # The Axis shape (index 17 of the shapeType enum): red, green and blue arrows, so the orientation reads.
         self.assertEqual(cmds.getAttr("skel:heel_00_L_MRK.shapeType", asString=True), "Axis")
 
+    def test_rigmodules_markers_lists_the_marked_nodes_of_a_namespace(self):
+        # rigmodules.markers.get_markers is what a tool saves from: the marked nodes, not every locator, in one namespace.
+        import rigmodules.markers
+        self.saved()
+        cmds.loadRigMarkers(file=self.path, namespace=NAMESPACE)
+        cmds.createNode("transform", name=NAMESPACE + ":plain_00_L_MRK")   # in the namespace, but not marked
+        found = rigmodules.markers.get_markers(NAMESPACE)
+        self.assertEqual([node.split("|")[-1] for node in found], ["skel:ball_00_R_MRK", "skel:heel_00_L_MRK"])
+        self.assertEqual(rigmodules.markers.get_markers(":"), [], "the root namespace holds none")
+
+    def test_rigmodules_markers_adds_named_axis_locators_at_a_joint(self):
+        # add_markers makes what loadRigMarkers makes: Axis locators, named in the convention, following the joint, at its
+        # place (upperArm L is at (2, 5, 0)), so they save as they are.
+        import rigmodules.markers
+        joint = self.joint("L", "upperArm")
+        nodes = rigmodules.markers.add_markers(joint, ["heel", "ball"], "Left")
+        self.assertEqual([node.split("|")[-1] for node in nodes], ["skel:heel_00_L_MRK", "skel:ball_00_L_MRK"])
+        for node in nodes:
+            self.assertWorldTranslation(node, (2, 5, 0))
+            self.assertEqual(cmds.getAttr(node + ".shapeType", asString=True), "Axis")
+            self.assertEqual(cmds.rigMarkerMarkup(node, query=True, joint=True), ["[Left, upperArm]"])
+        cmds.saveRigMarkers(*nodes, file=self.path)
+
+        with self.assertRaises(RuntimeError) as raised:
+            rigmodules.markers.add_markers(joint, ["toe", "heel"], "Left")
+        self.assertIn("heel_00_L_MRK", str(raised.exception))
+        self.assertFalse(cmds.objExists("skel:toe_00_L_MRK"), "nothing is added when one usage is taken")
+
+        cmds.undo()
+        self.assertFalse(cmds.objExists("skel:heel_00_L_MRK") or cmds.objExists("skel:ball_00_L_MRK"), "one undo removes them all")
+
     def test_the_markers_follow_the_joints_they_are_loaded_onto(self):
         self.saved()
         cmds.setAttr(self.joint("L", "upperArm") + ".translateY", 7)   # the joint is 2 higher than when saved

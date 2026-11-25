@@ -1097,7 +1097,7 @@ cmds.loadRigMarkers(file="C:/assets/hero/markers/body/markers.json", namespace="
 | `namespace` | string | The namespace holding the marked joints, and the one the locators go into. The current namespace when left out. |
 | `displaySize` | double | How large the locators are drawn. Default 2.0, above 0. |
 
-Objects: none. The whole file is checked first. A file that fails validation, a marker whose joint is not a marked joint in the namespace, and a node in the namespace that has a marker's name are errors and create nothing. A stored `markersHash` that does not match is a warning. Undoable. The locators are `rigControlNode`s in the `Pivot` shape, outside every rig, and they are throwaway: they are never part of a built rig.
+Objects: none. The whole file is checked first. A file that fails validation, a marker whose joint is not a marked joint in the namespace, and a node in the namespace that has a marker's name are errors and create nothing. A stored `markersHash` that does not match is a warning. Undoable. The locators are `rigControlNode`s in the `Axis` shape (red, green and blue arrows down their X, Y and Z), outside every rig, and they are throwaway: they are never part of a built rig. `rigmodules.markers.get_markers(namespace)` lists them for a tool that saves them all.
 
 ## mirrorRigMarkers
 
