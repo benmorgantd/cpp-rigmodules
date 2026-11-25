@@ -63,17 +63,19 @@ class ReverseFootStage2(RigTestCase):
         self.assertTurned(TOE_TIP, 90)
 
     def test_the_toe_follows_the_foot_when_the_leg_reaches(self):
-        """A roll of 20 turns the toe pivot (core (0, 1, 12)) about the ball: core (0, 0.255652, 12.221405), world (4, 3.225565, 1.822141).
-        With a tap of 25 the toe bone turns 45 about X in all, and the toe tip, 0.6 beyond and 0.1 below the toe, swings with it:
-        (0, -0.1 cos45 - 0.6 sin45, -0.1 sin45 + 0.6 cos45) = (0, -0.494975, 0.353553) from the toe, so (4, 2.73059, 2.175694)."""
+        """A roll of 20 turns the ankle about the ball, and the toe pivot stays planted at (4, 3.3, 1.8): the ball comes after the toe in
+        the chain. The ball pivot is not at the toe pivot, so the hand (4, 4.498986, 0.370108) ends 1.866055 from it, not the bone's
+        1.931321, and the toe is pulled along that line to the bone length: hand + (pivot - hand) * 1.931321 / 1.866055 = (4, 3.258065,
+        1.850011). The tap of 25 turns the toe 25 about X, and the toe tip, 0.6 beyond and 0.1 below the toe, swings with it:
+        (0, -0.1 cos25 - 0.6 sin25, -0.1 sin25 + 0.6 cos25) from the toe, so (4, 2.913863, 2.351534)."""
         self._build()
         cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
         cmds.setAttr(rig_name(FOOT + ".toeTap"), 25)
         self.assertWorld(HAND, (4.0, 4.4989863, 0.3701079))
-        self.assertWorld(TOE, (4.0, 3.225565, 1.822141))
-        self.assertTurned(TOE, 90, 45)
-        self.assertWorld(TOE_TIP, (4.0, 2.73059, 2.175694))
-        self.assertTurned(TOE_TIP, 90, 45)
+        self.assertWorld(TOE, (4.0, 3.258065, 1.850011))
+        self.assertTurned(TOE, 90, 25)
+        self.assertWorld(TOE_TIP, (4.0, 2.913863, 2.351534))
+        self.assertTurned(TOE_TIP, 90, 25)
 
     def test_the_toe_tap_alone_turns_the_toe_and_moves_nothing_else(self):
         """The toe tip swings 25 about the toe: (0, -0.1 cos25 - 0.6 sin25, -0.1 sin25 + 0.6 cos25) = (0, -0.34419, 0.501459) from it."""
@@ -113,15 +115,16 @@ class ReverseFootStage2(RigTestCase):
     def test_at_blend_half_the_toe_is_halfway_between_the_fk_and_ik_toes(self):
         """A roll of 20. The hand blends halfway from (4, 4, 0) to its target (4, 4.498986, 0.370108): (4, 4.249493, 0.185054), turned 10
         about X. The FK toe rides it: the hand-to-toe offset (0, -0.7, 1.8) turned 10 is (0, -1.001931, 1.6511), so the toe is at
-        (4, 3.247561, 1.836154). The IK toe is the foot's (4, 3.225565, 1.822141) pulled to keep the bone length 1.931321 from the hand:
-        (4, 3.225357, 1.822474). The toe is halfway between them, (4, 3.236459, 1.829314), turned 15 about X, and the toe tip (4, 2.984575, 2.382988)."""
+        (4, 3.247561, 1.836154). The IK toe is the planted toe pivot (4, 3.3, 1.8), not turned (the ball does not carry it), pulled to
+        keep the bone length 1.931321 from the hand: (4, 3.270638, 1.84994). The toe is halfway between them, (4, 3.2591, 1.843047),
+        turned 5 about X (halfway from 10 to 0), and the toe tip (0, -0.1 cos5 - 0.6 sin5, -0.1 sin5 + 0.6 cos5) from it: (4, 3.107187, 2.432048)."""
         self._build()
         cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0.5)
         cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
         self.assertWorld(HAND, (4.0, 4.249493, 0.185054))
-        self.assertWorld(TOE, (4.0, 3.236459, 1.829314))
-        self.assertTurned(TOE, 90, 15)
-        self.assertWorld(TOE_TIP, (4.0, 2.984575, 2.382988))
+        self.assertWorld(TOE, (4.0, 3.2591, 1.843047))
+        self.assertTurned(TOE, 90, 5)
+        self.assertWorld(TOE_TIP, (4.0, 3.107187, 2.432048))
 
     def test_a_leg_that_cannot_reach_keeps_the_bone_length_and_aims_at_the_pivot(self):
         """The handle goes 10 up (its local X is the world's Y) with the foot at rest: the toe pivot would be at (4, 13.3, 1.8), far beyond the
@@ -193,15 +196,16 @@ class ReverseFootStage2(RigTestCase):
         self.assertEqual((markup["side"], markup["usage"]), ("Left", "ballFK_00"))
 
     def test_the_pivots_and_the_toes_are_sockets_with_their_worlds(self):
-        """At a roll of 20 (break 30): the heel does not turn, so its socket stays at the heel marker (4, 3.2, -0.4). The ball socket turns 20
-        about X at the ball (4, 3.2, 1.6). The toe tip pivot is carried by the ball's turn: core (0, 0, 18) goes to (0, -2.736161, 17.517541),
-        world (4, 2.926384, 2.351754). The roles toe and toeTip are named toePivot and toeTipPivot, because toe and toeTip are the bind
-        joints' sockets."""
+        """The pivot sockets follow the chain order (heel, toeTip, bankOut, bankIn, toe, ball). At a roll of 20 (break 30): the heel does not
+        turn, so its socket stays at the heel marker (4, 3.2, -0.4). The ball socket turns 20 about X at the ball (4, 3.2, 1.6). The toe tip
+        pivot is before the ball in the chain, so nothing turns it: it stays at (4, 3.2, 2.4), not turned. Past the break (roll 50) the toe tip
+        turns 20 about its own position, which does not move it. The roles toe and toeTip are named toePivot and toeTipPivot, because toe and
+        toeTip are the bind joints' sockets."""
         self._build()
         cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
         module = rig_name(FOOT_MODULE)
         names = [json.loads(cmds.getAttr("%s.socketNames[%d]" % (module, i)))[0] for i in range(9)]
-        self.assertEqual(names, ["ankle", "toe", "toeTip", "heel", "ball", "bankOut", "bankIn", "toeTipPivot", "toePivot"])
+        self.assertEqual(names, ["ankle", "toe", "toeTip", "heel", "toeTipPivot", "bankOut", "bankIn", "toePivot", "ball"])
 
         def socket(index):
             matrix = cmds.getAttr("%s.outputSocketMatrix[%d]" % (module, index))
@@ -213,9 +217,14 @@ class ReverseFootStage2(RigTestCase):
 
         assertAt(3, (4.0, 3.2, -0.4))
         self.assertAlmostEqual(socket(3)[1][5], 1.0, places=4, msg="the heel socket is not turned")
-        assertAt(4, (4.0, 3.2, 1.6))
-        self.assertAlmostEqual(socket(4)[1][6], math.sin(math.radians(20)), places=4, msg="the ball socket is turned 20 about X")
-        assertAt(7, (4.0, 2.926384, 2.351754))
+        assertAt(8, (4.0, 3.2, 1.6))
+        self.assertAlmostEqual(socket(8)[1][6], math.sin(math.radians(20)), places=4, msg="the ball socket is turned 20 about X")
+        assertAt(4, (4.0, 3.2, 2.4))
+        self.assertAlmostEqual(socket(4)[1][5], 1.0, places=4, msg="the toe tip pivot socket is not turned below the break")
+        cmds.setAttr(rig_name(FOOT + ".footRoll"), 50)
+        assertAt(4, (4.0, 3.2, 2.4))   # past the break the toe tip turns about itself and stays on the ground
+        self.assertAlmostEqual(socket(4)[1][6], math.sin(math.radians(20)), places=4, msg="the toe tip pivot socket is turned 20 past the break")
+        cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
         # The toe and toe tip sockets are the joints' worlds.
         assertAt(1, self.world(TOE))
         assertAt(2, self.world(TOE_TIP))
@@ -234,5 +243,5 @@ class ReverseFootStage2(RigTestCase):
             cmds.evaluationManager(mode=evaluation)
             cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
             cmds.dgdirty(allPlugs=True)
-            self.assertWorld(TOE, (4.0, 3.225565, 1.822141))
+            self.assertWorld(TOE, (4.0, 3.258065, 1.850011))   # worked in test_the_toe_follows_the_foot_when_the_leg_reaches
             cmds.setAttr(rig_name(FOOT + ".footRoll"), 0)

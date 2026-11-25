@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <iterator>
 
 namespace FootSolve
 {
@@ -15,7 +14,7 @@ namespace FootSolve
 			const char* name;
 		};
 
-		// The one table of roles. The order is only the order they are listed in messages.
+		// The one table of role names. chainOrder, not this table, is the order of the chain.
 		constexpr RoleName kRoles[]
 		{
 			{ Role::Heel, "heel" },
@@ -73,49 +72,10 @@ namespace FootSolve
 		return "";
 	}
 
-	bool findRole(const std::string& usage, Role& outRole)
+	const std::array<Role, kRoleCount>& chainOrder()
 	{
-		for (const RoleName& entry : kRoles)
-		{
-			if (usage == entry.name)
-			{
-				outRole = entry.role;
-				return true;
-			}
-		}
-		return false;
-	}
-
-	std::string allowedRoles()
-	{
-		std::string text;
-		for (const RoleName& entry : kRoles)
-		{
-			text += (text.empty() ? "" : ", ") + std::string(entry.name);
-		}
-		return text;
-	}
-
-	std::vector<std::string> checkRoles(const std::vector<Role>& roles)
-	{
-		std::vector<std::string> problems;
-		int counts[std::size(kRoles)]{};
-		for (const Role role : roles)
-		{
-			if (++counts[static_cast<std::size_t>(role)] == 2)
-			{
-				problems.push_back(std::string("the role ") + roleName(role) + " is listed twice");
-			}
-		}
-		if (counts[static_cast<std::size_t>(Role::BankOut)] > 0 && counts[static_cast<std::size_t>(Role::BankIn)] == 0)
-		{
-			problems.push_back("bankOut needs a bankIn: a bank turns about the pivot on the side it tips toward");
-		}
-		if (counts[static_cast<std::size_t>(Role::BankIn)] > 0 && counts[static_cast<std::size_t>(Role::BankOut)] == 0)
-		{
-			problems.push_back("bankIn needs a bankOut: a bank turns about the pivot on the side it tips toward");
-		}
-		return problems;
+		static constexpr std::array<Role, kRoleCount> order{ Role::Heel, Role::ToeTip, Role::BankOut, Role::BankIn, Role::Toe, Role::Ball };
+		return order;
 	}
 
 	int findPivot(std::span<const Pivot> chain, Role role)

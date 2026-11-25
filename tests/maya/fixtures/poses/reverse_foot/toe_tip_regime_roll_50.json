@@ -1,5 +1,5 @@
 {
-  "description": "footRoll 50 over a break of 30: the ball takes 30 and the toe tip 20. The toe tip turns the ankle first: +20 about (0, 0, 18), offset (8, -24) gives (15.726024, -19.816462), so z = -1.816462. Then the ball turns that +30 about (0, 0, 10), offset (15.726024, -11.816462): y' = 19.527368, z' = -2.370344, so z = 7.629656. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "description": "footRoll 50 over a break of 30: the ball takes 30 and the toe tip 20. The ball is last in the chain, so it turns the ankle first: +30 about (0, 0, 10), offset (8, -16) gives y = 8 cos30 + 16 sin30 = 14.928203, z = 10 + 8 sin30 - 16 cos30 = 0.143594. Then the toe tip turns that +20 about (0, 0, 18), offset (14.928203, -17.856406): y = 20.135173, z = 18 - 11.673787 = 6.326213. The toe tip stays on the ground. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
   "skeleton": "reverse_foot",
   "template": "reverse_foot",
   "markers": "reverse_foot",
@@ -11,8 +11,8 @@
     "hand_00_L_JNT": {
       "translate": [
         4.0,
-        5.1527368,
-        1.3629656
+        5.2135173,
+        1.2326213
       ]
     }
   }

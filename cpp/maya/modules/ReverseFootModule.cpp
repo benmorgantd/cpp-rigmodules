@@ -54,6 +54,8 @@ namespace
 	// is reported as not world aligned.
 	constexpr double kWorldAlignedTolerance{ 1e-3 };
 
+	static_assert(ReverseFootSlot::PivotCap == FootSolve::kRoleCount, "the module stores one pivot per role, the whole chainOrder");
+
 	// The 11 channels, in the order of ReverseFootModuleNode::aChannels: name, the FootSolve field it is, its rest in degrees, and whether
 	// a mirror negates it (D74 section 8). The member pointer is what ties a channel to its field, so reordering this table cannot swap
 	// two channels in the solve. Names are the animator's, public API.
@@ -599,7 +601,7 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	ReverseFootArgs footArgs;
-	if (!readModuleArgs(args, { "joints", "reverseHierarchy", "ikFkDriver" }, ctx, footArgs, { "controlName" }))
+	if (!readModuleArgs(args, { "joints", "ikFkDriver" }, ctx, footArgs, { "controlName" }))
 	{
 		return false;
 	}
@@ -612,51 +614,23 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 	}
 	bool valid = true;
 
-	// The roles come from the markers' usages. Every problem is reported, so one attempt lists them all.
-	std::vector<FootSolve::Role> roles;
-	std::vector<JointSelector> roleSelectors;
-	for (const JointSelector& selector : footArgs.reverseHierarchy)
-	{
-		FootSolve::Role role;
-		if (!FootSolve::findRole(selector.usage, role))
-		{
-			ctx.report.addError(argsPath + ".reverseHierarchy", formatJointSelector(selector) + " is not a pivot role. The allowed usages are " + FootSolve::allowedRoles());
-			valid = false;
-			continue;
-		}
-		roles.push_back(role);
-		roleSelectors.push_back(selector);
-	}
-	for (const std::string& problem : FootSolve::checkRoles(roles))
-	{
-		ctx.report.addError(argsPath + ".reverseHierarchy", problem);
-		valid = false;
-	}
-	if (roles.size() > ReverseFootSlot::PivotCap)
-	{
-		ctx.report.addError(argsPath + ".reverseHierarchy", "has " + std::to_string(roles.size()) + " pivots and the module stores at most " + std::to_string(ReverseFootSlot::PivotCap));
-		valid = false;
-	}
-	if (std::find(roles.begin(), roles.end(), FootSolve::Role::Ball) == roles.end())
-	{
-		ctx.report.addError(argsPath + ".reverseHierarchy", "needs a ball pivot: the foot control is placed at it and the foot rolls over it");
-		valid = false;
-	}
-
-	// The pivots' rest positions, from the markers. Every missing marker or joint is reported.
+	// The six pivots are the markers named by role on the foot's own side ([Left, heel]), in the fixed chain order (author,
+	// 2026-11-24: every foot has all six, and the order is the module's, not the template's). A mirrored foot's side is already
+	// the other one. Every missing marker is reported, so one build lists them all.
 	// Only positions are read (D74): the axes come from the foot frame. A rotated marker is a warning, because a rigger
 	// who turned one (to match a slanted ball line, say) would otherwise expect the roll to follow it.
 	Plan plan;
 	std::string rotatedMarkers;
-	for (std::size_t i = 0; i < roles.size(); ++i)
+	for (const FootSolve::Role role : FootSolve::chainOrder())
 	{
+		const JointSelector selector{ ctx.moduleData.side, FootSolve::roleName(role) };
 		ResolvedMarker marker;
-		if (!resolveMarker(ctx, roleSelectors[i], marker))
+		if (!resolveMarker(ctx, selector, marker))
 		{
 			valid = false;
 			continue;
 		}
-		plan.chain.push_back(FootSolve::Pivot{ roles[i], { marker.world[12], marker.world[13], marker.world[14] } });
+		plan.chain.push_back(FootSolve::Pivot{ role, { marker.world[12], marker.world[13], marker.world[14] } });
 
 		MMatrix mOrientation = MathUtils::toMMatrix(marker.world);
 		mOrientation(3, 0) = 0.0;
@@ -664,12 +638,12 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 		mOrientation(3, 2) = 0.0;
 		if (!mOrientation.isEquivalent(MMatrix::identity, kWorldAlignedTolerance))
 		{
-			rotatedMarkers += (rotatedMarkers.empty() ? "" : ", ") + formatJointSelector(roleSelectors[i]);
+			rotatedMarkers += (rotatedMarkers.empty() ? "" : ", ") + formatJointSelector(selector);
 		}
 	}
 	if (!rotatedMarkers.empty())
 	{
-		ctx.report.addWarning(argsPath + ".reverseHierarchy", "the markers " + rotatedMarkers + " are not world aligned, and their rotation is not used: "
+		ctx.report.addWarning(argsPath, "the markers " + rotatedMarkers + " are not world aligned, and their rotation is not used: "
 			"the foot reads marker positions only, and its roll, bank and swivel axes come from the heel to toe tip direction and world up");
 	}
 

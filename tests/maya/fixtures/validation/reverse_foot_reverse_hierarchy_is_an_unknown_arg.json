@@ -1,0 +1,17 @@
+{
+  "description": "reverseHierarchy was removed (author, 2026-11-24): the foot finds its six markers by role on its side, in a fixed order, so a template that still lists them fails loudly",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/reverseHierarchy",
+      "value": [["Left", "heel"], ["Left", "ball"], ["Left", "bankOut"], ["Left", "bankIn"], ["Left", "toeTip"], ["Left", "toe"]]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "unknown key 'reverseHierarchy'"
+    }
+  ],
+  "markers": "reverse_foot"
+}

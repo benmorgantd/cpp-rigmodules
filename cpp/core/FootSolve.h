@@ -9,12 +9,14 @@
 // Matrices are row-major with row vectors (VectorMath.h): a point moves as p' = p * M, and rows 0 to 2 of a rotation are where
 // the X, Y and Z axes go. A motion is a rigid Mat4, rotation and translation, in world space at rest.
 //
-// The model. The marker pivots sit on the sole at rest, in chain order, root first (heel, ball, bank, toe tip, toe). Each pivot
-// turns its subtree about its own rest position and the foot frame's axes, and a pivot is carried by the pivots before it in
-// the chain (the author chose this literal hierarchy on 2026-11-24, with the heel as root). Because a pivot's own turn about
-// its own position does not move it, that is the same as turning the ankle by the last pivot's rotation first and the first
-// pivot's last: ankle' = Rot_0(Rot_1(... Rot_n(ankle))), every rotation about a REST pivot and a rest axis. A foot past the
-// break angle therefore carries its toe tip below the ground, which is the behaviour the author asked for.
+// The model. The marker pivots sit on the sole at rest, in chain order, root first: the module uses chainOrder (heel, toe tip,
+// bankOut, bankIn, toe, ball). Each pivot turns its subtree about its own rest position and the foot frame's axes, and a pivot
+// is carried by the pivots before it in the chain (the literal hierarchy with the heel as root, author 2026-11-24). Because a
+// pivot's own turn about its own position does not move it, that is the same as turning the ankle by the last pivot's rotation
+// first and the first pivot's last: ankle' = Rot_0(Rot_1(... Rot_n(ankle))), every rotation about a REST pivot and a rest
+// axis. In chainOrder the toe sits before the ball, so the ball's roll lifts the ankle and leaves the toe planted, and past the
+// break the toe tip carries everything, so the toe tip stays on the ground. The functions take any chain, so the tests can
+// check other orders; the order is fixed by the module, not the template (author, 2026-11-24).
 //
 // The foot frame (positions only, a marker's orientation is never read): forward is the heel to the toe tip projected onto
 // the ground, up is world +Y and lateral is up crossed with forward, so a character facing +Z has lateral +X, its left.
@@ -24,17 +26,16 @@
 
 #include "VectorMath.h"
 
+#include <array>
 #include <cstddef>
 #include <span>
-#include <string>
-#include <vector>
 
 namespace FootSolve
 {
 	using VectorMath::Mat4;
 	using VectorMath::Vec3;
 
-	// What a pivot is for, named by its marker's usage (reverseHierarchy). The table is data: the order is the template's.
+	// What a pivot is for. Its marker's usage is the role's name, on the foot's side ([Left, heel]).
 	enum class Role
 	{
 		Heel,
@@ -45,18 +46,14 @@ namespace FootSolve
 		Toe,
 	};
 
+	// Stored on the module by value, so the values never move.
+	inline constexpr std::size_t kRoleCount{ 6 };
+
 	// The usage text of a role: "heel", "ball", "bankOut", "bankIn", "toeTip", "toe".
 	const char* roleName(Role role);
 
-	// False for a usage that is none of them.
-	bool findRole(const std::string& usage, Role& outRole);
-
-	// "heel, ball, bankOut, bankIn, toeTip, toe", for the message of an unknown role.
-	std::string allowedRoles();
-
-	// What is wrong with a chain's roles, one message per problem: a role listed twice, a bankOut without a bankIn and a
-	// bankIn without a bankOut. Empty when the list is usable.
-	std::vector<std::string> checkRoles(const std::vector<Role>& roles);
+	// The chain every foot builds, root first: heel, toeTip, bankOut, bankIn, toe, ball. Every role is in it once.
+	const std::array<Role, kRoleCount>& chainOrder();
 
 	struct Pivot
 	{

@@ -1,0 +1,156 @@
+{
+  "formatVersion": 1,
+  "markersHash": "",
+  "markers": [
+    {
+      "markup": [
+        "Left",
+        "heel"
+      ],
+      "joint": [
+        "Left",
+        "hand"
+      ],
+      "export": false,
+      "name": "heel_00_L_MRK",
+      "offsetLocal": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -0.8,
+        0,
+        -0.4,
+        1
+      ]
+    },
+    {
+      "markup": [
+        "Left",
+        "ball"
+      ],
+      "joint": [
+        "Left",
+        "hand"
+      ],
+      "export": false,
+      "name": "ball_00_L_MRK",
+      "offsetLocal": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -0.8,
+        0,
+        1.6,
+        1
+      ]
+    },
+    {
+      "markup": [
+        "Left",
+        "bankOut"
+      ],
+      "joint": [
+        "Left",
+        "hand"
+      ],
+      "export": false,
+      "name": "bankOut_00_L_MRK",
+      "offsetLocal": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -0.8,
+        -0.4,
+        1.6,
+        1
+      ]
+    },
+    {
+      "markup": [
+        "Left",
+        "toeTip"
+      ],
+      "joint": [
+        "Left",
+        "hand"
+      ],
+      "export": false,
+      "name": "toeTip_00_L_MRK",
+      "offsetLocal": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -0.8,
+        0,
+        2.4,
+        1
+      ]
+    },
+    {
+      "markup": [
+        "Left",
+        "toe"
+      ],
+      "joint": [
+        "Left",
+        "hand"
+      ],
+      "export": false,
+      "name": "toe_00_L_MRK",
+      "offsetLocal": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -0.7,
+        0,
+        1.8,
+        1
+      ]
+    }
+  ]
+}

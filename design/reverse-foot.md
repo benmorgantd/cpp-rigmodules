@@ -22,7 +22,7 @@ The designs never said how the foot behaves in FK, where its inputs come from, o
 ## 3. Decisions the author has made (2026-11-24)
 
 1. **Markers, option C** (`markers.md`). The pivots are markers, in a file of their own, and they survive the round trip to the engine format because `export` is in the file from the start.
-2. **Pivot order** is `heel`, `ball`, `bankOut`, `bankIn`, `toeTip`, `toe`, then the ankle. The `ball` pivot is on the sole, orthogonal to the world (the foot rolls over it). `toeTip` is the pivot at the end of the toe. `toe` is the pivot at the base of the toe, the ball joint. There is no hardcoding: the order is template data (section 5).
+2. **Pivot order** is fixed by the module: `heel`, `toeTip`, `bankOut`, `bankIn`, `toe`, `ball`, then the ankle (`FootSolve::chainOrder`). The `ball` pivot is where the foot rolls (best at the toe joint, so the planted toe keeps its bone length exactly). `toeTip` is the pivot at the end of the toe. `toe` is the pivot at the base of the toe, the ball joint. **Changed 2026-11-24 (author):** the order and the roles were template data (`reverseHierarchy`), and are now the module's. Every foot has all six pivots and none is worth leaving out, and the order is a rig-behaviour choice: the author's own order put the toe under the ball, so a roll below the break tipped the toe into the ground with nothing to warn of it.
 3. **One signed `bank` channel**, no set-driven keys. Positive banks the foot toward the character's left (world +X when it faces +Z). That is "out" for a left foot and "in" for a right foot, so the mouse moves the way the foot goes when you face the character. It is `mirrorNegate`. The author says this is not a hard rule if it does not work out.
 4. **Peel is computed in the node,** with conditionals, from a `footRoll` channel and a `breakAngle` channel (default 30). Pivot angles add: raising the ball adds to the ball's angle and never starts the peel.
 5. **Channels only.** No FK pivot controls. The animator sees one channel control.
@@ -52,7 +52,6 @@ So a template wires **two child plugs** (section 6). The author's "unless ik als
   "mirror": true,
   "moduleArgs": {
     "joints": [["Left", "ankle"], ["Left", "toe"], ["Left", "toeTip"]],
-    "reverseHierarchy": [["Left", "heel"], ["Left", "ball"], ["Left", "bankOut"], ["Left", "bankIn"], ["Left", "toeTip"], ["Left", "toe"]],
     "ikFkDriver": "leg_00_L_MOD",
     "controlName": "foot"
   },
@@ -63,7 +62,7 @@ So a template wires **two child plugs** (section 6). The author's "unless ik als
 | `moduleArgs` key | Default | Meaning |
 |---|---|---|
 | `joints` | required | Three joint selectors: the ankle, the toe (ball joint) and the toe tip. The foot **drives the toe and the toe tip.** The ankle is a reference only: it belongs to the Limb (a joint two modules drive is a template error, D71) |
-| `reverseHierarchy` | required | Marker selectors in chain order, root first. Each entry's **usage names its role**: `heel`, `ball`, `bankOut`, `bankIn`, `toeTip` or `toe`. Any other usage is a read-phase error that lists the allowed ones. The chain ends at the ankle joint, so there is no `ankle` entry (author, 2026-11-24: not needed) |
+| (no `reverseHierarchy`) | removed 2026-11-24 | The pivots are the six markers `[side, role]` on the foot's own side, `heel`, `ball`, `bankOut`, `bankIn`, `toeTip` and `toe`, all required, in the fixed order of item 2. A missing one is a read-phase error naming it, and the old key is an unknown key. Two feet on one side (a creature) would need a marker prefix argument; not built, since a quadruped leg is likely a module of its own (author) |
 | `ikFkDriver` | required | The module id (as written in the template) of the Limb or TwoBoneIk whose `ikFkBlend` drives this foot. Validated: it must exist, be one of those two types, and be the module that `ik` and `ankle` hang from |
 | `controlName` | `foot` | Base of the control names |
 
@@ -90,7 +89,7 @@ All in `core/FootSolve` (Maya-free, tested in the suite), the node is a thin rea
 
 **Chain.** For each pivot in list order, `pivot_i = pivot_{i-1} * rotation_i * restOffset_i`. The channels in the table give each pivot's rotation. The end of the chain is the ankle: `ankleTarget = chain end`, delivered to the Limb as a motion from rest, like every child plug. Because the chain carries the ankle, **raising the ball pushes the ankle up** with no special rule.
 
-**As built in phase 2 (`core/FootSolve`, author's answer 2026-11-24).** The chain is the literal hierarchy with the heel as root: a pivot is carried by the pivots before it. That equals turning the ankle about REST pivots and rest axes, the last pivot first: `ankle' = Rot_heel(Rot_ball(Rot_bank(Rot_toeTip(ankle))))`. Past the break angle this carries the toe tip below the ground (the roll about the ball moves it); the author chose this over rotations about fixed ground pivots, which keep the tip down. Signs and the order of the turns within one pivot are in D74. The rule "pivot angles about parallel axes add" holds only while no roll sits between them: with a bank between the ball and the toe tip, the inverse's pitch and roll are not `footRoll` and `bank`, and the handle absorbs the rest.
+**As built in phase 2 (`core/FootSolve`, author's answer 2026-11-24).** The chain is the literal hierarchy with the heel as root: a pivot is carried by the pivots before it. That equals turning the ankle about REST pivots and rest axes, the last pivot first. **In the fixed order (2026-11-24)** that is `ankle' = Rot_heel(Rot_toeTip(Rot_bank(Rot_ball(ankle))))`: the ball turns the ankle first and the toe is not under it, so below the break the toe stays planted, and past the break the toe tip carries the whole foot and stays on the ground. (With the earlier template order, ball before toe tip and toe, the ball's roll tipped the toe and carried the toe tip below the ground.) Signs and the order of the turns within one pivot are in D74. The rule "pivot angles about parallel axes add" holds only while no roll sits between them. The ball now turns before the bank, so a ball roll with a bank is a pitch then a roll, and `decomposeRotation` (roll first) does not read back `footRoll` and `bank` exactly: the handle absorbs the rest, and the joints still come back exactly. A heel roll with a bank still reads back exactly (the bank turns first). Which gauge the phase 5 inverse uses is decided there.
 
 **Peel** (`footRoll`, degrees, positive rolls forward, the heel lifts; negative lifts the toes about the heel):
 
@@ -126,7 +125,7 @@ On `<base>Foot`. camelCase, no side, no module in the name (D34). Every channel'
 | `toeSwivel` | toe tip pivot, about up | 0 | `mirrorNegate` | |
 | `toeTap` | the toe bone about the `toe` pivot | 0 | `mirrorCopy` | Only the toe moves |
 
-`footRoll` and `breakAngle` are the only channels the author named for the peel, so they are the only ones there. A role missing from `reverseHierarchy` (no bank pivots) removes its channels (the control builds only what its pivots need), so a rig with no `bankIn` has no `bank`. The toe FK control is rotate only (translate and scale are locked and hidden).
+`footRoll` and `breakAngle` are the only channels the author named for the peel, so they are the only ones there. Every foot has all six pivots, so the control always has all 11 channels. The toe FK control is rotate only (translate and scale are locked and hidden).
 
 **An animator sees these names forever.** They are public API (CLAUDE.md, name stability): a rename later breaks saved poses and animation. The author confirmed the table and the signs on 2026-11-24.
 

@@ -52,7 +52,7 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 
 ## Markers
 
-A module can select a point that no joint marks, a [marker](markers.md), with a `[side, usage]` pair in a `moduleArgs` key that names markers. The markers come from the file passed to [`createRigFromTemplate`](commands.md#createrigfromtemplate) as `markers`, and a template that selects a marker when no file was passed is a read-phase error naming the marker. A mirrored module swaps the selector's side, as it does a joint selector. The [ReverseFoot](modules.md#reversefoot) selects them in `reverseHierarchy`, and its `ikFkDriver` module id swaps its side when the foot is mirrored.
+A module can select a point that no joint marks, a [marker](markers.md), with a `[side, usage]` pair in a `moduleArgs` key that names markers. The markers come from the file passed to [`createRigFromTemplate`](commands.md#createrigfromtemplate) as `markers`, and a template that selects a marker when no file was passed is a read-phase error naming the marker. A mirrored module swaps the selector's side, as it does a joint selector. The [ReverseFoot](modules.md#reversefoot) takes no marker selectors: it finds its six pivot markers by role on its own side (`[Left, heel]`), and its `ikFkDriver` module id swaps its side when the foot is mirrored.
 
 ## Modules
 

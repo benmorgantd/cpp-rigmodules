@@ -1,0 +1,12 @@
+{
+  "description": "Every foot needs all six pivot markers on its side: a markers file without [Left, bankIn] is an error that names it, and the other five resolve",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [],
+  "expectErrors": [
+    {
+      "contains": "the markers file has no marker [Left, bankIn]"
+    }
+  ],
+  "markers": "reverse_foot_no_bank_in"
+}

@@ -105,9 +105,8 @@ private:
 // The module's arguments (design/reverse-foot.md section 5). Field names are the template keys the macro maps.
 struct ReverseFootArgs
 {
-	std::vector<JointSelector> joints;             // the ankle, the toe and the toe tip
-	std::vector<JointSelector> reverseHierarchy;   // marker selectors in chain order, root first. The usage names the role
+	std::vector<JointSelector> joints;   // the ankle, the toe and the toe tip. The pivots are the six markers named by role on the foot's side
 	std::string ikFkDriver;
 	std::string controlName{ "foot" };
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ReverseFootArgs, joints, reverseHierarchy, ikFkDriver, controlName)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ReverseFootArgs, joints, ikFkDriver, controlName)

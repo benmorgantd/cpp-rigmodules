@@ -31,7 +31,6 @@
       "mirror": true,
       "moduleArgs": {
         "joints": [["Left", "hand"], ["Left", "toe"], ["Left", "toeTip"]],
-        "reverseHierarchy": [["Left", "heel"], ["Left", "ball"], ["Left", "bankOut"], ["Left", "bankIn"], ["Left", "toeTip"], ["Left", "toe"]],
         "ikFkDriver": "arm_00_L_MOD"
       },
       "parentStructure": {
