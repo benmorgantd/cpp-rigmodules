@@ -24,8 +24,9 @@
 
 namespace
 {
-	// The editing locator is a rigControlNode in the Pivot shape. It is not part of any rig, so nothing treats it as a control.
-	constexpr ShapeType kEditingShape{ ShapeType::Pivot };
+	// The editing locator is a rigControlNode in the Axis shape (X red, Y green, Z blue), so its orientation reads
+	// at a glance. It is not part of any rig, so nothing treats it as a control.
+	constexpr ShapeType kEditingShape{ ShapeType::Axis };
 }
 
 MStatus MarkerScene::queueAddMarkupAttribute(const MObject& oNode, MDGModifier& dgMod, MObject& oOutAttr)

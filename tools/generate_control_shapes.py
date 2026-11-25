@@ -33,7 +33,7 @@ OUTPUT = os.path.join(REPO, "cpp", "core", "ControlShapeLibrary.cpp")
 # Same order as the ShapeType enum.
 SHAPES = ["Box", "Sphere", "Circle", "Capsule", "Triangle", "Cylinder", "Square",
           "HalfCircleArrow", "ArchedDoubleArrow", "PointedCircle", "Diamond", "CircleArrow", "Dome",
-          "SingleArrow", "FourArrow", "CircleStick", "Pivot"]
+          "SingleArrow", "FourArrow", "CircleStick", "Pivot", "Axis"]
 
 ROUND_SEGMENTS = 24   # flat circles
 AXIS_SEGMENTS = 12    # around the long axis of round 3D shapes
@@ -45,13 +45,17 @@ class Shape(object):
         self.points = [tuple(p) for p in (points or [])]
         self.faces = [list(f) for f in (faces or [])]
         self.lines = [tuple(l) for l in (lines or [])]
+        self.colors = []   # empty (drawn in the control's colour), or one RGB per point
 
-    def add(self, other):
-        """Appends another shape's geometry, offsetting its indices."""
+    def add(self, other, color=None):
+        """Appends another shape's geometry, offsetting its indices. color gives every appended point that colour;
+        a shape's points are either all coloured or none."""
         offset = len(self.points)
         self.points += other.points
         self.faces += [[i + offset for i in face] for face in other.faces]
         self.lines += [(a + offset, b + offset) for a, b in other.lines]
+        if color is not None:
+            self.colors += [tuple(color)] * len(other.points)
         return self
 
 
@@ -228,12 +232,34 @@ def pivot():
     return shape
 
 
+AXIS_COLORS = ((0.95, 0.2, 0.2), (0.3, 0.85, 0.3), (0.25, 0.45, 1.0))   # X red, Y green, Z blue
+
+
+def axis():
+    # A transform's axes: an arrow from the origin down +X, +Y and +Z, each a square shaft and an 8-sided cone,
+    # coloured per axis. One arrow is built down +X and the others are its cyclic turns, which keep the windings.
+    shaft, cone_start, cone_radius, sides = 0.03, 0.75, 0.1, 8
+    arrow = Shape()
+    square_corners = [(-shaft, -shaft), (shaft, -shaft), (shaft, shaft), (-shaft, shaft)]
+    arrow.points += [(0.0, v, w) for v, w in square_corners] + [(cone_start, v, w) for v, w in square_corners]
+    arrow.faces += [[3, 2, 1, 0]] + [[i, (i + 1) % 4, 4 + (i + 1) % 4, 4 + i] for i in range(4)]
+    base = len(arrow.points)
+    arrow.points += circle_points(cone_radius, sides, center=(cone_start, 0.0, 0.0)) + [(1.0, 0.0, 0.0)]
+    tip = base + sides
+    arrow.faces.append([base + i for i in reversed(range(sides))])
+    arrow.faces += [[base + i, base + (i + 1) % sides, tip] for i in range(sides)]
+    shape = Shape()
+    for turn, color in zip((lambda p: p, lambda p: (p[2], p[0], p[1]), lambda p: (p[1], p[2], p[0])), AXIS_COLORS):
+        shape.add(Shape([turn(p) for p in arrow.points], arrow.faces), color)
+    return shape
+
+
 BUILDERS = {
     "Box": box, "Sphere": sphere, "Circle": circle, "Capsule": capsule, "Triangle": triangle,
     "Cylinder": cylinder, "Square": square, "HalfCircleArrow": half_circle_arrow,
     "ArchedDoubleArrow": arched_double_arrow, "PointedCircle": pointed_circle, "Diamond": diamond,
     "CircleArrow": circle_arrow, "Dome": dome, "SingleArrow": single_arrow, "FourArrow": four_arrow,
-    "CircleStick": circle_stick, "Pivot": pivot,
+    "CircleStick": circle_stick, "Pivot": pivot, "Axis": axis,
 }
 
 
@@ -259,7 +285,10 @@ def shape_case(name, shape):
     points = ["{ %s, %s, %s }" % tuple(number(c) for c in p) for p in shape.points]
     faces = ["{ %s }" % ", ".join(str(i) for i in face) for face in shape.faces]
     lines = ["{ %d, %d }" % line for line in shape.lines]
-    data = ",\n".join([block(points, 4), block(faces, 4), block(lines, 4)])
+    if shape.colors and len(shape.colors) != len(shape.points):
+        raise RuntimeError("%s has %d point colours for %d points" % (name, len(shape.colors), len(shape.points)))
+    colors = ["{ %sf, %sf, %sf }" % tuple(number(c) for c in color) for color in shape.colors]
+    data = ",\n".join([block(points, 4), block(faces, 4), block(lines, 4), block(colors, 4)])
     return ("\t\tcase ShapeType::%s:\n\t\t{\n\t\t\tstatic const ShapeMeshSource source =\n\t\t\t{\n%s\n\t\t\t};\n"
             "\t\t\treturn source;\n\t\t}" % (name, data))
 

@@ -50,7 +50,7 @@ cmds.saveRigMarkers(locator, file="C:/assets/hero/markers/body/markers.json")
 
 `loadRigMarkers` puts a marked locator at each marker of an existing file, sized by its `displaySize`. `mirrorRigMarkers` writes the other side's marker. All five commands are in [commands.md](commands.md#rigmarkermarkup).
 
-**The locators** are `rigControlNode`s in the `Pivot` shape, outside every rig. They show where a marker is but not which way it faces. The planned axis visualizer (a thin cylinder and a cone for each of X, Y and Z, coloured red, green and blue as Maya's manipulator is) is not built yet.
+**The locators** are `rigControlNode`s in the `Axis` shape, outside every rig: an arrow down each of the marker's +X, +Y and +Z, coloured red, green and blue as Maya's manipulator is, so they show where a marker is and which way it faces. `displaySize` scales them. A selected locator draws in the selection colour.
 
 **Mirroring is an authoring step, not a build step.** A marker's offset is in its joint's frame, and a mirrored limb's joint frames are turned, so negating one axis of an offset depends on the chain's convention. `mirrorRigMarkers` reflects the world position across X = 0 and writes the other side's marker as an offset in that side's joint frame. The file holds both sides, and the template's `"mirror": true` only swaps the selector's side.
 

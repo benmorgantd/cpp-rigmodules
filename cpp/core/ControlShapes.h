@@ -33,7 +33,8 @@ enum ShapeType : int
 	FourArrow = 14,
 	CircleStick = 15,
 	Pivot = 16,
-	Count = 17
+	Axis = 17,
+	Count = 18
 };
 
 static_assert(RigControlNodeAttr::ShapeTypes::All.size() == ShapeType::Count, "ShapeType and RigControlNodeAttr::ShapeTypes::All must list the same shapes");
@@ -51,12 +52,23 @@ struct ShapePoint
 	double z = 0.0;
 };
 
+// An RGB colour, 0..1.
+struct ShapeColor
+{
+	float r = 0.0f;
+	float g = 0.0f;
+	float b = 0.0f;
+};
+
 // A shape ready to draw: index pairs for the wire (face edges, each once, plus lines) and index triples for the fill.
+// pointColors is empty for a shape drawn in the control's colour, or one colour per point for a shape whose parts
+// have their own (Axis: X red, Y green, Z blue). A selected control draws in the selection colour either way.
 struct ShapeMesh
 {
 	std::vector<ShapePoint> points;
 	std::vector<unsigned int> wireIndices;
 	std::vector<unsigned int> triangleIndices;
+	std::vector<ShapeColor> pointColors;
 };
 
 // Built from the library on first use and kept for the session. A value outside the enum gives an empty mesh.

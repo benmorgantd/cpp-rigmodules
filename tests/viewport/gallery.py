@@ -38,7 +38,7 @@ LOG = os.path.join(OUT, "log.txt")
 # Same order as the shapeType enum.
 SHAPES = ["Box", "Sphere", "Circle", "Capsule", "Triangle", "Cylinder", "Square",
           "HalfCircleArrow", "ArchedDoubleArrow", "PointedCircle", "Diamond", "CircleArrow", "Dome",
-          "SingleArrow", "FourArrow", "CircleStick", "Pivot"]
+          "SingleArrow", "FourArrow", "CircleStick", "Pivot", "Axis"]
 
 CUBE_POINTS = [(-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1), (-1, -1, -1), (-1, -1, 1), (1, -1, 1), (1, 1, 1),
                (-1, 1, 1), (-1, -1, 1), (1, -1, 1), (1, -1, -1), (1, 1, -1), (1, 1, 1), (-1, 1, 1), (-1, 1, -1)]

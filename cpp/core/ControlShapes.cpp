@@ -150,7 +150,13 @@ namespace
 	{
 		ShapeMesh mesh;
 		mesh.points = source.points;
+		mesh.pointColors = source.pointColors;
 		const unsigned int count = static_cast<unsigned int>(source.points.size());
+		if (!source.pointColors.empty() && source.pointColors.size() != source.points.size())
+		{
+			outError = std::to_string(source.pointColors.size()) + " point colours for " + std::to_string(count) + " points";
+			return mesh;
+		}
 
 		std::set<std::pair<unsigned int, unsigned int>> edges;
 		auto addEdge = [&](unsigned int a, unsigned int b)

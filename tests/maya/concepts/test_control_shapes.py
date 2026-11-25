@@ -10,7 +10,7 @@ from rigtest.case import RigTestCase, fmt
 
 SHAPE_TYPES = ["Box", "Sphere", "Circle", "Capsule", "Triangle", "Cylinder", "Square",
                "HalfCircleArrow", "ArchedDoubleArrow", "PointedCircle", "Diamond", "CircleArrow", "Dome",
-               "SingleArrow", "FourArrow", "CircleStick", "Pivot"]
+               "SingleArrow", "FourArrow", "CircleStick", "Pivot", "Axis"]
 
 # Flat shapes that ring a bone: they face +X, so they lie in the YZ plane.
 RING_SHAPES = ["Circle", "Square", "Triangle", "PointedCircle", "HalfCircleArrow", "CircleArrow"]
@@ -78,6 +78,11 @@ class Bounds(RigTestCase):
 
     def test_dome_bulges_toward_x(self):
         self.assertShapeBounds("Dome", [0, -1, -1, 1, 1, 1])
+
+    def test_axis_runs_from_the_origin_down_each_positive_axis(self):
+        # Three arrows from the origin, tips at 1 on +X, +Y and +Z. Each cone is 0.1 in radius around its own axis,
+        # so the other two arrows' cones reach -0.1 on every axis. Its X red, Y green, Z blue are checked in the gallery.
+        self.assertShapeBounds("Axis", [-0.1, -0.1, -0.1, 1, 1, 1])
 
     def test_ring_shapes_face_x(self):
         for shape in RING_SHAPES:

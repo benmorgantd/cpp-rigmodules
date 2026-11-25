@@ -1,6 +1,6 @@
 # Markers: placed points that follow a joint, kept in their own file
 
-**Status:** Signed off by the author, 2026-11-24 (D73). Phases 0 and 1 built 2026-11-24 (file, hash, five commands, build flag, stamps, `MRK`), except the axis visualizer and module-side marker resolution, which are not built (see D73). Written from the author's answers on the reverse foot (`reverse-foot.md`), with the same day's review folded in: markers are per asset, authoring goes through an Asset Editor tab, and a marker comes with an axis visualizer. The author chose option C: a real marker type, separate from the skeleton file.
+**Status:** Signed off by the author, 2026-11-24 (D73). Phases 0 and 1 built 2026-11-24 (file, hash, five commands, build flag, stamps, `MRK`), except module-side marker resolution, which is not built (see D73). The axis visualizer was built the same day for the editing locators (section 6). Written from the author's answers on the reverse foot (`reverse-foot.md`), with the same day's review folded in: markers are per asset, authoring goes through an Asset Editor tab, and a marker comes with an axis visualizer. The author chose option C: a real marker type, separate from the skeleton file.
 
 ## 1. The problem
 
@@ -75,6 +75,8 @@ The author's point: a pivot moved by 2 cm changes how a foot rolls, so an animat
 The tool for this is an **Asset Editor tab** (mayadev, proposed, like the Markup tab): a Markers asset type with **Add marker** for the selected joint or joints (a locator at each joint, marked with a usage and side the rigger picks, `joint` set to the selected joint) and **Mirror markers** (`mirrorRigMarkers` on the selected ones), then Save. It needs no command beyond the five below. The same `getRigMarkers` read-back shows a built rig's resolved points for checking.
 
 **The visualizer (author, 2026-11-24).** A marker with a node comes with an **axis visualizer** that looks like Maya's own manipulator axes: a thin cylinder and a cone for each of X, Y and Z, coloured red, green and blue. It is a mesh in the generated control shape library (D26, `tools/` shape generator), made of three coloured parts, and it has a display size so a small point on a gun is not lost in a big scene. It is shown on:
+
+**Built 2026-11-24 for the editing locators:** the `Axis` control shape (ShapeType 17), an arrow (a square shaft and an 8-sided cone) down each of +X, +Y and +Z from the origin, generated with per-point colours (`ShapeMesh::pointColors`, the first shape with any). The draw override passes them per vertex while the control is dormant and uses the selection colour when it is selected, like every shape; `wireframeAlpha` still fades it. A square shaft rather than a cylinder keeps the wire to four lines per axis. The rig's export-marker nodes do not exist yet, so the second bullet waits for them.
 
 - the editing locators that `loadRigMarkers` and the Asset Editor's Add marker make, so the rigger sees the orientation as well as the place;
 - every `export: true` marker's node in a built rig. Markers are also used as attachment points (a gun's grip) and are children of an *animated* joint, so the rigger and the animator both need to see them move with the hand. This is why the node exists for export markers and why the visualizer is not authoring-only.

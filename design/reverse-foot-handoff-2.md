@@ -15,7 +15,14 @@
 
 The 18 skips are the 15 old ones plus the foot's three inverse tests, which wait for phase 5. Reviewers (convention, compute, docs, api-surface, limb-coupling) ran on phase 3. They did **not** run on `066cdd6` (a fork cannot spawn agents): run all five on `0698f10..HEAD` before or with the phase 5 commit.
 
-## Uncommitted now: two fixes from the author's solomon asset
+## Session 3 (2026-11-24): what changed since this page was written
+
+- The two fixes below are committed with their tests in `d626c26` (suite 1712 passed, 18 skipped), with the noisy "Socket or child plug did not exist for DAG reparent" warning removed.
+- The solomon template with the corrections below **builds** (both feet). Probing it showed that the author's `reverseHierarchy` order (`heel, ball, bankIn, bankOut, toeTip, toe`) puts the toe under the ball, so a `footRoll` of 20 (below the break) tips the toe 20 degrees and drops the toe tip 2.9 below the ground. The order `heel, toeTip, bankOut, bankIn, toe, ball` keeps the toe tip within 0.5 of the ground through the roll and past the break. The docs example uses the first order. **Asked the author which they want** (the docs example and the fixture follow the answer).
+- The axis marker shape (ask 1) is built: `Axis`, ShapeType 17, with per-point colours. Needs a GUI look.
+- Ask 2: the Markers row design was proposed to the author; not signed yet.
+
+## (Done, see above) Two fixes from the author's solomon asset
 
 `cpp/maya/modules/ReverseFootModule.cpp` (built into the Release `.mll`, **not yet tested or in the suite**):
 

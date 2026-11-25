@@ -61,6 +61,9 @@ namespace
 	constexpr const char* ProfilePrepareForDraw{ "rigControl prepareForDraw" };
 	constexpr const char* ProfilePrepareForDrawRead{ "rigControl prepareForDraw read" };
 	constexpr const char* ProfileAddUIDrawables{ "rigControl addUIDrawables" };
+
+	// The fill draws at this fraction of the wire's alpha, so the wire reads on top of it.
+	constexpr float kFillAlpha{ 0.75f };
 }
 
 MStatus RigControlNode::setDependentsDirty(const MPlug& plugBeingDirtied, MPlugArray& affectedPlugs)
@@ -278,6 +281,17 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 		const float a = MPlug(oControl, RigControlNode::aWireAlpha).asFloat();
 		data->dormantColor = MColor(r, g, b, a);
 
+		// Per-point colours keep the control's own alpha, so wireframeAlpha still fades them.
+		const unsigned int colorCount = static_cast<unsigned int>(mesh.pointColors.size());
+		data->wireColors.setLength(colorCount);
+		data->fillColors.setLength(colorCount);
+		for (unsigned int i = 0; i < colorCount; ++i)
+		{
+			const ShapeColor& pointColor = mesh.pointColors[i];
+			data->wireColors[i] = MColor(pointColor.r, pointColor.g, pointColor.b, a);
+			data->fillColors[i] = MColor(pointColor.r, pointColor.g, pointColor.b, a * kFillAlpha);
+		}
+
 		data->filled = MPlug(oControl, RigControlNode::aFilled).asBool();
 		data->xray = MPlug(oControl, RigControlNode::aXray).asBool();
 
@@ -292,6 +306,7 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 	const unsigned int selLen = ActiveSelection::length();
 
 	data->lineWidth = 1.0f;
+	data->usePointColors = false;
 
 	if (displayStatus == MHWRender::kLead && isObjectSelected && selLen != 1)
 	{
@@ -310,6 +325,7 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 	else
 	{
 		data->color = data->dormantColor;
+		data->usePointColors = data->wireColors.length() > 0;
 	}
 
 	return data;
@@ -339,17 +355,22 @@ void RigControlDrawOverride::addUIDrawables(
 	}
 	drawManager.setDepthPriority(100);
 
+	// A dormant shape with point colours (Axis) passes them per vertex. A selected or highlighted one draws in the
+	// selection colour like every other shape.
+	const MColorArray* pFillColors = pData->usePointColors ? &pData->fillColors : nullptr;
+	const MColorArray* pWireColors = pData->usePointColors ? &pData->wireColors : nullptr;
+
 	if (pData->filled && pData->triangleIndices.length() > 0)
 	{
 		MColor fillColor = pData->color;
-		fillColor.a *= 0.75f;
+		fillColor.a *= kFillAlpha;
 		drawManager.setColor(fillColor);
-		drawManager.mesh(MHWRender::MUIDrawManager::kTriangles, pData->points, nullptr, nullptr, &pData->triangleIndices);
+		drawManager.mesh(MHWRender::MUIDrawManager::kTriangles, pData->points, nullptr, pFillColors, &pData->triangleIndices);
 	}
 
 	drawManager.setColor(pData->color);
 	drawManager.setLineWidth(pData->lineWidth);
-	drawManager.mesh(MHWRender::MUIDrawManager::kLines, pData->points, nullptr, nullptr, &pData->wireIndices);
+	drawManager.mesh(MHWRender::MUIDrawManager::kLines, pData->points, nullptr, pWireColors, &pData->wireIndices);
 	if (pData->xray)
 	{
 		drawManager.endDrawInXray();

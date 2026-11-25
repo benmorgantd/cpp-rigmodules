@@ -8,6 +8,7 @@
 
 #include <maya/MBoundingBox.h>
 #include <maya/MColor.h>
+#include <maya/MColorArray.h>
 #include <maya/MDagModifier.h>
 #include <maya/MEulerRotation.h>
 #include <maya/MFrameContext.h>
@@ -45,6 +46,11 @@ public:
 	MPointArray points;
 	MUintArray wireIndices;       // Pairs, drawn as kLines
 	MUintArray triangleIndices;   // Triples, drawn as kTriangles when filled
+	// One colour per point for a shape whose parts have their own colours (Axis), with the dormant alpha, and the
+	// same at the fill's alpha. Empty for every other shape. Used only while the control is dormant.
+	MColorArray wireColors;
+	MColorArray fillColors;
+	bool usePointColors{ false };
 };
 
 // Custom transform that draws its own control shape through a VP2 draw override.

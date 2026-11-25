@@ -253,6 +253,8 @@ class Load(MarkerTestCase):
         self.assertWorldTranslation("skel:ball_00_R_MRK", (-5, 5.5, 2))
         self.assertEqual(cmds.rigMarkerMarkup("skel:ball_00_R_MRK", query=True, joint=True), ["[Right, lowerArm]"])
         self.assertEqual(cmds.rigMarkerMarkup("skel:ball_00_R_MRK", query=True, export=True), ["true"])
+        # The Axis shape (index 17 of the shapeType enum): red, green and blue arrows, so the orientation reads.
+        self.assertEqual(cmds.getAttr("skel:heel_00_L_MRK.shapeType", asString=True), "Axis")
 
     def test_the_markers_follow_the_joints_they_are_loaded_onto(self):
         self.saved()

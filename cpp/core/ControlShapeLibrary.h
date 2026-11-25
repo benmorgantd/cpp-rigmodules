@@ -14,6 +14,7 @@ struct ShapeMeshSource
 	std::vector<ShapePoint> points;
 	std::vector<std::vector<unsigned int>> faces;      // Vertex loops. Planar, may be concave, no collinear points.
 	std::vector<std::array<unsigned int, 2>> lines;     // Edges with no area, drawn in the wire only
+	std::vector<ShapeColor> pointColors;                // Empty, or one per point (see ShapeMesh)
 };
 
 // An empty source for a value outside the enum.

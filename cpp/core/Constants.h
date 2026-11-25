@@ -39,7 +39,8 @@ namespace RigControlNodeAttr
 			"SingleArrow",
 			"FourArrow",
 			"CircleStick",
-			"Pivot"
+			"Pivot",
+			"Axis"
 		};
 	}
 	inline constexpr const char* ShapeTransform{ "shapeTransform" };
