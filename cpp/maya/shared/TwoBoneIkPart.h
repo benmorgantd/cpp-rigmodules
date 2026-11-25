@@ -104,7 +104,7 @@ struct TwoBoneIkPart
 		// Outputs that drive the controls' visibility, a function of the blend alone.
 		for (MObject* pAttr : { &Node::aFkVisible, &Node::aIkVisible })
 		{
-			const char* name = pAttr == &Node::aFkVisible ? "fkVisible" : "ikVisible";
+			const char* name = pAttr == &Node::aFkVisible ? RigAttr::FkVisible : RigAttr::IkVisible;
 			*pAttr = nAttr.create(name, name, MFnNumericData::kDouble, 1.0, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 			CHECK_MSTATUS_AND_RETURN_IT(nAttr.setWritable(false));
@@ -235,12 +235,6 @@ struct TwoBoneIkPart
 		data.setClean(MPlug(oNode, Node::aMatchWarnings));
 		data.setClean(plug);
 		return MStatus::kSuccess;
-	}
-
-	// Whether the FK lower and end controls (fk) or the IK handle and pole (not fk) are visible at a blend.
-	static bool isVisible(bool fk, double blend)
-	{
-		return fk ? blend < 1.0 : blend > 0.0;
 	}
 
 	// Reads the limb's plugs. compute() writes every output array from one evaluation of this.

@@ -275,7 +275,7 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	if (oOutputAttr == aFkVisible || oOutputAttr == aIkVisible)
 	{
 		const double blend = data.inputValue(aIkFkBlend).asDouble();
-		data.outputValue(oOutputAttr).setDouble(Part::isVisible(oOutputAttr == aFkVisible, blend) ? 1.0 : 0.0);
+		data.outputValue(oOutputAttr).setDouble(TwoBoneIkSolve::isBlendControlVisible(oOutputAttr == aFkVisible, blend) ? 1.0 : 0.0);
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}

@@ -283,8 +283,8 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 
 		// Per-point colours keep the control's own alpha, so wireframeAlpha still fades them.
 		const unsigned int colorCount = static_cast<unsigned int>(mesh.pointColors.size());
-		data->wireColors.setLength(colorCount);
-		data->fillColors.setLength(colorCount);
+		CHECK_MSTATUS(data->wireColors.setLength(colorCount));
+		CHECK_MSTATUS(data->fillColors.setLength(colorCount));
 		for (unsigned int i = 0; i < colorCount; ++i)
 		{
 			const ShapeColor& pointColor = mesh.pointColors[i];

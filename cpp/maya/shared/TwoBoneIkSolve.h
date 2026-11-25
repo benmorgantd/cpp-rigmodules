@@ -171,6 +171,13 @@ namespace TwoBoneIkSolve
 	// The component of v perpendicular to the unit vector vAxis.
 	MVector perpendicularPart(const MVector& v, const MVector& vAxis);
 
+	// Whether the FK controls (fk) or the IK controls (not fk) of a module that follows an ik/fk blend are visible at the
+	// blend: FK hides at 1 and IK at 0. TwoBoneIk, Limb and a ReverseFoot on either share it.
+	inline bool isBlendControlVisible(bool fk, double blend)
+	{
+		return fk ? blend < 1.0 : blend > 0.0;
+	}
+
 	// The slots whose sockets follow their own controls and never the IK solve: the handle, the pole and the settings control.
 	inline bool isHandleSocket(unsigned int slot)
 	{

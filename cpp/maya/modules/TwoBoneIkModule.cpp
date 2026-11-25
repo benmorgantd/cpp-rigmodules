@@ -132,7 +132,7 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 	if (oOutputAttr == aFkVisible || oOutputAttr == aIkVisible)
 	{
 		const double blend = data.inputValue(aIkFkBlend).asDouble();
-		const bool isVisible = TwoBoneIkPart<TwoBoneIkNode>::isVisible(oOutputAttr == aFkVisible, blend);
+		const bool isVisible = TwoBoneIkSolve::isBlendControlVisible(oOutputAttr == aFkVisible, blend);
 		data.outputValue(oOutputAttr).setDouble(isVisible ? 1.0 : 0.0);
 		data.setClean(plug);
 		return MStatus::kSuccess;

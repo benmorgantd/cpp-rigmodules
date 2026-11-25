@@ -6,6 +6,7 @@
 #include "maya/shared/RigModule.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/Side.h"
+#include "maya/shared/TwoBoneIkSolve.h"
 #include "maya/shared/Utilities.h"
 
 #include <algorithm>
@@ -43,13 +44,6 @@ MObject ReverseFootModuleNode::aIkVisible;
 
 namespace
 {
-	// The toe FK control hides at blend 1 and the foot control at blend 0, the rule TwoBoneIk uses for its FK and IK controls. The foot's
-	// channels have nothing to move at blend 0: the Limb ignores ikTarget, and the toe is the FK toe.
-	bool isVisible(bool fk, double blend)
-	{
-		return fk ? blend < 1.0 : blend > 0.0;
-	}
-
 	// A pivot marker whose rotation differs from the world's by more than this (per matrix element, about 0.06 degrees)
 	// is reported as not world aligned.
 	constexpr double kWorldAlignedTolerance{ 1e-3 };
@@ -201,7 +195,8 @@ MStatus ReverseFootModuleNode::initialize()
 		attributeAffects(oInput, aAnkleSocketMatrix);
 	}
 	std::vector<MObject> oToeInputs(oAnkleInputs);
-	oToeInputs.insert(oToeInputs.end(), { aControlMatrix, aControlRestWorld, aIkFkBlend, oAnklePlug[0], oAnklePlug[1], oAnklePlug[2] });
+	// aJointRestWorld (the toe and toe tip rests) is written once at build, but computeToe reads it, so it is listed.
+	oToeInputs.insert(oToeInputs.end(), { aControlMatrix, aControlRestWorld, aJointRestWorld, aIkFkBlend, oAnklePlug[0], oAnklePlug[1], oAnklePlug[2] });
 	for (const MObject& oInput : oToeInputs)
 	{
 		attributeAffects(oInput, aJointOPM);
@@ -229,8 +224,11 @@ MStatus ReverseFootModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	}
 	if (oOutputAttr == aFkVisible || oOutputAttr == aIkVisible)
 	{
-		const bool isVisibleNow = isVisible(oOutputAttr == aFkVisible, data.inputValue(aIkFkBlend).asDouble());
-		data.outputValue(oOutputAttr).setDouble(isVisibleNow ? 1.0 : 0.0);
+		// The toe FK control hides at blend 1 and the foot control at blend 0, as the limb's controls do. The foot's
+		// channels have nothing to move at blend 0: the Limb ignores ikTarget, and the toe is the FK toe.
+		const double blend = data.inputValue(aIkFkBlend).asDouble();
+		const bool isVisible = TwoBoneIkSolve::isBlendControlVisible(oOutputAttr == aFkVisible, blend);
+		data.outputValue(oOutputAttr).setDouble(isVisible ? 1.0 : 0.0);
 		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
@@ -601,12 +599,13 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	ReverseFootArgs footArgs;
-	if (!readModuleArgs(args, { "joints", "ikFkDriver" }, ctx, footArgs, { "controlName" }))
+	if (!readModuleArgs(args, { "joints", RigAttr::IkFkDriver }, ctx, footArgs, { "controlName" }))
 	{
 		return false;
 	}
 
 	const std::string argsPath = ctx.where + "." + TemplateKey::ModuleArgs;
+	const std::string driverPath = argsPath + "." + RigAttr::IkFkDriver;
 	if (footArgs.joints.size() != 3)
 	{
 		ctx.report.addError(argsPath + ".joints", "needs three joints, the ankle, the toe and the toe tip, got " + std::to_string(footArgs.joints.size()));
@@ -659,7 +658,7 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 
 	if (footArgs.ikFkDriver.empty())
 	{
-		ctx.report.addError(argsPath + ".ikFkDriver", "must name the Limb or TwoBoneIk module whose ikFkBlend the foot follows");
+		ctx.report.addError(driverPath, "must name the Limb or TwoBoneIk module whose ikFkBlend the foot follows");
 		valid = false;
 	}
 	NamingConvention::Name controlName;
@@ -682,7 +681,7 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 	plan.ikFkDriver = footArgs.ikFkDriver;
 	if (footArgs.ikFkDriver.find('.') != std::string::npos)
 	{
-		ctx.report.addError(argsPath + ".ikFkDriver", "'" + footArgs.ikFkDriver + "' is a socket id. ikFkDriver is the limb's module name alone, for example 'leg_00_L_MOD'");
+		ctx.report.addError(driverPath, "'" + footArgs.ikFkDriver + "' is a socket id. ikFkDriver is the limb's module name alone, for example 'leg_00_L_MOD'");
 		valid = false;
 	}
 	else if (ctx.moduleData.isMirror())
@@ -690,7 +689,7 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 		const std::string mirrored = NamingConvention::swapSide(footArgs.ikFkDriver);
 		if (mirrored.empty())
 		{
-			ctx.report.addError(argsPath + ".ikFkDriver", "'" + footArgs.ikFkDriver + "' has no other side to follow on a mirrored foot: it must be a module name in the naming convention with a Left or Right side");
+			ctx.report.addError(driverPath, "'" + footArgs.ikFkDriver + "' has no other side to follow on a mirrored foot: it must be a module name in the naming convention with a Left or Right side");
 			valid = false;
 		}
 		plan.ikFkDriver = mirrored;

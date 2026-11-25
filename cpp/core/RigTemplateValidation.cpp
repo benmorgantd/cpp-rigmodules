@@ -756,7 +756,7 @@ namespace RigTemplateValidation
 				continue;
 			}
 			const std::string& driverName = follower->second.blendDriver;
-			const std::string where = modulePath(i, module) + "." + TemplateKey::ModuleArgs + ".ikFkDriver";
+			const std::string where = modulePath(i, module) + "." + TemplateKey::ModuleArgs + "." + RigAttr::IkFkDriver;
 
 			const bool isInTemplate = std::any_of(rigData.rigModules.begin(), rigData.rigModules.end(), [&driverName](const RigModuleData& other)
 			{
