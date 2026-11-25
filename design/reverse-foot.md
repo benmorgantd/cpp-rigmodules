@@ -76,7 +76,7 @@ Roles are a table in `core/` that says which channels act on a pivot. The order 
 | Node type | `reverseFootModule`, MTypeId from `CLAUDE.md`'s free list at build time |
 | Child plugs | `ik` (the IK half, internal motion from the Limb's `ik` socket), `ankle` (the ankle as it is, from the Limb's `end` socket). Each can attach to a different socket. A constraint on either works as for other plugs |
 | Sockets | `ankle` (the IK ankle target, the world the Limb's `ikTarget` takes), `toe`, `toeTip` (the solved bind joints), and one socket per pivot named from its role (`heel`, `ball`, ... the posed pivot worlds, for tools and for a hand or prop hung from the foot) |
-| Controls | `<base>Foot`, the channel control (D34, section 8), and `<toe usage>FK`, an FK rotate control for the toe. `<base>Foot` is **derived from the `ball` marker**: it sits at the marker's position, **aligned to the world** (its rotation is locked, so its orientation only sets how its translate reads, as the pole's does, D57). It has translate locked and hidden, so it carries channels only |
+| Controls | `<base>Foot`, the channel control (D34, section 8), and `<toe usage>FK`, an FK rotate control for the toe (FK goes before a trailing number: `ball_00` gives `ballFK_00`). `<base>Foot` is **derived from the `ball` marker**: it sits at the marker's position, **aligned to the world** (its rotation is locked, so its orientation only sets how its translate reads, as the pole's does, D57). It has translate locked and hidden, so it carries channels only |
 | Joints driven | The toe and the toe tip |
 | Internal inputs | `ikFkBlend`, non-keyable and locked, connected to the driver (section 9) |
 

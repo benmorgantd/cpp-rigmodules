@@ -6,12 +6,14 @@ The foot is the core test foot (tests/core/FootSolveTests.cpp) at a tenth of its
 the toe tip pivot (4, 3.2, 2.4), both with the hand's rest rotation, Rz 90, because they are its children in the fixture skeleton. Every
 expected number is worked by hand from those, in the test it is used in. Nothing here is recorded from the rig.
 """
+import copy
 import json
 import math
 
 import maya.api.OpenMaya as om
 from maya import cmds
 
+from rigtest import fixtures
 from rigtest.case import RigTestCase, rig_name, world_rotation_matrix
 
 FOOT = "foot_00_L_CTRL"
@@ -174,6 +176,21 @@ class ReverseFootStage2(RigTestCase):
         self.assertEqual(sorted(a for a in cmds.listAttr(rig_name(TOE_FK), keyable=True) if a != "visibility"), ["rotateX", "rotateY", "rotateZ"])
         markup = json.loads(cmds.getAttr(rig_name(TOE_FK + ".controlMarkup")))
         self.assertEqual((markup["side"], markup["usage"]), ("Left", "toeFK"))
+
+    def test_a_numbered_toe_usage_puts_fk_before_the_number(self):
+        """A toe joint marked ball_00 (the solomon asset's) gives the toe FK usage ballFK_00 and the control ballFK_00_L_CTRL. Before the fix
+        it gave ball_00FK, which is not camelCase, and the build failed validation."""
+        joints = self.make_skeleton("reverse_foot")
+        index = [i for i, j in enumerate(joints) if j.endswith(TOE)][0]
+        joints[index] = ":" + cmds.rename(joints[index], "skel:ball_00_L_JNT")
+        cmds.rigJointMarkup(joints[index], edit=True, usage="ball_00")
+        template = copy.deepcopy(fixtures.load_template("reverse_foot"))
+        template["rigModules"][1]["moduleArgs"]["joints"][1] = ["Left", "ball_00"]
+        self.build(template, joints, markers="reverse_foot")
+        control = rig_name("ballFK_00_L_CTRL")
+        self.assertTrue(cmds.objExists(control))
+        markup = json.loads(cmds.getAttr(control + ".controlMarkup"))
+        self.assertEqual((markup["side"], markup["usage"]), ("Left", "ballFK_00"))
 
     def test_the_pivots_and_the_toes_are_sockets_with_their_worlds(self):
         """At a roll of 20 (break 30): the heel does not turn, so its socket stays at the heel marker (4, 3.2, -0.4). The ball socket turns 20

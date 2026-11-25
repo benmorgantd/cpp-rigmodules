@@ -43,6 +43,8 @@ A handoff says "delete when its work is committed". Where the work is built but 
 
 [`reverse-foot-handoff.md`](reverse-foot-handoff.md) (D73, D74): the build phases for markers and `ReverseFoot`, written for a fresh session. Delete it when the phases are committed.
 
+[`reverse-foot-handoff-2.md`](reverse-foot-handoff-2.md) (D73, D74): where that work stands after phase 4 (phases 5 and 6 left, an uncommitted toe FK naming fix, the author's solomon asset, the colour axis marker shape and the mayadev Markers asset row). Delete it with the first one.
+
 Otherwise none. `control-node-perf-handoff.md` (above) is a design handoff with nothing built, so it stays until that work is designed.
 
 ## Proposals and speculation (nothing built)

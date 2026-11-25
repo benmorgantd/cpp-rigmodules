@@ -674,7 +674,9 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 		valid = false;
 	}
 	// The toe FK control is named from the toe's usage and FK ("toe" gives "toeFK"), so it is a camelCase usage of its own.
-	plan.toeFkUsage = footArgs.joints[1].usage + "FK";
+	// FK goes before a trailing _NN, so a joint usage of "ball_00" gives "ballFK_00" and the control ballFK_00_L_CTRL.
+	const std::string toeBase = StringUtils::stripNumberSuffix(footArgs.joints[1].usage);
+	plan.toeFkUsage = toeBase + "FK" + footArgs.joints[1].usage.substr(toeBase.size());
 	NamingConvention::Name toeFkName;
 	if (!NamingConvention::fromUsage(plan.toeFkUsage, ctx.moduleData.side, NamingConvention::Kind::Control, toeFkName))
 	{
@@ -683,7 +685,12 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 	}
 	// A mirrored foot follows the other side's limb (D28). The selectors' sides were swapped when the template expanded.
 	plan.ikFkDriver = footArgs.ikFkDriver;
-	if (ctx.moduleData.isMirror())
+	if (footArgs.ikFkDriver.find('.') != std::string::npos)
+	{
+		ctx.report.addError(argsPath + ".ikFkDriver", "'" + footArgs.ikFkDriver + "' is a socket id. ikFkDriver is the limb's module name alone, for example 'leg_00_L_MOD'");
+		valid = false;
+	}
+	else if (ctx.moduleData.isMirror())
 	{
 		const std::string mirrored = NamingConvention::swapSide(footArgs.ikFkDriver);
 		if (mirrored.empty())

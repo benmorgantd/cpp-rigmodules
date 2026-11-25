@@ -1,0 +1,17 @@
+{
+  "description": "ikFkDriver is the limb's module name, so a socket id (the module name and a socket) is an error that says so",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/ikFkDriver",
+      "value": "arm_01_L_MOD.ik"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "'arm_01_L_MOD.ik' is a socket id. ikFkDriver is the limb's module name alone"
+    }
+  ],
+  "markers": "reverse_foot"
+}
