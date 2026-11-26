@@ -11,7 +11,7 @@
       },
       "tail_01_M_MOD": {
         "type": "ribbonModule",
-        "sockets": [["index_0", "start"], ["index_1"], ["index_2", "end"]],
+        "sockets": [["index_0", "start"], ["index_1"], ["index_2", "end"], ["bind_0"], ["bind_1"], ["bind_2"], ["bind_3"], ["bind_4"]],
         "childPlugs": ["start", "end"]
       }
     },

@@ -69,8 +69,9 @@ namespace
 	}
 
 	// Socket names of ik control k, the way FkChain names its own: index_k, plus start and end on the ends.
-	ModuleInterface makeRibbonInterface(unsigned int controlCount, bool hasFkChain)
+	ModuleInterface makeRibbonInterface(unsigned int controlCount, unsigned int bindCount, unsigned int fkCount)
 	{
+		const bool hasFkChain = fkCount > 0;
 		ModuleInterface moduleInterface;
 		moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Start, true });
 		// The end follows the start's parent unless the template drives it from another socket (section 3.4). With an fk chain the end
@@ -83,6 +84,15 @@ namespace
 		{
 			const std::vector<std::string> names = FkChainModuleNode::socketNamesAt(k, controlCount);
 			moduleInterface.sockets.insert(moduleInterface.sockets.end(), names.begin(), names.end());
+		}
+		// Every bind joint and every fk control is a socket too (D78), so each is a constraint driver and a child plug's parent.
+		for (unsigned int i = 0; i < bindCount; ++i)
+		{
+			moduleInterface.sockets.push_back(std::string(PlugAndSocketNames::Bind) + std::to_string(i));
+		}
+		for (unsigned int k = 0; k < fkCount; ++k)
+		{
+			moduleInterface.sockets.push_back(std::string(PlugAndSocketNames::Fk) + std::to_string(k));
 		}
 		return moduleInterface;
 	}
@@ -229,7 +239,7 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	for (unsigned int slot = 0; slot < slotCount; ++slot)
 	{
-		writeSolvedSlot(outputs, slot, solve.mControlOPM[slot], solve.mWorld[slot]);   // a tweaker has no socket element: skipped
+		writeSolvedSlot(outputs, slot, solve.mControlOPM[slot], solve.mWorld[slot]);   // every slot has a socket element (D78)
 	}
 	commitSolvedOutputs(data, plug, aJointOPM, outputs);
 	return MStatus::kSuccess;
@@ -469,23 +479,30 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 			return result;
 		}
 
-		if (slot >= firstFk)
-		{
-			// An fk control has no socket and no joint: it shapes the curve the ik controls float on.
-			continue;
-		}
-		if (slot >= controlCount)
-		{
-			// A tweaker is the residual layer: hidden, still keyable (section 3.2).
-			dagMod.newPlugValueBool(MPlug(oControls[slot], MPxTransform::visibility), false);
-			continue;
-		}
-
 		RigModuleSocketInfo socketInfo;
 		socketInfo.oTransform = oControls[slot];
 		socketInfo.mRestWorld = input.mRestWorld;
 		socketInfo.outputIndex = slot;
-		const std::vector<std::string> socketNames = FkChainModuleNode::socketNamesAt(slot, controlCount);
+		std::vector<std::string> socketNames;
+		if (slot >= firstFk)
+		{
+			// An fk control has no joint: it shapes the curve the ik controls float on. Its socket (fk_<n>, D78) carries its own
+			// transform, so a child plug on it parents under the visible control like an FkChain's.
+			socketNames.push_back(std::string(PlugAndSocketNames::Fk) + std::to_string(slot - firstFk));
+		}
+		else if (slot >= controlCount)
+		{
+			// A tweaker is the residual layer: hidden, still keyable (section 3.2). Its socket (bind_<n>, D78) is its world, which is
+			// the bind joint's. It has no transform, so a child plug on it takes the matrix and keeps its place in the DAG, as the
+			// Limb's bind sockets do, rather than going under a hidden control.
+			dagMod.newPlugValueBool(MPlug(oControls[slot], MPxTransform::visibility), false);
+			socketInfo.oTransform = MObject::kNullObj;
+			socketNames.push_back(std::string(PlugAndSocketNames::Bind) + std::to_string(slot - controlCount));
+		}
+		else
+		{
+			socketNames = FkChainModuleNode::socketNamesAt(slot, controlCount);
+		}
 		for (const std::string& socketName : socketNames)
 		{
 			result.parentSockets[socketName] = socketInfo;
@@ -702,7 +719,7 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 		fkControls.push_back(slot);
 	}
 
-	outPlan.moduleInterface = makeRibbonInterface(static_cast<unsigned int>(controls.size()), fkCount > 0);
+	outPlan.moduleInterface = makeRibbonInterface(static_cast<unsigned int>(controls.size()), static_cast<unsigned int>(joints.size()), static_cast<unsigned int>(fkCount));
 	for (const RibbonSlotInput& slot : controls)
 	{
 		outPlan.moduleInterface.controls.push_back(slot.controlMarkup);

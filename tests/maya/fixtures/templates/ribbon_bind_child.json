@@ -1,0 +1,13 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "RibbonBindChild",
+  "rigModules": [
+    { "moduleType": "Ribbon", "moduleVersion": 2, "name": "tail_01_M_MOD", "shapeType": "Box", "side": "Center",
+      "moduleArgs": {
+        "controlName": "tail",
+        "joints": [ ["Center", "tail1"], ["Center", "tail2"], ["Center", "tail3"], ["Center", "tail4"], ["Center", "tail5"] ] } },
+    { "moduleType": "FkChain", "name": "extra_01_M_MOD", "shapeType": "Box", "side": "Center",
+      "moduleArgs": { "joints": [ ["Center", "extra"] ] },
+      "parentStructure": { "start": "tail_01_M_MOD.bind_2" } }
+  ]
+}

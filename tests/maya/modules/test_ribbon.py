@@ -751,3 +751,60 @@ class RibbonFkStyle(RigTestCase):
             self.assertIn("fkControlCount", message)
             self.assertIn("between 2 and 8", message)
             self.assertNothingBuilt()
+
+
+class RibbonBindSockets(RigTestCase):
+    """Every bind joint (bind_0 to bind_4) and every fk control (fk_0 to fk_2) is a socket (D78), so a child plug or a constraint can
+    take it. ribbon_bind_child has a joint, extra, at the third bind joint (4, 0, 0), and an FkChain of it hangs from bind_2. The fk
+    version hangs it from fk_1, which sits at the same place."""
+
+    EXTRA = "extra_00_M_JNT"
+    BIND = "tail3_00_M_JNT"
+
+    def _build(self, template, label):
+        self.build(fixtures.load_template(template), self.make_skeleton("ribbon_bind_child"), label=label)
+
+    def _pose(self):
+        """The end control lifted and the start's twist turned, so the third bind joint moves and turns."""
+        set_attr(LAST, "translateY", 3.0)
+        set_attr(FIRST, "startTwist", 40.0)
+
+    def _assert_follows(self, source):
+        a = world_matrix(source)
+        b = world_matrix(self.EXTRA)
+        for x, y in zip(a, b):
+            self.assertAlmostEqual(x, y, places=4)
+
+    def test_the_child_sits_on_its_bind_joint_at_rest(self):
+        self._build("ribbon_bind_child", "ribbon_bind_child")
+        self.assertWorldTranslation(rig_name(self.EXTRA), [4, 0, 0], 1e-4)
+
+    def test_the_child_follows_its_bind_joint_through_a_pose_and_a_twist(self):
+        self._build("ribbon_bind_child", "ribbon_bind_child")
+        self._pose()
+        self.assertNotEqual(translation(self.BIND), [4, 0, 0])
+        self._assert_follows(self.BIND)
+
+    def test_the_child_is_not_hidden_by_the_hidden_tweaker(self):
+        """The bind socket has no DAG transform, so the child's control keeps its place in the DAG and does not inherit the tweaker's
+        hidden state."""
+        self._build("ribbon_bind_child", "ribbon_bind_child")
+        control = rig_name("extra_00_M_CTRL")
+        self.assertTrue(cmds.getAttr(control + ".visibility"))
+        parents = cmds.listRelatives(control, parent=True, fullPath=True) or []
+        self.assertNotIn(rig_name(TWEAKERS[2]), [p.split("|")[-1] for p in parents])
+
+    def test_a_constraint_can_be_driven_by_a_bind_joint(self):
+        self._build("ribbon_bind_constraint", "ribbon_bind_constraint")
+        self._pose()
+        self.assertNotEqual(translation(self.BIND), [4, 0, 0])
+        self._assert_follows(self.BIND)
+
+    def test_a_child_follows_an_fk_control_and_hangs_under_it(self):
+        self._build("ribbon_fk_child", "ribbon_fk_child")
+        self.assertWorldTranslation(rig_name(self.EXTRA), [4, 0, 0], 1e-4)
+        set_attr("tailFK_00_M_CTRL", "rotateZ", 30.0)   # turns the chain about the start, so fk_1 (4 along it) swings
+        self.assertNotEqual(translation(self.EXTRA), [4, 0, 0])
+        self._assert_follows("tailFK_01_M_CTRL")
+        parents = cmds.listRelatives(rig_name("extra_00_M_CTRL"), parent=True, fullPath=True) or []
+        self.assertEqual([p.split("|")[-1].lstrip(":") for p in parents], [rig_name("tailFK_01_M_CTRL").lstrip(":")])

@@ -539,6 +539,8 @@ namespace PlugAndSocketNames
 	inline constexpr const char* PivotSuffix{ "Pivot" };
 	// A Limb's bind joint sockets: bind_0, bind_1, ... in bind joint order (D62), so a child can hang from a twist joint.
 	inline constexpr const char* Bind{ "bind_" };
+	// A Ribbon's fk control sockets (D78): fk_0, fk_1, ... in chain order.
+	inline constexpr const char* Fk{ "fk_" };
 }
 
 // A ReverseFoot's slots (D74). The foot control is control slot 0, and the ik child plug is childPlugs[0]. The ankle socket is element 0 of the
