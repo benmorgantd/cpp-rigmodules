@@ -1,5 +1,5 @@
 {
-  "description": "footRoll 20 and bank 10: the ball turns the ankle first (it is last in the chain), +20 about (0, 0, 10) to (0, 12.989863, -2.298921). Then the bank turns that -10 about forward at bankOut (4, 0, 10), offset (-4, 12.989863): x = 4 - 4 cos10 + 12.989863 sin10 = 2.316435, y = 4 sin10 + 12.989863 cos10 = 13.487111. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "description": "footRoll 20 and bank 10: the toe pivot turns the ankle first (it is last in the chain), +20, to (4, 4.573421, 0.347967). Then the bank turns that -10 about forward at bankOut (4.4, 3.2, 1.6), offset (dx -0.4, dy 1.373421): x = 4.4 - 0.4 cos10 + 1.373421 sin10 = 4.244569, y = 3.2 + 0.4 sin10 + 1.373421 cos10 = 4.622015. The toe pivot is the toe joint (4, 3.3, 1.8), so the hand at (4, 4, 0) is offset (dy 0.7, dz -1.8) from it, the toe bone's length 1.931321, and it keeps that length to the planted toe. The Limb is at IK, so its hand reaches the foot's ankle target.",
   "skeleton": "reverse_foot",
   "template": "reverse_foot",
   "markers": "reverse_foot",
@@ -11,9 +11,9 @@
   "expect": {
     "hand_00_L_JNT": {
       "translate": [
-        4.2316435,
-        4.5487111,
-        0.3701079
+        4.244569,
+        4.622015,
+        0.3479674
       ]
     }
   }

@@ -202,7 +202,7 @@ cmds.saveRigMarkers(*nodes, file="C:/assets/hero/markers/markers.json")
 `MARKUP_ATTR` is the attribute name, `"rigMarkerMarkup"`. `DEFAULT_DISPLAY_SIZE` is the size `loadRigMarkers` draws at.
 
 ```python
-nodes = rigmodules.markers.add_markers("skel:ball_00_L_JNT", ["heel", "ball", "bankIn", "bankOut", "toeTip", "toe"], "Left")
+nodes = rigmodules.markers.add_markers("skel:ball_00_L_JNT", ["heel", "bankIn", "bankOut", "toeTip", "toe"], "Left")
 ```
 
 ## rigmodules.skinweights

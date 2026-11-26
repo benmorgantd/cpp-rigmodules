@@ -3,8 +3,9 @@ and what only the foot does: its channels and their mirror modes, the foot contr
 resolves, the loop check, the graph through the Limb's ikTarget, a foot at rest equal to the Limb alone, and the inverse (phase 5): the
 gauge, the handle's space, and the match with a raised foot.
 
-The foot is the core test foot (tests/core/FootSolveTests.cpp) at a tenth of its size on the limb_arm hand at (4, 4, 0), so every
-expected number is that table's, scaled. The pose cases hold the arithmetic in their descriptions. Nothing here is recorded from the rig.
+The foot is the core test foot (tests/core/FootSolveTests.cpp) at a tenth of its size on the limb_arm hand at (4, 4, 0), except the toe
+pivot, which sits at the toe joint (4, 3.3, 1.8), 0.1 above the sole: the roll below the break and the ball channels turn about it, so
+those numbers are worked here from it, not scaled from the core table. The pose cases hold the arithmetic in their descriptions. Nothing here is recorded from the rig.
 
 Stage 2 (the toe and toe tip joints, the toe FK control, the blend) is test_reverse_foot_stage2.
 """
@@ -136,10 +137,10 @@ class ReverseFootBehaviour(RigTestCase):
         control = rigmodules.query.get_control(rig_name("sole_00_L_CTRL"))
         self.assertEqual((control.side, control.usage), ("Left", "sole"))
 
-    def test_the_foot_control_sits_at_the_ball_marker_and_is_world_aligned(self):
-        """The ball marker is 1.6 ahead of and 0.8 below the hand at (4, 4, 0). The control keeps the world's axes."""
+    def test_the_foot_control_sits_at_the_toe_marker_and_is_world_aligned(self):
+        """The toe marker, the ball of the foot, is 1.8 ahead of and 0.7 below the hand at (4, 4, 0). The control keeps the world's axes."""
         self._build()
-        self.assertEqual([round(v, 4) for v in translation(FOOT)], [4.0, 3.2, 1.6])
+        self.assertEqual([round(v, 4) for v in translation(FOOT)], [4.0, 3.3, 1.8])
         matrix = world_matrix(FOOT)
         for got, want in zip(matrix[:12], [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]):
             self.assertAlmostEqual(got, want, places=5)
@@ -160,16 +161,17 @@ class ReverseFootBehaviour(RigTestCase):
         self.assertAlmostEqual(handle[0], 3.0, places=4)
         foot = translation(FOOT)
         self.assertAlmostEqual(foot[0], 3.0, places=4)
-        self.assertAlmostEqual(foot[1], 3.2, places=4)
-        self.assertAlmostEqual(foot[2], 1.6, places=4)
+        self.assertAlmostEqual(foot[1], 3.3, places=4)
+        self.assertAlmostEqual(foot[2], 1.8, places=4)
 
     def test_the_hand_follows_the_handle_with_the_foot_at_rest_and_adds_the_roll_on_top(self):
         self._build()
         cmds.setAttr(rig_name(HANDLE + ".translateY"), 1.0)
         self.assertWorldTranslation(rig_name(HAND), [3.0, 4.0, 0.0], 1e-4)
-        # A roll of 20 turns the foot first and the handle carries the result: 0.1 * (4.989863, 3.701079) more, from the hand-worked table.
+        # A roll of 20 turns the foot first, about the toe pivot (4, 3.3, 1.8), and the handle carries the result: the hand's offset
+        # (0.7, -1.8) from the pivot turned 20 gives (3.3 + 0.7 cos20 + 1.8 sin20, 1.8 + 0.7 sin20 - 1.8 cos20) = (4.573421, 0.347967).
         cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
-        self.assertWorldTranslation(rig_name(HAND), [3.0, 4.4989863, 0.3701079], 1e-4)
+        self.assertWorldTranslation(rig_name(HAND), [3.0, 4.573421, 0.347967], 1e-4)
 
     def test_a_roll_of_20_turns_the_hand_20_degrees_about_the_worlds_x(self):
         """The hand is turned 90 about Z at rest: its axes are (0, 1, 0), (-1, 0, 0), (0, 0, 1). The foot's roll turns them 20 about
@@ -213,7 +215,7 @@ class ReverseFootBehaviour(RigTestCase):
         self._build()
         listed = {tuple(m["markup"]): m["world"][12:15] for m in json.loads(cmds.getRigMarkers(rig_name("layout_00_M_MOD")))}
         expected = {
-            ("Left", "heel"): (4, 3.2, -0.4), ("Left", "ball"): (4, 3.2, 1.6), ("Left", "bankOut"): (4.4, 3.2, 1.6),
+            ("Left", "heel"): (4, 3.2, -0.4), ("Left", "bankOut"): (4.4, 3.2, 1.6),
             ("Left", "bankIn"): (3.6, 3.2, 1.6), ("Left", "toeTip"): (4, 3.2, 2.4), ("Left", "toe"): (4, 3.3, 1.8),
         }
         for markup, position in expected.items():
@@ -227,7 +229,7 @@ class ReverseFootBehaviour(RigTestCase):
             self._build()
         found = [m for m in warnings.messages if "not world aligned" in m]
         self.assertEqual(len(found), 1, warnings.messages)
-        for role in ("heel", "ball", "bankOut", "bankIn", "toeTip", "toe"):
+        for role in ("heel", "bankOut", "bankIn", "toeTip", "toe"):
             self.assertIn("[Left, %s]" % role, found[0])
 
     def test_world_aligned_pivot_markers_build_without_the_warning(self):
@@ -245,14 +247,14 @@ class ReverseFootBehaviour(RigTestCase):
             cmds.createRigFromTemplate(*joints, template=fixtures.template_path("reverse_foot").replace("\\", "/"), asset=config.ASSET_ID,
                                        namespace=config.RIG_NAMESPACE, markers=path.replace("\\", "/"))
         self.assertFalse(warnings.contain("not world aligned"), warnings.messages)
-        self.assertAlmostEqual(translation(FOOT)[2], 1.6, places=5)   # the foot control still sits at the ball marker
+        self.assertAlmostEqual(translation(FOOT)[2], 1.8, places=5)   # the foot control still sits at the toe marker
 
     def test_the_mirrored_right_foots_markers_resolve_through_the_turned_right_hand(self):
         """The right hand is Rx(180) Rz(90): local = (wy, wx, -wz). The right foot's pivots are the left's mirrored across X = 0."""
         self.build_standard("reverse_foot_mirror", "reverse_foot_mirror", markers="reverse_foot_mirror")
         listed = {tuple(m["markup"]): m["world"][12:15] for m in json.loads(cmds.getRigMarkers(rig_name("layout_00_M_MOD")))}
         expected = {
-            ("Right", "heel"): (-4, 3.2, -0.4), ("Right", "ball"): (-4, 3.2, 1.6), ("Right", "bankOut"): (-4.4, 3.2, 1.6),
+            ("Right", "heel"): (-4, 3.2, -0.4), ("Right", "bankOut"): (-4.4, 3.2, 1.6),
             ("Right", "bankIn"): (-3.6, 3.2, 1.6), ("Right", "toeTip"): (-4, 3.2, 2.4), ("Right", "toe"): (-4, 3.3, 1.8),
         }
         for markup, position in expected.items():
@@ -312,7 +314,7 @@ class ReverseFootBehaviour(RigTestCase):
         self.assertTrue(cmds.objExists(rig_name(FOOT)))
         self.assertTrue(cmds.getAttr(rig_name(FOOT_MODULE + ".anklePlugConnected")))
         cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
-        self.assertWorldTranslation(rig_name(HAND), [4.0, 4.4989863, 0.3701079], 1e-4)
+        self.assertWorldTranslation(rig_name(HAND), [4.0, 4.573421, 0.347967], 1e-4)   # about the toe pivot, as worked above
 
 
 class ReverseFootMatchesTheLimb(RigTestCase):
@@ -419,7 +421,7 @@ class ReverseFootInverse(RigTestCase):
         self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + ".ballRaise")), 10.0, places=3)
 
         # Without the sidecar the raise is folded into footRoll (35). That is past the break, so 5 of it turns the toe tip pivot instead
-        # of the ball: the ankle still lands exactly (the handle takes the difference), but the toe points a little differently, because
+        # of the toe pivot: the ankle still lands exactly (the handle takes the difference), but the toe points a little differently, because
         # these channels can't make a ball raised past the break.
         self._restore(posed)
         hand = next(joint for joint in posed if joint.endswith(HAND))

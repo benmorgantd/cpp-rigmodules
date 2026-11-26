@@ -10,17 +10,21 @@
 // the X, Y and Z axes go. A motion is a rigid Mat4, rotation and translation, in world space at rest.
 //
 // The model. The marker pivots sit on the sole at rest, in chain order, root first: the module uses chainOrder (heel, toe tip,
-// bankOut, bankIn, toe, ball). Each pivot turns its subtree about its own rest position and the foot frame's axes, and a pivot
+// bankOut, bankIn, toe). Each pivot turns its subtree about its own rest position and the foot frame's axes, and a pivot
 // is carried by the pivots before it in the chain (the literal hierarchy with the heel as root, author 2026-11-24). Because a
 // pivot's own turn about its own position does not move it, that is the same as turning the ankle by the last pivot's rotation
 // first and the first pivot's last: ankle' = Rot_0(Rot_1(... Rot_n(ankle))), every rotation about a REST pivot and a rest
-// axis. In chainOrder the toe sits before the ball, so the ball's roll lifts the ankle and leaves the toe planted, and past the
+// axis. The toe pivot, at the toe joint, is the ball of the foot: the ball channels and the roll below the break turn the ankle
+// about it. Of its turns only ballSwivel, the outermost, carries the toe bone too (the whole foot swivels about the ball, toe tip
+// included), so the toe stays planted for the pitch and the roll (see toeMotion). Past the
 // break the toe tip carries everything, so the toe tip stays on the ground. The functions take any chain, so the tests can
-// check other orders; the order is fixed by the module, not the template (author, 2026-11-24).
+// check other orders; the order is fixed by the module, not the template (author, 2026-11-24). There is no separate ball pivot
+// (author, 2026-11-25): the axes come from the foot frame, not a marker, so a ball pivot apart from the toe joint only moved
+// the roll's centre off the joint, and the toe slid to keep its bone length.
 //
 // The foot frame (positions only, a marker's orientation is never read): forward is the heel to the toe tip projected onto
 // the ground, up is world +Y and lateral is up crossed with forward, so a character facing +Z has lateral +X, its left.
-// Angles are degrees. Positive angles turn: pitch about lateral (heel up, toes down, for the ball and toe tip pivots; the heel
+// Angles are degrees. Positive angles turn: pitch about lateral (heel up, toes down, for the toe and toe tip pivots; the heel
 // pivot's angle lifts the toes), swivel about up (toes toward lateral), roll about forward (the +lateral side up). Bank is a
 // roll the other way, so a positive bank tips the foot onto its +lateral edge.
 
@@ -35,29 +39,28 @@ namespace FootSolve
 	using VectorMath::Mat4;
 	using VectorMath::Vec3;
 
-	// What a pivot is for. Its marker's usage is the role's name, on the foot's side ([Left, heel]).
+	// What a pivot is for. Its marker's usage is the role's name, on the foot's side ([Left, heel]). Stored on the module by
+	// value, so the values never move: 1 was the ball pivot (removed 2026-11-25, the toe pivot is the ball) and is never reused.
 	enum class Role
 	{
-		Heel,
-		Ball,
-		BankOut,
-		BankIn,
-		ToeTip,
-		Toe,
+		Heel = 0,
+		BankOut = 2,
+		BankIn = 3,
+		ToeTip = 4,
+		Toe = 5,
 	};
 
-	// Stored on the module by value, so the values never move.
-	inline constexpr std::size_t kRoleCount{ 6 };
+	inline constexpr std::size_t kRoleCount{ 5 };
 
-	// The usage text of a role: "heel", "ball", "bankOut", "bankIn", "toeTip", "toe".
+	// The usage text of a role: "heel", "bankOut", "bankIn", "toeTip", "toe".
 	const char* roleName(Role role);
 
-	// The chain every foot builds, root first: heel, toeTip, bankOut, bankIn, toe, ball. Every role is in it once.
+	// The chain every foot builds, root first: heel, toeTip, bankOut, bankIn, toe. Every role is in it once.
 	const std::array<Role, kRoleCount>& chainOrder();
 
 	struct Pivot
 	{
-		Role role{ Role::Ball };
+		Role role{ Role::Toe };
 		Vec3 position;   // the marker's rest world position
 	};
 
@@ -91,7 +94,7 @@ namespace FootSolve
 	struct Peel
 	{
 		double heel{ 0.0 };      // toes up about the heel, degrees from 0
-		double ball{ 0.0 };      // heel up about the ball
+		double ball{ 0.0 };      // heel up about the ball of the foot, the toe pivot
 		double toeTip{ 0.0 };    // heel and ball up about the toe tip
 	};
 
@@ -107,14 +110,16 @@ namespace FootSolve
 
 	// The motion of a point carried by the end of the first `count` pivots, for these channels: each pivot's turn, with the
 	// last pivot's applied first and the first pivot's last (the hierarchy in the header). count is the chain's size for the
-	// ankle, and a larger one counts as the whole chain. The Toe role turns nothing here (toeTap moves the toe bone alone,
-	// see toeMotion).
+	// ankle, and a larger one counts as the whole chain. The Toe pivot turns by the ball channels here; toeTap is not in the
+	// fold, it moves the toe bone alone (see toeMotion).
 	Mat4 foldChain(std::span<const Pivot> chain, std::size_t count, const Frame& frame, const Channels& channels);
 
 	// The ankle's motion with every pivot folded.
 	Mat4 ankleMotion(std::span<const Pivot> chain, const Frame& frame, const Channels& channels);
 
-	// The motion of a point carried by the toe pivot (the toe bone): toeTap about the toe pivot, then the pivots before it.
+	// The motion of a point carried by the toe pivot (the toe bone): toeTap about the toe pivot, then ballSwivel about it, then the
+	// pivots before it. The toe pivot's pitch and roll (the roll below the break, ballRaise, ballRoll) are not in it: they turn the
+	// ankle about the toe and leave the toe planted.
 	// toeIndex is the Toe pivot's index in the chain (findPivot, which is -1 for none: check it first). An index past the
 	// chain gives the identity.
 	Mat4 toeMotion(std::span<const Pivot> chain, std::size_t toeIndex, const Frame& frame, const Channels& channels);
@@ -146,7 +151,7 @@ namespace FootSolve
 	// what the channels can't hold, such as a ball pitch turned before a bank in the fixed chain order.
 	Channels solveAnkleChannels(std::span<const Pivot> chain, const Frame& frame, const Channels& given, const Mat4& ankleMotionSinceRest);
 
-	// toeTap from the toe bone's world motion since rest with the handle's motion taken out: the pitch left once the pivots before the
-	// toe pivot are undone. toeIndex is the Toe pivot's index (findPivot). Only rotations are read.
+	// toeTap from the toe bone's world motion since rest with the handle's motion taken out: the pitch left once the ball swivel and the
+	// pivots before the toe pivot are undone. toeIndex is the Toe pivot's index (findPivot). Only rotations are read.
 	double solveToeTap(std::span<const Pivot> chain, std::size_t toeIndex, const Frame& frame, const Channels& channels, const Mat4& toeMotionSinceRest);
 }

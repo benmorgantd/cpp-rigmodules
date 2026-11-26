@@ -1,6 +1,6 @@
 # Markers
 
-A marker is a placed point that follows one joint: a foot's heel and ball pivots, and later a light, an emitter or a gun's grip. It sits at a fixed offset from the joint, has no skin influence, is not a joint and is never driven by an animator. Markers live in a file of their own, beside the skeleton file and not inside it (D73, `design/markers.md`).
+A marker is a placed point that follows one joint: a foot's heel and toe pivots, and later a light, an emitter or a gun's grip. It sits at a fixed offset from the joint, has no skin influence, is not a joint and is never driven by an animator. Markers live in a file of their own, beside the skeleton file and not inside it (D73, `design/markers.md`).
 
 A module that needs a point no bind joint marks selects a marker with a `[side, usage]` pair, as it selects a joint. The [ReverseFoot](modules.md#reversefoot) is the first user.
 

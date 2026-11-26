@@ -541,7 +541,7 @@ namespace ReverseFootSlot
 	// The ankle plug is not an element of childPlugs, so this only says which plug the pass 2 callback is connecting.
 	inline constexpr unsigned int AnklePlug{ 1 };
 	inline constexpr unsigned int AnkleSocket{ 0 };
-	inline constexpr unsigned int PivotCap{ 6 };   // one pivot per FootSolve::Role
+	inline constexpr unsigned int PivotCap{ 5 };   // one pivot per FootSolve::Role
 	// Stage 2 (phase 4). The toe FK control is control slot 1, and the toe and toe tip bind joints are joint slots 0 and 1. The sockets other than
 	// ankle are on the base outputSocketMatrix from index 1 (index 0 of that array is never used: getSocketMatrixPlug sends index 0 to the ankle
 	// array): the toe, the toe tip, then one per pivot in chain order.

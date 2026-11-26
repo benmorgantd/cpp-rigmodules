@@ -67,7 +67,7 @@ public:
 		// The toe and toe tip joints the foot drives, and their rests.
 		MObject oToeJoints[2];
 		MMatrix mToeJointRests[2];
-		MMatrix mFootControlRest;              // world aligned, at the ball pivot
+		MMatrix mFootControlRest;              // world aligned, at the toe pivot
 		std::string controlUsage;              // also the control's base name
 		ControlMarkup controlMarkup;
 		std::string toeFkUsage;                // the toe's usage and FK, also the toe FK control's base name
@@ -90,7 +90,7 @@ public:
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
 	// The 11 channels on the foot control, in kChannels order, for ModuleDescriptor::inverseChannels.
 	static std::vector<ModuleInverseChannel> inverseChannels();
-	// ModuleInverseContext::moduleRest: the ankle's rest, the ankle plug's rest, the toe's and toe tip's, then the six pivots in
+	// ModuleInverseContext::moduleRest: the ankle's rest, the ankle plug's rest, the toe's and toe tip's, then the five pivots in
 	// FootSolve::chainOrder. Fails when the stored pivots are not the whole chain in that order.
 	static MStatus readInverseRest(const MObject& oModule, std::vector<MMatrix>& outRest);
 
@@ -112,7 +112,7 @@ private:
 // The module's arguments (design/reverse-foot.md section 5). Field names are the template keys the macro maps.
 struct ReverseFootArgs
 {
-	std::vector<JointSelector> joints;   // the ankle, the toe and the toe tip. The pivots are the six markers named by role on the foot's side
+	std::vector<JointSelector> joints;   // the ankle, the toe and the toe tip. The pivots are the five markers named by role on the foot's side
 	std::string ikFkDriver;
 	std::string controlName{ "foot" };
 };

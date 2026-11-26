@@ -305,7 +305,7 @@ MStatus ReverseFootModuleNode::computeControl(const MPlug& plug, MDataBlock& dat
 
 // Where the Limb's end joint should reach (the ankle socket): the ankle at rest, turned by the pivots for the channels, carried by the
 // handle's motion. Reads the ik plug, the channels and the pivots, never the ankle plug and never the control (its transform is locked).
-// The pivots are read from their stored arrays on every evaluation: six elements are cheaper than a cache that the evaluation manager's
+// The pivots are read from their stored arrays on every evaluation: five elements are cheaper than a cache that the evaluation manager's
 // parallel mode would not invalidate, because it does not call setDependentsDirty.
 MStatus ReverseFootModuleNode::computeAnkle(const MPlug& plug, MDataBlock& data)
 {
@@ -625,7 +625,7 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	DagUtils::setMatrixPlug(pAnkleRest, plan.mAnkleRestWorld, dagMod);
 	dagMod.newPlugValueString(MPlug(oModule, aIkFkDriver), plan.ikFkDriver.c_str());
 
-	// 2. The foot control: derived from the ball marker, with no joint (D57), world aligned.
+	// 2. The foot control: derived from the toe marker, with no joint (D57), world aligned.
 	const MObject oControl = RigControlNode::createRigControl(dagMod, MString(plan.controlUsage.c_str()), shapeType, side, plan.controlMarkup, MEulerRotation::kXYZ);
 	status = wireControl(oModule, oControl, ReverseFootSlot::Foot, plan.mFootControlRest, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
@@ -743,11 +743,11 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 	}
 	bool valid = true;
 
-	// The six pivots are the markers named by role on the foot's own side ([Left, heel]), in the fixed chain order (author,
-	// 2026-11-24: every foot has all six, and the order is the module's, not the template's). A mirrored foot's side is already
+	// The five pivots are the markers named by role on the foot's own side ([Left, heel]), in the fixed chain order (author,
+	// 2026-11-24: every foot has all of them, and the order is the module's, not the template's). A mirrored foot's side is already
 	// the other one. Every missing marker is reported, so one build lists them all.
 	// Only positions are read (D74): the axes come from the foot frame. A rotated marker is a warning, because a rigger
-	// who turned one (to match a slanted ball line, say) would otherwise expect the roll to follow it.
+	// who turned one (to match a slanted toe joint, say) would otherwise expect the roll to follow it.
 	Plan plan;
 	std::string rotatedMarkers;
 	for (const FootSolve::Role role : FootSolve::chainOrder())
@@ -829,8 +829,9 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 		return false;
 	}
 
-	const int ballIndex = FootSolve::findPivot(plan.chain, FootSolve::Role::Ball);
-	plan.mFootControlRest = MathUtils::translationMatrix(plan.chain[static_cast<std::size_t>(ballIndex)].position);
+	// The foot control sits at the ball of the foot, the toe pivot, where the roll turns.
+	const int toeIndex = FootSolve::findPivot(plan.chain, FootSolve::Role::Toe);
+	plan.mFootControlRest = MathUtils::translationMatrix(plan.chain[static_cast<std::size_t>(toeIndex)].position);
 	plan.controlUsage = footArgs.controlName;
 	plan.controlMarkup = makeControlMarkup(ctx.moduleData.side, footArgs.controlName);
 

@@ -17,7 +17,7 @@
       },
       "foot_00_L_MOD": {
         "type": "reverseFootModule",
-        "sockets": [["ankle"], ["toe"], ["toeTip"], ["heel"], ["toeTipPivot"], ["bankOut"], ["bankIn"], ["toePivot"], ["ball"]],
+        "sockets": [["ankle"], ["toe"], ["toeTip"], ["heel"], ["toeTipPivot"], ["bankOut"], ["bankIn"], ["toePivot"]],
         "childPlugs": ["ik"]
       },
       "layout_00_M_MOD": {

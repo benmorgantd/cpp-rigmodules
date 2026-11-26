@@ -734,7 +734,7 @@ def modules_doc_foot_module():
 
 class ReverseFootDocExample(RigTestCase):
     """The ReverseFoot entry in docs/modules.md builds on the Limb it names, with the markers it selects, and a roll of 20 puts the
-    Limb's hand where the hand-worked table says (tests/core/FootSolveTests.cpp, at a tenth of the size): (4, 4, 0) + 0.1 * (4.989863, 3.701079)."""
+    Limb's hand where the pose case ball_regime_roll_20 works it out: 20 about the toe pivot (4, 3.3, 1.8), so (4, 4.573421, 0.347967)."""
 
     def test_foot_module_example_builds_and_rolls(self):
         template = fixtures.load_template("reverse_foot")
@@ -742,4 +742,4 @@ class ReverseFootDocExample(RigTestCase):
         joints = self.make_skeleton("reverse_foot")
         self.build(template, joints, markers="reverse_foot", label="doc_reverse_foot")
         cmds.setAttr(rig_name("foot_00_L_CTRL.footRoll"), 20)
-        self.assertWorldTranslation(rig_name("hand_00_L_JNT"), [4.0, 4.4989863, 0.3701079], 1e-4)
+        self.assertWorldTranslation(rig_name("hand_00_L_JNT"), [4.0, 4.573421, 0.347967], 1e-4)

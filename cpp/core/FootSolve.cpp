@@ -18,7 +18,6 @@ namespace FootSolve
 		constexpr RoleName kRoles[]
 		{
 			{ Role::Heel, "heel" },
-			{ Role::Ball, "ball" },
 			{ Role::BankOut, "bankOut" },
 			{ Role::BankIn, "bankIn" },
 			{ Role::ToeTip, "toeTip" },
@@ -38,7 +37,9 @@ namespace FootSolve
 					pitch = -(peel.heel + channels.heelRaise);
 					swivel = channels.heelSwivel;
 					break;
-				case Role::Ball:
+				case Role::Toe:
+					// The toe pivot is the ball of the foot. Its swivel is outermost, so it is also the one turn of it that carries the toe
+					// bone (toeCarry). toeTap is not here: it turns the toe bone alone (toeMotion).
 					pitch = peel.ball + channels.ballRaise;
 					swivel = channels.ballSwivel;
 					roll = -channels.ballRoll;
@@ -51,12 +52,23 @@ namespace FootSolve
 					pitch = peel.toeTip + channels.toeRaise;
 					swivel = channels.toeSwivel;
 					break;
-				case Role::Toe:
-					break;
 			}
 			Mat4 motion = rotationAbout(pivot.position, frame.forward, roll);
 			motion = RibbonMath::multiply(motion, rotationAbout(pivot.position, frame.lateral, pitch));
 			return RibbonMath::multiply(motion, rotationAbout(pivot.position, frame.up, swivel));
+		}
+
+		// What carries the toe bone, before its tap: ballSwivel about the toe pivot, then the pivots before the toe. The swivel turns the
+		// whole foot, toe tip included, about the ball (author, 2026-11-25); the toe pivot's pitch and roll turn the ankle only, so the
+		// toe stays planted for them. An index past the chain has no toe pivot, so no swivel.
+		Mat4 toeCarry(std::span<const Pivot> chain, std::size_t toeIndex, const Frame& frame, const Channels& channels)
+		{
+			const Mat4 before = foldChain(chain, toeIndex, frame, channels);
+			if (toeIndex >= chain.size())
+			{
+				return before;
+			}
+			return RibbonMath::multiply(rotationAbout(chain[toeIndex].position, frame.up, channels.ballSwivel), before);
 		}
 	}
 
@@ -74,7 +86,7 @@ namespace FootSolve
 
 	const std::array<Role, kRoleCount>& chainOrder()
 	{
-		static constexpr std::array<Role, kRoleCount> order{ Role::Heel, Role::ToeTip, Role::BankOut, Role::BankIn, Role::Toe, Role::Ball };
+		static constexpr std::array<Role, kRoleCount> order{ Role::Heel, Role::ToeTip, Role::BankOut, Role::BankIn, Role::Toe };
 		return order;
 	}
 
@@ -192,9 +204,10 @@ namespace FootSolve
 		{
 			return Mat4();
 		}
-		// The toe bone is the toe pivot's child: it turns by toeTap about the toe pivot first, and the pivots before the toe carry it.
+		// The toe bone is the toe pivot's child: it turns by toeTap about the toe pivot first, then the ball swivel and the pivots before
+		// the toe carry it.
 		const Mat4 tap = rotationAbout(chain[toeIndex].position, frame.lateral, channels.toeTap);
-		return RibbonMath::multiply(tap, foldChain(chain, toeIndex, frame, channels));
+		return RibbonMath::multiply(tap, toeCarry(chain, toeIndex, frame, channels));
 	}
 
 	Euler decomposeRotation(const Mat4& scaledMotion, const Frame& frame)
@@ -261,9 +274,9 @@ namespace FootSolve
 
 	double solveToeTap(std::span<const Pivot> chain, std::size_t toeIndex, const Frame& frame, const Channels& channels, const Mat4& toeMotionSinceRest)
 	{
-		// toeMotion = tap * carried, where carried is what the pivots before the toe do. Only rotations are read, so the tap's rotation is
-		// the toe's times the transpose of the carried rotation.
-		const Mat4 carried = foldChain(chain, std::min(toeIndex, chain.size()), frame, channels);
+		// toeMotion = tap * carried, where carried is the ball swivel and the pivots before the toe. Only rotations are read, so the tap's
+		// rotation is the toe's times the transpose of the carried rotation.
+		const Mat4 carried = toeCarry(chain, toeIndex, frame, channels);
 		Mat4 tap;
 		for (int r = 0; r < 3; ++r)
 		{

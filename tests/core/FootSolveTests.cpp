@@ -2,15 +2,16 @@
 // design/reverse-foot.md sections 7, 8, 10 and 15).
 //
 // Every expected number is worked by hand from one foot, in a frame with forward +Z, up +Y and lateral +X (a character
-// facing +Z, so lateral is its left). The pivots sit on the ground (y = 0): heel z = -10, ball z = 10, bankOut (4, 0, 10),
-// bankIn (-4, 0, 10), toe tip z = 18, and the toe pivot (0, 1, 12). The ankle is at (0, 8, -6). A turn about a pivot is
-// the plain 2D rotation of the point's offset from the pivot:
+// facing +Z, so lateral is its left). The pivots sit on the ground (y = 0): heel z = -10, the toe pivot (the ball of the
+// foot) z = 10, bankOut (4, 0, 10), bankIn (-4, 0, 10) and toe tip z = 18. The ankle is at (0, 8, -6). A turn about a pivot
+// is the plain 2D rotation of the point's offset from the pivot:
 //   about lateral (+X): y' = dy cos - dz sin, z' = dy sin + dz cos
 //   about up (+Y):      x' = dx cos + dz sin, z' = -dx sin + dz cos
 //   about forward (+Z): x' = dx cos - dy sin, y' = dx sin + dy cos
-// and a heel pivot turns by minus its angle (toes up), the ball and toe tip by plus theirs, a bank by minus its value.
-// The chain is root first, in chainOrder (heel, toeTip, bankOut, bankIn, toe, ball), so the ball turns the ankle first and
-// the heel last (the literal hierarchy, D74; the order is fixed by the module since 2026-11-24).
+// and a heel pivot turns by minus its angle (toes up), the toe (ball channels) and toe tip by plus theirs, a bank by minus its
+// value. The chain is root first, in chainOrder (heel, toeTip, bankOut, bankIn, toe), so the toe pivot turns the ankle first
+// and the heel last (the literal hierarchy, D74; the order is fixed by the module since 2026-11-24, and the toe pivot took
+// the ball pivot's channels on 2026-11-25).
 // The numbers were worked with a separate calculation (the formulas above, no FootSolve code), to 6 places.
 
 #include "CoreTests.h"
@@ -31,8 +32,8 @@ namespace
 
 	constexpr double kTolerance{ 1.0e-5 };
 
-	// In chainOrder, the order every foot builds: heel, toeTip, bankOut, bankIn, toe, ball. The last pivot turns a point first,
-	// so the ball turns the ankle before the banks and the toe tip, and the toe is not carried by the ball.
+	// In chainOrder, the order every foot builds: heel, toeTip, bankOut, bankIn, toe. The last pivot turns a point first, so the
+	// toe pivot turns the ankle before the banks and the toe tip, and the toe bone is not carried by its own pivot.
 	std::vector<Pivot> leftFoot()
 	{
 		return {
@@ -40,8 +41,7 @@ namespace
 			{ Role::ToeTip, { 0.0, 0.0, 18.0 } },
 			{ Role::BankOut, { 4.0, 0.0, 10.0 } },
 			{ Role::BankIn, { -4.0, 0.0, 10.0 } },
-			{ Role::Toe, { 0.0, 1.0, 12.0 } },
-			{ Role::Ball, { 0.0, 0.0, 10.0 } },
+			{ Role::Toe, { 0.0, 0.0, 10.0 } },
 		};
 	}
 
@@ -88,16 +88,25 @@ namespace
 CORE_TEST(footRoleNamesAreTheMarkerUsages)
 {
 	CHECK(std::string(FootSolve::roleName(Role::Heel)) == "heel");
-	CHECK(std::string(FootSolve::roleName(Role::Ball)) == "ball");
 	CHECK(std::string(FootSolve::roleName(Role::BankOut)) == "bankOut");
 	CHECK(std::string(FootSolve::roleName(Role::BankIn)) == "bankIn");
 	CHECK(std::string(FootSolve::roleName(Role::ToeTip)) == "toeTip");
 	CHECK(std::string(FootSolve::roleName(Role::Toe)) == "toe");
 }
 
+CORE_TEST(footRoleValuesNeverMove)
+{
+	// The roles are stored on the module by value. 1 was the ball pivot, retired 2026-11-25, and is never reused.
+	CHECK(static_cast<int>(Role::Heel) == 0);
+	CHECK(static_cast<int>(Role::BankOut) == 2);
+	CHECK(static_cast<int>(Role::BankIn) == 3);
+	CHECK(static_cast<int>(Role::ToeTip) == 4);
+	CHECK(static_cast<int>(Role::Toe) == 5);
+}
+
 CORE_TEST(footChainOrderIsFixedAndHoldsEveryRoleOnce)
 {
-	const std::array<Role, FootSolve::kRoleCount> expected{ Role::Heel, Role::ToeTip, Role::BankOut, Role::BankIn, Role::Toe, Role::Ball };
+	const std::array<Role, FootSolve::kRoleCount> expected{ Role::Heel, Role::ToeTip, Role::BankOut, Role::BankIn, Role::Toe };
 	CHECK(FootSolve::chainOrder() == expected);
 	const std::vector<Pivot> chain = leftFoot();
 	for (std::size_t i = 0; i < chain.size(); ++i)
@@ -125,7 +134,7 @@ CORE_TEST(footFrameIgnoresHeightAndFollowsTheHeading)
 
 CORE_TEST(footFrameFallsBackToTheFirstAndLastPivot)
 {
-	const std::vector<Pivot> chain{ { Role::Ball, { 0.0, 0.0, 0.0 } }, { Role::Toe, { 0.0, 0.0, -5.0 } } };
+	const std::vector<Pivot> chain{ { Role::BankOut, { 0.0, 0.0, 0.0 } }, { Role::Toe, { 0.0, 0.0, -5.0 } } };
 	checkPoint(FootSolve::footFrame(chain).forward, 0.0, 0.0, -1.0);
 }
 
@@ -189,7 +198,7 @@ CORE_TEST(footBankPivotFollowsTheSideNotTheName)
 	CHECK(FootSolve::bankPivotIndex(right, frame, -10.0) == 2);
 	CHECK(FootSolve::bankPivotIndex(left, frame, 0.0) == -1);
 
-	const std::vector<Pivot> noBank{ { Role::Heel, { 0.0, 0.0, -10.0 } }, { Role::Ball, { 0.0, 0.0, 10.0 } } };
+	const std::vector<Pivot> noBank{ { Role::Heel, { 0.0, 0.0, -10.0 } }, { Role::Toe, { 0.0, 0.0, 10.0 } } };
 	CHECK(FootSolve::bankPivotIndex(noBank, frame, 10.0) == -1);
 }
 
@@ -232,7 +241,7 @@ CORE_TEST(footRollExactlyAtTheBreak)
 
 CORE_TEST(footToeTipRegime)
 {
-	// footRoll 50 with a break of 30: the ball turns the ankle 30 first, then the toe tip turns it 20. Ball 30: rel (8, -16) about
+	// footRoll 50 with a break of 30: the toe pivot turns the ankle 30 first, then the toe tip turns it 20. Toe 30: rel (8, -16) about
 	// (0, 10) gives (y 14.928203, z 0.143594). Toe tip 20 about (0, 18): rel (14.928203, -17.856406) gives y = 14.928203 cos20 +
 	// 17.856406 sin20 = 20.135173, z = 18 + 14.928203 sin20 - 17.856406 cos20 = 6.326213. The toe tip stays on the ground.
 	Channels channels;
@@ -242,7 +251,7 @@ CORE_TEST(footToeTipRegime)
 
 CORE_TEST(footRollJustPastTheBreakStartsTheToeTip)
 {
-	// Ball 30, then toe tip 5 about (0, 18): y = 14.928203 cos5 + 17.856406 sin5, z = 18 + 14.928203 sin5 - 17.856406 cos5.
+	// Toe 30, then toe tip 5 about (0, 18): y = 14.928203 cos5 + 17.856406 sin5, z = 18 + 14.928203 sin5 - 17.856406 cos5.
 	Channels channels;
 	channels.footRoll = 35.0;
 	checkPoint(ankleAt(channels), 0.0, 16.427685, 1.512621);
@@ -250,7 +259,7 @@ CORE_TEST(footRollJustPastTheBreakStartsTheToeTip)
 
 CORE_TEST(footBallRaiseNeverStartsTheToeTip)
 {
-	// footRoll 25 and ballRaise 10 is 35 about the ball and nothing about the toe tip: the raise is added after the split.
+	// footRoll 25 and ballRaise 10 is 35 about the toe pivot and nothing about the toe tip: the raise is added after the split.
 	Channels channels;
 	channels.footRoll = 25.0;
 	channels.ballRaise = 10.0;
@@ -315,7 +324,7 @@ CORE_TEST(footBallRoll)
 
 CORE_TEST(footPitchAndBankTogether)
 {
-	// Ball 20 and bank 10 on the bankOut pivot: the ball turns the ankle first, to (0, 12.989863, -2.298921), then the bank turns
+	// Toe 20 and bank 10 on the bankOut pivot: the toe pivot turns the ankle first, to (0, 12.989863, -2.298921), then the bank turns
 	// it -10 about forward at (4, 0): rel (-4, 12.989863) gives x = 4 - 4 cos10 + 12.989863 sin10, y = 4 sin10 + 12.989863 cos10.
 	Channels channels;
 	channels.footRoll = 20.0;
@@ -368,9 +377,49 @@ CORE_TEST(footToeTapTurnsOnlyTheToe)
 	channels.toeTap = 25.0;
 	// The tap does not reach the ankle.
 	checkPoint(FootSolve::transformPoint(FootSolve::ankleMotion(chain, frame, channels), kAnkle), 0.0, 8.0, -6.0);
-	// A point on the toe bone, 4 beyond the toe pivot, tips down about it.
+	// A point on the toe bone, 4 beyond the toe pivot, tips down about it: y = -4 sin25, z = 10 + 4 cos25.
 	const std::size_t toe = static_cast<std::size_t>(FootSolve::findPivot(chain, Role::Toe));
-	checkPoint(FootSolve::transformPoint(FootSolve::toeMotion(chain, toe, frame, channels), { 0.0, 1.0, 16.0 }), 0.0, -0.690473, 15.625231);
+	checkPoint(FootSolve::transformPoint(FootSolve::toeMotion(chain, toe, frame, channels), { 0.0, 0.0, 14.0 }), 0.0, -1.690473, 13.625231);
+}
+
+CORE_TEST(footBallPitchAndRollTurnTheAnkleAboutThePlantedToe)
+{
+	// The regression of 2026-11-25: the roll below the break, ballRaise and ballRoll turn the ankle about the toe pivot and leave the toe
+	// bone where it is, toe tip included, and the ankle keeps its rest distance to the toe. With a ball pivot apart from the toe the
+	// distance changed, and the node's length-keeping pull slid the toe and dropped the toe tip.
+	const std::vector<Pivot> chain = leftFoot();
+	const Frame frame = FootSolve::footFrame(chain);
+	const std::size_t toe = static_cast<std::size_t>(FootSolve::findPivot(chain, Role::Toe));
+	const Vec3 toeRest = chain[toe].position;
+	const double restDistance = VectorMath::length(VectorMath::sub(kAnkle, toeRest));
+	Channels channels;
+	channels.footRoll = 20.0;
+	channels.ballRaise = 5.0;
+	channels.ballRoll = 15.0;
+	const Mat4 toeBone = FootSolve::toeMotion(chain, toe, frame, channels);
+	checkPoint(FootSolve::transformPoint(toeBone, toeRest), toeRest.x, toeRest.y, toeRest.z);
+	checkPoint(FootSolve::transformPoint(toeBone, { 0.0, 0.0, 14.0 }), 0.0, 0.0, 14.0);
+	const Vec3 ankle = FootSolve::transformPoint(FootSolve::ankleMotion(chain, frame, channels), kAnkle);
+	CHECK_CLOSE(VectorMath::length(VectorMath::sub(ankle, toeRest)), restDistance, kTolerance);
+}
+
+CORE_TEST(footBallSwivelTurnsTheWholeFootAboutTheBall)
+{
+	// ballSwivel turns the whole foot about the toe pivot, toe tip included (the author's "squash a bug", 2026-11-25): +30 about up at
+	// (0, 0, 10). The ankle, offset (0, -16), goes to x = -16 sin30 = -8, z = 10 - 16 cos30 = -3.856406 (footSwivels). A point on the toe
+	// bone 4 ahead of the pivot, offset (0, 4), goes to x = 4 sin30 = 2, z = 10 + 4 cos30 = 13.464102: it swings the other way, so the
+	// foot turns as one piece.
+	const std::vector<Pivot> chain = leftFoot();
+	const Frame frame = FootSolve::footFrame(chain);
+	const std::size_t toe = static_cast<std::size_t>(FootSolve::findPivot(chain, Role::Toe));
+	Channels channels;
+	channels.ballSwivel = 30.0;
+	checkPoint(FootSolve::transformPoint(FootSolve::ankleMotion(chain, frame, channels), kAnkle), -8.0, 8.0, -3.856406);
+	checkPoint(FootSolve::transformPoint(FootSolve::toeMotion(chain, toe, frame, channels), { 0.0, 0.0, 14.0 }), 2.0, 0.0, 13.464102);
+	// With a tap the toe bone tips about the pivot first, then swivels: (0, -1.690473, 13.625231) from the tap, offset (0, 3.625231)
+	// turned 30 gives x = 3.625231 sin30 = 1.812616, z = 10 + 3.625231 cos30 = 13.139542.
+	channels.toeTap = 25.0;
+	checkPoint(FootSolve::transformPoint(FootSolve::toeMotion(chain, toe, frame, channels), { 0.0, 0.0, 14.0 }), 1.812616, -1.690473, 13.139542);
 }
 
 CORE_TEST(footToeIsCarriedByThePivotsBeforeIt)
@@ -379,15 +428,16 @@ CORE_TEST(footToeIsCarriedByThePivotsBeforeIt)
 	const Frame frame = FootSolve::footFrame(chain);
 	const std::size_t toe = static_cast<std::size_t>(FootSolve::findPivot(chain, Role::Toe));
 	Channels channels;
-	// Below the break the ball turns and the toe stays planted: the ball comes after the toe in the chain.
+	// Below the break the toe pivot turns the ankle and the toe stays planted: the toe bone is not carried by its own pivot.
 	channels.footRoll = 20.0;
-	checkPoint(FootSolve::transformPoint(FootSolve::foldChain(chain, toe, frame, channels), chain[toe].position), 0.0, 1.0, 12.0);
-	// Past the break the toe tip carries it: 20 about (0, 18), rel (1, -6), gives y = cos20 + 6 sin20, z = 18 + sin20 - 6 cos20.
+	checkPoint(FootSolve::transformPoint(FootSolve::foldChain(chain, toe, frame, channels), chain[toe].position), 0.0, 0.0, 10.0);
+	// Past the break the toe tip carries it: 20 about (0, 18), rel (0, -8), gives y = 8 sin20, z = 18 - 8 cos20.
 	channels.footRoll = 50.0;
-	checkPoint(FootSolve::transformPoint(FootSolve::foldChain(chain, toe, frame, channels), chain[toe].position), 0.0, 2.991813, 12.703864);
-	// A tapped toe bone point is tapped first and carried second: (0, 1, 16) tapped 25 about the toe pivot, then 20 about the toe tip.
+	checkPoint(FootSolve::transformPoint(FootSolve::foldChain(chain, toe, frame, channels), chain[toe].position), 0.0, 2.736161, 10.482459);
+	// A tapped toe bone point is tapped first and carried second: (0, 0, 14) tapped 25 about the toe pivot to (0, -1.690473,
+	// 13.625231), then 20 about the toe tip: rel (-1.690473, -4.374769).
 	channels.toeTap = 25.0;
-	checkPoint(FootSolve::transformPoint(FootSolve::toeMotion(chain, toe, frame, channels), { 0.0, 1.0, 16.0 }), 0.0, 0.163386, 15.532292);
+	checkPoint(FootSolve::transformPoint(FootSolve::toeMotion(chain, toe, frame, channels), { 0.0, 0.0, 14.0 }), 0.0, -0.092266, 13.310886);
 }
 
 CORE_TEST(footFindPivot)
@@ -395,9 +445,8 @@ CORE_TEST(footFindPivot)
 	const std::vector<Pivot> chain = leftFoot();
 	CHECK(FootSolve::findPivot(chain, Role::Heel) == 0);
 	CHECK(FootSolve::findPivot(chain, Role::Toe) == 4);
-	CHECK(FootSolve::findPivot(chain, Role::Ball) == 5);
-	const std::vector<Pivot> ballOnly{ { Role::Ball, {} } };
-	CHECK(FootSolve::findPivot(ballOnly, Role::Heel) == -1);
+	const std::vector<Pivot> toeOnly{ { Role::Toe, {} } };
+	CHECK(FootSolve::findPivot(toeOnly, Role::Heel) == -1);
 }
 
 CORE_TEST(footDecomposesPitchAndRoll)
@@ -452,7 +501,7 @@ CORE_TEST(footDecomposesOnAFootFacingX)
 
 CORE_TEST(footDecompositionRebuildsTheRotationWhenTheChainSandwichesTheRoll)
 {
-	// The ball turns the ankle before the bank (it is last in the chain), so a ball roll with a bank is a pitch then a roll, and
+	// The toe pivot turns the ankle before the bank (it is last in the chain), so a ball roll with a bank is a pitch then a roll, and
 	// past the break the bank sits between the ball's pitch and the toe tip's. Either way the pitch and roll read in roll-first
 	// order are not footRoll and bank (the inverse's gauge: the handle takes the rest). The decomposition still gives angles whose
 	// rotation is the motion's.
@@ -579,13 +628,14 @@ CORE_TEST(footGaugeKeepsGivenChannelsThatAlreadyMakeTheTurn)
 
 CORE_TEST(footToeTapIsSolvedUnderTheCarryingPivots)
 {
-	// The toe pivot is carried by the heel, toe tip and bank pivots before it: a toe tap of 25 under a roll of 40 and a bank of -8
-	// reads back as 25.
+	// The toe bone is carried by the ball swivel and the heel, toe tip and bank pivots before the toe pivot: a toe tap of 25 under a roll
+	// of 40, a bank of -8 and a ball swivel of 20 reads back as 25.
 	const std::vector<Pivot> chain = leftFoot();
 	const Frame frame = FootSolve::footFrame(chain);
 	Channels channels;
 	channels.footRoll = 40.0;
 	channels.bank = -8.0;
+	channels.ballSwivel = 20.0;
 	channels.toeTap = 25.0;
 	const int toeIndex = FootSolve::findPivot(chain, Role::Toe);
 	CHECK(toeIndex >= 0);
@@ -609,7 +659,7 @@ CORE_TEST(footToeRoleAndOversizeCountsLeaveTheAnkleAlone)
 
 CORE_TEST(footBankPivotsAloneStillTurn)
 {
-	// A chain with the bank pivots and no heel or ball: the bank turns about bankOut and nothing else moves. With no heel the
+	// A chain with the bank pivots and no heel or toe: the bank turns about bankOut and nothing else moves. With no heel the
 	// frame starts at the first pivot, so the toe tip is placed straight ahead of it to keep the foot facing +Z.
 	const std::vector<Pivot> chain{ { Role::BankOut, { 4.0, 0.0, 10.0 } }, { Role::BankIn, { -4.0, 0.0, 10.0 } }, { Role::ToeTip, { 4.0, 0.0, 18.0 } } };
 	const Frame frame = FootSolve::footFrame(chain);

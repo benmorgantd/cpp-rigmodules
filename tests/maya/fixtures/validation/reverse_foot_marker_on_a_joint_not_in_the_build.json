@@ -5,7 +5,7 @@
   "edits": [],
   "expectErrors": [
     {
-      "contains": "marker [Left, ball] follows joint [Left, sole], which is not among the joints"
+      "contains": "marker [Left, toe] follows joint [Left, sole], which is not among the joints"
     }
   ],
   "markers": "reverse_foot_marker_on_missing_joint"

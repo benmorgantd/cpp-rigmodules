@@ -1,5 +1,5 @@
 {
-  "description": "ballRoll 20 turns -20 about forward through the ball: the ankle goes toward +X. Offset (dx 0, dy 8): x' = -8 sin(-20) = 2.736161, y' = 8 cos(-20) = 7.517541. The Limb is at IK, so its hand reaches the foot's ankle target: (4, 4, 0) + 0.1 * (P - (0, 8, -6)).",
+  "description": "ballRoll 20 turns -20 about forward through the toe pivot: the ankle goes toward +X. Offset (dx 0, dy 0.7): x' = -0.7 sin(-20) = 0.239414, y' = 0.7 cos(-20) = 0.657785. The toe pivot is the toe joint (4, 3.3, 1.8), so the hand at (4, 4, 0) is offset (dy 0.7, dz -1.8) from it, the toe bone's length 1.931321, and it keeps that length to the planted toe. The Limb is at IK, so its hand reaches the foot's ankle target.",
   "skeleton": "reverse_foot",
   "template": "reverse_foot",
   "markers": "reverse_foot",
@@ -10,8 +10,8 @@
   "expect": {
     "hand_00_L_JNT": {
       "translate": [
-        4.2736161,
-        3.9517541,
+        4.2394141,
+        3.9577848,
         0.0
       ]
     }
