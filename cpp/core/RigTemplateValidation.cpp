@@ -3,11 +3,14 @@
 #include "Constants.h"
 #include "JointMarkup.h"
 #include "NamingConvention.h"
+#include "PushOutSolve.h"
 #include "StringUtils.h"
 #include "TemplateMirror.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <cmath>
 #include <map>
 #include <set>
 #include <utility>
@@ -445,6 +448,115 @@ namespace
 			}
 		}
 	}
+
+	// Everything about a collision that needs no scene: its name, type, numbers, follow selector and target plug. Whether the
+	// followed joint exists, and which module drives it, are checked by the build, which has the joints.
+	void validateCollisions(
+		const std::vector<RigCollisionData>& collisions,
+		const std::vector<RigConstraintData>& constraints,
+		const std::set<std::string>& declaredModules,
+		const ModuleInterfaceMap& interfaces,
+		ValidationReport& report)
+	{
+		std::map<std::string, std::size_t> names;
+		std::map<std::string, std::string> collidedPlugs;   // "module.childPlug" -> collision name
+
+		for (std::size_t c = 0; c < collisions.size(); ++c)
+		{
+			const RigCollisionData& collision = collisions[c];
+			const std::string where = RigTemplateValidation::collisionPath(c, collision);
+
+			// A collision node is named like a constraint (_CON), and both live in one namespace.
+			if (!isConventionName(collision.name, NamingConvention::Kind::Constraint))
+			{
+				report.addError(where, "name must be " + std::string(NamingConvention::Form) + " ending in " + NamingConvention::kindToken(NamingConvention::Kind::Constraint));
+			}
+			else if (!names.emplace(collision.name, c).second)
+			{
+				report.addError(where, "name is already used by collision " + RigTemplateValidation::collisionPath(names[collision.name], collisions[names[collision.name]]));
+			}
+			else if (std::any_of(constraints.begin(), constraints.end(), [&collision](const RigConstraintData& constraint)
+				{
+					return constraint.name == collision.name;
+				}))
+			{
+				report.addError(where, "name is already used by a constraint");
+			}
+
+			if (collision.type != CollisionTypes::PushOut)
+			{
+				report.addError(where + "." + TemplateKey::ConstraintType, "'" + collision.type + "' is not a collision type (the only one is " + CollisionTypes::PushOut + ")");
+			}
+
+			std::string numberError;
+			const PushOutSolve::Capsule capsule{ collision.radius, collision.halfLength };
+			const PushOutSolve::Settings settings{ collision.margin, collision.maxPush, collision.weight };
+			if (!PushOutSolve::validate(capsule, settings, numberError))
+			{
+				// The message starts with the key it is about, which is in the capsule object or the entry.
+				const bool isInCapsule = numberError.rfind("radius", 0) == 0 || numberError.rfind("halfLength", 0) == 0;
+				const char* key = numberError.rfind("radius", 0) == 0 ? TemplateKey::CapsuleRadius
+					: numberError.rfind("halfLength", 0) == 0 ? TemplateKey::CapsuleHalfLength
+					: numberError.rfind("margin", 0) == 0 ? TemplateKey::CollisionMargin
+					: numberError.rfind("maxPush", 0) == 0 ? TemplateKey::CollisionMaxPush
+					: TemplateKey::ConstraintWeight;
+				report.addError(where + (isInCapsule ? std::string(".") + TemplateKey::CollisionCapsule : std::string()) + "." + key, numberError);
+			}
+
+			const std::string followPath = where + "." + TemplateKey::CollisionCapsule + "." + TemplateKey::CapsuleFollow;
+			if (!isValidSideName(collision.follow[0]))
+			{
+				report.addError(followPath, "'" + collision.follow[0] + "' is not one of " + SideNames::Center + ", " + SideNames::Left + ", " + SideNames::Right);
+			}
+			if (collision.follow[1].empty())
+			{
+				report.addError(followPath, "usage is empty");
+			}
+			const auto isFinite = [](const std::array<double, 3>& values)
+			{
+				return std::all_of(values.begin(), values.end(), [](double value)
+				{
+					return std::isfinite(value);
+				});
+			};
+			if (!isFinite(collision.translate))
+			{
+				report.addError(where + "." + TemplateKey::CollisionCapsule + "." + TemplateKey::CapsuleOffset + "." + TemplateKey::OffsetTranslate, "must be three finite numbers");
+			}
+			if (!isFinite(collision.rotate))
+			{
+				report.addError(where + "." + TemplateKey::CollisionCapsule + "." + TemplateKey::CapsuleOffset + "." + TemplateKey::OffsetRotate, "must be three finite numbers");
+			}
+
+			std::string targetModule;
+			std::string targetPlug;
+			const ModuleInterface* pTargetInterface = nullptr;
+			const std::string targetPath = where + "." + TemplateKey::ConstraintTarget;
+			if (lookupModule(collision.target, declaredModules, interfaces, "module.childPlug",
+				targetPath, report, targetModule, targetPlug, pTargetInterface) != LookupResult::Found)
+			{
+				continue;
+			}
+			const ModulePlugInfo* pPlugInfo = pTargetInterface->findChildPlug(targetPlug);
+			if (pPlugInfo == nullptr)
+			{
+				report.addError(targetPath, "no child plug '" + targetPlug + "' on '" + targetModule + "' (has: " + childPlugNames(*pTargetInterface) + ")");
+			}
+			else if (!pPlugInfo->hasControl)
+			{
+				report.addError(targetPath, "child plug '" + collision.target + "' has no control to push out");
+			}
+			else if (!pPlugInfo->allowsConstraint)
+			{
+				// The same rule as a constraint: a plug whose input the module owns cannot take the feed over.
+				report.addError(targetPath, "child plug '" + collision.target + "' does not take a collision: its module owns its space");
+			}
+			else if (!collidedPlugs.emplace(collision.target, collision.name).second)
+			{
+				report.addError(targetPath, "child plug '" + collision.target + "' is already the target of collision '" + collidedPlugs[collision.target] + "'");
+			}
+		}
+	}
 }
 
 namespace RigTemplateValidation
@@ -477,6 +589,21 @@ namespace RigTemplateValidation
 		}
 		return constraintPath(static_cast<std::size_t>(constraint.mirrorOf), NamingConvention::swapSide(constraint.name))
 			+ " (mirror '" + constraint.name + "')";
+	}
+
+	std::string collisionPath(std::size_t index, const std::string& name)
+	{
+		return std::string(TemplateKey::Collisions) + "[" + std::to_string(index) + "] '" + name + "'";
+	}
+
+	std::string collisionPath(std::size_t index, const RigCollisionData& collision)
+	{
+		if (!collision.isMirror())
+		{
+			return collisionPath(index, collision.name);
+		}
+		return collisionPath(static_cast<std::size_t>(collision.mirrorOf), NamingConvention::swapSide(collision.name))
+			+ " (mirror '" + collision.name + "')";
 	}
 
 	void checkKeys(
@@ -532,18 +659,97 @@ namespace RigTemplateValidation
 		return true;
 	}
 
+	// The collisions list's keys, the same shape as the constraints' check in checkTemplateKeys, with the capsule object and
+	// its offset one level down. A number list that is not three numbers is reported here, with its path.
+	void checkCollisionKeys(const nlohmann::json& templateJson, ValidationReport& report)
+	{
+		using namespace TemplateKey;
+		if (!templateJson.is_object() || !templateJson.contains(Collisions))
+		{
+			return;
+		}
+		const nlohmann::json& collisions = templateJson.at(Collisions);
+		if (!collisions.is_array())
+		{
+			report.addError(Collisions, "must be a JSON array");
+			return;
+		}
+
+		const auto checkVector = [&report](const nlohmann::json& parent, const char* key, const std::string& where)
+		{
+			if (!parent.contains(key))
+			{
+				return;
+			}
+			const nlohmann::json& values = parent.at(key);
+			if (!values.is_array() || values.size() != 3 || !std::all_of(values.begin(), values.end(), [](const nlohmann::json& value)
+				{
+					return value.is_number();
+				}))
+			{
+				report.addError(where + "." + key, "must be three numbers, got " + values.dump());
+			}
+		};
+
+		for (std::size_t c = 0; c < collisions.size(); ++c)
+		{
+			const nlohmann::json& collision = collisions[c];
+			const std::string name = collision.is_object() ? collision.value(Name, std::string()) : std::string();
+			const std::string where = collisionPath(c, name);
+			checkKeys(collision, { Name, ConstraintType, ConstraintTarget, CollisionCapsule },
+				{ CollisionMargin, CollisionMaxPush, ConstraintWeight, Mirror }, where, report);
+			if (!collision.is_object() || !collision.contains(CollisionCapsule))
+			{
+				continue;
+			}
+
+			const nlohmann::json& capsule = collision.at(CollisionCapsule);
+			const std::string capsulePath = where + "." + CollisionCapsule;
+			checkKeys(capsule, { CapsuleFollow, CapsuleRadius }, { CapsuleHalfLength, CapsuleOffset }, capsulePath, report);
+			if (!capsule.is_object())
+			{
+				continue;
+			}
+			if (capsule.contains(CapsuleFollow))
+			{
+				JointSelector follow;
+				parseSelector(capsule.at(CapsuleFollow), capsulePath + "." + CapsuleFollow, follow, report);
+			}
+			if (capsule.contains(CapsuleOffset))
+			{
+				const nlohmann::json& offset = capsule.at(CapsuleOffset);
+				const std::string offsetPath = capsulePath + "." + CapsuleOffset;
+				checkKeys(offset, {}, { OffsetTranslate, OffsetRotate }, offsetPath, report);
+				if (offset.is_object())
+				{
+					checkVector(offset, OffsetTranslate, offsetPath);
+					checkVector(offset, OffsetRotate, offsetPath);
+				}
+			}
+			for (const char* key : { CapsuleRadius, CapsuleHalfLength })
+			{
+				if (capsule.contains(key) && !capsule.at(key).is_number())
+				{
+					report.addError(capsulePath + "." + key, "must be a number, got " + capsule.at(key).dump());
+				}
+			}
+		}
+	}
+
 	void checkTemplateKeys(const nlohmann::json& templateJson, ValidationReport& report)
 	{
 		using namespace TemplateKey;
 
 		checkKeys(templateJson,
 			{ RigVersion, RigTemplateName, RigAuthor, RigModules },
-			{ FormatVersion, RigName, Constraints },
+			{ FormatVersion, RigName, Constraints, Collisions },
 			"template", report);
 		if (!templateJson.is_object())
 		{
 			return;
 		}
+
+		checkCollisionKeys(templateJson, report);
 
 		if (templateJson.contains(RigModules))
 		{
@@ -674,7 +880,8 @@ namespace RigTemplateValidation
 		}
 	}
 
-	void validateConnections(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report)
+	void validateConnections(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report,
+		const std::vector<CollisionDependency>& collisionDependencies)
 	{
 		std::set<std::string> declaredModules;
 		for (const RigModuleData& module : rigData.rigModules)
@@ -696,6 +903,20 @@ namespace RigTemplateValidation
 		}
 
 		validateConstraints(rigData.rigConstraints, declaredModules, interfaces, graph, report);
+		validateCollisions(rigData.rigCollisions, rigData.rigConstraints, declaredModules, interfaces, report);
+
+		// The module that drives the capsule's joint is upstream of the collided module (D79). The edge leaves by no socket
+		// in particular, so no plug is blind to it.
+		for (const CollisionDependency& dependency : collisionDependencies)
+		{
+			std::string targetModule;
+			std::string targetPlug;
+			if (!StringUtils::splitIdentifier(dependency.target, targetModule, targetPlug) || interfaces.find(targetModule) == interfaces.end())
+			{
+				continue;   // reported by validateCollisions
+			}
+			graph[dependency.driverModule].push_back({ targetModule, std::string(), targetPlug });
+		}
 
 		CycleFinder(graph, interfaces, report).run();
 	}

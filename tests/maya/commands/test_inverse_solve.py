@@ -299,6 +299,22 @@ class SpaceRoundTrip(SolveTestCase):
         self.assertEqual(cmds.getAttr(rig_name(self.ARM + ".space")), 1)
 
 
+class PushOutRoundTrip(SolveTestCase):
+    """A push out is not inverted: the sweep runs it forward with the capsule where the source's joint is (D79). Otherwise
+    the solved control would take the push as its own motion, and the rig would push it a second time."""
+
+    def setUp(self):
+        super().setUp()
+        self.build("push_out_basic", self.make_skeleton("fk_pushout"))
+
+    def test_the_pushed_child_comes_back_with_its_control_at_rest(self):
+        _, posed_joints, _ = self.round_trip({"a_00_M_CTRL.translateX": 2})
+        self.assertWorldTranslation(rig_name("c_00_L_JNT"), [4, 0, 0])   # pushed from 3 by the sphere moved to x = 2
+        self.assertJointsAt(posed_joints)
+        self.assertValues(rig_name("c_00_L_CTRL"), {"translateX": 0, "translateY": 0, "translateZ": 0, "rotateZ": 0})
+        self.assertValues(rig_name("a_00_M_CTRL"), {"translateX": 2})
+
+
 class OrientConstraintRoundTrip(SolveTestCase):
     """The other constraint types go through the same delta function the constraint node uses (D31)."""
 

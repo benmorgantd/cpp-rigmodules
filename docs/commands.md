@@ -3,7 +3,7 @@
 Every command:
 
 - Takes the nodes it acts on **by name**. None of them reads the selection, except `setRigMeshId`, `pruneToMaxInfluences` and `smoothSkinWeights` when nothing is named.
-- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `getRigMirrorControl`, `getRigKeys`, `getRigInfo` and `getRigMarkers`, and `saveRigControlShapes`, `saveRigSkinWeights`, `saveRigSkeleton` and `saveRigMarkers` (they write a file and change nothing in the scene).
+- Is undoable, apart from the queries `getRigControls`, `getRigControlInfo`, `getRigControlChannels`, `getRigControlSpace`, `getRigMirrorControl`, `getRigKeys`, `getRigInfo`, `getRigMarkers` and `getRigPushOutCapsule`, and `saveRigControlShapes`, `saveRigSkinWeights`, `saveRigSkeleton` and `saveRigMarkers` (they write a file and change nothing in the scene).
 - Reports errors through `displayError`. From Python, the error text arrives as a `RuntimeError`.
 
 Examples use Python `maya.cmds` (`from maya import cmds`). Flags are keyword arguments named by their long flag name. A flag that can be given several times takes a list.
@@ -1122,3 +1122,43 @@ cmds.getRigMarkers("hero_body:rigRootModule1")
 ```
 
 Object: any node of the rig. `world` is the 16 numbers of the marker's matrix row by row, as it was at the build. A rig built with no markers file returns `"[]"`, and a marker whose joint was not among the build's joints is not listed. Not undoable.
+
+## showRigPushOuts
+
+Makes a temporary capsule display for each [push out](push-out.md) of a rig, and returns the display nodes.
+
+```python
+cmds.showRigPushOuts(namespace="skel")
+# Returns ["skel:collarPush_00_L_CON_display"]
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `namespace` | string | The rig's namespace. Defaults to the current one |
+
+Each display is a blue `rigControlNode` named `<push out name>_display`, drawn as the capsule the solve uses, at the push out's stored offset, following the capsule's joint live. It has `radius` and `halfLength` attributes in the channel box. Move, rotate and resize it as you like: nothing here changes the rig. It uses two utility nodes (`multMatrix`, `composeMatrix`, from Maya's `matrixNodes` plugin, which it loads if needed). A namespace with no push outs warns and returns an empty list. It fails when a display is already there: hide them first. Undoable.
+
+## hideRigPushOuts
+
+Deletes the push-out displays of a namespace and the utility nodes behind them, and returns the names it deleted.
+
+```python
+cmds.hideRigPushOuts(namespace="skel")
+```
+
+| Flag | Type | Meaning |
+|---|---|---|
+| `namespace` | string | The rig's namespace. Defaults to the current one |
+
+Undoable.
+
+## getRigPushOutCapsule
+
+Returns the template's `capsule` object for a display, as JSON text.
+
+```python
+cmds.getRigPushOutCapsule("skel:collarPush_00_L_CON_display")
+# Returns '{"follow":["Center","head"],"radius":2.0,"halfLength":1.0,"offset":{"translate":[0.0,0.5,0.0],"rotate":[0.0,0.0,0.0]}}'
+```
+
+Object: a display node. `follow` is the markup of the joint the display follows, `radius` and `halfLength` its attributes, and `offset` its world matrix relative to that joint's, as translate and rotate in degrees (XYZ), rounded to 6 places. Paste the text into the `capsule` key of the collision and rebuild. A display with a scale is an error: change `radius` and `halfLength`, a capsule has no scale. Not undoable.

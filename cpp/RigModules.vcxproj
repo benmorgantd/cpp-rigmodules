@@ -163,6 +163,7 @@
     <ClCompile Include="core\ControlAnimFile.cpp" />
     <ClCompile Include="core\RigKeys.cpp" />
     <ClCompile Include="core\PoseBlend.cpp" />
+    <ClCompile Include="core\PushOutSolve.cpp" />
     <ClCompile Include="core\PoseFile.cpp" />
     <ClCompile Include="core\RigJsonStructs.cpp" />
     <ClCompile Include="core\RigTemplateValidation.cpp" />
@@ -200,6 +201,7 @@
     <ClCompile Include="maya\commands\RigInverseCmds.cpp" />
     <ClCompile Include="maya\commands\RigPoseCmds.cpp" />
     <ClCompile Include="maya\commands\MarkerCmds.cpp" />
+    <ClCompile Include="maya\commands\PushOutCmds.cpp" />
     <ClCompile Include="maya\commands\SkeletonCmds.cpp" />
     <ClCompile Include="maya\commands\SkinWeightCmds.cpp" />
     <ClCompile Include="maya\commands\TwoBoneIkCmds.cpp" />
@@ -212,6 +214,7 @@
     <ClCompile Include="maya\modules\RibbonModule.cpp" />
     <ClCompile Include="maya\modules\TwoBoneIkModule.cpp" />
     <ClCompile Include="maya\nodes\Constraints.cpp" />
+    <ClCompile Include="maya\nodes\PushOut.cpp" />
     <ClCompile Include="maya\nodes\RigControlNode.cpp" />
     <ClCompile Include="maya\nodes\LookRoot.cpp" />
     <ClCompile Include="maya\nodes\RigRoot.cpp" />
@@ -232,6 +235,7 @@
     <ClCompile Include="maya\shared\TwoBoneIkSolve.cpp" />
     <ClCompile Include="maya\shared\SelectionSetScene.cpp" />
     <ClCompile Include="maya\shared\MarkerScene.cpp" />
+    <ClCompile Include="maya\shared\PushOutScene.cpp" />
     <ClCompile Include="maya\shared\SkeletonScene.cpp" />
     <ClCompile Include="maya\shared\LookScene.cpp" />
     <ClCompile Include="maya\shared\SkinWeightScene.cpp" />
@@ -282,6 +286,7 @@
     <ClInclude Include="core\ControlAnimFile.h" />
     <ClInclude Include="core\RigKeys.h" />
     <ClInclude Include="core\PoseBlend.h" />
+    <ClInclude Include="core\PushOutSolve.h" />
     <ClInclude Include="core\PoseFile.h" />
     <ClInclude Include="core\RigJsonStructs.h" />
     <ClInclude Include="core\RigTemplateValidation.h" />
@@ -320,6 +325,7 @@
     <ClInclude Include="maya\commands\RigInverseCmds.h" />
     <ClInclude Include="maya\commands\RigPoseCmds.h" />
     <ClInclude Include="maya\commands\MarkerCmds.h" />
+    <ClInclude Include="maya\commands\PushOutCmds.h" />
     <ClInclude Include="maya\commands\SkeletonCmds.h" />
     <ClInclude Include="maya\commands\SkinWeightCmds.h" />
     <ClInclude Include="maya\commands\TwoBoneIkCmds.h" />
@@ -336,6 +342,7 @@
     <ClInclude Include="maya\shared\TwoBoneIkPart.h" />
     <ClInclude Include="maya\shared\TwoBoneIkSolve.h" />
     <ClInclude Include="maya\nodes\Constraints.h" />
+    <ClInclude Include="maya\nodes\PushOut.h" />
     <ClInclude Include="maya\nodes\RigControlNode.h" />
     <ClInclude Include="maya\nodes\LookRoot.h" />
     <ClInclude Include="maya\nodes\RigRoot.h" />
@@ -354,6 +361,7 @@
     <ClInclude Include="maya\shared\Side.h" />
     <ClInclude Include="maya\shared\SelectionSetScene.h" />
     <ClInclude Include="maya\shared\MarkerScene.h" />
+    <ClInclude Include="maya\shared\PushOutScene.h" />
     <ClInclude Include="maya\shared\SkeletonScene.h" />
     <ClInclude Include="maya\shared\LookScene.h" />
     <ClInclude Include="maya\shared\SkinWeightScene.h" />

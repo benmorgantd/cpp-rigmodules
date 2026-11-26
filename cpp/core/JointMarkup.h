@@ -68,6 +68,9 @@ public:
 	// The entry for a selector without claiming it. False if no joint matches.
 	bool find(const JointSelector& selector, std::size_t& outEntry) const;
 
+	// The module that claimed an entry, or "" while none has.
+	const std::string& claimedBy(std::size_t entry) const;
+
 	// Joints marked for export that no module claimed. Nothing drives them, so they stay at rest in exported animation.
 	std::vector<std::string> unclaimedExportedJoints() const;
 

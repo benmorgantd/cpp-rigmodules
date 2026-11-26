@@ -131,6 +131,11 @@ bool JointMarkupIndex::claim(const JointSelector& selector, const std::string& m
 	return true;
 }
 
+const std::string& JointMarkupIndex::claimedBy(std::size_t entry) const
+{
+	return fEntries[entry].claimedBy;
+}
+
 bool JointMarkupIndex::find(const JointSelector& selector, std::size_t& outEntry) const
 {
 	auto it = fLookup.find({ selector.side, selector.usage });

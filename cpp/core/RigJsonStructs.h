@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
@@ -34,6 +35,31 @@ struct RigConstraintData
 	}
 };
 
+// One entry of the template's collisions list (D79, design/push-out.md). PushOut is the only type: it keeps the control on
+// `target` out of one capsule that follows a joint.
+struct RigCollisionData
+{
+	std::string name;
+	std::string type = CollisionTypes::PushOut;
+	std::string target;                           // "module.childPlug"
+	std::array<std::string, 2> follow;            // [side, usage] of the joint the capsule follows
+	double radius = 1.0;
+	double halfLength = 0.0;
+	std::array<double, 3> translate{ 0.0, 0.0, 0.0 };   // the capsule's offset from the joint
+	std::array<double, 3> rotate{ 0.0, 0.0, 0.0 };      // degrees, XYZ
+	double margin = 0.0;
+	double maxPush = 100.0;
+	double weight = 1.0;                          // template key constraintWeight
+	bool mirror = false;          // template key: build a copy on the other side too (D28)
+	int mirrorOf = -1;            // set on a generated mirror: the template index of its source. Its offset is not read: the build
+	                              // places the capsule where the source's is reflected across X (D79).
+
+	bool isMirror() const
+	{
+		return mirrorOf >= 0;
+	}
+};
+
 struct RigModuleData
 {
     std::string moduleType;
@@ -61,6 +87,7 @@ struct RigRootData
     std::string rigAuthor;
     std::vector<RigModuleData> rigModules; // 1D Flat List of modules
 	std::vector<RigConstraintData> rigConstraints;
+	std::vector<RigCollisionData> rigCollisions;
 };
 
 // nlohmann JSON mapping macros
@@ -99,6 +126,32 @@ inline void from_json(const nlohmann::json& jsonData, RigConstraintData& constra
 	constraint.type = jsonData.value(TemplateKey::ConstraintType, ConstraintTypes::Parent);
 	constraint.constraintWeight = jsonData.value(TemplateKey::ConstraintWeight, 1.0);
 	constraint.mirror = jsonData.value(TemplateKey::Mirror, false);
+}
+
+// Collisions ===================================================================
+
+// checkCollisionKeys has already checked every key, so a missing one is not reached here. A wrong type of value throws, and
+// loadRigTemplate reports it.
+inline void from_json(const nlohmann::json& jsonData, RigCollisionData& collision)
+{
+	jsonData.at(TemplateKey::Name).get_to(collision.name);
+	jsonData.at(TemplateKey::ConstraintType).get_to(collision.type);
+	jsonData.at(TemplateKey::ConstraintTarget).get_to(collision.target);
+	collision.margin = jsonData.value(TemplateKey::CollisionMargin, collision.margin);
+	collision.maxPush = jsonData.value(TemplateKey::CollisionMaxPush, collision.maxPush);
+	collision.weight = jsonData.value(TemplateKey::ConstraintWeight, collision.weight);
+	collision.mirror = jsonData.value(TemplateKey::Mirror, false);
+
+	const nlohmann::json& capsule = jsonData.at(TemplateKey::CollisionCapsule);
+	capsule.at(TemplateKey::CapsuleFollow).get_to(collision.follow);
+	capsule.at(TemplateKey::CapsuleRadius).get_to(collision.radius);
+	collision.halfLength = capsule.value(TemplateKey::CapsuleHalfLength, collision.halfLength);
+	if (capsule.contains(TemplateKey::CapsuleOffset))
+	{
+		const nlohmann::json& offset = capsule.at(TemplateKey::CapsuleOffset);
+		collision.translate = offset.value(TemplateKey::OffsetTranslate, collision.translate);
+		collision.rotate = offset.value(TemplateKey::OffsetRotate, collision.rotate);
+	}
 }
 
 inline void to_json(nlohmann::json& jsonData, const RigConstraintData& constraint)

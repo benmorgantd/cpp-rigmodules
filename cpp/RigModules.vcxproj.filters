@@ -45,6 +45,9 @@
     <ClCompile Include="core\PoseBlend.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\PushOutSolve.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\PoseFile.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -189,6 +192,9 @@
     <ClCompile Include="maya\commands\MarkerCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
+    <ClCompile Include="maya\commands\PushOutCmds.cpp">
+      <Filter>maya\commands</Filter>
+    </ClCompile>
     <ClCompile Include="maya\commands\SkeletonCmds.cpp">
       <Filter>maya\commands</Filter>
     </ClCompile>
@@ -220,6 +226,9 @@
       <Filter>maya\modules</Filter>
     </ClCompile>
     <ClCompile Include="maya\nodes\Constraints.cpp">
+      <Filter>maya\nodes</Filter>
+    </ClCompile>
+    <ClCompile Include="maya\nodes\PushOut.cpp">
       <Filter>maya\nodes</Filter>
     </ClCompile>
     <ClCompile Include="maya\nodes\RigControlNode.cpp">
@@ -285,6 +294,9 @@
     <ClCompile Include="maya\shared\MarkerScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
+    <ClCompile Include="maya\shared\PushOutScene.cpp">
+      <Filter>maya\shared</Filter>
+    </ClCompile>
     <ClCompile Include="maya\shared\SkeletonScene.cpp">
       <Filter>maya\shared</Filter>
     </ClCompile>
@@ -324,6 +336,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\PoseBlend.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\PushOutSolve.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\PoseFile.h">
@@ -476,6 +491,9 @@
     <ClInclude Include="maya\commands\MarkerCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
+    <ClInclude Include="maya\commands\PushOutCmds.h">
+      <Filter>maya\commands</Filter>
+    </ClInclude>
     <ClInclude Include="maya\commands\SkeletonCmds.h">
       <Filter>maya\commands</Filter>
     </ClInclude>
@@ -507,6 +525,9 @@
       <Filter>maya\modules</Filter>
     </ClInclude>
     <ClInclude Include="maya\nodes\Constraints.h">
+      <Filter>maya\nodes</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\nodes\PushOut.h">
       <Filter>maya\nodes</Filter>
     </ClInclude>
     <ClInclude Include="maya\nodes\RigControlNode.h">
@@ -576,6 +597,9 @@
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\MarkerScene.h">
+      <Filter>maya\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="maya\shared\PushOutScene.h">
       <Filter>maya\shared</Filter>
     </ClInclude>
     <ClInclude Include="maya\shared\SkeletonScene.h">

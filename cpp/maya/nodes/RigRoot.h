@@ -38,6 +38,7 @@ public:
 	static MObject aRigModules;
 	static MObject aRigTemplateName;
 	static MObject aConstraints;
+	static MObject aCollisions;
 	static MObject aJointDisplayLayer;
 	static MObject aMeshDisplayLayer;
 	static MObject aControlDisplayLayer;

@@ -4,6 +4,7 @@
 #include "maya/commands/CreateRigCmd.h"
 #include "maya/commands/JointMarkupCmd.h"
 #include "maya/commands/MarkerCmds.h"
+#include "maya/commands/PushOutCmds.h"
 #include "maya/commands/RenameRigNodesCmd.h"
 #include "maya/commands/RigControlCmds.h"
 #include "maya/commands/RigDataFileCmds.h"
@@ -63,7 +64,10 @@ const std::vector<CommandDescriptor>& CommandRegistry::all()
 		{ SaveRigMarkersCmd::aCommandString, SaveRigMarkersCmd::creator, SaveRigMarkersCmd::newSyntax },
 		{ LoadRigMarkersCmd::aCommandString, LoadRigMarkersCmd::creator, LoadRigMarkersCmd::newSyntax },
 		{ MirrorRigMarkersCmd::aCommandString, MirrorRigMarkersCmd::creator, MirrorRigMarkersCmd::newSyntax },
-		{ GetRigMarkersCmd::aCommandString, GetRigMarkersCmd::creator, GetRigMarkersCmd::newSyntax }
+		{ GetRigMarkersCmd::aCommandString, GetRigMarkersCmd::creator, GetRigMarkersCmd::newSyntax },
+		{ ShowRigPushOutsCmd::aCommandString, ShowRigPushOutsCmd::creator, ShowRigPushOutsCmd::newSyntax },
+		{ HideRigPushOutsCmd::aCommandString, HideRigPushOutsCmd::creator, HideRigPushOutsCmd::newSyntax },
+		{ GetRigPushOutCapsuleCmd::aCommandString, GetRigPushOutCapsuleCmd::creator, GetRigPushOutCapsuleCmd::newSyntax }
 	};
 	return descriptors;
 }

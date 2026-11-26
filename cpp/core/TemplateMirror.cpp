@@ -212,5 +212,48 @@ namespace TemplateMirror
 			mirrorConstraints.push_back(std::move(mirror));
 		}
 		rigData.rigConstraints.insert(rigData.rigConstraints.end(), mirrorConstraints.begin(), mirrorConstraints.end());
+
+		// A collision's mirror swaps its name, its target and the side of the joint its capsule follows (D79). Its offset is
+		// not copied meaningfully: the build places the mirror's capsule at the source's reflected across X.
+		std::vector<RigCollisionData> mirrorCollisions;
+		for (std::size_t c = 0; c < rigData.rigCollisions.size(); ++c)
+		{
+			const RigCollisionData& source = rigData.rigCollisions[c];
+			if (!source.mirror)
+			{
+				continue;
+			}
+
+			const std::string where = RigTemplateValidation::collisionPath(c, source.name);
+			std::string targetModule;
+			std::string targetPlug;
+			if (!StringUtils::splitIdentifier(source.target, targetModule, targetPlug))
+			{
+				continue;   // validateConnections reports the malformed target
+			}
+			auto it = moduleSides.find(targetModule);
+			if (it == moduleSides.end() || !isMirrorableSide(it->second))
+			{
+				report.addError(where + "." + TemplateKey::Mirror, "only collisions on a Left or Right module can be mirrored, '"
+					+ targetModule + "' is not one");
+				continue;
+			}
+			const std::string mirrorName = NamingConvention::swapSide(source.name);
+			if (mirrorName.empty())
+			{
+				report.addError(where + "." + TemplateKey::Name, std::string("a mirrored collision's name must be ")
+					+ NamingConvention::Form + " with a side of L or R, so its mirror's name can swap the side");
+				continue;
+			}
+
+			RigCollisionData mirror = source;
+			mirror.mirror = false;
+			mirror.mirrorOf = static_cast<int>(c);
+			mirror.name = mirrorName;
+			mirror.target = mirrorIdentifier(source.target, moduleSides, where + "." + TemplateKey::ConstraintTarget, report);
+			mirror.follow[0] = swapSide(source.follow[0]);
+			mirrorCollisions.push_back(std::move(mirror));
+		}
+		rigData.rigCollisions.insert(rigData.rigCollisions.end(), mirrorCollisions.begin(), mirrorCollisions.end());
 	}
 }

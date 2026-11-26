@@ -148,7 +148,7 @@ A `twistRamp` moduleArgs key on `Ribbon` (needs `fkStyle`) and `Limb`: `[positio
 - **Consequence:** one shared attribute and a context field, two moduleArgs keys, three `core/RibbonMath` functions (`validateTwistRamp`, `applyTwistRamp`, a `Setup::fkRollShare` array), no new channel, no change to saved poses or animation. Evaluation cost: one multiply per ik control for an fk ribbon; not benchmarked (no new module or constraint type).
 
 ### D79. Push out: one control out of one capsule
-**Status:** Leaning (shape agreed by the author 2026-11-26, design page written, nothing built). Needs sign-off on `design/push-out.md` before code. Replaces D77. D77's work (a rig-wide collider file, probes, a solved swing and push, authoring tools) is parked on the `collision` branch, tag `collision-archive` in both repos, and will not be merged.
+**Status:** Decided and built 2026-11-26 on branch `pushout` (the author approved `design/push-out.md` and asked for it to be built). Not done: perf rig instances and the one `bench` run (author, 2026-11-26: after the build is verified). Replaces D77. D77's work (a rig-wide collider file, probes, a solved swing and push, authoring tools) is parked on the `collision` branch, tag `collision-archive` in both repos, and will not be merged.
 
 The author tested D77 on the solomon spine pouches and found it grew into a small physics system that is complex to set up, when the need was a collar pushed out of a head. Real collision belongs in the engine's physics. This keeps one thing.
 

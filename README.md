@@ -124,6 +124,7 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [docs/attachments.md](docs/attachments.md) | Attachments: a rig that follows another rig, with `parent:` ids and `parentRig` |
 | [docs/skeletons.md](docs/skeletons.md) | Skeleton files and the skeleton hash: when two skeletons are the same |
 | [docs/markers.md](docs/markers.md) | Markers: placed points that follow a joint, their file, hash and commands |
+| [docs/push-out.md](docs/push-out.md) | Push out: a control kept out of a capsule, in the template's `collisions` list, and the temporary capsule display |
 | [docs/library.md](docs/library.md) | The pose and animation library: ControlPose and ControlAnim files, FBX, the folders |
 | [docs/python.md](docs/python.md) | The `rigmodules` Python package and `RigModules.mod` |
 | [docs/architecture.md](docs/architecture.md) | The code: layers, source map, the build, module nodes, evaluation, and how to add a module, command or format |

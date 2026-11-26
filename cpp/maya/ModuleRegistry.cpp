@@ -10,6 +10,7 @@
 #include "maya/modules/TwoBoneIkModule.h"
 #include "maya/nodes/Constraints.h"
 #include "maya/nodes/LookRoot.h"
+#include "maya/nodes/PushOut.h"
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/RigModule.h"
 
@@ -73,6 +74,11 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
             "rigConstraint", "RigConstraint", RigConstraintNode::id,
             RigConstraintNode::creator, RigConstraintNode::initialize,
             {}, nullptr, nullptr, false   // built by RigConstraintNode::buildFromTemplate, not as a module
+        },
+        {
+            "rigPushOut", "RigPushOut", RigPushOutNode::id,
+            RigPushOutNode::creator, RigPushOutNode::initialize,
+            {}, nullptr, nullptr, false   // built by RigPushOutNode::createPushOut, not as a module
         },
         {
             "lookRoot", "LookRoot", LookRootNode::id,

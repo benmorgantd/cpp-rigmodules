@@ -1,6 +1,7 @@
 #include "maya/shared/NamingScene.h"
 #include "core/Constants.h"
 #include "maya/nodes/Constraints.h"
+#include "maya/nodes/PushOut.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigModule.h"
 
@@ -30,12 +31,17 @@ bool NamingScene::getKind(const MObject& oNode, NamingConvention::Kind& outKind)
 		outKind = NamingConvention::Kind::Marker;
 		return true;
 	}
+	// A push-out display (D79) is temporary and outside the convention: it has no kind, so it is never renamed into one.
+	if (fnNode.hasAttribute(RigAttr::PushOutDisplay))
+	{
+		return false;
+	}
 	if (fnNode.typeId() == RigControlNode::id)
 	{
 		outKind = NamingConvention::Kind::Control;
 		return true;
 	}
-	if (fnNode.typeId() == RigConstraintNode::id)
+	if (fnNode.typeId() == RigConstraintNode::id || fnNode.typeId() == RigPushOutNode::id)
 	{
 		outKind = NamingConvention::Kind::Constraint;
 		return true;

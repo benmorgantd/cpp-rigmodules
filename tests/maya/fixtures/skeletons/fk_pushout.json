@@ -1,0 +1,7 @@
+{
+  "joints": [
+    { "name": "a_00_M_JNT", "side": "Center", "usage": "a", "translate": [0, 0, 0] },
+    { "name": "b_00_M_JNT", "side": "Center", "usage": "b", "translate": [0, 2, 0] },
+    { "name": "c_00_L_JNT", "side": "Left", "usage": "c", "translate": [3, 0, 0] }
+  ]
+}

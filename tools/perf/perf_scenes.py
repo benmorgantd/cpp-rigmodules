@@ -12,7 +12,7 @@ Run it with mayapy (set nothing else up: it loads a copy of the plugin and the p
 
 human    imports the asset's skeleton `--count` times, builds the asset's template on each, and keys every
          control on every frame through a cycle of load, mirror, flip and zero poses.
-complex  generates a 360 joint skeleton and a template with 103 constraints (Parent, Orient, Point, Swing and Twist), Aim modules, Limbs,
+complex  generates a 360 joint skeleton and a template with 103 constraints (Parent, Orient, Point, Swing and Twist), 16 push outs (D79), Aim modules, Limbs,
          TwoBoneIk limbs and Ribbons, builds it `--count` times, and keys a -90 to 90 range of motion on every control's rotate X, Y
          and Z, plus the limbs' handles, poles, roll and settings (blend, stretch, soft, pin) through every branch.
 
@@ -212,6 +212,17 @@ def aim_specs():
             ("ear", (0.4, 0.0, -0.1), (2.4, 0.0, -0.1), (0.4, 1.0, -0.1)),
         ]
     ]
+
+
+def collision_specs():
+    """Push outs (D79), written for the side the chain is on: the Left ones are mirrored. `chain` is the module base the push out
+    is on (its start plug, which also has a space constraint, so the push out runs after one), `follow` the joint (side, base,
+    index) its capsule follows. The capes (Center) are pushed out of the spine, the pads and feathers (Left, and Right by
+    the mirror) out of the spine and the arm."""
+    specs = [{"chain": "cape%d" % (k + 1), "side": "Center", "follow": ("Center", "spine", 3)} for k in range(4)]
+    specs.append({"chain": "pad", "side": "Left", "follow": ("Center", "spine", 4)})
+    specs += [{"chain": "feather%d" % (k + 1), "side": "Left", "follow": ("Left", "arm", 1)} for k in range(5)]
+    return specs
 
 
 def side_suffix(side):
@@ -589,6 +600,21 @@ def build_template(fk_style=False):
         if side == "Left":
             module["mirror"] = True
         modules.append(module)
+    collisions = []
+    for spec in collision_specs():
+        side = spec["side"]
+        follow_side, follow_base, follow_index = spec["follow"]
+        entry = {
+            "name": constraint_name(spec["chain"] + "Push", side),
+            "type": "PushOut",
+            "target": "%s.start" % module_name(spec["chain"], side),
+            "capsule": {"follow": [follow_side, usage_name(follow_base, follow_index)], "radius": 0.25, "halfLength": 0.3,
+                        "offset": {"translate": [0, 0, 0.15], "rotate": [0, 0, 0]}},
+            "margin": 0.02,
+        }
+        if side == "Left":
+            entry["mirror"] = True
+        collisions.append(entry)
     return {
         "formatVersion": 1,
         "rigName": "complex272",
@@ -597,6 +623,7 @@ def build_template(fk_style=False):
         "rigAuthor": "perf_scenes.py",
         "rigModules": modules,
         "constraints": constraints,
+        "collisions": collisions,
     }
 
 
@@ -648,6 +675,10 @@ def attachment_template():
 
 def built_constraint_count(template):
     return sum(2 if entry.get("mirror") else 1 for entry in template["constraints"])
+
+
+def built_collision_count(template):
+    return sum(2 if entry.get("mirror") else 1 for entry in template.get("collisions", []))
 
 
 # ---- Maya side ---------------------------------------------------------------------------------------
@@ -903,6 +934,7 @@ def make_complex(args):
     joints = joint_layout()
     assert len(joints) == 408, len(joints)
     assert constraints == 103, constraints
+    assert built_collision_count(template) == 16, built_collision_count(template)
     template_file = os.path.join(out, "complex_template.json").replace("\\", "/")
     with open(template_file, "w", encoding="utf-8") as handle:
         json.dump(template, handle, indent=2)

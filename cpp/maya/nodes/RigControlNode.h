@@ -112,6 +112,13 @@ public:
 	static MMatrix getShapeTransform(const MObject& oControl);
 	static ShapeType getShapeType(const MObject& oControl);
 
+	// A push-out display node (D79) is a rigControlNode with RigAttr::PushOutDisplay, drawn as a capsule. Its Capsule is not a
+	// scale of the library mesh: the caps keep the radius while the middle stretches, so every mesh point goes through
+	// PushOutSolve::drawPoint with the shapeTransform's diagonal read as (halfLength, radius, radius), and drawPoint says how.
+	static bool isPushOutCapsule(const MObject& oControl, ShapeType shapeType);
+	// A library mesh point in the control's object space.
+	static MPoint drawPoint(const ShapePoint& point, const MMatrix& mShapeTransform, bool isPushOutCapsule);
+
 private:
 	// Starts at 1, so it never equals a new ControlDrawData's 0. Skips 0 when it wraps.
 	unsigned int m_drawGeneration{ 1 };

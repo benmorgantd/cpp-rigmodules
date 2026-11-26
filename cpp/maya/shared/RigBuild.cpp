@@ -5,6 +5,7 @@
 #include "core/Hash64.h"
 #include "core/MarkerFile.h"
 #include "core/NamingConvention.h"
+#include "core/PushOutSolve.h"
 #include "core/RigControlFilter.h"
 #include "core/RigJsonStructs.h"
 #include "core/RigTemplateValidation.h"
@@ -14,6 +15,7 @@
 #include "core/TemplateMirror.h"
 #include "maya/modules/LayoutModule.h"
 #include "maya/nodes/Constraints.h"
+#include "maya/nodes/PushOut.h"
 #include "maya/nodes/RigRoot.h"
 #include "maya/shared/DisplayLayerScene.h"
 #include "maya/shared/JointMarkupScene.h"
@@ -62,7 +64,75 @@ namespace
 		MString markersJson{ "[]" };
 		MarkerSet markers;          // what the file holds, for the modules that select a marker
 		bool hasMarkers = false;    // false when the build was given no file
+		// The template's collisions with their joints found and their capsules placed (D79), in the template's order. An
+		// entry the read phase could not resolve stays empty: the report has errors then and nothing is built.
+		std::vector<PushOutBuildArgs> collisions;
 	};
+
+	// Read phase. Finds each collision's followed joint among the input joints, places its capsule relative to that joint, and
+	// reports the module that drives the joint to the cycle check. Nothing here touches the scene. A mirror's capsule is its
+	// source's reflected across X, taken relative to the mirror's own joint, so it does not depend on how the two joints'
+	// axes are oriented.
+	void resolveCollisions(
+		const RigRootData& rigData,
+		const MarkedJointSet& markedJoints,
+		RigStamps& outStamps,
+		std::vector<RigTemplateValidation::CollisionDependency>& outDependencies,
+		ValidationReport& report)
+	{
+		outStamps.collisions.assign(rigData.rigCollisions.size(), PushOutBuildArgs());
+		for (std::size_t c = 0; c < rigData.rigCollisions.size(); ++c)
+		{
+			const RigCollisionData& collision = rigData.rigCollisions[c];
+			const std::string followPath = RigTemplateValidation::collisionPath(c, collision) + "." + TemplateKey::CollisionCapsule + "." + TemplateKey::CapsuleFollow;
+
+			const JointSelector follow{ collision.follow[0], collision.follow[1] };
+			std::size_t entry = 0;
+			if (!markedJoints.index.find(follow, entry))
+			{
+				report.addError(followPath, "no joint " + formatJointSelector(follow) + " among the input joints");
+				continue;
+			}
+			const MMatrix mJointWorld = markedJoints.dagPaths[static_cast<unsigned int>(entry)].inclusiveMatrix();
+
+			MMatrix mOffset;
+			if (collision.isMirror())
+			{
+				const RigCollisionData& source = rigData.rigCollisions[static_cast<std::size_t>(collision.mirrorOf)];
+				const JointSelector sourceFollow{ source.follow[0], source.follow[1] };
+				std::size_t sourceEntry = 0;
+				if (!markedJoints.index.find(sourceFollow, sourceEntry))
+				{
+					continue;   // the source reports its own missing joint
+				}
+				const MMatrix mSourceWorld = MathUtils::toMMatrix(PushOutSolve::offsetMatrix(
+					{ source.translate[0], source.translate[1], source.translate[2] },
+					{ source.rotate[0], source.rotate[1], source.rotate[2] }))
+					* markedJoints.dagPaths[static_cast<unsigned int>(sourceEntry)].inclusiveMatrix();
+				mOffset = MathUtils::toMMatrix(PushOutSolve::reflectAcrossX(MathUtils::toMat4(mSourceWorld))) * mJointWorld.inverse();
+			}
+			else
+			{
+				mOffset = MathUtils::toMMatrix(PushOutSolve::offsetMatrix(
+					{ collision.translate[0], collision.translate[1], collision.translate[2] },
+					{ collision.rotate[0], collision.rotate[1], collision.rotate[2] }));
+			}
+
+			PushOutBuildArgs& args = outStamps.collisions[c];
+			args.name = collision.name;
+			args.oFollowJoint = markedJoints.dagPaths[static_cast<unsigned int>(entry)].node();
+			args.mOffsetLocal = mOffset;
+			args.capsule = { collision.radius, collision.halfLength };
+			args.settings = { collision.margin, collision.maxPush, collision.weight };
+
+			// A joint no module drives has no module to wait for.
+			const std::string& driver = markedJoints.index.claimedBy(entry);
+			if (!driver.empty())
+			{
+				outDependencies.push_back({ collision.name, driver, collision.target });
+			}
+		}
+	}
 
 	// Read phase. Reads and validates the markers file and places every marker on the input joints. A marker whose joint is
 	// not among them is a warning, because the file may belong to a larger skeleton. A module that selects a marker
@@ -324,7 +394,10 @@ namespace
 		{
 			interfaces.emplace(plan.name, plan.moduleInterface);
 		}
-		RigTemplateValidation::validateConnections(rigData, interfaces, report);
+		// After planModules, which claims the joints: a capsule's joint is driven by the module that claimed it.
+		std::vector<RigTemplateValidation::CollisionDependency> collisionDependencies;
+		resolveCollisions(rigData, markedJoints, outStamps, collisionDependencies, report);
+		RigTemplateValidation::validateConnections(rigData, interfaces, report, collisionDependencies);
 		RigTemplateValidation::validateBlendDrivers(rigData, interfaces, report);
 		RigTemplateValidation::validateControlMarkup(rigData, interfaces, report);
 
@@ -709,6 +782,37 @@ namespace
 		return queued ? dagMod.doIt() : MStatus::kSuccess;
 	}
 
+	// Write phase, after the constraints. The read phase found each collision's joint and placed its capsule; the target plug
+	// is looked up here, in the build results. The two lists are in the template's order.
+	MStatus buildCollisions(
+		const std::vector<PushOutBuildArgs>& resolved,
+		const std::vector<RigCollisionData>& collisions,
+		const RigModuleMap& rigModuleMap,
+		const MObject& oRigRoot,
+		MDagModifier& dagMod)
+	{
+		for (std::size_t c = 0; c < collisions.size() && c < resolved.size(); ++c)
+		{
+			const RigModuleBuildResult* pModule = nullptr;
+			const RigModuleChildPlugInfo* pChildPlug = nullptr;
+			if (!RigModuleNodeBase::lookupChildPlug(rigModuleMap, collisions[c].target, pModule, pChildPlug) || pChildPlug->oTransform.isNull())
+			{
+				MGlobal::displayError(MString("Collision target has no control: ") + collisions[c].target.c_str());
+				return MStatus::kFailure;
+			}
+
+			PushOutBuildArgs args = resolved[c];
+			args.oModule = pModule->moduleNode;
+			args.plugIndex = pChildPlug->plugIndex;
+			args.oControl = pChildPlug->oTransform;
+			args.oRigRoot = oRigRoot;
+			MObject oPushOut;
+			const MStatus status = RigPushOutNode::createPushOut(args, dagMod, oPushOut);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+		}
+		return MStatus::kSuccess;
+	}
+
 	// Write phase. Runs only on a clean report. Constraints come after the first doIt because they add an enum
 	// attribute to controls that must exist by then.
 	MStatus buildRig(
@@ -816,6 +920,15 @@ namespace
 				dagMod.undoIt();
 				return status;
 			}
+		}
+
+		// After the constraints, so a collision on a plug sits after its constraint (D79).
+		status = buildCollisions(stamps.collisions, rigData.rigCollisions, rigModuleMap, oRigRoot, dagMod);
+		if (!status)
+		{
+			MGlobal::displayError("Failed building rig collisions.");
+			dagMod.undoIt();
+			return status;
 		}
 
 		status = queueParentRigLink(inputs, oRigRoot, dagMod);

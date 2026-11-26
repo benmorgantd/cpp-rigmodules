@@ -1,0 +1,14 @@
+{
+  "rigVersion": 1, "rigAuthor": "tests",
+  "rigTemplateName": "PushOutBasic",
+  "rigModules": [
+    { "moduleType": "FkChain", "name": "fkchain_01_M_MOD", "shapeType": "Box", "side": "Center",
+      "moduleArgs": { "joints": [ ["Center", "a"], ["Center", "b"] ] } },
+    { "moduleType": "FkChain", "name": "fkchain_02_L_MOD", "shapeType": "Box", "side": "Left",
+      "moduleArgs": { "joints": [ ["Left", "c"] ] } }
+  ],
+  "collisions": [
+    { "name": "pushOut_00_L_CON", "type": "PushOut", "target": "fkchain_02_L_MOD.start",
+      "capsule": { "follow": ["Center", "a"], "radius": 2.0 } }
+  ]
+}

@@ -1,6 +1,7 @@
 #include "maya/nodes/RigControlNode.h"
 #include "core/Constants.h"
 #include "core/NamingConvention.h"
+#include "core/PushOutSolve.h"
 #include "maya/shared/Colors.h"
 #include "maya/shared/Utilities.h"
 
@@ -114,11 +115,12 @@ MBoundingBox RigControlNode::boundingBox() const
 			const MObject oControl = thisMObject();
 			const ShapeMesh& mesh = getShapeMesh(getShapeType(oControl));
 			const MMatrix mShapeTransform = getShapeTransform(oControl);
+				const bool isCapsule = isPushOutCapsule(oControl, getShapeType(oControl));
 
 			MBoundingBox bounds;
 			for (const ShapePoint& point : mesh.points)
 			{
-				bounds.expand(MPoint(point.x, point.y, point.z) * mShapeTransform);
+				bounds.expand(drawPoint(point, mShapeTransform, isCapsule));
 			}
 			m_bounds = bounds;
 			m_boundsAreDirty.store(false);
@@ -143,6 +145,21 @@ ShapeType RigControlNode::getShapeType(const MObject& oControl)
 {
 	const short value = MPlug(oControl, aShapeType).asShort();
 	return (value >= 0 && value < ShapeType::Count) ? static_cast<ShapeType>(value) : ShapeType::Box;
+}
+
+bool RigControlNode::isPushOutCapsule(const MObject& oControl, ShapeType shapeType)
+{
+	return shapeType == ShapeType::Capsule && MFnDependencyNode(oControl).hasAttribute(RigAttr::PushOutDisplay);
+}
+
+MPoint RigControlNode::drawPoint(const ShapePoint& point, const MMatrix& mShapeTransform, bool isPushOutCapsule)
+{
+	if (isPushOutCapsule)
+	{
+		const VectorMath::Vec3 mapped = PushOutSolve::drawPoint(point, mShapeTransform(1, 1), mShapeTransform(0, 0));
+		return MPoint(mapped.x, mapped.y, mapped.z);
+	}
+	return MPoint(point.x, point.y, point.z) * mShapeTransform;
 }
 
 MStatus RigControlNode::initialize()
@@ -266,10 +283,11 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 		const MMatrix mShapeTransform = RigControlNode::getShapeTransform(oControl);
 		const ShapeMesh& mesh = getShapeMesh(data->shapeType);
 		data->points.setLength(static_cast<unsigned int>(mesh.points.size()));
+			const bool isCapsule = RigControlNode::isPushOutCapsule(oControl, data->shapeType);
 		for (unsigned int i = 0; i < data->points.length(); ++i)
 		{
 			const ShapePoint& point = mesh.points[i];
-			data->points[i] = MPoint(point.x, point.y, point.z) * mShapeTransform;
+			data->points[i] = RigControlNode::drawPoint(point, mShapeTransform, isCapsule);
 		}
 		data->wireIndices = MUintArray(mesh.wireIndices.data(), static_cast<unsigned int>(mesh.wireIndices.size()));
 		data->triangleIndices = MUintArray(mesh.triangleIndices.data(), static_cast<unsigned int>(mesh.triangleIndices.size()));

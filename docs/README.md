@@ -29,6 +29,7 @@ Each topic has exactly one owning page. Other pages link to it instead of repeat
 | [`attachments.md`](attachments.md) | Attachments: `parent:` ids in a template, `parentRig`, what a rig that follows another rig does, and what the animator sees |
 | [`skeletons.md`](skeletons.md) | Skeleton files: what makes two skeletons the same, the skeleton hash, the file format |
 | [`markers.md`](markers.md) | Markers: the file, the markers hash and what it stamps, authoring on locators, mirroring, how a build uses them |
+| [`push-out.md`](push-out.md) | Push out: the `collisions` list, the capsule, what the solve does, the mirror and the inverse, and the show, get and hide display commands |
 | [`library.md`](library.md) | The pose and animation library: control data vs skeleton data, the folders, the ControlAnim file, the paths to the engine |
 | [`architecture.md`](architecture.md) | The code: layers, source map, plugin startup, the module node layers, the two-phase build, evaluation, the command shape, file format versioning, the inverse solve, and recipes for adding a module, command or format |
 | [`source-map.md`](source-map.md) | Every file in `core/` and `maya/`, the Python package, the `design/` pages and the tools, one row each. Search it before searching the repo |
@@ -52,6 +53,7 @@ A change updates its owning page **in the same change** when it touches anything
 - A skin brush operation, its settings, or how a stroke is picked, dabbed or undone → `skin-brush.md`, and `commands.md` for flags
 - The skeleton file format or what the skeleton hash covers → `skeletons.md`
 - The markers file format, the markers hash or the marker commands → `markers.md`, and `commands.md` for flags
+- A push out, the `collisions` list or the capsule display → `push-out.md`, and `commands.md` for flags
 - A look, the `lookRoot` node or the look swap → `looks.md`
 - A function in the `rigmodules` Python package, or `RigModules.mod` → `python.md`
 - The pose or animation library: its folders, the ControlAnim file or how data reaches the engine → `library.md`

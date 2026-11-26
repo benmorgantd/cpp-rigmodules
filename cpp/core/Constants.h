@@ -323,6 +323,12 @@ namespace RigAttr
 	// Constraints
 	inline constexpr const char* Constraints{ "constraints" };      // RigRoot message array
 	inline constexpr const char* ControlSpace{ "space" };           // dynamic enum on a constrained control
+	inline constexpr const char* Collisions{ "collisions" };        // RigRoot message array, one per rigPushOut node (D79)
+	// A temporary capsule display node (D79): a rigControlNode with these attributes. The string holds the JSON of
+	// its PushOut: the collision's name and the joint it follows. The doubles are the capsule's size.
+	inline constexpr const char* PushOutDisplay{ "rigPushOutDisplay" };
+	inline constexpr const char* DisplayRadius{ "radius" };
+	inline constexpr const char* DisplayHalfLength{ "halfLength" };
 
 	// TwoBoneIk channels (D52). Each is the attribute on its control and the input of the same name on the module.
 	// Public API: saved poses and animation key on them.
@@ -586,6 +592,26 @@ namespace TemplateKey
 	inline constexpr const char* DriverSocket{ "socket" };
 	inline constexpr const char* DriverLabel{ "label" };
 	inline constexpr const char* DriverWeight{ "weight" };
+
+	// Collisions (D79): the key of the list, then the keys of one entry. The name, type, target, mirror and weight reuse the
+	// constraint keys above.
+	inline constexpr const char* Collisions{ "collisions" };
+	inline constexpr const char* CollisionCapsule{ "capsule" };
+	inline constexpr const char* CollisionMargin{ "margin" };
+	inline constexpr const char* CollisionMaxPush{ "maxPush" };
+	// Inside the capsule object. The offset is the capsule's matrix relative to the joint it follows.
+	inline constexpr const char* CapsuleFollow{ "follow" };           // [side, usage] of a joint
+	inline constexpr const char* CapsuleRadius{ "radius" };
+	inline constexpr const char* CapsuleHalfLength{ "halfLength" };   // of the straight part, along the capsule's X
+	inline constexpr const char* CapsuleOffset{ "offset" };
+	inline constexpr const char* OffsetTranslate{ "translate" };
+	inline constexpr const char* OffsetRotate{ "rotate" };            // degrees, XYZ
+}
+
+// The types a template's collisions list holds (D79). Strict values, like ConstraintTypes.
+namespace CollisionTypes
+{
+	inline constexpr const char* PushOut{ "PushOut" };   // keeps one control out of one capsule
 }
 
 // An attachment's template names sockets of the rig it follows with this prefix, in a parentStructure value or a
@@ -630,6 +656,23 @@ namespace ConstraintAttr
 	inline constexpr const char* ActiveDriver{ "activeDriver" };
 	inline constexpr const char* ConstraintType{ "constraintType" };
 	inline constexpr const char* ConstraintWeight{ "constraintWeight" };
+	inline constexpr const char* ParentMatrix{ "parentMatrix" };
+	inline constexpr const char* ParentRest{ "parentRest" };
+	inline constexpr const char* ChildRest{ "childRest" };
+	inline constexpr const char* OutParentMatrix{ "outParentMatrix" };
+	inline constexpr const char* RigRoot{ "rigRoot" };
+}
+
+// The rigPushOut node's attributes (D79, design/push-out.md).
+namespace PushOutAttr
+{
+	inline constexpr const char* CapsuleMatrix{ "capsuleMatrix" };   // the followed joint's live world matrix
+	inline constexpr const char* CapsuleOffset{ "capsuleOffset" };   // the capsule's matrix relative to that joint
+	inline constexpr const char* Radius{ "radius" };
+	inline constexpr const char* HalfLength{ "halfLength" };
+	inline constexpr const char* Margin{ "margin" };
+	inline constexpr const char* MaxPush{ "maxPush" };
+	inline constexpr const char* Weight{ "weight" };
 	inline constexpr const char* ParentMatrix{ "parentMatrix" };
 	inline constexpr const char* ParentRest{ "parentRest" };
 	inline constexpr const char* ChildRest{ "childRest" };

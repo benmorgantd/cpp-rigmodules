@@ -29,6 +29,7 @@ MObject RigRootNode::aPublishVersion;
 MObject RigRootNode::aRigModules;
 MObject RigRootNode::aRigTemplateName;
 MObject RigRootNode::aConstraints;
+MObject RigRootNode::aCollisions;
 MObject RigRootNode::aJointDisplayLayer;
 MObject RigRootNode::aMeshDisplayLayer;
 MObject RigRootNode::aControlDisplayLayer;
@@ -102,6 +103,7 @@ MStatus RigRootNode::initialize()
 
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aRigModules, RigAttr::RigModules, false));
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aConstraints, RigAttr::Constraints, true));
+	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aCollisions, RigAttr::Collisions, true));
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aJointDisplayLayer, RigAttr::JointDisplayLayer, false));
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aMeshDisplayLayer, RigAttr::MeshDisplayLayer, false));
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aControlDisplayLayer, RigAttr::ControlDisplayLayer, false));

@@ -4,6 +4,7 @@
 #include "core/JointMarkup.h"
 #include "maya/ModuleRegistry.h"
 #include "maya/nodes/Constraints.h"
+#include "maya/nodes/PushOut.h"
 #include "maya/shared/JointMarkupScene.h"
 #include "maya/shared/ModuleInverse.h"
 #include "maya/shared/RigModule.h"
@@ -67,7 +68,20 @@ namespace
 		int hostControl = -1;                           // the control whose `space` channel picks the driver, -1 for a fixed one
 	};
 
-	// What feeds one child plug: nothing, a socket, or a space-switch constraint.
+	// A push out on a child plug (D79). It is not inverted: a push saturates, so many poses give one result. The sweep runs it
+	// forward on the plug's delta, with the capsule where the source's joint is, or the solved controls would absorb the push
+	// and the rig would apply it a second time.
+	struct PushOutState
+	{
+		bool present = false;
+		PushOutSolve::Capsule capsule;
+		PushOutSolve::Settings settings;
+		MMatrix mOffset;
+		MMatrix mChildRest;
+		int clipJoint = -1;   // the clip joint the capsule follows, -1 when the source lacks it (the push out is then skipped)
+	};
+
+	// What feeds one child plug: nothing, a socket, or a space-switch constraint. A push out may sit after either.
 	struct PlugState
 	{
 		enum class Kind
@@ -81,6 +95,7 @@ namespace
 		SocketRef socket;
 		MMatrix mParentRest;   // kSocket: the socket's rest, stored on the plug
 		ConstraintState constraint;
+		PushOutState pushOut;
 	};
 
 	struct ControlState
@@ -239,10 +254,13 @@ namespace
 		MStatus readControls(ModuleState& module, std::map<std::string, int>& controlByKey);
 		MStatus readJoints(ModuleState& module, std::size_t slotCount, const std::map<std::pair<std::string, std::string>, int>& clipJointByMarkup);
 		SocketRef readSocketSource(const MPlug& pDestination, const std::map<std::string, int>& moduleByKey) const;
-		void readPlugs(ModuleState& module, std::size_t slotCount, const std::map<std::string, int>& moduleByKey, const std::map<std::string, int>& controlByKey);
+		void readPlugs(ModuleState& module, std::size_t slotCount, const std::map<std::string, int>& moduleByKey, const std::map<std::string, int>& controlByKey,
+			const std::map<std::pair<std::string, std::string>, int>& clipJointByMarkup);
+		void readPushOut(const MObject& oPushOut, const std::map<std::pair<std::string, std::string>, int>& clipJointByMarkup, PushOutState& outPushOut) const;
 		MStatus sortModules();
 		MMatrix socketMotion(const SocketRef& socket, const MMatrix& mRest) const;
-		MMatrix plugDelta(const PlugState& plug, const std::vector<std::vector<char>>& written, const std::vector<std::vector<double>>& values) const;
+		MMatrix constraintDelta(const ConstraintState& constraint, const std::vector<std::vector<char>>& written, const std::vector<std::vector<double>>& values) const;
+		MMatrix plugDelta(const PlugState& plug, const std::vector<MMatrix>& clipWorlds, const std::vector<std::vector<char>>& written, const std::vector<std::vector<double>>& values) const;
 		std::optional<MMatrix> targetJointWorld(int limb, const std::vector<MMatrix>& clipWorlds) const;
 		// One module's input for this frame. withParents false leaves parentDelta at the identity: the pre-pass runs before the parents.
 		ModuleInverseInput makeInput(const ModuleState& module, const std::vector<MMatrix>& clipWorlds, const std::vector<std::vector<char>>& written,
@@ -392,7 +410,28 @@ namespace
 		return MStatus::kSuccess;
 	}
 
-	void Solver::readPlugs(ModuleState& module, std::size_t slotCount, const std::map<std::string, int>& moduleByKey, const std::map<std::string, int>& controlByKey)
+	// The push out node's own values. The capsule's joint is found through the world matrix it is wired from.
+	void Solver::readPushOut(const MObject& oPushOut, const std::map<std::pair<std::string, std::string>, int>& clipJointByMarkup, PushOutState& outPushOut) const
+	{
+		outPushOut.present = true;
+		outPushOut.capsule = { MPlug(oPushOut, RigPushOutNode::aRadius).asDouble(), MPlug(oPushOut, RigPushOutNode::aHalfLength).asDouble() };
+		outPushOut.settings = { MPlug(oPushOut, RigPushOutNode::aMargin).asDouble(), MPlug(oPushOut, RigPushOutNode::aMaxPush).asDouble(),
+			MPlug(oPushOut, RigPushOutNode::aWeight).asDouble() };
+		outPushOut.mOffset = DagUtils::getMatrixFromPlug(MPlug(oPushOut, RigPushOutNode::aCapsuleOffset));
+		outPushOut.mChildRest = DagUtils::getMatrixFromPlug(MPlug(oPushOut, RigPushOutNode::aChildRest));
+
+		const MPlug pJointWorld = MPlug(oPushOut, RigPushOutNode::aCapsuleMatrix).source();
+		bool hasMarkup = false;
+		JointMarkup markup;
+		if (!pJointWorld.isNull() && JointMarkupScene::readMarkup(pJointWorld.node(), hasMarkup, markup) && hasMarkup)
+		{
+			const auto it = clipJointByMarkup.find({ markup.side, markup.usage });
+			outPushOut.clipJoint = it == clipJointByMarkup.end() ? -1 : it->second;
+		}
+	}
+
+	void Solver::readPlugs(ModuleState& module, std::size_t slotCount, const std::map<std::string, int>& moduleByKey, const std::map<std::string, int>& controlByKey,
+		const std::map<std::pair<std::string, std::string>, int>& clipJointByMarkup)
 	{
 		module.plugs.assign(slotCount, PlugState());
 
@@ -411,13 +450,28 @@ namespace
 			const MPlug pElement = pChildPlugs.elementByPhysicalIndex(e);
 			const unsigned int slot = pElement.logicalIndex();
 			PlugState& plug = module.plugs[slot];
-			const MPlug pParentMatrix = pElement.child(oParentMatrix);
+			MPlug pParentMatrix = pElement.child(oParentMatrix);
 			plug.mParentRest = DagUtils::getMatrixFromPlug(pElement.child(oParentRest));
 
-			const MPlug pSource = pParentMatrix.source();
+			MPlug pSource = pParentMatrix.source();
 			if (pSource.isNull())
 			{
 				continue;
+			}
+
+			// A push out sits last (D79): read it, then read what feeds it the way the plug's own source is read, with the rest
+			// the push out holds for it (the plug's own rest is identity after a push out, as after a constraint).
+			if (MFnDependencyNode(pSource.node()).typeId() == RigPushOutNode::id)
+			{
+				const MObject oPushOut = pSource.node();
+				readPushOut(oPushOut, clipJointByMarkup, plug.pushOut);
+				plug.mParentRest = DagUtils::getMatrixFromPlug(MPlug(oPushOut, RigPushOutNode::aParentRest));
+				pParentMatrix = MPlug(oPushOut, RigPushOutNode::aParentMatrix);
+				pSource = pParentMatrix.source();
+				if (pSource.isNull())
+				{
+					continue;
+				}
 			}
 
 			if (MFnDependencyNode(pSource.node()).typeId() != RigConstraintNode::id)
@@ -463,10 +517,30 @@ namespace
 	{
 		const std::size_t count = fModules.size();
 		std::vector<std::set<int>> dependencies(count);
+
+		// The module that drives each clip joint, for the push outs: a capsule's module comes before the pushed one (D79).
+		std::map<int, int> moduleOfClipJoint;
+		for (std::size_t m = 0; m < count; ++m)
+		{
+			for (const int clipJoint : fModules[m].clipJointOfSlot)
+			{
+				if (clipJoint >= 0)
+				{
+					moduleOfClipJoint[clipJoint] = static_cast<int>(m);
+				}
+			}
+		}
+
 		for (std::size_t m = 0; m < count; ++m)
 		{
 			for (const PlugState& plug : fModules[m].plugs)
 			{
+				const auto owner = moduleOfClipJoint.find(plug.pushOut.clipJoint);
+				if (plug.pushOut.present && owner != moduleOfClipJoint.end())
+				{
+					dependencies[m].insert(owner->second);
+				}
+
 				if (plug.kind == PlugState::Kind::kSocket)
 				{
 					dependencies[m].insert(plug.socket.module);
@@ -654,7 +728,7 @@ namespace
 
 			status = readJoints(module, slotCount, clipJointByMarkup);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
-			readPlugs(module, slotCount, moduleByKey, controlByKey);
+			readPlugs(module, slotCount, moduleByKey, controlByKey, clipJointByMarkup);
 			module.socketWorld.assign(slotCount, MMatrix::identity);
 
 			if (!module.missingJoints.empty())
@@ -709,7 +783,7 @@ namespace
 			}
 			if (withParents)
 			{
-				input.parentDelta[slot] = plugDelta(module.plugs[slot], written, values);
+				input.parentDelta[slot] = plugDelta(module.plugs[slot], clipWorlds, written, values);
 			}
 			const int control = module.controlOfSlot[slot];
 			if (control >= 0)
@@ -736,7 +810,7 @@ namespace
 		{
 			input.ikTargetJointWorld = targetJointWorld(module.ikTargetOf, clipWorlds);
 			const std::vector<PlugState>& limbPlugs = fModules[module.ikTargetOf].plugs;
-			input.ikHandleParentDelta = TwoBoneIkSlot::Ik < limbPlugs.size() ? plugDelta(limbPlugs[TwoBoneIkSlot::Ik], written, values) : MMatrix::identity;
+			input.ikHandleParentDelta = TwoBoneIkSlot::Ik < limbPlugs.size() ? plugDelta(limbPlugs[TwoBoneIkSlot::Ik], clipWorlds, written, values) : MMatrix::identity;
 		}
 		return input;
 	}
@@ -751,18 +825,31 @@ namespace
 	}
 
 	// The motion a child plug's module receives: its parent socket's, or what its space switch makes of it.
-	MMatrix Solver::plugDelta(const PlugState& plug, const std::vector<std::vector<char>>& written, const std::vector<std::vector<double>>& values) const
+	MMatrix Solver::plugDelta(const PlugState& plug, const std::vector<MMatrix>& clipWorlds, const std::vector<std::vector<char>>& written, const std::vector<std::vector<double>>& values) const
 	{
+		MMatrix mDelta = MMatrix::identity;
 		if (plug.kind == PlugState::Kind::kSocket)
 		{
-			return socketMotion(plug.socket, plug.mParentRest);
+			mDelta = socketMotion(plug.socket, plug.mParentRest);
 		}
-		if (plug.kind != PlugState::Kind::kConstraint)
+		else if (plug.kind == PlugState::Kind::kConstraint)
 		{
-			return MMatrix::identity;
+			mDelta = constraintDelta(plug.constraint, written, values);
 		}
 
-		const ConstraintState& constraint = plug.constraint;
+		// The push out runs forward, after the constraint, with the capsule where the source's joint is (D79).
+		const PushOutState& pushOut = plug.pushOut;
+		if (!pushOut.present || pushOut.clipJoint < 0)
+		{
+			return mDelta;
+		}
+		return RigPushOutNode::computeDelta(pushOut.capsule, pushOut.mOffset * clipWorlds[static_cast<std::size_t>(pushOut.clipJoint)],
+			pushOut.settings, pushOut.mChildRest, mDelta);
+	}
+
+	// What a space-switch constraint makes of its drivers' motion this frame.
+	MMatrix Solver::constraintDelta(const ConstraintState& constraint, const std::vector<std::vector<char>>& written, const std::vector<std::vector<double>>& values) const
+	{
 		int driverIndex = constraint.currentDriver;
 		if (constraint.hostControl >= 0)
 		{

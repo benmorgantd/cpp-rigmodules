@@ -88,6 +88,10 @@ bool loadRigTemplate(const std::string& filePath, RigRootData& rigData, Validati
         {
             rigData.rigConstraints = jsonData.at(TemplateKey::Constraints).get<std::vector<RigConstraintData>>();
         }
+        if (jsonData.contains(TemplateKey::Collisions))
+        {
+            rigData.rigCollisions = jsonData.at(TemplateKey::Collisions).get<std::vector<RigCollisionData>>();
+        }
     }
     catch (const std::exception& e)
     {

@@ -49,6 +49,7 @@ Templates never name joints. Modules pick joints by their markup (`[side, usage]
 | `rigModules` | yes | Array of modules (below) |
 | `rigName` | no | Names the rig: its folder in the asset (`body`, `face`, `cine`), and with the asset's name the default namespace, `{asset name}_{rigName}` (D54). Lowercase letters, digits and `_`, because it names a folder in the asset: `Human` is an error, not converted. Defaults to `rigTemplateName` in snake_case (`HumanRigTest` becomes `human_rig_test`). A namespace holds one rig, whatever its name |
 | `constraints` | no | Array of constraints (below) |
+| `collisions` | no | Array of [push outs](push-out.md): a control kept out of a capsule. Built after every constraint, so each one runs after its target's constraint. The only `type` is `PushOut` |
 
 ## Markers
 
@@ -150,6 +151,10 @@ A space switch keeps the control in place whatever the type. On an `Orient` cons
 ### Constraint weight
 
 `constraintWeight` takes a share of any type's effect, such as 20% of a wrist's twist: `"type": "Twist", "constraintWeight": 0.2`. At 1 (the default) the control gets the full constraint. At 0 it gets none, and just follows its parent as if the constraint were not there, for every type, `Parent` included. In between, the pivot moves part of the way and the rotation turns part of the way (a slerp), so a `Twist` at 0.5 is close to half the twist. The weight is part of the rig, set here or with `setAttr` on the constraint's `constraintWeight`, and is not an animation channel, so it is in no pose or animation. It applies to the whole constraint, whichever driver is active, and it copies to the other side with `mirror`. A `Parent` constraint below 1 reads its parent plug, so that plug needs a parent.
+
+## Collisions
+
+The `collisions` list holds [push outs](push-out.md): `{ "name": ..., "type": "PushOut", "target": "module.childPlug", "capsule": { ... } }`. It is a list of its own because collisions come after constraints: a push out on a plug runs after that plug's constraint. A plug takes at most one push out. `"mirror": true` copies it to the other side like a constraint (see [Mirroring](#mirroring)), with the capsule reflected across X for the copy. The keys, the capsule, the solve and the temporary display are on [push-out.md](push-out.md).
 
 ## Mirroring
 

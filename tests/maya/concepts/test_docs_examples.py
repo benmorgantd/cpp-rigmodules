@@ -732,6 +732,37 @@ def modules_doc_foot_module():
     return json.loads(match.group(1))
 
 
+PUSH_OUT_DOC = os.path.join(config.REPO_DIR, "docs", "push-out.md")
+
+
+def push_out_doc_collisions():
+    """The collisions list of docs/push-out.md: its first ```json block, a fragment with the key and the array."""
+    with open(PUSH_OUT_DOC, encoding="utf-8") as handle:
+        text = handle.read()
+    blocks = re.findall(r"```json\s*\n(.*?)```", text, re.S)
+    if not blocks:
+        raise AssertionError("docs/push-out.md needs its collisions block")
+    return json.loads("{" + blocks[0] + "}")["collisions"]
+
+
+class PushOutDocExample(RigTestCase):
+    """docs/push-out.md: the collisions entry builds as written on the Left chain of fk_pushout (its mirror needs the Right
+    one, so the doc's entry is built without `mirror`), and the capsule pushes the control. With joint a moved to x = 2 the
+    capsule's origin is (2, 0.5, 0) and its straight part runs x from 1 to 3, so the control at (3, 0, 0) is 0.5 from the
+    segment's end (3, 0.5, 0). Radius 2 and margin 0.1 reach 2.1, so it is pushed 1.6 along (0, -1, 0)."""
+
+    def test_the_documented_collision_builds_and_pushes(self):
+        collisions = push_out_doc_collisions()
+        collisions[0].pop("mirror")
+        template = fixtures.load_template("push_out_basic")
+        template["collisions"] = collisions
+        template_path = fixtures.write_template(template, "doc_push_out")
+        cmds.createRigFromTemplate(*self.make_skeleton("fk_pushout"), template=template_path, asset=config.ASSET_ID,
+                                   namespace=config.RIG_NAMESPACE)
+        cmds.setAttr(rig_name("a_00_M_CTRL.translateX"), 2)
+        self.assertWorldTranslation(rig_name("c_00_L_CTRL"), [3, -1.6, 0], 1e-4)
+
+
 class ReverseFootDocExample(RigTestCase):
     """The ReverseFoot entry in docs/modules.md builds on the Limb it names, with the markers it selects, and a roll of 20 puts the
     Limb's hand where the pose case ball_regime_roll_20 works it out: 20 about the toe pivot (4, 3.3, 1.8), so (4, 4.573421, 0.347967)."""

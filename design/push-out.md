@@ -1,6 +1,6 @@
 # Push out: keep one control out of one capsule
 
-**Status:** proposed 2026-11-26, not signed off, nothing built. Decision D79. It replaces the D77 collision design, which is parked on the `collision` branch (tag `collision-archive`) and will not be merged.
+**Status:** signed off by the author 2026-11-26 and built the same day on branch `pushout` (the perf rig instances and `bench` are not done, see section 7). User page: `docs/push-out.md`. Decision D79. It replaces the D77 collision design, which is parked on the `collision` branch (tag `collision-archive`) and will not be merged.
 
 ## 1. Why this exists, and where it stops
 

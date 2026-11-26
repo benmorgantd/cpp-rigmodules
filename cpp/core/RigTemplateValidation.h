@@ -85,6 +85,10 @@ namespace RigTemplateValidation
 	std::string constraintPath(std::size_t index, const std::string& name);
 	std::string constraintPath(std::size_t index, const RigConstraintData& constraint);
 
+	// "collisions[0] 'collar_00_L_CON'", and the mirror form like modulePath.
+	std::string collisionPath(std::size_t index, const std::string& name);
+	std::string collisionPath(std::size_t index, const RigCollisionData& collision);
+
 	// Reports a non-object, a missing required key, or any key in neither list.
 	// Unknown keys are errors: a typo in an optional key would otherwise fall back to its default silently.
 	void checkKeys(
@@ -111,9 +115,19 @@ namespace RigTemplateValidation
 	// moduleVersion is checked by the module's update table (FormatUpdate::runUpdates, D33).
 	void validateModuleFields(const RigModuleData& module, const std::string& where, ValidationReport& report);
 
-	// parentStructure and constraints against the planned interfaces, then cycle detection over both.
+	// A collision's capsule follows a joint that this module drives, so the collided module depends on it (D79). The build
+	// finds the joint and its claimer, and hands the result to the cycle check.
+	struct CollisionDependency
+	{
+		std::string collision;      // the collision's name, for messages
+		std::string driverModule;   // the module that drives the capsule's joint
+		std::string target;         // the collision's "module.childPlug"
+	};
+
+	// parentStructure, constraints and collisions against the planned interfaces, then cycle detection over all of them.
 	// A module missing from interfaces failed its own plan step. References to it are skipped, since that error is already reported.
-	void validateConnections(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report);
+	void validateConnections(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report,
+		const std::vector<CollisionDependency>& collisionDependencies = {});
 
 	// True for a "parent:module.socket" id, a socket of the rig this one is attached to (D55).
 	bool isParentSocketId(const std::string& identifier);

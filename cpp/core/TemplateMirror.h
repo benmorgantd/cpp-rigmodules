@@ -23,6 +23,8 @@ namespace TemplateMirror
 	//   named module is Left or Right, and a socket named from joint markup swapping its leading left_ or right_
 	//   (FkHierarchy: left_upperArm <-> right_upperArm). Every other socket or child plug name never changes;
 	//   mirror false and mirrorOf set to the source's index.
+	// A collision with "mirror": true gets a copy the same way: its name and target swap, and so does the side of the joint
+	// its capsule follows (D79).
 	// Mirrors go after every source entry, so the source indices in error paths still match the file.
 	void expandMirrors(RigRootData& rigData, ValidationReport& report);
 }
