@@ -83,9 +83,16 @@ public:
 		MObject& oRigRoot,
 		MDagModifier& dagMod);
 	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
-	// The foot's controls are derived and locked, or rotate only, so the joints give them nothing yet: they take the sidecar's channels and
-	// the rest. The solve from the joints and the match with a raised foot are phase 5 (design/reverse-foot.md section 10).
+	// The foot from the joints (design/reverse-foot.md section 10). From the ankle (ModuleInverseInput::ikTargetJointWorld, the Limb's end) it
+	// solves footRoll and bank in the author's gauge (FootSolve::solveAnkleChannels: beyond what the sidecar's channels turn), and gives the
+	// Limb the foot's motion F through ModuleInverseResult::ikTargetMotion; from the toe it solves toeTap and the toe FK control, exactly.
+	// Every other channel comes back as given. RigInverse runs it twice per frame: in the pre-pass, before the Limb, for F, and in the sweep.
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
+	// The 11 channels on the foot control, in kChannels order, for ModuleDescriptor::inverseChannels.
+	static std::vector<ModuleInverseChannel> inverseChannels();
+	// ModuleInverseContext::moduleRest: the ankle's rest, the ankle plug's rest, the toe's and toe tip's, then the six pivots in
+	// FootSolve::chainOrder. Fails when the stored pivots are not the whole chain in that order.
+	static MStatus readInverseRest(const MObject& oModule, std::vector<MMatrix>& outRest);
 
 	// The interface for a chain of pivots: the ik and ankle plugs, and the sockets ankle, toe, toeTip and one per pivot. Names, not rests.
 	static ModuleInterface makeInterface(const std::vector<FootSolve::Pivot>& chain);

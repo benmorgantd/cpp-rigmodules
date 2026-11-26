@@ -432,15 +432,145 @@ MStatus ReverseFootModuleNode::computeToe(const MPlug& plug, MDataBlock& data)
 	return MStatus::kSuccess;
 }
 
-ModuleInverseResult ReverseFootModuleNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput&)
+namespace
 {
-	// The foot control is derived and locked, and the toe FK control is rotate only. The joints give neither a value yet: they keep the
-	// sidecar's channels or the rest, which the driver writes from fallbackLocal and the sidecar. The ankle socket feeds a Limb's ikTarget,
-	// which the sweep does not follow. Solving footRoll, bank, toeTap and the toe FK control from the joints is phase 5.
+	// ModuleInverseContext::moduleRest, as readInverseRest writes it.
+	constexpr std::size_t kAnkleRest{ 0 };
+	constexpr std::size_t kAnklePlugRest{ 1 };
+	constexpr std::size_t kToeRest{ 2 };
+	constexpr std::size_t kToeTipRest{ 3 };
+	constexpr std::size_t kFirstPivotRest{ 4 };
+
+	std::size_t channelIndex(double FootSolve::Channels::* field)
+	{
+		for (std::size_t k = 0; k < kChannels.size(); ++k)
+		{
+			if (kChannels[k].field == field)
+			{
+				return k;
+			}
+		}
+		return kChannels.size();
+	}
+}
+
+std::vector<ModuleInverseChannel> ReverseFootModuleNode::inverseChannels()
+{
+	std::vector<ModuleInverseChannel> channels;
+	for (const ChannelSpec& spec : kChannels)
+	{
+		channels.push_back({ spec.name, ReverseFootSlot::Foot, VectorMath::toRadians(spec.restDegrees) });
+	}
+	return channels;
+}
+
+MStatus ReverseFootModuleNode::readInverseRest(const MObject& oModule, std::vector<MMatrix>& outRest)
+{
+	outRest.clear();
+	outRest.push_back(DagUtils::getMatrixFromPlug(MPlug(oModule, aAnkleRestWorld)));
+	outRest.push_back(DagUtils::getMatrixFromPlug(MPlug(oModule, aAnklePlugRestMatrix)));
+	const MPlug pJointRest(oModule, aJointRestWorld);
+	outRest.push_back(DagUtils::getMatrixFromPlug(pJointRest.elementByLogicalIndex(ReverseFootSlot::ToeJoint)));
+	outRest.push_back(DagUtils::getMatrixFromPlug(pJointRest.elementByLogicalIndex(ReverseFootSlot::ToeTipJoint)));
+
+	const MPlug pRoles(oModule, aPivotRoles);
+	const MPlug pPositions(oModule, aPivotPositions);
+	const std::array<FootSolve::Role, FootSolve::kRoleCount>& order = FootSolve::chainOrder();
+	if (pRoles.numElements() != order.size() || pPositions.numElements() != order.size())
+	{
+		return MStatus::kFailure;
+	}
+	for (unsigned int i = 0; i < order.size(); ++i)
+	{
+		if (static_cast<FootSolve::Role>(pRoles.elementByLogicalIndex(i).asInt()) != order[i])
+		{
+			return MStatus::kFailure;
+		}
+		outRest.push_back(DagUtils::getMatrixFromPlug(pPositions.elementByLogicalIndex(i)));
+	}
+	return MStatus::kSuccess;
+}
+
+ModuleInverseResult ReverseFootModuleNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput& input)
+{
 	ModuleInverseResult result;
 	result.controlLocal.resize(context.controlRestWorld.size());
-	result.socketWorld.assign(context.controlRestWorld.size(), MMatrix::identity);
-	result.solved = true;
+	result.socketWorld.assign(std::max<std::size_t>(context.controlRestWorld.size(), ReverseFootSlot::FirstPivotSocket + ReverseFootSlot::PivotCap), MMatrix::identity);
+	result.channels.resize(kChannels.size());
+	if (context.moduleRest.size() != kFirstPivotRest + ReverseFootSlot::PivotCap)
+	{
+		result.reason = "the foot's pivots are not stored as the whole chain, so its channels come from the sidecar or the rig";
+		return result;
+	}
+	if (!input.ikTargetJointWorld.has_value())
+	{
+		result.reason = "the ankle joint is missing from the source, so the foot's channels come from the sidecar or the rig";
+		return result;
+	}
+
+	std::array<FootSolve::Pivot, ReverseFootSlot::PivotCap> pivots;
+	for (std::size_t i = 0; i < pivots.size(); ++i)
+	{
+		const MMatrix& mPosition = context.moduleRest[kFirstPivotRest + i];
+		pivots[i].role = FootSolve::chainOrder()[i];
+		pivots[i].position = { mPosition(3, 0), mPosition(3, 1), mPosition(3, 2) };
+	}
+	const std::span<const FootSolve::Pivot> chain(pivots.data(), pivots.size());
+	const FootSolve::Frame frame = FootSolve::footFrame(chain);
+
+	// The channels as given: the sidecar's, else the rig's. Angles arrive in radians.
+	FootSolve::Channels given;
+	for (std::size_t k = 0; k < kChannels.size() && k < input.channels.size(); ++k)
+	{
+		given.*(kChannels[k].field) = VectorMath::toDegrees(input.channels[k]);
+	}
+
+	// The ankle: ankle = ankleRest * F * H (computeAnkle), so F * H is its motion since rest. footRoll and bank take its pitch and roll in
+	// the space the Limb's handle hangs in (H's share from that space taken out, so a turned or tilted Layout is not read as a roll), F is
+	// the foot those channels make, and the handle's motion H is the rest.
+	const MMatrix& mAnkle = *input.ikTargetJointWorld;
+	const MMatrix mAnkleMotion = context.moduleRest[kAnkleRest].inverse() * mAnkle;
+	const MMatrix mAnkleMotionInSpace = mAnkleMotion * input.ikHandleParentDelta.inverse();
+	FootSolve::Channels solved = FootSolve::solveAnkleChannels(chain, frame, given, MathUtils::toMat4(mAnkleMotionInSpace));
+	const MMatrix mFoot = MathUtils::toMMatrix(FootSolve::ankleMotion(chain, frame, solved));
+	const MMatrix mHandleDelta = mFoot.inverse() * mAnkleMotion;
+	result.ikTargetMotion = mFoot;
+	result.channels[channelIndex(&FootSolve::Channels::footRoll)] = VectorMath::toRadians(solved.footRoll);
+	result.channels[channelIndex(&FootSolve::Channels::bank)] = VectorMath::toRadians(solved.bank);
+	result.socketWorld[ReverseFootSlot::AnkleSocket] = mAnkle;
+
+	// The toe: toeTap from its motion with the handle's taken out, and the toe FK control that puts the FK toe on the joint (computeToe:
+	// the toe's rest carried by the ankle plug's motion, the control's local on top), so FK matches at any blend.
+	const std::optional<MMatrix>& toeJoint = ReverseFootSlot::ToeJoint < input.jointWorld.size() ? input.jointWorld[ReverseFootSlot::ToeJoint] : std::nullopt;
+	if (toeJoint.has_value())
+	{
+		const MMatrix& mToe = *toeJoint;
+		const MMatrix& mToeRest = context.moduleRest[kToeRest];
+		const int toeIndex = FootSolve::findPivot(chain, FootSolve::Role::Toe);
+		const MMatrix mToeMotion = mToeRest.inverse() * mToe * mHandleDelta.inverse();
+		solved.toeTap = FootSolve::solveToeTap(chain, static_cast<std::size_t>(toeIndex), frame, solved, MathUtils::toMat4(mToeMotion));
+		result.channels[channelIndex(&FootSolve::Channels::toeTap)] = VectorMath::toRadians(solved.toeTap);
+
+		const MMatrix mAnkleDelta = MathUtils::computeDeltaFromRest(context.moduleRest[kAnklePlugRest], mAnkle);
+		if (ReverseFootSlot::ToeFk < result.controlLocal.size())
+		{
+			result.controlLocal[ReverseFootSlot::ToeFk] = ModuleInverse::localFromWorld(mToe, mToeRest, mAnkleDelta);
+		}
+		result.socketWorld[ReverseFootSlot::ToeSocket] = mToe;
+		result.socketWorld[ReverseFootSlot::ToeTipSocket] = context.moduleRest[kToeTipRest] * mToeRest.inverse() * mToe;
+		result.solved = true;
+	}
+	else
+	{
+		result.reason = "the toe joint is missing from the source, so toeTap and the toe FK control come from the sidecar or the rig";
+	}
+
+	// The pivot sockets, as computeToe writes them.
+	for (std::size_t i = 0; i < pivots.size(); ++i)
+	{
+		result.socketWorld[ReverseFootSlot::FirstPivotSocket + i] = MathUtils::translationMatrix(pivots[i].position)
+			* MathUtils::toMMatrix(FootSolve::foldChain(chain, i + 1, frame, solved)) * mHandleDelta;
+	}
 	return result;
 }
 

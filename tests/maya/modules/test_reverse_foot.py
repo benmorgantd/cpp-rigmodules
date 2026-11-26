@@ -1,23 +1,25 @@
-"""ReverseFoot, stage 1 (D74, design/reverse-foot.md): contract tests, pose cases from fixtures/poses/reverse_foot, and what only the
-foot does: its channels and their mirror modes, the foot control, the plugs and the ankle socket, the markers it resolves, the loop
-check and the graph through the Limb's ikTarget.
+"""ReverseFoot (D74, design/reverse-foot.md): contract tests with their inverse round trips, pose cases from fixtures/poses/reverse_foot,
+and what only the foot does: its channels and their mirror modes, the foot control, the plugs and the ankle socket, the markers it
+resolves, the loop check, the graph through the Limb's ikTarget, a foot at rest equal to the Limb alone, and the inverse (phase 5): the
+gauge, the handle's space, and the match with a raised foot.
 
 The foot is the core test foot (tests/core/FootSolveTests.cpp) at a tenth of its size on the limb_arm hand at (4, 4, 0), so every
 expected number is that table's, scaled. The pose cases hold the arithmetic in their descriptions. Nothing here is recorded from the rig.
 
-Stage 2 (the toe and toe tip joints, the toe FK control, the blend) and the inverse are phases 4 and 5. The foot claims the toe and the
-toe tip and does not drive them yet, so the contract's joint tests are the ones that don't need the foot to own joints.
+Stage 2 (the toe and toe tip joints, the toe FK control, the blend) is test_reverse_foot_stage2.
 """
 import copy
 import json
 import math
 import os
+import tempfile
 
 from maya import cmds
 
+import modules.test_limb
 import rigmodules.query
 from commands.test_two_bone_ik_inverse import CapturedWarnings
-from rigtest import config, fixtures
+from rigtest import config, fixtures, jointclips
 from rigtest.case import RigTestCase, rig_name
 from rigtest.cases import add_pose_cases
 from rigtest.module_contract import ModuleContract, _compute_count
@@ -45,7 +47,7 @@ def world_matrix(node):
     return cmds.xform(rig_name(node), query=True, worldSpace=True, matrix=True)
 
 
-class ReverseFootContract(ModuleContract, RigTestCase):
+class ReverseFootContract(modules.test_limb.LimbRoundTripRules, ModuleContract, RigTestCase):
     TEMPLATE = "reverse_foot"
     SKELETON = "reverse_foot"
     MARKERS = "reverse_foot"
@@ -82,14 +84,24 @@ class ReverseFootContract(ModuleContract, RigTestCase):
         cmds.dgtimer(off=True)
         self.assertEqual(_compute_count(module), 2, "the handle moves the control and the ankle socket, one compute each")
 
-    def test_contract_inverse_round_trip(self):
-        self.skipTest("the foot's inverse, and the Limb's handle matching a raised foot, are phase 5 (design/reverse-foot.md section 10)")
+    def _pose_channels(self, control):
+        """The foot's handle is moved, not turned. The gauge (design/reverse-foot.md section 10) puts a handle's pitch and roll in
+        footRoll and bank, and the handle takes only the heading, so a turned handle comes back with different channels and a toe the
+        channels can't make exactly (about 6e-4 off for a quarter degree on each axis). A Layout's turn stays in the Layout, so the Layout
+        is posed whole."""
+        posed = super()._pose_channels(control)
+        if rigmodules.query.get_control(control).usage == "armIK":
+            for name in [n for n in posed if n.startswith("rotate")]:
+                cmds.setAttr("%s.%s" % (control, name), 0.0)
+                posed.pop(name)
+        return posed
 
-    def test_contract_inverse_without_a_joint_falls_back_to_the_sidecar(self):
-        self.skipTest("the foot's inverse is phase 5 (design/reverse-foot.md section 10)")
-
-    def test_contract_inverse_round_trip_mirrored(self):
-        self.skipTest("the foot's inverse, and the Limb's handle matching a raised foot, are phase 5 (design/reverse-foot.md section 10)")
+    def joints_cannot_give(self, control, channel):
+        """The round trip poses every channel with the limb at blend 1 (D74 phase 5). The Limb's are test_limb's rules (its ribbon ik
+        controls are not posed, its FK controls are hidden). The toe FK control is hidden too: the toe joint is the IK toe, and the inverse
+        gives the FK control that matches it. Every foot channel comes back: footRoll, bank and toeTap from the joints (given channels that
+        already make the turn are kept), the rest from the sidecar."""
+        return control.split(":")[-1].startswith("toeFK") or super().joints_cannot_give(control, channel)
 
 
 class ReverseFootPoses(RigTestCase):
@@ -333,3 +345,96 @@ class ReverseFootMatchesTheLimb(RigTestCase):
             for joint in self.LIMB_AND_BINDS:
                 for x, y in zip(results["alone"][index][joint], results["foot"][index][joint]):
                     self.assertAlmostEqual(x, y, places=5, msg="pose %d %s: the foot at rest changed the limb" % (index, joint))
+
+
+class ReverseFootInverse(RigTestCase):
+    """The foot from the joints (D74 phase 5, design/reverse-foot.md section 10): the author's gauge for footRoll and bank, the pre-pass
+    that gives the Limb's handle the foot's motion, and the match that puts no pop in the ankle. Every expected value is the posed one:
+    the ankle and toe come back exactly whatever the channels, so what is checked is which channels the inverse chose."""
+
+    def _build_and_pose(self, channels, handle=None):
+        self.build_standard("reverse_foot", "reverse_foot", markers="reverse_foot")
+        for name, value in channels.items():
+            cmds.setAttr(rig_name(FOOT + "." + name), value)
+        for name, value in (handle or {}).items():
+            cmds.setAttr(rig_name(HANDLE + "." + name), value)
+        return jointclips.snapshot()
+
+    def _restore(self, posed, sidecar_controls=None):
+        """Zeroes the controls and restores them from the posed joints, with a sidecar holding sidecar_controls when given."""
+        root = jointclips.rig_root()
+        folder = tempfile.mkdtemp()
+        cmds.zeroRigControls(root)
+        rest_snapshot = jointclips.snapshot()
+        clip = jointclips.write_json(os.path.join(folder, "clip.json"), jointclips.clip_data(rest_snapshot, [posed]))
+        flags = {"jointPose": clip.replace("\\", "/")}
+        if sidecar_controls is not None:
+            sidecar = jointclips.write_json(os.path.join(folder, "sidecar.json"), {"formatVersion": 1, "controls": sidecar_controls})
+            flags["sidecar"] = sidecar.replace("\\", "/")
+        cmds.poseRigFromJointPose(root, **flags)
+
+    def _assert_joints(self, posed):
+        for joint, matrix in posed.items():
+            after = jointclips.world(joint)
+            self.assertTrue(after.isEquivalent(matrix, 1e-4), "%s is off after the restore\n  posed %s\n  after %s" % (joint, list(matrix), list(after)))
+
+    def test_a_clip_without_a_sidecar_gives_footRoll_and_bank_and_the_handle(self):
+        # A heel roll with a bank decomposes exactly (the bank turns the ankle before the heel), so the pose comes back as it was made.
+        # The handle is only moved: its rest follows the hand, so a turn of it would have a pitch the gauge rightly puts in footRoll (the
+        # heading's own case is footGaugePutsPitchInFootRollAndRollInBank in tests/core).
+        posed = self._build_and_pose({"footRoll": -20.0, "bank": 8.0, "toeTap": 12.0}, {"translateY": 0.3, "translateZ": -0.2})
+        self._restore(posed)
+        self._assert_joints(posed)
+        restored = {name: cmds.getAttr(rig_name(FOOT + "." + name)) for name in ("footRoll", "bank", "toeTap")}
+        for name, value in (("footRoll", -20.0), ("bank", 8.0), ("toeTap", 12.0)):
+            self.assertAlmostEqual(restored[name], value, places=3, msg="%s: restored %s" % (name, restored))
+        self.assertAlmostEqual(cmds.getAttr(rig_name(HANDLE + ".translateY")), 0.3, places=3)
+        self.assertAlmostEqual(cmds.getAttr(rig_name(HANDLE + ".translateZ")), -0.2, places=3)
+
+    def test_a_tilted_and_scaled_layout_stays_in_the_layout(self):
+        # The author's choice (2026-11-25): footRoll and bank are read in the space the Limb's handle hangs in, so a Layout turned off the
+        # ground and scaled gives back the foot's own channels, and the handle, which carries the Layout's scale in the scene, puts the
+        # ankle and toe back exactly. The Layout has no joints, so the sidecar carries it, as in a real restore. The pre-pass runs after the
+        # Layout is solved: in the old order it saw no Layout and put its tilt into footRoll and bank.
+        layout = {"rotateX": 15.0, "rotateY": 30.0, "rotateZ": 10.0, "scaleX": 1.2, "scaleY": 1.2, "scaleZ": 1.2}
+        self.build_standard("reverse_foot", "reverse_foot", markers="reverse_foot")
+        for name, value in layout.items():
+            cmds.setAttr(rig_name("layout_00_M_CTRL." + name), value)
+        for name, value in (("footRoll", -20.0), ("bank", 8.0), ("toeTap", 12.0)):
+            cmds.setAttr(rig_name(FOOT + "." + name), value)
+        cmds.setAttr(rig_name(HANDLE + ".translateY"), 0.3)
+        posed = jointclips.snapshot()
+        self._restore(posed, {"Center": {"layout_0": layout}})
+        self._assert_joints(posed)
+        for name, value in (("footRoll", -20.0), ("bank", 8.0), ("toeTap", 12.0)):
+            self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + "." + name)), value, places=3, msg=name)
+        self.assertAlmostEqual(cmds.getAttr(rig_name(HANDLE + ".translateY")), 0.3, places=3)
+
+    def test_a_sidecars_raise_is_not_counted_again_in_footRoll(self):
+        # The author's gauge (2026-11-25): footRoll takes only the pitch the sidecar's channels miss, and the whole pose comes back.
+        posed = self._build_and_pose({"footRoll": 25.0, "ballRaise": 10.0})
+        self._restore(posed, {"Left": {"foot": {"ballRaise": 10.0}}})
+        self._assert_joints(posed)
+        self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + ".footRoll")), 25.0, places=3)
+        self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + ".ballRaise")), 10.0, places=3)
+
+        # Without the sidecar the raise is folded into footRoll (35). That is past the break, so 5 of it turns the toe tip pivot instead
+        # of the ball: the ankle still lands exactly (the handle takes the difference), but the toe points a little differently, because
+        # these channels can't make a ball raised past the break.
+        self._restore(posed)
+        hand = next(joint for joint in posed if joint.endswith(HAND))
+        self.assertTrue(jointclips.world(hand).isEquivalent(posed[hand], 1e-4), "the ankle lands exactly")
+        self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + ".footRoll")), 35.0, places=3)
+        self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + ".ballRaise")), 0.0, places=3)
+
+    def test_a_match_to_ik_with_a_raised_foot_puts_no_pop_in_the_ankle(self):
+        # The open item of design/limb.md section 8: the match places the handle so the foot's motion lands the ankle on the FK one.
+        self._build_and_pose({"footRoll": 20.0, "bank": -6.0})
+        limb = rig_name(LIMB)
+        cmds.setRigIkFkBlend(limb, blend=0)
+        cmds.setAttr(rig_name("upperArm_00_L_CTRL.rotateZ"), 15.0)
+        before = jointclips.world(rig_name(HAND))
+        cmds.setRigIkFkBlend(limb, blend=1)
+        after = jointclips.world(rig_name(HAND))
+        self.assertTrue(after.isEquivalent(before, 1e-4), "the ankle popped\n  FK %s\n  IK %s" % (list(before), list(after)))
+        self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + ".footRoll")), 20.0, places=4, msg="the match keeps the foot's channels")

@@ -5,6 +5,8 @@
 #include <vector>
 
 #include <maya/MMatrix.h>
+#include <maya/MObject.h>
+#include <maya/MStatus.h>
 
 // What a module's inverse is given and returns (D41, inverse-solve.md section 4). A module's inverse matches world
 // matrices only: it knows nothing about source skeletons, proportions, files or channels, and reads no scene. Every
@@ -24,6 +26,9 @@ struct ModuleInverseContext
 	// By slot, from the module's controlParentIndex attribute (FkHierarchy, D71): the slot of each control's parent, -1 for
 	// the root. Empty for every module whose controls form one chain.
 	std::vector<int> parentIndex;
+	// The module's own stored rests, in its own order, from ModuleDescriptor::readInverseRest (ReverseFoot: the ankle, the ankle plug's
+	// rest and its pivots). Empty for a module without the hook.
+	std::vector<MMatrix> moduleRest;
 };
 
 // A scalar channel a module's inverse needs and the joints can't give (D41 amendment, D52 section 6): the name of
@@ -44,6 +49,15 @@ struct ModuleInverseInput
 	std::vector<MMatrix> parentDelta;                 // by slot: the child plug's parent motion since rest, from the sweep (identity when unconnected)
 	std::vector<MMatrix> fallbackLocal;               // by slot: the control's local matrix from the sidecar, or rest, for when its joint can't give it
 	std::vector<double> channels;                     // by ModuleDescriptor::inverseChannels, in internal units (angles in radians): the sidecar's value, else the rig's current one
+	// A Limb's ikTarget (D74, design/reverse-foot.md section 10). For the module that feeds the target (a foot): the joint the target
+	// moves, the Limb's end, from the source. For the Limb: the feeding module's motion F, where the target's motion since rest is
+	// F * the handle's, so the handle is placed to make F reach the joints. Empty when the module has no such link.
+	std::optional<MMatrix> ikTargetJointWorld;
+	std::optional<MMatrix> ikTargetMotion;
+	// For the module that feeds a Limb's ikTarget: the motion since rest of the space that Limb's IK handle hangs in (its ik child plug's
+	// parent, a Layout's), so the foot's channels are read in the rig's space and a turned or tilted Layout stays in the Layout (author,
+	// 2026-11-25). The identity otherwise.
+	MMatrix ikHandleParentDelta;
 };
 
 struct ModuleInverseResult
@@ -53,9 +67,18 @@ struct ModuleInverseResult
 	bool solved = false;                                // false: a joint the module needs is missing, and reason says why
 	std::string reason;
 	std::vector<std::string> warnings;                  // the driver shows each distinct one once
+	// By ModuleDescriptor::inverseChannels: a scalar channel the joints gave (ReverseFoot's footRoll, bank and toeTap), in internal units.
+	// An empty entry, or a short vector, leaves the channel to the sidecar or the rig.
+	std::vector<std::optional<double>> channels;
+	// For a module that feeds a Limb's ikTarget: its motion F, which the driver hands the Limb as ModuleInverseInput::ikTargetMotion.
+	std::optional<MMatrix> ikTargetMotion;
 };
 
 using ModuleInverseFn = ModuleInverseResult(*)(const ModuleInverseContext&, const ModuleInverseInput&);
+
+// Reads a module's own stored rests into ModuleInverseContext::moduleRest, once per solve. Set only by a module whose inverse needs more than
+// its controls' rests (ReverseFoot).
+using ModuleInverseRestFn = MStatus(*)(const MObject& oModule, std::vector<MMatrix>& outRest);
 
 namespace ModuleInverse
 {

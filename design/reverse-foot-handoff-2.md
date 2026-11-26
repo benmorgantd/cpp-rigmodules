@@ -55,6 +55,54 @@ Per `reverse-foot-handoff.md` phase 5 and `reverse-foot.md` section 10, `inverse
 - `RigInverse` pre-pass over modules that feed an `ikTarget`; `ModuleInverseContext::ikTargetOffset`; the Limb's inverse uses `handle = end * offset^-1`; `setRigIkFkBlend` runs the same inverse so a match from FK has no pop with a raised foot. Rigs with no foot must keep their order and results. Closes the open item in `limb.md` section 8 (say so in the commit and update the page, including the stale lines in 8.1 and 14).
 - Done when: the round trip is 1e-4 on the ankle and toe, the FK to IK match with a raised foot has no pop, the pre-pass order is tested, the missing-joint and sidecar-precedence cases pass, `test_limb_matches_parts` gets the foot-shaped case (Limb alone, identity foot, foot at rest give the same joints), and the three skipped inverse tests run.
 
+### Phase 5 status (session 3, 2026-11-25): written, not committed, one failure left
+
+Uncommitted in the worktree `.claude/worktrees/reversefoot-review` (branch `reversefoot-review`, on `172683d`). It builds.
+
+- **Signed off by the author:** the gauge is "subtract the sidecar". The API additions are `ModuleInverseContext::moduleRest`, `ModuleInverseInput::ikTargetJointWorld` and `ikTargetMotion`, `ModuleInverseResult::channels` and `ikTargetMotion`, `ModuleDescriptor::readInverseRest`, and a pre-pass in `RigInverse::solveFrame`. The pre-pass runs the foot's own inverse once, before the sweep, for `F`. A Limb's `ikTarget` source is found from the `ikTargetMatrix` connection.
+- **Written:**
+  - `FootSolve::solveAnkleChannels`: `footRoll` and `bank` take the pitch and roll the given channels miss, added to the given values, so a sidecar that already makes the turn comes back unchanged.
+  - `FootSolve::solveToeTap`.
+  - `decomposeRotation` divides out a uniform scale.
+  - `ReverseFootModuleNode::inverse`, `inverseChannels` and `readInverseRest`.
+  - The two-bone inverse places the handle at `ikRest * F^-1 * ikRest^-1 * reach`, and its forward check reaches the target.
+  - The Limb forwards `ikTargetMotion`, and its match passes the target's motion to `TwoBoneIkPart::computeMatch`, with the match outputs affected by the ikTarget inputs.
+  - Core tests in `FootSolveTests.cpp` pass: the gauge with and without a sidecar, given channels kept, uniform scale, and the toe tap under the carrying pivots.
+  - `ReverseFootInverse` in `test_reverse_foot.py`:
+    - the no-sidecar restore and the match with a raised foot pass;
+    - the sidecar gauge test was rewritten and not rerun. Its first restore failed before the rewrite: the toe tip joint came back about 0.003 off. That needs a look, because a sidecar restore of that pose should be exact.
+- **The one open failure: the contract round trip.** The three contract inverse tests are unskipped, and they fail.
+  - With every control posed (`_pose_every_transform`), the Limb's two-bone half comes back wrong: the IK handle, the upper arm and the hand. It does so even with the foot's channels at rest.
+  - A bisection probe posed one group of controls at a time. Every group restores exactly on its own: the handle (translate and rotate), soft, stretch, the pole, the FK controls, the ribbon, the tweakers, the settings, the toe FK, and one Layout control's scale or rotation with the handle.
+  - Every pose **minus the three Layout controls** restores exactly too, apart from bind joints 2 to 8. **The Layout controls posed together with the rest** break it.
+  - The plugin from `172683d` (no foot inverse) restores the two-bone half exactly in the same full pose, so phase 5 causes it. Suspects: the pre-pass input built with identity parent deltas (`makeInput(..., false)`), or the hand joint read for `F` while the Layout carries a rotation and a scale that the foot's rest pivots don't share.
+- **Already broken before phase 5:** in this rig's full-pose round trip, ribbon bind joints 2 to 8 come back off even with the old plugin. That's a Limb or ribbon problem in the `reverse_foot` template (it has a `dummy` joint and toes under the hand). The contract test fails on it once the two-bone half is fixed.
+- **Not done:**
+  - the IK to FK match of the toe FK control: `setRigIkFkBlend` writes only the Limb, so switching to FK pops the toe when `toeTap` or the roll moved it;
+  - `test_limb_matches_parts`'s foot-shaped case;
+  - the docs: D74's gauge and API entry, `reverse-foot.md` section 10 (the toe is exact only when the channels can make the pose: a raise folded into `footRoll` past the break turns the toe tip pivot instead), `inverse-solve.md`, `limb.md` section 8 (close the match item), `source-map.md` (`ModuleInverse`, `RigInverse`, `FootSolve`), and `docs/commands.md` on `poseRigFromJointPose` and `setRigIkFkBlend` with a foot.
+
+### Phase 5 status (session 4, 2026-11-25): done
+
+**Outcome (end of session 4):** phase 5 is built and committed on `reversefoot-review`; see the commit and D74's phase 5 entry. The three things the notes below were chasing:
+
+- **Ribbon bind joints 2 to 8 were a test rule, not a rig bug.** `LimbContract` does not pose the ribbon's ik controls (no joint gives them back, and a posed one's scale with `volumePreserve` shears the bind joints beyond what a tweaker holds: the restore warns "the source joint has shear"). `ReverseFootContract` posed them. The rule is now `LimbRoundTripRules` in `test_limb.py`, shared by both contracts. The inverse's anchors were checked against the source's limb joints and were exact.
+- **The toe in the full pose:** the Layout's share of the gauge leak is fixed by reading the pitch and roll in the handle's space (the author chose it, 2026-11-25; `ModuleInverseInput::ikHandleParentDelta`, the pre-pass moved into the sweep just before each Limb). The handle's own turn still goes into `footRoll` and `bank` by design, so the contract moves the foot's handle without turning it.
+- **Not built, proposed to the author:** matching the toe FK control on IK to FK in `setRigIkFkBlend`.
+
+The notes from the session before the outcome follow, for the record.
+
+- **Fixed, the two-bone half:** the handle has no scale channel, so in the scene it carries its space's (the Layout's) scale. The inverse wrote an orthonormal handle, and with a foot `F` turns about pivots away from the handle, so the scale the scene put back moved the reach. `TwoBoneIkNode::inverse` now gives the reach the scale of `eval.mIkDelta` (row 0 length, a uniform scale), so the handle's local is rigid and the scene's handle is the one placed. Without a foot only the reach's position is read, so nothing changes there. Built, not yet suite-run.
+- **After the fix**, the suite with filter `reverse_foot`: 93 passed, 3 failed. The three failures are the contract inverse tests, now on ribbon bind joints 2 to 8 (the problem that predates phase 5), plus the toe and toe tip about 0.0016 off. `ReverseFootInverse` passes all three, including the sidecar gauge test (so task 2's 0.003 toe tip is gone after the rewrite; not yet explained why it was off before).
+- **Probe:** a copy of `probe_full.py` is in the session notes folder (`side-session-notes/local_f3f79a64-.../probe_full.py`). It builds the contract rig, poses controls by mode (`all`, `only:<prefixes>`, `skip:<prefixes>`, `set:ctrl.attr=v,...`, plus env `EXTRA="ctrl.attr=v,..."` applied after posing, `limb` for the `limb_arm` contract), restores with `poseRigFromJointPose` and lists the joints off by more than 1e-4. Run it with mayapy and the copied .mll as its first argument.
+- **Bisection of bind 2 to 8** (Layout, foot, toe FK and dummy left out, still fails; the `limb_arm` contract restores all 12 joints, so the ikTarget is what differs):
+  - posing only `armPole`, `armSettings` and `armRibbonIK` together fails; any two of them restore;
+  - from that set, resetting the pole's `pin` to 0 or `volumePreserve` to 0 fixes it; resetting stretch, soft, the sine or the twists does not; `bendSoftness` 0 leaves 6 off;
+  - a hand-made pose (pole translate plus pin, ribbon IK translate, rotate and scale 1.25, stretch, soft, bendSoftness, volumePreserve) did **not** reproduce it, so the trigger also needs the contract's exact values (+0.25 on every channel, the ribbon IK controls' rotations of 0.25 degrees about all three axes);
+  - next step: from the `only:` failing set, reset channels one at a time to find the minimal set, then compare the Limb inverse's anchors (`ik.socketWorld`, from `TwoBoneIkNode::inverse`'s `fillSockets`) with the scene's limb joints when pin and volumePreserve are on and the target is connected. Hypothesis: with pin (the pole's pin moves the mid) and the ikTarget, the inverse's internal forward evaluation differs from `LimbNode::compute`'s in something the ribbon's volume preservation reads (the stretched lengths), though the three limb joints themselves come back exactly.
+- **Toe and toe tip 0.0016 off in the full pose:** most likely the gauge. The ankle motion read for footRoll and bank includes the handle's and the Layout's rotation, so their pitch and roll leak into footRoll and bank, and toeTap (a pitch only) can't then make the toe's leftover yaw and roll. Worth putting to the author: decompose the ankle's motion in the handle's parent space (the Limb's ik control space), so a rotated Layout or handle doesn't change the restored footRoll. That needs the pre-pass to run after the Limb's parents (just before the Limb in the sweep) instead of before the sweep.
+- **Still to do:** tasks 3 to 5 of the brief (the foot-shaped `test_limb_matches_parts` case, the toe FK match proposal, the docs pass, the build, the full suite and the commit).
+
 ## Phase 6 (perf rig and one `bench`)
 
 `foot_specs` in `tools/perf/perf_scenes.py` on the existing `limb_module_specs` limbs (markers are needed: a markers file for the perf rig), then `bench` **once** (D36). Report the fps and the ratio to the floor in the commit message and say so when below target (30 fps for 20 rigs, 1.5 times the floor on 50). Run `compute-reviewer` on the node. The compute review of phase 3 asked for the two outputs to be computed separately and for the pivot decode to be cached; the first was done in `0698f10`, the second was skipped (parallel evaluation does not call `setDependentsDirty`): measure first.

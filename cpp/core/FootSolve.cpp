@@ -197,8 +197,22 @@ namespace FootSolve
 		return RibbonMath::multiply(tap, foldChain(chain, toeIndex, frame, channels));
 	}
 
-	Euler decomposeRotation(const Mat4& motion, const Frame& frame)
+	Euler decomposeRotation(const Mat4& scaledMotion, const Frame& frame)
 	{
+		// A rig scaled through its Layout scales the joints, so the motion read off them is a rotation times a uniform scale: each
+		// row is divided by its length so only the rotation is read.
+		Mat4 motion = scaledMotion;
+		for (int r = 0; r < 3; ++r)
+		{
+			const double length = std::sqrt(motion.m[r][0] * motion.m[r][0] + motion.m[r][1] * motion.m[r][1] + motion.m[r][2] * motion.m[r][2]);
+			if (length > VectorMath::kTiny)
+			{
+				for (int c = 0; c < 3; ++c)
+				{
+					motion.m[r][c] /= length;
+				}
+			}
+		}
 		// The rotation in the foot's own axes: Ml = B * R * B^T with B's rows lateral, up, forward.
 		const Vec3 axes[3]{ frame.lateral, frame.up, frame.forward };
 		double basis[3][3]{};
@@ -230,5 +244,39 @@ namespace FootSolve
 		euler.yaw = VectorMath::toDegrees(std::atan2(local[2][0], local[2][2]));
 		euler.roll = VectorMath::toDegrees(std::atan2(local[0][1], local[1][1]));
 		return euler;
+	}
+
+	Channels solveAnkleChannels(std::span<const Pivot> chain, const Frame& frame, const Channels& given, const Mat4& ankleMotionSinceRest)
+	{
+		// The pitch and roll the given channels miss go into footRoll and bank. A heading after them (the handle's) leaves the pitch and
+		// roll as they are, so given channels that already make the ankle's turn come back unchanged, and with footRoll and bank at zero
+		// the two take the whole pitch and roll beyond the raises, swivels and ballRoll.
+		const Euler whole = decomposeRotation(ankleMotionSinceRest, frame);
+		const Euler fromGiven = decomposeRotation(ankleMotion(chain, frame, given), frame);
+		Channels solved = given;
+		solved.footRoll = given.footRoll + whole.pitch - fromGiven.pitch;
+		solved.bank = given.bank - (whole.roll - fromGiven.roll);
+		return solved;
+	}
+
+	double solveToeTap(std::span<const Pivot> chain, std::size_t toeIndex, const Frame& frame, const Channels& channels, const Mat4& toeMotionSinceRest)
+	{
+		// toeMotion = tap * carried, where carried is what the pivots before the toe do. Only rotations are read, so the tap's rotation is
+		// the toe's times the transpose of the carried rotation.
+		const Mat4 carried = foldChain(chain, std::min(toeIndex, chain.size()), frame, channels);
+		Mat4 tap;
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				double sum = 0.0;
+				for (int k = 0; k < 3; ++k)
+				{
+					sum += toeMotionSinceRest.m[r][k] * carried.m[c][k];
+				}
+				tap.m[r][c] = sum;
+			}
+		}
+		return decomposeRotation(tap, frame).pitch;
 	}
 }

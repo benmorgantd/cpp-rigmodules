@@ -130,7 +130,7 @@ namespace FootSolve
 
 	// A rotation split in the foot frame, outermost first: a heading about up, a pitch about lateral, a roll about forward,
 	// so the rotation is Rot_up(yaw) after Rot_lateral(pitch) after Rot_forward(roll). Degrees. Only the rotation of the motion is
-	// read. pitch is the foot's total footRoll and -roll its bank, whatever pivots they came from (the inverse, section 10).
+	// read, and a uniform scale in it (a rig scaled through its Layout) is divided out. pitch is the foot's total footRoll and -roll its bank, whatever pivots they came from (the inverse, section 10).
 	struct Euler
 	{
 		double yaw{ 0.0 };
@@ -138,4 +138,15 @@ namespace FootSolve
 		double roll{ 0.0 };
 	};
 	Euler decomposeRotation(const Mat4& motion, const Frame& frame);
+
+	// The inverse's gauge (D74, design/reverse-foot.md section 10). ankleMotionSinceRest is the ankle's world motion since rest, the handle's
+	// share still in it (only its rotation is read). footRoll and bank take the pitch and roll that the given channels (the sidecar's, else
+	// the rig's) miss, on top of their given values, and every other channel is kept as given. So a sidecar's raises and ballRoll are not
+	// counted twice, and given channels that already make the turn come back unchanged. The handle takes the heading, the position and
+	// what the channels can't hold, such as a ball pitch turned before a bank in the fixed chain order.
+	Channels solveAnkleChannels(std::span<const Pivot> chain, const Frame& frame, const Channels& given, const Mat4& ankleMotionSinceRest);
+
+	// toeTap from the toe bone's world motion since rest with the handle's motion taken out: the pitch left once the pivots before the
+	// toe pivot are undone. toeIndex is the Toe pivot's index (findPivot). Only rotations are read.
+	double solveToeTap(std::span<const Pivot> chain, std::size_t toeIndex, const Frame& frame, const Channels& channels, const Mat4& toeMotionSinceRest);
 }

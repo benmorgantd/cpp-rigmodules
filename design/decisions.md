@@ -87,7 +87,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D71 | FkHierarchy: a separate module that builds an FK control for every joint under one root (optional terminators), with sockets named from joint markup. FkChain is unchanged. Built 2026-11-23 | Decided | [modules](decisions/modules.md) |
 | D72 | Pose blend: `loadRigPose` `blend` (a weight from 0 up: 0 to 1 lerps, past 1 adds more of the pose's offset from rest; amended 2026-11-24: no negative weights) from a `blendReference` pose file, in `core/PoseBlend`. RigModules side built; the mayadev slider is not | Decided | [pipeline](decisions/pipeline.md) |
 | D73 | Markers: placed points that follow a joint, in a `markers.json` of their own, stamped on the rig and on animation | Decided | [data](decisions/data.md) |
-| D74 | ReverseFoot: a foot module on a Limb, with roll, pivot and toe channels, an FK toe, a blend driven by the limb (`ikFkDriver`) and an inverse that solves `footRoll`, `bank` and `toeTap` | Decided | [modules](decisions/modules.md) |
+| D74 | ReverseFoot: a foot module on a Limb, with roll, pivot and toe channels, an FK toe, a blend driven by the limb (`ikFkDriver`) and an inverse that solves `footRoll`, `bank` and `toeTap` ("subtract the sidecar", read in the handle's space, a per-Limb pre-pass in the sweep, the match with a raised foot) | Decided | [modules](decisions/modules.md) |
 
 ---
 

@@ -9,6 +9,7 @@
 #include "maya/shared/RigModule.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/RigTraversal.h"
+#include "maya/shared/TwoBoneIkSolve.h"
 #include "maya/shared/Utilities.h"
 
 #include <algorithm>
@@ -107,6 +108,9 @@ namespace
 		std::vector<std::string> missingJoints;               // the rig's joints the source lacks, as "[side, usage]"
 		std::vector<PlugState> plugs;                         // by slot
 		std::vector<MMatrix> socketWorld;                     // this frame's result
+		// A module that feeds a Limb's ikTarget (a foot): that Limb's index. The pre-pass runs this module first for its motion F
+		// (D74, design/reverse-foot.md section 10).
+		int ikTargetOf = -1;
 	};
 
 	// A unique, stable key for a node: names can repeat across namespaces.
@@ -239,6 +243,10 @@ namespace
 		MStatus sortModules();
 		MMatrix socketMotion(const SocketRef& socket, const MMatrix& mRest) const;
 		MMatrix plugDelta(const PlugState& plug, const std::vector<std::vector<char>>& written, const std::vector<std::vector<double>>& values) const;
+		std::optional<MMatrix> targetJointWorld(int limb, const std::vector<MMatrix>& clipWorlds) const;
+		// One module's input for this frame. withParents false leaves parentDelta at the identity: the pre-pass runs before the parents.
+		ModuleInverseInput makeInput(const ModuleState& module, const std::vector<MMatrix>& clipWorlds, const std::vector<std::vector<char>>& written,
+			const std::vector<std::vector<double>>& values, const std::vector<std::vector<char>>& isSupplied, bool withParents) const;
 
 		std::vector<ModuleState> fModules;
 		std::vector<int> fOrder;   // fModules indices, parents first
@@ -549,6 +557,11 @@ namespace
 			}
 			module.inverse = pDescriptor->inverse;
 			module.inverseChannels = pDescriptor->inverseChannels;
+			if (pDescriptor->readInverseRest != nullptr && !pDescriptor->readInverseRest(module.oModule, module.context.moduleRest))
+			{
+				fWarnings.insert(module.name + ": its stored rests could not be read, so its channels come from the sidecar or the rig.");
+				module.context.moduleRest.clear();
+			}
 
 			status = readControls(module, controlByKey);
 			if (!status)
@@ -638,7 +651,81 @@ namespace
 			}
 		}
 
+		// A Limb's ikTarget is two input attributes, not a child plug slot, so the module that feeds it is found from the connection.
+		for (std::size_t m = 0; m < fModules.size(); ++m)
+		{
+			const MPlug pTarget = MFnDependencyNode(fModules[m].oModule).findPlug(RigAttr::IkTargetMatrix, false, &status);
+			const MPlug pSource = status ? pTarget.source() : MPlug();
+			if (!pSource.isNull())
+			{
+				const auto it = moduleByKey.find(nodeKey(pSource.node()));
+				if (it != moduleByKey.end())
+				{
+					fModules[it->second].ikTargetOf = static_cast<int>(m);
+				}
+			}
+		}
+
 		return sortModules();
+	}
+
+	// The joint a Limb's ikTarget moves: its end joint, from the source (TwoBoneIkSlot::End), else empty.
+	std::optional<MMatrix> Solver::targetJointWorld(int limb, const std::vector<MMatrix>& clipWorlds) const
+	{
+		const std::vector<int>& joints = fModules[limb].clipJointOfSlot;
+		if (TwoBoneIkSlot::End >= joints.size() || joints[TwoBoneIkSlot::End] < 0)
+		{
+			return std::nullopt;
+		}
+		return clipWorlds[joints[TwoBoneIkSlot::End]];
+	}
+
+	ModuleInverseInput Solver::makeInput(const ModuleState& module, const std::vector<MMatrix>& clipWorlds, const std::vector<std::vector<char>>& written,
+		const std::vector<std::vector<double>>& values, const std::vector<std::vector<char>>& isSupplied, bool withParents) const
+	{
+		const std::size_t slotCount = module.context.controlRestWorld.size();
+		ModuleInverseInput input;
+		input.jointWorld.resize(slotCount);
+		input.parentDelta.assign(slotCount, MMatrix::identity);
+		input.fallbackLocal.assign(slotCount, MMatrix::identity);
+		for (std::size_t slot = 0; slot < slotCount; ++slot)
+		{
+			if (module.clipJointOfSlot[slot] >= 0)
+			{
+				input.jointWorld[slot] = clipWorlds[module.clipJointOfSlot[slot]];
+			}
+			if (withParents)
+			{
+				input.parentDelta[slot] = plugDelta(module.plugs[slot], written, values);
+			}
+			const int control = module.controlOfSlot[slot];
+			if (control >= 0)
+			{
+				input.fallbackLocal[slot] = localFromValues(fControls[control], values[control]);
+			}
+		}
+
+		// The scalar channels the joints can't give: the sidecar's value, else the one in the scene, which is what the
+		// forward solve will read once the controls are written.
+		for (std::size_t k = 0; k < module.inverseChannels.size(); ++k)
+		{
+			const auto [control, channel] = module.channelAt[k];
+			if (control < 0)
+			{
+				input.channels.push_back(module.inverseChannels[k].defaultValue);
+			}
+			else
+			{
+				input.channels.push_back(isSupplied[control][channel] ? values[control][channel] : fControls[control].current[channel]);
+			}
+		}
+		if (module.ikTargetOf >= 0)
+		{
+			input.ikTargetJointWorld = targetJointWorld(module.ikTargetOf, clipWorlds);
+			const std::vector<PlugState>& limbPlugs = fModules[module.ikTargetOf].plugs;
+			input.ikHandleParentDelta = TwoBoneIkSlot::Ik < limbPlugs.size() ? plugDelta(limbPlugs[TwoBoneIkSlot::Ik], written, values) : MMatrix::identity;
+		}
+		return input;
 	}
 
 	MMatrix Solver::socketMotion(const SocketRef& socket, const MMatrix& mRest) const
@@ -727,42 +814,28 @@ namespace
 			}
 		}
 
+		// The module that feeds each Limb's ikTarget (a foot), by the Limb's index.
+		std::vector<int> ikTargetFeeder(fModules.size(), -1);
+		for (std::size_t f = 0; f < fModules.size(); ++f)
+		{
+			if (fModules[f].ikTargetOf >= 0)
+			{
+				ikTargetFeeder[fModules[f].ikTargetOf] = static_cast<int>(f);
+			}
+		}
+
 		for (const int m : fOrder)
 		{
 			ModuleState& module = fModules[m];
 			const std::size_t slotCount = module.context.controlRestWorld.size();
-
-			ModuleInverseInput input;
-			input.jointWorld.resize(slotCount);
-			input.parentDelta.resize(slotCount);
-			input.fallbackLocal.assign(slotCount, MMatrix::identity);
-			for (std::size_t slot = 0; slot < slotCount; ++slot)
+			ModuleInverseInput input = makeInput(module, clipWorlds, written, values, isSupplied, true);
+			// The pre-pass (D74): the module that feeds this Limb's ikTarget is solved first, from the joints, the channels and the space the
+			// Limb's handle hangs in (solved by now: it is the Limb's parent's), for the motion F the handle must undo. Its parents are not
+			// solved yet, and it reads none. The sweep runs it again in its own place, after the Limb, and it gives the same answer.
+			if (ikTargetFeeder[m] >= 0)
 			{
-				if (module.clipJointOfSlot[slot] >= 0)
-				{
-					input.jointWorld[slot] = clipWorlds[module.clipJointOfSlot[slot]];
-				}
-				input.parentDelta[slot] = plugDelta(module.plugs[slot], written, values);
-				const int control = module.controlOfSlot[slot];
-				if (control >= 0)
-				{
-					input.fallbackLocal[slot] = localFromValues(fControls[control], values[control]);
-				}
-			}
-
-			// The scalar channels the joints can't give: the sidecar's value, else the one in the scene, which is what the
-			// forward solve will read once the controls are written.
-			for (std::size_t k = 0; k < module.inverseChannels.size(); ++k)
-			{
-				const auto [control, channel] = module.channelAt[k];
-				if (control < 0)
-				{
-					input.channels.push_back(module.inverseChannels[k].defaultValue);
-				}
-				else
-				{
-					input.channels.push_back(isSupplied[control][channel] ? values[control][channel] : fControls[control].current[channel]);
-				}
+				const ModuleState& feeder = fModules[ikTargetFeeder[m]];
+				input.ikTargetMotion = feeder.inverse(feeder.context, makeInput(feeder, clipWorlds, written, values, isSupplied, false)).ikTargetMotion;
 			}
 
 			const ModuleInverseResult result = module.inverse(module.context, input);
@@ -782,6 +855,17 @@ namespace
 				if (control >= 0 && result.controlLocal[slot].has_value())
 				{
 					applyLocal(fControls[control], *result.controlLocal[slot], values[control], written[control], isDerived[control], fWarnings);
+				}
+			}
+			// The scalar channels the joints gave (a foot's footRoll, bank and toeTap).
+			for (std::size_t k = 0; k < result.channels.size() && k < module.channelAt.size(); ++k)
+			{
+				const auto [control, channel] = module.channelAt[k];
+				if (control >= 0 && result.channels[k].has_value())
+				{
+					values[control][channel] = *result.channels[k];
+					written[control][channel] = 1;
+					isDerived[control][channel] = 1;
 				}
 			}
 		}

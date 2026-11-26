@@ -66,7 +66,8 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
         {
             "reverseFootModule", "ReverseFoot", ReverseFootModuleNode::id,
             ReverseFootModuleNode::creator, ReverseFootModuleNode::initialize,
-            {}, ReverseFootModuleNode::planFromJson, ReverseFootModuleNode::inverse, true
+            {}, ReverseFootModuleNode::planFromJson, ReverseFootModuleNode::inverse, true, ReverseFootModuleNode::inverseChannels(), nullptr,
+            ReverseFootModuleNode::readInverseRest
         },
         {
             "rigConstraint", "RigConstraint", RigConstraintNode::id,

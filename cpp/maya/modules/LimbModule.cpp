@@ -250,6 +250,10 @@ MStatus LimbNode::initialize()
 	{
 		attributeAffects(oInput, aJointOPM);
 		attributeAffects(oInput, aOutputSocketMatrix);
+		// A match places the handle so a raised foot lands on the joints (D74). The match outputs feed nothing, so this makes no loop.
+		attributeAffects(oInput, aFkMatchLocal);
+		attributeAffects(oInput, aIkMatchLocal);
+		attributeAffects(oInput, aMatchWarnings);
 	}
 	// The handle's sockets follow the controls and the plugs they hang from, and nothing the target moves.
 	for (const MObject& oInput : { aControlMatrix, aControlRestWorld, aChildPlugParentMatrix, aChildPlugParentRestMatrix, aPoleSpace })
@@ -283,7 +287,12 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	// The matched IK/FK switch (D62 phase 3) is the two-bone limb's: the ribbon rides the joints and has nothing to match.
 	if (oOutputAttr == aFkMatchLocal || oOutputAttr == aIkMatchLocal || oOutputAttr == aMatchWarnings)
 	{
-		return Part::computeMatch(plug, data, &TwoBoneIkNode::inverse);
+		std::optional<MMatrix> mTargetDelta;
+		if (data.inputValue(aIkTargetConnected).asBool())
+		{
+			mTargetDelta = MathUtils::computeDeltaFromRest(data.inputValue(aIkTargetRestMatrix).asMatrix(), data.inputValue(aIkTargetMatrix).asMatrix());
+		}
+		return Part::computeMatch(plug, data, &TwoBoneIkNode::inverse, mTargetDelta);
 	}
 
 	if (oOutputAttr == aHandleSocketMatrix)
@@ -424,6 +433,7 @@ ModuleInverseResult LimbNode::inverse(const ModuleInverseContext& context, const
 		ikInput.fallbackLocal.push_back(input.fallbackLocal[slot]);
 	}
 	ikInput.channels.assign(input.channels.begin(), input.channels.begin() + std::min<std::size_t>(input.channels.size(), TwoBoneIkInverseChannel::Count));
+	ikInput.ikTargetMotion = input.ikTargetMotion;
 	const ModuleInverseResult ik = TwoBoneIkNode::inverse(ikContext, ikInput);
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
 	{

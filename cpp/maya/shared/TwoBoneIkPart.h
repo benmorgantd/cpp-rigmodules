@@ -175,13 +175,21 @@ struct TwoBoneIkPart
 	// match output: playback never does, and bench (D52 phase 8) checks that. The inverse is the restore's, run on the joints this evaluation
 	// solved, so what a match command writes is what a restore of the same pose would. `inverse` is the two-bone inverse (TwoBoneIkNode::inverse):
 	// a Limb matches its limb joints the same way, and only the first six slots are matched.
-	static MStatus computeMatch(const MPlug& plug, MDataBlock& data, ModuleInverseFn inverse)
+	// mTargetDelta is a Limb's ikTarget motion since rest when the target is connected (D74): the joints reach it, as the Limb's compute
+	// does, and the inverse places the handle so the foot's motion F (the target's motion over the handle's) lands on them, so a match with
+	// a raised foot puts no pop in the ankle.
+	static MStatus computeMatch(const MPlug& plug, MDataBlock& data, ModuleInverseFn inverse, const std::optional<MMatrix>& mTargetDelta = std::nullopt)
 	{
 		MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorC_L2, "twoBoneIk computeMatch");   // no such event in a playback profile shows the branch never ran
 		MStatus status;
 		TwoBoneIkEval eval;
 		status = readEval(data, eval);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
+		if (mTargetDelta.has_value() && eval.blend > 0.0)
+		{
+			eval.hasTarget = true;
+			eval.mTargetDelta = *mTargetDelta;
+		}
 		TwoBoneIkSolveResult pose;
 		TwoBoneIkSolve::evaluate(eval, pose);
 
@@ -212,6 +220,12 @@ struct TwoBoneIkPart
 			eval.poleFollowsIk ? 1.0 : 0.0,
 			eval.blend
 		};
+		if (mTargetDelta.has_value())
+		{
+			// The target's motion is F times the handle's, whatever the blend: F is the foot's channels alone.
+			const MMatrix mHandleWorld = eval.mLocal[TwoBoneIkSlot::Ik] * eval.mRest[TwoBoneIkSlot::Ik] * eval.mIkDelta;
+			input.ikTargetMotion = *mTargetDelta * MathUtils::computeDeltaFromRest(eval.mRest[TwoBoneIkSlot::Ik], mHandleWorld).inverse();
+		}
 		const ModuleInverseResult result = inverse(context, input);
 
 		MArrayDataHandle hFkMatch = data.outputArrayValue(Node::aFkMatchLocal, &status);

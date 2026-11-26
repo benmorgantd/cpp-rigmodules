@@ -45,18 +45,13 @@ def translation(node):
     return cmds.xform(rig_name(node), query=True, worldSpace=True, translation=True)
 
 
-class LimbContract(ModuleContract, RigTestCase):
-    TEMPLATE = "limb_arm"
-    SKELETON = "limb_arm"
-    MODULE_TYPE = "limbModule"
-    JOINT_OWNERS = dict((joint, "arm_01_L_MOD") for joint in LIMB_JOINTS + BIND_JOINTS)
-    MIRROR_TEMPLATE = "limb_mirror"
-    MIRROR_SKELETON = "limb_mirror"
+class LimbRoundTripRules:
+    """What the inverse can and can't give back for the arm Limb of limb_arm (D62 phase 3, design/limb.md section 7), shared by every
+    contract whose rig has that Limb (ReverseFoot's too). The ribbon's ik controls have no joint, so they are never restored: they keep the
+    sidecar's value or the rest, and the tweakers carry the difference. The round trip doesn't pose them: a posed one's scale with
+    volumePreserve shears the bind joints, which no tweaker can hold. It poses every other control. The two-bone half is TwoBoneIk's: the
+    FK controls the blend hides can't come back from the joints."""
 
-    # What the inverse can and can't give back (D62 phase 3, design/limb.md section 7). The ribbon's ik controls have no joint, so they
-    # are never restored: they keep the sidecar's value or the rest, and the tweakers carry the difference, so every bind joint comes
-    # back exactly. The round trip poses every other control. The two-bone half is TwoBoneIk's: the FK controls the blend hides can't
-    # come back from the joints.
     def _pose_channels(self, control):
         if rigmodules.query.get_control(control).usage.startswith("armRibbonIK"):
             return {}
@@ -65,6 +60,15 @@ class LimbContract(ModuleContract, RigTestCase):
     def joints_cannot_give(self, control, channel):
         name = control.split(":")[-1].split("_")[0]
         return name in ("lowerArm", "hand") or (name == "upperArm" and not channel.startswith("translate"))
+
+
+class LimbContract(LimbRoundTripRules, ModuleContract, RigTestCase):
+    TEMPLATE = "limb_arm"
+    SKELETON = "limb_arm"
+    MODULE_TYPE = "limbModule"
+    JOINT_OWNERS = dict((joint, "arm_01_L_MOD") for joint in LIMB_JOINTS + BIND_JOINTS)
+    MIRROR_TEMPLATE = "limb_mirror"
+    MIRROR_SKELETON = "limb_mirror"
 
     def controls_lost_with_joint(self, root, markup):
         """The last bind joint's tweaker, which has no joint when the source lacks it."""
@@ -234,6 +238,30 @@ class LimbBehaviour(RigTestCase):
             for joint, a, b in zip(LIMB_JOINTS, results["limb"][index], results["twoboneik"][index]):
                 for x, y in zip(a, b):
                     self.assertAlmostEqual(x, y, places=6, msg="pose %d %s: the Limb and a TwoBoneIk disagree" % (index, joint))
+
+    def test_limb_matches_parts_with_a_foot(self):
+        """The foot-shaped case (D74): the Limb alone, the Limb with an identity foot (limb_foot: an FkChain on the hand feeding ikTarget)
+        and the Limb with a ReverseFoot at rest give the same limb and bind joints over the same poses, so a target that doesn't move
+        changes nothing, whatever feeds it."""
+        rigs = (("alone", "limb_arm", "limb_arm", None), ("identity", "limb_foot", "limb_foot", None),
+                ("reverseFoot", "reverse_foot", "reverse_foot", "reverse_foot"))
+        joints = LIMB_JOINTS + BIND_JOINTS
+        results = {}
+        for label, template, skeleton, markers in rigs:
+            cmds.file(new=True, force=True)
+            self.build(template, self.make_skeleton(skeleton), markers=markers)
+            for pose in self.POSES:
+                for control, channel, value in pose:
+                    cmds.setAttr("%s.%s" % (rig_name(control), channel), value)
+                results.setdefault(label, []).append([cmds.xform(rig_name(j), query=True, worldSpace=True, matrix=True) for j in joints])
+                for control, channel, value in pose:
+                    default = cmds.attributeQuery(channel, node=rig_name(control), listDefault=True)[0]
+                    cmds.setAttr("%s.%s" % (rig_name(control), channel), default)
+        for label in ("identity", "reverseFoot"):
+            for index in range(len(self.POSES)):
+                for joint, a, b in zip(joints, results["alone"][index], results[label][index]):
+                    for x, y in zip(a, b):
+                        self.assertAlmostEqual(x, y, places=5, msg="pose %d %s: the Limb with the %s foot differs from it alone" % (index, joint, label))
 
 
 class LimbSwitch(SwitchTestCase):
@@ -421,8 +449,9 @@ class LimbIkTarget(RigTestCase):
 
 
 class LimbIkTargetRestore(SolveTestCase):
-    """A restore skips ikTarget (the inverse matches the limb with the foot at rest), so the module loop does not stop it ordering the
-    modules, and a rig at rest comes back where it was."""
+    """ikTarget is not a child plug, so the module loop does not stop a restore ordering the modules, and a rig at rest comes back where
+    it was. An FkChain on the target gives the Limb no motion (only a ReverseFoot's inverse does, D74), so the Limb is matched as if
+    the target were at rest."""
 
     def test_a_restore_orders_a_limb_and_its_foot(self):
         self.build_standard("limb_foot", "limb_foot")

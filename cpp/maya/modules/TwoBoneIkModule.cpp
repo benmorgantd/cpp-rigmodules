@@ -306,7 +306,27 @@ ModuleInverseResult TwoBoneIkNode::inverse(const ModuleInverseContext& context, 
 
 	// The handle: at the solved position, turned the way the hand joint is (the frame the forward solve gives the end).
 	const MMatrix mEndFrame = eval.rest.ikRestOffset[TwoBoneIkSlot::End].inverse() * (*input.jointWorld[TwoBoneIkSlot::End]);
-	const MMatrix mHandleWorld = orthonormalFrame(mEndFrame, ik.handle);
+	// With a foot on the ikTarget (D74), the end reaches rest * F * the handle's motion, so the handle is placed to make F land there.
+	// The handle has no scale channel, so in the scene it carries its space's scale (a Layout's): the reach is given that scale, so the
+	// handle's local comes out rigid and the scene's handle is the one placed here. Only the foot's case needs it: F turns about pivots
+	// away from the handle, so a scaled handle would move the reach, where without a foot only the reach's position is read.
+	const double scale = MVector(eval.mIkDelta[0][0], eval.mIkDelta[0][1], eval.mIkDelta[0][2]).length();
+	MMatrix mScaledReach = orthonormalFrame(mEndFrame, ik.handle);
+	for (int r = 0; r < 3; ++r)
+	{
+		for (int c = 0; c < 3; ++c)
+		{
+			mScaledReach[r][c] *= scale;
+		}
+	}
+	const MMatrix& mIkRest = restWorlds[TwoBoneIkSlot::Ik];
+	const MMatrix mHandleWorld = input.ikTargetMotion.has_value() ? mIkRest * input.ikTargetMotion->inverse() * mIkRest.inverse() * mScaledReach : mScaledReach;
+	if (input.ikTargetMotion.has_value() && eval.blend > 0.0)
+	{
+		// The forward evaluation behind the sockets (and a Limb's ribbon) reaches the target, as LimbNode::compute does.
+		eval.hasTarget = true;
+		eval.mTargetDelta = mIkRest.inverse() * mScaledReach;
+	}
 	eval.mLocal[TwoBoneIkSlot::Ik] = ModuleInverse::localFromWorld(mHandleWorld, restWorlds[TwoBoneIkSlot::Ik], eval.mIkDelta);
 	result.controlLocal[TwoBoneIkSlot::Ik] = eval.mLocal[TwoBoneIkSlot::Ik];
 

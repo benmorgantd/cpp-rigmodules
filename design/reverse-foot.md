@@ -1,6 +1,6 @@
 # ReverseFoot: foot roll, pivots and an FK toe, on top of a Limb
 
-**Status:** Signed off by the author, 2026-11-24 (D74). Written from the author's answers. The author answered the seven open questions the same day, and section 14 records the answers. Built 2026-11-24 except the inverse (phase 5) and the perf rig (phase 6): D74 records what phases 2 to 4 settled that this page left open (the chain's composition, the plugs without controls, `controlName`, the pivot socket names). Depends on markers (`markers.md`, D73).
+**Status:** Signed off by the author, 2026-11-24 (D74). Written from the author's answers. The author answered the seven open questions the same day, and section 14 records the answers. Built 2026-11-24, and the inverse (phase 5) 2026-11-25, except the perf rig (phase 6): D74 records what phases 2 to 4 settled that this page left open (the chain's composition, the plugs without controls, `controlName`, the pivot socket names). Depends on markers (`markers.md`, D73).
 
 ## 1. Animator-facing problem
 
@@ -169,6 +169,14 @@ The foot's inverse is where the work is, and the question was which channels can
 - `setRigIkFkBlend` runs the same inverse, so **a match from FK puts no pop** in the ankle or the toe, and a match from IK to FK solves the FK controls from the joints. The open item in `limb.md` section 8 is closed by this.
 - **`inverseChannels`** for the foot lists `footRoll`, `bank` and `toeTap` as derived. The rest are read as scalars from the sidecar or the rig (D52), so they come back as the animator left them when the sidecar has them and as the current rig values otherwise.
 
+**As built (phase 5, 2026-11-25, D74).** Where this differs from the plan above, the build wins:
+
+- **The gauge is "subtract the sidecar" (author).** `footRoll` and `bank` take the pitch and roll that the given channels (the sidecar's, else the rig's) miss, on top of their given values (`FootSolve::solveAnkleChannels`), so a sidecar's raises are not counted twice and a sidecar that already makes the turn comes back unchanged. With no sidecar the raises and swivels are the rig's current values, zero after `zeroRigControls`, and the table above holds as written.
+- **The pitch and roll are read in the space the Limb's handle hangs in (author).** A turned, tilted or scaled Layout stays in the Layout. The handle's own pitch and roll still go into `footRoll` and `bank`: a turned handle comes back level, with the turn in the channels.
+- **The toe is exact only when the channels can make the pose.** The ankle always comes back exactly. The toe comes back exactly when the leftover is a pitch `toeTap` can hold. It is not when the channels put the turn on another pivot than the animator did: a raise folded into `footRoll` past the break turns the toe tip pivot instead of the ball, and a handle turned in pitch and roll puts those into `footRoll` and `bank`, which don't commute with the toe pivot. The toe is then off by about the leftover (6e-4 for a quarter degree on each axis of the handle).
+- **The offset is `ModuleInverseInput::ikTargetMotion`**, the foot's motion `F`, not a context field, and the Limb's handle is `ikRest * F^-1 * ikRest^-1 * reach`. The pre-pass runs for each Limb just before it in the sweep, once the Limb's parents are solved. The full API is in D74's phase 5 entry.
+- **The match (`setRigIkFkBlend`)** from FK to IK puts no pop in the ankle and keeps the foot's channels. From IK to FK it writes only the Limb's controls, so the toe FK control is not matched: the toe pops when `toeTap` or the roll moved it.
+
 **Cost of the gauge.** Because the roll and bank go into `footRoll` and `bank`, a clip that was authored with `ballRaise` comes back from the joints with `footRoll` set instead. The animation plays the same, and a curve editor shows different channels. That is the price of having no sidecar to read from, and a sidecar-carrying clip keeps what it carried.
 
 ## 11. Mirroring, names, export, libraries
@@ -183,7 +191,7 @@ The foot's inverse is where the work is, and the question was which channels can
 
 - A module and node (`ReverseFoot`, `reverseFootModule`), `core/FootSolve` (peel, chain, decomposition), 11 channels and 2 controls, 2 child plugs and about 9 sockets.
 - **A cross-module blend source** (`ikFkDriver`): a new kind of connection, a `ModuleInterface` method and a validator rule.
-- **An inverse pre-pass** in `RigInverse` and `ModuleInverseContext::ikTargetOffset`.
+- **An inverse pre-pass** in `RigInverse` (per Limb, just before it in the sweep) and, as built (D74 phase 5), `ModuleInverseContext::moduleRest`, `ModuleDescriptor::readInverseRest`, `ModuleInverseInput::ikTargetJointWorld`, `ikTargetMotion` and `ikHandleParentDelta`, and `ModuleInverseResult::channels` and `ikTargetMotion`.
 - A second split-by-attribute pair on the cycle check, one more `blindSockets` entry.
 - Everything in `markers.md` section 8, which this depends on.
 

@@ -492,6 +492,107 @@ CORE_TEST(footToeTapIsThePitchOfTheToesRelativeRotation)
 	CHECK_CLOSE(euler.yaw, 0.0, 1.0e-9);
 }
 
+CORE_TEST(footGaugePutsPitchInFootRollAndRollInBank)
+{
+	// No sidecar: a heel roll of -20 with a bank of 10, carried by a heading of 30 (the handle's), comes back as those two channels,
+	// whatever the heading. The other channels stay as given.
+	const std::vector<Pivot> chain = leftFoot();
+	const Frame frame = FootSolve::footFrame(chain);
+	Channels authored;
+	authored.footRoll = -20.0;
+	authored.bank = 10.0;
+	const Mat4 heading = FootSolve::rotationAbout({ 2.0, 0.0, 1.0 }, frame.up, 30.0);
+	const Mat4 motion = RibbonMath::multiply(FootSolve::ankleMotion(chain, frame, authored), heading);
+	const Channels solved = FootSolve::solveAnkleChannels(chain, frame, Channels{}, motion);
+	CHECK_CLOSE(solved.footRoll, -20.0, 1.0e-9);
+	CHECK_CLOSE(solved.bank, 10.0, 1.0e-9);
+	CHECK_CLOSE(solved.ballRaise, 0.0, 1.0e-12);
+	CHECK_CLOSE(solved.breakAngle, 30.0, 1.0e-12);
+}
+
+CORE_TEST(footGaugeIgnoresAUniformScale)
+{
+	// A rig scaled through its Layout scales the ankle's motion: the channels read off it are the unscaled ones.
+	const std::vector<Pivot> chain = leftFoot();
+	const Frame frame = FootSolve::footFrame(chain);
+	Channels authored;
+	authored.footRoll = -20.0;
+	authored.bank = 10.0;
+	Mat4 scaled = FootSolve::ankleMotion(chain, frame, authored);
+	for (int r = 0; r < 3; ++r)
+	{
+		for (int c = 0; c < 3; ++c)
+		{
+			scaled.m[r][c] *= 1.95;
+		}
+	}
+	const Channels solved = FootSolve::solveAnkleChannels(chain, frame, Channels{}, scaled);
+	CHECK_CLOSE(solved.footRoll, -20.0, 1.0e-9);
+	CHECK_CLOSE(solved.bank, 10.0, 1.0e-9);
+}
+
+CORE_TEST(footGaugeSubtractsTheSidecarsRaisesAndBallRoll)
+{
+	// The author's gauge (2026-11-25): a pose authored with footRoll 15, ballRaise 10, heelRaise -5 and ballRoll 4, restored with the
+	// sidecar's raises and ballRoll, gives back footRoll 15 and bank 0, not the whole pitch and roll.
+	const std::vector<Pivot> chain = leftFoot();
+	const Frame frame = FootSolve::footFrame(chain);
+	Channels authored;
+	authored.footRoll = 15.0;
+	authored.ballRaise = 10.0;
+	authored.heelRaise = -5.0;
+	authored.ballRoll = 4.0;
+	Channels sidecar = authored;
+	sidecar.footRoll = 0.0;
+	const Channels solved = FootSolve::solveAnkleChannels(chain, frame, sidecar, FootSolve::ankleMotion(chain, frame, authored));
+	CHECK_CLOSE(solved.footRoll, 15.0, 1.0e-6);
+	CHECK_CLOSE(solved.bank, 0.0, 1.0e-6);
+	CHECK_CLOSE(solved.ballRaise, 10.0, 1.0e-12);
+	CHECK_CLOSE(solved.ballRoll, 4.0, 1.0e-12);
+
+	// Without the sidecar the same pose puts every pitch in footRoll. A heel raise lifts the toes, the heel regime's way (a negative
+	// footRoll), so heelRaise -5 is +5 of pitch: 15 + 10 + 5.
+	const Channels bare = FootSolve::solveAnkleChannels(chain, frame, Channels{}, FootSolve::ankleMotion(chain, frame, authored));
+	CHECK_CLOSE(bare.footRoll, 30.0, 1.0e-6);
+	CHECK_CLOSE(bare.ballRaise, 0.0, 1.0e-12);
+}
+
+CORE_TEST(footGaugeKeepsGivenChannelsThatAlreadyMakeTheTurn)
+{
+	// A sidecar that holds every channel of a pose, swivels and a ball roll with a bank included (which don't decompose into footRoll
+	// and bank on their own), gives them back unchanged under any heading of the handle.
+	const std::vector<Pivot> chain = leftFoot();
+	const Frame frame = FootSolve::footFrame(chain);
+	Channels authored;
+	authored.footRoll = 22.0;
+	authored.bank = -7.0;
+	authored.ballRoll = 5.0;
+	authored.heelSwivel = 9.0;
+	authored.toeSwivel = -4.0;
+	authored.ballRaise = 6.0;
+	const Mat4 heading = FootSolve::rotationAbout({ 1.0, 0.0, -3.0 }, frame.up, -25.0);
+	const Mat4 motion = RibbonMath::multiply(FootSolve::ankleMotion(chain, frame, authored), heading);
+	const Channels solved = FootSolve::solveAnkleChannels(chain, frame, authored, motion);
+	CHECK_CLOSE(solved.footRoll, 22.0, 1.0e-9);
+	CHECK_CLOSE(solved.bank, -7.0, 1.0e-9);
+}
+
+CORE_TEST(footToeTapIsSolvedUnderTheCarryingPivots)
+{
+	// The toe pivot is carried by the heel, toe tip and bank pivots before it: a toe tap of 25 under a roll of 40 and a bank of -8
+	// reads back as 25.
+	const std::vector<Pivot> chain = leftFoot();
+	const Frame frame = FootSolve::footFrame(chain);
+	Channels channels;
+	channels.footRoll = 40.0;
+	channels.bank = -8.0;
+	channels.toeTap = 25.0;
+	const int toeIndex = FootSolve::findPivot(chain, Role::Toe);
+	CHECK(toeIndex >= 0);
+	const Mat4 toe = FootSolve::toeMotion(chain, static_cast<std::size_t>(toeIndex), frame, channels);
+	CHECK_CLOSE(FootSolve::solveToeTap(chain, static_cast<std::size_t>(toeIndex), frame, channels, toe), 25.0, 1.0e-9);
+}
+
 CORE_TEST(footToeRoleAndOversizeCountsLeaveTheAnkleAlone)
 {
 	const std::vector<Pivot> chain = leftFoot();

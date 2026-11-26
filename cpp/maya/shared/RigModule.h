@@ -150,6 +150,8 @@ struct ModuleDescriptor
 	std::vector<ModuleInverseChannel> inverseChannels;
 	// Set only by a module with a module-owned space: setRigControlSpace uses it to keep the control in place (D52).
 	ModuleSpaceDeltaFn spaceDelta = nullptr;
+	// Set only by a module whose inverse reads stored rests beyond its controls' (ReverseFoot's pivots and ankle).
+	ModuleInverseRestFn readInverseRest = nullptr;
 };
 
 // Result of solving one control step. Shared by every module that carries controls.

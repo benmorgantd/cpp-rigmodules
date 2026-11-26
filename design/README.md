@@ -51,7 +51,7 @@ Otherwise none. `control-node-perf-handoff.md` (above) is a design handoff with 
 
 | Page | Decision | Area |
 |---|---|---|
-| [`reverse-foot.md`](reverse-foot.md) | D74 | `ReverseFoot`: roll, pivot and toe channels on a Limb, an FK toe, the inverse. Signed off 2026-11-24. Phases 2 to 4 built (the math, the module, the toe, the toe FK control and the blend from its limb); the inverse (phase 5) and the perf rig (phase 6) are not |
+| [`reverse-foot.md`](reverse-foot.md) | D74 | `ReverseFoot`: roll, pivot and toe channels on a Limb, an FK toe, the inverse. Signed off 2026-11-24. Phases 2 to 5 built (the math, the module, the toe, the toe FK control, the blend from its limb, and the inverse and match, 2026-11-25); the perf rig (phase 6) is not |
 | [`markers.md`](markers.md) | D73 | Markers: placed points that follow a joint, in a `markers.json` of their own. The foot's pivots need it. Signed off 2026-11-24. Phases 0 and 1 built, and the `Axis` locator shape, user page `docs/markers.md` |
 | [`module-directions.md`](module-directions.md) | D46 | Where the modules go after the IK limb |
 | [`asset-pipeline.md`](asset-pipeline.md) | D44, D45 | The art stages before the rig, face data |
