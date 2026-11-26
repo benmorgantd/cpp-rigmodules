@@ -23,6 +23,9 @@ struct ModuleInverseContext
 	unsigned int ikControlCount = 0;
 	// How many of the trailing slots are fk controls, from the module's fkControlCount attribute when it has one (Ribbon, D59).
 	unsigned int fkControlCount = 0;
+	// By ik control, from the module's fkRollShare attribute when it has one (Ribbon, Limb: the template's twistRamp, D75). Empty or
+	// short: the rest of the shares are 1.
+	std::vector<double> fkRollShare;
 	// By slot, from the module's controlParentIndex attribute (FkHierarchy, D71): the slot of each control's parent, -1 for
 	// the root. Empty for every module whose controls form one chain.
 	std::vector<int> parentIndex;

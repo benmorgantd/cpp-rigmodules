@@ -4,6 +4,7 @@ The template is read from README.md itself, so editing the README example into s
 builds fails here. The commands mirror the README's Python. The skeleton fixture matches the joints the
 README describes.
 """
+import copy
 import json
 import math
 import os
@@ -589,6 +590,18 @@ class RibbonDocExamples(RigTestCase):
             rolls[joint] = math.degrees(math.atan2(m[6], m[5]))
         self.assertAlmostEqual(rolls["up1_00_M_JNT"], 0.0, delta=1.0)
         self.assertAlmostEqual(rolls["up5_00_M_JNT"], 60.0, delta=1.0)
+
+    def test_modules_doc_twist_ramp_example_gives_the_numbers_it_quotes(self):
+        """The 'twistRamp' snippet's ramp on a three-control fk ribbon: a 30 degree roll of the first fk control rolls the ik controls
+        0, 10.5 and 30 degrees, and the fk control itself the whole 30."""
+        snippet = json.loads("{" + doc_code_block(MODULES_DOC, "**`twistRamp`: how much of the fk roll the ik controls take.**", "json") + "}")
+        template = copy.deepcopy(fixtures.load_template("ribbon_fk"))
+        template["rigModules"][0]["moduleArgs"]["twistRamp"] = snippet["moduleArgs"]["twistRamp"]
+        self.build(template, self.make_skeleton("ribbon_basic"))
+        cmds.setAttr("rig:tailFK_00_M_CTRL.rotateX", 30)
+        self.assertWorldRotation(rig_name("tailFK_00_M_CTRL"), [30, 0, 0], 1e-4)
+        for control, roll in zip(("tailIK_00_M_CTRL", "tailIK_01_M_CTRL", "tailIK_02_M_CTRL"), (0.0, 10.5, 30.0)):
+            self.assertWorldRotation(rig_name(control), [roll, 0, 0], 1e-4)
 
     def test_modules_doc_wrist_example_sends_up_only_the_hands_twist(self):
         """The 'A wrist that sends up only its twist' snippet goes on the fixture's TwoBoneIk. The hand turned 60 about X (FK)

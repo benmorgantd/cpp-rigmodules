@@ -615,6 +615,81 @@ class RibbonFkStyle(RigTestCase):
         for joint in BIND_JOINTS:
             self.assertWorldRotation(rig_name(joint), [30, 0, 0], 1e-4)
 
+    # ---- twistRamp (D75) ------------------------------------------------------------------------
+    # The ik controls are at u = 0, 0.5 and 1 and the bind joints at 0, 0.25, 0.5, 0.75 and 1. Rolling the first fk control rolls
+    # the whole chain, so the fk roll is the same at every ik control, and a control's roll is its share of it. The joints between
+    # the controls ease linearly between their rolls.
+
+    def test_every_ik_control_stores_a_roll_share_of_one_without_a_ramp(self):
+        self._build()
+        module = rig_name("tail_01_M_MOD")
+        self.assertEqual(cmds.getAttr(module + ".fkRollShare", size=True), 3)
+        for j in range(3):
+            self.assertAlmostEqual(cmds.getAttr("%s.fkRollShare[%d]" % (module, j)), 1.0, places=9)
+
+    def test_the_ramp_is_stored_as_one_share_per_ik_control(self):
+        """[[0, 0], [0.5, 0.35], [1, 1]] at u = 0, 0.5 and 1 is 0, 0.35 and 1."""
+        self._build(twistRamp=[[0, 0.0], [0.5, 0.35], [1, 1.0]])
+        module = rig_name("tail_01_M_MOD")
+        for j, share in enumerate((0.0, 0.35, 1.0)):
+            self.assertAlmostEqual(cmds.getAttr("%s.fkRollShare[%d]" % (module, j)), share, places=9)
+
+    def test_a_ramp_of_all_ones_is_the_roll_one_to_one(self):
+        self._build(twistRamp=[[0, 1.0], [1, 1.0]])
+        set_attr(FK_CONTROLS[0], "rotateX", 30)
+        for control in (FIRST, INTERIOR, LAST):
+            self.assertWorldRotation(rig_name(control), [30, 0, 0], 1e-4)
+        for joint in BIND_JOINTS:
+            self.assertWorldRotation(rig_name(joint), [30, 0, 0], 1e-4)
+
+    def test_a_ramp_sheds_the_first_fk_controls_roll_at_the_start_and_eases_it_in(self):
+        """The author's ramp, 0 at the start, 0.35 in the middle and 1 at the end, on a 30 degree roll of the first fk control: the ik
+        controls roll 0, 0.35 * 30 = 10.5 and 30. The joints ease between them: 0, 5.25, 10.5, 20.25 (the middle of 10.5 and 30)
+        and 30. The fk control itself still rolls the whole 30."""
+        self._build(twistRamp=[[0, 0.0], [0.5, 0.35], [1, 1.0]])
+        set_attr(FK_CONTROLS[0], "rotateX", 30)
+        self.assertWorldRotation(rig_name(FK_CONTROLS[0]), [30, 0, 0], 1e-4)
+        for control, roll in zip((FIRST, INTERIOR, LAST), (0.0, 10.5, 30.0)):
+            self.assertWorldRotation(rig_name(control), [roll, 0, 0], 1e-4)
+        for joint, roll in zip(BIND_JOINTS, (0.0, 5.25, 10.5, 20.25, 30.0)):
+            self.assertWorldRotation(rig_name(joint), [roll, 0, 0], 1e-4)
+
+    def test_a_ramp_that_is_zero_everywhere_keeps_every_roll_off_the_ik_controls_and_the_joints(self):
+        self._build(twistRamp=[[0, 0.0]])
+        set_attr(FK_CONTROLS[0], "rotateX", 30)
+        for node in (FIRST, INTERIOR, LAST) + tuple(BIND_JOINTS):
+            self.assertWorldRotation(rig_name(node), [0, 0, 0], 1e-4)
+
+    def test_a_ramp_between_pairs_and_held_outside_them(self):
+        """Pairs at 0.25 (0.2) and 0.75 (0.8): the controls at 0, 0.5 and 1 take 0.2 (held), 0.5 and 0.8 (held) of a 30 degree roll:
+        6, 15 and 24 degrees."""
+        self._build(twistRamp=[[0.25, 0.2], [0.75, 0.8]])
+        set_attr(FK_CONTROLS[0], "rotateX", 30)
+        for control, roll in zip((FIRST, INTERIOR, LAST), (6.0, 15.0, 24.0)):
+            self.assertWorldRotation(rig_name(control), [roll, 0, 0], 1e-4)
+
+    def test_the_ramp_does_not_touch_the_swing(self):
+        """A bend of the middle fk control moves the ik controls and the joints as it does without a ramp: the ramp shares the roll
+        about the curve and nothing else."""
+        self._build(twistRamp=[[0, 0.0], [1, 0.0]])
+        set_attr(FK_CONTROLS[1], "rotateZ", 40)
+        end = [4 + 4 * math.cos(math.radians(40)), 4 * math.sin(math.radians(40)), 0]
+        self.assertWorldTranslation(rig_name(LAST), end, 1e-5)
+        self.assertWorldRotation(rig_name(LAST), [0, 0, 40], 1e-4)
+        self.assertWorldTranslation(rig_name(INTERIOR), [4, 0, 0], 1e-5)
+
+    def test_an_empty_ramp_is_the_default(self):
+        self._build(twistRamp=[])
+        set_attr(FK_CONTROLS[0], "rotateX", 30)
+        for control in (FIRST, INTERIOR, LAST):
+            self.assertWorldRotation(rig_name(control), [30, 0, 0], 1e-4)
+
+    def test_a_ramp_without_fk_style_is_an_error(self):
+        message = self.assertMayaError(lambda: self._build(fkStyle=False, twistRamp=[[0, 0.0], [1, 1.0]]))
+        self.assertIn("twistRamp", message)
+        self.assertIn("fkStyle", message)
+        self.assertNothingBuilt()
+
     def test_an_ik_control_moves_the_curve_without_moving_the_fk_chain(self):
         self._build()
         before = translation(FK_CONTROLS[2])

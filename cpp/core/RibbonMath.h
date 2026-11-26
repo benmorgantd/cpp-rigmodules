@@ -14,6 +14,10 @@
 
 #include "VectorMath.h"
 
+#include <array>
+#include <string>
+#include <vector>
+
 namespace RibbonMath
 {
 	// The caps that keep evaluation allocation-free. The plan step rejects a template over them.
@@ -28,6 +32,13 @@ namespace RibbonMath
 	Mat4 multiply(const Mat4& a, const Mat4& b);
 	// The inverse of a rigid matrix (orthonormal axes), which every frame the ribbon builds at rest is.
 	Mat4 inverseRigid(const Mat4& a);
+
+	inline std::array<double, MaxControls> unitShares()
+	{
+		std::array<double, MaxControls> shares;
+		shares.fill(1.0);
+		return shares;
+	}
 
 	// The animator's channels, in internal units (angles in radians). The defaults are the rest: the ribbon at its rest
 	// controls and these values reproduces the rest pose (D34).
@@ -84,6 +95,9 @@ namespace RibbonMath
 		bool corner[MaxControls]{};         // with fkAnchors: the controls that sit at an interior anchor's parameter, whose corner they share
 		double fkRollRest[MaxControls]{};   // each fk control's rest roll about the base curve's tangent (what the ik controls' roll is measured from)
 		double fkRollRestIn[MaxControls]{}; // the same measured on the side the curve arrives at it: at a corner (Params::cornerSoftness) the two differ
+		// How much of the fk roll each ik control takes (the template's twistRamp, applyTwistRamp): the control's roll about the curve is
+		// this share of the fk chain's roll at its parameter, and so is the twist the bind joints ease through at it. 1 is all of it.
+		std::array<double, MaxControls> fkRollShare{ unitShares() };
 		Mat4 bindOffset[MaxBindJoints];     // a bind joint's rest in the detail curve's frame at its parameter
 	};
 
@@ -121,6 +135,15 @@ namespace RibbonMath
 
 	// Fills setup.fkRollRest from the fk rest matrices, once setup.fkKnotU, restTangent, restUp and chainSign are set.
 	void fkRollRests(Setup& setup);
+
+	// The template's twistRamp: [position, share] pairs along the ribbon, positions in [0, 1].
+	using TwistRamp = std::vector<std::array<double, 2>>;
+	// True when the ramp is usable: at least one pair, positions finite, in [0, 1] and strictly increasing, shares finite and in [0, 1].
+	// Otherwise false, with the reason in outReason.
+	bool validateTwistRamp(const TwistRamp& ramp, std::string& outReason);
+	// Sets setup.fkRollShare[j] to the ramp at knotU[j], once setup.knotU and controlCount are set: linear between the pairs, and held at
+	// the first and last share outside them. An empty ramp leaves every share at 1, which is the roll 1:1. The ramp must be valid.
+	void applyTwistRamp(Setup& setup, const TwistRamp& ramp);
 
 	// Fills the Setup from the controls' and the bind joints' rest world matrices, and the fk controls' when `fkCount` is above 0.
 	// False, with a reason, when the rest is unusable: a control, fk control or bind count out of range, controls on top of each

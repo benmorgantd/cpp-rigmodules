@@ -375,6 +375,8 @@ namespace RigAttr
 	// The fk chain's rest roll about the curve, one per fk control, stored so no evaluation rebuilds the rest curve to measure it.
 	inline constexpr const char* FkRollRest{ "fkRollRest" };
 	inline constexpr const char* FkRollRestIn{ "fkRollRestIn" };
+	// How much of the fk roll each ik control takes, one per ik control (the template's twistRamp evaluated at its parameter). 1 is all of it.
+	inline constexpr const char* FkRollShare{ "fkRollShare" };
 	// Limb (D62): the ribbon ik controls' offsets from the curve, apart from IkRestOffset, which is the two-bone limb's.
 	inline constexpr const char* RibbonIkRestOffset{ "ribbonIkRestOffset" };
 	// Limb channel on the settings control: how round the elbow is. 0 is a sharp corner (the default), 1 the smooth curve.

@@ -1,0 +1,17 @@
+{
+  "description": "twistRamp shares are 0 to 1 (D75)",
+  "base": "ribbon_fk",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/twistRamp",
+      "value": [[0, 0.0], [1, 1.5]]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "outside 0 to 1",
+      "path": "rigModules[0] 'tail_01_M_MOD'.moduleArgs.twistRamp"
+    }
+  ]
+}

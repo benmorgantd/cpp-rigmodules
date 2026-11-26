@@ -469,8 +469,8 @@ namespace RibbonMath
 				{
 					// The ends' own twist is in their local matrix, so their frame carries none.
 					const double ramp = j == 0 || j == last ? 0.0 : setup.chainSign * twists.at(setup.knotU[j]);
-						// Every ik control also turns with the fk chain's roll at its parameter, so it follows the fk controls 1:1.
-						const double angle = ramp + fkRollAt(setup, base.fkRollOut, base.fkRollIn, setup.knotU[j], false);
+						// Every ik control also turns with the fk chain's roll at its parameter, by its share of it (twistRamp, 1 is 1:1).
+						const double angle = ramp + setup.fkRollShare[j] * fkRollAt(setup, base.fkRollOut, base.fkRollIn, setup.knotU[j], false);
 					output.controlOPM[j] = multiply(setup.ikOffset[j], frameMatrix(base.spline, base.table, setup.knotU[j], angle));
 					output.controlWorld[j] = multiply(input.local[j], output.controlOPM[j]);
 				}
@@ -635,11 +635,12 @@ namespace RibbonMath
 				// The fk chain's roll about the curve is twist the skin must follow, a Limb's anchors and a fkStyle ribbon's fk controls
 				// alike: it eases between them like the ends' ramp. The ik controls' own frames already carry it (evaluateControlsInternal),
 				// but the detail curve starts from the rest up, so without this the bind joints stay untwisted while the ik controls turn.
-				// fkRoll is already about the forward tangent, so chainSign is not applied again.
+				// fkRoll is already about the forward tangent, so chainSign is not applied again. The share is the ik control's, so the
+				// bind joints turn with the control however much of the roll the template lets through.
 				for (int j = 0; j < count; ++j)
 				{
-					detail.twistOut[j] += fkRollAt(setup, base.fkRollOut, base.fkRollIn, setup.knotU[j], true);
-					detail.twistIn[j] += fkRollAt(setup, base.fkRollOut, base.fkRollIn, setup.knotU[j], false);
+					detail.twistOut[j] += setup.fkRollShare[j] * fkRollAt(setup, base.fkRollOut, base.fkRollIn, setup.knotU[j], true);
+					detail.twistIn[j] += setup.fkRollShare[j] * fkRollAt(setup, base.fkRollOut, base.fkRollIn, setup.knotU[j], false);
 				}
 			}
 			detail.lengthRatio = std::min(kMaxLengthRatio, std::max(kMinLengthRatio, liveLength / setup.restLength));
@@ -759,6 +760,63 @@ namespace RibbonMath
 		{
 			setup.fkRollRest[k] = rollAtKnot(base, k, k < last, setup.fkRest[k]);
 			setup.fkRollRestIn[k] = k > 0 ? rollAtKnot(base, k, false, setup.fkRest[k]) : setup.fkRollRest[0];
+		}
+	}
+
+	bool validateTwistRamp(const TwistRamp& ramp, std::string& outReason)
+	{
+		if (ramp.empty())
+		{
+			outReason = "needs at least one [position, share] pair";
+			return false;
+		}
+		for (std::size_t i = 0; i < ramp.size(); ++i)
+		{
+			const double position = ramp[i][0];
+			const double share = ramp[i][1];
+			if (!(position >= 0.0 && position <= 1.0))
+			{
+				outReason = "pair " + std::to_string(i) + " has position " + std::to_string(position) + ", which is outside 0 to 1";
+				return false;
+			}
+			if (i > 0 && !(position > ramp[i - 1][0]))
+			{
+				outReason = "pair " + std::to_string(i) + " has position " + std::to_string(position) + ", which does not come after the one before it";
+				return false;
+			}
+			if (!(share >= 0.0 && share <= 1.0))
+			{
+				outReason = "pair " + std::to_string(i) + " has share " + std::to_string(share) + ", which is outside 0 to 1";
+				return false;
+			}
+		}
+		return true;
+	}
+
+	void applyTwistRamp(Setup& setup, const TwistRamp& ramp)
+	{
+		if (ramp.empty())
+		{
+			return;
+		}
+		for (int j = 0; j < setup.controlCount; ++j)
+		{
+			const double u = setup.knotU[j];
+			if (u <= ramp.front()[0])
+			{
+				setup.fkRollShare[j] = ramp.front()[1];
+				continue;
+			}
+			setup.fkRollShare[j] = ramp.back()[1];
+			for (std::size_t i = 1; i < ramp.size(); ++i)
+			{
+				if (u <= ramp[i][0])
+				{
+					const double s = (u - ramp[i - 1][0]) / (ramp[i][0] - ramp[i - 1][0]);
+					setup.fkRollShare[j] = ramp[i - 1][1] + (ramp[i][1] - ramp[i - 1][1]) * s;
+					break;
+				}
+			}
 		}
 	}
 
