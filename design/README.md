@@ -58,6 +58,8 @@ Otherwise none. `control-node-perf-handoff.md` (above) is a design handoff with 
 | [`asset-build-fallbacks.md`](asset-build-fallbacks.md) | D70 | Builds that survive a changed skeleton, mesh or weights: the fallback ladder (phase 1 built), the transfer (open, no mesh data in the weight files), draft and baseline gates |
 | [`asset-build-fallbacks-handoff.md`](asset-build-fallbacks-handoff.md) | D70 | Where the D70 design stood at the cloud handoff (phase 1 has since been built: see D70) |
 | [`engine-rig.md`](engine-rig.md) | none | Running the rig in Unreal. Speculation, unverified |
+| [`command-results.md`](command-results.md) | none yet | One JSON envelope for command results and errors (domain failures as `ok: false`, misuse as `kFailure`), built in `core/`, for scripts and an MCP server. Proposal, not signed off |
+| [`ml-solve.md`](ml-solve.md) | D76 | Machine learning on the animation formats: mocap solving, blending, tweening, a non-ML baseline first. Early exploration |
 
 ## Archive
 

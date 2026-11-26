@@ -89,6 +89,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D73 | Markers: placed points that follow a joint, in a `markers.json` of their own, stamped on the rig and on animation | Decided | [data](decisions/data.md) |
 | D74 | ReverseFoot: a foot module on a Limb, with roll, pivot and toe channels (five pivots: the toe pivot is the ball of the foot, 2026-11-25), an FK toe, a blend driven by the limb (`ikFkDriver`) and an inverse that solves `footRoll`, `bank` and `toeTap` ("subtract the sidecar", read in the handle's space, a per-Limb pre-pass in the sweep, the match with a raised foot) | Decided | [modules](decisions/modules.md) |
 | D75 | `twistRamp`: a template-set `[position, share]` ramp for how much of the fk roll each Ribbon (`fkStyle`) or Limb ik control takes. Default 1:1. Not a channel. Amends D59 and D62. Built 2026-11-25 | Decided | [modules](decisions/modules.md) |
+| D76 | Machine learning on the animation formats (mocap solving, blending, tweening) fits the design with no plugin change: models work in joint space, and a non-ML key reducer is the baseline. Exploration, not built | Open | [data](decisions/data.md) |
 
 ---
 
