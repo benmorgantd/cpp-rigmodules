@@ -249,7 +249,7 @@ Every command is an `MPxCommand` with the same shape (D14):
 | `RigPoseCmds` | `zeroRigControls`, `mirrorRigPose`, `flipRigPose`, `saveRigPose`, `loadRigPose` | `RigPoseScene`, and `RigDataFileScene` for a save's meta |
 | `RigKeyCmds` | `getRigKeys`, `setRigKeys`, `saveRigAnimation`, `loadRigAnimation` | `RigKeyScene`, and `RigDataFileScene` for a save's meta |
 | `RigInverseCmds` | `poseRigFromJointPose`, `animateRigFromJointClip` | `RigInverse`, then `RigPoseScene` or `RigKeyScene` |
-| `TwoBoneIkCmds` | `setRigIkFkBlend` | The module's match outputs, then `RigPoseScene` |
+| `TwoBoneIkCmds` | `setRigIkFkBlend` | The module's match outputs and its feet's (`RigTraversal::getBlendFollowers`), then `RigPoseScene` |
 | `RigInfoCmd` | `getRigInfo` | `RigTraversal` |
 | `RigLookCmd` | `setRigLook` | `LookScene` |
 | `RigDataFileCmds` | `getRigDataFileInfo`, `setRigDataFileMeta` | `LibraryFile` in `core/`, `RigDataFileScene` |

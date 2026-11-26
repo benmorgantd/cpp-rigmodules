@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <map>
 
+#include <maya/MFnAttribute.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
 #include <maya/MObjectHandle.h>
@@ -349,6 +350,33 @@ MStatus RigTraversal::getModuleControls(const MObject& oModule, MObjectArray& oO
 			{
 				oOutControls.append(oControl);
 			}
+		}
+	}
+	return MStatus::kSuccess;
+}
+
+MStatus RigTraversal::getBlendFollowers(const MObject& oModule, MObjectArray& oOutFollowers)
+{
+	oOutFollowers.clear();
+
+	MFnDependencyNode fnModule(oModule);
+	if (!fnModule.hasAttribute(RigAttr::IkFkBlend))
+	{
+		return MStatus::kSuccess;   // a module type without a blend
+	}
+
+	MStatus status;
+	const MPlug pBlend = fnModule.findPlug(RigAttr::IkFkBlend, false, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	MPlugArray pDestinations;
+	pBlend.connectedTo(pDestinations, false, true);
+	for (unsigned int i = 0; i < pDestinations.length(); ++i)
+	{
+		const MObject oFollower = pDestinations[i].node();
+		const bool isFollowerBlend = MFnAttribute(pDestinations[i].attribute()).name() == RigAttr::IkFkBlend;
+		if (isFollowerBlend && getNodeModule(oFollower) == oFollower)
+		{
+			oOutFollowers.append(oFollower);
 		}
 	}
 	return MStatus::kSuccess;

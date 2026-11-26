@@ -4,6 +4,7 @@
 #include "core/JsonUtils.h"
 #include "core/PoseFile.h"
 #include "maya/modules/LimbModule.h"
+#include "maya/modules/ReverseFootModule.h"
 #include "maya/modules/TwoBoneIkModule.h"
 #include "maya/shared/RigPoseScene.h"
 #include "maya/shared/RigTraversal.h"
@@ -13,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include <maya/MAngle.h>
 #include <maya/MArgDatabase.h>
 #include <maya/MFnDependencyNode.h>
 #include <maya/MGlobal.h>
@@ -52,6 +54,106 @@ namespace
 	{
 		const MPlug pArray = MFnDependencyNode(oModule).findPlug(attrName, false);
 		return DagUtils::getMatrixFromPlug(pArray.elementByLogicalIndex(slot));
+	}
+
+	// A matched local into the pose, as channel values in the control's own rotate order and nearest its current rotation. What the channels
+	// can't hold is a warning.
+	MStatus addMatchedLocal(const MObject& oControl, const MMatrix& mLocal, PoseMap& pose, std::vector<std::string>& warnings)
+	{
+		ControlMarkup markup;
+		std::vector<RigPoseScene::Channel> channels;
+		MStatus status = RigTraversal::getControlMarkup(oControl, markup);
+		if (status)
+		{
+			status = RigPoseScene::getControlChannels(oControl, channels);
+		}
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		std::vector<double> values(channels.size(), 0.0);
+		MEulerRotation rotation = RigPoseScene::getControlRotation(oControl);
+		const RigPoseScene::LocalFit fit = RigPoseScene::fitLocalToChannels(oControl, channels, mLocal, rotation, values);
+
+		const std::string label = DagUtils::getPartialPathName(oControl).asChar();
+		if (fit.hasShear)
+		{
+			warnings.push_back(label + " has shear in its matched pose, which its channels can't hold. Position and rotation match, the shape may not.");
+		}
+		if (fit.leavesChannels)
+		{
+			warnings.push_back(label + ": locked or driven channels kept their values, so the control may not match the pose.");
+		}
+		PoseChannels& poseChannels = pose[markup.side][markup.usage];
+		for (const std::size_t i : fit.written)
+		{
+			poseChannels.emplace_back(channels[i].info.name, RigPoseScene::toUiUnits(channels[i], values[i]));
+		}
+		return MStatus::kSuccess;
+	}
+
+	// A foot that follows the limb's blend (D74), matched as the limb is: its toe FK control from fkMatchLocal, and toeTap on the foot control
+	// from ikMatchToeTap, with the foot's other channels kept. Adds the foot's controls to the scope. The foot's matchWarnings are its IK
+	// side's, so they are reported only for a switch toward IK.
+	MStatus addMatchedFoot(const MObject& oFoot, double blend, RigControlScope& scope, PoseMap& pose, std::vector<std::string>& warnings)
+	{
+		const MString footName = MFnDependencyNode(oFoot).name();
+		MObjectArray oFootControls;
+		MStatus status = RigTraversal::getModuleControls(oFoot, oFootControls);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		if (oFootControls.length() != ReverseFootSlot::ControlCount)
+		{
+			warnings.push_back(std::string(footName.asChar()) + " has " + std::to_string(oFootControls.length()) + " controls, not the "
+				+ std::to_string(ReverseFootSlot::ControlCount) + " a ReverseFoot has, so its toe was not matched.");
+			return MStatus::kSuccess;
+		}
+		for (unsigned int i = 0; i < oFootControls.length(); ++i)
+		{
+			scope.oControls.append(oFootControls[i]);
+		}
+
+		status = addMatchedLocal(oFootControls[ReverseFootSlot::ToeFk], readMatchLocal(oFoot, RigAttr::FkMatchLocal, ReverseFootSlot::ToeFk), pose, warnings);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		const MObject& oFootControl = oFootControls[ReverseFootSlot::Foot];
+		ControlMarkup markup;
+		std::vector<RigPoseScene::Channel> channels;
+		status = RigTraversal::getControlMarkup(oFootControl, markup);
+		if (status)
+		{
+			status = RigPoseScene::getControlChannels(oFootControl, channels);
+		}
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		const auto toeTap = std::find_if(channels.begin(), channels.end(), [](const RigPoseScene::Channel& channel)
+		{
+			return channel.info.name == RigAttr::ToeTap;
+		});
+		const MFnDependencyNode fnFoot(oFoot);
+		if (toeTap != channels.end())
+		{
+			const double radians = fnFoot.findPlug(RigAttr::IkMatchToeTap, false).asMAngle().asRadians();
+			pose[markup.side][markup.usage].emplace_back(RigAttr::ToeTap, RigPoseScene::toUiUnits(*toeTap, radians));
+		}
+		else
+		{
+			warnings.push_back(DagUtils::getPartialPathName(oFootControl).asChar() + std::string(": ") + RigAttr::ToeTap
+				+ " is locked or driven, so the IK toe was not matched.");
+		}
+
+		if (blend > 0.0)
+		{
+			std::vector<std::string> footWarnings;
+			std::string error;
+			const MString warningText = fnFoot.findPlug(RigAttr::MatchWarnings, false).asString();
+			if (!JsonUtils::readJsonString(std::string(warningText.asChar()), footWarnings, error))
+			{
+				MGlobal::displayError(footName + "'s " + RigAttr::MatchWarnings + " is not a JSON list: " + error.c_str());
+				return MStatus::kFailure;
+			}
+			for (const std::string& warning : footWarnings)
+			{
+				warnings.push_back(std::string(footName.asChar()) + ": " + warning);
+			}
+		}
+		return MStatus::kSuccess;
 	}
 }
 
@@ -142,34 +244,21 @@ MStatus SetRigIkFkBlendCmd::doIt(const MArgList& args)
 	PoseMap pose;
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Settings; ++slot)
 	{
-		const MObject& oControl = scope.oControls[slot];
-		ControlMarkup markup;
-		std::vector<RigPoseScene::Channel> channels;
-		status = RigTraversal::getControlMarkup(oControl, markup);
-		if (status)
-		{
-			status = RigPoseScene::getControlChannels(oControl, channels);
-		}
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
 		const MMatrix mLocal = readMatchLocal(oModule, slot < TwoBoneIkSlot::LimbCount ? RigAttr::FkMatchLocal : RigAttr::IkMatchLocal, slot);
-		std::vector<double> values(channels.size(), 0.0);
-		MEulerRotation rotation = RigPoseScene::getControlRotation(oControl);
-		const RigPoseScene::LocalFit fit = RigPoseScene::fitLocalToChannels(oControl, channels, mLocal, rotation, values);
+		status = addMatchedLocal(scope.oControls[slot], mLocal, pose, warnings);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+	}
 
-		const std::string label = DagUtils::getPartialPathName(oControl).asChar();
-		if (fit.hasShear)
+	// 2b. The feet that follow this limb's blend (D74). Their match outputs are pulled here, before any write, from the pose as it is.
+	MObjectArray oFollowers;
+	status = RigTraversal::getBlendFollowers(oModule, oFollowers);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	for (unsigned int i = 0; i < oFollowers.length(); ++i)
+	{
+		if (MFnDependencyNode(oFollowers[i]).typeId() == ReverseFootModuleNode::id)
 		{
-			warnings.push_back(label + " has shear in its matched pose, which its channels can't hold. Position and rotation match, the shape may not.");
-		}
-		if (fit.leavesChannels)
-		{
-			warnings.push_back(label + ": locked or driven channels kept their values, so the control may not match the pose.");
-		}
-		PoseChannels& poseChannels = pose[markup.side][markup.usage];
-		for (const std::size_t i : fit.written)
-		{
-			poseChannels.emplace_back(channels[i].info.name, RigPoseScene::toUiUnits(channels[i], values[i]));
+			status = addMatchedFoot(oFollowers[i], blend, scope, pose, warnings);
+			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 	}
 

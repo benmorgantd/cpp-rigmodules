@@ -341,6 +341,9 @@ namespace RigAttr
 	inline constexpr const char* FkMatchLocal{ "fkMatchLocal" };
 	inline constexpr const char* IkMatchLocal{ "ikMatchLocal" };
 	inline constexpr const char* MatchWarnings{ "matchWarnings" };
+	// The ReverseFoot's match outputs (D74) reuse FkMatchLocal (its toe FK control's slot) and MatchWarnings (what its IK side can't
+	// hold), and add the toeTap that puts the IK toe on the toe as it is.
+	inline constexpr const char* IkMatchToeTap{ "ikMatchToeTap" };
 
 	// Ribbon channels (D56), all on the first control. Each is the attribute on that control and the input of the same
 	// name on the module. Public API: saved poses and animation key on them.
@@ -546,6 +549,7 @@ namespace ReverseFootSlot
 	// ankle are on the base outputSocketMatrix from index 1 (index 0 of that array is never used: getSocketMatrixPlug sends index 0 to the ankle
 	// array): the toe, the toe tip, then one per pivot in chain order.
 	inline constexpr unsigned int ToeFk{ 1 };
+	inline constexpr unsigned int ControlCount{ 2 };
 	inline constexpr unsigned int ToeJoint{ 0 };
 	inline constexpr unsigned int ToeTipJoint{ 1 };
 	inline constexpr unsigned int ToeSocket{ 1 };

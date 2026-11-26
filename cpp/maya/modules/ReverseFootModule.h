@@ -6,11 +6,13 @@
 #include "maya/shared/Side.h"
 
 #include <array>
+#include <span>
 #include <string>
 #include <vector>
 
 #include <maya/MDagModifier.h>
 #include <maya/MDataBlock.h>
+#include <maya/MMatrix.h>
 #include <maya/MObject.h>
 #include <maya/MPlug.h>
 #include <maya/MStatus.h>
@@ -57,6 +59,12 @@ public:
 	static MObject aIkFkBlend;          // 0 is FK and 1 is IK. Connected from the driver's ikFkBlend in pass 2, never keyed
 	static MObject aFkVisible;          // 1 below blend 1: the toe FK control is visible
 	static MObject aIkVisible;          // 1 above blend 0: the foot control is visible
+	// The match outputs, pulled only by setRigIkFkBlend (never in playback), as the Limb's are: the toe FK control's local that puts the FK toe
+	// on the toe as it is (element ReverseFootSlot::ToeFk), the toeTap that puts the IK toe there with the other channels kept, and a JSON
+	// list of what the IK side can't hold.
+	static MObject aFkMatchLocal;
+	static MObject aIkMatchToeTap;
+	static MObject aMatchWarnings;
 
 public:
 	// The foot's input for one build, from the plan step.
@@ -101,9 +109,32 @@ public:
 	static std::string pivotSocketName(FootSolve::Role role);
 
 private:
+	// What stage 2 reads, and the toe it solves (the blend of the IK and FK toes). computeToe writes it out and computeMatch matches it.
+	struct ToeSolve
+	{
+		std::array<FootSolve::Pivot, ReverseFootSlot::PivotCap> pivots;
+		std::size_t pivotCount{ 0 };
+		FootSolve::Channels channels;
+		FootSolve::Frame frame;
+		MMatrix mToeRest;
+		MMatrix mToeTipRest;
+		MMatrix mAnkleRest;
+		MMatrix mAnkleDelta;    // the ankle plug's motion since rest: the ankle as it really is
+		MMatrix mHandleDelta;   // the ik plug's motion since rest
+		MMatrix mToe;
+
+		std::span<const FootSolve::Pivot> chain() const
+		{
+			return std::span<const FootSolve::Pivot>(pivots.data(), pivotCount);
+		}
+	};
+
 	MStatus computeControl(const MPlug& plug, MDataBlock& data);
 	MStatus computeAnkle(const MPlug& plug, MDataBlock& data);
 	MStatus computeToe(const MPlug& plug, MDataBlock& data);
+	MStatus computeMatch(const MPlug& plug, MDataBlock& data);
+	// Fills outSolve. outIsBuilt is false when the build has not stored the pivots, the joints' rests or the controls yet.
+	static MStatus solveToe(MDataBlock& data, ToeSolve& outSolve, bool& outIsBuilt);
 	// The pivots from their stored arrays. False when the roles and positions do not pair up or there are none (not built yet).
 	static bool readPivots(MDataBlock& data, std::array<FootSolve::Pivot, ReverseFootSlot::PivotCap>& outPivots, std::size_t& outCount);
 	static FootSolve::Channels readChannels(MDataBlock& data);

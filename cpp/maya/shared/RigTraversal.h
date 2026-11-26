@@ -74,6 +74,10 @@ public:
 	// A module's controls in controlMessage index order.
 	static MStatus getModuleControls(const MObject& oModule, MObjectArray& oOutControls);
 
+	// The modules that follow a module's ik/fk blend (ModuleInterface::blendDriver, the ReverseFoot, D74): those whose ikFkBlend the build
+	// connected from the module's own. Empty for a module with no blend or no followers.
+	static MStatus getBlendFollowers(const MObject& oModule, MObjectArray& oOutFollowers);
+
 	// The module's template moduleType ("FkChain"), from its node type. Empty for a node the registry doesn't know.
 	static std::string getModuleType(const MObject& oModule);
 

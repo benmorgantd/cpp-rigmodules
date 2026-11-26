@@ -1,6 +1,7 @@
 #include "maya/modules/ReverseFootModule.h"
 #include "core/Constants.h"
 #include "core/FootSolve.h"
+#include "core/JsonUtils.h"
 #include "core/NamingConvention.h"
 #include "maya/nodes/RigControlNode.h"
 #include "maya/shared/RigModule.h"
@@ -22,10 +23,12 @@
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnNumericAttribute.h>
+#include <maya/MFnStringData.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnUnitAttribute.h>
 #include <maya/MMatrix.h>
 #include <maya/MPlug.h>
+#include <maya/MProfiler.h>
 #include <maya/MVector.h>
 
 MTypeId ReverseFootModuleNode::id(0x002194);
@@ -41,9 +44,16 @@ MObject ReverseFootModuleNode::aIkFkDriver;
 MObject ReverseFootModuleNode::aIkFkBlend;
 MObject ReverseFootModuleNode::aFkVisible;
 MObject ReverseFootModuleNode::aIkVisible;
+MObject ReverseFootModuleNode::aFkMatchLocal;
+MObject ReverseFootModuleNode::aIkMatchToeTap;
+MObject ReverseFootModuleNode::aMatchWarnings;
 
 namespace
 {
+	// The match warns when the IK toe the matched toeTap makes is turned off the toe by more than this (per rotation element, about
+	// 0.06 degrees): the toe FK control rolled or swivelled it, which toeTap's pitch can't hold.
+	constexpr double kMatchTolerance{ 1e-3 };
+
 	// A pivot marker whose rotation differs from the world's by more than this (per matrix element, about 0.06 degrees)
 	// is reported as not world aligned.
 	constexpr double kWorldAlignedTolerance{ 1e-3 };
@@ -175,6 +185,27 @@ MStatus ReverseFootModuleNode::initialize()
 		CHECK_MSTATUS_AND_RETURN_IT(addAttribute(*pAttr));
 	}
 
+	// The match outputs. Nothing is connected to them, so Maya computes them only when setRigIkFkBlend pulls them.
+	aFkMatchLocal = mAttr.create(RigAttr::FkMatchLocal, RigAttr::FkMatchLocal, MFnMatrixAttribute::kDouble, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setArray(true));
+	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setWritable(false));
+	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(false));
+	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setUsesArrayDataBuilder(true));
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aFkMatchLocal));
+	aIkMatchToeTap = uAttr.create(RigAttr::IkMatchToeTap, RigAttr::IkMatchToeTap, MFnUnitAttribute::kAngle, 0.0, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(uAttr.setWritable(false));
+	CHECK_MSTATUS_AND_RETURN_IT(uAttr.setStorable(false));
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkMatchToeTap));
+	MFnStringData fnEmptyList;
+	const MObject oEmptyList = fnEmptyList.create("[]");
+	aMatchWarnings = tAttr.create(RigAttr::MatchWarnings, RigAttr::MatchWarnings, MFnData::kString, oEmptyList, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	CHECK_MSTATUS_AND_RETURN_IT(tAttr.setWritable(false));
+	CHECK_MSTATUS_AND_RETURN_IT(tAttr.setStorable(false));
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aMatchWarnings));
+
 	// AFFECTS RELATIONSHIPS. Not declareStandardAffects: it wires the inputs to every output, and each output here is affected by exactly what
 	// its compute reads. The ankle socket (stage 1) is affected by the ik plug, the channels and the pivots, and never by the ankle plug: that
 	// is what lets the foot feed the Limb's ikTarget and take the Limb's end socket (blindSockets in makeInterface). The controls' offsets and
@@ -201,6 +232,10 @@ MStatus ReverseFootModuleNode::initialize()
 	{
 		attributeAffects(oInput, aJointOPM);
 		attributeAffects(oInput, aOutputSocketMatrix);
+		// The match reads what the toe does.
+		attributeAffects(oInput, aFkMatchLocal);
+		attributeAffects(oInput, aIkMatchToeTap);
+		attributeAffects(oInput, aMatchWarnings);
 	}
 	attributeAffects(aIkFkBlend, aFkVisible);
 	attributeAffects(aIkFkBlend, aIkVisible);
@@ -221,6 +256,10 @@ MStatus ReverseFootModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	if (oOutputAttr == aJointOPM || oOutputAttr == aOutputSocketMatrix)
 	{
 		return computeToe(plug, data);
+	}
+	if (oOutputAttr == aFkMatchLocal || oOutputAttr == aIkMatchToeTap || oOutputAttr == aMatchWarnings)
+	{
+		return computeMatch(plug, data);
 	}
 	if (oOutputAttr == aFkVisible || oOutputAttr == aIkVisible)
 	{
@@ -348,54 +387,53 @@ MStatus ReverseFootModuleNode::computeAnkle(const MPlug& plug, MDataBlock& data)
 //      and aims at where the toe pivot is.
 //  FK: the toe's rest carried by the actual ankle's motion since rest, with the toe FK control's local on top.
 // The toe tip rides the blended toe rigidly.
-MStatus ReverseFootModuleNode::computeToe(const MPlug& plug, MDataBlock& data)
+MStatus ReverseFootModuleNode::solveToe(MDataBlock& data, ToeSolve& outSolve, bool& outIsBuilt)
 {
 	MStatus status;
+	outIsBuilt = false;
 
-	std::array<FootSolve::Pivot, ReverseFootSlot::PivotCap> pivots;
-	std::size_t pivotCount = 0;
 	MArrayDataHandle hJointRest = data.inputArrayValue(aJointRestWorld, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	MArrayDataHandle hControlInputData = data.inputArrayValue(aControlInputData, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	MMatrix mToeFkLocal = MMatrix::identity;
 	MMatrix mToeFkRest = MMatrix::identity;
-	if (!readPivots(data, pivots, pivotCount)
+	if (!readPivots(data, outSolve.pivots, outSolve.pivotCount)
 		|| hJointRest.jumpToElement(ReverseFootSlot::ToeJoint) != MStatus::kSuccess
 		|| readControlInput(hControlInputData, ReverseFootSlot::ToeFk, mToeFkLocal, mToeFkRest) != MStatus::kSuccess)
 	{
 		// Not built yet: the build stores the pivots, the joints' rests and the controls after it creates the node.
-		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
-	const MMatrix mToeRest = hJointRest.inputValue().asMatrix();
+	outSolve.mToeRest = hJointRest.inputValue().asMatrix();
 	if (hJointRest.jumpToElement(ReverseFootSlot::ToeTipJoint) != MStatus::kSuccess)
 	{
-		data.setClean(plug);
 		return MStatus::kSuccess;
 	}
-	const MMatrix mToeTipRest = hJointRest.inputValue().asMatrix();
+	outSolve.mToeTipRest = hJointRest.inputValue().asMatrix();
 
-	const FootSolve::Channels channels = readChannels(data);
-	const std::span<const FootSolve::Pivot> chain(pivots.data(), pivotCount);
-	const FootSolve::Frame frame = FootSolve::footFrame(chain);
+	outSolve.channels = readChannels(data);
+	const std::span<const FootSolve::Pivot> chain = outSolve.chain();
+	outSolve.frame = FootSolve::footFrame(chain);
 
 	MArrayDataHandle hChildPlugs = data.inputArrayValue(aChildPlugs, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	const MMatrix mHandleDelta = readChildPlugParentDelta(hChildPlugs, ReverseFootSlot::IkPlug);
-	const MMatrix mAnkleRest = data.inputValue(aAnkleRestWorld).asMatrix();
-	const MMatrix mAnkleDelta = data.inputValue(aAnklePlugConnected).asBool()
+	outSolve.mHandleDelta = readChildPlugParentDelta(hChildPlugs, ReverseFootSlot::IkPlug);
+	outSolve.mAnkleRest = data.inputValue(aAnkleRestWorld).asMatrix();
+	outSolve.mAnkleDelta = data.inputValue(aAnklePlugConnected).asBool()
 		? MathUtils::computeDeltaFromRest(data.inputValue(aAnklePlugRestMatrix).asMatrix(), data.inputValue(aAnklePlugMatrix).asMatrix())
 		: MMatrix::identity;
+	const MMatrix& mToeRest = outSolve.mToeRest;
+	const MMatrix& mAnkleRest = outSolve.mAnkleRest;
 
 	// IK. A foot with no toe pivot has the toe ride the ankle's motion, with no tap.
 	const int toeIndex = FootSolve::findPivot(chain, FootSolve::Role::Toe);
 	const MMatrix mToeMotion = MathUtils::toMMatrix(toeIndex >= 0
-		? FootSolve::toeMotion(chain, static_cast<std::size_t>(toeIndex), frame, channels)
-		: FootSolve::ankleMotion(chain, frame, channels));
-	MMatrix mIkToe = mToeRest * mToeMotion * mHandleDelta;
+		? FootSolve::toeMotion(chain, static_cast<std::size_t>(toeIndex), outSolve.frame, outSolve.channels)
+		: FootSolve::ankleMotion(chain, outSolve.frame, outSolve.channels));
+	MMatrix mIkToe = mToeRest * mToeMotion * outSolve.mHandleDelta;
 	const MVector vRestBone(mToeRest(3, 0) - mAnkleRest(3, 0), mToeRest(3, 1) - mAnkleRest(3, 1), mToeRest(3, 2) - mAnkleRest(3, 2));
-	const MMatrix mActualAnkle = mAnkleRest * mAnkleDelta;
+	const MMatrix mActualAnkle = mAnkleRest * outSolve.mAnkleDelta;
 	const MVector vActualAnkle(mActualAnkle(3, 0), mActualAnkle(3, 1), mActualAnkle(3, 2));
 	const MVector vToAim = MVector(mIkToe(3, 0), mIkToe(3, 1), mIkToe(3, 2)) - vActualAnkle;
 	if (vToAim.length() > VectorMath::kTiny)
@@ -406,11 +444,34 @@ MStatus ReverseFootModuleNode::computeToe(const MPlug& plug, MDataBlock& data)
 		mIkToe(3, 2) = vPulled.z;
 	}
 
-	// FK, then the blend and the toe tip.
-	const MMatrix mFkToe = solveControlStep(mToeFkLocal, mToeRest, mAnkleDelta).mWorld;
+	// FK, then the blend.
+	const MMatrix mFkToe = solveControlStep(mToeFkLocal, mToeRest, outSolve.mAnkleDelta).mWorld;
 	const double blend = std::clamp(data.inputValue(aIkFkBlend).asDouble(), 0.0, 1.0);
-	const MMatrix mToe = MathUtils::blendMatrices(mFkToe, mIkToe, blend);
-	const MMatrix mToeTip = mToeTipRest * mToeRest.inverse() * mToe;
+	outSolve.mToe = MathUtils::blendMatrices(mFkToe, mIkToe, blend);
+	outIsBuilt = true;
+	return MStatus::kSuccess;
+}
+
+MStatus ReverseFootModuleNode::computeToe(const MPlug& plug, MDataBlock& data)
+{
+	MStatus status;
+	ToeSolve solve;
+	bool isBuilt = false;
+	status = solveToe(data, solve, isBuilt);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	if (!isBuilt)
+	{
+		data.setClean(plug);
+		return MStatus::kSuccess;
+	}
+	const std::span<const FootSolve::Pivot> chain = solve.chain();
+	const std::size_t pivotCount = solve.pivotCount;
+	const std::array<FootSolve::Pivot, ReverseFootSlot::PivotCap>& pivots = solve.pivots;
+	const FootSolve::Frame& frame = solve.frame;
+	const FootSolve::Channels& channels = solve.channels;
+	const MMatrix& mHandleDelta = solve.mHandleDelta;
+	const MMatrix& mToe = solve.mToe;
+	const MMatrix mToeTip = solve.mToeTipRest * solve.mToeRest.inverse() * mToe;
 
 	MArrayDataHandle hJointOPM = data.outputArrayValue(aJointOPM, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -428,6 +489,65 @@ MStatus ReverseFootModuleNode::computeToe(const MPlug& plug, MDataBlock& data)
 	}
 	commitOutput(data, plug.node(), aJointOPM, hJointOPM);
 	commitOutput(data, plug.node(), aOutputSocketMatrix, hSocket);
+	data.setClean(plug);
+	return MStatus::kSuccess;
+}
+
+// The match outputs, from the toe as it is at the current blend. The branch allocates (the warnings), which is why only setRigIkFkBlend pulls it.
+//  FK: the toe FK control's local that puts the FK toe on the toe, as the inverse solves it. The ankle plug does not move in the switch: the
+//      Limb's FK match puts its end where it is.
+//  IK: the channels are kept, and the Limb's IK match puts the handle where the foot's motion F lands the ankle as it is (TwoBoneIkPart
+//      computeMatch), so the handle's motion is F^-1 times the ankle's. toeTap is the pitch left in the toe once that is taken out, as the
+//      inverse solves it, and what that pitch can't hold is a warning.
+MStatus ReverseFootModuleNode::computeMatch(const MPlug& plug, MDataBlock& data)
+{
+	MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorC_L2, "reverseFoot computeMatch");   // no such event in a playback profile shows the branch never ran
+	MStatus status;
+	ToeSolve solve;
+	bool isBuilt = false;
+	status = solveToe(data, solve, isBuilt);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	MArrayDataHandle hFkMatch = data.outputArrayValue(aFkMatchLocal, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	double toeTapRadians = VectorMath::toRadians(solve.channels.toeTap);
+	std::vector<std::string> warnings;
+	const std::span<const FootSolve::Pivot> chain = solve.chain();
+	const int toeIndex = isBuilt ? FootSolve::findPivot(chain, FootSolve::Role::Toe) : -1;
+	if (isBuilt)
+	{
+		writeOutputMatrix(hFkMatch, ReverseFootSlot::ToeFk, ModuleInverse::localFromWorld(solve.mToe, solve.mToeRest, solve.mAnkleDelta));
+	}
+	if (toeIndex >= 0)
+	{
+		const std::size_t toePivot = static_cast<std::size_t>(toeIndex);
+		const MMatrix mFoot = MathUtils::toMMatrix(FootSolve::ankleMotion(chain, solve.frame, solve.channels));
+		const MMatrix mHandleDelta = mFoot.inverse() * solve.mAnkleDelta;
+		const MMatrix mToeMotion = solve.mToeRest.inverse() * solve.mToe * mHandleDelta.inverse();
+		FootSolve::Channels matched = solve.channels;
+		matched.toeTap = FootSolve::solveToeTap(chain, toePivot, solve.frame, solve.channels, MathUtils::toMat4(mToeMotion));
+		toeTapRadians = VectorMath::toRadians(matched.toeTap);
+
+		// The IK toe those channels make, against the toe, in rotation only: the IK toe's position is pulled to the bone's length.
+		MMatrix mIkToe = solve.mToeRest * MathUtils::toMMatrix(FootSolve::toeMotion(chain, toePivot, solve.frame, matched)) * mHandleDelta;
+		MMatrix mToe = solve.mToe;
+		for (unsigned int column = 0; column < 3; ++column)
+		{
+			mIkToe(3, column) = 0.0;
+			mToe(3, column) = 0.0;
+		}
+		if (!mIkToe.isEquivalent(mToe, kMatchTolerance))
+		{
+			warnings.push_back("the toe is turned in a way toeTap can't hold (a roll or a swivel), so the IK toe is off from it");
+		}
+	}
+
+	data.outputValue(aIkMatchToeTap).setMAngle(MAngle(toeTapRadians, MAngle::kRadians));
+	data.outputValue(aMatchWarnings).setString(JsonUtils::writeJsonString(warnings).c_str());
+	const MObject oNode = plug.node();
+	commitOutput(data, oNode, aFkMatchLocal, hFkMatch);
+	data.setClean(MPlug(oNode, aIkMatchToeTap));
+	data.setClean(MPlug(oNode, aMatchWarnings));
 	data.setClean(plug);
 	return MStatus::kSuccess;
 }

@@ -1,7 +1,7 @@
 """ReverseFoot (D74, design/reverse-foot.md): contract tests with their inverse round trips, pose cases from fixtures/poses/reverse_foot,
 and what only the foot does: its channels and their mirror modes, the foot control, the plugs and the ankle socket, the markers it
 resolves, the loop check, the graph through the Limb's ikTarget, a foot at rest equal to the Limb alone, and the inverse (phase 5): the
-gauge, the handle's space, and the match with a raised foot.
+gauge, the handle's space, and the match (setRigIkFkBlend): no pop in the ankle with a raised foot, and the toe held both ways.
 
 The foot is the core test foot (tests/core/FootSolveTests.cpp) at a tenth of its size on the limb_arm hand at (4, 4, 0), except the toe
 pivot, which sits at the toe joint (4, 3.3, 1.8), 0.1 above the sole: the roll below the break and the ball channels turn about it, so
@@ -31,6 +31,9 @@ LIMB = "arm_01_L_MOD"
 HAND = "hand_00_L_JNT"
 DUMMY = "dummy_00_L_JNT"
 HANDLE = "armIK_00_L_CTRL"
+TOE = "toe_00_L_JNT"
+TOE_TIP = "toeTip_00_L_JNT"
+TOE_FK = "toeFK_00_L_CTRL"
 
 # name -> (rest in degrees, mirror mode): the 11 channels of design section 8, the animator's names.
 CHANNELS = {
@@ -440,3 +443,50 @@ class ReverseFootInverse(RigTestCase):
         after = jointclips.world(rig_name(HAND))
         self.assertTrue(after.isEquivalent(before, 1e-4), "the ankle popped\n  FK %s\n  IK %s" % (list(before), list(after)))
         self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + ".footRoll")), 20.0, places=4, msg="the match keeps the foot's channels")
+
+    def _assert_toe_holds(self, before, message):
+        for joint in (TOE, TOE_TIP, HAND):
+            after = jointclips.world(rig_name(joint))
+            self.assertTrue(after.isEquivalent(before[joint], 1e-4), "%s %s\n  before %s\n  after  %s" % (joint, message, list(before[joint]), list(after)))
+
+    def _toe_worlds(self):
+        return {joint: jointclips.world(rig_name(joint)) for joint in (TOE, TOE_TIP, HAND)}
+
+    def test_a_match_to_fk_puts_the_toe_fk_control_on_the_toe(self):
+        # The toe tapped and the foot rolled in IK: the match to FK writes the toe FK control, so the toe and toe tip hold.
+        self._build_and_pose({"footRoll": -15.0, "bank": 5.0, "toeTap": 25.0})
+        before = self._toe_worlds()
+        with CapturedWarnings() as warnings:
+            cmds.setRigIkFkBlend(rig_name(LIMB), blend=0)
+        self._assert_toe_holds(before, "popped in the match to FK")
+        self.assertEqual(warnings.messages, [])
+        cmds.undo()
+        self.assertAlmostEqual(cmds.getAttr(rig_name(TOE_FK + ".rotateX")), 0.0, places=6, msg="one undo takes the toe FK control back")
+        self.assertAlmostEqual(cmds.getAttr(rig_name(TOE_FK + ".rotateY")), 0.0, places=6)
+        self.assertAlmostEqual(cmds.getAttr(rig_name(TOE_FK + ".rotateZ")), 0.0, places=6)
+
+    def test_a_match_to_ik_gives_toeTap_the_fk_toes_pitch(self):
+        # Matched to FK, the FK toe holds a toeTap of 20. With toeTap zeroed while in FK (it moves nothing there), the match back to IK
+        # solves it from the FK toe: 20 again, with the toe where it was.
+        self._build_and_pose({"footRoll": 10.0, "toeTap": 20.0})
+        limb = rig_name(LIMB)
+        cmds.setRigIkFkBlend(limb, blend=0)
+        cmds.setAttr(rig_name(FOOT + ".toeTap"), 0.0)
+        before = self._toe_worlds()
+        with CapturedWarnings() as warnings:
+            cmds.setRigIkFkBlend(limb, blend=1)
+        self._assert_toe_holds(before, "popped in the match to IK")
+        self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + ".toeTap")), 20.0, places=3)
+        self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + ".footRoll")), 10.0, places=4, msg="the match keeps the other channels")
+        self.assertEqual(warnings.messages, [])
+
+    def test_a_match_to_ik_warns_when_the_fk_toe_is_turned_off_its_pitch(self):
+        # A toe FK control turned on all three axes has a roll and a swivel that toeTap's pitch can't hold.
+        self._build_and_pose({})
+        limb = rig_name(LIMB)
+        cmds.setRigIkFkBlend(limb, blend=0)
+        for axis in "XYZ":
+            cmds.setAttr(rig_name(TOE_FK + ".rotate" + axis), 15.0)
+        with CapturedWarnings() as warnings:
+            cmds.setRigIkFkBlend(limb, blend=1)
+        self.assertTrue(warnings.contain("toeTap can't hold"), warnings.messages)
