@@ -90,6 +90,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D74 | ReverseFoot: a foot module on a Limb, with roll, pivot and toe channels (five pivots: the toe pivot is the ball of the foot, 2026-11-25), an FK toe, a blend driven by the limb (`ikFkDriver`) and an inverse that solves `footRoll`, `bank` and `toeTap` ("subtract the sidecar", read in the handle's space, a per-Limb pre-pass in the sweep, the match with a raised foot, and `setRigIkFkBlend` matching the toe both ways through the foot's own match outputs, 2026-11-25) | Decided | [modules](decisions/modules.md) |
 | D75 | `twistRamp`: a template-set `[position, share]` ramp for how much of the fk roll each Ribbon (`fkStyle`) or Limb ik control takes. Default 1:1. Not a channel. Amends D59 and D62. Built 2026-11-25 | Decided | [modules](decisions/modules.md) |
 | D76 | Machine learning on the animation formats (mocap solving, blending, tweening) fits the design with no plugin change: models work in joint space, and a non-ML key reducer is the baseline. Exploration, not built | Open | [data](decisions/data.md) |
+| D79 | Push out: a `PushOut` entry in a flat `collisions` list (after the constraints) keeps one control's plug out of one capsule (a joint-relative offset, `radius`, `halfLength`), closed form, stateless, translation only. A temporary display shows the capsule and reports it for the template. Replaces the D77 collision design, parked on the `collision` branch (tag `collision-archive`). Design only, not built | Leaning | [modules](decisions/modules.md) |
 
 ---
 
