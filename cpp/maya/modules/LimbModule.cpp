@@ -363,10 +363,10 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	{
 		writeSolvedSlot(outputs, slot, ik.mControlOPM[slot], ik.mJointWorld[slot]);
 	}
-	// The ribbon's ik controls have no socket, and each bind joint has one (bind_<n>): the tweaker's world, which is the joint's.
+	// Each ribbon ik control has a socket (ribbon_<n>, its world) and each bind joint one (bind_<n>): the tweaker's world, which is the joint's.
 	for (int i = 0; i < controlCount + bindCount; ++i)
 	{
-		writeSolvedSlot(outputs, LimbSlot::FirstRibbon + static_cast<unsigned int>(i), solve.mControlOPM[i], solve.mWorld[i], i >= controlCount);
+		writeSolvedSlot(outputs, LimbSlot::FirstRibbon + static_cast<unsigned int>(i), solve.mControlOPM[i], solve.mWorld[i]);
 	}
 	commitSolvedOutputs(data, plug, aJointOPM, outputs);
 	return MStatus::kSuccess;
@@ -513,9 +513,9 @@ ModuleInverseResult LimbNode::inverse(const ModuleInverseContext& context, const
 
 	// The bind joints' sockets are what a child of one of them follows: the ribbon with the tweakers as they now are.
 	RibbonSolve::evaluate(setup, paramsFromLimbChannels(channelValues), mRest, mLocal, MMatrix::identity, MMatrix::identity, solve, anchors);
-	for (int i = 0; i < bindCount; ++i)
+	for (int i = 0; i < controlCount + bindCount; ++i)
 	{
-		result.socketWorld[LimbSlot::FirstRibbon + static_cast<unsigned int>(controlCount + i)] = solve.mWorld[controlCount + i];
+		result.socketWorld[LimbSlot::FirstRibbon + static_cast<unsigned int>(i)] = solve.mWorld[i];
 	}
 
 	result.solved = ik.solved && hasEveryBindJoint;
@@ -572,7 +572,7 @@ RigModuleBuildResult LimbNode::createModule(
 	}
 
 	// 3. The ribbon's ik controls, which have no joint (D57): created loose, and put under the start plug's DAG parent in pass 2 (the
-	// callback below). Then the tweakers, one per bind joint, hidden and under the first ik control. Neither has a socket or a plug.
+	// callback below). Then the tweakers, one per bind joint, hidden and under the first ik control. Each has a socket (ribbon_<n>, bind_<n>, D78) and neither a plug.
 	const unsigned int controlCount = static_cast<unsigned int>(ribbonControls.size());
 	std::vector<MObject> oRibbonControls;
 	for (unsigned int j = 0; j < controlCount; ++j)
@@ -586,6 +586,16 @@ RigModuleBuildResult LimbNode::createModule(
 			return result;
 		}
 		oRibbonControls.push_back(oControl);
+
+		// The ik control's socket (ribbon_<n>, D78). It carries the control's transform, so a child plug on it parents under the
+		// visible control like an FkChain's. It is not index_<n>: a Limb's index_0 to index_2 are its three joints.
+		RigModuleSocketInfo ribbonSocket;
+		ribbonSocket.oTransform = oControl;
+		ribbonSocket.mRestWorld = input.mRestWorld;
+		ribbonSocket.outputIndex = LimbSlot::FirstRibbon + j;
+		const std::string ribbonSocketName = std::string(PlugAndSocketNames::Ribbon) + std::to_string(j);
+		result.parentSockets[ribbonSocketName] = ribbonSocket;
+		DagPlugAndSocketUtils::setParentSocketNames(oModule, ribbonSocket.outputIndex, { ribbonSocketName }, dagMod);
 	}
 	for (unsigned int i = 0; i < bindJoints.size(); ++i)
 	{
@@ -861,6 +871,10 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 	for (const TwoBoneIkSlotInput& slot : slots)
 	{
 		outPlan.moduleInterface.controls.push_back(slot.controlMarkup);
+	}
+	for (std::size_t j = 0; j < ribbonControls.size(); ++j)
+	{
+		outPlan.moduleInterface.sockets.push_back(std::string(PlugAndSocketNames::Ribbon) + std::to_string(j));
 	}
 	for (std::size_t i = 0; i < bindJoints.size(); ++i)
 	{

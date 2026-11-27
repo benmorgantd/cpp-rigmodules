@@ -122,6 +122,8 @@ private:
 		MMatrix mAnkleDelta;    // the ankle plug's motion since rest: the ankle as it really is
 		MMatrix mHandleDelta;   // the ik plug's motion since rest
 		MMatrix mToe;
+		MMatrix mFootWorld;     // the foot control's world: its rest carried by the handle's motion, its local on top (the foot socket, D78)
+		MMatrix mToeFkWorld;    // the toe FK control's world, whatever the blend (the toeFk socket, D78)
 
 		std::span<const FootSolve::Pivot> chain() const
 		{

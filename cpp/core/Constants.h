@@ -541,6 +541,11 @@ namespace PlugAndSocketNames
 	inline constexpr const char* Bind{ "bind_" };
 	// A Ribbon's fk control sockets (D78): fk_0, fk_1, ... in chain order.
 	inline constexpr const char* Fk{ "fk_" };
+	// A Limb's ribbon ik control sockets (D78): ribbon_0, ribbon_1, ... Not index_<n>, which are the Limb's three joints.
+	inline constexpr const char* Ribbon{ "ribbon_" };
+	// A ReverseFoot's two controls as sockets (D78): the foot (channel) control and the toe FK control. The solved toe joint is `toe`.
+	inline constexpr const char* Foot{ "foot" };
+	inline constexpr const char* ToeFk{ "toeFk" };
 }
 
 // A ReverseFoot's slots (D74). The foot control is control slot 0, and the ik child plug is childPlugs[0]. The ankle socket is element 0 of the
@@ -563,6 +568,10 @@ namespace ReverseFootSlot
 	inline constexpr unsigned int ToeSocket{ 1 };
 	inline constexpr unsigned int ToeTipSocket{ 2 };
 	inline constexpr unsigned int FirstPivotSocket{ 3 };
+	// The two controls' sockets (D78), after the pivots' whole range so a foot with fewer pivots leaves a gap rather than moving them.
+	inline constexpr unsigned int FootSocket{ FirstPivotSocket + PivotCap };
+	inline constexpr unsigned int ToeFkSocket{ FootSocket + 1 };
+	inline constexpr unsigned int SocketCount{ ToeFkSocket + 1 };
 }
 
 // JSON keys in a rig template. Public API: every saved template depends on them.

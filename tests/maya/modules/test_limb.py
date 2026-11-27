@@ -515,6 +515,30 @@ class LimbBindJointWithChild(RigTestCase):
         self.assertTrue(cmds.objExists(rig_name("extra_00_L_JNT")))
 
 
+class LimbRibbonSockets(SolveTestCase):
+    """A Limb has a socket for every ribbon ik control (ribbon_0 to ribbon_4, D78). limb_ribbon_child hangs an FkChain of `extra` (at the
+    third bind joint, (2, 0, 0)) from ribbon_2, so it follows that control's motion since rest, and the socket carries the visible control."""
+
+    EXTRA = "extra_00_L_JNT"
+    CONTROL = RIBBON_IK[2]
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard("limb_ribbon_child", "limb_bind_child")
+
+    def test_the_child_sits_at_rest_and_hangs_under_the_control(self):
+        self.assertWorldTranslation(rig_name(self.EXTRA), [2, 0, 0], 1e-4)
+        parents = cmds.listRelatives(rig_name("extra_00_L_CTRL"), parent=True, fullPath=True) or []
+        self.assertEqual([p.split("|")[-1].lstrip(":") for p in parents], [rig_name(self.CONTROL).lstrip(":")])
+
+    def test_the_child_follows_the_ribbon_control_through_a_move(self):
+        rest = translation(self.CONTROL)
+        cmds.setAttr(rig_name(self.CONTROL + ".translateY"), 1.5)
+        moved = translation(self.CONTROL)
+        self.assertNotEqual(moved, rest)
+        self.assertWorldTranslation(rig_name(self.EXTRA), [x + m - r for x, m, r in zip((2, 0, 0), moved, rest)], 1e-4)
+
+
 class LimbBindSockets(SolveTestCase):
     """A Limb has a socket for every bind joint (bind_0 to bind_8 on limb_arm), so a child can hang from a twist joint. limb_bind_child has
     a joint, extra, at the third bind joint (2, 0, 0), and the template hangs an FkChain of it from bind_2."""

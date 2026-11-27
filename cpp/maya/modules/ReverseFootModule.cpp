@@ -398,9 +398,12 @@ MStatus ReverseFootModuleNode::solveToe(MDataBlock& data, ToeSolve& outSolve, bo
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	MMatrix mToeFkLocal = MMatrix::identity;
 	MMatrix mToeFkRest = MMatrix::identity;
+	MMatrix mFootLocal = MMatrix::identity;
+	MMatrix mFootRest = MMatrix::identity;
 	if (!readPivots(data, outSolve.pivots, outSolve.pivotCount)
 		|| hJointRest.jumpToElement(ReverseFootSlot::ToeJoint) != MStatus::kSuccess
-		|| readControlInput(hControlInputData, ReverseFootSlot::ToeFk, mToeFkLocal, mToeFkRest) != MStatus::kSuccess)
+		|| readControlInput(hControlInputData, ReverseFootSlot::ToeFk, mToeFkLocal, mToeFkRest) != MStatus::kSuccess
+		|| readControlInput(hControlInputData, ReverseFootSlot::Foot, mFootLocal, mFootRest) != MStatus::kSuccess)
 	{
 		// Not built yet: the build stores the pivots, the joints' rests and the controls after it creates the node.
 		return MStatus::kSuccess;
@@ -446,6 +449,8 @@ MStatus ReverseFootModuleNode::solveToe(MDataBlock& data, ToeSolve& outSolve, bo
 
 	// FK, then the blend.
 	const MMatrix mFkToe = solveControlStep(mToeFkLocal, mToeRest, outSolve.mAnkleDelta).mWorld;
+	outSolve.mToeFkWorld = mFkToe;
+	outSolve.mFootWorld = solveControlStep(mFootLocal, mFootRest, outSolve.mHandleDelta).mWorld;
 	const double blend = std::clamp(data.inputValue(aIkFkBlend).asDouble(), 0.0, 1.0);
 	outSolve.mToe = MathUtils::blendMatrices(mFkToe, mIkToe, blend);
 	outIsBuilt = true;
@@ -481,6 +486,8 @@ MStatus ReverseFootModuleNode::computeToe(const MPlug& plug, MDataBlock& data)
 	writeOutputMatrix(hJointOPM, ReverseFootSlot::ToeTipJoint, mToeTip);
 	writeOutputMatrix(hSocket, ReverseFootSlot::ToeSocket, mToe);
 	writeOutputMatrix(hSocket, ReverseFootSlot::ToeTipSocket, mToeTip);
+	writeOutputMatrix(hSocket, ReverseFootSlot::FootSocket, solve.mFootWorld);
+	writeOutputMatrix(hSocket, ReverseFootSlot::ToeFkSocket, solve.mToeFkWorld);
 	// A pivot's world: where its marker sits, turned by the pivots up to and including its own, and carried by the handle.
 	for (std::size_t i = 0; i < pivotCount; ++i)
 	{
@@ -615,7 +622,7 @@ ModuleInverseResult ReverseFootModuleNode::inverse(const ModuleInverseContext& c
 {
 	ModuleInverseResult result;
 	result.controlLocal.resize(context.controlRestWorld.size());
-	result.socketWorld.assign(std::max<std::size_t>(context.controlRestWorld.size(), ReverseFootSlot::FirstPivotSocket + ReverseFootSlot::PivotCap), MMatrix::identity);
+	result.socketWorld.assign(std::max<std::size_t>(context.controlRestWorld.size(), ReverseFootSlot::SocketCount), MMatrix::identity);
 	result.channels.resize(kChannels.size());
 	if (context.moduleRest.size() != kFirstPivotRest + ReverseFootSlot::PivotCap)
 	{
@@ -658,6 +665,14 @@ ModuleInverseResult ReverseFootModuleNode::inverse(const ModuleInverseContext& c
 	result.channels[channelIndex(&FootSolve::Channels::footRoll)] = VectorMath::toRadians(solved.footRoll);
 	result.channels[channelIndex(&FootSolve::Channels::bank)] = VectorMath::toRadians(solved.bank);
 	result.socketWorld[ReverseFootSlot::AnkleSocket] = mAnkle;
+	// The controls' sockets (D78), as computeToe writes them. The foot control has no local to give back, so it is its rest carried by the handle.
+	const bool hasControlRests = ReverseFootSlot::ToeFk < context.controlRestWorld.size();
+	if (hasControlRests)
+	{
+		result.socketWorld[ReverseFootSlot::FootSocket] = context.controlRestWorld[ReverseFootSlot::Foot] * mHandleDelta;
+		result.socketWorld[ReverseFootSlot::ToeFkSocket] = context.controlRestWorld[ReverseFootSlot::ToeFk]
+			* MathUtils::computeDeltaFromRest(context.moduleRest[kAnklePlugRest], mAnkle);
+	}
 
 	// The toe: toeTap from its motion with the handle's taken out, and the toe FK control that puts the FK toe on the joint (computeToe:
 	// the toe's rest carried by the ankle plug's motion, the control's local on top), so FK matches at any blend.
@@ -675,6 +690,10 @@ ModuleInverseResult ReverseFootModuleNode::inverse(const ModuleInverseContext& c
 		if (ReverseFootSlot::ToeFk < result.controlLocal.size())
 		{
 			result.controlLocal[ReverseFootSlot::ToeFk] = ModuleInverse::localFromWorld(mToe, mToeRest, mAnkleDelta);
+		}
+		if (hasControlRests)
+		{
+			result.socketWorld[ReverseFootSlot::ToeFkSocket] = mToe;   // the control's local puts the FK toe on the joint
 		}
 		result.socketWorld[ReverseFootSlot::ToeSocket] = mToe;
 		result.socketWorld[ReverseFootSlot::ToeTipSocket] = context.moduleRest[kToeTipRest] * mToeRest.inverse() * mToe;
@@ -714,6 +733,8 @@ ModuleInterface ReverseFootModuleNode::makeInterface(const std::vector<FootSolve
 	{
 		moduleInterface.sockets.push_back(pivotSocketName(pivot.role));
 	}
+	moduleInterface.sockets.push_back(PlugAndSocketNames::Foot);
+	moduleInterface.sockets.push_back(PlugAndSocketNames::ToeFk);
 	return moduleInterface;
 }
 
@@ -777,6 +798,9 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	{
 		addSocket(pivotSocketName(plan.chain[i].role), ReverseFootSlot::FirstPivotSocket + static_cast<unsigned int>(i), MathUtils::translationMatrix(plan.chain[i].position));
 	}
+	// The two controls (D78). Matrix only, like every socket here: the foot and toe FK controls keep their place in the DAG.
+	addSocket(PlugAndSocketNames::Foot, ReverseFootSlot::FootSocket, plan.mFootControlRest);
+	addSocket(PlugAndSocketNames::ToeFk, ReverseFootSlot::ToeFkSocket, plan.mToeJointRests[0]);
 	result.childPlugs[PlugAndSocketNames::Ik] = RigModuleChildPlugInfo{ MObject::kNullObj, ReverseFootSlot::IkPlug };
 	DagPlugAndSocketUtils::setChildPlugName(oModule, ReverseFootSlot::IkPlug, PlugAndSocketNames::Ik, dagMod);
 	result.childPlugs[PlugAndSocketNames::Ankle] = RigModuleChildPlugInfo{ MObject::kNullObj, ReverseFootSlot::AnklePlug };

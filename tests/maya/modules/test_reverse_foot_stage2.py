@@ -57,6 +57,18 @@ class ReverseFootStage2(RigTestCase):
         expected = rotation("z", about_z) * rotation("x", then_about_x)
         self.assertTrue(world_rotation_matrix(rig_name(node)).isEquivalent(expected, 1e-4), "%s is not Rz %s then Rx %s" % (node, about_z, then_about_x))
 
+    def test_the_foot_and_toe_fk_sockets_carry_their_controls_worlds(self):
+        """D78: `foot` and `toeFk` (outputSocketMatrix elements 8 and 9) are the foot control's and the toe FK control's world matrices, with
+        the handle moved (the foot control rides it) and the toe FK control turned."""
+        self._build()
+        cmds.setAttr(rig_name(HANDLE + ".translateX"), 1)
+        cmds.setAttr(rig_name(TOE_FK + ".rotateX"), 20)
+        for control, element in ((FOOT, 8), (TOE_FK, 9)):
+            socket = cmds.getAttr(rig_name(FOOT_MODULE) + ".outputSocketMatrix[%d]" % element)
+            world = cmds.xform(rig_name(control), query=True, worldSpace=True, matrix=True)
+            for a, b in zip(socket, world):
+                self.assertAlmostEqual(a, b, places=4, msg=control)
+
     def test_the_toes_sit_at_rest_with_the_foot_at_rest(self):
         self._build()
         self.assertWorld(TOE, TOE_REST)
@@ -231,9 +243,9 @@ class ReverseFootStage2(RigTestCase):
         self._build()
         cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
         module = rig_name(FOOT_MODULE)
-        names = [json.loads(cmds.getAttr("%s.socketNames[%d]" % (module, i)))[0] for i in range(8)]
-        self.assertEqual(names, ["ankle", "toe", "toeTip", "heel", "toeTipPivot", "bankOut", "bankIn", "toePivot"])
-        self.assertEqual(cmds.getAttr(module + ".socketNames", size=True), 8)
+        names = [json.loads(cmds.getAttr("%s.socketNames[%d]" % (module, i)))[0] for i in range(10)]
+        self.assertEqual(names, ["ankle", "toe", "toeTip", "heel", "toeTipPivot", "bankOut", "bankIn", "toePivot", "foot", "toeFk"])
+        self.assertEqual(cmds.getAttr(module + ".socketNames", size=True), 10)
 
         def socket(index):
             matrix = cmds.getAttr("%s.outputSocketMatrix[%d]" % (module, index))
