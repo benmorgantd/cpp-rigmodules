@@ -27,7 +27,7 @@ struct PushOutBuildArgs
 	MObject oRigRoot;                // may be null
 };
 
-// A push out on one child plug (D79, design/push-out.md). Sits on the plug's parentMatrix feed like a constraint, after the
+// A push out on one child plug (design/push-out.md). Sits on the plug's parentMatrix feed like a constraint, after the
 // constraint when the plug has one: it reads the plug's delta (parentMatrix against parentRest, or a constraint's output
 // with an identity rest), puts the control's origin at its would-be place against one capsule and outputs a new delta,
 // moved out of the capsule by PushOutSolve::solve. Translation only, stateless: the same inputs give the same result on any

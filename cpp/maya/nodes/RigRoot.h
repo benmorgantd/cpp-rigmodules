@@ -30,8 +30,8 @@ public:
 	static MObject aAssetId;
 	static MObject aRigName;
 	static MObject aSkeletonHash;
-	static MObject aMarkersHash;   // the markers file's hash at build (D73), "" when none was passed
-	static MObject aMarkers;       // every marker and its rest world as JSON text (D73), "" when none was passed
+	static MObject aMarkersHash;   // the markers file's hash at build, "" when none was passed
+	static MObject aMarkers;       // every marker and its rest world as JSON text, "" when none was passed
 	static MObject aRigVersion;
 	static MObject aPluginVersion;
 	static MObject aPublishVersion;
@@ -46,7 +46,7 @@ public:
 	static MObject aAllGroup;
 	static MObject aMeshGroup;
 	static MObject aLook;
-	static MObject aParentRig;     // from the parent's attachments (D55)
+	static MObject aParentRig;     // from the parent's attachments
 	static MObject aAttachments;   // to each attached rig's parentRig
 public:
 	static MObject createRigRoot(

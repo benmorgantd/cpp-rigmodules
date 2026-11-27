@@ -68,7 +68,7 @@ public:
 	// Bumps the draw generation only when a shape attribute changes, so a redraw doesn't trigger MPlug reads.
 	MStatus setDependentsDirty(const MPlug& plugBeingDirtied, MPlugArray& affectedPlugs) override;
 
-	// Parallel evaluation does not call setDependentsDirty, so a shown plug driven by a module's blend (D78) is caught here.
+	// Parallel evaluation does not call setDependentsDirty, so a shown plug driven by a module's blend is caught here.
 	MStatus postEvaluation(const MDGContext& context, const MEvaluationNode& evaluationNode, PostEvaluationType evalType) override;
 
 	// The shape's extent in object space, so framing and culling see the shapeTransform scale and offset.
@@ -94,7 +94,7 @@ public:
 	static MObject aShapeTransform;
 	static MObject aFilled;
 	static MObject aXray;
-	static MObject aShown;   // false: the control draws nothing and cannot be picked, and its DAG children are unaffected (D78)
+	static MObject aShown;   // false: the control draws nothing and cannot be picked, and its DAG children are unaffected
 
 	// Changes whenever a shape attribute changes. Each draw override keeps the generation it last read in its
 	// ControlDrawData, so every viewport refreshes, not only the first to draw after the change.
@@ -103,8 +103,8 @@ public:
 		return m_drawGeneration;
 	}
 
-	// Creates the control, names it from baseName (a joint name or a usage) and side (D58), colors it by side, and writes its markup and rotate
-	// order. The module owns the rotate order (D40), so it has no default. The build locks it afterwards.
+	// Creates the control, names it from baseName (a joint name or a usage) and side, colors it by side, and writes its markup and rotate
+	// order. The module owns the rotate order, so it has no default. The build locks it afterwards.
 	// The caller wires it to its module.
 	static MObject createRigControl(
 		MDagModifier& dagMod,
@@ -118,7 +118,7 @@ public:
 	static MMatrix getShapeTransform(const MObject& oControl);
 	static ShapeType getShapeType(const MObject& oControl);
 
-	// A push-out display node (D79) is a rigControlNode with RigAttr::PushOutDisplay, drawn as a capsule. Its Capsule is not a
+	// A push-out display node is a rigControlNode with RigAttr::PushOutDisplay, drawn as a capsule. Its Capsule is not a
 	// scale of the library mesh: the caps keep the radius while the middle stretches, so every mesh point goes through
 	// PushOutSolve::drawPoint with the shapeTransform's diagonal read as (halfLength, radius, radius), and drawPoint says how.
 	static bool isPushOutCapsule(const MObject& oControl, ShapeType shapeType);

@@ -82,7 +82,7 @@ namespace
 	}
 }
 
-// The delta the module receives (D31). Parent passes the driver's motion through. Orient, Point, Swing and Twist apply both
+// The delta the module receives. Parent passes the driver's motion through. Orient, Point, Swing and Twist apply both
 // motions to the control's rest, keep the driver's rotation, translation, swing (its rotation without its twist about the
 // child's rest X) or twist (on the parent's swing), take the rest from the parent, and turn the result back into a delta on
 // that rest. Swing and Twist also take the driver's translation.
@@ -93,7 +93,7 @@ MMatrix RigConstraintNode::computeDelta(
 	const MMatrix& mDriverDelta,
 	double weight)
 {
-	// The delta of a control that only follows its parent is the parent's own motion, for every type (D63).
+	// The delta of a control that only follows its parent is the parent's own motion, for every type.
 	if (weight <= 0.0)
 	{
 		return mParentDelta;
@@ -212,7 +212,7 @@ MStatus RigConstraintNode::initialize()
 	eAttr.setKeyable(false);
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aConstraintType));
 
-	// Rig-builder data, not an animator channel (D63): not keyable, so it stays out of poses and animation.
+	// Rig-builder data, not an animator channel: not keyable, so it stays out of poses and animation.
 	aConstraintWeight = nAttr.create(ConstraintAttr::ConstraintWeight, ConstraintAttr::ConstraintWeight, MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	nAttr.setMin(0.0);
@@ -259,7 +259,7 @@ MStatus RigConstraintNode::initialize()
 }
 
 // Reads the active driver only. Inactive drivers are never read, so they are never evaluated. A full-weight Parent
-// constraint never reads its parent inputs, and a weight of 0 never reads the driver (D63).
+// constraint never reads its parent inputs, and a weight of 0 never reads the driver.
 MStatus RigConstraintNode::compute(const MPlug& plug, MDataBlock& data)
 {
 	if (plug.attribute() != aOutParentMatrix)
@@ -383,13 +383,13 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 	status = RigModuleNodeBase::getChildPlugMatrixPlugs(args.oModule, args.plugIndex, pPlugParentMatrix, pPlugParentRest);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// The plug's parentStructure parent. The constraint takes it over, so Orient and Point can still read it (D31).
+	// The plug's parentStructure parent. The constraint takes it over, so Orient and Point can still read it.
 	const MPlug pParentSource = pPlugParentMatrix.source();
 	const MMatrix mParentRest = DagUtils::getMatrixFromPlug(pPlugParentRest);
 	if ((args.type != kParentType || args.constraintWeight < 1.0) && pParentSource.isNull())
 	{
 		// Unreachable from a template, where every child plug has a parent (layout_00_M_MOD.end by default).
-		// A Parent constraint below full weight follows the parent too (D63).
+		// A Parent constraint below full weight follows the parent too.
 		MGlobal::displayError(MString("A ") + ConstraintTypes::All[args.type] + " constraint takes the rest of its transform from the child plug's parent (a Parent one only below constraintWeight 1), and "
 			+ fnControl.name() + "'s child plug has no parent connected.");
 		return MStatus::kFailure;
@@ -419,7 +419,7 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 		{
 			labels.push_back(driver.label);
 		}
-		// The mirrored constraint lists its drivers in the same order (D28), so the index copies across.
+		// The mirrored constraint lists its drivers in the same order, so the index copies across.
 		status = RigPoseScene::addEnumChannel(args.oControl, RigAttr::ControlSpace, labels, static_cast<short>(args.initialDriver), false, dagMod);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
@@ -446,7 +446,7 @@ MStatus RigConstraintNode::createConstraint(const ConstraintBuildArgs& args, MDa
 		dagMod.newPlugValueString(pDriverLabel, MString(driver.label.c_str()));
 	}
 
-	// On a posed rig the control would move to its new parent. Keep it in place through its own values (D27).
+	// On a posed rig the control would move to its new parent. Keep it in place through its own values.
 	// At rest both deltas are identity and this writes nothing.
 	status = RigPoseScene::matchControlToNewDelta(args.oControl, mCurrentDelta, mInitialDriverDelta, dagMod);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -617,7 +617,7 @@ bool RigConstraintNode::getControlSpace(const MObject& oControl, ControlSpace& o
 		return false;
 	}
 
-	// The enum drives the constraint's activeDriver, which is how the two are found from each other (D19).
+	// The enum drives the constraint's activeDriver, which is how the two are found from each other.
 	MPlugArray pDestinations;
 	pSpace.destinations(pDestinations, &status);
 	for (unsigned int i = 0; i < pDestinations.length(); ++i)

@@ -435,7 +435,7 @@ MObject RigControlNode::createRigControl(
 	DagUtils::setInheritsTransform(oControl, false, dagMod);
 
 	// Input joints can sit in another namespace when modules are built. The control belongs in the current (rig) namespace.
-	// The name comes from a joint name or a usage (D58). The build checked both in its read phase, so a failure here is a
+	// The name comes from a joint name or a usage. The build checked both in its read phase, so a failure here is a
 	// module that skipped that check. The control keeps Maya's default name and the error says which.
 	const MString source = MNamespace::stripNamespaceFromName(baseName);
 	std::string ctrlName;

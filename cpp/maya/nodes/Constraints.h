@@ -37,15 +37,15 @@ struct ConstraintBuildArgs
 	unsigned int plugIndex = 0;      // child plug (and control) index on that module
 	std::vector<ConstraintDriverInfo> drivers;
 	unsigned int initialDriver = 0;
-	double constraintWeight = 1.0;   // 0 follows the parent, 1 is the full constraint (D63)
+	double constraintWeight = 1.0;   // 0 follows the parent, 1 is the full constraint
 	MObject oRigRoot;                // may be null
 };
 
 // Space switch for one child plug. Outputs the motion the module reads as a child plug delta. For Parent that is
 // the active driver's motion since rest, rest[active]^-1 * world[active]. Orient, Point, Swing and Twist take only the
 // driver's rotation, translation, translation and rotation without its twist about X, or translation and its twist about X on the
-// parent's swing, and the rest from the plug's parentStructure parent (D31).
-// Every driver's delta is identity at rest, so every space gives the rest pose (D27). Nothing is stored per
+// parent's swing, and the rest from the plug's parentStructure parent.
+// Every driver's delta is identity at rest, so every space gives the rest pose. Nothing is stored per
 // switch: matching changes the control's own values instead (see matchSwitchSpace).
 // One node per child plug. Attribute naming follows the module nodes (aMyAttr).
 class RigConstraintNode : public MPxNode
@@ -68,7 +68,7 @@ public:
 	static MObject aDriverLabel;       //   enum label
 	static MObject aActiveDriver;      // int, driven by the control's enum
 	static MObject aConstraintType;    // enum, ConstraintTypes::All
-	static MObject aConstraintWeight;  // double 0..1, baked into the rig: 0 follows the parent, 1 is the full constraint (D63)
+	static MObject aConstraintWeight;  // double 0..1, baked into the rig: 0 follows the parent, 1 is the full constraint
 	static MObject aParentMatrix;      // live world matrix of the plug's parentStructure socket
 	static MObject aParentRest;        // that socket's world matrix at rest
 	static MObject aChildRest;         // rest world matrix of the constrained control
@@ -78,8 +78,8 @@ public:
 public:
 	// The delta a constraint of this type outputs, from plain matrices: the child's rest, the motion of its
 	// parentStructure parent and the motion of the active driver (each rest^-1 * world, identity at rest). compute()
-	// and the inverse solve's sweep (D41) both call it, so the two can't drift.
-	// weight (D63) blends from the parent's own motion (0, the control just follows its parent, whatever the type) to the
+	// and the inverse solve's sweep both call it, so the two can't drift.
+	// weight blends from the parent's own motion (0, the control just follows its parent, whatever the type) to the
 	// type's full result (1): translation lerps, rotation slerps. Below 1 even a Parent constraint needs mParentDelta.
 	static MMatrix computeDelta(
 		int type,
@@ -95,7 +95,7 @@ public:
 	static MStatus createConstraint(const ConstraintBuildArgs& args, MDagModifier& dagMod, MObject& oOutConstraint);
 
 	// Template path. Resolves names through the build results of the earlier passes. A "parent:module.socket"
-	// driver resolves in parentNamespace, the rig this one is attached to (D55).
+	// driver resolves in parentNamespace, the rig this one is attached to.
 	static MStatus buildFromTemplate(
 		const std::vector<RigConstraintData>& constraints,
 		const std::unordered_map<std::string, RigModuleBuildResult>& rigModuleMap,

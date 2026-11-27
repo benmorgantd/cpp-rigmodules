@@ -80,12 +80,12 @@ MStatus RigRootNode::initialize()
 		return addAttribute(aAttr);
 	};
 
-	// The asset the rig belongs to (D29). It lived on a separate asset root node until D54 made a namespace hold one rig.
+	// The asset the rig belongs to. It lived on a separate asset root node until a namespace came to hold exactly one rig.
 	CHECK_MSTATUS_AND_RETURN_IT(addString(aAssetId, RigAttr::AssetId));
 	CHECK_MSTATUS_AND_RETURN_IT(addString(aRigName, RigAttr::RigName));
-	// The input joints' skeletonHash at build (D54), so looks, weights and library files can be matched to the skeleton.
+	// The input joints' skeletonHash at build, so looks, weights and library files can be matched to the skeleton.
 	CHECK_MSTATUS_AND_RETURN_IT(addString(aSkeletonHash, RigAttr::SkeletonHash));
-	// The markers file the build was given (D73): its hash, and the markers with their rest worlds. Markers change how a
+	// The markers file the build was given: its hash, and the markers with their rest worlds. Markers change how a
 	// module behaves, so animation and poses are stamped with the hash, but skin weights and looks are not.
 	CHECK_MSTATUS_AND_RETURN_IT(addString(aMarkersHash, RigAttr::MarkersHash));
 	CHECK_MSTATUS_AND_RETURN_IT(addString(aMarkers, RigAttr::Markers));
@@ -97,7 +97,7 @@ MStatus RigRootNode::initialize()
 
 	CHECK_MSTATUS_AND_RETURN_IT(addString(aPluginVersion, RigAttr::PluginVersion));
 	// The publish id ("20261108T142012Z_bmorgan"), written by the publish step, never by the build. A string,
-	// because publish ids are a time and a user, so two people publishing never collide (D29).
+	// because publish ids are a time and a user, so two people publishing never collide.
 	CHECK_MSTATUS_AND_RETURN_IT(addString(aPublishVersion, RigAttr::PublishVersion));
 	CHECK_MSTATUS_AND_RETURN_IT(addString(aRigTemplateName, RigAttr::RigTemplateName));
 
@@ -110,9 +110,9 @@ MStatus RigRootNode::initialize()
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aSelectionSets, RigAttr::SelectionSets, true));
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aAllGroup, RigAttr::AllGroup, false));
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aMeshGroup, RigAttr::MeshGroup, false));
-	// The look the rig wears (D54): connects to a lookRoot node's rigRoot. None until a look is applied.
+	// The look the rig wears: connects to a lookRoot node's rigRoot. None until a look is applied.
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aLook, RigAttr::Look, false));
-	// The rig an attachment follows (D55). Only a record for tools: the follow itself is socket matrices connected
+	// The rig an attachment follows. Only a record for tools: the follow itself is socket matrices connected
 	// across the two rigs, so these two add nothing to evaluation.
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aParentRig, RigAttr::ParentRig, false));
 	CHECK_MSTATUS_AND_RETURN_IT(addMessage(aAttachments, RigAttr::Attachments, true));
