@@ -1,6 +1,6 @@
 # Splitting Limb into a TwoBoneIk and an anchored Ribbon: design
 
-**Status:** proposed 2026-11-27, waiting for the author's sign-off. Nothing here is built. When it is, this page replaces `limb.md` (which moves to `archive/`) and the decision entry that records it replaces the Limb one.
+**Status:** proposed 2026-11-27. The author answered the first round the same day (section 11), and section 3.3 now holds the Limb behaviours the Ribbon takes as arguments. Two questions from that pass wait for an answer before sign-off. Nothing here is built. When it is, this page replaces `limb.md` (which moves to `archive/`) and the decision entry that records it replaces the Limb one.
 
 The short version: the `Limb` node goes away. An arm or a leg becomes a `TwoBoneIk` (the IK/FK solve, unchanged, plus the `ikTarget` plug the foot needs) and a `Ribbon` in a new **anchored** form, whose curve passes through three frames that arrive through child plugs from the TwoBoneIk's `index_0`, `index_1` and `index_2` sockets. The ribbon's maths is the code Limb runs today, so the elbow behaves the same. The ribbon's two end ik controls are dropped because they sit on the FK and IK controls at the shoulder and wrist, so no control is doubled. Inverses stay on both modules.
 
@@ -42,9 +42,9 @@ Limb's phase 1 found that the curve through three moving frames needs no new mat
 So the Ribbon gets an anchored form:
 
 - **At build**, `anchorJoints` names the three limb joints. The ribbon reads their rest worlds without claiming them (as the ReverseFoot reads its ankle, `findJointRest`) and builds the anchored setup from them: the knots, the ik controls placed on the curve, the bind joints' offsets. This is Limb's plan step for its ribbon, moved.
-- **At evaluation**, three child plugs, `start`, `mid` and `end`, carry the TwoBoneIk's `index_0`, `index_1` and `index_2` sockets: the blended joint worlds. The ribbon applies the same two end rules Limb applies (`startAnchor` and `endAnchor` move with it, out of `LimbModule.cpp`) and calls `RibbonSolve::evaluate` with the three frames, as Limb does.
+- **At evaluation**, three child plugs, `start`, `mid` and `end`, carry the TwoBoneIk's `index_0`, `index_1` and `index_2` sockets: the blended joint worlds. The ribbon applies the end rules its arguments choose (on a limb, the two Limb applies today: section 3.3) and calls `RibbonSolve::evaluate` with the three frames, as Limb does.
 
-At the elbow, nothing changes from today's Limb:
+At the elbow, with a limb's arguments, nothing changes from today's Limb:
 
 - The mid anchor is a corner. At `bendSoftness` 0 (the rest) each bone's half of the curve leaves the elbow along its own bone, so the bind joints lie on the bones and the bend is all in the elbow bind joint, which points along the bisector. At 1 the two sides share a tangent.
 - The elbow bind joint sits on the elbow joint at every softness, and so does the elbow ribbon ik control at rest.
@@ -75,25 +75,56 @@ Unchanged in its arguments, controls, channels and sockets. It gains Limb's `ikT
 |---|---|---|
 | `joints` | the bind joints, 2 to 64 | the bind joints, 5 to 64, root to tip, all leaves: the first at the start anchor, the last at the end anchor, exactly one at the mid anchor (Limb's rules) |
 | `anchorJoints` | not allowed | **new, required for this form**: `[[side, usage] x 3]`, start, mid and end. Read, not claimed |
-| `controlCount` | ik controls, 2 to 8, default 3 | **the interior ik controls, 0 to 6, default 3.** The first is always at the mid anchor, the rest divided between the bones by length (Limb's `limbControlParameters`). 0 means tweakers only |
+| `controlCount` | ik controls, 2 to 8, default 3 | **the interior ik controls, 0 to 6, default 3.** The first is always at the mid anchor, so the default has a mid (elbow) control and one on each side of it. The rest are divided between the two segments by length (Limb's `limbControlParameters`). 0 means tweakers only |
 | `controlName` | default: first bind joint's usage without `_NN` | the same |
 | `twistRamp` | needs `fkStyle` | allowed. Positions are along the anchors, as Limb's |
+| `startAnchorRotation`, `endAnchorRotation`, `bendSoftness` | not allowed | **new**: what the curve takes from each end joint, and the rest of the mid corner's softness. Section 3.3 |
 | `fkStyle`, `fkControlCount`, `startAimBlend`, `endAimBlend` | as today | an error: the anchors replace the fk chain and the aim blends |
 
-`moduleVersion` stays at 2: `anchorJoints` is a new optional key and every existing Ribbon reads as before.
+`moduleVersion` stays at 2: the new keys are optional, only allowed with `anchorJoints`, and every existing Ribbon reads as before.
 
 **Child plugs**
 
 | Plug | Takes | Control | Notes |
 |---|---|---|---|
 | `start`, `mid`, `end` | the TwoBoneIk's `index_0`, `index_1`, `index_2` | none | the anchors. Each is a matrix input of its own, not an element of `childPlugs`, as the foot's `ankle` plug is. A plug with no control has no DAG role, so its `parentStructure` entry is its matrix parent only |
-| `settings` | the TwoBoneIk's `settings` | none | which control holds the ribbon's channels (section 3.4). Its matrix is not read |
+| `settings` | the TwoBoneIk's `settings` | none | which control holds the ribbon's channels (section 3.5). Its matrix is not read |
 
 **Sockets:** `index_0` to `index_<k-1>`, one per interior ik control (its world and transform), and `bind_0` to `bind_<n-1>`, one per bind joint. There are no `start` and `end` sockets: the limb's ends are the TwoBoneIk's `start` and `end`.
 
-**Controls:** the interior ik controls, `<base>IK_<nn>`, numbered by their place on the curve counting the anchors (section 3.3), and one tweaker per bind joint, `<base>Tweak_<nn>`, hidden. Their DAG parents: every ik control a leaf child of the control behind the `start` plug's socket (the FK upper control), and every tweaker a leaf child of the first ik control (or of the same FK control when `controlCount` is 0). See open question 4.
+**Controls:** the interior ik controls, `<base>IK_<nn>`, numbered from `_01` by their place on the curve, counting the start anchor as `_00` (section 3.4), and one tweaker per bind joint, `<base>Tweak_<nn>`, hidden. Their DAG parents (author, 2026-11-27): every ik control a leaf child of the control behind the `start` plug's socket, which on a limb is the FK upper control, and every tweaker a leaf child of the first ik control (or of that same control when `controlCount` is 0). The names say nothing about limbs: the mid control is `<base>IK_02` on an arm and on anything else.
 
-### 3.3 Controls: none doubled
+### 3.3 What Limb hard-coded, and what becomes an argument
+
+The Ribbon is generic: tails, necks, wires, and with this form anything anchored on three sockets. TwoBoneIk is used for arms and legs. Limb could hard-code limb behaviour because it was only ever a limb. Splitting it means each of those choices either holds for any ribbon on three anchors, or becomes an argument whose limb value a template sets. Listed from `LimbModule.cpp` and `limb.md`:
+
+| Limb behaviour | After the split | Why |
+|---|---|---|
+| The ribbon's start takes the start joint's swing and drops its twist about the bone, so the upper arm's twist eases in from the elbow side and the shoulder stays put | **`startAnchorRotation`**: `"swing"` (Limb's rule) or `"full"` (the joint's whole frame, which a chain whose first joint should twist the ribbon wants) | right for a shoulder or hip, wrong for an FK tail whose first control should twist the tail |
+| The ribbon's end takes the end joint's twist on the mid joint's swing, so the hand's bend never reaches the forearm | **`endAnchorRotation`**: `"twist"` (Limb's rule) or `"full"` (the end bends the curve's last tangent, as a tail tip curling with its control) | the same |
+| The mid anchor is a corner, rest softness 0 (sharp) | **`bendSoftness`** (0 to 1): the default, and so the rest, of the channel of that name, as `startAimBlend` sets its channel's rest. The channel stays keyable | a limb wants a sharp elbow, a ribbon through a curling chain does not |
+| The ik controls at the ends of the curve are dropped | holds for any anchored ribbon | the anchors are another module's controls, so an end control would always sit on one |
+| The first interior control is pinned at the mid anchor, the rest spread by segment length | holds | the mid anchor is where the curve can bend, so it needs a control there before anywhere else |
+| One bind joint exactly at the mid anchor, the first and last at the ends, at least 5 | holds | the corner needs a joint to carry the bend, and with softness 1 the joint just rides the curve |
+| The aim blends and `bendRoundness` are dropped | holds | the anchors give the ends' frames |
+| `twistRamp` positions measured along the anchors | holds | |
+| The channels on the settings control | the `settings` plug (section 3.5) | the plug names whichever control holds them |
+
+**Defaults.** Two ways, and the author's choice (open question 9):
+
+- **Limb's values as the defaults** (`"swing"`, `"twist"`, softness 0). Recommended. Necks and tails already have the plain Ribbon and `fkStyle`. The anchored form exists for a ribbon that rides another module's joints, which today means a limb, so a limb template needs none of the three keys and the anchored form behaves as Limb did. A tail anchored on an FkChain sets three keys.
+- **Neutral defaults** (`"full"`, `"full"`, softness 1): nothing limb-like unless asked for, and every limb template writes the three keys.
+
+**Arms and legs.** Nothing limb-specific moves into TwoBoneIk except `ikTarget`, which is optional and used by a leg with a foot. Everything that tells an arm from a leg (`ikOrientToWorld`, `poleOffset`, `settingsOffset`, `poleParentDefault`) is already a TwoBoneIk argument, and the ribbon does not care which it rides: on a leg its end anchor is the ankle wherever the foot puts it.
+
+**Left and right.** Mirroring is template data, and each mirrored copy plans its own side. Nothing in the split needs a mirror branch:
+
+- TwoBoneIk negates the X of `poleOffset` and `settingsOffset` on a mirrored copy, as Limb did through the same code.
+- The anchored ribbon's joints and anchor joints are selectors, swapped by the mirror. Its chain runs down -X on the right, which `RibbonMath::chainSign` handles as it does for Limb and Ribbon. `startAnchorRotation`, `endAnchorRotation`, `bendSoftness` and `twistRamp` are unsigned and copied.
+- Its `parentStructure` socket ids name the left modules and are swapped with the rest of the template.
+- The hosted channels keep their mirror modes, because the mode is declared on the attribute (`RigPoseScene::setMirrorMode`), wherever the attribute sits. `shoulderSettings` on the left and right pair as before.
+
+### 3.4 Controls: none doubled
 
 The solomon left arm, `controlCount` 5 today (3 interior after):
 
@@ -101,7 +132,7 @@ The solomon left arm, `controlCount` 5 today (3 interior after):
 |---|---|---|---|
 | shoulder | `shoulder` (FK), `shoulderRibbonIK_00` | `shoulder` (FK) | the ribbon's start is the anchor: its control only moved the skin off the shoulder joint, and its twist and scale are `startTwist` and `scaleStart` |
 | middle of the upper arm | `shoulderRibbonIK_01` | `shoulderRibbonIK_01` | shapes the upper arm |
-| elbow | `elbow` (FK), `shoulderRibbonIK_02` | `elbow` (FK), `shoulderRibbonIK_02` | different jobs: the FK control turns the forearm, the ribbon control moves the curve's corner (an elbow offset). Open question 2 |
+| elbow | `elbow` (FK), `shoulderRibbonIK_02` | `elbow` (FK), `shoulderRibbonIK_02` | different jobs: the FK control turns the forearm, the ribbon control moves the curve's corner (an elbow offset). Kept, and in the default `controlCount` (author, 2026-11-27) |
 | middle of the forearm | `shoulderRibbonIK_03` | `shoulderRibbonIK_03` | shapes the forearm |
 | wrist | `hand` (FK), `shoulderIK`, `shoulderRibbonIK_04` | `hand` (FK), `shoulderIK` | as the shoulder. FK and IK are the two sides of the blend, and only one is visible outside a blend |
 | pole, settings | `shoulderPole`, `shoulderSettings` | the same | |
@@ -109,7 +140,7 @@ The solomon left arm, `controlCount` 5 today (3 interior after):
 
 An arm goes from 19 controls to 17 and a leg from 18 to 16. The arm was 21 before Limb.
 
-### 3.4 Channels: still in one place
+### 3.5 Channels: still in one place (author, 2026-11-27)
 
 The ribbon's channels go on the control behind its `settings` plug, which on a limb is the TwoBoneIk's settings control. Pass 2 adds them to that control and connects them to the ribbon node, the way it connects a limb's `ikFkBlend` to its foot. So `shoulderSettings` keeps all 16 channels it has today, under the same names:
 
@@ -128,9 +159,18 @@ The anchored form's channel set is Limb's: the plain Ribbon's less `startAimBlen
 - the contract to check a hosted channel on the module that hosts it as well as on the ribbon;
 - a validation error when the `settings` plug is missing on an anchored ribbon, or its socket has no control.
 
-The alternative is to put the channels on the elbow ribbon control (`shoulderRibbonIK_02`), with no new mechanism, at the cost of splitting a limb's settings over two controls and moving 13 channels to a new control (a break for every saved pose that sets them). The author ruled "one place for a limb's settings" a goal of Limb, so hosting is recommended (open question 1).
+The alternative was to put the channels on the elbow ribbon control (`shoulderRibbonIK_02`), with no new mechanism, at the cost of splitting a limb's settings over two controls and moving 13 channels to a new control. The author chose hosting.
 
-### 3.5 Child plugs and sockets, before and after
+**Does hosting fit the channel interface?** Yes for everything an animator or a file sees, with four rules for the code. The interface is per control: a control's animation interface is its keyable, writable channels, and poses, animation, keys, mirroring and the library browser address a channel as (side, usage, channel name). None of them records which module computes it. So for those, a hosted channel is one more channel on `shoulderSettings`, as it is today on the Limb. What does see the module:
+
+1. **Ownership is one-way.** The host's module owns the control (its transform, shape, DAG place, markup). The ribbon owns only the attributes it adds, and says which ones in its plan (`ModuleInterface`), so a query that lists a module's channels can list them. The host module never reads them.
+2. **Names must not clash.** Two modules cannot add the same channel name to one control. The read phase checks it (a second anchored ribbon on the same settings plug, say, is an error), and a ribbon cannot host a name the host's module already uses (`ikFkBlend`, `stretch`, `soft`).
+3. **The checks follow the attribute.** `ModuleContract` checks a hosted channel's default, rest, range and mirror mode as the ribbon's, on the host control. The host module's contract ignores channels it does not declare. Mirror modes are on the attribute, so the mirror pose needs nothing new.
+4. **The inverse reads them through the ribbon.** `ModuleInverseChannel` gains the host control, so the restore takes the sidecar's values from `shoulderSettings` for the ribbon. The TwoBoneIk's inverse does not see them.
+
+The build is two-pass already: every module exists after pass 1, so the ribbon adds its attributes and connections in pass 2, when it is wired. Undo of a build removes them with the rest of the rig.
+
+### 3.6 Child plugs and sockets, before and after
 
 | Module | Child plugs | Sockets |
 |---|---|---|
@@ -201,21 +241,21 @@ The new work in `RigInverse`: the anchor plugs are not elements of `childPlugs`,
 | A ribbon ik control moves | the whole Limb recomputes, the two-bone solve included | only the ribbon recomputes |
 | A two-bone control moves | the whole Limb | the TwoBoneIk, then the ribbon |
 
-The ribbon waits on the TwoBoneIk's sockets, so the two run one after the other, as the two halves of Limb do now. D52's and Limb's profiles put a limb's cost in its node and control count, not its solve (1.4 percent of node time). One node more and two controls fewer per limb should be within `bench`'s run-to-run drift (up to about 30 percent). This is an estimate, not a measurement. The perf rig's `limb_module_specs` becomes TwoBoneIk plus anchored Ribbon specs in the same change. Whether to run `bench` once then is open question 7, since this is not a new module type.
+The ribbon waits on the TwoBoneIk's sockets, so the two run one after the other, as the two halves of Limb do now. D52's and Limb's profiles put a limb's cost in its node and control count, not its solve (1.4 percent of node time). One node more and two controls fewer per limb should be within `bench`'s run-to-run drift (up to about 30 percent). This is an estimate, not a measurement. The perf rig's `limb_module_specs` becomes TwoBoneIk plus anchored Ribbon specs in the change that deletes Limb. `bench` runs once, at the end of all the phases (author, 2026-11-27), and not per phase.
 
 ## 7. Migration
 
-### 7.1 The template: a format update step
+### 7.1 Templates: edited by hand (author, 2026-11-27)
 
-The template format goes from version 1 to 2 with one update step in `templateUpdateTable()` (`core/RigJsonStructs.cpp`, which has none yet). The step needs no scene, which is why it can be a template step: everything it writes comes from the Limb entry. For each `"moduleType": "Limb"` entry (Limb's `moduleVersion` is 1, the only one there is) it writes:
+Existing templates are edited by hand, for now. There is no format update step, so the template format stays at version 1 and no permanent code knows about Limb. A template that still has a `"moduleType": "Limb"` entry fails in the read phase with an error that says Limb was split into a TwoBoneIk and an anchored Ribbon and points to `docs/modules.md` for the recipe. The templates to edit are solomon's and the repo's own fixtures (section 8). mayadev's tests use TwoBoneIk fixtures, which the mayadev-callsites pass confirms before the change.
+
+The recipe, which `docs/modules.md` will carry: for each Limb entry, write
 
 1. **A TwoBoneIk** with the Limb's `name`, `side`, `shapeType`, `mirror`, `parentStructure` and `matrixParentStructure` (including `ikTarget`), `moduleVersion` 2, and the `moduleArgs` the two share: `joints`, `controlName`, `poleOffset`, `settingsOffset`, `ikFkBlend`, `ikOrientToWorld`, `ikAlignToPole`, `poleParentDefault`. Keeping the name means every reference to `arm_00_L_MOD.start`, `.ik`, `.end`, `.index_2` and the like (the hands' FkChains, the foot, the space constraints) still resolves.
-2. **A Ribbon** right after it, named `<limb base>Ribbon` with the Limb's index and side (`arm_00_L_MOD` gives `armRibbon_00_L_MOD`, through `core/NamingConvention`), with the same `side`, `shapeType` and `mirror`, `moduleVersion` 2, and: `anchorJoints` = the Limb's `joints`, `joints` = its `bindJoints`, `controlCount` = its `controlCount` less 2 (default 5 gives 3), `controlName` = the Limb's control base (its `controlName`, else the first joint's usage without `_NN`) plus `Ribbon`, `twistRamp` copied. Its `parentStructure` is `start`, `mid`, `end` and `settings` on the TwoBoneIk's `index_0`, `index_1`, `index_2` and `settings`.
-3. **References to the ribbon's sockets**, anywhere in the template (`parentStructure`, `matrixParentStructure`, constraint targets and drivers, push-out entries): `<limb>.bind_<n>` becomes `<ribbon>.bind_<n>`, and `<limb>.ribbon_<n>` becomes `<ribbon>.index_<n-1>` for an interior control. A reference to the first or last ribbon control (`ribbon_0`, `ribbon_<j-1>`) has no target any more. The step reports it as an error that suggests the limb's `start` or `end`.
+2. **A Ribbon** right after it, named `<limb base>Ribbon` with the Limb's index and side (`arm_00_L_MOD` gives `armRibbon_00_L_MOD`), with the same `side`, `shapeType` and `mirror`, `moduleVersion` 2, and: `anchorJoints` = the Limb's `joints`, `joints` = its `bindJoints`, `controlCount` = its `controlCount` less 2 (default 5 gives 3, which is the new default, so leave it out), `controlName` = the Limb's control base (its `controlName`, else the first joint's usage without `_NN`) plus `Ribbon`, `twistRamp` copied. With Limb's values as the anchored defaults (open question 9), no `startAnchorRotation`, `endAnchorRotation` or `bendSoftness` is needed. Its `parentStructure` is `start`, `mid`, `end` and `settings` on the TwoBoneIk's `index_0`, `index_1`, `index_2` and `settings`.
+3. **References to the ribbon's sockets**, anywhere in the template (`parentStructure`, `matrixParentStructure`, constraint targets and drivers, push-out entries): `<limb>.bind_<n>` becomes `<ribbon>.bind_<n>`, and `<limb>.ribbon_<n>` becomes `<ribbon>.index_<n-1>` for an interior control. The first and last ribbon controls (`ribbon_0`, `ribbon_<j-1>`) are gone: use the limb's `start` or `end`. The read phase reports an unknown socket on the TwoBoneIk if one is missed.
 
-A template still at version 1 with a Limb loads and builds as a TwoBoneIk and a Ribbon. A version 2 template with a `Limb` fails with an error that says Limb was split and how. The update runs in memory, so the file on disk stays at version 1 until it is rewritten.
-
-The rejected option is a one-off conversion script plus a hand edit of solomon. It keeps no permanent code, but the format update rule exists so that old templates (test fixtures, mayadev's tests, any other character) load without anyone hunting for them. Open question 5.
+Rejected for now (author, 2026-11-27): a template format update step (version 1 to 2) that does this in memory. It would keep old templates loading without an edit, at the price of permanent code that knows about Limb, for one character and the fixtures. It can be added later, since the recipe is mechanical and needs no scene.
 
 ### 7.2 Names that change
 
@@ -237,7 +277,7 @@ Control names are the markup usage (`side`, `usage`), which is what poses, anima
 | `shoulderTweak_00` to `shoulderTweak_07` | `shoulderRibbonTweak_00` to `_07` | usage renamed (the node keeps its name) |
 | `hipTweak_00` to `hipTweak_06` | `hipRibbonTweak_00` to `_06` | the same |
 
-The tweaker rename follows from the Ribbon's naming (`<base>IK_<nn>` and `<base>Tweak_<nn>` share one base): keeping the ik controls' names forces the base `shoulderRibbon`. The other way round (base `shoulder`) would name the ribbon's ik controls `shoulderIK_01` beside the IK handle `shoulderIK`, which is worse. Open question 6.
+The tweaker rename follows from the Ribbon's naming (`<base>IK_<nn>` and `<base>Tweak_<nn>` share one base): keeping the ik controls' names forces the base `shoulderRibbon`. The other way round (base `shoulder`) would name the ribbon's ik controls `shoulderIK_01` beside the IK handle `shoulderIK`, which is worse. The author accepted the rename (2026-11-27).
 
 **Channels.** None renamed. With hosting, none moves either: all 16 stay on `shoulderSettings` and `hipSettings`.
 
@@ -274,18 +314,18 @@ Solomon refers to none of the moved sockets (the fingers hang from `arm_00_L_MOD
 **Tests**
 
 - `tests/maya/modules/test_limb.py` (606 lines) is removed. Its hand-written pose cases move: the ribbon ones (corner, softness, twist ramp, ik control placement, bind sockets) to `test_ribbon.py` under an anchored contract, the `ikTarget` ones to `test_two_bone_ik.py`. `test_limb_matches_parts` and `test_limb_matches_parts_with_a_foot` are deleted with nothing to replace them: there is no second copy of a solve to disagree with.
-- The fixtures `limb_arm`, `limb_bind_child`, `limb_foot`, `limb_mirror`, `limb_ribbon_child`, `limb_three`, `limb_twoboneik` and `validation/limb_unknown_bind_socket` become anchored-ribbon fixtures. One version 1 Limb fixture stays, as the input of the format step's test.
+- The fixtures `limb_arm`, `limb_bind_child`, `limb_foot`, `limb_mirror`, `limb_ribbon_child`, `limb_three`, `limb_twoboneik` and `validation/limb_unknown_bind_socket` are edited by hand into TwoBoneIk and anchored-ribbon fixtures, by the recipe in section 7.1. One small `validation/limb_removed.json` is added for the error a Limb entry now gives.
 - The golden `limb_arm.json` becomes a two-module golden. `reverse_foot.json` and the reverse foot fixtures change `Limb` to `TwoBoneIk` and add the ribbon.
 
-**What is added, for balance:** the anchored form in `RibbonModule` (arguments, three anchor plugs, the anchor rest check, the anchored inverse), channel hosting (pass 2, `ModuleInverseChannel`, the contract), `ikTarget` on TwoBoneIk (moved, not new), the template update step, and the general extra-plug rule in `RigInverse`. Channel hosting is the one new concept.
+**What is added, for balance:** the anchored form in `RibbonModule` (arguments, three anchor plugs, the anchor rest check, the anchored inverse), channel hosting (pass 2, `ModuleInverseChannel`, the contract), `ikTarget` on TwoBoneIk (moved, not new), three anchored-form arguments (section 3.3), and the general extra-plug rule in `RigInverse`. Channel hosting is the one new concept.
 
 ## 9. Tests
 
-- **The anchored Ribbon:** a `ModuleContract` subclass with a -X chain case, Limb's pose cases ported by hand to the new names, a parity check (below), and validation errors: an anchor plug whose socket is not at its anchor joint, a stacked bind joint, no bind joint at the mid anchor, fewer than 5 bind joints, `controlCount` out of range, `anchorJoints` with `fkStyle` or an aim blend, a missing `settings` plug, a `settings` socket with no control. One case anchors on an FkChain of three.
+- **The anchored Ribbon:** a `ModuleContract` subclass with a -X chain case, Limb's pose cases ported by hand to the new names, a parity check (below), and validation errors: an anchor plug whose socket is not at its anchor joint, a stacked bind joint, no bind joint at the mid anchor, fewer than 5 bind joints, `controlCount` out of range, `anchorJoints` with `fkStyle` or an aim blend, a missing `settings` plug, a `settings` socket with no control, a hosted channel name that clashes on the host control. Hand-written pose cases for each value of `startAnchorRotation` and `endAnchorRotation` (on `"full"` the start joint's twist reaches the first bind joint and the end joint's bend tilts the last), and for `bendSoftness` set by the template (its rest is the template's value, and a rest pose reproduces every bind joint). A mirrored pair, with the hosted channels' mirror modes checked through the mirror pose. One case anchors on an FkChain of three with the neutral values, as a tail would.
 - **Parity with Limb, once.** In the phase that adds the anchored form, while Limb still exists, a test builds a Limb arm and the split arm from one skeleton and checks that the joints and bind joints agree on Limb's pose cases. It is evidence for the change and goes with Limb in the deleting phase.
 - **TwoBoneIk:** Limb's `ikTarget` cases (the target moves the end, the handle stays, FK ignores it, half blend, no cycle in DG or parallel mode, undo and redo).
 - **ReverseFoot:** `test_reverse_foot` on a TwoBoneIk, including "a foot at rest leaves the limb where it is" and the restore order.
-- **The format step:** a Maya-free core test of the JSON rewrite (both entries, the name, `controlCount` less 2, the socket references, the error for `ribbon_0`), and a mayapy test that a version 1 Limb template builds with the names in section 7.2.
+- **The removed module:** a template with a `Limb` entry fails in the read phase with the message that points to the recipe. The split solomon-shaped fixture builds with the names in section 7.2.
 - **Docs:** the worked example in `docs/modules.md` and its test in `test_docs_examples.py`.
 - **Proposed, not suite tests:** a timing of a solomon clip restore before and after (section 5), and building the solomon template, which lives outside the repo.
 
@@ -295,21 +335,28 @@ Each ends with the build, the full suite, the docs pass and one commit.
 
 | Phase | Work | Public change |
 |---|---|---|
-| 1 | The anchored Ribbon form, channel hosting, its tests and the parity test against Limb | `anchorJoints`, the plugs `mid` and `settings`, `controlCount`'s meaning in that form |
+| 1 | The anchored Ribbon form with its three arguments, channel hosting, its tests and the parity test against Limb | `anchorJoints`, `startAnchorRotation`, `endAnchorRotation`, `bendSoftness`, the plugs `mid` and `settings`, `controlCount`'s meaning in that form |
 | 2 | `ikTarget` on TwoBoneIk. ReverseFoot, validation and `RigInverse` accept it, and the extra-plug rule | `ikTarget` on TwoBoneIk |
-| 3 | The template format step to version 2. Fixtures, goldens and the perf rig converted. Limb deleted (node, part template, tests, coupling notes, agent). `limb.md` archived | Limb removed, format 2 |
-| 4 | Solomon: the author rewrites the template (or resaves it through the step), builds it, and restores a clip from joints | the solomon rig |
+| 3 | Fixtures, goldens and the perf rig edited to TwoBoneIk plus Ribbon. Limb deleted (node, part template, tests, coupling notes, agent), and a Limb entry becomes a read-phase error. `limb.md` archived | Limb removed |
+| 4 | Solomon: the author edits the template by the recipe, builds it, and restores a clip from joints. Then `bench`, once | the solomon rig |
 
-## 11. Open questions for the author
+## 11. Questions for the author
 
-1. **Where the ribbon's channels live.** Recommended: hosted on the TwoBoneIk's settings control through the ribbon's `settings` plug, so nothing moves for the animator. The alternative is the elbow ribbon control, which needs no new mechanism but splits a limb's settings over two controls and moves 13 channels.
-2. **The elbow ribbon control.** It sits on the elbow FK control but does a different job (an offset of the curve's corner). Recommended: keep it, with `controlCount` 0 allowed for a limb that wants none. Or should the default have no elbow control?
-3. **Numbering the ribbon's ik controls** from `_01` (by their place, counting the anchors), which keeps `shoulderRibbonIK_01` to `_03`, or from `_00`, which renames all three.
-4. **DAG parent of the ribbon's controls.** Recommended: the FK upper control, which the `start` plug's socket names under the strict DAG rule. Limb put them under the clavicle (the TwoBoneIk's `start` plug's parent). The ribbon cannot name that without another plug.
-5. **Migration by a format update step** (recommended, section 7.1), or a one-off script and a hand edit of solomon.
-6. **The tweakers' usage rename** (`shoulderTweak_NN` to `shoulderRibbonTweak_NN`). Accept it, given the joint restore path, or add a key that names the tweakers apart?
-7. **`bench`.** Run it once in phase 3, when the perf rig's Limbs become TwoBoneIk plus Ribbon? It is not a new module type, so the rule does not require it.
+### Answered (2026-11-27)
+
+1. **The ribbon's channels** are hosted on the TwoBoneIk's settings control through the ribbon's `settings` plug. The author asked whether that is fine for the channel interface: section 3.5 answers it (yes for everything keyed by control and channel name, with four rules for the code).
+2. **The elbow ribbon control** is kept, and the default `controlCount` has it. The Ribbon stays generic: the mid control is named by number, not as an elbow, and whether the mid is a hard corner is `bendSoftness`'s rest, set per template (section 3.3).
+3. **Ik control numbering** starts at `_01`, so `shoulderRibbonIK_01` to `_03` keep their names.
+4. **DAG parent:** the ribbon's ik controls are children of the FK upper control.
+5. **Migration:** existing templates are edited by hand, for now. No format update step (section 7.1).
+6. **The tweaker rename** is accepted.
+7. **`bench`** runs once, at the end of all the phases.
+
+### Open
+
+8. **Three anchors only?** The anchored form takes exactly three (start, mid, end), which is what a limb needs. `RibbonMath` already handles any number of anchors, so an anchored ribbon over a longer FK chain (a tail on an FkChain of five) is possible later, with one plug per anchor and a corner rule for each. Recommended: three now, more when a rig asks for it.
+9. **The anchored form's defaults** for `startAnchorRotation`, `endAnchorRotation` and `bendSoftness` (section 3.3). Recommended: Limb's values (`"swing"`, `"twist"`, 0), since necks and tails have the plain Ribbon and `fkStyle`, and the anchored form exists for a ribbon riding another module's joints. The alternative is neutral defaults (`"full"`, `"full"`, 1) with every limb template setting the three keys.
 
 ## Related decisions
 
-D62 (Limb, which this replaces), D52 (TwoBoneIk), D56 and D59 (Ribbon), D57 (derived controls), D74 (ReverseFoot), D75 (`twistRamp`), D78 (sockets and the strict DAG parent), D33 (format updates), D36 (performance). The decision entry for this page is D80.
+D62 (Limb, which this replaces), D52 (TwoBoneIk), D56 and D59 (Ribbon), D57 (derived controls), D74 (ReverseFoot), D75 (`twistRamp`), D78 (sockets and the strict DAG parent), D34 (the channel interface), D28 (mirroring), D36 (performance). The decision entry for this page is D80.
