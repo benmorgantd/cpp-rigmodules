@@ -70,7 +70,7 @@ ModuleInverseResult FkChainModuleNode::inverse(const ModuleInverseContext& conte
 
 // Joints run down +X and bend about Z, so the middle axis (the one that gimbal locks at 90 degrees) should be
 // Y, the side swing that rarely goes far. In XYZ, Z is also the parent-space axis, so the bend curve stays
-// clean, and X, the twist, turns about the bone itself. ZXY would put the twist in the middle (D40).
+// clean, and X, the twist, turns about the bone itself. ZXY would put the twist in the middle.
 RigModuleBuildResult FkChainModuleNode::createModule(
 	const MString& moduleName,
 	const Side& side,

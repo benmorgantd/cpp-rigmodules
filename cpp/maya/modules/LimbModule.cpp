@@ -81,7 +81,7 @@ namespace
 	constexpr int kSwingType{ ConstraintTypes::indexOf(ConstraintTypes::Swing) };
 	constexpr int kTwistType{ ConstraintTypes::indexOf(ConstraintTypes::Twist) };
 
-	// In LimbChannel order: the Ribbon's, less the aim blends and the end handle scale, then the elbow's softness (D62).
+	// In LimbChannel order: the Ribbon's, less the aim blends and the end handle scale, then the elbow's softness.
 	const std::array<ChannelSpec, LimbChannel::Count>& limbChannelSpecs()
 	{
 		static const std::array<ChannelSpec, LimbChannel::Count> specs = []
@@ -125,8 +125,8 @@ namespace
 		return params;
 	}
 
-	// The ribbon's start frame (D62): the start joint's translation and swing, its twist about its rest X taken out. This is the Swing
-	// constraint (D31) with the joint as both driver and parent, as the hand-built arm hung its shoulder ribbon.
+	// The ribbon's start frame: the start joint's translation and swing, its twist about its rest X taken out. This is the Swing
+	// constraint with the joint as both driver and parent, as the hand-built arm hung its shoulder ribbon.
 	MMatrix startAnchor(const MMatrix& mRest, const MMatrix& mWorld)
 	{
 		const MMatrix mDelta = MathUtils::computeDeltaFromRest(mRest, mWorld);
@@ -134,14 +134,14 @@ namespace
 	}
 
 	// The ribbon's end frame: the end joint's translation and its twist on the swing of the mid joint, so the hand's swing never reaches
-	// the forearm. This is the Twist constraint (D31) with the end joint as driver and the mid joint as parent.
+	// the forearm. This is the Twist constraint with the end joint as driver and the mid joint as parent.
 	MMatrix endAnchor(const MMatrix& mEndRest, const MMatrix& mEndWorld, const MMatrix& mMidRest, const MMatrix& mMidWorld)
 	{
 		return mEndRest * RigConstraintNode::computeDelta(
 			kTwistType, mEndRest, MathUtils::computeDeltaFromRest(mMidRest, mMidWorld), MathUtils::computeDeltaFromRest(mEndRest, mEndWorld));
 	}
 
-	// The anchors' part of the ribbon's setup (D62): the limb joints' rests (the first three of mRests) are the anchors the curve passes
+	// The anchors' part of the ribbon's setup: the limb joints' rests (the first three of mRests) are the anchors the curve passes
 	// through, with a corner at the mid joint. The stored setup is read back with this in compute(), and the inverse rebuilds it, so
 	// both run the one rule. False when two joints sit on each other.
 	bool setAnchors(RibbonMath::Setup& setup, const MMatrix* mRests)
@@ -251,7 +251,7 @@ MStatus LimbNode::initialize()
 	{
 		attributeAffects(oInput, aJointOPM);
 		attributeAffects(oInput, aOutputSocketMatrix);
-		// A match places the handle so a raised foot lands on the joints (D74). The match outputs feed nothing, so this makes no loop.
+		// A match places the handle so a raised foot lands on the joints. The match outputs feed nothing, so this makes no loop.
 		attributeAffects(oInput, aFkMatchLocal);
 		attributeAffects(oInput, aIkMatchLocal);
 		attributeAffects(oInput, aMatchWarnings);
@@ -285,7 +285,7 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 		return MStatus::kSuccess;
 	}
 
-	// The matched IK/FK switch (D62 phase 3) is the two-bone limb's: the ribbon rides the joints and has nothing to match.
+	// The matched IK/FK switch is the two-bone limb's: the ribbon rides the joints and has nothing to match.
 	if (oOutputAttr == aFkMatchLocal || oOutputAttr == aIkMatchLocal || oOutputAttr == aMatchWarnings)
 	{
 		std::optional<MMatrix> mTargetDelta;
@@ -347,7 +347,7 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	status = readControlInputs(hControlInputData, LimbSlot::FirstRibbon, static_cast<unsigned int>(controlCount + bindCount), mRibbonLocal, mRibbonRest);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// 3. The curve through the blended joints (D62): the start's swing, the mid joint, the end's twist on the mid's swing.
+	// 3. The curve through the blended joints: the start's swing, the mid joint, the end's twist on the mid's swing.
 	const MMatrix anchors[TwoBoneIkSlot::LimbCount] =
 	{
 		startAnchor(eval.mRest[TwoBoneIkSlot::Upper], ik.mJointWorld[TwoBoneIkSlot::Upper]),
@@ -379,7 +379,7 @@ MStatus LimbNode::computeHandleSockets(const MPlug& plug, MDataBlock& data)
 	status = TwoBoneIkPart<LimbNode>::readEval(data, eval);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// The handle, then the pole in the space it is in, as TwoBoneIkSolve::evaluate does (slot order matters, D52 section 4.4).
+	// The handle, then the pole in the space it is in, as TwoBoneIkSolve::evaluate does (slot order matters; design/two-bone-ik.md section 4.4).
 	const ControlSolveStep ikStep = solveControlStep(eval.mLocal[TwoBoneIkSlot::Ik], eval.mRest[TwoBoneIkSlot::Ik], eval.mIkDelta);
 	const MMatrix mPoleDelta = eval.poleFollowsIk ? MathUtils::computeDeltaFromRest(eval.mRest[TwoBoneIkSlot::Ik], ikStep.mWorld) : eval.mPoleParentDelta;
 	const ControlSolveStep poleStep = solveControlStep(eval.mLocal[TwoBoneIkSlot::Pole], eval.mRest[TwoBoneIkSlot::Pole], mPoleDelta);
@@ -562,7 +562,7 @@ RigModuleBuildResult LimbNode::createModule(
 		return result;
 	}
 
-	// The ikTarget child plug (D62 section 8): no control, joint or socket, and optional, so a template that leaves it out keeps the end
+	// The ikTarget child plug: no control, joint or socket, and optional, so a template that leaves it out keeps the end
 	// joint on the IK handle.
 	{
 		RigModuleChildPlugInfo ikTargetPlug;
@@ -571,8 +571,8 @@ RigModuleBuildResult LimbNode::createModule(
 		result.childPlugs[PlugAndSocketNames::IkTarget] = ikTargetPlug;
 	}
 
-	// 3. The ribbon's ik controls, which have no joint (D57): created loose, and put under the start plug's DAG parent in pass 2 (the
-	// callback below). Then the tweakers, one per bind joint, hidden and under the first ik control. Each has a socket (ribbon_<n>, bind_<n>, D78) and neither a plug.
+	// 3. The ribbon's ik controls, which have no joint: created loose, and put under the start plug's DAG parent in pass 2 (the
+	// callback below). Then the tweakers, one per bind joint, hidden and under the first ik control. Each has a socket (ribbon_<n>, bind_<n>) and neither a plug.
 	const unsigned int controlCount = static_cast<unsigned int>(ribbonControls.size());
 	std::vector<MObject> oRibbonControls;
 	for (unsigned int j = 0; j < controlCount; ++j)
@@ -587,7 +587,7 @@ RigModuleBuildResult LimbNode::createModule(
 		}
 		oRibbonControls.push_back(oControl);
 
-		// The ik control's socket (ribbon_<n>, D78). It carries the control's transform, so a child plug on it parents under the
+		// The ik control's socket (ribbon_<n>). It carries the control's transform, so a child plug on it parents under the
 		// visible control like an FkChain's. It is not index_<n>: a Limb's index_0 to index_2 are its three joints.
 		RigModuleSocketInfo ribbonSocket;
 		ribbonSocket.oTransform = oControl;
@@ -609,7 +609,7 @@ RigModuleBuildResult LimbNode::createModule(
 		}
 		const MObject oControl = RigControlNode::createRigControl(
 			dagMod, MFnDependencyNode(input.oJoint).name(), shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
-		// The bind joint's socket (bind_<n>). It carries the tweaker's transform (D78): the tweaker is not drawn through `shown`, not
+		// The bind joint's socket (bind_<n>). It carries the tweaker's transform: the tweaker is not drawn through `shown`, not
 		// visibility, so a child's control under it is not hidden with it.
 		RigModuleSocketInfo bindSocket;
 		bindSocket.oTransform = oControl;
@@ -826,7 +826,7 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 		return false;
 	}
 
-	// The ribbon's ik controls sit on the curve through the three joints (D62, design/limb.md section 5.1), at parameters from the bone
+	// The ribbon's ik controls sit on the curve through the three joints (design/limb.md section 5.1), at parameters from the bone
 	// lengths, and the setup is built from them.
 	const std::vector<double> controlU = ControlPlacement::limbControlParameters(upperLength, lowerLength, limbArgs.controlCount);
 	RibbonMath::Mat4 anchorRest[TwoBoneIkSlot::LimbCount];
@@ -847,7 +847,7 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 	}
 	RibbonMath::applyTwistRamp(setup, limbArgs.twistRamp);
 
-	// Names (D57): <base>RibbonIK_<nn> for the ik controls and <base>Tweak_<nn> for the tweakers (nn is the bind joint's index), the base
+	// Names: <base>RibbonIK_<nn> for the ik controls and <base>Tweak_<nn> for the tweakers (nn is the bind joint's index), the base
 	// being the one the two-bone limb's derived controls use.
 	const std::string base = limbArgs.controlName.empty() ? StringUtils::stripNumberSuffix(limbArgs.joints.front().usage) : limbArgs.controlName;
 	const std::string& firstSide = limbArgs.joints.front().side;

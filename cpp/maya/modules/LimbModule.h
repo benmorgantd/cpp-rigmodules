@@ -54,7 +54,7 @@ namespace LimbChannel
 // the mid joint. "controlCount" (optional, 3 to 8, default 5): the ribbon's ik controls, the first at the root, one at the mid joint,
 // one at the end, the rest spread between. The other keys are TwoBoneIk's (controlName, poleOffset, settingsOffset, ikFkBlend,
 // ikOrientToWorld, ikAlignToPole, poleParentDefault). There is no fk ribbon. design/limb.md section 4.1.
-// "twistRamp" (optional, D75): the Ribbon's, [position, share] pairs with positions in 0 to 1 from the root joint to the end joint (the mid
+// "twistRamp" (optional): the Ribbon's, [position, share] pairs with positions in 0 to 1 from the root joint to the end joint (the mid
 // joint at its share of the limb's length). Each ribbon ik control takes that share of the roll of the blended joints at its place.
 struct LimbArgs
 {
@@ -72,13 +72,13 @@ struct LimbArgs
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(LimbArgs, joints, bindJoints, controlCount, controlName, poleOffset, settingsOffset, ikFkBlend, ikOrientToWorld, ikAlignToPole, poleParentDefault, twistRamp)
 
-// COUPLED TO TwoBoneIk AND Ribbon (D62, design/limb.md): this node runs their solves (TwoBoneIkSolve, RibbonSolve and core/RibbonMath),
+// COUPLED TO TwoBoneIk AND Ribbon (design/limb.md): this node runs their solves (TwoBoneIkSolve, RibbonSolve and core/RibbonMath),
 // the TwoBoneIk half's attributes, plug reads and build (TwoBoneIkPart) and the Ribbon's channels and stored rest. A change to any of
 // them changes Limb: read design/limb.md and run test_limb_matches_parts before making it.
 //
 // A limb with one continuous ribbon (arm, leg): the two-bone IK/FK solve blends the start, mid and end joints, and a single curve
 // passes through them with the ribbon's ik controls on it and a tweaker for every bind joint. The ribbon's ends are the start joint's
-// swing and the end joint's twist on the mid joint's swing (the Swing and Twist constraints' frames, D31), so the shoulder's and
+// swing and the end joint's twist on the mid joint's swing (the Swing and Twist constraints' frames), so the shoulder's and
 // wrist's twist eases along the bones. Child plugs and sockets are TwoBoneIk's: child plugs start, ik, pole and settings (internal),
 // sockets index_0, index_1, index_2, start, end, ik, pole and settings. Slots: LimbSlot. The channels are on the settings control.
 class LimbNode : public RigModuleWithJointsNode<LimbNode>
@@ -109,7 +109,7 @@ public:
 	static MObject aIkVisible;
 
 	// The match outputs (TwoBoneIkPart), pulled only by setRigIkFkBlend: the two-bone limb's control locals on each side and the warnings.
-	// The ikTarget child plug (D62 section 8) is its own pair of inputs, not an element of childPlugs, and the ik, pole and settings sockets
+	// The ikTarget child plug is its own pair of inputs, not an element of childPlugs, and the ik, pole and settings sockets
 	// are their own output array, not elements of outputSocketMatrix (getSocketMatrixPlug finds them there). Maya orders the graph by
 	// attribute, so with the target and the handle's sockets on shared attributes a foot that hangs from the handle and feeds the target
 	// would be a cycle. aIkTargetConnected is set at build when the template wires the plug: unset, the end joint reaches the IK handle.

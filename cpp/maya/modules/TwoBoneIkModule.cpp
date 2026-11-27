@@ -63,7 +63,7 @@ namespace
 	// The IK solve of a restored pose may miss the joints by this fraction of the limb's reach before the restore warns.
 	constexpr double kMaxIkMismatch{ 1.0e-3 };
 
-	// Version 2 (D57): the IK handle, pole and settings controls come from the limb joints, so the three marker joints ("ik", "pole",
+	// Version 2: the IK handle, pole and settings controls come from the limb joints, so the three marker joints ("ik", "pole",
 	// "settings") are gone. The step has no scene, so it cannot turn their positions into offsets: an old template builds with the
 	// derived places. Anything else is left for the validation that follows.
 	void dropMarkerJoints(nlohmann::json& args)
@@ -78,7 +78,7 @@ namespace
 		}
 	}
 
-	// The solve's helpers live in maya/shared/TwoBoneIkSolve (shared with Limb, D62).
+	// The solve's helpers live in maya/shared/TwoBoneIkSolve (shared with Limb).
 	using TwoBoneIkSolve::computeLimbFrames;
 	using TwoBoneIkSolve::computeRest;
 	using TwoBoneIkSolve::makeFrame;
@@ -210,7 +210,7 @@ MStatus TwoBoneIkNode::spaceDelta(const MObject& oModule, unsigned int slot, uns
 	return MStatus::kSuccess;
 }
 
-// Allocates (the contract's vectors, the warnings), which is fine for a restore. compute() never calls it (D52 section 6).
+// Allocates (the contract's vectors, the warnings), which is fine for a restore. compute() never calls it.
 ModuleInverseResult TwoBoneIkNode::inverse(const ModuleInverseContext& context, const ModuleInverseInput& input)
 {
 	ModuleInverseResult result;
@@ -254,7 +254,7 @@ ModuleInverseResult TwoBoneIkNode::inverse(const ModuleInverseContext& context, 
 		}
 	};
 
-	// Slots 3 to 5 have no joints (D57): the handle and pole come from the limb's three, which are read here.
+	// Slots 3 to 5 have no joints: the handle and pole come from the limb's three, which are read here.
 	bool hasLimb = input.jointWorld.size() >= TwoBoneIkSlot::LimbCount;
 	for (unsigned int slot = 0; hasLimb && slot < TwoBoneIkSlot::LimbCount; ++slot)
 	{
@@ -306,7 +306,7 @@ ModuleInverseResult TwoBoneIkNode::inverse(const ModuleInverseContext& context, 
 
 	// The handle: at the solved position, turned the way the hand joint is (the frame the forward solve gives the end).
 	const MMatrix mEndFrame = eval.rest.ikRestOffset[TwoBoneIkSlot::End].inverse() * (*input.jointWorld[TwoBoneIkSlot::End]);
-	// With a foot on the ikTarget (D74), the end reaches rest * F * the handle's motion, so the handle is placed to make F land there.
+	// With a foot on the ikTarget, the end reaches rest * F * the handle's motion, so the handle is placed to make F land there.
 	// The handle has no scale channel, so in the scene it carries its space's scale (a Layout's): the reach is given that scale, so the
 	// handle's local comes out rigid and the scene's handle is the one placed here. Only the foot's case needs it: F turns about pivots
 	// away from the handle, so a scaled handle would move the reach, where without a foot only the reach's position is read.

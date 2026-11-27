@@ -21,8 +21,8 @@ public:
 	static MTypeId id;
 public:
 	static RigModuleBuildResult createModule(MObject& oRigRoot, MDagModifier& dagMod, const unsigned short& numControls);
-	// Layout controls have no joints, so nothing is derived and every control comes from the sidecar (D41,
-	// inverse-solve.md section 8). Its sockets still follow from them, because everything below hangs from the layout.
+	// Layout controls have no joints, so nothing is derived and every control comes from the sidecar
+	// (inverse-solve.md section 8). Its sockets still follow from them, because everything below hangs from the layout.
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
 
 	// Names of socket index among count controls: index_N, plus end on the last. No child plugs.

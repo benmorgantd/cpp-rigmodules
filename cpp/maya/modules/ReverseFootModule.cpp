@@ -61,7 +61,7 @@ namespace
 	static_assert(ReverseFootSlot::PivotCap == FootSolve::kRoleCount, "the module stores one pivot per role, the whole chainOrder");
 
 	// The 11 channels, in the order of ReverseFootModuleNode::aChannels: name, the FootSolve field it is, its rest in degrees, and whether
-	// a mirror negates it (D74 section 8). The member pointer is what ties a channel to its field, so reordering this table cannot swap
+	// a mirror negates it. The member pointer is what ties a channel to its field, so reordering this table cannot swap
 	// two channels in the solve. Names are the animator's, public API.
 	struct ChannelSpec
 	{
@@ -164,7 +164,7 @@ MStatus ReverseFootModuleNode::initialize()
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkFkDriver));
 
 	// The blend the foot follows: the driver's ikFkBlend is connected to it in pass 2. Not keyable and not in the channel box, and a connected
-	// attribute can't be set, so an animator reaches the blend only through the limb (one switch for one limb, D59 step 3).
+	// attribute can't be set, so an animator reaches the blend only through the limb (one switch for one limb).
 	aIkFkBlend = nAttr.create(RigAttr::IkFkBlend, RigAttr::IkFkBlend, MFnNumericData::kDouble, 1.0, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMin(0.0));
@@ -665,7 +665,7 @@ ModuleInverseResult ReverseFootModuleNode::inverse(const ModuleInverseContext& c
 	result.channels[channelIndex(&FootSolve::Channels::footRoll)] = VectorMath::toRadians(solved.footRoll);
 	result.channels[channelIndex(&FootSolve::Channels::bank)] = VectorMath::toRadians(solved.bank);
 	result.socketWorld[ReverseFootSlot::AnkleSocket] = mAnkle;
-	// The controls' sockets (D78), as computeToe writes them. The foot control has no local to give back, so it is its rest carried by the handle.
+	// The controls' sockets, as computeToe writes them. The foot control has no local to give back, so it is its rest carried by the handle.
 	const bool hasControlRests = ReverseFootSlot::ToeFk < context.controlRestWorld.size();
 	if (hasControlRests)
 	{
@@ -736,7 +736,7 @@ ModuleInterface ReverseFootModuleNode::makeInterface(const std::vector<FootSolve
 	}
 	moduleInterface.sockets.push_back(PlugAndSocketNames::Foot);
 	moduleInterface.sockets.push_back(PlugAndSocketNames::ToeFk);
-	// The foot and toe FK sockets carry their controls' transforms. The rest are solved worlds with none (D78).
+	// The foot and toe FK sockets carry their controls' transforms. The rest are solved worlds with none.
 	for (const std::string& name : moduleInterface.sockets)
 	{
 		if (name != PlugAndSocketNames::Foot && name != PlugAndSocketNames::ToeFk)
@@ -775,7 +775,7 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	DagUtils::setMatrixPlug(pAnkleRest, plan.mAnkleRestWorld, dagMod);
 	dagMod.newPlugValueString(MPlug(oModule, aIkFkDriver), plan.ikFkDriver.c_str());
 
-	// 2. The foot control: derived from the toe marker, with no joint (D57), world aligned.
+	// 2. The foot control: derived from the toe marker, with no joint, world aligned.
 	const MObject oControl = RigControlNode::createRigControl(dagMod, MString(plan.controlUsage.c_str()), shapeType, side, plan.controlMarkup, MEulerRotation::kXYZ);
 	status = wireControl(oModule, oControl, ReverseFootSlot::Foot, plan.mFootControlRest, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
@@ -808,7 +808,7 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	{
 		addSocket(pivotSocketName(plan.chain[i].role), ReverseFootSlot::FirstPivotSocket + static_cast<unsigned int>(i), MathUtils::translationMatrix(plan.chain[i].position));
 	}
-	// The two controls (D78) carry their transforms, so a child plug can name either as its DAG parent.
+	// The two controls carry their transforms, so a child plug can name either as its DAG parent.
 	addSocket(PlugAndSocketNames::Foot, ReverseFootSlot::FootSocket, plan.mFootControlRest, oControl);
 	addSocket(PlugAndSocketNames::ToeFk, ReverseFootSlot::ToeFkSocket, plan.mToeJointRests[0], oToeFk);
 	result.childPlugs[PlugAndSocketNames::Ik] = RigModuleChildPlugInfo{ oControl, ReverseFootSlot::IkPlug };
@@ -906,7 +906,7 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 	// The five pivots are the markers named by role on the foot's own side ([Left, heel]), in the fixed chain order (author,
 	// 2026-11-24: every foot has all of them, and the order is the module's, not the template's). A mirrored foot's side is already
 	// the other one. Every missing marker is reported, so one build lists them all.
-	// Only positions are read (D74): the axes come from the foot frame. A rotated marker is a warning, because a rigger
+	// Only positions are read: the axes come from the foot frame. A rotated marker is a warning, because a rigger
 	// who turned one (to match a slanted toe joint, say) would otherwise expect the roll to follow it.
 	Plan plan;
 	std::string rotatedMarkers;
@@ -967,7 +967,7 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 		ctx.report.addError(argsPath + ".joints", "the toe's usage '" + footArgs.joints[1].usage + "' with FK ('" + plan.toeFkUsage + "') must be camelCase: it names the toe FK control");
 		valid = false;
 	}
-	// A mirrored foot follows the other side's limb (D28). The selectors' sides were swapped when the template expanded.
+	// A mirrored foot follows the other side's limb. The selectors' sides were swapped when the template expanded.
 	plan.ikFkDriver = footArgs.ikFkDriver;
 	if (footArgs.ikFkDriver.find('.') != std::string::npos)
 	{

@@ -19,13 +19,13 @@
 #include <maya/MString.h>
 #include <maya/MTypeId.h>
 
-// The ReverseFoot (D74, design/reverse-foot.md): foot roll, pivots and bank as channels on one control, an FK toe, on top of a Limb.
+// The ReverseFoot (design/reverse-foot.md): foot roll, pivots and bank as channels on one control, an FK toe, on top of a Limb.
 //
-// COUPLED TO Limb (D62, design/limb.md section 8): the foot hangs from a Limb's ik and end sockets, feeds its ikTarget and follows its
+// COUPLED TO Limb (design/limb.md section 8): the foot hangs from a Limb's ik and end sockets, feeds its ikTarget and follows its
 // ikFkBlend. A change to the Limb's blend, sockets, ikTarget or inverse changes the foot, and a change here changes where the Limb's end joint
 // reaches.
 //
-// Two stages, in separate attribute groups (D62 phase 4): Maya orders the graph by attribute, and a socket and a plug on one attribute is a loop
+// Two stages, in separate attribute groups: Maya orders the graph by attribute, and a socket and a plug on one attribute is a loop
 // in the legacy DG.
 //  Stage 1 reads the ik plug (childPlugs[0], the Limb's ik socket), the channels and the pivots, and writes the ankle socket, the IK ankle
 //  target the Limb's ikTarget takes. It never reads the ankle plug.
@@ -122,8 +122,8 @@ private:
 		MMatrix mAnkleDelta;    // the ankle plug's motion since rest: the ankle as it really is
 		MMatrix mHandleDelta;   // the ik plug's motion since rest
 		MMatrix mToe;
-		MMatrix mFootWorld;     // the foot control's world: its rest carried by the handle's motion, its local on top (the foot socket, D78)
-		MMatrix mToeFkWorld;    // the toe FK control's world, whatever the blend (the toeFk socket, D78)
+		MMatrix mFootWorld;     // the foot control's world: its rest carried by the handle's motion, its local on top (the foot socket)
+		MMatrix mToeFkWorld;    // the toe FK control's world, whatever the blend (the toeFk socket)
 
 		std::span<const FootSolve::Pivot> chain() const
 		{

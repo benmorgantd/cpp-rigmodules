@@ -17,10 +17,10 @@
 #include <maya/MTypeId.h>
 #include <maya/MVector.h>
 
-// COUPLED TO Limb (D62, design/limb.md): LimbNode runs this module's solve, channels, control derivation and inverse. A change here
+// COUPLED TO Limb (design/limb.md): LimbNode runs this module's solve, channels, control derivation and inverse. A change here
 // changes Limb. Read design/limb.md and run test_limb_matches_parts before changing any of them.
 //
-// A two-bone IK limb (arm, leg): an FK chain and an IK solve, blended joint by joint (D52). Child plugs: start, ik, pole,
+// A two-bone IK limb (arm, leg): an FK chain and an IK solve, blended joint by joint. Child plugs: start, ik, pole,
 // and settings (internal: it follows start's parent). Sockets: index_0, index_1, index_2 (the blended joint worlds), start,
 // end, ik, pole, settings.
 class TwoBoneIkNode : public RigModuleWithJointsNode<TwoBoneIkNode>
@@ -32,7 +32,7 @@ public:
 	static void* creator();
 	static MStatus initialize();
 	virtual MStatus compute(const MPlug& plug, MDataBlock& data) override;
-	// The moduleArgs version table. Step 0 takes version 1 (ik, pole and settings joints) to 2 (derived controls, D57).
+	// The moduleArgs version table. Step 0 takes version 1 (ik, pole and settings joints) to 2 (derived controls).
 	static const UpdateTable& argUpdateTable();
 
 public:
@@ -56,7 +56,7 @@ public:
 	static MObject aFkVisible;
 	static MObject aIkVisible;
 
-	// Match outputs (D52 section 4.1), pulled only by setRigIkFkBlend, never during playback: the control locals that
+	// Match outputs, pulled only by setRigIkFkBlend, never during playback: the control locals that
 	// reproduce the current pose on each side, by slot (fkMatchLocal 0 to 2, ikMatchLocal 3 and 4), and what the match
 	// can't do, a JSON list of messages (JsonUtils). Not writable, not storable, connected to nothing.
 	static MObject aFkMatchLocal;
@@ -75,7 +75,7 @@ public:
 		MDagModifier& dagMod
 	);
 	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
-	// Control values from the limb joints (D52 section 6): the FK controls from the joint worlds, the IK handle and pole
+	// Control values from the limb joints: the FK controls from the joint worlds, the IK handle and pole
 	// from the observed positions through TwoBoneIkSolve::computeTwoBoneIkInverse, for the channels in inverseChannels().
 	// The sockets are the forward evaluation of those controls. Not solved when a limb joint is missing.
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);

@@ -143,7 +143,7 @@ ModuleInverseResult FkHierarchyModuleNode::inverse(const ModuleInverseContext& c
 	return ModuleInverse::solveChain(context, input, true);
 }
 
-// Joints run down +X and bend about Z, the same as FkChain (D40), so the rotate order is XYZ.
+// Joints run down +X and bend about Z, the same as FkChain, so the rotate order is XYZ.
 RigModuleBuildResult FkHierarchyModuleNode::createModule(
 	const MString& moduleName,
 	const Side& side,

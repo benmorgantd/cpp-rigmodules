@@ -43,7 +43,7 @@ namespace
 			moduleInterface.childPlugs.push_back(ModulePlugInfo{ kAimPartNames[i], i != AimPart::Aim });
 			moduleInterface.sockets.push_back(kAimPartNames[i]);
 		}
-		moduleInterface.matrixOnlySockets.push_back(kAimPartNames[AimPart::Aim]);   // the aim joint is solved, with no control (D78)
+		moduleInterface.matrixOnlySockets.push_back(kAimPartNames[AimPart::Aim]);   // the aim joint is solved, with no control
 		return moduleInterface;
 	}
 
@@ -59,7 +59,7 @@ namespace
 
 	// The aim joint's world from the three part worlds (the aim part's own, as its control step left it): +X toward the
 	// target, +Z toward up, then the rest offset so it equals the joint's rest matrix at rest. compute() and the inverse
-	// both build the aim joint here, so the two can't drift (D41).
+	// both build the aim joint here, so the two can't drift.
 	MMatrix computeAimJointWorld(const MMatrix& mAimWorld, const MMatrix& mTargetWorld, const MMatrix& mUpWorld, const MMatrix& mAimRestOffset)
 	{
 		return mAimRestOffset * MathUtils::computeAimMatrix(position(mAimWorld), position(mTargetWorld), position(mUpWorld), mAimWorld);

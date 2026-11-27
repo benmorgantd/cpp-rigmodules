@@ -15,7 +15,7 @@
 #include <maya/MString.h>
 #include <maya/MTypeId.h>
 
-// An FK control for the root joint and every joint below it (D71, design/fk-hierarchy.md). FkChain's controls form one
+// An FK control for the root joint and every joint below it (design/fk-hierarchy.md). FkChain's controls form one
 // chain; these form a tree, with each control carried by its own parent's motion. One child plug, start (the root).
 // One socket per joint, named from the joint's markup: left_spine_00.
 class FkHierarchyModuleNode : public RigModuleWithJointsNode<FkHierarchyModuleNode>
@@ -48,7 +48,7 @@ public:
 		MDagModifier& dagMod
 	);
 	static bool planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan);
-	// Derives every control's transform from the joints (D41): the chain inverse, with each control under its own parent.
+	// Derives every control's transform from the joints: the chain inverse, with each control under its own parent.
 	static ModuleInverseResult inverse(const ModuleInverseContext& context, const ModuleInverseInput& input);
 
 private:

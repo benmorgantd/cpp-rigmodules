@@ -56,7 +56,7 @@ namespace
 	using RibbonSolve::channelSpecs;
 	using RibbonSolve::paramsFromChannels;
 
-	// Version 2 (D57): the ik controls come from the bind joints, so "controls" (their joints) gives way to "controlCount". A
+	// Version 2: the ik controls come from the bind joints, so "controls" (their joints) gives way to "controlCount". A
 	// template that already has controlCount, or whose controls isn't a list, is left for the validation that follows.
 	void replaceControlsWithCount(nlohmann::json& args)
 	{
@@ -75,7 +75,7 @@ namespace
 		ModuleInterface moduleInterface;
 		moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Start, true });
 		// The end follows the start's parent unless the template drives it from another socket (section 3.4). With an fk chain the end
-		// is on the chain, so it has no plug of its own (D59).
+		// is on the chain, so it has no plug of its own.
 		if (!hasFkChain)
 		{
 			moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::End, true, true, "", PlugAndSocketNames::Start });
@@ -85,7 +85,7 @@ namespace
 			const std::vector<std::string> names = FkChainModuleNode::socketNamesAt(k, controlCount);
 			moduleInterface.sockets.insert(moduleInterface.sockets.end(), names.begin(), names.end());
 		}
-		// Every bind joint and every fk control is a socket too (D78), so each is a constraint driver and a child plug's parent.
+		// Every bind joint and every fk control is a socket too, so each is a constraint driver and a child plug's parent.
 		for (unsigned int i = 0; i < bindCount; ++i)
 		{
 			moduleInterface.sockets.push_back(std::string(PlugAndSocketNames::Bind) + std::to_string(i));
@@ -239,7 +239,7 @@ MStatus RibbonModuleNode::compute(const MPlug& plug, MDataBlock& data)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	for (unsigned int slot = 0; slot < slotCount; ++slot)
 	{
-		writeSolvedSlot(outputs, slot, solve.mControlOPM[slot], solve.mWorld[slot]);   // every slot has a socket element (D78)
+		writeSolvedSlot(outputs, slot, solve.mControlOPM[slot], solve.mWorld[slot]);   // every slot has a socket element
 	}
 	commitSolvedOutputs(data, plug, aJointOPM, outputs);
 	return MStatus::kSuccess;
@@ -320,7 +320,7 @@ ModuleInverseResult RibbonModuleNode::inverse(const ModuleInverseContext& contex
 		return slot < input.jointWorld.size() && input.jointWorld[slot].has_value();
 	};
 
-	// 1. The ends from the first and last bind joints, whose frames they share (D57). A joint's frame is not quite its end
+	// 1. The ends from the first and last bind joints, whose frames they share. A joint's frame is not quite its end
 	// control's (the sine layer and a stretch move it), so the control is refined: with the tweaker at rest, each pass moves the
 	// control by the gap its joint is still away from where the solve puts it, until the gap is gone. Each pass costs one
 	// evaluation, and a restore is not playback. The two ends move each other's tangents, so a pass settles about a quarter of
@@ -446,7 +446,7 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 	{
 		const RibbonSlotInput& input = slots[slot];
 
-		// An ik control has no joint (D57): its jointOPM and jointRestWorld elements are never made, which the module's arrays
+		// An ik control has no joint: its jointOPM and jointRestWorld elements are never made, which the module's arrays
 		// and the inverse allow for.
 		MString controlBaseName(input.baseName.c_str());
 		if (!input.oJoint.isNull())
@@ -486,13 +486,13 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 		std::vector<std::string> socketNames;
 		if (slot >= firstFk)
 		{
-			// An fk control has no joint: it shapes the curve the ik controls float on. Its socket (fk_<n>, D78) carries its own
+			// An fk control has no joint: it shapes the curve the ik controls float on. Its socket (fk_<n>) carries its own
 			// transform, so a child plug on it parents under the visible control like an FkChain's.
 			socketNames.push_back(std::string(PlugAndSocketNames::Fk) + std::to_string(slot - firstFk));
 		}
 		else if (slot >= controlCount)
 		{
-			// A tweaker is the residual layer: not drawn, still keyable (section 3.2). Its socket (bind_<n>, D78) is its world, which is
+			// A tweaker is the residual layer: not drawn, still keyable (section 3.2). Its socket (bind_<n>) is its world, which is
 			// the bind joint's, and carries its transform: it is hidden through `shown`, not visibility, so a child plug's control can be
 			// parented under it without being hidden too.
 			dagMod.newPlugValueBool(MPlug(oControls[slot], RigControlNode::aShown), false);
@@ -645,7 +645,7 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 		return false;
 	}
 
-	// The ik controls come from the bind joints (D57): the axes must run down the chain, in one direction.
+	// The ik controls come from the bind joints: the axes must run down the chain, in one direction.
 	std::vector<RibbonMath::Mat4> bindRest;
 	std::vector<std::string> jointNames;
 	for (std::size_t i = 0; i < joints.size(); ++i)
@@ -661,7 +661,7 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	}
 	const std::vector<RibbonMath::Mat4> controlFrames = ControlPlacement::placeAlongChain(bindRest, ribbonArgs.controlCount);
 
-	// The fk chain (D59) is placed the same way, with its own count.
+	// The fk chain is placed the same way, with its own count.
 	const int fkCount = ribbonArgs.fkStyle ? (ribbonArgs.fkControlCount == -1 ? ribbonArgs.controlCount : ribbonArgs.fkControlCount) : 0;
 	std::vector<RibbonMath::Mat4> fkFrames;
 	if (fkCount > 0)
@@ -684,9 +684,9 @@ bool RibbonModuleNode::planFromJson(const nlohmann::json& args, PlanContext& ctx
 	}
 	RibbonMath::applyTwistRamp(setup, ribbonArgs.twistRamp);
 
-	// Names (D57): <base>IK_<nn> for the ik controls, <base>Tweak_<nn> for the tweakers (nn is the bind joint's index). The base
+	// Names: <base>IK_<nn> for the ik controls, <base>Tweak_<nn> for the tweakers (nn is the bind joint's index). The base
 	// is controlName, else the first bind joint's usage without its trailing _NN. A usage another module already uses is
-	// reported by the template's one-usage-per-rig check (D25).
+	// reported by the template's one-usage-per-rig check.
 	const std::string base = ribbonArgs.controlName.empty() ? StringUtils::stripNumberSuffix(ribbonArgs.joints.front().usage) : ribbonArgs.controlName;
 	if (!NamingConvention::isValidBase(base))
 	{
