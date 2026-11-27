@@ -28,7 +28,7 @@
 
 namespace
 {
-	// World units a mirror joint may sit from its reflected source when createRigFromTemplate checks positions (D28).
+	// World units a mirror joint may sit from its reflected source when createRigFromTemplate checks positions.
 	constexpr double kMirrorPositionTolerance{ 0.001 };
 }
 
@@ -82,7 +82,7 @@ namespace
 		bool socketsMatch = result.parentSockets.size() == moduleInterface.sockets.size();
 		for (const std::string& socket : moduleInterface.sockets)
 		{
-			// A socket is matrix-only in the plan exactly when it was built with no control transform (D78).
+			// A socket is matrix-only in the plan exactly when it was built with no control transform.
 			const auto it = result.parentSockets.find(socket);
 			socketsMatch = socketsMatch && it != result.parentSockets.end() && moduleInterface.isMatrixOnly(socket) == it->second.oTransform.isNull();
 		}
@@ -137,7 +137,7 @@ std::vector<ModulePlan> RigModuleNodeBase::planModules(
 
 		RigTemplateValidation::validateModuleFields(moduleData, where, report);
 
-		// Older moduleArgs are brought forward first, so the plan step reads only the current shape (D33).
+		// Older moduleArgs are brought forward first, so the plan step reads only the current shape.
 		nlohmann::json moduleArgs = moduleData.moduleArgs;
 		if (!FormatUpdate::runUpdates(pDescriptor->argUpdates, moduleData.moduleVersion, moduleArgs, where + "." + TemplateKey::ModuleVersion, report))
 		{
@@ -382,7 +382,7 @@ MPlug RigModuleNodeBase::getSocketMatrixPlug(const MObject& oModule, unsigned in
 	MFnDependencyNode fnModule(oModule);
 	// A Limb keeps the sockets of its IK handle, pole and settings control on their own array (see LimbNode::aIkTargetMatrix).
 	const bool onHandleArray = fnModule.hasAttribute(RigAttr::HandleSocketMatrix) && TwoBoneIkSolve::isHandleSocket(socketIndex);
-	// A ReverseFoot's ankle socket, which feeds a Limb's ikTarget, is on an array of its own for the same reason (D74).
+	// A ReverseFoot's ankle socket, which feeds a Limb's ikTarget, is on an array of its own for the same reason.
 	const bool onAnkleArray = fnModule.hasAttribute(RigAttr::AnkleSocketMatrix) && socketIndex == ReverseFootSlot::AnkleSocket;
 	const char* socketArray = onAnkleArray ? RigAttr::AnkleSocketMatrix : onHandleArray ? RigAttr::HandleSocketMatrix : RigAttr::OutputSocketMatrix;
 	MPlug pSockets = fnModule.findPlug(socketArray, false, &status);
@@ -438,7 +438,7 @@ MStatus RigModuleNodeBase::findSocketIndex(const MObject& oModule, const MString
 	for (unsigned int e = 0; e < pSocketNames.numElements(); ++e)
 	{
 		MPlug pElement = pSocketNames.elementByPhysicalIndex(e);
-		// Rigs built before D16 stored ';' separated text, which fails here. Rebuild them from the template.
+		// Rigs built before these attributes held JSON stored ';' separated text, which fails here. Rebuild them from the template.
 		if (!JsonUtils::readJsonString(pElement.asString().asChar(), names, error))
 		{
 			const std::string index = std::to_string(pElement.logicalIndex());

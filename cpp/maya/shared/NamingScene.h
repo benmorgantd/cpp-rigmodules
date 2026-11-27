@@ -4,7 +4,7 @@
 
 #include <maya/MObject.h>
 
-// Scene side of the naming convention (D58): which kind of rig node a scene node is.
+// Scene side of the naming convention: which kind of rig node a scene node is.
 class NamingScene
 {
 public:

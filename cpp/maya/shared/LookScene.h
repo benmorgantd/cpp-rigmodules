@@ -14,12 +14,12 @@
 #include <maya/MStatus.h>
 #include <maya/MString.h>
 
-// A look in a rig's scene (D54, design/rigs-and-looks.md section 4.1): its meshes, its weight files and the lookRoot
+// A look in a rig's scene (design/rigs-and-looks.md section 4.1): its meshes, its weight files and the lookRoot
 // node that records them. Every function displays its own errors.
 class LookScene
 {
 public:
-	// Compares the rig's stamped skeletonHash with the look's skeleton file text. A difference is a status (D70): outStale
+	// Compares the rig's stamped skeletonHash with the look's skeleton file text. A difference is a status: outStale
 	// is set and a warning names both hashes and, when rigSkeletonText is not empty, every joint that differs (core
 	// describeSkeletonDifferences). Either text that doesn't parse is an error.
 	static MStatus checkSkeleton(const MObject& oRigRoot, const std::string& lookSkeletonText, const std::string& rigSkeletonText, bool& outStale);
@@ -38,9 +38,9 @@ struct LookSwapInputs
 	bool skeletonStale = false;         // the look's skeleton file isn't the rig's (LookScene::checkSkeleton), for the report
 };
 
-// Puts a rig in a look, undoably, as one step (D54). prepare checks everything and changes nothing. apply and undo then
+// Puts a rig in a look, undoably, as one step. prepare checks everything and changes nothing. apply and undo then
 // run as the command's redoIt and undoIt.
-// Each mesh with a file goes down the ladder of D70, and the first rung that fits is its result: "loaded" (topology
+// Each mesh with a file goes down the fallback ladder (design/asset-build-fallbacks.md), and the first rung that fits is its result: "loaded" (topology
 // matches and every influence resolves), "folded" (some influences were joints that are gone, and moved up to the next
 // skin joint, core foldSkinWeights), or "rigid" (a changed topology, or an influence that can't fold). A skeletonHash
 // that isn't the rig's is only a mark (staleSkeleton). prepare never fails over a file's content: that is what the

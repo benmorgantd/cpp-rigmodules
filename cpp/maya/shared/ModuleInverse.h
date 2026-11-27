@@ -8,7 +8,7 @@
 #include <maya/MObject.h>
 #include <maya/MStatus.h>
 
-// What a module's inverse is given and returns (D41, inverse-solve.md section 4). A module's inverse matches world
+// What a module's inverse is given and returns (inverse-solve.md section 4). A module's inverse matches world
 // matrices only: it knows nothing about source skeletons, proportions, files or channels, and reads no scene. Every
 // vector is indexed by the module's slot, the logical index its controlInputData, jointOPM, outputSocketMatrix and
 // childPlugs arrays share (FkChain: control i, joint i, socket i. Aim: aim 0, target 1, up 2. Layout: control i,
@@ -21,12 +21,12 @@ struct ModuleInverseContext
 	// How many of the leading slots are one kind of control, from the module's ikControlCount attribute when it has one
 	// (Ribbon: its ik controls, and the slots after them are the tweakers). 0 for a module with a single kind.
 	unsigned int ikControlCount = 0;
-	// How many of the trailing slots are fk controls, from the module's fkControlCount attribute when it has one (Ribbon, D59).
+	// How many of the trailing slots are fk controls, from the module's fkControlCount attribute when it has one (Ribbon).
 	unsigned int fkControlCount = 0;
-	// By ik control, from the module's fkRollShare attribute when it has one (Ribbon, Limb: the template's twistRamp, D75). Empty or
+	// By ik control, from the module's fkRollShare attribute when it has one (Ribbon, Limb: the template's twistRamp). Empty or
 	// short: the rest of the shares are 1.
 	std::vector<double> fkRollShare;
-	// By slot, from the module's controlParentIndex attribute (FkHierarchy, D71): the slot of each control's parent, -1 for
+	// By slot, from the module's controlParentIndex attribute (FkHierarchy): the slot of each control's parent, -1 for
 	// the root. Empty for every module whose controls form one chain.
 	std::vector<int> parentIndex;
 	// The module's own stored rests, in its own order, from ModuleDescriptor::readInverseRest (ReverseFoot: the ankle, the ankle plug's
@@ -34,7 +34,7 @@ struct ModuleInverseContext
 	std::vector<MMatrix> moduleRest;
 };
 
-// A scalar channel a module's inverse needs and the joints can't give (D41 amendment, D52 section 6): the name of
+// A scalar channel a module's inverse needs and the joints can't give (design/inverse-solve.md, design/two-bone-ik.md section 6): the name of
 // the channel on the control at that slot, and the value the driver passes when the control has no such channel.
 // A module lists them in ModuleDescriptor::inverseChannels, and receives their values in ModuleInverseInput::channels
 // in the same order. Names are the animator's, as in a pose file.
@@ -52,7 +52,7 @@ struct ModuleInverseInput
 	std::vector<MMatrix> parentDelta;                 // by slot: the child plug's parent motion since rest, from the sweep (identity when unconnected)
 	std::vector<MMatrix> fallbackLocal;               // by slot: the control's local matrix from the sidecar, or rest, for when its joint can't give it
 	std::vector<double> channels;                     // by ModuleDescriptor::inverseChannels, in internal units (angles in radians): the sidecar's value, else the rig's current one
-	// A Limb's ikTarget (D74, design/reverse-foot.md section 10). For the module that feeds the target (a foot): the joint the target
+	// A Limb's ikTarget (design/reverse-foot.md section 10). For the module that feeds the target (a foot): the joint the target
 	// moves, the Limb's end, from the source. For the Limb: the feeding module's motion F, where the target's motion since rest is
 	// F * the handle's, so the handle is placed to make F reach the joints. Empty when the module has no such link.
 	std::optional<MMatrix> ikTargetJointWorld;

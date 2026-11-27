@@ -271,7 +271,7 @@ std::vector<std::string> TwoBoneIkSolve::socketNamesAt(unsigned int slot)
 ModuleInterface TwoBoneIkSolve::makeInterface()
 {
 	ModuleInterface moduleInterface;
-	// Both TwoBoneIk and Limb build this: their ik/fk blend is what a ReverseFoot's ikFkDriver follows (D74).
+	// Both TwoBoneIk and Limb build this: their ik/fk blend is what a ReverseFoot's ikFkDriver follows.
 	moduleInterface.blendSource = RigAttr::IkFkBlend;
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Start, true, true, "" });
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Ik, true, true, "" });
@@ -315,7 +315,7 @@ bool TwoBoneIkSolve::planSlots(const TwoBoneIkArgs& ikArgs, PlanContext& ctx, st
 	}
 
 	// An offset is empty (the default) or three numbers. The other side of a mirrored module is the reflection across the YZ plane
-	// (D28), so a world offset's X is negated there.
+	//, so a world offset's X is negated there.
 	const auto readOffset = [&](const std::vector<double>& values, const char* key) -> std::optional<VectorMath::Vec3>
 	{
 		if (values.empty())
@@ -358,7 +358,7 @@ bool TwoBoneIkSolve::planSlots(const TwoBoneIkArgs& ikArgs, PlanContext& ctx, st
 		return false;
 	}
 
-	// The derived controls (D57). The handle is at the end joint, turned the way that joint is. The pole and settings controls take
+	// The derived controls. The handle is at the end joint, turned the way that joint is. The pole and settings controls take
 	// world axes: their rotation is locked, so this only sets how their translate channels read.
 	const ControlPlacement::LimbPlacement placement = ControlPlacement::placeLimb(
 		MathUtils::toMat4(slots[TwoBoneIkSlot::Upper].mRestWorld), MathUtils::toMat4(slots[TwoBoneIkSlot::Lower].mRestWorld),
@@ -388,7 +388,7 @@ bool TwoBoneIkSolve::planSlots(const TwoBoneIkArgs& ikArgs, PlanContext& ctx, st
 	};
 	if (ikArgs.ikOrientToWorld)
 	{
-		// World-aligned (D59): on the mirrored side the pole is reflected, so a turn toward it is reflected too. The IK joints' rest
+		// World-aligned: on the mirrored side the pole is reflected, so a turn toward it is reflected too. The IK joints' rest
 		// offsets (computeRest) absorb whichever rotation the handle has, so the bind pose is unaffected.
 		const std::optional<VectorMath::Mat4> worldHandle = ControlPlacement::placeWorldIkHandle(
 			{ vEnd.x, vEnd.y, vEnd.z }, placement.pole, ikArgs.ikAlignToPole);
@@ -407,8 +407,8 @@ bool TwoBoneIkSolve::planSlots(const TwoBoneIkArgs& ikArgs, PlanContext& ctx, st
 	slots[TwoBoneIkSlot::Pole].mRestWorld = frameAt(MMatrix::identity, vPole);
 	slots[TwoBoneIkSlot::Settings].mRestWorld = frameAt(MMatrix::identity, vSettings);
 
-	// Names (D57): <base>IK, <base>Pole and <base>Settings. The base is controlName, else the first joint's usage without its
-	// trailing _NN. A usage another module already uses is reported by the template's one-usage-per-rig check (D25).
+	// Names: <base>IK, <base>Pole and <base>Settings. The base is controlName, else the first joint's usage without its
+	// trailing _NN. A usage another module already uses is reported by the template's one-usage-per-rig check.
 	const std::string base = ikArgs.controlName.empty() ? StringUtils::stripNumberSuffix(ikArgs.joints.front().usage) : ikArgs.controlName;
 	if (!NamingConvention::isValidBase(base))
 	{

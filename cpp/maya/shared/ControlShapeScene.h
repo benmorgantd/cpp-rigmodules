@@ -10,7 +10,7 @@
 #include <maya/MStringArray.h>
 
 // Scene side of control shape files: reads and writes the shape attributes of a rig's controls,
-// matched by control markup (D26). Every function displays its own errors.
+// matched by control markup. Every function displays its own errors.
 class ControlShapeScene
 {
 public:
@@ -26,7 +26,7 @@ public:
 	static MStatus setRigControlShapes(const MObject& oRigRoot, const ControlShapeMap& shapes, MDGModifier& dgMod, MStringArray& outAppliedNames);
 
 	// Queues, for every sourceSide control, its shape reflected across world X = 0 onto the control with the same usage
-	// on the other side (D28). Uses both controls' rest world matrices, so the pose doesn't matter. Copies shapeType and
+	// on the other side. Uses both controls' rest world matrices, so the pose doesn't matter. Copies shapeType and
 	// filled, leaves color alone. Warns about a source control with no mirror. outChangedNames lists the mirrors.
 	static MStatus mirrorRigControlShapes(const MObject& oRigRoot, const std::string& sourceSide, MDGModifier& dgMod, MStringArray& outChangedNames);
 };

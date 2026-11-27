@@ -42,7 +42,7 @@ namespace
 		return std::find(handles.begin(), handles.end(), MObjectHandle(oNode)) != handles.end();
 	}
 
-	// What one mesh with a weight file gets (D70): a load ready to apply, or none when the mesh goes rigid, and the report
+	// What one mesh with a weight file gets: a load ready to apply, or none when the mesh goes rigid, and the report
 	// entry either way.
 	struct LadderOutcome
 	{
@@ -50,7 +50,7 @@ namespace
 		LookMeshReport report;
 	};
 
-	// The ladder of D70, in order: a changed topology goes rigid, then each influence the rig no longer has folds into
+	// The fallback ladder, in order: a changed topology goes rigid, then each influence the rig no longer has folds into
 	// the next skin joint up the file's skeleton (rigid when one can't), then the weights load. The skeletonHash only
 	// sets staleSkeleton. Every fallback names its reason.
 	LadderOutcome runLadder(const MDagPath& mesh, const SkinWeights& file, const std::vector<CurrentJoint>& joints, const std::string& rigHash)
@@ -237,7 +237,7 @@ MStatus LookSwap::prepare(const LookSwapInputs& inputs)
 			continue;
 		}
 		// The file no longer fits. The mesh stays in the look, bound like a mesh with no file, to be skinned again and saved
-		// over the old file (D70).
+		// over the old file.
 		MString reasons;
 		for (const std::string& reason : outcome.report.reasons)
 		{

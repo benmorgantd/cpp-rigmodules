@@ -124,7 +124,7 @@ void SkeletonScene::readNamespaceSkeleton(const MString& absoluteNamespace, Skel
 	{
 		return;
 	}
-	// A skeleton has one root joint (D70, author 2026-11-22): the structure a weight file stores, and the fold up it,
+	// A skeleton has one root joint (author 2026-11-22): the structure a weight file stores, and the fold up it,
 	// need a hierarchy. The root need not be a skin joint.
 	std::string roots;
 	std::size_t rootCount = 0;

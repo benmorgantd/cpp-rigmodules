@@ -11,10 +11,10 @@
 #include <maya/MObject.h>
 #include <maya/MStatus.h>
 
-// The driver of the inverse solve (D41, inverse-solve.md section 5). It reads a rig's stored rests once, orders its
+// The driver of the inverse solve (inverse-solve.md section 5). It reads a rig's stored rests once, orders its
 // modules parents first, and for each JointPose sweeps them in memory: the parent socket's motion becomes each child
 // plug's parentDelta, the module's inverse turns its joints' world matrices into control values, and the sidecar (control
-// data, D42) fills what the joints can't give. It reads no posed scene state and writes nothing: the caller applies the poses through
+// data) fills what the joints can't give. It reads no posed scene state and writes nothing: the caller applies the poses through
 // RigPoseScene or RigKeyScene. Displays its own errors and warnings. The module inverses it calls are in ModuleInverse.h.
 class RigInverse
 {

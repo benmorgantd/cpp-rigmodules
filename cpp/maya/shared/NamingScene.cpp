@@ -24,14 +24,14 @@ bool NamingScene::getKind(const MObject& oNode, NamingConvention::Kind& outKind)
 		return false;
 	}
 
-	// A marker locator (D73) is a transform carrying markup. loadRigMarkers makes them rigControlNodes, so this comes before
+	// A marker locator is a transform carrying markup. loadRigMarkers makes them rigControlNodes, so this comes before
 	// the control test.
 	if (fnNode.hasAttribute(RigAttr::MarkerMarkup))
 	{
 		outKind = NamingConvention::Kind::Marker;
 		return true;
 	}
-	// A push-out display (D79) is temporary and outside the convention: it has no kind, so it is never renamed into one.
+	// A push-out display is temporary and outside the convention: it has no kind, so it is never renamed into one.
 	if (fnNode.hasAttribute(RigAttr::PushOutDisplay))
 	{
 		return false;

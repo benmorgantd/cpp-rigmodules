@@ -15,7 +15,7 @@
 
 struct ValidationReport;
 
-// Scene side of the marker file (D73, design/markers.md): marker locators in an editing scene, and placing a marker set
+// Scene side of the marker file (design/markers.md): marker locators in an editing scene, and placing a marker set
 // on a build's joints. A built rig has no node for a rig-only marker, so everything here that makes nodes is for
 // editing scenes.
 class MarkerScene

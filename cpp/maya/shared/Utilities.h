@@ -181,7 +181,7 @@ public:
 	static MObjectArray getTopmostNodes(const MObjectArray& oNodes);
 
 	// Queues locking and hiding translate, rotate and scale on a transform that exists (after a doIt), leaving
-	// visibility alone. MEL on the modifier, so undo and redo replay it (D40). keepChannels names channels ("rx", "ty")
+	// visibility alone. MEL on the modifier, so undo and redo replay it. keepChannels names channels ("rx", "ty")
 	// that stay as they are, for a control whose rotate must stay keyable.
 	static MStatus queueLockAndHideTransform(const MObject& oTransform, MDagModifier& dagMod, const std::vector<std::string>& keepChannels = {});
 
@@ -189,7 +189,7 @@ public:
 	static MStatus queueHideAndLockVisibility(const MObject& oTransform, MDagModifier& dagMod);
 
 	// Queues locking visibility and taking it out of the channel box, leaving it on. For a control whose display a module drives through
-	// `shown` (D78): it had no visibility channel while the module drove visibility, and keeps none.
+	// `shown`: it had no visibility channel while the module drove visibility, and keeps none.
 	static MStatus queueLockAndHideVisibility(const MObject& oTransform, MDagModifier& dagMod);
 };
 
@@ -260,7 +260,7 @@ public:
 	// none, and the first name that isn't a transform.
 	static MStatus readTransforms(const MArgDatabase& argData, const char* commandName, MDagPathArray& outNodes);
 
-	// The mesh transforms of the command's string objects, or with none named, of every selected mesh (D35: only
+	// The mesh transforms of the command's string objects, or with none named, of every selected mesh (only
 	// commands that document it read the selection). Selected nodes that aren't meshes are skipped; a named one that
 	// isn't a mesh is an error, and so is an empty result.
 	static MStatus readMeshesOrSelection(const MArgDatabase& argData, const char* commandName, MDagPathArray& outMeshes);
@@ -336,7 +336,7 @@ private:
 	MStatus fStatus;
 };
 
-// The namespaces a command's doIt created, so its undoIt can remove them (D18). MNamespace calls are not undoable, so
+// The namespaces a command's doIt created, so its undoIt can remove them. MNamespace calls are not undoable, so
 // without this an undone build leaves its namespace behind. captureBefore() before anything is created,
 // recordCreated() after doIt, removeCreated() after the modifier's undo has emptied them. Redo makes them again
 // through ScopedRigNamespace. A namespace that existed before, or that still holds a node, is never removed.

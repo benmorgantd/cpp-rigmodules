@@ -553,7 +553,7 @@ MStatus RigTraversal::findMirrorControl(const MObject& oControl, MObject& oOutMi
 		return status;
 	}
 
-	// Control markup is unique per rig (D25), so more than one match can't happen.
+	// Control markup is unique per rig, so more than one match can't happen.
 	if (oMatches.length() == 1)
 	{
 		oOutMirror = oMatches[0];
@@ -640,7 +640,7 @@ MStatus RigTraversal::getMirrorControlPairs(const MObject& oRigRoot, const std::
 		return status;
 	}
 
-	// Usage -> mirror control. Markup is unique per rig (D25), so a usage appears once per side.
+	// Usage -> mirror control. Markup is unique per rig, so a usage appears once per side.
 	std::map<std::string, MObject> mirrorsByUsage;
 	for (unsigned int i = 0; i < oMirrors.length(); ++i)
 	{

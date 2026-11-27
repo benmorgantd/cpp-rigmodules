@@ -33,8 +33,8 @@ namespace RibbonChannel
 	inline constexpr unsigned int Count{ 15 };
 }
 
-// The Ribbon module's forward evaluation (D56), channels and stored rest data, as plain values and shared functions with no node of
-// their own. RibbonModuleNode calls it from compute() and its inverse, and the Limb module (D62, design/limb.md) calls it for its
+// The Ribbon module's forward evaluation, channels and stored rest data, as plain values and shared functions with no node of
+// their own. RibbonModuleNode calls it from compute() and its inverse, and the Limb module (design/limb.md) calls it for its
 // ribbon. A change here changes both: read design/limb.md first.
 namespace RibbonSolve
 {
@@ -60,7 +60,7 @@ namespace RibbonSolve
 		Result& outSolve,
 		const MMatrix* pAnchorWorld = nullptr);
 
-	// A channel on a control (D56 section 5): its name, rest (the default, D34), range, whether it is an angle and whether a mirror
+	// A channel on a control: its name, rest (the default), range, whether it is an angle and whether a mirror
 	// negates it. The ranges keep the evaluation finite: a fraction of the rest length, a handle scale.
 	struct ChannelSpec
 	{
@@ -81,7 +81,7 @@ namespace RibbonSolve
 	// The animator's channels in internal units, in RibbonChannel order, as the evaluation's parameters.
 	RibbonMath::Params paramsFromChannels(const double* values);
 
-	// The rest data a ribbon stores on its node at build (D56 section 3.4), by the module's own attributes. The two modules use the
+	// The rest data a ribbon stores on its node at build, by the module's own attributes. The two modules use the
 	// same names but for the ik controls' offsets, which Limb keeps apart from its two-bone limb's.
 	struct RestAttrs
 	{

@@ -73,7 +73,7 @@ namespace
 		return false;
 	}
 
-	// The enum's labels in value order. A module fixes them when it builds the control (static, append-only: D34).
+	// The enum's labels in value order. A module fixes them when it builds the control (static, append-only, so a saved index keeps its meaning).
 	std::vector<std::string> readEnumLabels(const MPlug& pSpace)
 	{
 		std::vector<std::string> labels;

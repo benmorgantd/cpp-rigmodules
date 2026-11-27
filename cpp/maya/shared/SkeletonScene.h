@@ -9,7 +9,7 @@
 
 struct ValidationReport;
 
-// Scene side of the skeleton file (D54): reading joints into a Skeleton and creating joints from one. The rig build's
+// Scene side of the skeleton file: reading joints into a Skeleton and creating joints from one. The rig build's
 // skeletonHash stamp reads its input joints here too (rigs-and-looks.md phase 3).
 class SkeletonScene
 {
@@ -20,7 +20,7 @@ public:
 	// to that parent's. Adds every problem to report; outSkeleton is complete only when report has no errors.
 	static void readSkeleton(const MDagPathArray& joints, Skeleton& outSkeleton, ValidationReport& report);
 
-	// Reads every marked joint of the namespace (a skeleton file's worth, D70). Adds every problem to report, including
+	// Reads every marked joint of the namespace (a skeleton file's worth). Adds every problem to report, including
 	// the namespace's markup problems and a skeleton with more than one root joint; outSkeleton is complete only when
 	// report has no errors.
 	static void readNamespaceSkeleton(const MString& absoluteNamespace, Skeleton& outSkeleton, ValidationReport& report);

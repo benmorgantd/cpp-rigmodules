@@ -64,11 +64,11 @@ struct RigModuleDagReparentArgs
 
 	MDagModifier& dagMod;
 
-	// False for a socket of another rig (D55): the attachment's controls stay under its own rig root, and only the
+	// False for a socket of another rig: the attachment's controls stay under its own rig root, and only the
 	// matrix connection crosses.
 	bool reparentDag = true;
 
-	// The socket the child plug's control is reparented under (the dagParent, D78). parentSocket above is the matrixParent's: the same
+	// The socket the child plug's control is reparented under (the dagParent). parentSocket above is the matrixParent's: the same
 	// socket unless the template names both.
 	RigModuleSocketInfo dagSocket;
 };
@@ -85,7 +85,7 @@ struct RigModuleBuildResult
 
 	std::function<MStatus(RigModuleDagReparentArgs args)> dagParentCallback;
 
-	// For a module that follows another module's ik/fk blend (the ReverseFoot, D74): that module's name. Pass 2 connects the driver's
+	// For a module that follows another module's ik/fk blend (the ReverseFoot): that module's name. Pass 2 connects the driver's
 	// RigAttr::IkFkBlend attribute to this module's, once every module exists. Empty for the others.
 	std::string blendDriver;
 
@@ -106,9 +106,9 @@ struct PlanContext
 	MarkedJointSet& markedJoints;     // Plan steps resolve [side, usage] args through RigModuleNodeBase::claimJoint
 	ValidationReport& report;
 	// createRigFromTemplate checkMirrorPositions: claimJoint fails a mirror's joint that is not where its source
-	// joint reflects to (D28). Off by default, because a skeleton may be asymmetric where the rig is not.
+	// joint reflects to. Off by default, because a skeleton may be asymmetric where the rig is not.
 	bool checkMirrorPositions = false;
-	// The markers file the build was given (createRigFromTemplate markers=, D73), or null when it was given none. A plan step
+	// The markers file the build was given (createRigFromTemplate markers=), or null when it was given none. A plan step
 	// resolves a marker it selects through RigModuleNodeBase::resolveMarker.
 	const MarkerSet* markers = nullptr;
 };
@@ -123,8 +123,8 @@ struct ModulePlan
 	std::function<RigModuleBuildResult(MObject& oRigRoot, MDagModifier& dagMod)> build;
 };
 
-// The delta a module-owned space (D52 section 4.4) gives the control at `slot` for the space with index `label`, as the
-// module's plugs stand now: the motion the control's offset parent matrix carries (D27's D_old and D_new). Reads the
+// The delta a module-owned space gives the control at `slot` for the space with index `label`, as the
+// module's plugs stand now: the motion the control's offset parent matrix carries (the old and the new space's motion). Reads the
 // scene, so run it before queuing changes. Reports and fails for a slot with no space or a label out of range.
 using ModuleSpaceDeltaFn = MStatus(*)(const MObject& oModule, unsigned int slot, unsigned int label, MMatrix& outDelta);
 
@@ -142,17 +142,17 @@ struct ModuleDescriptor
 	MTypeId typeId;
 	NodeCreatorFn creator;
 	NodeInitializeFn initialize;
-	// Steps that bring an older moduleVersion's moduleArgs forward, run before plan (D33). Empty: the module is at
+	// Steps that bring an older moduleVersion's moduleArgs forward, run before plan. Empty: the module is at
 	// version 1. A change to the shape or meaning of moduleArgs adds a step here, which raises the current version.
 	UpdateTable argUpdates;
 	ModulePlanFn plan;          // nullptr = registered with Maya but not buildable from JSON
-	// Control values from joint world matrices (D41). A rig module always has one: a module that can't be inverted
+	// Control values from joint world matrices. A rig module always has one: a module that can't be inverted
 	// says so with a result that has solved = false and a reason. nullptr for nodes that are not rig modules.
 	ModuleInverseFn inverse;
 	bool isRigModule;          // Connects to a rig root's rigModules. Its moduleType is a getRigControls filter value.
-	// The scalar channels the module's inverse reads (D41 amendment). Empty for a module whose controls are all transforms.
+	// The scalar channels the module's inverse reads. Empty for a module whose controls are all transforms.
 	std::vector<ModuleInverseChannel> inverseChannels;
-	// Set only by a module with a module-owned space: setRigControlSpace uses it to keep the control in place (D52).
+	// Set only by a module with a module-owned space: setRigControlSpace uses it to keep the control in place.
 	ModuleSpaceDeltaFn spaceDelta = nullptr;
 	// Set only by a module whose inverse reads stored rests beyond its controls' (ReverseFoot's pivots and ankle).
 	ModuleInverseRestFn readInverseRest = nullptr;
@@ -206,7 +206,7 @@ public:
 	static bool readModuleArgs(const nlohmann::json& args, std::initializer_list<const char*> knownKeys, PlanContext& ctx, TArgs& outArgs,
 		std::initializer_list<const char*> optionalKeys = {});
 	static bool claimJoint(PlanContext& ctx, const JointSelector& selector, MObject& oOutJoint, MMatrix& mOutRestWorld);
-	// A marker a module selects with a [side, usage] pair (D73): the marker as the file has it (markup, joint, export flag, name) and its
+	// A marker a module selects with a [side, usage] pair: the marker as the file has it (markup, joint, export flag, name) and its
 	// rest world matrix, the joint's rest world times its offset. An error naming the marker and the module, and false, when the build was given no markers file, the file has
 	// no such marker, or the marker's joint is not among the build's joints. Claims nothing: a marker is not driven.
 	static bool resolveMarker(PlanContext& ctx, const JointSelector& selector, ResolvedMarker& outMarker);
@@ -242,7 +242,7 @@ public:
 	static MStatus resolveChildPlug(const MObject& oModule, const MString& plugName, RigModuleChildPlugInfo& outInfo);
 	// "module.socket" in a rig's namespace, as a constraint driver or a parent: id names it. A module name that already
 	// carries a namespace ("other:layout") is used as given. Reports nothing: outError says why it failed, so a read
-	// phase can list every problem (D55).
+	// phase can list every problem.
 	static MStatus findSocketById(
 		const MString& rigNamespace, const std::string& socketId,
 		MObject& oOutModule, RigModuleSocketInfo& outInfo, std::string& outError);
@@ -402,7 +402,7 @@ public:
 	static MStatus reparentChildPlugToSocket(const RigModuleDagReparentArgs& args);
 	// The DAG half alone, for a module whose plug takes its matrix some other way (the ReverseFoot's ankle plug). Reparents the plug's
 	// control under the dagParent socket's control. A plug with no control has nothing to reparent, and a control given a socket with no
-	// control is a failure (D78).
+	// control is a failure.
 	static MStatus reparentChildPlugControl(const RigModuleDagReparentArgs& args);
 
 	// Inputs (control local/rest, child plug parent/rest) affect controlOPM and the socket matrix.
@@ -735,7 +735,7 @@ MStatus RigModuleWithControlsNode<Derived>::reparentChildPlugToSocket(const RigM
 template <typename Derived>
 MStatus RigModuleWithControlsNode<Derived>::reparentChildPlugControl(const RigModuleDagReparentArgs& args)
 {
-	// A plug with no control (the aim plug, a limb's ikTarget) has nothing to reparent by design. A socket of another rig (D55) is
+	// A plug with no control (the aim plug, a limb's ikTarget) has nothing to reparent by design. A socket of another rig is
 	// never a DAG parent.
 	const bool childHasControl = !args.childPlug.oTransform.isNull();
 	if (!args.reparentDag || !childHasControl)
@@ -906,7 +906,7 @@ public:
 
 	inline static MObject aJointOPM;
 	// Each driven joint's world matrix at build time, by the same index as jointOPM. Stored data only: compute
-	// never reads it, so it affects nothing. Skin weight loading binds new influences at this rest (D35).
+	// never reads it, so it affects nothing. Skin weight loading binds new influences at this rest.
 	inline static MObject aJointRestWorld;
 
 	static MStatus initializeSharedAttributes();

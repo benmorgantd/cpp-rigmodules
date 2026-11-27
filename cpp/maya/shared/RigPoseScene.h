@@ -19,7 +19,7 @@
 #include <maya/MStatus.h>
 #include <maya/MStringArray.h>
 
-// Scene side of the animation interface (D34): a control's channels, and the pose tools that iterate them.
+// Scene side of the animation interface: a control's channels, and the pose tools that iterate them.
 // A channel is a keyable attribute a tool may write (DagUtils::isChannelWritable). Its rest is the attribute's
 // default. Every function displays its own errors. The pose functions queue their writes: the caller runs the modifier.
 class RigPoseScene
@@ -54,7 +54,7 @@ public:
 
 	// Queues a keyable, storable enum channel on a control, with its mirror mode declared (setMirrorMode), through the
 	// caller's modifier so undo and redo replay it. The control must exist in the scene: the caller runs doIt before
-	// wiring the attribute. labels[i] is the label of value i, and defaultIndex is the rest (D34).
+	// wiring the attribute. labels[i] is the label of value i, and defaultIndex is the rest.
 	static MStatus addEnumChannel(
 		const MObject& oControl,
 		const char* name,
@@ -117,7 +117,7 @@ public:
 
 	// The control hangs from its child plug delta (OPM = rest * delta, inheritsTransform off). When that delta changes
 	// from mOldDelta to mNewDelta, queues the control's translate, rotate and scale so its world matrix stays the same
-	// (D27): L' = L * OPM * D_new^-1 * D_old * OPM^-1. Reads the live OPM and local, so the caller needs neither the module
+	//: L' = L * OPM * D_new^-1 * D_old * OPM^-1. Reads the live OPM and local, so the caller needs neither the module
 	// nor the control's index. A locked or driven channel keeps its value and warns. The one home of the formula, shared by
 	// the constraint's space switch and by module-owned spaces (setRigControlSpace).
 	static MStatus matchControlToNewDelta(const MObject& oControl, const MMatrix& mOldDelta, const MMatrix& mNewDelta, MDagModifier& dagMod);
@@ -158,7 +158,7 @@ public:
 	// control outside a selection scope is not one). outChangedNames lists the controls that changed.
 	static MStatus setRigPose(const RigControlScope& scope, const PoseMap& pose, MDGModifier& dgMod, MStringArray& outChangedNames);
 
-	// The pose as it goes onto the other side (D51), as data, with no scene write: each entry moves to its mirror
+	// The pose as it goes onto the other side, as data, with no scene write: each entry moves to its mirror
 	// control, and a channel the mirror negates (a Center control's by its flip axis, any other by its mirror mode) has its
 	// value negated. It is a flip: both sides' entries move, so a pose of one side only lands on the other. An entry
 	// whose control has no mirror, or that the rig lacks, is skipped with a warning. The same rules as flipRigPose and

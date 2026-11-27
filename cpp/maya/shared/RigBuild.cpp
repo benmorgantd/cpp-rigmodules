@@ -55,8 +55,8 @@ namespace
 	// Fixed until templates can configure the layout.
 	constexpr unsigned short kLayoutControlCount = 3;
 
-	// What the read phase works out about the input data, stamped on the rig root: the skeleton's hash (D54), and the
-	// hash and the placed markers of the markers file when one was passed (D73), "" and "[]" when none was.
+	// What the read phase works out about the input data, stamped on the rig root: the skeleton's hash, and the
+	// hash and the placed markers of the markers file when one was passed, "" and "[]" when none was.
 	struct RigStamps
 	{
 		MString skeletonHash;
@@ -64,7 +64,7 @@ namespace
 		MString markersJson{ "[]" };
 		MarkerSet markers;          // what the file holds, for the modules that select a marker
 		bool hasMarkers = false;    // false when the build was given no file
-		// The template's collisions with their joints found and their capsules placed (D79), in the template's order. An
+		// The template's collisions with their joints found and their capsules placed, in the template's order. An
 		// entry the read phase could not resolve stays empty: the report has errors then and nothing is built.
 		std::vector<PushOutBuildArgs> collisions;
 	};
@@ -136,7 +136,7 @@ namespace
 
 	// Read phase. Reads and validates the markers file and places every marker on the input joints. A marker whose joint is
 	// not among them is a warning, because the file may belong to a larger skeleton. A module that selects a marker
-	// resolves it itself and reports a missing one as an error (D73).
+	// resolves it itself and reports a missing one as an error.
 	void readMarkersFile(const RigBuildInputs& inputs, const MarkedJointSet& markedJoints, RigStamps& outStamps, ValidationReport& report)
 	{
 		if (inputs.markersPath.length() == 0)
@@ -204,7 +204,7 @@ namespace
 		{
 			const MFnDependencyNode fnJoint(joints[i].node());
 
-			// The controls take their names from their joints, so a joint name outside the convention is an error (D58).
+			// The controls take their names from their joints, so a joint name outside the convention is an error.
 			NamingConvention::Name parsedName;
 			const std::string jointName = MNamespace::stripNamespaceFromName(fnJoint.name()).asChar();
 			if (!NamingConvention::parse(jointName, parsedName) || parsedName.kind != NamingConvention::Kind::Joint)
@@ -217,7 +217,7 @@ namespace
 		}
 	}
 
-	// A namespace holds one rig (D54), so its display layers, selection sets and groups, named per namespace, are the
+	// A namespace holds one rig, so its display layers, selection sets and groups, named per namespace, are the
 	// rig's own. Fails when the namespace already holds a rig root, whatever its asset or rig name.
 	void checkNamespaceFree(const MString& rigNamespace, ValidationReport& report)
 	{
@@ -248,7 +248,7 @@ namespace
 
 	// Read phase. A template with "parent:" ids is an attachment and needs the rig it follows, and a rig that is not
 	// an attachment refuses one. Every socket the template takes is looked up in the parent's namespace and every
-	// missing one is reported, so one attempt lists them all (D55). outParentNamespace is the parent's, ":" form
+	// missing one is reported, so one attempt lists them all. outParentNamespace is the parent's, ":" form
 	// aside, empty when there is no parent.
 	void checkParentRig(
 		const RigBuildInputs& inputs,
@@ -348,7 +348,7 @@ namespace
 			return;
 		}
 
-		// Mirrors first, so every check below and the build see them as ordinary entries (D28).
+		// Mirrors first, so every check below and the build see them as ordinary entries.
 		TemplateMirror::expandMirrors(rigData, report);
 		RigTemplateValidation::validateHeader(rigData, report);
 		outRigNamespace = inputs.rigNamespace.has_value()
@@ -369,7 +369,7 @@ namespace
 		}
 
 		// Read before the build moves anything, so the stamp is the skeleton as it was handed in. readSkeleton repeats
-		// collectMarkedJoints' checks, which have passed, so the hash has one home and one reader (D54).
+		// collectMarkedJoints' checks, which have passed, so the hash has one home and one reader.
 		Skeleton skeleton;
 		SkeletonScene::readSkeleton(inputs.joints, skeleton, report);
 		if (report.errors.size() > errorCountBeforeMarkup)
@@ -409,7 +409,7 @@ namespace
 
 	// Pass 2. Every child plug gets a parent: its parentStructure entry, or layout_00_M_MOD.end when the template does not list it.
 	// The template was validated, so a failed lookup here means a module built something its plan did not declare.
-	// A "parent:" entry takes a socket of the rig this one is attached to (D55): the matrix connects across, and the DAG
+	// A "parent:" entry takes a socket of the rig this one is attached to: the matrix connects across, and the DAG
 	// is left alone.
 	MStatus parentModuleControls(
 		const RigModuleMap& rigModuleMap,
@@ -526,7 +526,7 @@ namespace
 		return MStatus::kSuccess;
 	}
 
-	// Pass 2, after the child plugs: a module that follows another module's ik/fk blend (the ReverseFoot, D74) gets it connected, driver's
+	// Pass 2, after the child plugs: a module that follows another module's ik/fk blend (the ReverseFoot) gets it connected, driver's
 	// ikFkBlend attribute to its own. The validator checked that the driver exists and has one, so a miss here is a module that built
 	// something its plan did not declare.
 	MStatus connectBlendDrivers(const RigModuleMap& rigModuleMap, MDagModifier& dagMod)
@@ -555,7 +555,7 @@ namespace
 	}
 
 	// Write phase, after the first doIt because the controls are found through the built modules. Replaces the rig's
-	// three layers (D38): the input joints and every control, plus an empty mesh layer (the model is imported after the build, D38). Each layer
+	// three layers: the input joints and every control, plus an empty mesh layer (the model is imported after the build). Each layer
 	// goes on its own message attribute of the rig root.
 	MStatus queueDisplayLayers(
 		const RigBuildInputs& inputs,
@@ -579,7 +579,7 @@ namespace
 		specs[1].displayType = DisplayLayerDisplayType::Reference;
 		specs[2].name = DagUtils::getAbsoluteName(rigNamespace, RigNaming::ControlLayer);
 		specs[2].members = oControls;
-		// Not drawing the controls during playback is the cheapest way to skip their custom draw override (D37).
+		// Not drawing the controls during playback is the cheapest way to skip their custom draw override.
 		specs[2].hideOnPlayback = true;
 
 		MObjectArray oLayers;
@@ -595,7 +595,7 @@ namespace
 		return dagMod.doIt();
 	}
 
-	// Write phase, after the display layers. Replaces the rig's selection sets (D39): one hierarchy for the controls
+	// Write phase, after the display layers. Replaces the rig's selection sets: one hierarchy for the controls
 	// and one for the skin joints, each with a Left, Right and Center set and a set per module. Each set goes on
 	// RigRoot.selectionSets. SelectionSets::planSets lays them out, and this turns its indices into scene nodes.
 	MStatus queueSelectionSets(
@@ -690,7 +690,7 @@ namespace
 	}
 
 	// Write phase, after the first doIt. Locks every control's rotate order, which its module set when it created
-	// the control (D40). Queued as MEL because MDagModifier has no lock call, and so that undo and redo replay it.
+	// the control. Queued as MEL because MDagModifier has no lock call, and so that undo and redo replay it.
 	MStatus queueRotateOrderLocks(const MObject& oRigRoot, MDagModifier& dagMod)
 	{
 		MObjectArray oControls;
@@ -708,7 +708,7 @@ namespace
 	}
 
 	// Write phase, after the first doIt. Makes rig_all, the parent of the rig's topmost joints and controls, and mesh_grp
-	// under it, for the model import to fill (D43). Each goes on its own message attribute of the rig root. Their
+	// under it, for the model import to fill. Each goes on its own message attribute of the rig root. Their
 	// transforms are locked and hidden, leaving visibility. Inheritance is off for joints and controls, so reparenting
 	// them under an identity group changes no result.
 	MStatus queueRigGroups(
@@ -784,7 +784,7 @@ namespace
 	}
 
 	// Write phase, after the constraints. A control the parent rig drives alone is hidden, locked and left at its rest
-	// values (a new control is already there), so keys left on it can't surprise an animator later (D55).
+	// values (a new control is already there), so keys left on it can't surprise an animator later.
 	MStatus queueDrivenControlLocks(
 		const std::vector<RigConstraintData>& constraints,
 		const RigModuleMap& rigModuleMap,
@@ -955,7 +955,7 @@ namespace
 			}
 		}
 
-		// After the constraints, so a collision on a plug sits after its constraint (D79).
+		// After the constraints, so a collision on a plug sits after its constraint.
 		status = buildCollisions(stamps.collisions, rigData.rigCollisions, rigModuleMap, oRigRoot, dagMod);
 		if (!status)
 		{

@@ -50,7 +50,7 @@ namespace
 		SkinWeightSmooth fSmooth;
 	};
 
-	// The rest-match brushes (D66): a dab moves the weights of the vertices it reaches towards the blend of influences
+	// The rest-match brushes: a dab moves the weights of the vertices it reaches towards the blend of influences
 	// that puts each vertex where the rest shape wants it in the current pose. One class, two ways to say where.
 	class RestBrushOperation : public SkinBrushOperation
 	{

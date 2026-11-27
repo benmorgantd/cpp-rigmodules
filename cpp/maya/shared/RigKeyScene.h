@@ -23,7 +23,7 @@ struct RigKeyEdit
 	MStatus undo();
 };
 
-// Scene side of keying a rig's control channels (D34): the keys a rig has, and every key of a call written at once.
+// Scene side of keying a rig's control channels: the keys a rig has, and every key of a call written at once.
 // A channel is the same thing as in RigPoseScene: a keyable attribute a tool may write. Every function displays its own
 // errors.
 class RigKeyScene
@@ -43,7 +43,7 @@ public:
 	// controls that were keyed. The edit has run when this returns, and the caller keeps it for undo and redo.
 	static MStatus setRigKeys(const RigControlScope& scope, const RigKeys& keys, RigKeyEdit& edit, MStringArray& outChangedNames);
 
-	// The keys as they go onto the other side (D42): each entry moves to its mirror control, and a channel the mirror
+	// The keys as they go onto the other side: each entry moves to its mirror control, and a channel the mirror
 	// negates (a Center control's by its flip axis, any other by its mirror mode) has its values and fixed tangent
 	// angles negated. It is a flip: both sides' entries move, so a rig keyed on one side only gets keys on the other.
 	// An entry whose control has no mirror, or that the rig lacks, is skipped with a warning.

@@ -14,7 +14,7 @@
 #include <maya/MStatus.h>
 #include <maya/MVector.h>
 
-// The engine under skin weight brushes (D65). It knows nothing about the mouse or the viewport: a context picks hits and
+// The engine under skin weight brushes. It knows nothing about the mouse or the viewport: a context picks hits and
 // hands them over, and a script can hand over hits too, which is how it is tested. A brush is one SkinBrushOperation
 // (what a dab does to the weights under it) plus this engine (where a dab lands, how far it reaches over the surface
 // and how a whole stroke undoes). To add a brush, write an operation and add it to createBrushOperation: the picking,
@@ -33,7 +33,7 @@ public:
 		return MStatus::kSuccess;
 	}
 	// vertices: sorted and unique. scales: parallel, each in (0, 1], the brush falloff there. strength: in (0, 1].
-	// smoothness: in [0, 1], used by the operations that solve a change per vertex (the rest-match ones, D66) and
+	// smoothness: in [0, 1], used by the operations that solve a change per vertex (the rest-match ones) and
 	// ignored by the rest. adjacency is the mesh's neighbor map, built once per stroke.
 	virtual MStatus prepare(const std::vector<unsigned int>& vertices, const std::vector<double>& scales, double strength, double smoothness, const MeshAdjacency& adjacency) = 0;
 	// Writes what prepare worked out.

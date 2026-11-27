@@ -36,7 +36,7 @@ public:
 	// are skipped. Walks MItDag filtered to joints, which hands over each path.
 	static void collectNamespaceJoints(const MString& absoluteNamespace, MarkedJointSet& outSet, ValidationReport& report);
 
-	// The root joint and every joint below it, in depth-first order (the order MItDag visits children, D71), for
+	// The root joint and every joint below it, in depth-first order (the order MItDag visits children), for
 	// HierarchyPlanner. Only a joint whose parent is a collected joint counts: a joint under a locator or group between
 	// two joints is not reached. Markup that is missing or invalid gives hasMarkup false. Read-only.
 	static MStatus collectJointSubtree(const MDagPath& rootPath, std::vector<HierarchyJoint>& outJoints);

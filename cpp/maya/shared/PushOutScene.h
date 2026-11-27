@@ -8,7 +8,7 @@
 #include <maya/MObjectArray.h>
 #include <maya/MString.h>
 
-// Scene side of the temporary push-out display (D79, design/push-out.md section 5). A display is a rigControlNode drawn as
+// Scene side of the temporary push-out display (design/push-out.md section 5). A display is a rigControlNode drawn as
 // the capsule of one rigPushOut node. It follows the capsule's joint live through its offsetParentMatrix, so it moves with
 // the rig, and sits at the node's stored offset. It is not part of the rig: nothing refers to it, and the template holds
 // the numbers. The user moves and rotates it, and changes its `radius` and `halfLength` attributes, then reads the result

@@ -287,7 +287,7 @@ namespace
 	}
 
 	// The side a set of controls mirrors from: their side when every Left or Right control among them has the same
-	// one, Left otherwise (D34). Center controls don't vote, because they have no other side.
+	// one, Left otherwise. Center controls don't vote, because they have no other side.
 	MStatus inferSourceSide(const MObjectArray& oControls, std::string& outSide)
 	{
 		outSide.clear();
@@ -558,7 +558,7 @@ MStatus RigPoseScene::getControlChannels(const MObject& oControl, std::vector<Ch
 			}
 		}
 
-		// Built-in channels copy. A custom one must say how it mirrors (D34).
+		// Built-in channels copy. A custom one must say how it mirrors.
 		MFnAttribute fnAttr(oAttr);
 		if (fnAttr.isDynamic())
 		{

@@ -14,12 +14,12 @@
 #include <maya/MObject.h>
 #include <maya/MVector.h>
 
-// The two-bone IK/FK solve (D52), as plain values in and out, with no node and no plug. TwoBoneIkNode reads its plugs into a
-// TwoBoneIkEval and calls TwoBoneIkSolve::evaluate, the inverse calls it on the values it built, and the Limb module (D62,
+// The two-bone IK/FK solve, as plain values in and out, with no node and no plug. TwoBoneIkNode reads its plugs into a
+// TwoBoneIkEval and calls TwoBoneIkSolve::evaluate, the inverse calls it on the values it built, and the Limb module (
 // design/limb.md) calls it for its limb joints. The plan step's derived controls and the rest data are here too, for the same
 // reason. A change here changes every one of them: read design/limb.md first.
 
-// The analytic solve of the bend (D52 section 4.2) and its inverse (section 6), on positions. Allocation-free.
+// The analytic solve of the bend and its inverse (section 6), on positions. Allocation-free.
 // Inputs of TwoBoneIkSolve::computeTwoBoneIk. Positions are world space, lengths are the rest bone lengths.
 struct TwoBoneIkInput
 {
@@ -67,7 +67,7 @@ struct TwoBoneIkInverseResult
 	MVector pole;
 };
 
-// Index shared by controlData, controlOPM, jointOPM, outputSocketMatrix, childPlugs and socketNames (D52 section 3.2).
+// Index shared by controlData, controlOPM, jointOPM, outputSocketMatrix, childPlugs and socketNames.
 // Slot numbers are never reused.
 namespace TwoBoneIkSlot
 {
@@ -82,7 +82,7 @@ namespace TwoBoneIkSlot
 }
 
 // The order of the scalar channels the two-bone inverse reads (TwoBoneIkNode::inverseChannels), which is the order of
-// ModuleInverseInput::channels. A Limb's list starts with these (D62). Append only: the order is not a name, but the inverse indexes by it.
+// ModuleInverseInput::channels. A Limb's list starts with these. Append only: the order is not a name, but the inverse indexes by it.
 namespace TwoBoneIkInverseChannel
 {
 	inline constexpr unsigned int Soft{ 0 };
@@ -96,14 +96,14 @@ namespace TwoBoneIkInverseChannel
 
 struct TwoBoneIkSlotInput
 {
-	MObject oJoint;                // Null for the IK, pole and settings slots: they have no joint (D57)
+	MObject oJoint;                // Null for the IK, pole and settings slots: they have no joint
 	MMatrix mRestWorld;
 	ControlMarkup controlMarkup;   // The joint's (side, usage), or the derived control's
 	std::string baseName;          // What names a joint-less control's node (its usage). Empty for a slot with a joint
 };
 
 // Field names are the JSON keys: "joints": [[side, usage] x 3] (root, mid, end). The IK handle, pole and settings controls are
-// derived from them (D57). "controlName" (optional): the base of their usages, <base>IK, <base>Pole and <base>Settings.
+// derived from them. "controlName" (optional): the base of their usages, <base>IK, <base>Pole and <base>Settings.
 // "poleOffset" and "settingsOffset" (optional, [x, y, z] in world space, left out or empty for the default): the pole's offset from
 // the mid joint and the settings control's from the end joint. The other side of a mirrored module gets X negated.
 // "poleParentDefault" (optional, PoleParentDefault: "parent", the default, or "ik"): the space the pole is built in, and its rest.
@@ -120,7 +120,7 @@ struct TwoBoneIkArgs
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(TwoBoneIkArgs, joints, controlName, poleOffset, settingsOffset, ikFkBlend, ikOrientToWorld, ikAlignToPole, poleParentDefault)
 
-// What the plan step works out from the rest pose, stored on the node by createModule (D52 section 4.3).
+// What the plan step works out from the rest pose, stored on the node by createModule.
 struct TwoBoneIkRest
 {
 	double length1 = 0.0;           // root to mid, and mid to end
@@ -146,7 +146,7 @@ struct TwoBoneIkEval
 	MMatrix mIkDelta;
 	MMatrix mPoleParentDelta;    // used when the pole's space is Parent
 	MMatrix mSettingsDelta;
-	// Limb's ikTarget (D62 section 8): the end joint reaches the IK handle's rest carried by this motion instead of the handle's own
+	// Limb's ikTarget: the end joint reaches the IK handle's rest carried by this motion instead of the handle's own
 	// world. The target's motion already holds whatever moved the handle (a foot hangs from the ik socket), so the handle's local and its
 	// parent's motion are not applied again. The pole and the ik socket still follow the handle, and never read the target.
 	bool hasTarget = false;
@@ -162,11 +162,11 @@ struct TwoBoneIkEval
 
 namespace TwoBoneIkSolve
 {
-	// Closed-form two-bone solve with stretch, soft reach, pin and roll (D52 section 4.2). Stateless: the same inputs
+	// Closed-form two-bone solve with stretch, soft reach, pin and roll. Stateless: the same inputs
 	// give the same pose, so a pole that crosses the root-to-handle line flips the limb. Allocation-free.
 	TwoBoneIkResult computeTwoBoneIk(const TwoBoneIkInput& input);
 
-	// The handle and pole that computeTwoBoneIk turns into these joint positions, for the settings given (D52 section 6).
+	// The handle and pole that computeTwoBoneIk turns into these joint positions, for the settings given.
 	// Exact for a pose the limb can make, pin included. Otherwise the nearest it can: the forward solve of the result
 	// differs from the joints, which is how a caller finds a pose IK can't reproduce.
 	TwoBoneIkInverseResult computeTwoBoneIkInverse(const TwoBoneIkInverseInput& input);
@@ -196,7 +196,7 @@ namespace TwoBoneIkSolve
 	// The three limb joints' frames from a solve: root and mid by position and the bend normal, the end by the solved
 	// end and the IK handle's rotation (scale dropped), so turning the handle turns the hand. The plan step builds the
 	// rest offsets with this, evaluate() builds the live joints, and the inverse reads the handle back through the same
-	// frame, so they can't drift (D41).
+	// frame, so they can't drift.
 	void computeLimbFrames(const TwoBoneIkResult& solve, const MVector& vRoot, const MMatrix& mIkWorld, MMatrix outFrames[TwoBoneIkSlot::LimbCount]);
 
 	// The forward evaluation, shared by compute(), the inverse and Limb so the sockets a restore returns are compute()'s.
@@ -213,11 +213,11 @@ namespace TwoBoneIkSolve
 	// Every name of the socket on a slot. index_0 to index_2 (and start and end, which are the same sockets) carry the blended joint worlds.
 	std::vector<std::string> socketNamesAt(unsigned int slot);
 	// The child plugs and sockets of the limb's six slots: the pole and settings plugs take no constraint, and the settings plug
-	// follows start's parent (D52 decision 14). Limb has the same ones.
+	// follows start's parent (design/two-bone-ik.md). Limb has the same ones.
 	ModuleInterface makeInterface();
 
 	// The plan step's shared half (read phase, no scene changes): checks the limb's arguments (three joints, the blend's range, the
-	// pole and settings offsets, ikAlignToPole), claims the joints and derives the IK handle, pole and settings controls (D57), their
+	// pole and settings offsets, ikAlignToPole), claims the joints and derives the IK handle, pole and settings controls, their
 	// names and markup, and the rest. Reports into ctx.report and returns false on a problem. outSlots holds, per slot, the joint (or
 	// none), its rest world, its markup and its base name.
 	bool planSlots(const TwoBoneIkArgs& ikArgs, PlanContext& ctx, std::array<TwoBoneIkSlotInput, TwoBoneIkSlot::Count>& outSlots, TwoBoneIkRest& outRest);

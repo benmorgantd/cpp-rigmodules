@@ -59,7 +59,7 @@ namespace
 	struct ConstraintState
 	{
 		int type = 0;
-		double weight = 1.0;   // the constraint's constraintWeight (D63)
+		double weight = 1.0;   // the constraint's constraintWeight
 		MMatrix mChildRest;
 		MMatrix mParentRest;
 		SocketRef parent;
@@ -68,7 +68,7 @@ namespace
 		int hostControl = -1;                           // the control whose `space` channel picks the driver, -1 for a fixed one
 	};
 
-	// A push out on a child plug (D79). It is not inverted: a push saturates, so many poses give one result. The sweep runs it
+	// A push out on a child plug. It is not inverted: a push saturates, so many poses give one result. The sweep runs it
 	// forward on the plug's delta, with the capsule where the source's joint is, or the solved controls would absorb the push
 	// and the rig would apply it a second time.
 	struct PushOutState
@@ -124,7 +124,7 @@ namespace
 		std::vector<PlugState> plugs;                         // by slot
 		std::vector<MMatrix> socketWorld;                     // this frame's result
 		// A module that feeds a Limb's ikTarget (a foot): that Limb's index. The pre-pass runs this module first for its motion F
-		// (D74, design/reverse-foot.md section 10).
+		// (design/reverse-foot.md section 10).
 		int ikTargetOf = -1;
 	};
 
@@ -459,7 +459,7 @@ namespace
 				continue;
 			}
 
-			// A push out sits last (D79): read it, then read what feeds it the way the plug's own source is read, with the rest
+			// A push out sits last: read it, then read what feeds it the way the plug's own source is read, with the rest
 			// the push out holds for it (the plug's own rest is identity after a push out, as after a constraint).
 			if (MFnDependencyNode(pSource.node()).typeId() == RigPushOutNode::id)
 			{
@@ -518,7 +518,7 @@ namespace
 		const std::size_t count = fModules.size();
 		std::vector<std::set<int>> dependencies(count);
 
-		// The module that drives each clip joint, for the push outs: a capsule's module comes before the pushed one (D79).
+		// The module that drives each clip joint, for the push outs: a capsule's module comes before the pushed one.
 		std::map<int, int> moduleOfClipJoint;
 		for (std::size_t m = 0; m < count; ++m)
 		{
@@ -837,7 +837,7 @@ namespace
 			mDelta = constraintDelta(plug.constraint, written, values);
 		}
 
-		// The push out runs forward, after the constraint, with the capsule where the source's joint is (D79).
+		// The push out runs forward, after the constraint, with the capsule where the source's joint is.
 		const PushOutState& pushOut = plug.pushOut;
 		if (!pushOut.present || pushOut.clipJoint < 0)
 		{
@@ -929,7 +929,7 @@ namespace
 			ModuleState& module = fModules[m];
 			const std::size_t slotCount = module.context.controlRestWorld.size();
 			ModuleInverseInput input = makeInput(module, clipWorlds, written, values, isSupplied, true);
-			// The pre-pass (D74): the module that feeds this Limb's ikTarget is solved first, from the joints, the channels and the space the
+			// The pre-pass: the module that feeds this Limb's ikTarget is solved first, from the joints, the channels and the space the
 			// Limb's handle hangs in (solved by now: it is the Limb's parent's), for the motion F the handle must undo. Its parents are not
 			// solved yet, and it reads none. The sweep runs it again in its own place, after the Limb, and it gives the same answer.
 			if (ikTargetFeeder[m] >= 0)

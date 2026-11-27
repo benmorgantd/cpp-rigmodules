@@ -14,7 +14,7 @@
 #include <maya/MString.h>
 #include <maya/MStringArray.h>
 
-// What a command that works on a rig or on some of its controls was given (D34). Either the rig root, which means every
+// What a command that works on a rig or on some of its controls was given. Either the rig root, which means every
 // control, or the named controls, which all belong to oRigRoot.
 struct RigControlScope
 {
@@ -23,7 +23,7 @@ struct RigControlScope
 	MObjectArray oControls;   // the named controls. Empty when isWholeRig.
 };
 
-// Walks a built rig through its connections, never through names (D24):
+// Walks a built rig through its connections, never through names:
 // rig root .rigModules -> each module's .rigRoot, then each module's .controlMessage[i] -> control .rigModule.
 // Every function displays its own errors.
 class RigTraversal
@@ -61,7 +61,7 @@ public:
 	// module that has none. Reports nothing.
 	static MObject findModuleRigRoot(const MObject& oModule);
 
-	// The rig's lookRoot node (D54), through rigRoot.look -> lookRoot.rigRoot, or a null object for a rig with none.
+	// The rig's lookRoot node, through rigRoot.look -> lookRoot.rigRoot, or a null object for a rig with none.
 	// Reports nothing.
 	static MObject findLookRoot(const MObject& oRigRoot);
 
@@ -74,7 +74,7 @@ public:
 	// A module's controls in controlMessage index order.
 	static MStatus getModuleControls(const MObject& oModule, MObjectArray& oOutControls);
 
-	// The modules that follow a module's ik/fk blend (ModuleInterface::blendDriver, the ReverseFoot, D74): those whose ikFkBlend the build
+	// The modules that follow a module's ik/fk blend (ModuleInterface::blendDriver, the ReverseFoot): those whose ikFkBlend the build
 	// connected from the module's own. Empty for a module with no blend or no followers.
 	static MStatus getBlendFollowers(const MObject& oModule, MObjectArray& oOutFollowers);
 
@@ -102,7 +102,7 @@ public:
 	// its current world matrix: with no rig, the skeleton's pose is its rest.
 	static MStatus getJointRestWorld(const MDagPath& jointPath, MMatrix& mOutRestWorld);
 
-	// The control in the same rig with the same usage and the other side (D28). A Center control is its own mirror.
+	// The control in the same rig with the same usage and the other side. A Center control is its own mirror.
 	// Fails if there is none.
 	static MStatus getMirrorControl(const MObject& oControl, MObject& oOutMirror);
 
@@ -112,7 +112,7 @@ public:
 	// Everything getRigControlInfo reports about a control. Fails for a control with no module or invalid markup.
 	static MStatus getControlInfo(const MObject& oControl, ControlInfo& outInfo);
 
-	// Every sourceSide control with the control of the same usage on the other side (D28), index for index, in
+	// Every sourceSide control with the control of the same usage on the other side, index for index, in
 	// getRigControls order. Warns about a source control with no mirror and leaves it out of both arrays.
 	static MStatus getMirrorControlPairs(const MObject& oRigRoot, const std::string& sourceSide, MObjectArray& oOutSources, MObjectArray& oOutMirrors);
 

@@ -25,7 +25,7 @@
 #include <maya/MPlug.h>
 #include <maya/MProfiler.h>
 
-// The two-bone IK half of a module node (D62, design/limb.md): its attributes, its plug reads, its six slots' controls, joints, sockets
+// The two-bone IK half of a module node (design/limb.md): its attributes, its plug reads, its six slots' controls, joints, sockets
 // and child plugs, and its channels. TwoBoneIkNode is this and the match outputs, and LimbNode is this and a ribbon. A Maya node
 // can't inherit (RigModuleNodeBase), so the half is a template over the node, which must declare the same static attributes:
 // aIkFkBlend, aStretch, aSoft, aPin (clamped 0..1), aRoll (an angle), aPoleSpace (a short, 0 or 1), aIkRestOffset (a matrix array),
@@ -129,7 +129,7 @@ struct TwoBoneIkPart
 		MPxNode::attributeAffects(Node::aIkFkBlend, Node::aIkVisible);
 	}
 
-	// The match outputs (D52 section 4.1), pulled only by setRigIkFkBlend and never in playback: the control locals that reproduce the current
+	// The match outputs, pulled only by setRigIkFkBlend and never in playback: the control locals that reproduce the current
 	// pose on each side, by slot (aFkMatchLocal 0 to 2, aIkMatchLocal 3 and 4), and what the match can't do, a JSON list of messages. The node
 	// declares aFkMatchLocal and aIkMatchLocal (matrix arrays) and aMatchWarnings (a string). Call after createAttributes().
 	static MStatus createMatchAttributes()
@@ -171,11 +171,11 @@ struct TwoBoneIkPart
 		}
 	}
 
-	// The one branch of compute() that allocates (the inverse's vectors and warnings), against D36's rule. It runs only when a tool pulls a
-	// match output: playback never does, and bench (D52 phase 8) checks that. The inverse is the restore's, run on the joints this evaluation
+	// The one branch of compute() that allocates (the inverse's vectors and warnings), against the rule that compute() does not allocate. It runs only when a tool pulls a
+	// match output: playback never does, and bench checks that. The inverse is the restore's, run on the joints this evaluation
 	// solved, so what a match command writes is what a restore of the same pose would. `inverse` is the two-bone inverse (TwoBoneIkNode::inverse):
 	// a Limb matches its limb joints the same way, and only the first six slots are matched.
-	// mTargetDelta is a Limb's ikTarget motion since rest when the target is connected (D74): the joints reach it, as the Limb's compute
+	// mTargetDelta is a Limb's ikTarget motion since rest when the target is connected: the joints reach it, as the Limb's compute
 	// does, and the inverse places the handle so the foot's motion F (the target's motion over the handle's) lands on them, so a match with
 	// a raised foot puts no pop in the ankle.
 	static MStatus computeMatch(const MPlug& plug, MDataBlock& data, ModuleInverseFn inverse, const std::optional<MMatrix>& mTargetDelta = std::nullopt)
@@ -319,7 +319,7 @@ struct TwoBoneIkPart
 		{
 			const TwoBoneIkSlotInput& input = slots[slot];
 
-			// The IK, pole and settings controls have no joint (D57): their jointOPM and jointRestWorld elements are never made, which
+			// The IK, pole and settings controls have no joint: their jointOPM and jointRestWorld elements are never made, which
 			// compute(), the inverse and the match outputs allow for. Their nodes are named from their usage.
 			MString controlBaseName(input.baseName.c_str());
 			if (!input.oJoint.isNull())
@@ -339,7 +339,7 @@ struct TwoBoneIkPart
 			status = Node::wireControl(oModule, oControls[slot], slot, input.mRestWorld, dagMod);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
-			// index_0 to index_2 (and start and end) carry the blended joint's world, and the FK control's transform as the DAG parent (D78).
+			// index_0 to index_2 (and start and end) carry the blended joint's world, and the FK control's transform as the DAG parent.
 			// The FK controls hide in IK through `shown`, not visibility, so a child's control under one is not hidden with it.
 			RigModuleSocketInfo socketInfo;
 			socketInfo.oTransform = oControls[slot];
@@ -397,7 +397,7 @@ struct TwoBoneIkPart
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::Pin, 0.0, 0.0, 1.0, false, dagMod);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
-		// The pole's module-owned space (D52 section 4.4): the module reads it, so it is wired here and not through a rigConstraint.
+		// The pole's module-owned space: the module reads it, so it is wired here and not through a rigConstraint.
 		return RigPoseScene::addEnumChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::ControlSpace, { PoleSpaceLabels::Parent, PoleSpaceLabels::Ik }, rest.poleSpace, false, dagMod);
 	}
 

@@ -18,7 +18,7 @@
 #include <maya/MStatus.h>
 #include <maya/MString.h>
 
-// Scene side of skin weight files (D35): the mesh id, reading a mesh's weights and applying a file to a mesh.
+// Scene side of skin weight files: the mesh id, reading a mesh's weights and applying a file to a mesh.
 // Influences are joints found by their markup, in the mesh's namespace. Every function displays its own errors.
 class SkinWeightScene
 {
@@ -39,7 +39,7 @@ public:
 	static bool topologyMatches(const MDagPath& mesh, const SkinWeights& weights);
 
 	// Weights that bind every vertex of the mesh to one joint, as a weight file for it would hold them: its meshId,
-	// name and topology, and skeletonHash (D54, the look swap's rigid meshes). Fails when the mesh has no meshId.
+	// name and topology, and skeletonHash (the look swap's rigid meshes). Fails when the mesh has no meshId.
 	static MStatus makeRigidSkinWeights(const MDagPath& mesh, const JointSelector& influence, const std::string& skeletonHash, SkinWeights& outWeights);
 };
 
@@ -49,7 +49,7 @@ public:
 // doesn't list are removed, missing ones are added, and every weight is set. A mesh without one gets a new one.
 // New influences bind at their joint's rest (RigTraversal::getJointRestWorld), so loading on a posed rig binds the
 // build pose.
-// The file's skeletonHash is compared with the rig the influences belong to (D54): a difference is a warning (D70, a
+// The file's skeletonHash is compared with the rig the influences belong to: a difference is a warning (a
 // status, since the load only needs the topology and the influences to match). A file with no hash warns, and joints
 // in no rig say nothing.
 class SkinWeightLoad
@@ -100,7 +100,7 @@ private:
 	unsigned int fChangedCount = 0;
 };
 
-// Smooths one mesh's skin weights over their neighbors (core smoothSkinWeights, D64), undoably. bind finds the
+// Smooths one mesh's skin weights over their neighbors (core smoothSkinWeights), undoably. bind finds the
 // skinCluster and reads which influences are locked and the cluster's max influences. prepare then works out one
 // smoothing of some vertices, reading only those and their neighbors (asked of the mesh for those vertices alone, so a
 // ring of vertices costs the same on a small and a dense mesh; a whole mesh builds its neighbor map in bulk), and apply
@@ -146,13 +146,13 @@ class SkinWeightSmooth : public SkinWeightPass
 public:
 	MStatus bind(const MDagPath& mesh);
 	// vertices null is every vertex. Fails (and changes nothing) on iterations below 1 or a strength outside (0, 1].
-	// vertexScale (D65, a brush): null, or parallel to sorted, unique vertices and each in (0, 1], a factor on strength
+	// vertexScale (a brush): null, or parallel to sorted, unique vertices and each in (0, 1], a factor on strength
 	// per vertex. adjacency: null, or the mesh's neighbor map, which a brush builds once per stroke instead of asking
 	// the mesh for neighbors on every dab. It must outlive the call.
 	MStatus prepare(const std::vector<unsigned int>* vertices, unsigned int iterations, double strength, const std::vector<double>* vertexScale = nullptr, const MeshAdjacency* adjacency = nullptr);
 };
 
-// Paints one mesh's skin weights back towards its rest shape (core matchRestWeights, D66), undoably, through the same
+// Paints one mesh's skin weights back towards its rest shape (core matchRestWeights), undoably, through the same
 // apply, undo and journal as smoothing. bind needs a skinCluster on classic linear skinning, reads the rest shape (the
 // geometry the skinCluster is fed) and checks that the linear blend model reproduces the deformed mesh, since the solve
 // is only as good as that model: dual quaternion skinning, or a deformer after the skinCluster's own, fails the bind.
@@ -175,7 +175,7 @@ private:
 };
 
 // Reads and writes whole rows of one mesh's skinCluster for chosen vertices: every influence, as the cluster holds
-// them. A brush stroke (D65) uses it to capture the weights it ends with and to put either end back, whatever the
+// them. A brush stroke uses it to capture the weights it ends with and to put either end back, whatever the
 // operation changed. Writes are not normalized by Maya: a row keeps the total the operation left it.
 class SkinWeightRows
 {

@@ -241,7 +241,7 @@ MStatus SkinWeightScene::readSkinWeights(const MDagPath& mesh, SkinWeights& outW
 		return MStatus::kFailure;
 	}
 
-	// The skeleton the weights belong to is the rig's, so a look swap can match the file to a rig by its stamp (D54).
+	// The skeleton the weights belong to is the rig's, so a look swap can match the file to a rig by its stamp.
 	MObjectArray oInfluences;
 	for (unsigned int i = 0; i < influences.length(); ++i)
 	{
@@ -264,7 +264,7 @@ MStatus SkinWeightScene::readSkinWeights(const MDagPath& mesh, SkinWeights& outW
 		outWeights.skeletonHash = MFnDependencyNode(oRigRoot).findPlug(RigAttr::SkeletonHash, false).asString().asChar();
 	}
 
-	// The skeleton's structure, so a joint that is gone later can fold into its parent (D70). A save never fails over it.
+	// The skeleton's structure, so a joint that is gone later can fold into its parent. A save never fails over it.
 	Skeleton skeleton;
 	ValidationReport skeletonReport;
 	SkeletonScene::readNamespaceSkeleton(meshNamespace, skeleton, skeletonReport);
@@ -444,7 +444,7 @@ MStatus SkinWeightLoad::prepare(const MDagPath& mesh, const SkinWeights& weights
 		return fail();
 	}
 
-	// A file made for another skeleton is stale, not wrong (D70): its influences resolved, so it loads, and saving the
+	// A file made for another skeleton is stale, not wrong: its influences resolved, so it loads, and saving the
 	// weights again clears the warning.
 	MObjectArray oInfluences;
 	for (unsigned int i = 0; i < fInfluences.length(); ++i)
@@ -1025,7 +1025,7 @@ MStatus SkinWeightRestMatch::bind(const MDagPath& mesh, RestTarget target)
 	MFnSkinCluster fnSkin(fSkinCluster, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	// Linear blend skinning is the model the solve is built on (D66).
+	// Linear blend skinning is the model the solve is built on.
 	if (fnSkin.findPlug(kSkinningMethodAttr, false).asShort() != 0)
 	{
 		MGlobal::displayError(mesh.partialPathName() + " must use classic linear skinning (skinningMethod 0) to paint towards its rest shape.");
