@@ -28,11 +28,11 @@
     },
     "controls": {
       "armIK_00_L_CTRL": {
-        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "roll"],
+        "keyable": ["translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "roll"],
         "markup": ["Left", "armIK"]
       },
       "armPole_00_L_CTRL": {
-        "keyable": ["visibility", "translateX", "translateY", "translateZ", "pin", "space"],
+        "keyable": ["translateX", "translateY", "translateZ", "pin", "space"],
         "markup": ["Left", "armPole"],
         "spaces": ["Parent", "Ik"]
       },
@@ -101,11 +101,11 @@
         "markup": ["Left", "dummy"]
       },
       "foot_00_L_CTRL": {
-        "keyable": ["visibility", "footRoll", "breakAngle", "heelRaise", "heelSwivel", "ballRaise", "ballSwivel", "ballRoll", "bank", "toeRaise", "toeSwivel", "toeTap"],
+        "keyable": ["footRoll", "breakAngle", "heelRaise", "heelSwivel", "ballRaise", "ballSwivel", "ballRoll", "bank", "toeRaise", "toeSwivel", "toeTap"],
         "markup": ["Left", "foot"]
       },
       "hand_00_L_CTRL": {
-        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "keyable": ["translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Left", "hand"]
       },
       "layout_00_M_CTRL": {
@@ -121,11 +121,11 @@
         "markup": ["Center", "layout_2"]
       },
       "lowerArm_00_L_CTRL": {
-        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
+        "keyable": ["translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Left", "lowerArm"]
       },
       "toeFK_00_L_CTRL": {
-        "keyable": ["visibility", "rotateX", "rotateY", "rotateZ"],
+        "keyable": ["rotateX", "rotateY", "rotateZ"],
         "markup": ["Left", "toeFK"]
       },
       "upperArm_00_L_CTRL": {

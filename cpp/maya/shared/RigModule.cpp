@@ -82,7 +82,9 @@ namespace
 		bool socketsMatch = result.parentSockets.size() == moduleInterface.sockets.size();
 		for (const std::string& socket : moduleInterface.sockets)
 		{
-			socketsMatch = socketsMatch && result.parentSockets.count(socket) > 0;
+			// A socket is matrix-only in the plan exactly when it was built with no control transform (D78).
+			const auto it = result.parentSockets.find(socket);
+			socketsMatch = socketsMatch && it != result.parentSockets.end() && moduleInterface.isMatrixOnly(socket) == it->second.oTransform.isNull();
 		}
 
 		if (!plugsMatch)

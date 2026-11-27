@@ -1,0 +1,35 @@
+{
+  "description": "Two modules that are each other's DAG parent are a loop Maya would refuse, even when their matrix parents are fine (D78)",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": []
+    },
+    {
+      "set": "/rigModules/0/parentStructure",
+      "value": {
+        "start": "fkchain_02_L_MOD.start"
+      }
+    },
+    {
+      "set": "/rigModules/0/matrixParentStructure",
+      "value": {
+        "start": "layout_00_M_MOD.end"
+      }
+    },
+    {
+      "set": "/rigModules/1/matrixParentStructure",
+      "value": {
+        "start": "layout_00_M_MOD.end"
+      }
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "cycle through DAG parents",
+      "path": "module graph"
+    }
+  ]
+}

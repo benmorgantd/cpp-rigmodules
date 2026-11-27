@@ -159,6 +159,11 @@ namespace TemplateMirror
 				const std::string entryPath = where + "." + TemplateKey::ParentStructure + "." + plugName;
 				socketIdentifier = mirrorIdentifier(socketIdentifier, moduleSides, entryPath, report);
 			}
+			for (auto& [plugName, socketIdentifier] : mirror.matrixParentStructure)
+			{
+				const std::string entryPath = where + "." + TemplateKey::MatrixParentStructure + "." + plugName;
+				socketIdentifier = mirrorIdentifier(socketIdentifier, moduleSides, entryPath, report);
+			}
 			mirrorModules.push_back(std::move(mirror));
 		}
 		rigData.rigModules.insert(rigData.rigModules.end(), mirrorModules.begin(), mirrorModules.end());

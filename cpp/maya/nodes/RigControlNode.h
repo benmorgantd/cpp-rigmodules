@@ -11,6 +11,7 @@
 #include <maya/MColorArray.h>
 #include <maya/MDagModifier.h>
 #include <maya/MEulerRotation.h>
+#include <maya/MEvaluationNode.h>
 #include <maya/MFrameContext.h>
 #include <maya/MMatrix.h>
 #include <maya/MPoint.h>
@@ -41,6 +42,7 @@ public:
 	float lineWidth{ 1.0f };
 	bool filled{ true };
 	bool xray{ true };
+	bool shown{ true };
 
 	// The shape's library mesh, points through shapeTransform. Rebuilt only when the shape changes.
 	MPointArray points;
@@ -66,6 +68,9 @@ public:
 	// Bumps the draw generation only when a shape attribute changes, so a redraw doesn't trigger MPlug reads.
 	MStatus setDependentsDirty(const MPlug& plugBeingDirtied, MPlugArray& affectedPlugs) override;
 
+	// Parallel evaluation does not call setDependentsDirty, so a shown plug driven by a module's blend (D78) is caught here.
+	MStatus postEvaluation(const MDGContext& context, const MEvaluationNode& evaluationNode, PostEvaluationType evalType) override;
+
 	// The shape's extent in object space, so framing and culling see the shapeTransform scale and offset.
 	// Cached until shapeType or shapeTransform changes.
 	bool isBounded() const override;
@@ -89,6 +94,7 @@ public:
 	static MObject aShapeTransform;
 	static MObject aFilled;
 	static MObject aXray;
+	static MObject aShown;   // false: the control draws nothing and cannot be picked, and its DAG children are unaffected (D78)
 
 	// Changes whenever a shape attribute changes. Each draw override keeps the generation it last read in its
 	// ControlDrawData, so every viewport refreshes, not only the first to draw after the change.
@@ -120,8 +126,11 @@ public:
 	static MPoint drawPoint(const ShapePoint& point, const MMatrix& mShapeTransform, bool isPushOutCapsule);
 
 private:
-	// Starts at 1, so it never equals a new ControlDrawData's 0. Skips 0 when it wraps.
-	unsigned int m_drawGeneration{ 1 };
+	// Starts at 1, so it never equals a new ControlDrawData's 0. Skips 0 when it wraps. Atomic because postEvaluation bumps it from an
+	// evaluation thread.
+	std::atomic<unsigned int> m_drawGeneration{ 1 };
+
+	void bumpDrawGeneration();
 
 	// boundingBox() is const and may be called from evaluation threads, so the cache is guarded. Only
 	// setDependentsDirty invalidates it, on the main thread, during an edit. This assumes the shape attributes

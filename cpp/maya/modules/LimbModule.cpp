@@ -607,15 +607,17 @@ RigModuleBuildResult LimbNode::createModule(
 			result.status = status;
 			return result;
 		}
-		// The bind joint's socket (bind_<n>). It has no DAG transform: the tweaker is hidden, and a child's controls would inherit that.
+		const MObject oControl = RigControlNode::createRigControl(
+			dagMod, MFnDependencyNode(input.oJoint).name(), shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
+		// The bind joint's socket (bind_<n>). It carries the tweaker's transform (D78): the tweaker is not drawn through `shown`, not
+		// visibility, so a child's control under it is not hidden with it.
 		RigModuleSocketInfo bindSocket;
+		bindSocket.oTransform = oControl;
 		bindSocket.mRestWorld = input.mRestWorld;
 		bindSocket.outputIndex = slot;
 		const std::string bindSocketName = std::string(PlugAndSocketNames::Bind) + std::to_string(i);
 		result.parentSockets[bindSocketName] = bindSocket;
 		DagPlugAndSocketUtils::setParentSocketNames(oModule, slot, { bindSocketName }, dagMod);
-		const MObject oControl = RigControlNode::createRigControl(
-			dagMod, MFnDependencyNode(input.oJoint).name(), shapeType, side, input.controlMarkup, MEulerRotation::kXYZ);
 		dagMod.reparentNode(oControl, oRibbonControls[0]);
 		status = wireControl(oModule, oControl, slot, input.mRestWorld, dagMod);
 		if (!status)
@@ -623,8 +625,8 @@ RigModuleBuildResult LimbNode::createModule(
 			result.status = status;
 			return result;
 		}
-		// A tweaker is the residual layer: hidden, still keyable (design/ribbon.md section 3.2).
-		dagMod.newPlugValueBool(MPlug(oControl, MPxTransform::visibility), false);
+		// A tweaker is the residual layer: not drawn, still keyable (design/ribbon.md section 3.2).
+		dagMod.newPlugValueBool(MPlug(oControl, RigControlNode::aShown), false);
 	}
 
 	// 4. The ribbon's rest data.
@@ -688,11 +690,11 @@ RigModuleBuildResult LimbNode::createModule(
 		}
 		MStatus callbackStatus = LimbNode::reparentChildPlugToSocket(args);
 		CHECK_MSTATUS_AND_RETURN_IT(callbackStatus);
-		if (args.childPlug.plugIndex == TwoBoneIkSlot::Upper && args.reparentDag && !args.parentSocket.oTransform.isNull())
+		if (args.childPlug.plugIndex == TwoBoneIkSlot::Upper && args.reparentDag && !args.dagSocket.oTransform.isNull())
 		{
 			for (const MObject& oControl : oRibbonControls)
 			{
-				callbackStatus = args.dagMod.reparentNode(oControl, args.parentSocket.oTransform);
+				callbackStatus = args.dagMod.reparentNode(oControl, args.dagSocket.oTransform);
 				CHECK_MSTATUS_AND_RETURN_IT(callbackStatus);
 			}
 		}

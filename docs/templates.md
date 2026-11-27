@@ -65,7 +65,8 @@ A module can select a point that no joint marks, a [marker](markers.md), with a 
 | `shapeType` | no | Control shape for the module's controls: `Box` (default) or any shape in [controls.md](controls.md#shapes) |
 | `moduleVersion` | no | Integer from 1 to the module's current version. Defaults to 1. Layout, FkChain, FkHierarchy, Aim, Limb and ReverseFoot are at version 1, and TwoBoneIk and Ribbon at version 2. A `moduleArgs` written for an older version is updated before the module reads it. |
 | `moduleArgs` | no | Module-specific arguments, mostly joint selectors. See [modules.md](modules.md). |
-| `parentStructure` | no | Maps this module's child plugs to parent sockets (below) |
+| `parentStructure` | no | Maps this module's child plugs to their DAG parent sockets (below) |
+| `matrixParentStructure` | no | Maps child plugs to the socket whose matrix they follow, where that differs from the DAG parent (below) |
 | `mirror` | no | `true` also builds this module on the other side. Only `Left` and `Right` modules. See [Mirroring](#mirroring). |
 
 ### Joint selectors
@@ -88,6 +89,23 @@ Each key is one of this module's child plugs. Each value is a socket id, `module
 - Child plugs that are not listed attach to `layout_00_M_MOD.end`, as do all child plugs of a module with no `parentStructure`. The exceptions are a [`Ribbon`](modules.md#ribbon)'s `end`, which takes the same parent as its `start` unless it is listed, and a [`Limb`](modules.md#limb)'s `ikTarget`, which stays unconnected when it is not listed.
 - A module cannot parent to itself, directly or through a loop of modules.
 - `parent:module.socket` names a socket of the rig this one is attached to, in a `parentStructure` value or a constraint driver. See [attachments.md](attachments.md).
+- **A `parentStructure` value is a DAG parent.** For a child plug that has a control, the control is reparented under the socket's control, and the build fails when the socket has none (a matrix-only socket, below). The error says a valid `dagParent` must be given. A ReverseFoot's `ik` and `ankle` carry the foot control and the toe FK control, so they follow this rule too. A child plug with no control (an Aim's `aim`, a Limb's `ikTarget`) has nothing to reparent, so its entry only says where its matrix comes from and any socket is valid.
+- Every control is a socket with a transform, except where it shares its joint's socket: a TwoBoneIk or Limb FK control is the transform of `start`, `index_<n>` and `end`. The sockets with no control are **matrix-only**: an Aim's `aim`, and a ReverseFoot's `ankle`, `toe`, `toeTip` and pivot sockets. They are valid `matrixParentStructure` values and constraint drivers, never DAG parents.
+- The DAG parent decides the outliner and nothing else, because no control inherits a transform (`inheritsTransform` is off). Visibility does inherit, so a module hides its ik/fk controls through the control's `shown` attribute and not its `visibility`, and a control under a hidden one stays visible.
+
+### matrixParentStructure
+
+```json
+"parentStructure": { "start": "arm_00_L_MOD.settings" },
+"matrixParentStructure": { "start": "arm_00_L_MOD.end" }
+```
+
+The same keys as `parentStructure`, each a child plug, and the same `module.socket` values (or `parent:module.socket`), but any socket is valid, with or without a control. The plug's matrix, and the parent a [constraint](#constraints) leaves it, comes from this socket. The DAG parent stays the `parentStructure` entry.
+
+- A plug with no `matrixParentStructure` entry follows its DAG parent, so most templates need only `parentStructure`.
+- The build does not compare the two. A rigger who names a control that hides in IK as the matrix parent gets a rig that is wrong in IK.
+- A loop of matrix parents is an error, and so is a loop of DAG parents (Maya refuses it at the reparent).
+- Mirroring swaps sides in both keys, as it does for `parentStructure`.
 
 ## Constraints
 
@@ -118,7 +136,7 @@ A module can own a child plug's space, or take its parent from another plug of i
 
 ### Constraint types
 
-The active driver gives only its own part of the motion. Everything else comes from the child plug's parent, the socket it attaches to in `parentStructure` (or `layout_00_M_MOD.end`), as if there were no constraint.
+The active driver gives only its own part of the motion. Everything else comes from the child plug's matrix parent, the socket it attaches to in `matrixParentStructure`, or `parentStructure` when that has no entry (or `layout_00_M_MOD.end`), as if there were no constraint.
 
 | Type | Translate (pivot) | Rotate | Scale |
 |---|---|---|---|

@@ -120,7 +120,8 @@ class TwoBoneIkBehaviour(RigTestCase):
         for blend, visible in cases:
             set_attr(SETTINGS, "ikFkBlend", blend)
             for control in ALL_CONTROLS:
-                self.assertEqual(bool(attr(control, "visibility")), control in visible, "%s at blend %s" % (control, blend))
+                self.assertEqual(bool(attr(control, "shown")), control in visible, "%s at blend %s" % (control, blend))
+                self.assertTrue(attr(control, "visibility"), "%s: the blend must not hide it through visibility (D78)" % control)
 
     # ---- the ikFkBlend template key --------------------------------------------------------------
 
@@ -148,8 +149,8 @@ class TwoBoneIkBehaviour(RigTestCase):
         for control, joint in zip(ARM, LIMB_JOINTS):
             for e, a in zip(world_matrix(control), world_matrix(joint)):
                 self.assertAlmostEqual(e, a, places=9, msg="%s is not at %s" % (joint, control))
-        self.assertFalse(attr(HANDLE, "visibility"))
-        self.assertTrue(attr(ARM[1], "visibility"))
+        self.assertFalse(attr(HANDLE, "shown"))
+        self.assertTrue(attr(ARM[1], "shown"))
 
     def test_an_ik_fk_blend_outside_zero_to_one_is_an_error(self):
         for value in (1.5, -0.1):
@@ -171,11 +172,13 @@ class TwoBoneIkBehaviour(RigTestCase):
     def test_index_sockets_follow_the_blended_joints_and_a_child_keeps_its_visibility(self):
         self.build_standard("twoboneik_hand", "twoboneik_hand")
         finger_control = "finger_00_L_CTRL"
-        # IK: the FK hand control is hidden, the finger isn't, and it rides on the IK hand.
-        self.assertFalse(attr(ARM[2], "visibility"))
+        # IK: the FK hand control is not drawn, the finger is, and it rides on the IK hand. The finger's DAG parent is the FK hand
+        # control (the socket's transform, D78) and is still shown, because the blend drives `shown` and not visibility.
+        self.assertFalse(attr(ARM[2], "shown"))
+        self.assertTrue(attr(finger_control, "shown"))
         self.assertTrue(attr(finger_control, "visibility"))
         parents = cmds.listRelatives(rig_name(finger_control), parent=True, fullPath=True) or []
-        self.assertFalse(any(p.endswith("hand_00_L_CTRL") for p in parents), "a finger under the hidden FK hand would be hidden in IK")
+        self.assertTrue(any(p.endswith("hand_00_L_CTRL") for p in parents), "the finger's DAG parent is the FK hand control")
         set_attr(HANDLE, "translateX", -5)
         set_attr(HANDLE, "translateY", 5)
         self.assertWorldTranslation(rig_name("finger_00_M_JNT"), [1, 6, 0])
@@ -185,6 +188,28 @@ class TwoBoneIkBehaviour(RigTestCase):
         self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [0, 5, 0])
         self.assertWorldTranslation(rig_name("finger_00_M_JNT"), [-1, 6, 0])
         self.assertTrue(attr(finger_control, "visibility"))
+
+    def test_a_dag_parent_and_a_matrix_parent_can_differ(self):
+        """parentStructure is the DAG parent (the settings control, a socket with a control) and matrixParentStructure the matrix the
+        finger follows (the blended hand, a socket that is the joint's world). Names the rigger chose, so the build does not compare them (D78)."""
+        data = copy.deepcopy(fixtures.load_template("twoboneik_hand"))
+        data["rigModules"][1]["parentStructure"] = {"start": "arm_01_L_MOD.settings"}
+        data["rigModules"][1]["matrixParentStructure"] = {"start": "arm_01_L_MOD.end"}
+        self.build(data, self.make_skeleton("twoboneik_hand"), label="twoboneik_dag_matrix")
+        finger_control = "finger_00_L_CTRL"
+        parents = cmds.listRelatives(rig_name(finger_control), parent=True, fullPath=True) or []
+        self.assertTrue(any(p.endswith(SETTINGS) for p in parents), "the DAG parent is the settings control: %s" % parents)
+        set_attr(HANDLE, "translateX", -5)
+        set_attr(HANDLE, "translateY", 5)
+        self.assertWorldTranslation(rig_name("finger_00_M_JNT"), [1, 6, 0])   # it still rides the IK hand
+
+    def test_without_a_matrix_parent_the_matrix_follows_the_dag_parent(self):
+        """The default: no matrixParentStructure entry, so the finger's matrix comes from its DAG parent socket (the FK hand control's
+        socket is the blended hand's world, so it is the same as the matrix test above)."""
+        self.build_standard("twoboneik_hand", "twoboneik_hand")
+        set_attr(HANDLE, "translateX", -5)
+        set_attr(HANDLE, "translateY", 5)
+        self.assertWorldTranslation(rig_name("finger_00_M_JNT"), [1, 6, 0])
 
     # ---- the settings control and spaces -------------------------------------------------------
 

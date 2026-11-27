@@ -1,0 +1,18 @@
+{
+  "description": "A matrixParentStructure entry may name a socket with no control, while the plug's DAG parent is one with a control (D78)",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": []
+    },
+    {
+      "set": "/rigModules/1/matrixParentStructure",
+      "value": {
+        "start": "aim_01_R_MOD.aim"
+      }
+    }
+  ],
+  "expectErrors": []
+}

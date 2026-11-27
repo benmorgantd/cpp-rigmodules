@@ -35,6 +35,7 @@ MObject RigControlNode::aWireAlpha;
 MObject RigControlNode::aShapeTransform;
 MObject RigControlNode::aFilled;
 MObject RigControlNode::aXray;
+MObject RigControlNode::aShown;
 
 MObject RigControlNode::aRigModule;
 MObject RigControlNode::aControlMarkup;
@@ -77,22 +78,38 @@ MStatus RigControlNode::setDependentsDirty(const MPlug& plugBeingDirtied, MPlugA
 	const bool isBoundsAttr = attr == aShapeType || attr == aShapeTransform;
 	const bool isColorAttr = attr == aWireColor || attr == aWireColorR || attr == aWireColorG || attr == aWireColorB;
 
-	if (isBoundsAttr || isColorAttr || attr == aWireAlpha || attr == aFilled || attr == aXray)
+	if (isBoundsAttr || isColorAttr || attr == aWireAlpha || attr == aFilled || attr == aXray || attr == aShown)
 	{
 		if (isBoundsAttr)
 		{
 			m_boundsAreDirty.store(true);
 		}
-		++m_drawGeneration;
-		if (m_drawGeneration == 0)
-		{
-			m_drawGeneration = 1;
-		}
+		bumpDrawGeneration();
 		// Redraw while the attribute is being changed, not only on the next unrelated refresh.
 		MHWRender::MRenderer::setGeometryDrawDirty(thisMObject());
 	}
 
 	return MPxTransform::setDependentsDirty(plugBeingDirtied, affectedPlugs);
+}
+
+void RigControlNode::bumpDrawGeneration()
+{
+	if (++m_drawGeneration == 0)
+	{
+		m_drawGeneration = 1;
+	}
+}
+
+MStatus RigControlNode::postEvaluation(const MDGContext& context, const MEvaluationNode& evaluationNode, PostEvaluationType evalType)
+{
+	MStatus status;
+	// A module's blend drives shown through a connection, which parallel evaluation dirties without setDependentsDirty.
+	if (context.isNormal() && evaluationNode.dirtyPlugExists(aShown, &status) && status)
+	{
+		bumpDrawGeneration();
+		MHWRender::MRenderer::setGeometryDrawDirty(thisMObject());
+	}
+	return MPxTransform::postEvaluation(context, evaluationNode, evalType);
 }
 
 bool RigControlNode::isBounded() const
@@ -224,6 +241,13 @@ MStatus RigControlNode::initialize()
 	nAttr.setStorable(true);
 	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aXray));
 
+	aShown = nAttr.create(RigControlNodeAttr::Shown, RigControlNodeAttr::Shown, MFnNumericData::kBoolean, true, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+	nAttr.setKeyable(false);
+	nAttr.setWritable(true);
+	nAttr.setStorable(true);
+	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aShown));
+
 	// Rig attributes. Neither affects an output: the module reads the control, never these.
 	aRigModule = msgAttr.create(RigControlNodeAttr::RigModule, RigControlNodeAttr::RigModule, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -312,6 +336,7 @@ MUserData* RigControlDrawOverride::prepareForDraw(
 
 		data->filled = MPlug(oControl, RigControlNode::aFilled).asBool();
 		data->xray = MPlug(oControl, RigControlNode::aXray).asBool();
+		data->shown = MPlug(oControl, RigControlNode::aShown).asBool();
 
 		data->drawGeneration = pControl->drawGeneration();
 	}
@@ -361,7 +386,7 @@ void RigControlDrawOverride::addUIDrawables(
 	MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorC_L3, ProfileAddUIDrawables);
 
 	const ControlDrawData* pData = dynamic_cast<const ControlDrawData*>(data);
-	if (!pData || pData->points.length() == 0)
+	if (!pData || !pData->shown || pData->points.length() == 0)
 	{
 		return;
 	}

@@ -49,6 +49,11 @@ bool ModuleInterface::hasSocket(const std::string& name) const
 	return std::find(sockets.begin(), sockets.end(), name) != sockets.end();
 }
 
+bool ModuleInterface::isMatrixOnly(const std::string& socketName) const
+{
+	return std::find(matrixOnlySockets.begin(), matrixOnlySockets.end(), socketName) != matrixOnlySockets.end();
+}
+
 namespace
 {
 	// Directed edges parent module -> child module, in the order they were found. An edge remembers the socket it leaves the parent by and
@@ -151,13 +156,64 @@ namespace
 		}
 	}
 
+	// What a socket in a parent entry resolved to. Cross is another rig's socket (D55), which only its own scene can check. Invalid was reported.
+	enum class ParentSocketResult
+	{
+		Local,
+		Cross,
+		Invalid
+	};
+
+	// Checks one parentStructure or matrixParentStructure value: its form, that the module exists and has the socket, and that it is not
+	// the module's own. A local socket comes back as parentModule, socketName and its interface.
+	ParentSocketResult resolveParentSocket(
+		const RigModuleData& module,
+		const std::string& socketIdentifier,
+		const std::string& entryPath,
+		const std::set<std::string>& declaredModules,
+		const ModuleInterfaceMap& interfaces,
+		ValidationReport& report,
+		std::string& parentModule,
+		std::string& socketName,
+		const ModuleInterface*& pParentInterface)
+	{
+		// A parent rig's socket can only be checked against that rig's scene, which the attach step does (D55).
+		if (RigTemplateValidation::isParentSocketId(socketIdentifier))
+		{
+			checkParentSocketForm(socketIdentifier, entryPath, report);
+			return ParentSocketResult::Cross;
+		}
+
+		const std::string expectedForm = std::string("module.socket', or '") + RigNaming::LayoutModule + "." + PlugAndSocketNames::End;
+		if (lookupModule(socketIdentifier, declaredModules, interfaces, expectedForm, entryPath, report, parentModule, socketName, pParentInterface)
+			!= LookupResult::Found)
+		{
+			return ParentSocketResult::Invalid;
+		}
+
+		if (parentModule == module.name)
+		{
+			// Every module input affects every output, so any child plug on the module's own socket is a DG cycle.
+			report.addError(entryPath, "a module cannot parent to its own socket ('" + socketIdentifier + "'), it makes a DG cycle");
+			return ParentSocketResult::Invalid;
+		}
+
+		if (!pParentInterface->hasSocket(socketName))
+		{
+			report.addError(entryPath, "no socket '" + socketName + "' on '" + parentModule + "' (has: " + namesOrNone(pParentInterface->sockets) + ")");
+			return ParentSocketResult::Invalid;
+		}
+		return ParentSocketResult::Local;
+	}
+
 	class CycleFinder
 	{
 	public:
-		CycleFinder(const ModuleGraph& graph, const ModuleInterfaceMap& interfaces, ValidationReport& report)
+		CycleFinder(const ModuleGraph& graph, const ModuleInterfaceMap& interfaces, ValidationReport& report, const char* edgeKind)
 			: fGraph(graph)
 			, fInterfaces(interfaces)
 			, fReport(report)
+			, fEdgeKind(edgeKind)
 		{
 		}
 
@@ -231,12 +287,13 @@ namespace
 				path += it->first + " -> ";
 			}
 			path += cycleStart.first;
-			fReport.addError("module graph", "cycle through parentStructure and constraint drivers: " + path);
+			fReport.addError("module graph", std::string("cycle through ") + fEdgeKind + ": " + path);
 		}
 
 		const ModuleGraph& fGraph;
 		const ModuleInterfaceMap& fInterfaces;
 		ValidationReport& fReport;
+		const char* fEdgeKind;   // "parentStructure and constraint drivers" or "DAG parents", for the message
 		std::map<Visit, State> fState;
 		std::vector<Visit> fStack;
 	};
@@ -248,6 +305,7 @@ namespace
 		const std::set<std::string>& declaredModules,
 		const ModuleInterfaceMap& interfaces,
 		ModuleGraph& graph,
+		ModuleGraph& dagGraph,
 		ValidationReport& report)
 	{
 		// Sorted, so messages come out in a stable order.
@@ -269,38 +327,83 @@ namespace
 				continue;
 			}
 
-			// A parent rig's socket can only be checked against that rig's scene, which the attach step does (D55).
-			if (RigTemplateValidation::isParentSocketId(socketIdentifier))
+			std::string parentModule;
+			std::string socketName;
+			const ModuleInterface* pParentInterface = nullptr;
+			if (resolveParentSocket(module, socketIdentifier, entryPath, declaredModules, interfaces, report, parentModule, socketName, pParentInterface)
+				!= ParentSocketResult::Local)
 			{
-				checkParentSocketForm(socketIdentifier, entryPath, report);
+				continue;
+			}
+
+			// The entry is the DAG parent when the plug has a control to parent (D78). A socket with no control transform cannot be one, and
+			// a plug with no control (an aim plug, a limb's ikTarget) has nothing to parent, so its entry is only a matrix parent.
+			const bool hasControl = pPlugInfo == nullptr || pPlugInfo->hasControl;
+			if (hasControl && pParentInterface->isMatrixOnly(socketName))
+			{
+				std::vector<std::string> withControl;
+				for (const std::string& name : pParentInterface->sockets)
+				{
+					if (!pParentInterface->isMatrixOnly(name))
+					{
+						withControl.push_back(name);
+					}
+				}
+				report.addError(entryPath, "'" + socketIdentifier + "' is a matrix-only socket and has no control to be a DAG parent. A valid dagParent must be given here: "
+					"a socket with a control (on '" + parentModule + "': " + namesOrNone(withControl) + "). To keep following its matrix, name '"
+					+ socketIdentifier + "' in matrixParentStructure for '" + plugName + "'");
+				continue;
+			}
+
+			if (hasControl)
+			{
+				dagGraph[parentModule].push_back({ module.name, socketName, plugName });
+			}
+			// A plug with a matrixParentStructure entry takes its matrix from that, and validateMatrixParentStructure adds the edge.
+			if (module.matrixParentStructure.count(plugName) == 0)
+			{
+				graph[parentModule].push_back({ module.name, socketName, plugName });
+			}
+		}
+	}
+
+	// The matrix parents named apart from the DAG parent (D78): any socket, with or without a control.
+	void validateMatrixParentStructure(
+		const RigModuleData& module,
+		const std::string& where,
+		const ModuleInterface& moduleInterface,
+		const std::set<std::string>& declaredModules,
+		const ModuleInterfaceMap& interfaces,
+		ModuleGraph& graph,
+		ValidationReport& report)
+	{
+		const std::map<std::string, std::string> matrixParentStructure(module.matrixParentStructure.begin(), module.matrixParentStructure.end());
+
+		for (const auto& [plugName, socketIdentifier] : matrixParentStructure)
+		{
+			const std::string entryPath = where + "." + TemplateKey::MatrixParentStructure + "." + plugName;
+
+			const ModulePlugInfo* pPlugInfo = moduleInterface.findChildPlug(plugName);
+			if (pPlugInfo == nullptr)
+			{
+				report.addError(entryPath, "no child plug '" + plugName + "' on this module (has: " + childPlugNames(moduleInterface) + ")");
+				continue;
+			}
+			if (!pPlugInfo->followsPlug.empty())
+			{
+				report.addError(entryPath, "child plug '" + plugName + "' is internal: it follows the parent of '" + pPlugInfo->followsPlug
+					+ "', so it takes no matrixParentStructure entry");
 				continue;
 			}
 
 			std::string parentModule;
 			std::string socketName;
 			const ModuleInterface* pParentInterface = nullptr;
-			const std::string expectedForm = std::string("module.socket', or '") + RigNaming::LayoutModule + "." + PlugAndSocketNames::End;
-			LookupResult result = lookupModule(socketIdentifier, declaredModules, interfaces, expectedForm,
-				entryPath, report, parentModule, socketName, pParentInterface);
-			if (result != LookupResult::Found)
+			if (resolveParentSocket(module, socketIdentifier, entryPath, declaredModules, interfaces, report, parentModule, socketName, pParentInterface)
+				== ParentSocketResult::Local)
 			{
-				continue;
+				graph[parentModule].push_back({ module.name, socketName, plugName });
 			}
-
-			if (parentModule == module.name)
-			{
-				// Every module input affects every output, so any child plug on the module's own socket is a DG cycle.
-				report.addError(entryPath, "a module cannot parent to its own socket ('" + socketIdentifier + "'), it makes a DG cycle");
-				continue;
-			}
-
-			if (!pParentInterface->hasSocket(socketName))
-			{
-				report.addError(entryPath, "no socket '" + socketName + "' on '" + parentModule + "' (has: " + namesOrNone(pParentInterface->sockets) + ")");
-				continue;
-			}
-
-			graph[parentModule].push_back({ module.name, socketName, plugName });
 		}
 	}
 
@@ -766,7 +869,7 @@ namespace RigTemplateValidation
 					const std::string name = module.is_object() ? module.value(Name, std::string()) : std::string();
 					checkKeys(module,
 						{ ModuleType, Name },
-						{ ShapeType, Side, ModuleVersion, ParentStructure, ModuleArgs, Mirror },
+						{ ShapeType, Side, ModuleVersion, ParentStructure, MatrixParentStructure, ModuleArgs, Mirror },
 						modulePath(i, name), report);
 				}
 			}
@@ -889,7 +992,8 @@ namespace RigTemplateValidation
 			declaredModules.insert(module.name);
 		}
 
-		ModuleGraph graph;
+		ModuleGraph graph;      // matrix edges: what a module's evaluation depends on
+		ModuleGraph dagGraph;   // DAG parent edges: Maya refuses a DAG loop at the reparent, so the template says so first
 
 		for (std::size_t i = 0; i < rigData.rigModules.size(); ++i)
 		{
@@ -899,7 +1003,8 @@ namespace RigTemplateValidation
 			{
 				continue;   // failed planning, already reported
 			}
-			validateParentStructure(module, modulePath(i, module), it->second, declaredModules, interfaces, graph, report);
+			validateParentStructure(module, modulePath(i, module), it->second, declaredModules, interfaces, graph, dagGraph, report);
+			validateMatrixParentStructure(module, modulePath(i, module), it->second, declaredModules, interfaces, graph, report);
 		}
 
 		validateConstraints(rigData.rigConstraints, declaredModules, interfaces, graph, report);
@@ -918,7 +1023,8 @@ namespace RigTemplateValidation
 			graph[dependency.driverModule].push_back({ targetModule, std::string(), targetPlug });
 		}
 
-		CycleFinder(graph, interfaces, report).run();
+		CycleFinder(graph, interfaces, report, "parentStructure, matrixParentStructure and constraint drivers").run();
+		CycleFinder(dagGraph, interfaces, report, "DAG parents (parentStructure)").run();
 	}
 
 	bool isParentSocketId(const std::string& identifier)
@@ -945,11 +1051,14 @@ namespace RigTemplateValidation
 		std::set<std::string> ids;
 		for (const RigModuleData& module : rigData.rigModules)
 		{
-			for (const auto& [plugName, socketIdentifier] : module.parentStructure)
+			for (const auto* pStructure : { &module.parentStructure, &module.matrixParentStructure })
 			{
-				if (isParentSocketId(socketIdentifier))
+				for (const auto& [plugName, socketIdentifier] : *pStructure)
 				{
-					ids.insert(stripParentPrefix(socketIdentifier));
+					if (isParentSocketId(socketIdentifier))
+					{
+						ids.insert(stripParentPrefix(socketIdentifier));
+					}
 				}
 			}
 		}
@@ -1003,8 +1112,8 @@ namespace RigTemplateValidation
 			// parentStructure entry takes layout_00_M_MOD.end, which is not).
 			for (const ModulePlugInfo& plug : follower->second.childPlugs)
 			{
-				const auto entry = module.parentStructure.find(plug.name);
-				const std::string parentId = entry != module.parentStructure.end() ? entry->second : std::string(RigNaming::LayoutModule) + ".end";
+				const std::string* pEntry = module.matrixParentOf(plug.name);
+				const std::string parentId = pEntry != nullptr ? *pEntry : std::string(RigNaming::LayoutModule) + ".end";
 				const std::string parentModule = isParentSocketId(parentId) ? parentId : parentId.substr(0, parentId.find('.'));
 				if (parentModule != driverName)
 				{
@@ -1030,10 +1139,10 @@ namespace RigTemplateValidation
 			{
 				return other.name == driverName;
 			});
-			const auto entry = driverModule->parentStructure.find(driverPlug);
-			if (entry == driverModule->parentStructure.end() || entry->second != expectedParent)
+			const std::string* pEntry = driverModule->matrixParentOf(driverPlug);
+			if (pEntry == nullptr || *pEntry != expectedParent)
 			{
-				const std::string has = entry == driverModule->parentStructure.end() ? "has no '" + driverPlug + "' entry" : "takes '" + entry->second + "'";
+				const std::string has = pEntry == nullptr ? "has no '" + driverPlug + "' entry" : "takes '" + *pEntry + "'";
 				report.addError(where, "'" + driverName + "' " + has + " in its parentStructure, so the foot's channels would not move the ankle. Add \""
 					+ driverPlug + "\": \"" + expectedParent + "\" to the parentStructure of '" + driverName + "'");
 			}

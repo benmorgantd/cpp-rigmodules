@@ -722,10 +722,11 @@ std::string ReverseFootModuleNode::pivotSocketName(FootSolve::Role role)
 ModuleInterface ReverseFootModuleNode::makeInterface(const std::vector<FootSolve::Pivot>& chain)
 {
 	ModuleInterface moduleInterface;
-	// Neither plug has a control, so a template constraint on either is an error (author, 2026-11-24). The ankle plug takes the Limb's end
-	// socket, which follows ikTarget, so it must not be seen by the ankle socket that feeds it.
-	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Ik, false, false });
-	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Ankle, false, false, "", "", false, { PlugAndSocketNames::Ankle } });
+	// Each plug carries a control for the DAG only: ik the foot control, ankle the toe FK control, so the template's dagParent places them
+	// (the handle and the FK ankle). The module owns both inputs, so a template constraint on either is still an error (author, 2026-11-24).
+	// The ankle plug takes the Limb's end socket, which follows ikTarget, so it must not be seen by the ankle socket that feeds it.
+	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Ik, true, false });
+	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Ankle, true, false, "", "", false, { PlugAndSocketNames::Ankle } });
 	moduleInterface.sockets.push_back(PlugAndSocketNames::Ankle);
 	moduleInterface.sockets.push_back(PlugAndSocketNames::Toe);
 	moduleInterface.sockets.push_back(PlugAndSocketNames::ToeTip);
@@ -735,6 +736,14 @@ ModuleInterface ReverseFootModuleNode::makeInterface(const std::vector<FootSolve
 	}
 	moduleInterface.sockets.push_back(PlugAndSocketNames::Foot);
 	moduleInterface.sockets.push_back(PlugAndSocketNames::ToeFk);
+	// The foot and toe FK sockets carry their controls' transforms. The rest are solved worlds with none (D78).
+	for (const std::string& name : moduleInterface.sockets)
+	{
+		if (name != PlugAndSocketNames::Foot && name != PlugAndSocketNames::ToeFk)
+		{
+			moduleInterface.matrixOnlySockets.push_back(name);
+		}
+	}
 	return moduleInterface;
 }
 
@@ -777,16 +786,17 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	status = wireControl(oModule, oToeFk, ReverseFootSlot::ToeFk, plan.mToeJointRests[0], dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
 
-	// 3. The ankle socket (no DAG transform: nothing hangs from it by DAG) and the two plugs, neither with a control.
+	// 3. The ankle socket (no DAG transform: nothing hangs from it by DAG) and the two plugs, which carry the controls their dagParent places.
 	RigModuleSocketInfo ankleSocket;
 	ankleSocket.mRestWorld = plan.mAnkleRestWorld;
 	ankleSocket.outputIndex = ReverseFootSlot::AnkleSocket;
 	result.parentSockets[PlugAndSocketNames::Ankle] = ankleSocket;
 	DagPlugAndSocketUtils::setParentSocketNames(oModule, ReverseFootSlot::AnkleSocket, { PlugAndSocketNames::Ankle }, dagMod);
 	// The solved toe joints and the pivots, on the base outputSocketMatrix from index 1. They carry worlds and have no DAG transform either.
-	const auto addSocket = [&](const std::string& name, unsigned int index, const MMatrix& mRestWorld)
+	const auto addSocket = [&](const std::string& name, unsigned int index, const MMatrix& mRestWorld, const MObject& oTransform = MObject::kNullObj)
 	{
 		RigModuleSocketInfo socket;
+		socket.oTransform = oTransform;
 		socket.mRestWorld = mRestWorld;
 		socket.outputIndex = index;
 		result.parentSockets[name] = socket;
@@ -798,12 +808,12 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	{
 		addSocket(pivotSocketName(plan.chain[i].role), ReverseFootSlot::FirstPivotSocket + static_cast<unsigned int>(i), MathUtils::translationMatrix(plan.chain[i].position));
 	}
-	// The two controls (D78). Matrix only, like every socket here: the foot and toe FK controls keep their place in the DAG.
-	addSocket(PlugAndSocketNames::Foot, ReverseFootSlot::FootSocket, plan.mFootControlRest);
-	addSocket(PlugAndSocketNames::ToeFk, ReverseFootSlot::ToeFkSocket, plan.mToeJointRests[0]);
-	result.childPlugs[PlugAndSocketNames::Ik] = RigModuleChildPlugInfo{ MObject::kNullObj, ReverseFootSlot::IkPlug };
+	// The two controls (D78) carry their transforms, so a child plug can name either as its DAG parent.
+	addSocket(PlugAndSocketNames::Foot, ReverseFootSlot::FootSocket, plan.mFootControlRest, oControl);
+	addSocket(PlugAndSocketNames::ToeFk, ReverseFootSlot::ToeFkSocket, plan.mToeJointRests[0], oToeFk);
+	result.childPlugs[PlugAndSocketNames::Ik] = RigModuleChildPlugInfo{ oControl, ReverseFootSlot::IkPlug };
 	DagPlugAndSocketUtils::setChildPlugName(oModule, ReverseFootSlot::IkPlug, PlugAndSocketNames::Ik, dagMod);
-	result.childPlugs[PlugAndSocketNames::Ankle] = RigModuleChildPlugInfo{ MObject::kNullObj, ReverseFootSlot::AnklePlug };
+	result.childPlugs[PlugAndSocketNames::Ankle] = RigModuleChildPlugInfo{ oToeFk, ReverseFootSlot::AnklePlug };
 
 	// 4. The channels, all on the foot control. The control must exist before an attribute can be added to it, and the attribute before it
 	// can be wired, so the build runs the modifier between the steps, as TwoBoneIk does.
@@ -831,9 +841,13 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 	CHECK_MSTATUS_AND_RETURN(status, result);
 
 	// The blend decides which control is visible: the toe FK control below blend 1, the foot control above blend 0.
-	status = dagMod.connect(MPlug(oModule, aFkVisible), MPlug(oToeFk, MPxTransform::visibility));
+	status = dagMod.connect(MPlug(oModule, aFkVisible), MPlug(oToeFk, RigControlNode::aShown));
 	CHECK_MSTATUS_AND_RETURN(status, result);
-	status = dagMod.connect(MPlug(oModule, aIkVisible), MPlug(oControl, MPxTransform::visibility));
+	status = dagMod.connect(MPlug(oModule, aIkVisible), MPlug(oControl, RigControlNode::aShown));
+	CHECK_MSTATUS_AND_RETURN(status, result);
+	status = DagUtils::queueLockAndHideVisibility(oToeFk, dagMod);
+	CHECK_MSTATUS_AND_RETURN(status, result);
+	status = DagUtils::queueLockAndHideVisibility(oControl, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
 
 	// The toe and toe tip are the module's: it drives their offset parent matrices.
@@ -852,10 +866,12 @@ RigModuleBuildResult ReverseFootModuleNode::createModule(
 
 	result.dagParentCallback = [](const RigModuleDagReparentArgs& args)
 	{
-		// The ankle plug is a matrix connection only: it has no control to reparent, and nothing reads it in stage 1.
+		// The ankle plug is not an element of childPlugs, so it takes its matrix on its own attributes. Its control, the toe FK, goes
+		// under the dagParent as any plug's does.
 		if (args.childPlug.plugIndex == ReverseFootSlot::AnklePlug)
 		{
-			MStatus plugStatus;
+			MStatus plugStatus = ReverseFootModuleNode::reparentChildPlugControl(args);
+			CHECK_MSTATUS_AND_RETURN_IT(plugStatus);
 			const MPlug pSocket = ReverseFootModuleNode::getSocketMatrixPlug(args.oParentTargetModuleNode, args.parentSocket.outputIndex, &plugStatus);
 			CHECK_MSTATUS_AND_RETURN_IT(plugStatus);
 			MPlug pRest(args.oChildModuleNode, ReverseFootModuleNode::aAnklePlugRestMatrix);

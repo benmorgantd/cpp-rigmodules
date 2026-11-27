@@ -339,10 +339,10 @@ struct TwoBoneIkPart
 			status = Node::wireControl(oModule, oControls[slot], slot, input.mRestWorld, dagMod);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
-			// index_0 to index_2 (and start and end) carry the blended joint, not the FK control, so they have no DAG transform:
-			// a child module's controls would otherwise inherit an FK control's visibility.
+			// index_0 to index_2 (and start and end) carry the blended joint's world, and the FK control's transform as the DAG parent (D78).
+			// The FK controls hide in IK through `shown`, not visibility, so a child's control under one is not hidden with it.
 			RigModuleSocketInfo socketInfo;
-			socketInfo.oTransform = slot < TwoBoneIkSlot::LimbCount ? MObject::kNullObj : oControls[slot];
+			socketInfo.oTransform = oControls[slot];
 			socketInfo.mRestWorld = input.mRestWorld;
 			socketInfo.outputIndex = slot;
 			const std::vector<std::string> socketNames = TwoBoneIkSolve::socketNamesAt(slot);
@@ -435,7 +435,9 @@ struct TwoBoneIkPart
 		};
 		for (const auto& [slot, oVisibleAttr] : visibility)
 		{
-			status = dagMod.connect(MPlug(oModule, oVisibleAttr), MPlug(oControls[slot], MPxTransform::visibility));
+			status = dagMod.connect(MPlug(oModule, oVisibleAttr), MPlug(oControls[slot], RigControlNode::aShown));
+			CHECK_MSTATUS_AND_RETURN_IT(status);
+			status = DagUtils::queueLockAndHideVisibility(oControls[slot], dagMod);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 

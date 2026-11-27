@@ -492,11 +492,10 @@ RigModuleBuildResult RibbonModuleNode::createModule(
 		}
 		else if (slot >= controlCount)
 		{
-			// A tweaker is the residual layer: hidden, still keyable (section 3.2). Its socket (bind_<n>, D78) is its world, which is
-			// the bind joint's. It has no transform, so a child plug on it takes the matrix and keeps its place in the DAG, as the
-			// Limb's bind sockets do, rather than going under a hidden control.
-			dagMod.newPlugValueBool(MPlug(oControls[slot], MPxTransform::visibility), false);
-			socketInfo.oTransform = MObject::kNullObj;
+			// A tweaker is the residual layer: not drawn, still keyable (section 3.2). Its socket (bind_<n>, D78) is its world, which is
+			// the bind joint's, and carries its transform: it is hidden through `shown`, not visibility, so a child plug's control can be
+			// parented under it without being hidden too.
+			dagMod.newPlugValueBool(MPlug(oControls[slot], RigControlNode::aShown), false);
 			socketNames.push_back(std::string(PlugAndSocketNames::Bind) + std::to_string(slot - controlCount));
 		}
 		else

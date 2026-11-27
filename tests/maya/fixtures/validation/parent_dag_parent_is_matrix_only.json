@@ -1,0 +1,25 @@
+{
+  "description": "A parentStructure value is a DAG parent, so a socket with no control (the aim joint's) fails and the error says a valid dagParent must be given (D78)",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": []
+    },
+    {
+      "set": "/rigModules/1/parentStructure/start",
+      "value": "aim_01_R_MOD.aim"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "A valid dagParent must be given",
+      "path": "rigModules[1] 'fkchain_02_L_MOD'.parentStructure.start"
+    },
+    {
+      "contains": "matrixParentStructure",
+      "path": "rigModules[1] 'fkchain_02_L_MOD'.parentStructure.start"
+    }
+  ]
+}

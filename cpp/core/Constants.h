@@ -48,6 +48,9 @@ namespace RigControlNodeAttr
 	inline constexpr const char* WireframeAlpha{ "wireframeAlpha" };
 	inline constexpr const char* Filled{ "filled" };
 	inline constexpr const char* Xray{ "xray" };
+	// Whether the control draws (D78). A module drives it from the ik/fk blend instead of the transform's visibility, because visibility
+	// inherits through the DAG and would hide every control parented under a hidden one. Not keyable, not a channel.
+	inline constexpr const char* Shown{ "shown" };
 	inline constexpr const char* RigModule{ "rigModule" };
 	// One JSON string per control, see ControlMarkup.h. Its keys reuse JointMarkupKey and RigAttr::Side.
 	inline constexpr const char* ControlMarkup{ "controlMarkup" };
@@ -592,7 +595,8 @@ namespace TemplateKey
 	inline constexpr const char* ShapeType{ "shapeType" };
 	inline constexpr const char* Side{ "side" };
 	inline constexpr const char* ModuleVersion{ "moduleVersion" };
-	inline constexpr const char* ParentStructure{ "parentStructure" };
+	inline constexpr const char* ParentStructure{ "parentStructure" };   // child plug -> the DAG parent socket, which must have a control (D78)
+	inline constexpr const char* MatrixParentStructure{ "matrixParentStructure" };   // child plug -> the socket whose matrix it follows, default the DAG parent (D78)
 	inline constexpr const char* ModuleArgs{ "moduleArgs" };
 	inline constexpr const char* Mirror{ "mirror" };   // modules and constraints (D28)
 

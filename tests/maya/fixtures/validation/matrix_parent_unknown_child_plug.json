@@ -1,0 +1,19 @@
+{
+  "description": "A matrixParentStructure key must be a child plug of the module",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigModules/1/matrixParentStructure",
+      "value": {
+        "strat": "fkchain_01_M_MOD.start"
+      }
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "no child plug 'strat'",
+      "path": "rigModules[1] 'fkchain_02_L_MOD'.matrixParentStructure.strat"
+    }
+  ]
+}

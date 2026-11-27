@@ -43,6 +43,7 @@ namespace
 			moduleInterface.childPlugs.push_back(ModulePlugInfo{ kAimPartNames[i], i != AimPart::Aim });
 			moduleInterface.sockets.push_back(kAimPartNames[i]);
 		}
+		moduleInterface.matrixOnlySockets.push_back(kAimPartNames[AimPart::Aim]);   // the aim joint is solved, with no control (D78)
 		return moduleInterface;
 	}
 

@@ -67,6 +67,10 @@ struct RigModuleDagReparentArgs
 	// False for a socket of another rig (D55): the attachment's controls stay under its own rig root, and only the
 	// matrix connection crosses.
 	bool reparentDag = true;
+
+	// The socket the child plug's control is reparented under (the dagParent, D78). parentSocket above is the matrixParent's: the same
+	// socket unless the template names both.
+	RigModuleSocketInfo dagSocket;
 };
 
 // this has to come before the node because the node uses it
@@ -394,9 +398,12 @@ public:
 	// Motion of a child plug's parent socket since rest. Identity if the plug is unconnected or missing.
 	static MMatrix readChildPlugParentDelta(MArrayDataHandle& hChildPlugs, unsigned int logicalIndex);
 
-	// Shared dag-parent callback. Skips the DAG reparent when either side has no control (e.g. the aim plug/socket),
-	// but always connects the socket matrix to the child plug.
+	// Shared dag-parent callback: reparentChildPlugControl, then the socket matrix connected to the child plug.
 	static MStatus reparentChildPlugToSocket(const RigModuleDagReparentArgs& args);
+	// The DAG half alone, for a module whose plug takes its matrix some other way (the ReverseFoot's ankle plug). Reparents the plug's
+	// control under the dagParent socket's control. A plug with no control has nothing to reparent, and a control given a socket with no
+	// control is a failure (D78).
+	static MStatus reparentChildPlugControl(const RigModuleDagReparentArgs& args);
 
 	// Inputs (control local/rest, child plug parent/rest) affect controlOPM and the socket matrix.
 // Call after initializeSharedAttributes().
@@ -713,22 +720,8 @@ MMatrix RigModuleWithControlsNode<Derived>::readChildPlugParentDelta(MArrayDataH
 template <typename Derived>
 MStatus RigModuleWithControlsNode<Derived>::reparentChildPlugToSocket(const RigModuleDagReparentArgs& args)
 {
-	MStatus status;
-
-	const bool childHasControl = !args.childPlug.oTransform.isNull();
-	const bool socketHasControl = !args.parentSocket.oTransform.isNull();
-	if (!args.reparentDag)
-	{
-		// Only the matrix connection below.
-	}
-	else if (childHasControl && socketHasControl)
-	{
-		status = args.dagMod.reparentNode(args.childPlug.oTransform, args.parentSocket.oTransform);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-	}
-	// A plug or socket with no control (the aim plug, the foot's ik and ankle, a limb's ikTarget) has nothing to
-	// reparent by design, so it connects the matrix below without a warning.
-
+	const MStatus status = reparentChildPlugControl(args);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
 	return connectSocketMatrixToChildPlug(
 		args.oChildModuleNode,
 		args.childPlug.plugIndex,
@@ -737,6 +730,25 @@ MStatus RigModuleWithControlsNode<Derived>::reparentChildPlugToSocket(const RigM
 		args.parentSocket.mRestWorld,
 		args.dagMod
 	);
+}
+
+template <typename Derived>
+MStatus RigModuleWithControlsNode<Derived>::reparentChildPlugControl(const RigModuleDagReparentArgs& args)
+{
+	// A plug with no control (the aim plug, a limb's ikTarget) has nothing to reparent by design. A socket of another rig (D55) is
+	// never a DAG parent.
+	const bool childHasControl = !args.childPlug.oTransform.isNull();
+	if (!args.reparentDag || !childHasControl)
+	{
+		return MStatus::kSuccess;
+	}
+	if (args.dagSocket.oTransform.isNull())
+	{
+		// The template check refuses a matrix-only dagParent, so this is a module whose planned sockets and built sockets disagree.
+		MGlobal::displayError("A child plug's control was given a DAG parent socket with no control (D78).");
+		return MStatus::kFailure;
+	}
+	return args.dagMod.reparentNode(args.childPlug.oTransform, args.dagSocket.oTransform);
 }
 
 template <typename Derived>

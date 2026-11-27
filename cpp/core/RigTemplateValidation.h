@@ -55,6 +55,9 @@ struct ModuleInterface
 {
 	std::vector<ModulePlugInfo> childPlugs;
 	std::vector<std::string> sockets;
+	// The sockets with no control transform, a blended joint's or a hidden tweaker's world (D78). They are valid constraint drivers and
+	// matrix parents, but not DAG parents: a child plug with a control cannot name one in parentStructure. The module's built sockets must match.
+	std::vector<std::string> matrixOnlySockets;
 	std::vector<ControlMarkup> controls;   // One per control the module creates, in creation order
 	// The module's attribute that carries its ik/fk blend, which another module can follow (TwoBoneIk and Limb: "ikFkBlend"), or empty for a
 	// module with none (D74). The default is no blend to follow.
@@ -68,6 +71,7 @@ struct ModuleInterface
 
 	const ModulePlugInfo* findChildPlug(const std::string& name) const;
 	bool hasSocket(const std::string& name) const;
+	bool isMatrixOnly(const std::string& socketName) const;
 };
 
 // Module name -> interface. Includes the layout module.

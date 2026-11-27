@@ -436,33 +436,65 @@ namespace
 				{
 					it = moduleData.parentStructure.find(childPlugInfo.defaultsToPlug);
 				}
-				if (it == moduleData.parentStructure.end() && childPlugInfo.optional)
+				// The matrix parent is the plug's matrixParentStructure entry, found the same way as the DAG parent's (an internal plug follows,
+				// an unlisted plug defaults). Without one it is the DAG parent.
+				auto matrixIt = moduleData.matrixParentStructure.find(childPlugInfo.followsPlug.empty() ? plugName : childPlugInfo.followsPlug);
+				if (matrixIt == moduleData.matrixParentStructure.end() && !childPlugInfo.defaultsToPlug.empty())
+				{
+					matrixIt = moduleData.matrixParentStructure.find(childPlugInfo.defaultsToPlug);
+				}
+				const bool hasMatrixEntry = matrixIt != moduleData.matrixParentStructure.end();
+				if (it == moduleData.parentStructure.end() && !hasMatrixEntry && childPlugInfo.optional)
 				{
 					continue;   // the module falls back to its own behaviour
 				}
-				const std::string& socketIdentifier = it != moduleData.parentStructure.end() ? it->second : defaultSocket;
+				// A plug with no control has no DAG parent to give, so a matrix entry alone is enough for it.
+				const bool matrixIsEnough = hasMatrixEntry && childPlugInfo.oTransform.isNull();
+				const std::string& dagIdentifier = it != moduleData.parentStructure.end() ? it->second
+					: (matrixIsEnough ? matrixIt->second : defaultSocket);
+				const std::string& matrixIdentifier = hasMatrixEntry ? matrixIt->second : dagIdentifier;
 
-				const RigModuleBuildResult* pParentModule = nullptr;
-				const RigModuleSocketInfo* pSocket = nullptr;
-				const bool isCrossRig = RigTemplateValidation::isParentSocketId(socketIdentifier);
-				MObject oParentRigModule;
-				RigModuleSocketInfo parentRigSocket;
-				bool found = false;
-				if (isCrossRig)
+				// Finds a socket of this rig or, for a "parent:" id, of the rig this one is attached to.
+				struct FoundSocket
 				{
-					std::string error;
-					found = RigModuleNodeBase::findSocketById(
-						parentNamespace, RigTemplateValidation::stripParentPrefix(socketIdentifier), oParentRigModule, parentRigSocket, error);
-					pSocket = &parentRigSocket;
-				}
-				else
+					MObject oModuleNode;
+					RigModuleSocketInfo socket;
+					bool isCrossRig = false;
+				};
+				auto findSocket = [&](const std::string& identifier, FoundSocket& outFound) -> bool
 				{
-					found = RigModuleNodeBase::lookupParentSocket(rigModuleMap, socketIdentifier, pParentModule, pSocket);
-				}
-				if (!found)
+					outFound.isCrossRig = RigTemplateValidation::isParentSocketId(identifier);
+					if (outFound.isCrossRig)
+					{
+						std::string error;
+						return RigModuleNodeBase::findSocketById(
+							parentNamespace, RigTemplateValidation::stripParentPrefix(identifier), outFound.oModuleNode, outFound.socket, error);
+					}
+					const RigModuleBuildResult* pParentModule = nullptr;
+					const RigModuleSocketInfo* pSocket = nullptr;
+					if (!RigModuleNodeBase::lookupParentSocket(rigModuleMap, identifier, pParentModule, pSocket))
+					{
+						return false;
+					}
+					outFound.oModuleNode = pParentModule->moduleNode;
+					outFound.socket = *pSocket;
+					return true;
+				};
+
+				auto findOrReport = [&](const std::string& identifier, FoundSocket& outFound) -> bool
 				{
-					MGlobal::displayError(MString("Socket '") + socketIdentifier.c_str() + "' not found for child plug '"
+					if (findSocket(identifier, outFound))
+					{
+						return true;
+					}
+					MGlobal::displayError(MString("Socket '") + identifier.c_str() + "' not found for child plug '"
 						+ moduleData.name.c_str() + "." + plugName.c_str() + "'.");
+					return false;
+				};
+				FoundSocket dagFound;
+				FoundSocket matrixFound;
+				if (!findOrReport(dagIdentifier, dagFound) || !findOrReport(matrixIdentifier, matrixFound))
+				{
 					return MStatus::kFailure;
 				}
 
@@ -475,11 +507,12 @@ namespace
 				RigModuleDagReparentArgs args
 				{
 					childPlugInfo,
-					*pSocket,
+					matrixFound.socket,
 					pModule->moduleNode,
-					isCrossRig ? oParentRigModule : pParentModule->moduleNode,
+					matrixFound.oModuleNode,
 					dagMod,
-					!isCrossRig
+					!dagFound.isCrossRig,
+					dagFound.socket
 				};
 
 				MStatus status = pModule->dagParentCallback(args);

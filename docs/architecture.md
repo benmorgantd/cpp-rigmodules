@@ -167,7 +167,7 @@ MPxNode
 | 4 | `Pole` | pole | none | `pole` | `pole` |
 | 5 | `Settings` | settings | none | `settings` (internal) | `settings` |
 
-Slot numbers are never reused. The three `index_*` sockets have no DAG transform: a child module's controls would otherwise inherit an FK control's visibility, and the FK controls hide in IK.
+Slot numbers are never reused. The three `index_*` sockets (and `start` and `end`) carry the blended joint's world and the FK control's transform (D78), so a child's control can be DAG-parented under the FK control. The FK controls hide in IK through their `shown` attribute, not `visibility`, so what is parented under one stays visible.
 
 A module has the same four pieces. A new one copies FkChain:
 
@@ -204,7 +204,7 @@ Every problem goes into one `ValidationReport` with its JSON path, and `createRi
 
 1. The rig root, with `assetId`, `rigName`, `skeletonHash`, `markersHash` and `markers` (the markers file's hash and its placed markers, D73) and the version stamps.
 2. **Pass 1**: `buildModules` calls every plan's `build` closure, layout first, and checks each result against the plan's interface.
-3. **Pass 2**: `parentModuleControls` connects every child plug to its `parentStructure` socket, or to `layout_00_M_MOD.end`. It reparents controls in the DAG for organization and connects the socket matrix to the child plug's `parentMatrix`. A `parent:` entry resolves in the parent rig's namespace through `findSocketById`, connects the matrix across, and skips the DAG reparent (`RigModuleDagReparentArgs::reparentDag`).
+3. **Pass 2**: `parentModuleControls` resolves two sockets per child plug (D78): the DAG parent from `parentStructure`, or `layout_00_M_MOD.end`, and the matrix parent from `matrixParentStructure`, or the DAG parent. It reparents the control under the DAG parent's control (`RigModuleDagReparentArgs::dagSocket`) for organization and connects the matrix parent's socket matrix to the child plug's `parentMatrix`. A `parent:` entry resolves in the parent rig's namespace through `findSocketById`, connects the matrix across, and skips the DAG reparent (`RigModuleDagReparentArgs::reparentDag`).
 4. Moves the input joints into the rig namespace, then the first `doIt`.
 5. After it: display layers (`DisplayLayerScene`, D38), selection sets (`SelectionSetScene`, planned by `core/SelectionSets`, D39), rotate-order locks (D40), then the template's constraints (`RigConstraintNode::buildFromTemplate`, which resolves a `parent:` driver in the parent rig). Constraints come late because they add an enum attribute to controls that must exist by then. Last, `queueDrivenControlLocks` hides and locks each control whose constraint has only `parent:` drivers, and `queueParentRigLink` connects the parent's `attachments` to the new rig root's `parentRig` (D55).
 

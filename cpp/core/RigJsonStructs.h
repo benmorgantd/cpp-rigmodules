@@ -67,10 +67,24 @@ struct RigModuleData
     std::string shapeType;
     std::string side;
     int moduleVersion = 1;
-    std::unordered_map<std::string, std::string> parentStructure;
+    std::unordered_map<std::string, std::string> parentStructure;         // child plug -> DAG parent socket (D78)
+    std::unordered_map<std::string, std::string> matrixParentStructure;   // child plug -> matrix parent socket, optional per plug (D78)
     nlohmann::json moduleArgs;
     bool mirror = false;          // template key: build a copy on the other side too (D28)
     int mirrorOf = -1;            // set on a generated mirror: the template index of its source
+
+    // The socket a child plug's matrix comes from: its matrixParentStructure entry, else its parentStructure entry (the DAG parent).
+    // Null when the plug has neither.
+    const std::string* matrixParentOf(const std::string& plugName) const
+    {
+        const auto matrixEntry = matrixParentStructure.find(plugName);
+        if (matrixEntry != matrixParentStructure.end())
+        {
+            return &matrixEntry->second;
+        }
+        const auto dagEntry = parentStructure.find(plugName);
+        return dagEntry != parentStructure.end() ? &dagEntry->second : nullptr;
+    }
 
     // Plan steps read this for args that change on the other side (D28). The joints need nothing: selectors are already swapped.
     bool isMirror() const

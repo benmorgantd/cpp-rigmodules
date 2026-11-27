@@ -187,6 +187,10 @@ public:
 
 	// Queues turning a transform's visibility off, then locking it and taking it out of the channel box. Same rules.
 	static MStatus queueHideAndLockVisibility(const MObject& oTransform, MDagModifier& dagMod);
+
+	// Queues locking visibility and taking it out of the channel box, leaving it on. For a control whose display a module drives through
+	// `shown` (D78): it had no visibility channel while the module drove visibility, and keeps none.
+	static MStatus queueLockAndHideVisibility(const MObject& oTransform, MDagModifier& dagMod);
 };
 
 // One mesh and the vertices a selection or a list of names picks on it.

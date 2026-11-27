@@ -124,9 +124,10 @@ class RibbonBehaviour(RigTestCase):
     def test_the_tweakers_are_hidden_and_still_keyable(self):
         self.build_standard("ribbon_basic", "ribbon_basic")
         for tweaker in TWEAKERS:
-            self.assertFalse(attr(tweaker, "visibility"), "%s is not hidden" % tweaker)
+            self.assertFalse(attr(tweaker, "shown"), "%s is not hidden" % tweaker)
+            self.assertTrue(attr(tweaker, "visibility"), "%s is hidden by visibility, which would hide what is parented under it" % tweaker)
         for control in [FIRST, INTERIOR, LAST]:
-            self.assertTrue(attr(control, "visibility"), "%s is hidden" % control)
+            self.assertTrue(attr(control, "shown"), "%s is hidden" % control)
         set_attr("tail3_00_M_CTRL", "translateY", 1.5)
         self.assertWorldTranslation(rig_name("tail3_00_M_JNT"), [4, 1.5, 0], 1e-6)   # a tweaker's offset rides on the bind frame
 
