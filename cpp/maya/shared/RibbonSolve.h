@@ -30,7 +30,18 @@ namespace RibbonChannel
 	inline constexpr unsigned int ScaleStart{ 12 };
 	inline constexpr unsigned int ScaleMid{ 13 };
 	inline constexpr unsigned int ScaleEnd{ 14 };
-	inline constexpr unsigned int Count{ 15 };
+	// The anchored form's only (D80): how round the corner at the mid anchor is. A plain ribbon has no corner and no such channel.
+	inline constexpr unsigned int BendSoftness{ 15 };
+	inline constexpr unsigned int Count{ 16 };
+}
+
+// What an anchored ribbon's curve takes from its start and end anchors (D80, design/limb-split.md section 3.3), stored on the node as a short.
+// The template names them "full", "swing" and "twist".
+namespace AnchorRotation
+{
+	inline constexpr short Full{ 0 };    // the anchor's whole frame, so its twist reaches the curve (a tail's first control)
+	inline constexpr short Swing{ 1 };   // the start: its swing without its twist about the bone (a shoulder or hip)
+	inline constexpr short Twist{ 2 };   // the end: its twist on the mid anchor's swing, so its bend never reaches the curve (a wrist or ankle)
 }
 
 // The Ribbon module's forward evaluation (D56), channels and stored rest data, as plain values and shared functions with no node of
@@ -39,6 +50,8 @@ namespace RibbonChannel
 namespace RibbonSolve
 {
 	inline constexpr unsigned int MaxSlots{ RibbonMath::MaxControls + RibbonMath::MaxBindJoints };
+	// An anchored ribbon passes through this many frames: start, mid and end (author, 2026-11-27: three only, for now).
+	inline constexpr unsigned int AnchorCount{ 3 };
 
 	// What one evaluation produces, by slot, in world space.
 	struct Result
@@ -74,6 +87,22 @@ namespace RibbonSolve
 
 	// In RibbonChannel order.
 	const std::array<ChannelSpec, RibbonChannel::Count>& channelSpecs();
+
+	// Whether a ribbon has the channel at RibbonChannel index k on its channel control. A plain ribbon has all but bendSoftness. An anchored
+	// one (D80) has all but the aim blends and bendRoundness, which its anchors replace. The node has every channel's attribute, and one
+	// that is not on the control stays at its default.
+	bool hasChannel(unsigned int k, bool anchored);
+
+	// The anchored form's frames (D80): the three anchors' worlds as the curve takes them. The start is its whole world, or with
+	// AnchorRotation::Swing its swing without its twist about its rest X (the Swing constraint, D31, with the anchor as driver and
+	// parent). The mid is its world. The end is its whole world, or with AnchorRotation::Twist its twist on the mid's swing (the Twist
+	// constraint with the end as driver and the mid as parent). mRest and mWorld are by anchor.
+	void anchorFrames(const MMatrix* mRest, const MMatrix* mWorld, short startRotation, short endRotation, MMatrix* outFrames);
+
+	// The anchors' part of an anchored setup: their rests are the fk chain the curve passes through, with a corner at the mid. compute()
+	// sets it on the setup it reads back, and the inverse on the one it rebuilds, so both run the one rule. False when two anchors sit on
+	// each other.
+	bool setAnchors(RibbonMath::Setup& setup, const MMatrix* mAnchorRest);
 
 	// Reads `count` channel plugs into `outValues`, in the order of `attrs` and `specs`, angles in radians.
 	void readChannels(MDataBlock& data, const MObject* attrs, const ChannelSpec* specs, unsigned int count, double* outValues);

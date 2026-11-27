@@ -311,6 +311,14 @@ namespace
 		// Sorted, so messages come out in a stable order.
 		const std::map<std::string, std::string> parentStructure(module.parentStructure.begin(), module.parentStructure.end());
 
+		for (const ModulePlugInfo& plug : moduleInterface.childPlugs)
+		{
+			if (plug.required && module.parentStructure.count(plug.name) == 0 && module.matrixParentStructure.count(plug.name) == 0)
+			{
+				report.addError(where + "." + TemplateKey::ParentStructure, "child plug '" + plug.name + "' has no default parent, so it needs an entry");
+			}
+		}
+
 		for (const auto& [plugName, socketIdentifier] : parentStructure)
 		{
 			const std::string entryPath = where + "." + TemplateKey::ParentStructure + "." + plugName;
@@ -352,6 +360,12 @@ namespace
 				report.addError(entryPath, "'" + socketIdentifier + "' is a matrix-only socket and has no control to be a DAG parent. A valid dagParent must be given here: "
 					"a socket with a control (on '" + parentModule + "': " + namesOrNone(withControl) + "). To keep following its matrix, name '"
 					+ socketIdentifier + "' in matrixParentStructure for '" + plugName + "'");
+				continue;
+			}
+			if (pPlugInfo != nullptr && pPlugInfo->hostsChannels && pParentInterface->isMatrixOnly(socketName))
+			{
+				report.addError(entryPath, "'" + socketIdentifier + "' is a matrix-only socket, and '" + plugName + "' needs a socket with a control "
+					"to hold this module's channels");
 				continue;
 			}
 

@@ -1,0 +1,17 @@
+{
+  "description": "An anchored ribbon always has the mid anchor's ik control: the bind joints' curve is drawn through the controls, so with none it would cut the corner",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/controlCount",
+      "value": 0
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "between 1 and 6 interior ik controls",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.controlCount"
+    }
+  ]
+}

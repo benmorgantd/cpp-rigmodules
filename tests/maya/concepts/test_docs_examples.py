@@ -517,6 +517,18 @@ class TwoBoneIkDocExamples(RigTestCase):
             self.assertEqual(cmds.attributeQuery("space", node=rig_name(control), listEnum=True)[0], "World:Hips")
 
 
+class AnchoredRibbonDocExample(RigTestCase):
+    """The anchored Ribbon's arm in docs/modules.md (D80) is the ribbon_anchored_arm fixture, which modules/test_ribbon_anchored.py builds
+    and poses. It builds as written."""
+
+    def test_the_doc_arm_is_the_tested_fixture_and_builds(self):
+        modules = json.loads(doc_code_block(MODULES_DOC, "### The anchored form", "json"))
+        self.assertEqual(modules, fixtures.read_json(fixtures.template_path("ribbon_anchored_arm"))["rigModules"])
+        self.build({"rigVersion": 1, "rigTemplateName": "Doc", "rigAuthor": "you", "rigModules": modules}, self.make_skeleton("limb_arm"))
+        self.assertWorldTranslation(rig_name("armRibbonIK_02_L_CTRL"), [4, 0, 0])
+        self.assertIn("bendSoftness", cmds.listAttr(rig_name("armSettings_00_L_CTRL"), keyable=True))
+
+
 SKELETONS_DOC = os.path.join(config.REPO_DIR, "docs", "skeletons.md")
 COMMANDS_DOC = os.path.join(config.REPO_DIR, "docs", "commands.md")
 

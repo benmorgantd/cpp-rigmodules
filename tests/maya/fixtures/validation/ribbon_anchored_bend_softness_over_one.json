@@ -1,0 +1,17 @@
+{
+  "description": "bendSoftness is the rest of a 0 to 1 channel",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/bendSoftness",
+      "value": 1.5
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "must be between 0 and 1",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.bendSoftness"
+    }
+  ]
+}

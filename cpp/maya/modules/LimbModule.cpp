@@ -78,9 +78,6 @@ namespace
 	// The bind joints must be within this share of the limb's length of the joints they sit at.
 	constexpr double kBindTolerance{ 1.0e-3 };
 
-	constexpr int kSwingType{ ConstraintTypes::indexOf(ConstraintTypes::Swing) };
-	constexpr int kTwistType{ ConstraintTypes::indexOf(ConstraintTypes::Twist) };
-
 	// In LimbChannel order: the Ribbon's, less the aim blends and the end handle scale, then the elbow's softness (D62).
 	const std::array<ChannelSpec, LimbChannel::Count>& limbChannelSpecs()
 	{
@@ -92,7 +89,7 @@ namespace
 				r[RibbonChannel::StartTwist], r[RibbonChannel::EndTwist], r[RibbonChannel::SineAmplitude], r[RibbonChannel::SineFrequency],
 				r[RibbonChannel::SinePhase], r[RibbonChannel::SineOrient], r[RibbonChannel::SineStartFalloff], r[RibbonChannel::SineEndFalloff],
 				r[RibbonChannel::VolumePreserve], r[RibbonChannel::ScaleStart], r[RibbonChannel::ScaleMid], r[RibbonChannel::ScaleEnd],
-				ChannelSpec{ RigAttr::BendSoftness, 0.0, 0.0, 1.0, false, false }
+				r[RibbonChannel::BendSoftness]
 			};
 		}();
 		return specs;
@@ -120,43 +117,15 @@ namespace
 		ribbonValues[RibbonChannel::ScaleStart] = values[LimbChannel::ScaleStart];
 		ribbonValues[RibbonChannel::ScaleMid] = values[LimbChannel::ScaleMid];
 		ribbonValues[RibbonChannel::ScaleEnd] = values[LimbChannel::ScaleEnd];
-		RibbonMath::Params params = RibbonSolve::paramsFromChannels(ribbonValues);
-		params.cornerSoftness = values[LimbChannel::BendSoftness];
-		return params;
+		ribbonValues[RibbonChannel::BendSoftness] = values[LimbChannel::BendSoftness];
+		return RibbonSolve::paramsFromChannels(ribbonValues);
 	}
 
-	// The ribbon's start frame (D62): the start joint's translation and swing, its twist about its rest X taken out. This is the Swing
-	// constraint (D31) with the joint as both driver and parent, as the hand-built arm hung its shoulder ribbon.
-	MMatrix startAnchor(const MMatrix& mRest, const MMatrix& mWorld)
+	// The curve's frames through the blended joints (D62): the start's swing, the mid joint, the end's twist on the mid's swing. The
+	// anchored Ribbon runs the same rule with its anchor rotations set to these (D80).
+	void limbAnchorFrames(const MMatrix* mRest, const MMatrix* mWorld, MMatrix* outFrames)
 	{
-		const MMatrix mDelta = MathUtils::computeDeltaFromRest(mRest, mWorld);
-		return mRest * RigConstraintNode::computeDelta(kSwingType, mRest, mDelta, mDelta);
-	}
-
-	// The ribbon's end frame: the end joint's translation and its twist on the swing of the mid joint, so the hand's swing never reaches
-	// the forearm. This is the Twist constraint (D31) with the end joint as driver and the mid joint as parent.
-	MMatrix endAnchor(const MMatrix& mEndRest, const MMatrix& mEndWorld, const MMatrix& mMidRest, const MMatrix& mMidWorld)
-	{
-		return mEndRest * RigConstraintNode::computeDelta(
-			kTwistType, mEndRest, MathUtils::computeDeltaFromRest(mMidRest, mMidWorld), MathUtils::computeDeltaFromRest(mEndRest, mEndWorld));
-	}
-
-	// The anchors' part of the ribbon's setup (D62): the limb joints' rests (the first three of mRests) are the anchors the curve passes
-	// through, with a corner at the mid joint. The stored setup is read back with this in compute(), and the inverse rebuilds it, so
-	// both run the one rule. False when two joints sit on each other.
-	bool setAnchors(RibbonMath::Setup& setup, const MMatrix* mRests)
-	{
-		setup.fkAnchors = true;
-		for (unsigned int k = 0; k < TwoBoneIkSlot::LimbCount; ++k)
-		{
-			setup.fkRest[k] = MathUtils::toMat4(mRests[k]);
-		}
-		if (!RibbonMath::fkKnots(setup.fkRest, TwoBoneIkSlot::LimbCount, setup.fkKnotU))
-		{
-			return false;
-		}
-		RibbonMath::markAnchorCorners(setup);
-		return true;
+		RibbonSolve::anchorFrames(mRest, mWorld, AnchorRotation::Swing, AnchorRotation::Twist, outFrames);
 	}
 }
 
@@ -333,7 +302,7 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	// 2. The ribbon's stored rest, with the limb's three joint rests as the anchors the curve passes through.
 	RibbonMath::Setup setup;
 	RibbonSolve::readSetup(data, restAttrs(), controlCount, bindCount, TwoBoneIkSlot::LimbCount, setup);
-	if (!setAnchors(setup, eval.mRest))
+	if (!RibbonSolve::setAnchors(setup, eval.mRest))
 	{
 		data.setClean(plug);
 		return MStatus::kSuccess;
@@ -348,12 +317,8 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	// 3. The curve through the blended joints (D62): the start's swing, the mid joint, the end's twist on the mid's swing.
-	const MMatrix anchors[TwoBoneIkSlot::LimbCount] =
-	{
-		startAnchor(eval.mRest[TwoBoneIkSlot::Upper], ik.mJointWorld[TwoBoneIkSlot::Upper]),
-		ik.mJointWorld[TwoBoneIkSlot::Lower],
-		endAnchor(eval.mRest[TwoBoneIkSlot::End], ik.mJointWorld[TwoBoneIkSlot::End], eval.mRest[TwoBoneIkSlot::Lower], ik.mJointWorld[TwoBoneIkSlot::Lower])
-	};
+	MMatrix anchors[TwoBoneIkSlot::LimbCount];
+	limbAnchorFrames(eval.mRest, ik.mJointWorld, anchors);
 	RibbonSolve::Result solve;
 	RibbonSolve::evaluate(setup, paramsFromLimbChannels(channelValues), mRibbonRest, mRibbonLocal, MMatrix::identity, MMatrix::identity, solve, anchors);
 
@@ -469,7 +434,7 @@ ModuleInverseResult LimbNode::inverse(const ModuleInverseContext& context, const
 	RibbonMath::Setup setup;
 	const char* pReason = "";
 	if (!RibbonMath::buildAnchoredSetup(anchorRest, TwoBoneIkSlot::LimbCount, controlU.data(), controlCount, bindRest, bindCount, setup, controlRest, pReason)
-		|| !setAnchors(setup, &context.controlRestWorld[0]))
+		|| !RibbonSolve::setAnchors(setup, &context.controlRestWorld[0]))
 	{
 		result.reason = pReason[0] != '\0' ? pReason : "the Limb's joints sit on each other, so its ribbon has no curve";
 		return result;
@@ -484,12 +449,8 @@ ModuleInverseResult LimbNode::inverse(const ModuleInverseContext& context, const
 		mLocal[j] = input.fallbackLocal[LimbSlot::FirstRibbon + j];
 	}
 	const MMatrix* pJoint = result.socketWorld.data();   // the blended start, mid and end
-	const MMatrix anchors[TwoBoneIkSlot::LimbCount] =
-	{
-		startAnchor(context.controlRestWorld[TwoBoneIkSlot::Upper], pJoint[TwoBoneIkSlot::Upper]),
-		pJoint[TwoBoneIkSlot::Lower],
-		endAnchor(context.controlRestWorld[TwoBoneIkSlot::End], pJoint[TwoBoneIkSlot::End], context.controlRestWorld[TwoBoneIkSlot::Lower], pJoint[TwoBoneIkSlot::Lower])
-	};
+	MMatrix anchors[TwoBoneIkSlot::LimbCount];
+	limbAnchorFrames(context.controlRestWorld.data(), pJoint, anchors);
 
 	// 3. The ribbon's ik controls have no joint, so they keep the fallback (the sidecar's value, else the rest): the ends are the anchors,
 	// which the two-bone half already matched. The tweakers carry what is left, so a bind joint that is present comes back exactly

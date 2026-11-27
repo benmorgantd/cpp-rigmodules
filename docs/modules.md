@@ -243,7 +243,8 @@ A bendy, stretchy run of bind joints driven by a few controls: a tail, a spine, 
 | `startAimBlend`, `endAimBlend` | no | A number from 0 to 1, default 0: the default, and so the rest, of the channel of the same name (below). Set `startAimBlend` to 1 on a shoulder or thigh so its start aims down the limb on every build. A value outside 0 to 1 fails the build |
 | `fkStyle` | no | `true` adds an **fk chain** under the ik controls (below). Default `false` |
 | `fkControlCount` | no | 2 to 8, default `controlCount`: how many fk controls, placed the same way as the ik controls. Needs `fkStyle`. Setting it without `fkStyle`, or outside 2 to 8, fails the build |
-| `twistRamp` | no | `[position, share]` pairs: how much of the fk chain's roll each ik control takes (below). Needs `fkStyle`. Default: all of it everywhere |
+| `twistRamp` | no | `[position, share]` pairs: how much of the fk chain's roll each ik control takes (below). Needs `fkStyle` or `anchorJoints`. Default: all of it everywhere |
+| `anchorJoints`, `startAnchorRotation`, `endAnchorRotation`, `bendSoftness` | no | The [anchored form](#the-anchored-form): a ribbon whose curve runs through three frames another module's sockets carry. The last three need `anchorJoints` |
 
 There are **no control joints**. The ik controls are placed from the bind joints (D57): a smooth spline runs through the bind joints' rest positions, and control `k` of `c` sits at the share `k / (c - 1)` of its length. Its orientation is the rotation of the two bind joints either side of it, blended by how far between them it sits, so the first and last controls take the first and last joints' frames. A bind joint's X axis must run along the chain, either toward the tip (+X down the chain, +Y up, the way an FK chain's do) or back up it (-X down the chain, as on a mirrored limb that keeps the other side's axes). The build reads which from the bind joints and every control's twist keeps its sign about its own X. The build fails, naming the joint, when a joint's X axis is more than 60 degrees off the line to the next joint (the last uses the line from the one before), when joints disagree about the direction, or when two neighbouring joints sit on each other. Every joint belongs to this module alone.
 
@@ -388,8 +389,61 @@ cmds.setAttr("rig:tailIK_00_M_CTRL.endTwist", 200)    # and the ribbon follows i
 cmds.setAttr("rig:tailIK_00_M_CTRL.volumePreserve", 1)  # squash and stretch fatten and thin the joints
 ```
 
+### The anchored form
+
+A ribbon given `anchorJoints` does not build its curve from its own two end controls. It is handed three frames through its `start`, `mid` and `end` child plugs, and its curve runs through them with a corner at the mid. On a [TwoBoneIk](#twoboneik) that is one ribbon from the shoulder through the elbow to the wrist, riding the blended joints, with no ik control doubling the FK and IK controls at the ends and the ribbon's channels on the limb's settings control (D80, [design/limb-split.md](../design/limb-split.md)). It replaces the [Limb](#limb), which is to be removed. The same form anchors a tail or a wire on any three sockets that rest at its anchor joints, an [FkChain](#fkchain) of three for example.
+
+An arm, on the `limb_arm` joints (an upper arm 4 long along +X, a forearm 4 long along +Y, and nine bind joints, the fifth on the elbow):
+
+```json
+[
+  {
+    "moduleType": "TwoBoneIk", "moduleVersion": 2, "name": "arm_01_L_MOD", "shapeType": "Box", "side": "Left",
+    "moduleArgs": {"joints": [["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"]], "controlName": "arm"},
+    "parentStructure": {"start": "layout_00_M_MOD.end", "ik": "layout_00_M_MOD.end", "pole": "layout_00_M_MOD.end"}
+  },
+  {
+    "moduleType": "Ribbon", "moduleVersion": 2, "name": "armRibbon_01_L_MOD", "shapeType": "Box", "side": "Left",
+    "moduleArgs": {
+      "anchorJoints": [["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"]],
+      "joints": [["Left", "bind1"], ["Left", "bind2"], ["Left", "bind3"], ["Left", "bind4"], ["Left", "bind5"],
+                 ["Left", "bind6"], ["Left", "bind7"], ["Left", "bind8"], ["Left", "bind9"]],
+      "controlName": "armRibbon",
+      "startAnchorRotation": "swing", "endAnchorRotation": "twist", "bendSoftness": 0
+    },
+    "parentStructure": {"start": "arm_01_L_MOD.index_0", "mid": "arm_01_L_MOD.index_1", "end": "arm_01_L_MOD.index_2",
+                        "settings": "arm_01_L_MOD.settings"}
+  }
+]
+```
+
+| `moduleArgs` key | Required | Value in the anchored form |
+|---|---|---|
+| `anchorJoints` | yes | Three selectors, the start, mid and end anchors, root to tip. They are read and not claimed: the module whose sockets carry them drives them. Their X axes must run down the chain, as the bind joints' do (the end may point up to 80 degrees off it, an ankle at the ball of the foot) |
+| `joints` | yes | 5 to 64 bind joints, root to tip: the first on the start anchor, the last on the end anchor, and exactly one on the mid anchor, which carries the corner's bend |
+| `controlCount` | no | 1 to 6, default 3: the **interior** ik controls. The curve's ends are the anchors, so they have none. The first is always on the mid anchor, and the rest are divided between the two segments by length. The bind joints' curve is drawn through the controls, so a ribbon with none would cut the corner |
+| `controlName` | no | As above |
+| `twistRamp` | no | As above, with positions along the anchors (the mid at its share of the length) |
+| `startAnchorRotation` | no | What the curve takes from the start anchor: `"full"` (its whole frame, so its twist reaches the first bind joint, as a tail's first control should) or `"swing"` (its swing without its twist about the bone, so a shoulder's twist eases in from the elbow). Default `"full"` |
+| `endAnchorRotation` | no | What the curve takes from the end anchor: `"full"` (its whole frame, so its bend tilts the last bind joint) or `"twist"` (its twist on the mid anchor's swing, so a hand's bend never reaches the forearm). Default `"full"` |
+| `bendSoftness` | no | 0 to 1, default 1: the default, and so the rest, of the channel of that name. 0 is a sharp corner, where each half of the curve leaves the mid along its own segment, 1 the smooth curve |
+
+The defaults are neutral: a ribbon anchored on three sockets does nothing limb-like unless its template asks. **An arm's or leg's ribbon sets all three**, `"swing"`, `"twist"` and 0, which is the Limb's behaviour. `fkStyle`, `fkControlCount`, `startAimBlend` and `endAimBlend` fail the build in this form, since the anchors give the curve and its ends' frames, and the last three keys fail it without `anchorJoints`.
+
+| | |
+|---|---|
+| Controls | The interior ik controls, usage `<base>IK_<nn>`, numbered by their place on the curve from `_01` (the start anchor counts as `_00`): `armRibbonIK_01` to `_03` above, with `_02` on the elbow. One hidden tweaker per bind joint, `<base>Tweak_<nn>`, named from its bind joint (`bind1_00_L_CTRL`). Every ik control is a leaf child of the control behind the `start` plug's socket (the FK upper control on a limb), and every tweaker a leaf child of the first ik control |
+| Child plugs | `start`, `mid` and `end`, the anchors, and `settings`, the control the channels go on. None has a control and none has a default, so each needs a `parentStructure` entry. A constraint on any of them fails the build. Each anchor plug's socket must rest at its anchor joint, or the build fails naming the plug and the joint: the curve was built from the anchor joints' rests. `settings` must name a socket with a control |
+| Sockets | `index_0` to `index_<k-1>` for the interior ik controls and `bind_0` to `bind_<n-1>` for the bind joints. There are no `start` and `end` sockets: the limb's ends are the TwoBoneIk's |
+
+**Channels** are the plain ribbon's less `startAimBlend`, `endAimBlend` and `bendRoundness`, plus `bendSoftness` (0 to 1, copy on the mirror), and they go on the control behind the `settings` plug: on a limb, the TwoBoneIk's settings control, beside its `ikFkBlend`, `stretch` and `soft`. The ribbon adds them when it is built and drives its node from them, and the TwoBoneIk never reads them. Poses, animation and the mirror address a channel by its control and name, so a hosted channel is an ordinary channel of the settings control; its mirror mode is on the attribute. Two modules cannot add the same channel to one control: a second anchored ribbon on the same settings plug fails the build.
+
+**Restoring from joints:** the anchors are the plugs' parents, which the restore solves first. The interior ik controls have no joint, so they keep the sidecar's value or the rest, and each tweaker comes from its bind joint, so every bind joint present comes back exactly. The hosted channels come from the sidecar on the settings control.
+
 
 ## Limb
+
+**To be removed (D80):** a [TwoBoneIk](#twoboneik) with an [anchored Ribbon](#the-anchored-form) gives the same joints with two controls fewer per limb. New templates should use that. The Limb stays until the templates that use it are moved over.
 
 An arm or a leg with **one continuous ribbon**. It is a [TwoBoneIk](#twoboneik) (the IK/FK blend, pole, stretch and soft) and a [Ribbon](#ribbon) in one node: a single curve passes through the start, mid and end joints, and a row of bind joints rides it, so the elbow or knee has no crease between an upper and a lower ribbon, and the twist and every channel run the whole length. Use it for a limb you want to deform well. Build [TwoBoneIk](#twoboneik) and [Ribbon](#ribbon) on their own when you want only one of them.
 

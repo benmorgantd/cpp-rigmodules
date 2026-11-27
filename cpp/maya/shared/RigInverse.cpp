@@ -642,11 +642,35 @@ namespace
 			{
 				return status;
 			}
+		}
 
+		// After every module's controls are read, because a channel can be hosted on another module's control.
+		for (ModuleState& module : fModules)
+		{
+			const MFnDependencyNode fnInverseModule(module.oModule);
 			for (const ModuleInverseChannel& wanted : module.inverseChannels)
 			{
 				std::pair<int, int> at{ -1, -1 };
-				const int control = wanted.slot < module.controlOfSlot.size() ? module.controlOfSlot[wanted.slot] : -1;
+				int control = wanted.slot < module.controlOfSlot.size() ? module.controlOfSlot[wanted.slot] : -1;
+				// A channel another module's control hosts (the anchored Ribbon's on its limb's settings control, D80) is wired from that
+				// control to the module's attribute of the same name, so the connection finds it when the slot's control lacks it.
+				const auto hasChannel = [this](int c, const char* name)
+				{
+					return c >= 0 && std::any_of(fControls[c].channels.begin(), fControls[c].channels.end(), [name](const RigPoseScene::Channel& channel)
+					{
+						return channel.info.name == name;
+					});
+				};
+				if (!hasChannel(control, wanted.name))
+				{
+					const MPlug pModuleChannel = fnInverseModule.findPlug(wanted.name, false, &status);
+					const MPlug pHost = status ? pModuleChannel.source() : MPlug();
+					const auto it = pHost.isNull() ? controlByKey.end() : controlByKey.find(nodeKey(pHost.node()));
+					if (it != controlByKey.end())
+					{
+						control = it->second;
+					}
+				}
 				if (control >= 0)
 				{
 					const std::vector<RigPoseScene::Channel>& channels = fControls[control].channels;
@@ -711,6 +735,20 @@ namespace
 						module.context.fkRollShare[index] = pFkRollShare.elementByLogicalIndex(index).asDouble();
 					}
 				}
+			}
+			MPlug pAnchorRest = fnModule.findPlug(RigAttr::AnchorRest, false, &status);
+			if (status)
+			{
+				for (const unsigned int index : elementIndices(pAnchorRest))
+				{
+					if (module.context.anchorRest.size() <= index)
+					{
+						module.context.anchorRest.resize(index + 1, MMatrix::identity);
+					}
+					module.context.anchorRest[index] = DagUtils::getMatrixFromPlug(pAnchorRest.elementByLogicalIndex(index));
+				}
+				module.context.startAnchorRotation = fnModule.findPlug(RigAttr::StartAnchorRotation, false).asShort();
+				module.context.endAnchorRotation = fnModule.findPlug(RigAttr::EndAnchorRotation, false).asShort();
 			}
 			MPlug pParentIndex = fnModule.findPlug(RigAttr::ControlParentIndex, false, &status);
 			if (status)

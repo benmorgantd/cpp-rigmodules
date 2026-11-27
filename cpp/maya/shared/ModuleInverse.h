@@ -19,13 +19,19 @@ struct ModuleInverseContext
 {
 	std::vector<MMatrix> controlRestWorld;   // by slot. Aim's slot 0 holds the aim joint's rest, there is no control.
 	// How many of the leading slots are one kind of control, from the module's ikControlCount attribute when it has one
-	// (Ribbon: its ik controls, and the slots after them are the tweakers). 0 for a module with a single kind.
+	// (Ribbon: its ik controls, and the slots after them are the tweakers). 0 for a module with a single kind. An anchored Ribbon (D80)
+	// counts the two ends of its curve too, which have no control and no slot, so its leading ik control slots are this less 2.
 	unsigned int ikControlCount = 0;
 	// How many of the trailing slots are fk controls, from the module's fkControlCount attribute when it has one (Ribbon, D59).
 	unsigned int fkControlCount = 0;
 	// By ik control, from the module's fkRollShare attribute when it has one (Ribbon, Limb: the template's twistRamp, D75). Empty or
 	// short: the rest of the shares are 1.
 	std::vector<double> fkRollShare;
+	// From the module's anchorRest, startAnchorRotation and endAnchorRotation attributes when it has them (the anchored Ribbon, D80): the
+	// three anchors' rests, and what its curve takes from the start and end anchors (AnchorRotation). Empty and 0 for every other module.
+	std::vector<MMatrix> anchorRest;
+	short startAnchorRotation = 0;
+	short endAnchorRotation = 0;
 	// By slot, from the module's controlParentIndex attribute (FkHierarchy, D71): the slot of each control's parent, -1 for
 	// the root. Empty for every module whose controls form one chain.
 	std::vector<int> parentIndex;

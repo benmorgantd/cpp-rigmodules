@@ -1,0 +1,17 @@
+{
+  "description": "An anchored ribbon has 0 to 6 interior ik controls: its ends are the anchors",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/controlCount",
+      "value": 7
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "between 1 and 6 interior ik controls",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.controlCount"
+    }
+  ]
+}

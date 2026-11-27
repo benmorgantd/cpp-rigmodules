@@ -64,6 +64,7 @@ TIERS = [
         "modules.test_aim",
         "modules.test_two_bone_ik",         # TwoBoneIk: contract, pose cases, behaviour, the settings and pole channels (D52)
         "modules.test_ribbon",              # Ribbon: contract, pose cases, behaviour, the plan step checks (D56)
+        "modules.test_ribbon_anchored",     # the anchored Ribbon on a TwoBoneIk: contract, hosted channels, anchor rotations, parity with the Limb (D80)
         "modules.test_limb",                # Limb: contract, pose cases, the sharp elbow, the plan step checks, DAG parenting (D62)
         "modules.test_reverse_foot",
         "modules.test_reverse_foot_stage2",   # ReverseFoot stage 2: the toes, the toe FK control, the blend and the pivot sockets (D74 phase 4)        # ReverseFoot stage 1: contract, pose cases worked from the core foot, channels, plugs, markers, the loop checks (D74)

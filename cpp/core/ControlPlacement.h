@@ -63,7 +63,7 @@ namespace ControlPlacement
 	// The parameters of a Limb's ribbon ik controls on its anchor curve (D62), in the anchors' chord-share space: 0 at the start, the
 	// mid anchor's (upper / (upper + lower)) at the mid control, 1 at the end, and the other controlCount - 3 spread evenly within
 	// each segment, divided between the two in proportion to their lengths (the longer one gets the odd one). controlCount is 3 or
-	// more; the lengths are positive. Strictly increasing.
+	// more; the lengths are positive. Strictly increasing. The anchored Ribbon (D80) uses it too, with its two ends counted.
 	std::vector<double> limbControlParameters(double upperLength, double lowerLength, int controlCount);
 
 	// A two-bone limb's pole and settings positions from its three joints.

@@ -1,5 +1,6 @@
 #include "maya/shared/RibbonSolve.h"
 #include "core/Constants.h"
+#include "maya/nodes/Constraints.h"
 #include "maya/shared/Utilities.h"
 
 #include <utility>
@@ -97,9 +98,59 @@ const std::array<RibbonSolve::ChannelSpec, RibbonChannel::Count>& RibbonSolve::c
 		ChannelSpec{ RigAttr::VolumePreserve, 0.0, 0.0, 1.0, false, false },
 		ChannelSpec{ RigAttr::ScaleStart, 1.0, 0.0, 1.0, false, false },
 		ChannelSpec{ RigAttr::ScaleMid, 1.0, 0.0, 1.0, false, false },
-		ChannelSpec{ RigAttr::ScaleEnd, 1.0, 0.0, 1.0, false, false }
+		ChannelSpec{ RigAttr::ScaleEnd, 1.0, 0.0, 1.0, false, false },
+		ChannelSpec{ RigAttr::BendSoftness, 0.0, 0.0, 1.0, false, false }
 	};
 	return specs;
+}
+
+bool RibbonSolve::hasChannel(unsigned int k, bool anchored)
+{
+	if (anchored)
+	{
+		return k != RibbonChannel::StartAimBlend && k != RibbonChannel::EndAimBlend && k != RibbonChannel::BendRoundness;
+	}
+	return k != RibbonChannel::BendSoftness;
+}
+
+void RibbonSolve::anchorFrames(const MMatrix* mRest, const MMatrix* mWorld, short startRotation, short endRotation, MMatrix* outFrames)
+{
+	constexpr int SwingType{ ConstraintTypes::indexOf(ConstraintTypes::Swing) };
+	constexpr int TwistType{ ConstraintTypes::indexOf(ConstraintTypes::Twist) };
+	if (startRotation == AnchorRotation::Swing)
+	{
+		const MMatrix mDelta = MathUtils::computeDeltaFromRest(mRest[0], mWorld[0]);
+		outFrames[0] = mRest[0] * RigConstraintNode::computeDelta(SwingType, mRest[0], mDelta, mDelta);
+	}
+	else
+	{
+		outFrames[0] = mWorld[0];
+	}
+	outFrames[1] = mWorld[1];
+	if (endRotation == AnchorRotation::Twist)
+	{
+		outFrames[2] = mRest[2] * RigConstraintNode::computeDelta(
+			TwistType, mRest[2], MathUtils::computeDeltaFromRest(mRest[1], mWorld[1]), MathUtils::computeDeltaFromRest(mRest[2], mWorld[2]));
+	}
+	else
+	{
+		outFrames[2] = mWorld[2];
+	}
+}
+
+bool RibbonSolve::setAnchors(RibbonMath::Setup& setup, const MMatrix* mAnchorRest)
+{
+	setup.fkAnchors = true;
+	for (unsigned int k = 0; k < AnchorCount; ++k)
+	{
+		setup.fkRest[k] = MathUtils::toMat4(mAnchorRest[k]);
+	}
+	if (!RibbonMath::fkKnots(setup.fkRest, static_cast<int>(AnchorCount), setup.fkKnotU))
+	{
+		return false;
+	}
+	RibbonMath::markAnchorCorners(setup);
+	return true;
 }
 
 void RibbonSolve::readChannels(MDataBlock& data, const MObject* attrs, const ChannelSpec* specs, unsigned int count, double* outValues)
@@ -129,6 +180,7 @@ RibbonMath::Params RibbonSolve::paramsFromChannels(const double* values)
 	params.scaleStart = values[RibbonChannel::ScaleStart];
 	params.scaleMid = values[RibbonChannel::ScaleMid];
 	params.scaleEnd = values[RibbonChannel::ScaleEnd];
+	params.cornerSoftness = values[RibbonChannel::BendSoftness];
 	return params;
 }
 

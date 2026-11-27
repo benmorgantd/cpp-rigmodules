@@ -391,8 +391,14 @@ namespace RigAttr
 	inline constexpr const char* FkRollShare{ "fkRollShare" };
 	// Limb (D62): the ribbon ik controls' offsets from the curve, apart from IkRestOffset, which is the two-bone limb's.
 	inline constexpr const char* RibbonIkRestOffset{ "ribbonIkRestOffset" };
-	// Limb channel on the settings control: how round the elbow is. 0 is a sharp corner (the default), 1 the smooth curve.
+	// Limb channel on the settings control, and the anchored Ribbon's (D80): how round the corner at the mid anchor is. 0 is a sharp corner,
+	// 1 the smooth curve.
 	inline constexpr const char* BendSoftness{ "bendSoftness" };
+	// The anchored Ribbon (D80, design/limb-split.md): its three anchors' rests (start, mid, end), stored at build from its anchorJoints,
+	// and what the curve takes from the start and end anchors (AnchorRotation).
+	inline constexpr const char* AnchorRest{ "anchorRest" };
+	inline constexpr const char* StartAnchorRotation{ "startAnchorRotation" };
+	inline constexpr const char* EndAnchorRotation{ "endAnchorRotation" };
 	// Limb (D62 phase 4): whether the optional ikTarget child plug has a parent, set at build when the template wires it.
 	inline constexpr const char* IkTargetConnected{ "ikTargetConnected" };
 	// Limb's ikTarget input (a matrix and its rest) and the output array that holds the ik, pole and settings sockets apart from
@@ -536,6 +542,8 @@ namespace PlugAndSocketNames
 {
 	inline constexpr const char* Start{ "start" };
 	inline constexpr const char* End{ "end" };
+	// The anchored Ribbon's middle anchor plug (D80), between its start and end.
+	inline constexpr const char* Mid{ "mid" };
 	inline constexpr const char* Index{ "index_" };
 	inline constexpr const char* Ik{ "ik" };
 	inline constexpr const char* Pole{ "pole" };

@@ -1,0 +1,30 @@
+{
+  "description": "An anchored ribbon has at least 5 bind joints: one at each anchor and one between each pair",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/joints",
+      "value": [
+        [
+          "Left",
+          "bind1"
+        ],
+        [
+          "Left",
+          "bind5"
+        ],
+        [
+          "Left",
+          "bind9"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "between 5 and 64 bind joints",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.joints"
+    }
+  ]
+}

@@ -48,6 +48,12 @@ struct ModulePlugInfo
 	// The module-cycle check does not follow a path that enters the module through this plug and leaves by one of them, so a foot that
 	// hangs from the handle and feeds ikTarget is not a loop. The module's attributeAffects and compute() must really keep to this.
 	std::vector<std::string> blindSockets;
+	// True for a plug with no default parent (the anchored Ribbon's anchors and settings, D80): with no parentStructure or
+	// matrixParentStructure entry it is a read-phase error, where any other plug would take layout_00_M_MOD.end.
+	bool required = false;
+	// True for a plug that names the control which holds the module's channels (the anchored Ribbon's settings, D80): its socket must
+	// carry a control, though the plug has none of its own.
+	bool hostsChannels = false;
 };
 
 // The child plug and socket names a module will create, known before anything is built.
