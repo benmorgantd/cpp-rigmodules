@@ -208,7 +208,7 @@ The author tested D77 on the solomon spine pouches and found it grew into a smal
 - **Consequence:** a new kind of constraint node, so it needs perf rig instances and one `bench` run when built. No new file format, no mayadev change.
 
 ### D80. Replace the Limb with a TwoBoneIk and an anchored Ribbon composed through sockets
-**Status:** Open: proposed 2026-11-27. The author answered every question the same day (recorded below), and it waits only for sign-off. Nothing built. Design: `design/limb-split.md`. Would reverse D62 and amend D74 (the foot hangs from a TwoBoneIk), D56 and D59 (a new Ribbon form).
+**Status:** Leaning: signed off by the author on 2026-11-27 after two rounds of answers (recorded below). Not built: the phases are in `limb-split.md` section 10. D62 stays Decided until phase 3 deletes the Limb. Design: `design/limb-split.md`. Would reverse D62 and amend D74 (the foot hangs from a TwoBoneIk), D56 and D59 (a new Ribbon form).
 
 The author (2026-11-26) found that the Limb added complexity and redundancy instead of removing it: a part template over two nodes, one node running both modules' solves, channels and inverses, coupling warnings and a test to police them, a foot tied to "a Limb", and doubled controls at the shoulder and wrist. Their direction: a ribbon working with the two-bone IK through sockets, preferably one ribbon drawn through the elbow, with the inverses kept.
 

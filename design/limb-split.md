@@ -1,6 +1,6 @@
 # Splitting Limb into a TwoBoneIk and an anchored Ribbon: design
 
-**Status:** proposed 2026-11-27. The author answered every question the same day (section 11), and section 3.3 holds the Limb behaviours the Ribbon takes as arguments. It waits only for sign-off. Nothing here is built. When it is, this page replaces `limb.md` (which moves to `archive/`) and the decision entry that records it replaces the Limb one.
+**Status:** signed off by the author on 2026-11-27, after two rounds of answers (section 11). Section 3.3 holds the Limb behaviours the Ribbon takes as arguments. Nothing here is built yet: implementation follows the phases in section 10, one commit each. When it is, this page replaces `limb.md` (which moves to `archive/`) and the decision entry that records it replaces the Limb one.
 
 The short version: the `Limb` node goes away. An arm or a leg becomes a `TwoBoneIk` (the IK/FK solve, unchanged, plus the `ikTarget` plug the foot needs) and a `Ribbon` in a new **anchored** form, whose curve passes through three frames that arrive through child plugs from the TwoBoneIk's `index_0`, `index_1` and `index_2` sockets. The ribbon's maths is the code Limb runs today, so the elbow behaves the same. The ribbon's two end ik controls are dropped because they sit on the FK and IK controls at the shoulder and wrist, so no control is doubled. Inverses stay on both modules.
 
@@ -355,7 +355,7 @@ Each ends with the build, the full suite, the docs pass and one commit.
 8. **Three anchors only**, for now. More when a rig asks for it.
 9. **The anchored defaults are neutral** (`"full"`, `"full"`, softness 1). An arm's or leg's ribbon sets `"swing"`, `"twist"` and 0 in its template (section 3.3).
 
-Every question is answered. The design waits only for the author's sign-off.
+Every question is answered, and the author signed the design off on 2026-11-27.
 
 ## Related decisions
 
