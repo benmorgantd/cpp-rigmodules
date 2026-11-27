@@ -79,6 +79,9 @@ namespace TwoBoneIkSlot
 	inline constexpr unsigned int Settings{ 5 };   // settings (ikFkBlend, stretch, soft), no joint
 	inline constexpr unsigned int Count{ 6 };
 	inline constexpr unsigned int LimbCount{ 3 };  // the slots that are limb joints
+	// The ikTarget child plug is not a slot: it has no control, joint or socket and no element of childPlugs, so its RigModuleChildPlugInfo
+	// carries this in place of an index (the build callback tells it apart by it).
+	inline constexpr unsigned int IkTargetPlug{ 0xFFFFFFFFu };
 }
 
 // The order of the scalar channels the two-bone inverse reads (TwoBoneIkNode::inverseChannels), which is the order of
@@ -146,7 +149,7 @@ struct TwoBoneIkEval
 	MMatrix mIkDelta;
 	MMatrix mPoleParentDelta;    // used when the pole's space is Parent
 	MMatrix mSettingsDelta;
-	// Limb's ikTarget (D62 section 8): the end joint reaches the IK handle's rest carried by this motion instead of the handle's own
+	// The ikTarget (D62 section 8, a TwoBoneIk's or a Limb's): the end joint reaches the IK handle's rest carried by this motion instead of the handle's own
 	// world. The target's motion already holds whatever moved the handle (a foot hangs from the ik socket), so the handle's local and its
 	// parent's motion are not applied again. The pole and the ik socket still follow the handle, and never read the target.
 	bool hasTarget = false;
@@ -213,7 +216,8 @@ namespace TwoBoneIkSolve
 	// Every name of the socket on a slot. index_0 to index_2 (and start and end, which are the same sockets) carry the blended joint worlds.
 	std::vector<std::string> socketNamesAt(unsigned int slot);
 	// The child plugs and sockets of the limb's six slots: the pole and settings plugs take no constraint, and the settings plug
-	// follows start's parent (D52 decision 14). Limb has the same ones.
+	// follows start's parent (D52 decision 14). Then the optional ikTarget plug, whose blindSockets are the handle's, the pole's and the
+	// settings control's (D80 phase 2). Limb has the same ones.
 	ModuleInterface makeInterface();
 
 	// The plan step's shared half (read phase, no scene changes): checks the limb's arguments (three joints, the blend's range, the

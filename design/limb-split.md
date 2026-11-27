@@ -1,6 +1,6 @@
 # Splitting Limb into a TwoBoneIk and an anchored Ribbon: design
 
-**Status:** signed off by the author on 2026-11-27, after two rounds of answers (section 11). Section 3.3 holds the Limb behaviours the Ribbon takes as arguments. Phase 1 (the anchored Ribbon, channel hosting, the parity test) is built (2026-11-27). Section 12 lists where it differs from the text above. Phases 2 to 4 are not built. Implementation follows the phases in section 10, one commit each. When it is, this page replaces `limb.md` (which moves to `archive/`) and the decision entry that records it replaces the Limb one.
+**Status:** signed off by the author on 2026-11-27, after two rounds of answers (section 11). Section 3.3 holds the Limb behaviours the Ribbon takes as arguments. Phase 1 (the anchored Ribbon, channel hosting, the parity test) and phase 2 (`ikTarget` on TwoBoneIk, a foot on a TwoBoneIk) are built (2026-11-27). Section 12 lists where they differ from the text above. Phases 3 and 4 are not built. Implementation follows the phases in section 10, one commit each. When it is, this page replaces `limb.md` (which moves to `archive/`) and the decision entry that records it replaces the Limb one.
 
 The short version: the `Limb` node goes away. An arm or a leg becomes a `TwoBoneIk` (the IK/FK solve, unchanged, plus the `ikTarget` plug the foot needs) and a `Ribbon` in a new **anchored** form, whose curve passes through three frames that arrive through child plugs from the TwoBoneIk's `index_0`, `index_1` and `index_2` sockets. The ribbon's maths is the code Limb runs today, so the elbow behaves the same. The ribbon's two end ik controls are dropped because they sit on the FK and IK controls at the shoulder and wrist, so no control is doubled. Inverses stay on both modules.
 
@@ -357,7 +357,9 @@ Each ends with the build, the full suite, the docs pass and one commit.
 
 Every question is answered, and the author signed the design off on 2026-11-27.
 
-## 12. Where the phase 1 build differs (2026-11-27)
+## 12. Where the build differs (2026-11-27)
+
+**Phase 1:**
 
 - **`controlCount` is 1 to 6, not 0 to 6.** The bind joints ride a detail curve drawn through the ik controls (the curve's two ends and the interior ones), and only a control at the mid anchor gives that curve its corner. With none, the curve cuts straight from the start to the end and the elbow bind joint leaves the elbow (the probe put it at (3.6, 0.17, 0) with the forearm turned 45 degrees). So the first interior control is the mid's, and there is always one. The default (3) is unchanged, and the DAG rule for "tweakers under the start's control when there is no ik control" is not needed.
 - **The anchor plugs are elements of `childPlugs`**, not inputs of their own. They have no control, so they sit after the slots (the interior ik controls, then the tweakers, then `start`, `mid`, `end` and `settings`). The foot's `ankle` is apart for the cycle rule, which the ribbon does not need: nothing it computes flows back into its TwoBoneIk. This gives the anchors the plug's matrix and rest with no new attribute, and `RigInverse` already reads every `childPlugs` element, sorts the ribbon after its TwoBoneIk and hands it each plug's parent motion. So section 5's "extra-plug rule" in `RigInverse` is not needed. An anchor's world is its stored anchor rest carried by its plug's motion, in both `compute()` and the inverse, so the two agree exactly.
@@ -367,6 +369,14 @@ Every question is answered, and the author signed the design off on 2026-11-27.
 - **The read-phase checks** are two `ModulePlugInfo` flags: `required` (no default parent: the four plugs need entries) and `hostsChannels` (`settings` must name a socket with a control). A name clash on the host is a build error in pass 2, when the attributes are added, because the read phase does not know channel names. It covers both a second ribbon on one settings plug and a name the host's module already uses. The anchor rest check is also a pass 2 error. A pass 2 failure now undoes the modifier, since TwoBoneIk and the Ribbon run it while they build.
 - **The plan does not list hosted channels in `ModuleInterface`** (rule 1 of section 3.5), and `ModuleContract` does not check them on the host. `test_ribbon_anchored` checks their rests, ranges, mirror modes and connections, and the mirror pose. Adding both is a small follow-up, if a query that lists a module's channels needs them.
 - **Shared code.** `RibbonSolve::anchorFrames` and `setAnchors` are the Limb's anchor helpers, moved, and the Limb calls them, so the two run one rule until phase 3.
+
+**Phase 2 (2026-11-27):**
+
+- **`ikTarget` moved into `TwoBoneIkPart`, not into `TwoBoneIkNode`.** The Limb still exists until phase 3, so its attributes, the handle socket array, `computeHandleSockets`, the pass 2 branch (`connectIkTarget`) and the interface entry (`TwoBoneIkSolve::makeInterface`) live in the shared half, and both nodes run them. `TwoBoneIkSlot::IkTargetPlug` replaces `LimbSlot::IkTargetPlug`. Phase 3 folds the half into `TwoBoneIkNode` as planned.
+- **The handle's sockets never pull the target.** `readEvalWithTarget` reads the target for the joints only, above blend 0. `computeHandleSockets` calls `readEval`, which never reads it, as the Limb's did.
+- **The validation message says "a TwoBoneIk or a Limb"** until phase 3 deletes the Limb, not "a TwoBoneIk".
+- **`RigInverse` needed no change.** The pre-pass already found the feeder by the `ikTargetMatrix` attribute's connection, and the end joint by `TwoBoneIkSlot::End`, so a TwoBoneIk with the attribute is found as a Limb is. `test_reverse_foot`'s inverse cases run on both (`ReverseFootInverseOnATwoBoneIk`).
+- **A TwoBoneIk's `ik`, `pole` and `settings` sockets move to `handleSocketMatrix`.** The goldens list socket and plug names, not attributes, so they are unchanged. A scene built before this change keeps its connections to `outputSocketMatrix[3..5]`, which are still written.
 
 ## Related decisions
 

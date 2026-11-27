@@ -102,10 +102,10 @@ Constraints can also be declared in the template. [`RigTemplates/LayoutRig.json`
 | FkChain | `FkChain` | `start` | `index_<n>` per joint, plus `start` (first) and `end` (last) |
 | FkHierarchy | `FkHierarchy` | `start` | one per joint, named from its markup (`left_upperArm`), plus `start` (the root) |
 | Aim | `Aim` | `aim`, `target`, `up` | `aim`, `target`, `up` |
-| TwoBoneIk | `TwoBoneIk` | `start`, `ik`, `pole` | `index_0`, `index_1`, `index_2` (with `start` and `end`), `ik`, `pole`, `settings` |
+| TwoBoneIk | `TwoBoneIk` | `start`, `ik`, `pole`, optional `ikTarget` | `index_0`, `index_1`, `index_2` (with `start` and `end`), `ik`, `pole`, `settings` |
 | Ribbon | `Ribbon` | `start`, `end` | `index_0` to `index_<j-1>`, one per ik control (with `start` and `end`) |
 | Limb | `Limb` | `start`, `ik`, `pole`, `settings` (internal), optional `ikTarget` | TwoBoneIk's, plus `bind_<n>` per bind joint |
-| ReverseFoot | `ReverseFoot` | `ik`, `ankle` | `ankle` (the IK ankle target, wired to a Limb's `ikTarget`), `toe`, `toeTip` and one per pivot |
+| ReverseFoot | `ReverseFoot` | `ik`, `ankle` | `ankle` (the IK ankle target, wired to a TwoBoneIk's or Limb's `ikTarget`), `toe`, `toeTip` and one per pivot |
 
 Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 

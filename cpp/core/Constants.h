@@ -399,9 +399,9 @@ namespace RigAttr
 	inline constexpr const char* AnchorRest{ "anchorRest" };
 	inline constexpr const char* StartAnchorRotation{ "startAnchorRotation" };
 	inline constexpr const char* EndAnchorRotation{ "endAnchorRotation" };
-	// Limb (D62 phase 4): whether the optional ikTarget child plug has a parent, set at build when the template wires it.
+	// TwoBoneIk and Limb (D62 phase 4, D80 phase 2): whether the optional ikTarget child plug has a parent, set at build when the template wires it.
 	inline constexpr const char* IkTargetConnected{ "ikTargetConnected" };
-	// Limb's ikTarget input (a matrix and its rest) and the output array that holds the ik, pole and settings sockets apart from
+	// The ikTarget input (a matrix and its rest) and the output array that holds the ik, pole and settings sockets apart from
 	// OutputSocketMatrix, so that nothing the target moves is on the same attribute as what the foot hangs from (see design/limb.md 8.1).
 	inline constexpr const char* IkTargetMatrix{ "ikTargetMatrix" };
 	inline constexpr const char* IkTargetRestMatrix{ "ikTargetRestMatrix" };
@@ -548,7 +548,7 @@ namespace PlugAndSocketNames
 	inline constexpr const char* Ik{ "ik" };
 	inline constexpr const char* Pole{ "pole" };
 	inline constexpr const char* Settings{ "settings" };
-	// Limb's optional child plug (D62 section 8): the world matrix the end joint should reach, left unparented for the IK handle's own.
+	// TwoBoneIk's and Limb's optional child plug (D62 section 8, D80 phase 2): the world matrix the end joint should reach, left unparented for the IK handle's own.
 	inline constexpr const char* IkTarget{ "ikTarget" };
 	// ReverseFoot (D74): the child plug that takes the ankle as it is (the Limb's end socket), and the socket that carries the IK ankle
 	// target into the Limb's ikTarget. Both are named "ankle", and plugs and sockets are separate lists.

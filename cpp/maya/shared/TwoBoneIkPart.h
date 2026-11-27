@@ -10,6 +10,7 @@
 #include "maya/shared/Utilities.h"
 
 #include <array>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -29,9 +30,15 @@
 // and child plugs, and its channels. TwoBoneIkNode is this and the match outputs, and LimbNode is this and a ribbon. A Maya node
 // can't inherit (RigModuleNodeBase), so the half is a template over the node, which must declare the same static attributes:
 // aIkFkBlend, aStretch, aSoft, aPin (clamped 0..1), aRoll (an angle), aPoleSpace (a short, 0 or 1), aIkRestOffset (a matrix array),
-// aRestBendNormal, aRestPlaneAngle, aLimbLengths, the visibility outputs aFkVisible and aIkVisible, and the match outputs aFkMatchLocal and
-// aIkMatchLocal (matrix arrays) and aMatchWarnings (a string). A change here changes both
-// modules: read design/limb.md first.
+// aRestBendNormal, aRestPlaneAngle, aLimbLengths, the visibility outputs aFkVisible and aIkVisible, the match outputs aFkMatchLocal and
+// aIkMatchLocal (matrix arrays) and aMatchWarnings (a string), and the ikTarget's aIkTargetMatrix, aIkTargetRestMatrix, aIkTargetConnected
+// and aHandleSocketMatrix. A change here changes both modules: read design/limb.md first.
+//
+// The ikTarget child plug (D62 section 8, on TwoBoneIk since D80 phase 2) is its own pair of inputs, not an element of childPlugs, and
+// the ik, pole and settings sockets are their own output array, not elements of outputSocketMatrix (getSocketMatrixPlug finds them
+// there). Maya orders the graph by attribute, so with the target and the handle's sockets on shared attributes a foot that hangs from the
+// handle and feeds the target would be a cycle. aIkTargetConnected is set at build when the template wires the plug: unset, the end joint
+// reaches the IK handle.
 template <typename Node>
 struct TwoBoneIkPart
 {
@@ -111,7 +118,28 @@ struct TwoBoneIkPart
 			CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(false));
 			CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(*pAttr));
 		}
-		return MStatus::kSuccess;
+
+		// The ikTarget: whether it is wired, the target's world and its rest. Then the handle's own socket array.
+		Node::aIkTargetConnected = nAttr.create(RigAttr::IkTargetConnected, RigAttr::IkTargetConnected, MFnNumericData::kBoolean, false, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
+		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aIkTargetConnected));
+		Node::aIkTargetMatrix = mAttr.create(RigAttr::IkTargetMatrix, RigAttr::IkTargetMatrix, MFnMatrixAttribute::kDouble, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aIkTargetMatrix));
+		Node::aIkTargetRestMatrix = mAttr.create(RigAttr::IkTargetRestMatrix, RigAttr::IkTargetRestMatrix, MFnMatrixAttribute::kDouble, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(true));
+		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aIkTargetRestMatrix));
+
+		Node::aHandleSocketMatrix = mAttr.create(RigAttr::HandleSocketMatrix, RigAttr::HandleSocketMatrix, MFnMatrixAttribute::kDouble, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setArray(true));
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setUsesArrayDataBuilder(true));
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setWritable(false));
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(false));
+		CHECK_MSTATUS_AND_RETURN_IT(mAttr.setWorldSpace(true));
+		return MPxNode::addAttribute(Node::aHandleSocketMatrix);
 	}
 
 	// The half's attributeAffects, after Node::declareStandardAffects().
@@ -119,10 +147,15 @@ struct TwoBoneIkPart
 	{
 		// Every setting changes the solved joints and the sockets that carry them. The pole's space also moves the pole control.
 		for (const MObject& oInput : { Node::aIkFkBlend, Node::aStretch, Node::aSoft, Node::aPin, Node::aRoll, Node::aPoleSpace, Node::aIkRestOffset,
-			Node::aRestBendNormal, Node::aRestPlaneAngle, Node::aLimbLengths })
+			Node::aRestBendNormal, Node::aRestPlaneAngle, Node::aLimbLengths, Node::aIkTargetConnected, Node::aIkTargetMatrix, Node::aIkTargetRestMatrix })
 		{
 			MPxNode::attributeAffects(oInput, Node::aJointOPM);
 			MPxNode::attributeAffects(oInput, Node::aOutputSocketMatrix);
+		}
+		// The handle's sockets follow the controls and the plugs they hang from, and nothing the target moves.
+		for (const MObject& oInput : { Node::aControlMatrix, Node::aControlRestWorld, Node::aChildPlugParentMatrix, Node::aChildPlugParentRestMatrix, Node::aPoleSpace })
+		{
+			MPxNode::attributeAffects(oInput, Node::aHandleSocketMatrix);
 		}
 		MPxNode::attributeAffects(Node::aPoleSpace, Node::aControlOPM);
 		MPxNode::attributeAffects(Node::aIkFkBlend, Node::aFkVisible);
@@ -158,12 +191,13 @@ struct TwoBoneIkPart
 		return MPxNode::addAttribute(Node::aMatchWarnings);
 	}
 
-	// The match outputs read everything the pose does: the controls, the child plugs' parents and every two-bone setting.
+	// The match outputs read everything the pose does: the controls, the child plugs' parents, every two-bone setting and the target. A match
+	// places the handle so a raised foot lands on the joints (D74). The match outputs feed nothing, so the target makes no loop.
 	static void declareMatchAffects()
 	{
 		for (const MObject& oInput : { Node::aControlMatrix, Node::aControlRestWorld, Node::aChildPlugParentMatrix, Node::aChildPlugParentRestMatrix,
 			Node::aIkFkBlend, Node::aStretch, Node::aSoft, Node::aPin, Node::aRoll, Node::aPoleSpace, Node::aIkRestOffset, Node::aRestBendNormal,
-			Node::aRestPlaneAngle, Node::aLimbLengths })
+			Node::aRestPlaneAngle, Node::aLimbLengths, Node::aIkTargetConnected, Node::aIkTargetMatrix, Node::aIkTargetRestMatrix })
 		{
 			MPxNode::attributeAffects(oInput, Node::aFkMatchLocal);
 			MPxNode::attributeAffects(oInput, Node::aIkMatchLocal);
@@ -175,21 +209,17 @@ struct TwoBoneIkPart
 	// match output: playback never does, and bench (D52 phase 8) checks that. The inverse is the restore's, run on the joints this evaluation
 	// solved, so what a match command writes is what a restore of the same pose would. `inverse` is the two-bone inverse (TwoBoneIkNode::inverse):
 	// a Limb matches its limb joints the same way, and only the first six slots are matched.
-	// mTargetDelta is a Limb's ikTarget motion since rest when the target is connected (D74): the joints reach it, as the Limb's compute
-	// does, and the inverse places the handle so the foot's motion F (the target's motion over the handle's) lands on them, so a match with
-	// a raised foot puts no pop in the ankle.
-	static MStatus computeMatch(const MPlug& plug, MDataBlock& data, ModuleInverseFn inverse, const std::optional<MMatrix>& mTargetDelta = std::nullopt)
+	// With the target connected (D74) the joints reach it, as compute() does, and the inverse places the handle so the foot's motion F (the
+	// target's motion over the handle's) lands on them, so a match with a raised foot puts no pop in the ankle.
+	static MStatus computeMatch(const MPlug& plug, MDataBlock& data, ModuleInverseFn inverse)
 	{
 		MProfilingScope profile(ProfilerUtils::category(), MProfiler::kColorC_L2, "twoBoneIk computeMatch");   // no such event in a playback profile shows the branch never ran
 		MStatus status;
 		TwoBoneIkEval eval;
 		status = readEval(data, eval);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
-		if (mTargetDelta.has_value() && eval.blend > 0.0)
-		{
-			eval.hasTarget = true;
-			eval.mTargetDelta = *mTargetDelta;
-		}
+		const std::optional<MMatrix> mTargetDelta = readTargetDelta(data);
+		applyTarget(mTargetDelta, eval);
 		TwoBoneIkSolveResult pose;
 		TwoBoneIkSolve::evaluate(eval, pose);
 
@@ -302,6 +332,77 @@ struct TwoBoneIkPart
 		return MStatus::kSuccess;
 	}
 
+	// The target's motion since rest, or none when the template leaves ikTarget unwired. Never called for the handle's sockets: they must
+	// not pull the target (a foot that hangs from the handle feeds it).
+	static std::optional<MMatrix> readTargetDelta(MDataBlock& data)
+	{
+		if (!data.inputValue(Node::aIkTargetConnected).asBool())
+		{
+			return std::nullopt;
+		}
+		return MathUtils::computeDeltaFromRest(data.inputValue(Node::aIkTargetRestMatrix).asMatrix(), data.inputValue(Node::aIkTargetMatrix).asMatrix());
+	}
+
+	// The joints reach the target above blend 0. At blend 0 they are FK and the target is ignored.
+	static void applyTarget(const std::optional<MMatrix>& mTargetDelta, TwoBoneIkEval& eval)
+	{
+		if (mTargetDelta.has_value() && eval.blend > 0.0)
+		{
+			eval.hasTarget = true;
+			eval.mTargetDelta = *mTargetDelta;
+		}
+	}
+
+	// readEval, then the target for the joints' solve. At blend 0 the target is not read, so FK pulls nothing through it.
+	static MStatus readEvalWithTarget(MDataBlock& data, TwoBoneIkEval& eval)
+	{
+		const MStatus status = readEval(data, eval);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		if (eval.blend > 0.0)
+		{
+			applyTarget(readTargetDelta(data), eval);
+		}
+		return MStatus::kSuccess;
+	}
+
+	// The ik, pole and settings sockets (ModulePlugInfo::blindSockets of ikTarget): they follow their controls and never read the target.
+	static MStatus computeHandleSockets(const MPlug& plug, MDataBlock& data)
+	{
+		MStatus status;
+		TwoBoneIkEval eval;
+		status = readEval(data, eval);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+
+		// The handle, then the pole in the space it is in, as TwoBoneIkSolve::evaluate does (slot order matters, D52 section 4.4).
+		const ControlSolveStep ikStep = RigModuleNodeBase::solveControlStep(eval.mLocal[TwoBoneIkSlot::Ik], eval.mRest[TwoBoneIkSlot::Ik], eval.mIkDelta);
+		const MMatrix mPoleDelta = eval.poleFollowsIk ? MathUtils::computeDeltaFromRest(eval.mRest[TwoBoneIkSlot::Ik], ikStep.mWorld) : eval.mPoleParentDelta;
+		const ControlSolveStep poleStep = RigModuleNodeBase::solveControlStep(eval.mLocal[TwoBoneIkSlot::Pole], eval.mRest[TwoBoneIkSlot::Pole], mPoleDelta);
+		const ControlSolveStep settingsStep = RigModuleNodeBase::solveControlStep(eval.mLocal[TwoBoneIkSlot::Settings], eval.mRest[TwoBoneIkSlot::Settings], eval.mSettingsDelta);
+
+		MArrayDataHandle hSocket = data.outputArrayValue(Node::aHandleSocketMatrix, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		Node::writeOutputMatrix(hSocket, TwoBoneIkSlot::Ik, ikStep.mWorld);
+		Node::writeOutputMatrix(hSocket, TwoBoneIkSlot::Pole, poleStep.mWorld);
+		Node::writeOutputMatrix(hSocket, TwoBoneIkSlot::Settings, settingsStep.mWorld);
+		Node::commitOutput(data, plug.node(), Node::aHandleSocketMatrix, hSocket);
+		data.setClean(plug);
+		return MStatus::kSuccess;
+	}
+
+	// The pass 2 callback's half for the ikTarget plug (childPlug.plugIndex is TwoBoneIkSlot::IkTargetPlug). The target is a matrix
+	// connection only: it has no control to reparent, and the solve is told it has a parent.
+	static MStatus connectIkTarget(const RigModuleDagReparentArgs& args)
+	{
+		MStatus status;
+		const MPlug pSocket = Node::getSocketMatrixPlug(args.oParentTargetModuleNode, args.parentSocket.outputIndex, &status);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		MPlug pTargetRest(args.oChildModuleNode, Node::aIkTargetRestMatrix);
+		DagUtils::setMatrixPlug(pTargetRest, args.parentSocket.mRestWorld, args.dagMod);
+		status = args.dagMod.connect(pSocket, MPlug(args.oChildModuleNode, Node::aIkTargetMatrix));
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		return args.dagMod.newPlugValueBool(MPlug(args.oChildModuleNode, Node::aIkTargetConnected), true);
+	}
+
 	// Per slot: bake and wire the joint, create and wire the control, name the sockets and child plug. Then the rest data the solve
 	// reads. oControls gets the six controls, which the caller needs for the channels.
 	static MStatus createSlots(
@@ -363,6 +464,13 @@ struct TwoBoneIkPart
 				DagPlugAndSocketUtils::setChildPlugName(oModule, slot, plugName, dagMod);
 			}
 		}
+
+		// The ikTarget child plug (D62 section 8): no control, joint or socket, and optional, so a template that leaves it out keeps the end
+		// joint on the IK handle. Its callback is connectIkTarget.
+		RigModuleChildPlugInfo ikTargetPlug;
+		ikTargetPlug.plugIndex = TwoBoneIkSlot::IkTargetPlug;
+		ikTargetPlug.optional = true;
+		result.childPlugs[PlugAndSocketNames::IkTarget] = ikTargetPlug;
 
 		// The rest data the solve reads.
 		for (unsigned int i = 0; i < TwoBoneIkSlot::LimbCount; ++i)

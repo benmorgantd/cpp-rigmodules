@@ -1146,7 +1146,7 @@ namespace RigTemplateValidation
 			if (driver->second.findChildPlug(driverPlug) == nullptr)
 			{
 				report.addError(where, "'" + driverName + "' has no child plug '" + driverPlug + "' to take '" + expectedParent
-					+ "', so the foot could not move its ankle: it must be a Limb");
+					+ "', so the foot could not move its ankle: it must be a TwoBoneIk or a Limb");
 				continue;
 			}
 			const auto driverModule = std::find_if(rigData.rigModules.begin(), rigData.rigModules.end(), [&driverName](const RigModuleData& other)

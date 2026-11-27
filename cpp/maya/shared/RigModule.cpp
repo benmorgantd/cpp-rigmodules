@@ -380,7 +380,7 @@ MPlug RigModuleNodeBase::getSocketMatrixPlug(const MObject& oModule, unsigned in
 {
 	MStatus status;
 	MFnDependencyNode fnModule(oModule);
-	// A Limb keeps the sockets of its IK handle, pole and settings control on their own array (see LimbNode::aIkTargetMatrix).
+	// A TwoBoneIk or Limb keeps the sockets of its IK handle, pole and settings control on their own array (see TwoBoneIkPart).
 	const bool onHandleArray = fnModule.hasAttribute(RigAttr::HandleSocketMatrix) && TwoBoneIkSolve::isHandleSocket(socketIndex);
 	// A ReverseFoot's ankle socket, which feeds a Limb's ikTarget, is on an array of its own for the same reason (D74).
 	const bool onAnkleArray = fnModule.hasAttribute(RigAttr::AnkleSocketMatrix) && socketIndex == ReverseFootSlot::AnkleSocket;

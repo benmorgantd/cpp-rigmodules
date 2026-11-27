@@ -57,6 +57,10 @@ MObject TwoBoneIkNode::aIkVisible;
 MObject TwoBoneIkNode::aFkMatchLocal;
 MObject TwoBoneIkNode::aIkMatchLocal;
 MObject TwoBoneIkNode::aMatchWarnings;
+MObject TwoBoneIkNode::aIkTargetMatrix;
+MObject TwoBoneIkNode::aIkTargetRestMatrix;
+MObject TwoBoneIkNode::aIkTargetConnected;
+MObject TwoBoneIkNode::aHandleSocketMatrix;
 
 namespace
 {
@@ -143,6 +147,11 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 		return TwoBoneIkPart<TwoBoneIkNode>::computeMatch(plug, data, &TwoBoneIkNode::inverse);
 	}
 
+	if (oOutputAttr == aHandleSocketMatrix)
+	{
+		return TwoBoneIkPart<TwoBoneIkNode>::computeHandleSockets(plug, data);
+	}
+
 	if (oOutputAttr != aControlOPM && oOutputAttr != aJointOPM && oOutputAttr != aOutputSocketMatrix)
 	{
 		return MStatus::kUnknownParameter;
@@ -150,7 +159,7 @@ MStatus TwoBoneIkNode::compute(const MPlug& plug, MDataBlock& data)
 
 	MStatus status;
 	TwoBoneIkEval eval;
-	status = TwoBoneIkPart<TwoBoneIkNode>::readEval(data, eval);
+	status = TwoBoneIkPart<TwoBoneIkNode>::readEvalWithTarget(data, eval);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	TwoBoneIkSolveResult result;
 	TwoBoneIkSolve::evaluate(eval, result);
@@ -323,7 +332,7 @@ ModuleInverseResult TwoBoneIkNode::inverse(const ModuleInverseContext& context, 
 	const MMatrix mHandleWorld = input.ikTargetMotion.has_value() ? mIkRest * input.ikTargetMotion->inverse() * mIkRest.inverse() * mScaledReach : mScaledReach;
 	if (input.ikTargetMotion.has_value() && eval.blend > 0.0)
 	{
-		// The forward evaluation behind the sockets (and a Limb's ribbon) reaches the target, as LimbNode::compute does.
+		// The forward evaluation behind the sockets (and a Limb's ribbon) reaches the target, as compute() does.
 		eval.hasTarget = true;
 		eval.mTargetDelta = mIkRest.inverse() * mScaledReach;
 	}
@@ -423,8 +432,15 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 		RigModuleNodeBase::connectModuleToRigRoot(oRigRoot, dagMod, oModule, aRigRoot);
 	}
 
-	// Shared callback: skips the DAG reparent for the sockets with no control, always connects matrices.
-	result.dagParentCallback = TwoBoneIkNode::reparentChildPlugToSocket;
+	// The shared callback, which skips the DAG reparent for the sockets with no control and always connects matrices, or the target's.
+	result.dagParentCallback = [](const RigModuleDagReparentArgs& args)
+	{
+		if (args.childPlug.plugIndex == TwoBoneIkSlot::IkTargetPlug)
+		{
+			return Part::connectIkTarget(args);
+		}
+		return TwoBoneIkNode::reparentChildPlugToSocket(args);
+	};
 	result.status = MStatus::kSuccess;
 	return result;
 }

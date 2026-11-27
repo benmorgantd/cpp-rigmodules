@@ -357,8 +357,14 @@ class ReverseFootInverse(RigTestCase):
     that gives the Limb's handle the foot's motion, and the match that puts no pop in the ankle. Every expected value is the posed one:
     the ankle and toe come back exactly whatever the channels, so what is checked is which channels the inverse chose."""
 
+    TEMPLATE = "reverse_foot"
+    SKELETON = "reverse_foot"
+
+    def _build(self):
+        self.build_standard(self.TEMPLATE, self.SKELETON, markers="reverse_foot")
+
     def _build_and_pose(self, channels, handle=None):
-        self.build_standard("reverse_foot", "reverse_foot", markers="reverse_foot")
+        self._build()
         for name, value in channels.items():
             cmds.setAttr(rig_name(FOOT + "." + name), value)
         for name, value in (handle or {}).items():
@@ -402,7 +408,7 @@ class ReverseFootInverse(RigTestCase):
         # ankle and toe back exactly. The Layout has no joints, so the sidecar carries it, as in a real restore. The pre-pass runs after the
         # Layout is solved: in the old order it saw no Layout and put its tilt into footRoll and bank.
         layout = {"rotateX": 15.0, "rotateY": 30.0, "rotateZ": 10.0, "scaleX": 1.2, "scaleY": 1.2, "scaleZ": 1.2}
-        self.build_standard("reverse_foot", "reverse_foot", markers="reverse_foot")
+        self._build()
         for name, value in layout.items():
             cmds.setAttr(rig_name("layout_00_M_CTRL." + name), value)
         for name, value in (("footRoll", -20.0), ("bank", 8.0), ("toeTap", 12.0)):
@@ -490,3 +496,98 @@ class ReverseFootInverse(RigTestCase):
         with CapturedWarnings() as warnings:
             cmds.setRigIkFkBlend(limb, blend=1)
         self.assertTrue(warnings.contain("toeTap can't hold"), warnings.messages)
+
+
+class ReverseFootInverseOnATwoBoneIk(ReverseFootInverse):
+    """The same inverse cases with the foot on a TwoBoneIk (reverse_foot_twoboneik, D80 phase 2): the pre-pass hands the TwoBoneIk the
+    foot's motion as it does a Limb's, and the match puts no pop in the ankle. The joints are the same, so every value is the same."""
+
+    TEMPLATE = "reverse_foot_twoboneik"
+    SKELETON = "reverse_foot_twoboneik"
+
+
+class ReverseFootOnATwoBoneIk(RigTestCase):
+    """A ReverseFoot whose driver is a TwoBoneIk (D80 phase 2): the TwoBoneIk has the Limb's ikTarget, handle sockets and blend, so the
+    foot's numbers are ReverseFootBehaviour's, worked there from the same hand at (4, 4, 0) and toe pivot (4, 3.3, 1.8)."""
+
+    def _build(self):
+        self.build_standard("reverse_foot_twoboneik", "reverse_foot_twoboneik", markers="reverse_foot")
+
+    def test_the_hand_follows_the_handle_with_the_foot_at_rest_and_adds_the_roll_on_top(self):
+        self._build()
+        cmds.setAttr(rig_name(HANDLE + ".translateY"), 1.0)
+        self.assertWorldTranslation(rig_name(HAND), [3.0, 4.0, 0.0], 1e-4)
+        self.assertWorldTranslation(rig_name(FOOT), [3.0, 3.3, 1.8], 1e-4)
+        cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
+        self.assertWorldTranslation(rig_name(HAND), [3.0, 4.573421, 0.347967], 1e-4)
+
+    def test_a_roll_of_20_turns_the_hand_20_degrees_about_the_worlds_x(self):
+        self._build()
+        cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
+        c, s = math.cos(math.radians(20)), math.sin(math.radians(20))
+        expected = [0, c, s, 0, -1, 0, 0, 0, 0, -s, c, 0]
+        for got, want in zip(world_matrix(HAND)[:12], expected):
+            self.assertAlmostEqual(got, want, places=4)
+        dummy = translation(DUMMY)
+        for got, want in zip(dummy, translation(HAND)):
+            self.assertAlmostEqual(got, want, places=4)
+
+    def test_the_ik_plug_comes_from_the_handle_sockets_and_the_target_from_the_ankle_socket(self):
+        self._build()
+        module = rig_name(FOOT_MODULE)
+        ik = cmds.listConnections(module + ".childPlugs[0].childPlugParentMatrix", source=True, destination=False, plugs=True)
+        self.assertEqual([p.split(":")[-1].split("[")[0] for p in ik], [LIMB + ".handleSocketMatrix"])
+        target = cmds.listConnections(rig_name(LIMB + ".ikTargetMatrix"), source=True, destination=False, plugs=True)
+        self.assertEqual([p.split(":")[-1] for p in target], [FOOT_MODULE + ".ankleSocketMatrix[0]"])
+        self.assertEqual(cmds.getAttr(module + ".ikFkDriver"), LIMB)
+
+    def test_the_foot_follows_the_two_bone_iks_blend(self):
+        """At blend 0 the TwoBoneIk ignores its target, so the foot's roll leaves the hand on the FK chain."""
+        self._build()
+        cmds.setAttr(rig_name("armSettings_00_L_CTRL.ikFkBlend"), 0)
+        cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
+        self.assertWorldTranslation(rig_name(HAND), [4.0, 4.0, 0.0], 1e-4)
+
+    def test_the_graph_has_no_cycle_in_either_evaluation_mode(self):
+        self._build()
+        mode = cmds.evaluationManager(query=True, mode=True)[0]
+        self.addCleanup(cmds.evaluationManager, mode=mode)
+        for evaluation in ("off", "parallel"):
+            with self.subTest(mode=evaluation):
+                cmds.evaluationManager(mode=evaluation)
+                with CapturedWarnings() as warnings:
+                    cmds.setAttr(rig_name(FOOT + ".footRoll"), 20 if evaluation == "off" else 25)
+                    cmds.dgdirty(allPlugs=True)
+                    hand = translation(HAND)
+                    cmds.getAttr(rig_name(DUMMY + ".worldMatrix[0]"))
+                self.assertFalse(warnings.contain("ycle"), warnings.messages)
+                self.assertTrue(abs(hand[1] - 4.0) > 0.1, "the foot's roll moved the hand")
+
+    def test_undo_and_redo_rebuild_the_foot(self):
+        self._build()
+        cmds.undo()
+        self.assertEqual(cmds.ls(type="reverseFootModule"), [])
+        cmds.redo()
+        cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
+        self.assertWorldTranslation(rig_name(HAND), [4.0, 4.573421, 0.347967], 1e-4)
+
+    def test_a_foot_at_rest_leaves_the_two_bone_ik_as_it_is_alone(self):
+        """The TwoBoneIk alone is the same module with the foot and the dummy left out and no ikTarget entry."""
+        alone = copy.deepcopy(fixtures.load_template("reverse_foot_twoboneik"))
+        alone["rigModules"] = alone["rigModules"][:1]
+        del alone["rigModules"][0]["parentStructure"]["ikTarget"]
+        results = {}
+        for label, template, markers in (("alone", alone, None), ("foot", "reverse_foot_twoboneik", "reverse_foot")):
+            cmds.file(new=True, force=True)
+            self.build(template, self.make_skeleton("reverse_foot_twoboneik"), markers=markers, label="reverse_foot_twoboneik_" + label)
+            for pose in ReverseFootMatchesTheLimb.POSES:
+                for control, channel, value in pose:
+                    cmds.setAttr("%s.%s" % (rig_name(control), channel), value)
+                results.setdefault(label, []).append({joint: world_matrix(joint) for joint in ("upperArm_00_L_JNT", "lowerArm_00_L_JNT", HAND)})
+                for control, channel, value in pose:
+                    default = cmds.attributeQuery(channel, node=rig_name(control), listDefault=True)[0]
+                    cmds.setAttr("%s.%s" % (rig_name(control), channel), default)
+        for index, (want, got) in enumerate(zip(results["alone"], results["foot"])):
+            for joint in want:
+                for x, y in zip(want[joint], got[joint]):
+                    self.assertAlmostEqual(x, y, places=5, msg="pose %d %s: the foot at rest changed the limb" % (index, joint))

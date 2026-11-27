@@ -159,29 +159,6 @@ MStatus LimbNode::initialize()
 	status = TwoBoneIkPart<LimbNode>::createMatchAttributes();
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	aIkTargetConnected = nAttr.create(RigAttr::IkTargetConnected, RigAttr::IkTargetConnected, MFnNumericData::kBoolean, false, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(nAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkTargetConnected));
-
-	MFnMatrixAttribute mAttr;
-	aIkTargetMatrix = mAttr.create(RigAttr::IkTargetMatrix, RigAttr::IkTargetMatrix, MFnMatrixAttribute::kDouble, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkTargetMatrix));
-	aIkTargetRestMatrix = mAttr.create(RigAttr::IkTargetRestMatrix, RigAttr::IkTargetRestMatrix, MFnMatrixAttribute::kDouble, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aIkTargetRestMatrix));
-
-	aHandleSocketMatrix = mAttr.create(RigAttr::HandleSocketMatrix, RigAttr::HandleSocketMatrix, MFnMatrixAttribute::kDouble, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setArray(true));
-	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setUsesArrayDataBuilder(true));
-	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setWritable(false));
-	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setStorable(false));
-	CHECK_MSTATUS_AND_RETURN_IT(mAttr.setWorldSpace(true));
-	CHECK_MSTATUS_AND_RETURN_IT(addAttribute(aHandleSocketMatrix));
-
 	// The ribbon's channel inputs, connected from the settings control at build.
 	const std::array<ChannelSpec, LimbChannel::Count>& specs = limbChannelSpecs();
 	for (unsigned int k = 0; k < LimbChannel::Count; ++k)
@@ -216,20 +193,6 @@ MStatus LimbNode::initialize()
 	{
 		attributeAffects(oInput, aControlOPM);
 	}
-	for (const MObject& oInput : { aIkTargetConnected, aIkTargetMatrix, aIkTargetRestMatrix })
-	{
-		attributeAffects(oInput, aJointOPM);
-		attributeAffects(oInput, aOutputSocketMatrix);
-		// A match places the handle so a raised foot lands on the joints (D74). The match outputs feed nothing, so this makes no loop.
-		attributeAffects(oInput, aFkMatchLocal);
-		attributeAffects(oInput, aIkMatchLocal);
-		attributeAffects(oInput, aMatchWarnings);
-	}
-	// The handle's sockets follow the controls and the plugs they hang from, and nothing the target moves.
-	for (const MObject& oInput : { aControlMatrix, aControlRestWorld, aChildPlugParentMatrix, aChildPlugParentRestMatrix, aPoleSpace })
-	{
-		attributeAffects(oInput, aHandleSocketMatrix);
-	}
 	std::vector<MObject> ribbonInputs(aChannels.begin(), aChannels.end());
 	ribbonInputs.insert(ribbonInputs.end(), { aIkControlCount, aKnotU, aBindU, aRestLength, aChainSign, aRestUp, aRestTangent, aRibbonIkRestOffset, aBindRestOffset, aFkRollRest, aFkRollRestIn, aFkRollShare });
 	for (const MObject& oInput : ribbonInputs)
@@ -257,17 +220,12 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	// The matched IK/FK switch (D62 phase 3) is the two-bone limb's: the ribbon rides the joints and has nothing to match.
 	if (oOutputAttr == aFkMatchLocal || oOutputAttr == aIkMatchLocal || oOutputAttr == aMatchWarnings)
 	{
-		std::optional<MMatrix> mTargetDelta;
-		if (data.inputValue(aIkTargetConnected).asBool())
-		{
-			mTargetDelta = MathUtils::computeDeltaFromRest(data.inputValue(aIkTargetRestMatrix).asMatrix(), data.inputValue(aIkTargetMatrix).asMatrix());
-		}
-		return Part::computeMatch(plug, data, &TwoBoneIkNode::inverse, mTargetDelta);
+		return Part::computeMatch(plug, data, &TwoBoneIkNode::inverse);
 	}
 
 	if (oOutputAttr == aHandleSocketMatrix)
 	{
-		return computeHandleSockets(plug, data);
+		return Part::computeHandleSockets(plug, data);
 	}
 
 	if (oOutputAttr != aControlOPM && oOutputAttr != aJointOPM && oOutputAttr != aOutputSocketMatrix)
@@ -278,13 +236,8 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 	// 1. The two-bone solve: the blended start, mid and end joints, and the six controls' offsets.
 	MStatus status;
 	TwoBoneIkEval eval;
-	status = Part::readEval(data, eval);
+	status = Part::readEvalWithTarget(data, eval);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	if (eval.blend > 0.0 && data.inputValue(aIkTargetConnected).asBool())
-	{
-		eval.hasTarget = true;
-		eval.mTargetDelta = MathUtils::computeDeltaFromRest(data.inputValue(aIkTargetRestMatrix).asMatrix(), data.inputValue(aIkTargetMatrix).asMatrix());
-	}
 	TwoBoneIkSolveResult ik;
 	TwoBoneIkSolve::evaluate(eval, ik);
 
@@ -334,29 +287,6 @@ MStatus LimbNode::compute(const MPlug& plug, MDataBlock& data)
 		writeSolvedSlot(outputs, LimbSlot::FirstRibbon + static_cast<unsigned int>(i), solve.mControlOPM[i], solve.mWorld[i]);
 	}
 	commitSolvedOutputs(data, plug, aJointOPM, outputs);
-	return MStatus::kSuccess;
-}
-
-MStatus LimbNode::computeHandleSockets(const MPlug& plug, MDataBlock& data)
-{
-	MStatus status;
-	TwoBoneIkEval eval;
-	status = TwoBoneIkPart<LimbNode>::readEval(data, eval);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
-	// The handle, then the pole in the space it is in, as TwoBoneIkSolve::evaluate does (slot order matters, D52 section 4.4).
-	const ControlSolveStep ikStep = solveControlStep(eval.mLocal[TwoBoneIkSlot::Ik], eval.mRest[TwoBoneIkSlot::Ik], eval.mIkDelta);
-	const MMatrix mPoleDelta = eval.poleFollowsIk ? MathUtils::computeDeltaFromRest(eval.mRest[TwoBoneIkSlot::Ik], ikStep.mWorld) : eval.mPoleParentDelta;
-	const ControlSolveStep poleStep = solveControlStep(eval.mLocal[TwoBoneIkSlot::Pole], eval.mRest[TwoBoneIkSlot::Pole], mPoleDelta);
-	const ControlSolveStep settingsStep = solveControlStep(eval.mLocal[TwoBoneIkSlot::Settings], eval.mRest[TwoBoneIkSlot::Settings], eval.mSettingsDelta);
-
-	MArrayDataHandle hSocket = data.outputArrayValue(aHandleSocketMatrix, &status);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-	writeOutputMatrix(hSocket, TwoBoneIkSlot::Ik, ikStep.mWorld);
-	writeOutputMatrix(hSocket, TwoBoneIkSlot::Pole, poleStep.mWorld);
-	writeOutputMatrix(hSocket, TwoBoneIkSlot::Settings, settingsStep.mWorld);
-	commitOutput(data, plug.node(), aHandleSocketMatrix, hSocket);
-	data.setClean(plug);
 	return MStatus::kSuccess;
 }
 
@@ -523,15 +453,6 @@ RigModuleBuildResult LimbNode::createModule(
 		return result;
 	}
 
-	// The ikTarget child plug (D62 section 8): no control, joint or socket, and optional, so a template that leaves it out keeps the end
-	// joint on the IK handle.
-	{
-		RigModuleChildPlugInfo ikTargetPlug;
-		ikTargetPlug.plugIndex = LimbSlot::IkTargetPlug;
-		ikTargetPlug.optional = true;
-		result.childPlugs[PlugAndSocketNames::IkTarget] = ikTargetPlug;
-	}
-
 	// 3. The ribbon's ik controls, which have no joint (D57): created loose, and put under the start plug's DAG parent in pass 2 (the
 	// callback below). Then the tweakers, one per bind joint, hidden and under the first ik control. Each has a socket (ribbon_<n>, bind_<n>, D78) and neither a plug.
 	const unsigned int controlCount = static_cast<unsigned int>(ribbonControls.size());
@@ -637,17 +558,9 @@ RigModuleBuildResult LimbNode::createModule(
 	// the same control the start control goes under, and a socket with no control (another limb's joint) leaves them where they are.
 	result.dagParentCallback = [oRibbonControls](const RigModuleDagReparentArgs& args)
 	{
-		// The target is a matrix connection only: it has no control to reparent, and the solve is told it has a parent.
-		if (args.childPlug.plugIndex == LimbSlot::IkTargetPlug)
+		if (args.childPlug.plugIndex == TwoBoneIkSlot::IkTargetPlug)
 		{
-			MStatus targetStatus;
-			const MPlug pSocket = LimbNode::getSocketMatrixPlug(args.oParentTargetModuleNode, args.parentSocket.outputIndex, &targetStatus);
-			CHECK_MSTATUS_AND_RETURN_IT(targetStatus);
-			MPlug pTargetRest(args.oChildModuleNode, LimbNode::aIkTargetRestMatrix);
-			DagUtils::setMatrixPlug(pTargetRest, args.parentSocket.mRestWorld, args.dagMod);
-			targetStatus = args.dagMod.connect(pSocket, MPlug(args.oChildModuleNode, LimbNode::aIkTargetMatrix));
-			CHECK_MSTATUS_AND_RETURN_IT(targetStatus);
-			return args.dagMod.newPlugValueBool(MPlug(args.oChildModuleNode, LimbNode::aIkTargetConnected), true);
+			return Part::connectIkTarget(args);
 		}
 		MStatus callbackStatus = LimbNode::reparentChildPlugToSocket(args);
 		CHECK_MSTATUS_AND_RETURN_IT(callbackStatus);
@@ -826,11 +739,7 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 		bindJoints[i].controlMarkup = makeControlMarkup(limbArgs.bindJoints[i].side, StringUtils::numberedName(base + "Tweak", static_cast<int>(i)));
 	}
 
-	outPlan.moduleInterface = TwoBoneIkSolve::makeInterface();
-	// The target moves the end joint and what follows it, and none of the handle, the pole and the settings control (blindSockets): that is
-	// what lets a foot hang from the handle and feed the target. compute() keeps to it through computeHandleSockets.
-	outPlan.moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::IkTarget, false, false, "", "", true,
-		{ PlugAndSocketNames::Ik, PlugAndSocketNames::Pole, PlugAndSocketNames::Settings } });
+	outPlan.moduleInterface = TwoBoneIkSolve::makeInterface();   // with the ikTarget plug and its blindSockets
 	for (const TwoBoneIkSlotInput& slot : slots)
 	{
 		outPlan.moduleInterface.controls.push_back(slot.controlMarkup);
