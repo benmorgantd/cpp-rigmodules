@@ -72,7 +72,7 @@ struct TwoBoneIkPart
 		CHECK_MSTATUS_AND_RETURN_IT(uAttr.setStorable(true));
 		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aRoll));
 
-		Node::aPoleSpace = nAttr.create(RigAttr::PoleSpace, RigAttr::PoleSpace, MFnNumericData::kShort, PoleSpaceLabels::RestIndex, &status);
+		Node::aPoleSpace = nAttr.create(RigAttr::PoleSpace, RigAttr::PoleSpace, MFnNumericData::kShort, PoleSpaceLabels::ParentIndex, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMin(0));
 		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMax(1));
@@ -383,7 +383,9 @@ struct TwoBoneIkPart
 
 	// Queues the half's channels on its controls. The controls must exist before an attribute can be added to them, and the attributes
 	// before they can be wired, as in RigConstraintNode::createConstraint, so the build runs the modifier between this and wireChannels.
-	static MStatus queueChannels(const MObject (&oControls)[TwoBoneIkSlot::Count], double ikFkBlend, MDagModifier& dagMod)
+	// The pole's space is built at rest.poleSpace, the template's poleParentDefault. The channel's default is that value, so zeroing
+	// the controls returns the pole to the space it was built in.
+	static MStatus queueChannels(const MObject (&oControls)[TwoBoneIkSlot::Count], double ikFkBlend, const TwoBoneIkRest& rest, MDagModifier& dagMod)
 	{
 		MStatus status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Settings], RigAttr::IkFkBlend, ikFkBlend, 0.0, 1.0, false, dagMod);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -396,7 +398,7 @@ struct TwoBoneIkPart
 		status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::Pin, 0.0, 0.0, 1.0, false, dagMod);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		// The pole's module-owned space (D52 section 4.4): the module reads it, so it is wired here and not through a rigConstraint.
-		return RigPoseScene::addEnumChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::ControlSpace, { PoleSpaceLabels::Parent, PoleSpaceLabels::Ik }, PoleSpaceLabels::RestIndex, false, dagMod);
+		return RigPoseScene::addEnumChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::ControlSpace, { PoleSpaceLabels::Parent, PoleSpaceLabels::Ik }, rest.poleSpace, false, dagMod);
 	}
 
 	// Wires the channels queueChannels added to the module, drives the controls' visibility, and locks and hides the transform

@@ -174,7 +174,7 @@ std::vector<ModuleInverseChannel> TwoBoneIkNode::inverseChannels()
 		{ RigAttr::Stretch, TwoBoneIkSlot::Settings, 0.0 },
 		{ RigAttr::Pin, TwoBoneIkSlot::Pole, 0.0 },
 		{ RigAttr::Roll, TwoBoneIkSlot::Ik, 0.0 },
-		{ RigAttr::ControlSpace, TwoBoneIkSlot::Pole, static_cast<double>(PoleSpaceLabels::RestIndex) },
+		{ RigAttr::ControlSpace, TwoBoneIkSlot::Pole, static_cast<double>(PoleSpaceLabels::ParentIndex) },   // the rig's own value is always there
 		{ RigAttr::IkFkBlend, TwoBoneIkSlot::Settings, 1.0 }
 	};
 }
@@ -406,7 +406,7 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 		result.status = status;
 		return result;
 	}
-	status = Part::queueChannels(oControls, ikFkBlend, dagMod);
+	status = Part::queueChannels(oControls, ikFkBlend, rest, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
 	status = dagMod.doIt();
 	if (!status)
@@ -432,7 +432,7 @@ RigModuleBuildResult TwoBoneIkNode::createModule(
 bool TwoBoneIkNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, ModulePlan& outPlan)
 {
 	TwoBoneIkArgs ikArgs;
-	if (!readModuleArgs(args, { "joints" }, ctx, ikArgs, { "controlName", "poleOffset", "settingsOffset", RigAttr::IkFkBlend, "ikOrientToWorld", "ikAlignToPole" }))
+	if (!readModuleArgs(args, { "joints" }, ctx, ikArgs, { "controlName", "poleOffset", "settingsOffset", RigAttr::IkFkBlend, "ikOrientToWorld", "ikAlignToPole", "poleParentDefault" }))
 	{
 		return false;
 	}

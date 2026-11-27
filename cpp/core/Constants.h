@@ -464,8 +464,16 @@ namespace PoleSpaceLabels
 {
 	inline constexpr const char* Parent{ "Parent" };
 	inline constexpr const char* Ik{ "Ik" };
-	// The pole's rest and build value: Ik, so a new limb's pole follows the IK handle (D52, amended 2026-11-26).
-	inline constexpr short RestIndex{ 1 };
+	inline constexpr short ParentIndex{ 0 };
+	inline constexpr short IkIndex{ 1 };
+}
+
+// Values of the TwoBoneIk and Limb moduleArgs key "poleParentDefault": the space the pole is built in, which is also its rest.
+// A template key, so a leg's pole can follow the foot while an arm's stays with its parent. Left out, it is Parent.
+namespace PoleParentDefault
+{
+	inline constexpr const char* Parent{ "parent" };
+	inline constexpr const char* Ik{ "ik" };
 }
 
 // Keys of getRigInfo's JSON result. Public API: mayadev reads them through the rigmodules Python package.

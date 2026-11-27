@@ -53,7 +53,7 @@ namespace LimbChannel
 // the skin joints, 5 to 64, root to tip, all leaves: the first sits at the root joint, the last at the end joint, and exactly one at
 // the mid joint. "controlCount" (optional, 3 to 8, default 5): the ribbon's ik controls, the first at the root, one at the mid joint,
 // one at the end, the rest spread between. The other keys are TwoBoneIk's (controlName, poleOffset, settingsOffset, ikFkBlend,
-// ikOrientToWorld, ikAlignToPole). There is no fk ribbon. design/limb.md section 4.1.
+// ikOrientToWorld, ikAlignToPole, poleParentDefault). There is no fk ribbon. design/limb.md section 4.1.
 // "twistRamp" (optional, D75): the Ribbon's, [position, share] pairs with positions in 0 to 1 from the root joint to the end joint (the mid
 // joint at its share of the limb's length). Each ribbon ik control takes that share of the roll of the blended joints at its place.
 struct LimbArgs
@@ -67,9 +67,10 @@ struct LimbArgs
 	double ikFkBlend{ 1.0 };
 	bool ikOrientToWorld{ false };
 	bool ikAlignToPole{ false };
+	std::string poleParentDefault{ PoleParentDefault::Parent };
 	RibbonMath::TwistRamp twistRamp;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(LimbArgs, joints, bindJoints, controlCount, controlName, poleOffset, settingsOffset, ikFkBlend, ikOrientToWorld, ikAlignToPole, twistRamp)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(LimbArgs, joints, bindJoints, controlCount, controlName, poleOffset, settingsOffset, ikFkBlend, ikOrientToWorld, ikAlignToPole, poleParentDefault, twistRamp)
 
 // COUPLED TO TwoBoneIk AND Ribbon (D62, design/limb.md): this node runs their solves (TwoBoneIkSolve, RibbonSolve and core/RibbonMath),
 // the TwoBoneIk half's attributes, plug reads and build (TwoBoneIkPart) and the Ribbon's channels and stored rest. A change to any of

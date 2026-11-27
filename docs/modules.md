@@ -143,6 +143,7 @@ A two-bone limb, an arm or a leg: an FK chain and an IK solve on the same three 
 | `ikFkBlend` | no | 0 to 1: the limb's blend when built, and the rest value of its `ikFkBlend` channel. Default 1 (IK). An arm usually wants 0 (FK). Out of range fails the build |
 | `ikOrientToWorld` | no | `true` puts the IK handle on world axes instead of the end joint's. Default `false`. For arms and legs that want orthogonal controls. The joints keep their bind pose |
 | `ikAlignToPole` | no | `true` (needs `ikOrientToWorld`) turns the world-aligned handle about world Y only, so +Z points along the horizontal part of the line from the end joint to the pole. Default `false`. For feet. Fails the build when the pole is straight above or below the end joint |
+| `poleParentDefault` | no | `"parent"` or `"ik"`: the pole's `space` when built, and the rest value of that channel (below). Default `"parent"`. A leg usually wants `"ik"`, so the knee's pole travels with the foot. Any other value fails the build |
 
 There are **no marker joints** (D57). The three limb joints belong to this module alone, and the other three controls are placed from them:
 
@@ -175,7 +176,7 @@ There are **no marker joints** (D57). The three limb joints belong to this modul
 - **`soft`** (0 to 1, default 0): eases the reach as the handle nears full length, so the elbow doesn't snap straight. It is a fraction of the limb's reach: 0 is a hard stop, and 0.1 starts easing in the last tenth of the reach. With `stretch` off, the end stops a little short of a far handle, which is the point of soft IK.
 - **`pin`** (0 to 1, default 0, on the pole): 1 puts the elbow on the pole control and the wrist on the handle, so the bones lengthen or shorten to fit. Pin wins over stretch and soft, and it fades `roll` out.
 - **`roll`** (an angle, default 0, on the IK handle): turns the bend plane about the root-to-handle axis, right-handed. A mirrored limb negates it.
-- **The pole's `space`** (`Ik` or `Parent`, default `Ik`): in `Ik` the pole follows the IK handle's motion, so moving the hand carries the pole with it. In `Parent` the pole follows what its child plug is attached to (`layout_00_M_MOD.end` by default). A Limb's pole works the same way. This space belongs to the module, so the template can't add to it and a constraint on `pole` is an error. Switch it with [`setRigControlSpace`](commands.md#setrigcontrolspace)`(pole, label="Ik")`, which keeps the pole where it is in the world. [`getRigControlSpace`](commands.md#getrigcontrolspace) lists it with the other spaces. Setting it directly with `setAttr` moves the pole and doesn't match.
+- **The pole's `space`** (`Parent` or `Ik`, built in the space `poleParentDefault` names, `Parent` by default): in `Parent` the pole follows what its child plug is attached to (`layout_00_M_MOD.end` by default). In `Ik` it follows the IK handle's motion, so moving the hand or foot carries the pole with it. A Limb's pole works the same way. `zeroRigControls` puts the pole back in its built space. This space belongs to the module, so the template can't add to it and a constraint on `pole` is an error. Switch it with [`setRigControlSpace`](commands.md#setrigcontrolspace)`(pole, label="Ik")`, which keeps the pole where it is in the world. [`getRigControlSpace`](commands.md#getrigcontrolspace) lists it with the other spaces. Setting it directly with `setAttr` moves the pole and doesn't match.
 - **The solve is stateless**: the same controls always give the same pose. A pole that crosses the line from the root to the handle flips the bend, as in a native IK. With the pole exactly on that line the bend keeps the direction it had at rest.
 - A handle on the root folds the limb to its shortest reach. No input gives a NaN.
 - Each IK joint keeps its rest orientation at rest, wherever the rigger put the pole. The end joint's rotation follows the IK handle's.
@@ -214,7 +215,7 @@ from maya import cmds
 
 cmds.setAttr("rig:armIK_00_L_CTRL.translateY", 3)               # the hand follows the handle
 cmds.setAttr("rig:armSettings_00_L_CTRL.stretch", 1)             # and reaches it even when it is far
-cmds.setAttr("rig:armPole_00_L_CTRL.space", 0)                   # the pole stops following the handle (Parent)
+cmds.setAttr("rig:armPole_00_L_CTRL.space", 1)                   # the pole now follows the handle (Ik)
 ```
 
 ## Ribbon
@@ -412,7 +413,7 @@ The limb's own joints (`joints`) are the IK/FK chain and are not skin joints. Ea
 | `joints` | required | The three limb joints, `[side, usage]` each: root, mid, end |
 | `bindJoints` | required | 5 to 64 skin joints, root to tip (above) |
 | `controlCount` | 5 | The ribbon's ik controls, 3 to 8: one at the root, one at the mid joint, one at the end, and the rest spread between. 5 gives the upper and the lower arm a middle control each |
-| `controlName`, `poleOffset`, `settingsOffset`, `ikFkBlend`, `ikOrientToWorld`, `ikAlignToPole` | as TwoBoneIk | See [TwoBoneIk](#twoboneik) |
+| `controlName`, `poleOffset`, `settingsOffset`, `ikFkBlend`, `ikOrientToWorld`, `ikAlignToPole`, `poleParentDefault` | as TwoBoneIk | See [TwoBoneIk](#twoboneik) |
 | `twistRamp` | all of the roll | `[position, share]` pairs, as the [Ribbon's](#ribbon): how much of the roll of the blended joints each ribbon ik control takes. Positions run from 0 at the root joint to 1 at the end joint, with the mid joint at its share of the limb's length. `[[0, 1.0], [1, 0.0]]` keeps the hand's roll off the last ribbon control. The controls' shares reach the bind joints too |
 
 There is no fk ribbon: the ribbon follows the blended joints.

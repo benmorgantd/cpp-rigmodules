@@ -106,6 +106,7 @@ struct TwoBoneIkSlotInput
 // derived from them (D57). "controlName" (optional): the base of their usages, <base>IK, <base>Pole and <base>Settings.
 // "poleOffset" and "settingsOffset" (optional, [x, y, z] in world space, left out or empty for the default): the pole's offset from
 // the mid joint and the settings control's from the end joint. The other side of a mirrored module gets X negated.
+// "poleParentDefault" (optional, PoleParentDefault: "parent", the default, or "ik"): the space the pole is built in, and its rest.
 struct TwoBoneIkArgs
 {
 	std::vector<JointSelector> joints;
@@ -115,8 +116,9 @@ struct TwoBoneIkArgs
 	double ikFkBlend{ 1.0 };
 	bool ikOrientToWorld{ false };
 	bool ikAlignToPole{ false };
+	std::string poleParentDefault{ PoleParentDefault::Parent };
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(TwoBoneIkArgs, joints, controlName, poleOffset, settingsOffset, ikFkBlend, ikOrientToWorld, ikAlignToPole)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(TwoBoneIkArgs, joints, controlName, poleOffset, settingsOffset, ikFkBlend, ikOrientToWorld, ikAlignToPole, poleParentDefault)
 
 // What the plan step works out from the rest pose, stored on the node by createModule (D52 section 4.3).
 struct TwoBoneIkRest
@@ -126,6 +128,7 @@ struct TwoBoneIkRest
 	double restPlaneAngle = 0.0;    // radians. See TwoBoneIkInput::restPlaneAngle.
 	MVector restBendNormal;
 	std::array<MMatrix, TwoBoneIkSlot::LimbCount> ikRestOffset;   // jointRest * frameAtRest^-1, per limb joint
+	short poleSpace = PoleSpaceLabels::ParentIndex;              // the pole's build value and rest, from poleParentDefault
 };
 
 struct TwoBoneIkSolveResult

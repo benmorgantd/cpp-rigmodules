@@ -640,7 +640,7 @@ RigModuleBuildResult LimbNode::createModule(
 		result.status = status;
 		return result;
 	}
-	status = Part::queueChannels(oControls, ikFkBlend, dagMod);
+	status = Part::queueChannels(oControls, ikFkBlend, rest, dagMod);
 	CHECK_MSTATUS_AND_RETURN(status, result);
 	const std::array<ChannelSpec, LimbChannel::Count>& specs = limbChannelSpecs();
 	for (const ChannelSpec& spec : specs)
@@ -708,7 +708,7 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 {
 	LimbArgs limbArgs;
 	if (!readModuleArgs(args, { "joints", "bindJoints" }, ctx, limbArgs,
-		{ "controlCount", "controlName", "poleOffset", "settingsOffset", RigAttr::IkFkBlend, "ikOrientToWorld", "ikAlignToPole", "twistRamp" }))
+		{ "controlCount", "controlName", "poleOffset", "settingsOffset", RigAttr::IkFkBlend, "ikOrientToWorld", "ikAlignToPole", "poleParentDefault", "twistRamp" }))
 	{
 		return false;
 	}
@@ -754,7 +754,7 @@ bool LimbNode::planFromJson(const nlohmann::json& args, PlanContext& ctx, Module
 	}
 
 	const TwoBoneIkArgs ikArgs{ limbArgs.joints, limbArgs.controlName, limbArgs.poleOffset, limbArgs.settingsOffset, limbArgs.ikFkBlend,
-		limbArgs.ikOrientToWorld, limbArgs.ikAlignToPole };
+		limbArgs.ikOrientToWorld, limbArgs.ikAlignToPole, limbArgs.poleParentDefault };
 	std::array<TwoBoneIkSlotInput, TwoBoneIkSlot::Count> slots;
 	TwoBoneIkRest rest;
 	valid = TwoBoneIkSolve::planSlots(ikArgs, ctx, slots, rest) && valid;

@@ -1,8 +1,8 @@
 {
-  "description": "Handle moved by (-5,5,0) to (0,5,0), axis +Y, the pole control is at rest (2.5,5,0) and the pole's space is set to Parent (the default is Ik), so it stays: its perpendicular to the axis is +X, n = +X, mid = 1.8*(0,1,0) + 2.4*(1,0,0) = (2.4,1.8,0). The pole joint stays (2.5,5,0).",
+  "description": "Handle moved by (-5,5,0) to (0,5,0), axis +Y, the pole control is at rest (2.5,5,0) and the pole's space is Parent (the default), so it stays: its perpendicular to the axis is +X, n = +X, mid = 1.8*(0,1,0) + 2.4*(1,0,0) = (2.4,1.8,0). The pole joint stays (2.5,5,0).",
   "skeleton": "twoboneik_basic",
   "template": "twoboneik_basic",
-  "set": { "armIK_00_L_CTRL.translateX": -5, "armIK_00_L_CTRL.translateY": 5, "armPole_00_L_CTRL.space": 0 },
+  "set": { "armIK_00_L_CTRL.translateX": -5, "armIK_00_L_CTRL.translateY": 5 },
   "expect": {
     "lowerArm_00_M_JNT": { "translate": [2.4, 1.8, 0] },
     "hand_00_M_JNT": { "translate": [0, 5, 0] }

@@ -299,7 +299,7 @@ class TwoBoneIkBehaviour(RigTestCase):
         pole = channels(POLE)
         self.assertEqual(sorted(pole), ["pin", "space", "translateX", "translateY", "translateZ"])
         self.assertEqual((pole["pin"].rest, pole["pin"].mirror), (0.0, "copy"))
-        self.assertEqual((pole["space"].type, pole["space"].rest, pole["space"].mirror), ("enum", 1, "copy"))   # Ik (D52, amended 2026-11-26)
+        self.assertEqual((pole["space"].type, pole["space"].rest, pole["space"].mirror), ("enum", 0, "copy"))
 
         # The FK controls are FkChain's: translate, rotate and scale. Visibility is a channel only where the module doesn't drive it.
         self.assertEqual(len(channels(ARM[0])), 10)
@@ -505,6 +505,56 @@ class TwoBoneIkDerivedControls(RigTestCase):
         message = self.assertMayaError(lambda: self._build_basic(
             controlName="arm", poleOffset=[3.2, 2.6, 0], ikOrientToWorld=True, ikAlignToPole=True))
         self.assertIn("ikAlignToPole", message)
+        self.assertNothingBuilt()
+
+    # ---- poleParentDefault (D52, amended 2026-11-26) ---------------------------------------------
+
+    def _move_handle_and_get_pole_motion(self):
+        """Moves the handle by a pure translation and returns (the handle's world motion, the pole's). The handle takes the end
+        joint's axes, so its translate is not in world axes: the test compares world motions, not channel values."""
+        pole_rest, handle_rest = translation(POLE), translation(HANDLE)
+        cmds.setAttr(rig_name(HANDLE + ".translate"), 1, 2, 0)
+        handle_motion = [n - r for n, r in zip(translation(HANDLE), handle_rest)]
+        pole_motion = [n - r for n, r in zip(translation(POLE), pole_rest)]
+        self.assertGreater(sum(v * v for v in handle_motion), 1.0)
+        return handle_motion, pole_motion
+
+    def test_left_out_the_pole_is_built_in_parent_and_stays_when_the_handle_moves(self):
+        self._build_basic(controlName="arm")
+        self.assertEqual(attr(POLE, "space"), 0)
+        _, pole_motion = self._move_handle_and_get_pole_motion()
+        for value in pole_motion:
+            self.assertAlmostEqual(value, 0.0, places=4)
+
+    def test_parent_is_the_same_as_left_out(self):
+        self._build_basic(controlName="arm", poleParentDefault="parent")
+        self.assertEqual(attr(POLE, "space"), 0)
+        self.assertEqual(rigmodules.query.find_control_space(rig_name(POLE)).current, 0)
+
+    def test_ik_builds_the_pole_in_ik_as_its_rest_and_it_follows_the_handle(self):
+        self._build_basic(controlName="arm", poleParentDefault="ik")
+        self.assertEqual(attr(POLE, "space"), 1)
+        space = {c.name: c for c in rigmodules.query.get_control_channels(rig_name(POLE))}["space"]
+        self.assertEqual(space.rest, 1)   # zeroRigControls and a pose without space give Ik
+        handle_motion, pole_motion = self._move_handle_and_get_pole_motion()
+        for handle_value, pole_value in zip(handle_motion, pole_motion):
+            self.assertAlmostEqual(pole_value, handle_value, places=4)
+
+    def test_ik_at_rest_puts_the_pole_where_parent_does(self):
+        self._build_basic(controlName="arm", poleOffset=[0, 2.6, 0], poleParentDefault="ik")
+        self.assertWorldTranslation(rig_name(POLE), [1.8, 5, 0])
+        self._assert_bind_pose_kept()
+
+    def test_both_sides_of_a_mirrored_limb_take_it(self):
+        data = self._template("twoboneik_mirror", controlName="arm", poleParentDefault="ik")
+        self.build_standard(data, "twoboneik_mirror")
+        self.assertEqual(cmds.getAttr(rig_name("armPole_00_L_CTRL.space")), 1)
+        self.assertEqual(cmds.getAttr(rig_name("armPole_00_R_CTRL.space")), 1)
+
+    def test_any_other_value_is_an_error(self):
+        message = self.assertMayaError(lambda: self._build_basic(controlName="arm", poleParentDefault="Ik"))
+        self.assertIn("poleParentDefault", message)
+        self.assertIn('"parent" or "ik"', message)
         self.assertNothingBuilt()
 
     # ---- a straight limb -----------------------------------------------------------------------

@@ -385,7 +385,7 @@ json.loads(text)
 # {"constraint": "hero_body:arm_00_L_CON", "module": "", "labels": ["World", "Chest"], "current": 1}
 text = cmds.getRigControlSpace("hero_body:armPole_00_L_CTRL")
 json.loads(text)
-# {"constraint": "", "module": "hero_body:arm_00_L_MOD", "labels": ["Parent", "Ik"], "current": 1}
+# {"constraint": "", "module": "hero_body:arm_00_L_MOD", "labels": ["Parent", "Ik"], "current": 0}
 ```
 
 Object: exactly one rig control. Returns a JSON string, or an empty string for a control that has no space switch. A control built with a single driver has none: the `space` enum exists only for two or more drivers. From Python, [`rigmodules.query.find_control_space`](python.md#rigmodulesquery) wraps it.
@@ -405,7 +405,7 @@ Switches a control to another space and keeps the control where it is in the wor
 
 ```python
 cmds.setRigControlSpace("hero_body:arm_00_L_CTRL", label="Chest")
-cmds.setRigControlSpace("hero_body:armPole_00_L_CTRL", space=0)    # the pole stops following the IK handle (Parent)
+cmds.setRigControlSpace("hero_body:armPole_00_L_CTRL", space=1)    # the pole follows the IK handle
 ```
 
 | Flag | Type | Meaning |

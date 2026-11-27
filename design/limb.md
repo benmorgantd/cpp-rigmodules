@@ -41,7 +41,7 @@ The `Twist` constraint came first (2026-11-18, D31 amendment). A plug takes one 
 | `controlCount` | 5 | Ribbon ik controls, 3 to 8. 3 is start, mid and end. With 5, the upper and lower segments each get an interior control. The mid control is pinned at the mid joint, and extras are divided between the segments in proportion to their length |
 | `controlName` | first joint's usage without `_NN` | The base of every control usage |
 | `poleOffset`, `settingsOffset` | derived | As `TwoBoneIk` (D57), X negated on a mirrored copy |
-| `ikOrientToWorld`, `ikAlignToPole`, `ikFkBlend` | as `TwoBoneIk` | Same names and meanings |
+| `ikOrientToWorld`, `ikAlignToPole`, `ikFkBlend`, `poleParentDefault` | as `TwoBoneIk` | Same names and meanings |
 | `twistRamp` | all of the roll (D75) | `[position, share]` pairs, the Ribbon's: how much of the anchors' roll each ribbon ik control, and the twist the bind joints ease through at it, takes. Positions are in the anchors' chord-share space (`knotU`). Stored per ik control in `fkRollShare`, and read by `inverse()` through `ModuleInverseContext::fkRollShare` |
 
 There is no fk ribbon and no `fkStyle` (author, 2026-11-19: the ribbon does not support FK). Mirroring is template data (D28) and `planFromJson` negates the offsets through `isMirror()`, as `TwoBoneIk` does. `moduleVersion` starts at 1.

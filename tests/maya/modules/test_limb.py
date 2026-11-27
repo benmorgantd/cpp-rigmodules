@@ -146,10 +146,16 @@ class LimbBehaviour(RigTestCase):
         self.assertWorldTranslation(rig_name("armRibbonIK_01_L_CTRL"), [4, 0, 0], 1e-4)
         self.assertWorldTranslation(rig_name("armRibbonIK_02_L_CTRL"), [4, 4, 0], 1e-4)
 
-    def test_a_new_pole_is_in_ik_space_and_follows_the_handle(self):
-        # D52, amended 2026-11-26: the pole is built in Ik. A pure translation of the handle moves the pole by the handle's own
-        # world motion (the handle's rest is turned, so its translate is not in world axes).
+    def test_the_pole_is_built_in_parent_unless_pole_parent_default_says_ik(self):
         self._build()
+        self.assertEqual(cmds.getAttr(rig_name(POLE + ".space")), 0)
+
+    def test_pole_parent_default_ik_builds_the_pole_in_ik_and_it_follows_the_handle(self):
+        # D52, amended 2026-11-26. A pure translation of the handle moves the pole by the handle's own world motion (the handle's
+        # rest is turned, so its translate is not in world axes).
+        data = copy.deepcopy(fixtures.load_template("limb_arm"))
+        data["rigModules"][0]["moduleArgs"]["poleParentDefault"] = "ik"
+        self.build(data, self.make_skeleton("limb_arm"), label="limb_pole_ik")
         self.assertEqual(cmds.getAttr(rig_name(POLE + ".space")), 1)
         pole_rest = cmds.xform(rig_name(POLE), query=True, worldSpace=True, translation=True)
         handle_rest = cmds.xform(rig_name(HANDLE), query=True, worldSpace=True, translation=True)

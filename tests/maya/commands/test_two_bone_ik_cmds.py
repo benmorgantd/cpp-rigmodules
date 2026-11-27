@@ -74,8 +74,7 @@ class TwoBoneIkSwitch(SwitchTestCase):
         # Upper arm turned -90 about Z: (x,y) -> (y,-x). Mid (1.8,2.4) goes to (2.4,-1.8) and the hand to (0,-5,0).
         # Handle: world (0,-5,0) against its rest (5,0,0) is translate (-5,-5,0), turned -90 with the limb.
         # Pole: the limb's axis is -Y, the elbow bends toward +X, and the mid joint is 1.8 along the axis. The pole sits at
-        # its rest height 5 on that side: world (5,-1.8,0), local (2.5,-6.8,0) against its rest (2.5,5,0), in Parent space.
-        cmds.setAttr(rig_name(POLE + ".space"), 0)
+        # its rest height 5 on that side: world (5,-1.8,0), local (2.5,-6.8,0) against its rest (2.5,5,0).
         cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0)
         cmds.setAttr(rig_name(UPPER + ".rotateZ"), -90)
         self.assertWorldTranslation(rig_name("lowerArm_00_M_JNT"), [2.4, -1.8, 0])
@@ -88,12 +87,6 @@ class TwoBoneIkSwitch(SwitchTestCase):
         self.assertJointsAt(before)
         self.assertTrue(any(name.endswith(HANDLE) for name in changed), changed)
         self.assertTrue(any(name.endswith(SETTINGS) for name in changed), changed)
-
-    def test_a_new_pole_is_in_ik_space_and_follows_the_handle(self):
-        # D52, amended 2026-11-26: the pole is built in Ik. The handle moves (2,1,0), so the pole goes from (2.5,5,0) to (4.5,6,0).
-        self.assertEqual(json.loads(cmds.getRigControlSpace(rig_name(POLE)))["current"], 1)
-        self.set_plugs({HANDLE + ".translateX": 2, HANDLE + ".translateY": 1})
-        self.assertWorldTranslation(rig_name(POLE), [4.5, 6, 0], 1e-4)
 
     def test_ik_to_fk_writes_the_fk_rotations_that_hold_a_moved_handle(self):
         # Handle to world (4,-3,0): distance 5 along -36.8699 degrees, translate (-1,-3,0) against its rest (5,0,0). The
@@ -379,14 +372,12 @@ class TwoBoneIkPoleSpace(SwitchTestCase):
     """setRigControlSpace and getRigControlSpace on the pole's module-owned space (D52 phase 7).
 
     The basic limb: the pole's rest is (2.5,5,0), the handle's (5,0,0), and both hang from layout_00_M_MOD.end. A control's world
-    translate is its rest plus its parent's motion plus its own translate, so the cases are worked by hand. The pole is built in
-    Ik (D52, amended 2026-11-26), and every case here starts it in Parent: at rest the two spaces agree, so the setAttr moves nothing.
+    translate is its rest plus its parent's motion plus its own translate, so the cases are worked by hand.
     """
 
     def setUp(self):
         super().setUp()
         self.build_standard("twoboneik_basic", "twoboneik_basic")
-        cmds.setAttr(rig_name(POLE + ".space"), 0)
 
     def space(self, control=POLE):
         return cmds.getRigControlSpace(rig_name(control))

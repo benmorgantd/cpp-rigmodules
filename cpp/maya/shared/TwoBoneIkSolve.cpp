@@ -295,6 +295,13 @@ bool TwoBoneIkSolve::planSlots(const TwoBoneIkArgs& ikArgs, PlanContext& ctx, st
 		ctx.report.addError(argsPath + "." + RigAttr::IkFkBlend, "must be between 0 (FK) and 1 (IK), got " + std::to_string(ikArgs.ikFkBlend));
 		valid = false;
 	}
+	const bool poleInIk = ikArgs.poleParentDefault == PoleParentDefault::Ik;
+	if (!poleInIk && ikArgs.poleParentDefault != PoleParentDefault::Parent)
+	{
+		ctx.report.addError(argsPath + ".poleParentDefault", std::string("must be \"") + PoleParentDefault::Parent + "\" or \""
+			+ PoleParentDefault::Ik + "\", got \"" + ikArgs.poleParentDefault + "\"");
+		valid = false;
+	}
 	if (ikArgs.ikAlignToPole && !ikArgs.ikOrientToWorld)
 	{
 		ctx.report.addError(argsPath + ".ikAlignToPole", "turns a world-aligned handle toward the pole, so it needs ikOrientToWorld set to true as well");
@@ -426,6 +433,7 @@ bool TwoBoneIkSolve::planSlots(const TwoBoneIkArgs& ikArgs, PlanContext& ctx, st
 		restWorlds[slot] = slots[slot].mRestWorld;
 	}
 	outRest = computeRest(restWorlds);
+	outRest.poleSpace = poleInIk ? PoleSpaceLabels::IkIndex : PoleSpaceLabels::ParentIndex;
 	return true;
 }
 
