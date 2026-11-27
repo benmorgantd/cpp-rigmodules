@@ -3,7 +3,7 @@
 The module nodes and how they are designed: two-bone IK, Ribbon, Limb, control placement, template keys, module naming, and what comes after the limb. Part of the decision log: the Index and the open items are in [`../decisions.md`](../decisions.md). Entries are in number order.
 
 ### D46. After the IK limb: a pose-driver with a marker spec, then the face module, and overlap only on request
-**Status:** Leaning (author, 2026-11-13). Not built. Details: `module-directions.md`. The IK limb stays next (2026-11-10).
+**Status:** Leaning (author, 2026-11-13). Not built. Details: `ideas/module-directions.md`. The IK limb stays next (2026-11-10).
 The next modules are a stateless pose-driver (cone, distance or RBF solves over world matrices, defined in JSON) with a marker spec for the engine, then the face module (D45) with a channel map and a connectivity rules file, and overlap only as a stateless approximation if animators ask. Stateful simulation stays engine-side.
 - **Why (author's production experience):** secondary behaviour such as high collars and correctives is driven by pose and does not need state. Velocity-based overlap needs frame history, which breaks scrubbing and parallel evaluation (D36).
 - **Rejected:** a stateful simulation module. A live node for face connectivity (the driven channel would be unkeyable, so rules are data applied by an animator-facing tool). Building the system around swappable gear parts: the plug and socket model limited design continuity and paid off mainly for microtransactions.

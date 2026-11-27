@@ -35,32 +35,32 @@ Design pages are history with dates, not user documentation. What a feature does
 | [`derived-controls.md`](derived-controls.md) | D57 | Built (phases 0 to 5, 2026-11-18). The solomon asset's own files are the author's to change |
 | [`ribbon-twist-follow.md`](ribbon-twist-follow.md) | D56 | Proposed, not signed off |
 | [`limb.md`](limb.md) | D62 | Signed off 2026-11-19, phases 0 to 6 built (the module, the inverse, `ikTarget`, the perf rig); `ReverseFoot` is the open piece, see `reverse-foot.md`: a Limb module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon. Changes to those modules affect it |
-| [`control-node-perf-handoff.md`](control-node-perf-handoff.md) | D36, D37 | Handoff, nothing built |
-
-## Handoffs
-
-A handoff says "delete when its work is committed". Where the work is built but not committed, the page stays.
-
-[`reverse-foot-handoff.md`](reverse-foot-handoff.md) (D73, D74): the build phases for markers and `ReverseFoot`, written for a fresh session. Delete it when the phases are committed.
-
-[`reverse-foot-handoff-2.md`](reverse-foot-handoff-2.md) (D73, D74): where that work stands after phase 4 (phases 5 and 6 left, an uncommitted toe FK naming fix, the author's solomon asset, the colour axis marker shape and the mayadev Markers asset row). Delete it with the first one.
-
-Otherwise none. `control-node-perf-handoff.md` (above) is a design handoff with nothing built, so it stays until that work is designed.
-
-## Proposals and speculation (nothing built)
-
-| Page | Decision | Area |
-|---|---|---|
 | [`reverse-foot.md`](reverse-foot.md) | D74 | `ReverseFoot`: roll, pivot and toe channels on a Limb, an FK toe, the inverse. Signed off 2026-11-24. Phases 2 to 5 built (the math, the module, the toe, the toe FK control, the blend from its limb, and the inverse and match, 2026-11-25); the perf rig (phase 6) is not |
 | [`push-out.md`](push-out.md) | D79 | `PushOut`: an entry in a `collisions` template list that keeps one control's plug out of one capsule, with a temporary display. Replaces the D77 collision design (parked on the `collision` branch). Built 2026-11-26, user page `docs/push-out.md`; the perf rig and `bench` are not done |
 | [`markers.md`](markers.md) | D73 | Markers: placed points that follow a joint, in a `markers.json` of their own. The foot's pivots need it. Signed off 2026-11-24. Phases 0 and 1 built, and the `Axis` locator shape, user page `docs/markers.md` |
-| [`module-directions.md`](module-directions.md) | D46 | Where the modules go after the IK limb |
-| [`asset-pipeline.md`](asset-pipeline.md) | D44, D45 | The art stages before the rig, face data |
 | [`asset-build-fallbacks.md`](asset-build-fallbacks.md) | D70 | Builds that survive a changed skeleton, mesh or weights: the fallback ladder (phase 1 built), the transfer (open, no mesh data in the weight files), draft and baseline gates |
-| [`asset-build-fallbacks-handoff.md`](asset-build-fallbacks-handoff.md) | D70 | Where the D70 design stood at the cloud handoff (phase 1 has since been built: see D70) |
-| [`engine-rig.md`](engine-rig.md) | none | Running the rig in Unreal. Speculation, unverified |
-| [`command-results.md`](command-results.md) | none yet | One JSON envelope for command results and errors (domain failures as `ok: false`, misuse as `kFailure`), built in `core/`, for scripts and an MCP server. Proposal, not signed off |
-| [`ml-solve.md`](ml-solve.md) | D76 | Machine learning on the animation formats: mocap solving, blending, tweening, a non-ML baseline first. Early exploration |
+
+## Proposals (nothing built)
+
+| Page | Decision | Area |
+|---|---|---|
+| [`asset-pipeline.md`](asset-pipeline.md) | D44, D45 | The art stages before the rig, face data |
+
+## Ideas
+
+[`ideas/`](ideas/) holds directions and speculation that nobody has signed off and nothing is built from. Read one only when its topic comes up. Where one and a decision disagree, the decision wins.
+
+| Page | Decision | Area |
+|---|---|---|
+| [`ideas/control-node-perf.md`](ideas/control-node-perf.md) | D36, D37 | Making `rigControlNode` cheaper to evaluate: the 2026-11-15 measurements and the design space |
+| [`ideas/module-directions.md`](ideas/module-directions.md) | D46 | Where the modules go after the IK limb |
+| [`ideas/engine-rig.md`](ideas/engine-rig.md) | none | Running the rig in Unreal. Speculation, unverified |
+| [`ideas/command-results.md`](ideas/command-results.md) | none yet | One JSON envelope for command results and errors, built in `core/`, for scripts and an MCP server |
+| [`ideas/ml-solve.md`](ideas/ml-solve.md) | D76 | Machine learning on the animation formats: mocap solving, blending, tweening, a non-ML baseline first |
+
+## Handoffs
+
+A handoff is a note for the next session. Delete it in the commit that finishes its work, and move anything still open into the area's design page or decision first. There are none now.
 
 ## Archive
 

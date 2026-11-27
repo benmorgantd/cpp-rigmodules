@@ -168,7 +168,7 @@ Props move between hand, hip and world, which is a space switch across two rigs,
 
 ### 7.3 The face's parameters node (recorded here, designed later)
 
-The face's output to blend shapes should be a node, not blend shape weights: control channels in, named 0 to 1 parameters out. The engine reads the parameters, not the deformer's values, to drive its own face. The node is where in-betweens and correctives are wired. On a look swap it is the one node that reconnects to the new look's blend shapes. It is a new module and goes through the gate. It belongs with the face module in `module-directions.md` (D46).
+The face's output to blend shapes should be a node, not blend shape weights: control channels in, named 0 to 1 parameters out. The engine reads the parameters, not the deformer's values, to drive its own face. The node is where in-betweens and correctives are wired. On a look swap it is the one node that reconnects to the new look's blend shapes. It is a new module and goes through the gate. It belongs with the face module in `ideas/module-directions.md` (D46).
 
 ## 8. Answered questions (author, 2026-11-16)
 

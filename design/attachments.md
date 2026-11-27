@@ -8,7 +8,7 @@ Status: signed off by the author and built 2026-11-17 (D55). The mayadev side (s
 - Hiding is `DagUtils::queueHideAndLockVisibility` plus the existing `queueLockAndHideTransform`. "Zeroed" needed no step: a new control is at rest.
 - A control the parent drives alone is found by `RigTemplateValidation::isDrivenByParent`, so a constraint with a `parent:` driver and another driver stays a free space switch.
 - Open point 1 (how the face models overlapping controls) and 2 (skip the DAG reparent) were built as proposed: the author signed off without changing either.
-- Perf: 20 complex rigs, parallel evaluation, 25.9 fps alone and 25.6 fps with 80 attachments (4 per rig, 24 joints each). Both are below the 30 fps target: the shortfall was there before this change (`control-node-perf-handoff.md`). Attachments cost about 0.3 fps for 26% more joints.
+- Perf: 20 complex rigs, parallel evaluation, 25.9 fps alone and 25.6 fps with 80 attachments (4 per rig, 24 joints each). Both are below the 30 fps target: the shortfall was there before this change (`ideas/control-node-perf.md`). Attachments cost about 0.3 fps for 26% more joints.
 
 ## 1. The animator-facing problem
 
@@ -21,7 +21,7 @@ Mostly. Two pieces already cross rigs or modules:
 - `RigConstraintNode::resolveSocket` takes `"namespace:module.socket"`, so a constraint driver can already name a module in another rig.
 - The parenting pass (`parentModuleControls`, `RigBuild.cpp`) connects a module's child plug to a parent socket, but only through the rig's own module map.
 
-The gap is therefore small: the parenting pass and the template validation only know one rig. So the proposal is **no new node** (author, 2026-11-17). It extends two existing things. This also avoids a new node's evaluation cost, which matters because the 20-rig target of 30 fps is already missed (22 to 28 fps, `control-node-perf-handoff.md`).
+The gap is therefore small: the parenting pass and the template validation only know one rig. So the proposal is **no new node** (author, 2026-11-17). It extends two existing things. This also avoids a new node's evaluation cost, which matters because the 20-rig target of 30 fps is already missed (22 to 28 fps, `ideas/control-node-perf.md`).
 
 ## 3. Design
 
@@ -56,7 +56,7 @@ Attaching is build time: the connections are written by `createRigFromTemplate`.
 ### 3.5 Libraries, info, export, looks
 
 - **Poses and animation:** an attachment is a rig, so it has its own `controlposes` and `controlanims` (D42, D51). The `meta` block gets no new field: `getRigInfo` names the parent, and `rig.json` names it on disk.
-- **Export:** the attachment's skeleton is its own file and hash (D54), so the engine export stays separate. I did not read `design/engine-rig.md` for this, so treat that as unchecked.
+- **Export:** the attachment's skeleton is its own file and hash (D54), so the engine export stays separate. I did not read `design/ideas/engine-rig.md` for this, so treat that as unchecked.
 - **Looks:** `setRigLook` works on one rig root. A look that spans body and face is mayadev's `apply_look` calling it once per rig. Not handled in RigModules.
 - **Mirroring:** `TemplateMirror` swaps the side in `parentStructure` and driver ids, and must keep the `parent:` prefix while swapping the module name. This needs a test.
 

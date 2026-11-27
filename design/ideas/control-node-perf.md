@@ -1,4 +1,4 @@
-# Handoff: making `rigControlNode` cheaper to evaluate (D36, D37)
+# Idea: making `rigControlNode` cheaper to evaluate (D36, D37)
 
 Written 2026-11-15 after the D52 phase 8 `bench` run. Nothing here is built. The author has said they will change the node drastically if that is what it takes, so the design space below includes replacing it. Read CLAUDE.md, then D33, D36, D37 and D38 in `design/decisions.md`, then `cpp/maya/nodes/RigControlNode.h/.cpp`, then `tests/README.md` (the perf section). Propose a design and wait for sign-off before writing code (CLAUDE.md working style). A change to the node type name or its attributes is public API and needs its own decision and a format update (D33).
 

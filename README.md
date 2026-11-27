@@ -136,11 +136,11 @@ Details, `moduleArgs` and behaviour are in [docs/modules.md](docs/modules.md).
 | [design/asset-model.md](design/asset-model.md) | Asset id, namespaces and the file model (rigs and looks replace variants: [design/rigs-and-looks.md](design/rigs-and-looks.md)) |
 | [design/inverse-solve.md](design/inverse-solve.md) | Restoring controls from joints |
 | [design/control-library.md](design/control-library.md) | The pose and animation library design |
-| [design/engine-rig.md](design/engine-rig.md) | Running the rig in Unreal (speculative, not decided) |
+| [design/ideas/engine-rig.md](design/ideas/engine-rig.md) | Running the rig in Unreal (speculative, not decided) |
 | [design/asset-pipeline.md](design/asset-pipeline.md) | Proposal for the art stages before the rig: file types with stages, a status model, intake checks |
-| [design/module-directions.md](design/module-directions.md) | Proposed module directions after the IK limb |
-| [design/command-results.md](design/command-results.md) | Proposed JSON result envelope for commands |
-| [design/ml-solve.md](design/ml-solve.md) | Early exploration of machine learning on the animation formats |
+| [design/ideas/module-directions.md](design/ideas/module-directions.md) | Proposed module directions after the IK limb |
+| [design/ideas/command-results.md](design/ideas/command-results.md) | Proposed JSON result envelope for commands |
+| [design/ideas/ml-solve.md](design/ideas/ml-solve.md) | Early exploration of machine learning on the animation formats |
 | [design/mayadev-integration.md](design/mayadev-integration.md) | Plan for how RigModules and the mayadev Python pipeline fit together |
 | [design/tool-registry.md](design/tool-registry.md) | Proposal for mayadev's tool registry: fixes, readable ids, function calls, checked and versioned files |
 | [design/active-rig-panel.md](design/active-rig-panel.md) | The active rig panel (D50, built in mayadev except its out-of-date line): rig picker, control selection by module and side, pose tools and space switching, as a view over `RigPanelSession` |

@@ -10,7 +10,7 @@ A module sometimes needs a point that no bind joint marks: the reverse foot's pi
 - **The wrong hash.** The skeleton hash (D54) counts every marked joint, marker joints included. Moving a heel pivot changes the skeleton hash, so every weight file and look is marked stale although no skin depends on the pivot. (It does change the animation, which is the other half of the problem, section 5.)
 - **No engine side.** An `export: false` joint never reaches the engine. A light or an emitter has to, so it is a different thing.
 
-D57 rejected a `markers` array in `skeleton.json` with its own node type. The author reopened it on 2026-11-24 because the foot is a second real case and the engine markers (D46, `module-directions.md` section 4) are a third.
+D57 rejected a `markers` array in `skeleton.json` with its own node type. The author reopened it on 2026-11-24 because the foot is a second real case and the engine markers (D46, `ideas/module-directions.md` section 4) are a third.
 
 ## 2. What a marker is
 
