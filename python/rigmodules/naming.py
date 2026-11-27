@@ -1,4 +1,4 @@
-"""The naming convention (D58): <camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO|MRK>, such as upperArm_00_L_JNT.
+"""The naming convention: <camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO|MRK>, such as upperArm_00_L_JNT.
 
 Both functions call renameRigNodes, so the rules live in the plugin's NamingConvention class and nowhere else.
 """

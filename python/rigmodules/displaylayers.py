@@ -1,4 +1,4 @@
-"""A rig's display layers (D38). The build makes the joint, mesh and control layers, and the model is imported
+"""A rig's display layers. The build makes the joint, mesh and control layers, and the model is imported
 after it, so a pipeline tool puts the imported meshes in the mesh layer with add_meshes."""
 
 from __future__ import annotations

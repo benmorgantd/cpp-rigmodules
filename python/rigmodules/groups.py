@@ -1,4 +1,4 @@
-"""A rig's groups (D43). The build makes rig_all, the parent of the rig's topmost joints and controls, and mesh_grp
+"""A rig's groups. The build makes rig_all, the parent of the rig's topmost joints and controls, and mesh_grp
 under it. The model is imported after the build, so a pipeline tool parents the imported transforms to mesh_grp
 with parent_meshes."""
 

@@ -1,8 +1,8 @@
-"""Marker locators in a scene (D73), for tools that save a whole set of them.
+"""Marker locators in a scene, for tools that save a whole set of them.
 
 The RigModules commands do the work: cmds.rigMarkerMarkup, cmds.saveRigMarkers, cmds.loadRigMarkers and
 cmds.mirrorRigMarkers. This module knows the one thing a pipeline tool must not hard-code: the attribute that
-marks a node as a marker. Choosing the file is the tool's job (D24).
+marks a node as a marker. Choosing the file is the tool's job.
 """
 
 from __future__ import annotations

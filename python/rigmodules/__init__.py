@@ -1,4 +1,4 @@
-"""The RigModules Python package: thin wrappers around the plugin's commands (D24).
+"""The RigModules Python package: thin wrappers around the plugin's commands.
 
 It imports no Qt and no bmaya, and reads no environment variables or asset paths, so it works in a bare
 mayapy with only the plugin loaded. Pipeline code (mayadev) reaches rig internals only through it.

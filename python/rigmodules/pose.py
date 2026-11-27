@@ -1,4 +1,4 @@
-"""Keying a rig's controls (D34). The pose commands (zeroRigControls, mirrorRigPose, flipRigPose, saveRigPose,
+"""Keying a rig's controls. The pose commands (zeroRigControls, mirrorRigPose, flipRigPose, saveRigPose,
 loadRigPose) set values and key nothing, so keying is a separate step."""
 
 from __future__ import annotations

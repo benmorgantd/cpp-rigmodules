@@ -1,4 +1,4 @@
-"""Pose and ControlAnim library files (D42, D51): what a file holds without loading it onto a rig, and edits to its meta.
+"""Pose and ControlAnim library files: what a file holds without loading it onto a rig, and edits to its meta.
 
 The files are written by cmds.saveRigPose and cmds.saveRigAnimation (pass meta=json.dumps(...) for the caller's part of
 the meta) and read back by cmds.loadRigPose and cmds.loadRigAnimation. These functions wrap the two commands that work on

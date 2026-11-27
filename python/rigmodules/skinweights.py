@@ -1,8 +1,8 @@
-"""Skin weight helpers for tools that save and load a whole set of meshes (D35).
+"""Skin weight helpers for tools that save and load a whole set of meshes.
 
 The RigModules commands do the work: cmds.setRigMeshId, cmds.saveRigSkinWeights and cmds.loadRigSkinWeights.
 This module knows the two things a pipeline tool must not hard-code: the meshId attribute, and where a weight
-file keeps its meshId. Choosing folders and file names is the tool's job (D24).
+file keeps its meshId. Choosing folders and file names is the tool's job.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import rigmodules._namespace
 
 MESH_ID_ATTR = "meshId"
 MESH_NAME_KEY = "meshName"            # the mesh's name without a namespace when the file was saved
-SKELETON_HASH_ATTR = "skeletonHash"   # a version 2 file's rig skeleton hash (D54), "" for the file of an unbound save
+SKELETON_HASH_ATTR = "skeletonHash"   # a version 2 file's rig skeleton hash, "" for the file of an unbound save
 
 # saveRigSkinWeights writes "meshId" near the top of the file, so its value can be read without parsing the
 # whole weights list. A hand-edited file that moved it still reads, through the full parse.
@@ -53,13 +53,13 @@ def get_meshes(namespace: str) -> dict[str, str]:
 
 def get_meshes_by_name(namespace: str) -> dict[str, str]:
     """Name without the namespace -> mesh transform, for every mesh in namespace, marked or not. The fallback match
-    for a weight file whose meshId no mesh has (D68): the file's meshName against these keys."""
+    for a weight file whose meshId no mesh has: the file's meshName against these keys."""
     return {mesh.split("|")[-1].split(":")[-1]: mesh for mesh in _namespace_meshes(namespace)}
 
 
 def set_mesh_id(mesh: str, mesh_id: str) -> None:
     """Gives the mesh transform this meshId, adding the attribute when it has none. Undoable. For taking a weight
-    file's id when the mesh was matched by name (D68): the next save of the model then carries it."""
+    file's id when the mesh was matched by name: the next save of the model then carries it."""
     if not cmds.attributeQuery(MESH_ID_ATTR, node=mesh, exists=True):
         cmds.addAttr(mesh, longName=MESH_ID_ATTR, dataType="string")
     cmds.setAttr(f"{mesh}.{MESH_ID_ATTR}", mesh_id, type="string")
@@ -80,12 +80,12 @@ def read_file_mesh_id(path: str) -> str:
 
 def read_file_mesh_name(path: str) -> str:
     """The name, without a namespace, of the mesh a weight file was saved from. "" when the file has none. Loading
-    never matches on it, except the by-name fallback (D68)."""
+    never matches on it, except the by-name fallback."""
     return _read_header_value(path, MESH_NAME_KEY) or ""
 
 
 def read_file_skeleton_hash(path: str) -> str:
-    """The skeleton hash a weight file was saved from (D54), 16 hex digits. "" for a file with none: a version 1 file
+    """The skeleton hash a weight file was saved from, 16 hex digits. "" for a file with none: a version 1 file
     or one saved off a rig, which loadRigSkinWeights loads onto any skeleton."""
     return _read_header_value(path, SKELETON_HASH_ATTR) or ""
 

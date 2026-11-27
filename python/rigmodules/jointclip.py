@@ -1,13 +1,13 @@
-"""JointClip files: the bridge between joint animation and the plugin's inverse solve (D41).
+"""JointClip files: the bridge between joint animation and the plugin's inverse solve.
 
 A JointClip file is JSON: a source skeleton's joints with their markup and rest, and a list of JointPoses, one per
 frame, each joint's transform local to its parent (design/inverse-solve.md, sections 6 and 7; the schema is in
 cpp/core/JointClipFile.h). poseRigFromJointPose and animateRigFromJointClip read it.
 
-capture_joint_clip writes one from a rig. FBX is the joint file for mocap and the engine (D42): write_fbx and read_fbx
+capture_joint_clip writes one from a rig. FBX is the joint file for mocap and the engine: write_fbx and read_fbx
 are adapters over the JointClip file, through a scratch skeleton in Maya, and write_skeleton_fbx writes the skeleton
 asset source (design/control-library.md, section 12). This module takes paths and never resolves asset ids, and it
-imports no Qt, bmaya, pxr or numpy (D24).
+imports no Qt, bmaya, pxr or numpy.
 """
 
 from __future__ import annotations
@@ -116,9 +116,9 @@ def write_fbx(clip_path: str, fbx_path: str) -> None:
 
 
 def write_skeleton_fbx(rig_root: str, skeleton_id: str, fbx_path: str, bone_map_path: str) -> None:
-    """The skeleton export, the engine's skeleton asset source (D42): the rig's export joints at rest as a static FBX,
+    """The skeleton export, the engine's skeleton asset source: the rig's export joints at rest as a static FBX,
     and their bone map (rigmodules.bonemap) with the rig's asset id and skeleton_id, the id of the shared skeleton
-    asset (D29, which this package can't know). Raises what write_fbx raises, and RuntimeError when the rig has no
+    asset (which this package can't know). Raises what write_fbx raises, and RuntimeError when the rig has no
     export joints."""
     joints = _get_export_joints(rig_root)
     frame = int(cmds.currentTime(query=True))

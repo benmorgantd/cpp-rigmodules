@@ -1,8 +1,8 @@
-"""A rig's selection sets and the skinning selections built on them (D39).
+"""A rig's selection sets and the skinning selections built on them.
 
 The build makes one hierarchy of sets for the controls and one for the skin joints: a top set that holds a Left,
 Right and Center set and a set that holds one set per module. Each set says what it is in its setMarkup
-attribute, so tools find sets and joints through data, never names (D24).
+attribute, so tools find sets and joints through data, never names.
 """
 
 from __future__ import annotations

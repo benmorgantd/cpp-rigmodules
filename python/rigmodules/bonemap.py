@@ -1,4 +1,4 @@
-"""Bone maps: joint markup for a skeleton file that carries none (D42).
+"""Bone maps: joint markup for a skeleton file that carries none.
 
 A foreign FBX (a mocap take, a vendor skeleton) has no rigMarkup, so a JSON file maps its joints' names to markup
 objects, and read_fbx applies them. Our own skeleton export writes one from the rig's markup, with the asset id and
@@ -13,7 +13,7 @@ the skeleton id that say which rigs and clips the skeleton belongs to (design/co
 
 Each entry is the joint's rigMarkup object (cpp/core/JointMarkup.h), keyed by the joint's leaf name without
 namespace. The format lives here, not in core/, because only Python reads and writes it: the plugin never sees a bone
-map (it sees the markup on the joints). This module takes paths and imports no Qt or bmaya (D24).
+map (it sees the markup on the joints). This module takes paths and imports no Qt or bmaya.
 """
 
 from __future__ import annotations

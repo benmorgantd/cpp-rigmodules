@@ -12,7 +12,7 @@ import rigmodules._namespace
 
 @dataclasses.dataclass(frozen=True)
 class LookInfo:
-    """The look a rig wears (D54), from its lookRoot node. Built from the "look" object of getRigInfo's JSON result."""
+    """The look a rig wears, from its lookRoot node. Built from the "look" object of getRigInfo's JSON result."""
 
     asset_id: str          # the look's own asset, which may differ from the rig's
     name: str              # the look's folder name in its asset
@@ -21,24 +21,24 @@ class LookInfo:
 
 @dataclasses.dataclass(frozen=True)
 class RigInfo:
-    """What a rig node belongs to (D29). Built from getRigInfo's JSON result."""
+    """What a rig node belongs to. Built from getRigInfo's JSON result."""
 
     rig_root: str          # the rigRootModule node
     asset_id: str          # "shooter\\main\\characters\\hero"
-    rig_name: str          # the rig root's rigName: the rig's folder name in the asset (D54)
-    skeleton_hash: str     # the rig root's skeletonHash: its input joints' hash at build, 16 hex digits (D54)
+    rig_name: str          # the rig root's rigName: the rig's folder name in the asset
+    skeleton_hash: str     # the rig root's skeletonHash: its input joints' hash at build, 16 hex digits
     namespace: str         # the namespace the rig was built into, without a leading ":". It holds only this rig
     rig_version: int       # the template's rigVersion
     plugin_version: str    # the RigModules version that built the rig
     publish_version: str   # the publish id the rig came from, "" until published
-    look: LookInfo | None = None   # the look the rig wears, None until setRigLook has applied one (D54)
-    parent_rig_root: str | None = None   # the rig root an attachment follows, None for a rig that is not attached (D55)
-    markers_hash: str = ""   # the hash of the markers file the rig was built with, "" when it was built with none (D73)
+    look: LookInfo | None = None   # the look the rig wears, None until setRigLook has applied one
+    parent_rig_root: str | None = None   # the rig root an attachment follows, None for a rig that is not attached
+    markers_hash: str = ""   # the hash of the markers file the rig was built with, "" when it was built with none
 
 
 @dataclasses.dataclass(frozen=True)
 class ControlChannel:
-    """One channel of a control's animation interface (D34). Built from getRigControlChannels' JSON result.
+    """One channel of a control's animation interface. Built from getRigControlChannels' JSON result.
     Values are in the scene's UI units, like cmds.getAttr and cmds.setAttr."""
 
     name: str              # the attribute's long name
@@ -51,7 +51,7 @@ class ControlChannel:
 
 @dataclasses.dataclass(frozen=True)
 class RigControl:
-    """What a rig control is (D25, D34). Built from getRigControlInfo's JSON result."""
+    """What a rig control is. Built from getRigControlInfo's JSON result."""
 
     node: str              # the control's name
     module: str            # the module node that owns it
@@ -63,7 +63,7 @@ class RigControl:
 
 @dataclasses.dataclass(frozen=True)
 class ControlSpace:
-    """A control's space switch (D19, D50, D52). Built from getRigControlSpace's JSON result. A constraint space has a
+    """A control's space switch. Built from getRigControlSpace's JSON result. A constraint space has a
     `constraint` and an empty `module`. A module-owned space (the TwoBoneIk pole's) has a `module` and an empty
     `constraint`. Switch either kind with setRigControlSpace on the control."""
 
@@ -75,7 +75,7 @@ class ControlSpace:
 
 @dataclasses.dataclass(frozen=True)
 class IkFkLimb:
-    """A TwoBoneIk or Limb limb (D52, D62): the module, its controls, the settings control that holds `ikFkBlend`, and the
+    """A TwoBoneIk or Limb limb: the module, its controls, the settings control that holds `ikFkBlend`, and the
     blend now (0 is FK, 1 is IK, between is a blend). Pass `module` to `cmds.setRigIkFkBlend`."""
 
     module: str                  # the twoBoneIkModule or limbModule node

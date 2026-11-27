@@ -4,7 +4,7 @@ import json
 
 
 def get_rig_name(path: str) -> str:
-    """The template's rigName: the name of the rig every build of it makes, and its folder in the asset (D54).
+    """The template's rigName: the name of the rig every build of it makes, and its folder in the asset.
     The default namespace is "{asset name}_{rigName}". Raises ValueError when the
     file isn't JSON or has no rigName."""
     try:
