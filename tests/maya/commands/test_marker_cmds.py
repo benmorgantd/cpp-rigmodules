@@ -1,4 +1,4 @@
-"""Markers (D73, design/markers.md): rigMarkerMarkup, saveRigMarkers, loadRigMarkers, mirrorRigMarkers, getRigMarkers,
+"""Markers (design/markers.md): rigMarkerMarkup, saveRigMarkers, loadRigMarkers, mirrorRigMarkers, getRigMarkers,
 the build with createRigFromTemplate markers=, the markersHash stamps and the stale status on loaded poses.
 
 The skeleton is mirror_arms in 'skel': upperArm_00_L_JNT at (2, 5, 0), upperArm_00_R_JNT at (-2, 5, 0), lowerArm L (4, 5, 0)

@@ -1,4 +1,4 @@
-"""setRigIkFkBlend, the matched IK/FK switch (D52 section 7.2, phase 6).
+"""setRigIkFkBlend, the matched IK/FK switch (design/two-bone-ik.md section 7.2).
 
 Two kinds of check. The hand-worked ones give the control values the switch must write, worked from the limb in
 design/two-bone-ik.md section 4.2 (twoboneik_basic: root (0,0,0), mid (1.8,2.4,0), end (5,0,0), pole (2.5,5,0), bones 3
@@ -369,7 +369,7 @@ class TwoBoneIkSwitch(SwitchTestCase):
 
 
 class TwoBoneIkPoleSpace(SwitchTestCase):
-    """setRigControlSpace and getRigControlSpace on the pole's module-owned space (D52 phase 7).
+    """setRigControlSpace and getRigControlSpace on the pole's module-owned space.
 
     The basic limb: the pole's rest is (2.5,5,0), the handle's (5,0,0), and both hang from layout_00_M_MOD.end. A control's world
     translate is its rest plus its parent's motion plus its own translate, so the cases are worked by hand.

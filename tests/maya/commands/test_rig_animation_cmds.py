@@ -1,4 +1,4 @@
-"""ControlAnim files (D42): saveRigAnimation and loadRigAnimation, and the keys payload they share with getRigKeys and
+"""ControlAnim files: saveRigAnimation and loadRigAnimation, and the keys payload they share with getRigKeys and
 setRigKeys, now with tangents and curve flags.
 
 The files are written by hand, and every expected value is worked out here, never recorded from a save.

@@ -1,4 +1,4 @@
-"""Examples in the user docs work as written (D21).
+"""Examples in the user docs work as written.
 
 The template is read from README.md itself, so editing the README example into something that no longer
 builds fails here. The commands mirror the README's Python. The skeleton fixture matches the joints the
@@ -19,7 +19,7 @@ README = os.path.join(config.REPO_DIR, "README.md")
 TEMPLATES_DOC = os.path.join(config.REPO_DIR, "docs", "templates.md")
 
 # The README builds with asset="shooter\\characters\\hero" and no namespace, so its rig "body" lands in the
-# default namespace "{asset name}_{rigName}" (D54).
+# default namespace "{asset name}_{rigName}".
 DOC_ASSET = "shooter\\characters\\hero"
 DOC_NAMESPACE = "hero_body"
 
@@ -124,7 +124,7 @@ def templates_doc_orient_constraint():
 
 
 class OrientConstraintExamples(RigTestCase):
-    """docs/templates.md '### Constraint types' and the docs/commands.md Orient example, on the quick start rig (D31).
+    """docs/templates.md '### Constraint types' and the docs/commands.md Orient example, on the quick start rig.
     Either way the arm's pivot follows spine3 and its rotation stays at rest."""
 
     def assertPivotFollowsChestRotationDoesNot(self):
@@ -146,7 +146,7 @@ class OrientConstraintExamples(RigTestCase):
         self.assertPivotFollowsChestRotationDoesNot()
 
     def test_constraint_weight_example(self):
-        """The docs/commands.md constraintWeight example: half the Orient's effect, so the arm turns halfway with the chest (D63)."""
+        """The docs/commands.md constraintWeight example: half the Orient's effect, so the arm turns halfway with the chest."""
         import maya.api.OpenMaya as om
         self.build(readme_quick_start_template(), self.make_skeleton("readme_quick_start"), asset=DOC_ASSET, namespace=None)
         cmds.createRigConstraint("hero_body:arm_00_L_CTRL", driver=["layout_00_M_MOD.end", "spine_00_M_MOD.end"], label=["World", "Chest"], type="Orient", constraintWeight=0.5)
@@ -481,7 +481,7 @@ def doc_code_block(path, heading, language, index=0):
 
 
 class TwoBoneIkDocExamples(RigTestCase):
-    """The TwoBoneIk entry and snippet in docs/modules.md and the mirrored limb in docs/templates.md (D52)."""
+    """The TwoBoneIk entry and snippet in docs/modules.md and the mirrored limb in docs/templates.md."""
 
     def build_entry(self, template):
         self.build(template, self.make_skeleton("twoboneik_mirror"))
@@ -523,7 +523,7 @@ COMMANDS_DOC = os.path.join(config.REPO_DIR, "docs", "commands.md")
 
 class SkeletonDocExamples(RigTestCase):
     """The skeleton file in docs/skeletons.md is what saveRigSkeleton writes for the chain it describes, the
-    fk_three_parented fixture, and the hash both pages quote is that file's hash (D54)."""
+    fk_three_parented fixture, and the hash both pages quote is that file's hash."""
 
     def test_file_example_is_what_a_save_writes(self):
         joints = self.make_skeleton("fk_three_parented")
@@ -550,7 +550,7 @@ class SkeletonDocExamples(RigTestCase):
 
 
 class RibbonDocExamples(RigTestCase):
-    """The Ribbon entry and snippet in docs/modules.md (D56)."""
+    """The Ribbon entry and snippet in docs/modules.md."""
 
     def build_entry(self):
         entry = json.loads(doc_code_block(MODULES_DOC, "## Ribbon", "json"))
@@ -643,7 +643,7 @@ class RibbonDocExamples(RigTestCase):
 
 
 class LimbDocExample(RigTestCase):
-    """The Limb entry in docs/modules.md builds on the limb_arm skeleton, and what the section says about the elbow holds (D62)."""
+    """The Limb entry in docs/modules.md builds on the limb_arm skeleton, and what the section says about the elbow holds."""
 
     def _build(self):
         entry = json.loads(doc_code_block(MODULES_DOC, "## Limb", "json"))
@@ -673,7 +673,7 @@ class LimbDocExample(RigTestCase):
 
 
 class FkHierarchyDocExample(RigTestCase):
-    """The FkHierarchy entry in docs/modules.md builds on the fk_hierarchy skeleton, and what the section says about it holds (D71)."""
+    """The FkHierarchy entry in docs/modules.md builds on the fk_hierarchy skeleton, and what the section says about it holds."""
 
     def test_modules_doc_entry_builds_the_controls_and_sockets_it_describes(self):
         entry = json.loads(doc_code_block(MODULES_DOC, "## FkHierarchy", "json"))

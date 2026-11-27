@@ -1,4 +1,4 @@
-"""The animation interface (D34): getRigControlChannels, zeroRigControls, mirrorRigPose and flipRigPose, each on a
+"""The animation interface: getRigControlChannels, zeroRigControls, mirrorRigPose and flipRigPose, each on a
 whole rig or on a set of controls.
 
 Every test builds mirror_arms: spine (Center chest), clavicle_l/r, arm_l/r (upperArm, lowerArm) and the layout.
@@ -442,7 +442,7 @@ class FlipCenterOffAxis(RigTestCase):
 
 
 class PoseFiles(PoseTestCase):
-    """saveRigPose and loadRigPose: a pose file holds channel values keyed by control markup (D34)."""
+    """saveRigPose and loadRigPose: a pose file holds channel values keyed by control markup."""
 
     def pose_path(self, name="pose.json"):
         folder = tempfile.mkdtemp(prefix="rigpose_")
@@ -620,7 +620,7 @@ class KeyControls(PoseTestCase):
 
 
 class PoseBlend(PoseTestCase):
-    """loadRigPose with blend (D72): 0 to 1 is a lerp from the reference to the pose, past 1 the pose's offset from
+    """loadRigPose with blend: 0 to 1 is a lerp from the reference to the pose, past 1 the pose's offset from
     rest is added again, and a negative weight is an error. Expectations are by hand."""
 
     pose_path = PoseFiles.pose_path

@@ -1,6 +1,6 @@
 """Reading fixture files: skeletons, templates and data-driven case files.
 
-Every fixture file is checked for unknown keys, the same rule rig templates follow (D17),
+Every fixture file is checked for unknown keys, the same rule rig templates follow,
 so a typo in a case file fails loudly instead of silently testing nothing.
 """
 import copy
@@ -56,7 +56,7 @@ def load_skeleton(name):
 # ---- markers ---------------------------------------------------------------------------------
 
 def markers_path(name):
-    """fixtures/markers/<name>.json as a forward-slash path, the markers file a build is given (D73)."""
+    """fixtures/markers/<name>.json as a forward-slash path, the markers file a build is given."""
     return os.path.join(config.FIXTURES_DIR, "markers", name + ".json").replace("\\", "/")
 
 

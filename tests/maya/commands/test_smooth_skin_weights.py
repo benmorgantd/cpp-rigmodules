@@ -1,4 +1,4 @@
-"""smoothSkinWeights (D64).
+"""smoothSkinWeights.
 
 The mesh is a 5 x 5 vertex plane, so vertex 7 is row 1, column 2, and its grid neighbors are 2, 6, 8 and 12. It is skinned to
 joints one and two (and three where a test needs it). The weights start as a hard split, joint one owning columns 0 and 1.

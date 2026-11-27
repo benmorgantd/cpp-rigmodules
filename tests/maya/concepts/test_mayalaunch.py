@@ -1,4 +1,4 @@
-"""mayalaunch tests (python/mayalaunch, D48). Plain Python except MayapySmoke, which runs a real mayapy.
+"""mayalaunch tests (python/mayalaunch). Plain Python except MayapySmoke, which runs a real mayapy.
 They start child processes, so they don't use the scene: each one is independent of the rig tests."""
 import os
 import sys

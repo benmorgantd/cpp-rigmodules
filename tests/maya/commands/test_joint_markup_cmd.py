@@ -1,4 +1,4 @@
-"""rigJointMarkup: create, -query, -edit, -remove, undo, and every rejected input (D15)."""
+"""rigJointMarkup: create, -query, -edit, -remove, undo, and every rejected input."""
 import json
 
 from maya import cmds

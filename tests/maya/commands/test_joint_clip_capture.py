@@ -1,4 +1,4 @@
-"""rigmodules.jointclip.capture_joint_clip (D41): sampling a rig's export joints into a JointClip file.
+"""rigmodules.jointclip.capture_joint_clip: sampling a rig's export joints into a JointClip file.
 
 Expected values are worked out by hand from the skeleton fixtures. mirror_arms has flat joints (no DAG parents), and
 fk_three_parented has a chain a > b > c. FkChain joints follow their controls exactly, so a control's rotation about its

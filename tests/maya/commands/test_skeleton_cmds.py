@@ -1,4 +1,4 @@
-"""saveRigSkeleton, loadRigSkeleton and the skeleton hash (D54, design/rigs-and-looks.md section 5).
+"""saveRigSkeleton, loadRigSkeleton and the skeleton hash (design/rigs-and-looks.md section 5).
 
 The skeleton is fk_three_parented in 'skel': a_00_M_JNT at the origin, b_00_M_JNT at y=2 under it, c_00_M_JNT at y=4 under b, all
 [Center, a/b/c], exported and skinned, with no rig. reference_hash recomputes the hash from a file's own contents,
@@ -212,7 +212,7 @@ class Errors(SkeletonTestCase):
 
 
 # ---- loadRigSkeleton ---------------------------------------------------------------------------
-# The skeleton file is a skeleton's only stored form (D54, author 2026-11-16), so a load must give back exactly what
+# The skeleton file is a skeleton's only stored form (author 2026-11-16), so a load must give back exactly what
 # a save wrote.
 
 LOADED = "loaded"

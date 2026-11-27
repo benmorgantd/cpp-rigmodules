@@ -1,4 +1,4 @@
-"""getRigKeys and setRigKeys (D34): every key of a call written at once through MFnAnimCurve, undoable as one step, and
+"""getRigKeys and setRigKeys: every key of a call written at once through MFnAnimCurve, undoable as one step, and
 read back as plain data keyed by control markup.
 
 fkchain_three has Center controls a, b and c. mirror_arms has the arm's `space` enum, which keys stepped.

@@ -1,4 +1,4 @@
-// core/MarkerFile: the file's read and write, every parse error, the hash and its version table (D73, design/markers.md).
+// core/MarkerFile: the file's read and write, every parse error, the hash and its version table (design/markers.md).
 
 #include "CoreTests.h"
 

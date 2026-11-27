@@ -1,4 +1,4 @@
-"""ReverseFoot (D74, design/reverse-foot.md): contract tests with their inverse round trips, pose cases from fixtures/poses/reverse_foot,
+"""ReverseFoot (design/reverse-foot.md): contract tests with their inverse round trips, pose cases from fixtures/poses/reverse_foot,
 and what only the foot does: its channels and their mirror modes, the foot control, the plugs and the ankle socket, the markers it
 resolves, the loop check, the graph through the Limb's ikTarget, a foot at rest equal to the Limb alone, and the inverse (phase 5): the
 gauge, the handle's space, and the match (setRigIkFkBlend): no pop in the ankle with a raised foot, and the toe held both ways.
@@ -67,7 +67,7 @@ class ReverseFootContract(modules.test_limb.LimbRoundTripRules, ModuleContract, 
         self.assertEqual(built, [FOOT_MODULE])
 
     def test_contract_one_solve_fills_every_output(self):
-        """Each output computes for what it reads (D36: no output is solved for another). A channel changes the ankle socket by itself, and
+        """Each output computes for what it reads (no output is solved for another). A channel changes the ankle socket by itself, and
         the controls' offsets and the toe only when the Limb's end moves in answer (they read the ankle plug), so pulling the ankle socket
         computes once. The handle moving changes the control and the ankle socket, so pulling both computes twice."""
         self._build()
@@ -101,7 +101,7 @@ class ReverseFootContract(modules.test_limb.LimbRoundTripRules, ModuleContract, 
         return posed
 
     def joints_cannot_give(self, control, channel):
-        """The round trip poses every channel with the limb at blend 1 (D74 phase 5). The Limb's are test_limb's rules (its ribbon ik
+        """The round trip poses every channel with the limb at blend 1. The Limb's are test_limb's rules (its ribbon ik
         controls are not posed, its FK controls are hidden). The toe FK control is hidden too: the toe joint is the IK toe, and the inverse
         gives the FK control that matches it. Every foot channel comes back: footRoll, bank and toeTap from the joints (given channels that
         already make the turn are kept), the rest from the sidecar."""
@@ -227,7 +227,7 @@ class ReverseFootBehaviour(RigTestCase):
 
     def test_rotated_pivot_markers_are_a_warning_because_only_their_positions_are_read(self):
         """The fixture's markers have an identity offset on the hand, which is turned Rz 90, so none is world aligned. The foot reads
-        positions only (its axes come from heel to toe tip and world up, D74), so the build warns once, naming every rotated marker."""
+        positions only (its axes come from heel to toe tip and world up), so the build warns once, naming every rotated marker."""
         with CapturedWarnings() as warnings:
             self._build()
         found = [m for m in warnings.messages if "not world aligned" in m]
@@ -271,7 +271,7 @@ class ReverseFootBehaviour(RigTestCase):
 
     def test_the_graph_has_no_cycle_in_either_evaluation_mode(self):
         """Limb to foot to Limb is acyclic at the plug level: the ik socket never reads ikTarget, and the foot's ankle socket never reads
-        its ankle plug (the end socket, which follows the target). Maya reports a real cycle as a warning when it evaluates (D62 phase 4)."""
+        its ankle plug (the end socket, which follows the target). Maya reports a real cycle as a warning when it evaluates."""
         self._build()
         mode = cmds.evaluationManager(query=True, mode=True)[0]
         self.addCleanup(cmds.evaluationManager, mode=mode)
@@ -353,7 +353,7 @@ class ReverseFootMatchesTheLimb(RigTestCase):
 
 
 class ReverseFootInverse(RigTestCase):
-    """The foot from the joints (D74 phase 5, design/reverse-foot.md section 10): the author's gauge for footRoll and bank, the pre-pass
+    """The foot from the joints (design/reverse-foot.md section 10): the author's gauge for footRoll and bank, the pre-pass
     that gives the Limb's handle the foot's motion, and the match that puts no pop in the ankle. Every expected value is the posed one:
     the ankle and toe come back exactly whatever the channels, so what is checked is which channels the inverse chose."""
 

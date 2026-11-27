@@ -1,4 +1,4 @@
-"""setRigMeshId, saveRigSkinWeights and loadRigSkinWeights (D35).
+"""setRigMeshId, saveRigSkinWeights and loadRigSkinWeights.
 
 The mesh is a 2-unit-tall polyCube standing on the origin (box_geo), skinned to the fk_three joints a (y=0) and
 b (y=2). polyCube's vertex order puts vertices 0, 1, 6 and 7 at the bottom and 2 to 5 at the top.
@@ -152,7 +152,7 @@ class SaveAndLoad(SkinWeightTestCase):
         self.assertEqual(cmds.saveRigSkinWeights(self.box, file=self.path), 2)
         data = self.read_file()
         self.assertEqual(data["formatVersion"], 3)
-        # The skel joints belong to no rig, so the file knows no skeleton (D54).
+        # The skel joints belong to no rig, so the file knows no skeleton.
         self.assertEqual(data["skeletonHash"], "")
         self.assertEqual(data["meshId"], mesh_id)
         self.assertEqual(data["meshName"], "box_geo")
@@ -571,7 +571,7 @@ class BindAtRest(RigTestCase):
         self.assertEqual([round(v, 4) for v in world_point(self.box, 3)], [0.5, 2, 0.5])
 
     def test_save_stamps_the_rig_skeleton_hash(self):
-        # The fixture is version 1, with no skeletonHash: it loads through the update step (D33, D54).
+        # The fixture is version 1, with no skeletonHash: it loads through the update step.
         cmds.loadRigSkinWeights(self.box, file=FIXTURE_PATH)
         path = os.path.join(config.WORK_DIR, "rig_box_weights.json")
         cmds.saveRigSkinWeights(self.box, file=path)
@@ -583,7 +583,7 @@ class BindAtRest(RigTestCase):
         self.assertRegex(data["skeletonHash"], r"^[0-9a-f]{16}$")
 
     def test_a_version_2_file_loads_with_no_skeleton(self):
-        """The update step (D33) takes a file saved before version 3 to an empty skeleton."""
+        """The update step takes a file saved before version 3 to an empty skeleton."""
         data = json.load(open(FIXTURE_PATH, encoding="utf-8"))
         data["formatVersion"] = 2
         data["skeletonHash"] = ""

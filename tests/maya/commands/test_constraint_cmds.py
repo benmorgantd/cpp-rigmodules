@@ -1,5 +1,5 @@
 """createRigConstraint and setRigConstraintSpace: arguments, space switching, undo, and how
-driver ids and constraint names resolve across namespaces (D14, D19). Parent constraints only:
+driver ids and constraint names resolve across namespaces. Parent constraints only:
 Orient and Point are in test_constraint_types."""
 import json
 
@@ -80,7 +80,7 @@ class Create(ConstraintTestCase):
         self.assertWorldMatrix(CONTROL, before, "moved when its constraint was created on a posed rig")
 
     def test_zero_after_create_on_posed_rig_returns_to_rest(self):
-        # D27: the compensation lives in the control's values, so zeroing every control gives the rest pose.
+        # the compensation lives in the control's values, so zeroing every control gives the rest pose.
         rest = world_matrix(CONTROL)
         cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
         self.create(driver=["layout_00_M_MOD.end"])
@@ -123,7 +123,7 @@ class CreateRejected(ConstraintTestCase):
         self.assertMayaError(lambda: self.create(rig_name("nope_ctrl")), "nope_ctrl")
 
     def test_legacy_semicolon_socket_names_rejected(self):
-        # D16: rigs built before socket names became JSON report an error instead of guessing.
+        # rigs built before socket names became JSON report an error instead of guessing.
         cmds.setAttr(rig_name("fkchain_01_M_MOD") + ".socketNames[0]", "index_0;start;", type="string")
         self.assertMayaError(lambda: self.create(OTHER_CONTROL, driver=["fkchain_01_M_MOD.start"]), "Invalid socketNames[0]")
 
@@ -151,7 +151,7 @@ class SpaceSwitch(ConstraintTestCase):
         self.assertWorldMatrix(CONTROL, before, "moved when its space was switched on a posed rig")
 
     def test_switch_on_posed_rig_writes_control_values(self):
-        # D27: the match is in the control's channels, and the constraint stores nothing per switch.
+        # the match is in the control's channels, and the constraint stores nothing per switch.
         cmds.setAttr(OTHER_CONTROL + ".rotateZ", 90)
         cmds.setRigConstraintSpace(self.con, label="Arm")
         self.assertNotEqual(cmds.getAttr(CONTROL + ".translate")[0], (0.0, 0.0, 0.0))
@@ -209,14 +209,14 @@ class SpaceSwitch(ConstraintTestCase):
 
 
 class RotatedSpaceSwitch(RigTestCase):
-    """The match math with rotated rests, rotated drivers and a non-default rotate order (D27)."""
+    """The match math with rotated rests, rotated drivers and a non-default rotate order."""
 
     def setUp(self):
         super().setUp()
         self.build_standard("fkchain_two_chains", "fk_two_chains_rotated")
         self.child = rig_name("c_00_L_CTRL")
         self.parents = (rig_name("a_00_M_CTRL"), rig_name("b_00_M_CTRL"))
-        cmds.setAttr(self.child + ".rotateOrder", lock=False)   # the module locks it (D40); this case needs another order
+        cmds.setAttr(self.child + ".rotateOrder", lock=False)   # the module locks it; this case needs another order
         cmds.setAttr(self.child + ".rotateOrder", 2)   # zxy
         # The child's current parent is fkchain_01_M_MOD.end, so the initial driver needs no match.
         self.con = cmds.createRigConstraint(self.child, driver=["fkchain_01_M_MOD.end", "fkchain_01_M_MOD.start"])
@@ -267,7 +267,7 @@ class SpaceSwitchRejected(ConstraintTestCase):
 
 
 class SetRigControlSpace(ConstraintTestCase):
-    """setRigControlSpace on a constrained control (D52): it matches as setRigConstraintSpace does, by control."""
+    """setRigControlSpace on a constrained control: it matches as setRigConstraintSpace does, by control."""
 
     def setUp(self):
         super().setUp()
@@ -369,7 +369,7 @@ class SetRigControlSpace(ConstraintTestCase):
 
 
 class CommandIdResolution(RigTestCase):
-    """D19: driver ids and constraint names resolve in the constrained control's namespace."""
+    """Driver ids and constraint names resolve in the constrained control's namespace."""
 
     NAMESPACES = ["rig", "char:rig", ":"]
 
@@ -427,7 +427,7 @@ class CommandIdResolution(RigTestCase):
 
 
 class GetRigControlSpace(ConstraintTestCase):
-    """getRigControlSpace and rigmodules.query.find_control_space (D50): a control's constraint, labels and current space."""
+    """getRigControlSpace and rigmodules.query.find_control_space: a control's constraint, labels and current space."""
 
     def test_reports_the_constraint_the_labels_and_the_current_space(self):
         con = self.create(label=["World", "Arm"], initial=1)

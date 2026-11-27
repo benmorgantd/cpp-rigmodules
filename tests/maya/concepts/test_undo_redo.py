@@ -22,7 +22,7 @@ class BuildUndoRedo(RigTestCase):
         self.assertNotExists(rig_name("fkchain1_00_M_JNT"))
 
     def test_undo_removes_the_namespace_the_build_made(self):
-        # D18: the namespace is not part of the modifier, so undo used to leave it behind, empty.
+        # the namespace is not part of the modifier, so undo used to leave it behind, empty.
         self.build_standard("layout_rig", "layout_rig")
         cmds.undo()
         self.assertFalse(cmds.namespace(exists=":" + config.RIG_NAMESPACE))
@@ -57,7 +57,7 @@ class BuildUndoRedo(RigTestCase):
         self.assertEqual(sorted(cmds.ls(rig_name("*"), long=True)), before)
 
     def test_redo_ignores_current_namespace(self):
-        # D18 regression: redo used to put controls and modules in the user's current namespace.
+        # redo used to put controls and modules in the user's current namespace.
         # Namespace changes go through MNamespace: cmds.namespace is undoable and would clear the redo queue.
         om.MNamespace.addNamespace(":elsewhere")
         self.build_standard("layout_rig", "layout_rig")

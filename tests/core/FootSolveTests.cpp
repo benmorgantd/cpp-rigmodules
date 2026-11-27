@@ -1,4 +1,4 @@
-// core/FootSolve: the frame, the peel split, the bank pivot choice, the chain fold and the rotation split (D74,
+// core/FootSolve: the frame, the peel split, the bank pivot choice, the chain fold and the rotation split (
 // design/reverse-foot.md sections 7, 8, 10 and 15).
 //
 // Every expected number is worked by hand from one foot, in a frame with forward +Z, up +Y and lateral +X (a character
@@ -10,7 +10,7 @@
 //   about forward (+Z): x' = dx cos - dy sin, y' = dx sin + dy cos
 // and a heel pivot turns by minus its angle (toes up), the toe (ball channels) and toe tip by plus theirs, a bank by minus its
 // value. The chain is root first, in chainOrder (heel, toeTip, bankOut, bankIn, toe), so the toe pivot turns the ankle first
-// and the heel last (the literal hierarchy, D74; the order is fixed by the module since 2026-11-24, and the toe pivot took
+// and the heel last (the literal hierarchy; the order is fixed by the module since 2026-11-24, and the toe pivot took
 // the ball pivot's channels on 2026-11-25).
 // The numbers were worked with a separate calculation (the formulas above, no FootSolve code), to 6 places.
 

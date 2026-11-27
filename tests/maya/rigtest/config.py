@@ -15,7 +15,7 @@ UPDATE_GOLDEN = False
 SKELETON_NAMESPACE = "skel"
 RIG_NAMESPACE = "rig"
 # Asset every build uses unless it is testing assets. Builds pass RIG_NAMESPACE, because the default namespace,
-# "{asset name}_{rigName}" (D54), changes with each template.
+# "{asset name}_{rigName}", changes with each template.
 ASSET_ID = "tests\\rig"
 
 # Every node type the plugin registers that a build creates.

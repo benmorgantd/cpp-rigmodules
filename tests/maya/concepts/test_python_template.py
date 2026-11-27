@@ -1,4 +1,4 @@
-"""rigmodules.template: reading a template file without building it (D30)."""
+"""rigmodules.template: reading a template file without building it."""
 import json
 import os
 import unittest

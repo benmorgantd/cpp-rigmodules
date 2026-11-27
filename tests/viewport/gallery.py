@@ -19,7 +19,7 @@ What to look for:
            is fainter. Sphere is selected (green) and Circle is the lead selection (light).
     09     shapeTransform scale X -1. Pointers point down -X, and Dome bulges toward -X.
     10     the filled scene from behind (-X, -Z). Flat fills must still show, so nothing is back-face culled.
-    11-13  mirrorRigControlShapes on an arm built with "mirror": true from behavior-mirrored joints (D28). The Right
+    11-13  mirrorRigControlShapes on an arm built with "mirror": true from behavior-mirrored joints. The Right
            arm's shapes (red, -X) are the Left arm's (green, +X) reflected across X = 0: the arrows on both
            clavicles point away from the chest, both upper arm arrows sit above the bone, both forearm domes bulge
            toward the hand, and both hand circles sit forward (+Z). Fills show on both sides.

@@ -1,4 +1,4 @@
-"""TwoBoneIk module (D52): contract tests, pose cases from fixtures/poses/twoboneik, and what only this module does.
+"""TwoBoneIk module: contract tests, pose cases from fixtures/poses/twoboneik, and what only this module does.
 
 The pose cases hold hand-worked numbers (design/two-bone-ik.md sections 4.2 and 4.2a). Nothing here is recorded from the rig.
 """
@@ -34,12 +34,12 @@ class TwoBoneIkContract(ModuleContract, RigTestCase):
     def joints_cannot_give(self, control, channel):
         """The contract poses every channel and the blend stays at 1 (IK), so the FK controls the blend hides can't come
         back from joints: the lower and end controls entirely, and the start control's rotation and scale (the IK root
-        takes its translation only, D52 decision 16). The joints still match, which the round trip checks."""
+        takes its translation only; design/two-bone-ik.md). The joints still match, which the round trip checks."""
         name = control.split(":")[-1].split("_")[0]   # upperArm_00_L_CTRL, or upperArm_00_L_CTRL in the mirror skeleton
         return name in ("lowerArm", "hand") or (name == "upperArm" and not channel.startswith("translate"))
 
     def controls_lost_with_joint(self, root, markup):
-        """The IK handle and pole are solved from all three limb joints (D52 section 6), so a source that lacks the hand gives
+        """The IK handle and pole are solved from all three limb joints, so a source that lacks the hand gives
         none of the limb's controls: every one of them comes from the sidecar. The settings control has no joint anyway."""
         return [c for c in rigmodules.query.get_rig_controls(root) if cmds.nodeType(c.module) == self.MODULE_TYPE]
 
@@ -173,7 +173,7 @@ class TwoBoneIkBehaviour(RigTestCase):
         self.build_standard("twoboneik_hand", "twoboneik_hand")
         finger_control = "finger_00_L_CTRL"
         # IK: the FK hand control is not drawn, the finger is, and it rides on the IK hand. The finger's DAG parent is the FK hand
-        # control (the socket's transform, D78) and is still shown, because the blend drives `shown` and not visibility.
+        # control (the socket's transform) and is still shown, because the blend drives `shown` and not visibility.
         self.assertFalse(attr(ARM[2], "shown"))
         self.assertTrue(attr(finger_control, "shown"))
         self.assertTrue(attr(finger_control, "visibility"))
@@ -191,7 +191,7 @@ class TwoBoneIkBehaviour(RigTestCase):
 
     def test_a_dag_parent_and_a_matrix_parent_can_differ(self):
         """parentStructure is the DAG parent (the settings control, a socket with a control) and matrixParentStructure the matrix the
-        finger follows (the blended hand, a socket that is the joint's world). Names the rigger chose, so the build does not compare them (D78)."""
+        finger follows (the blended hand, a socket that is the joint's world). Names the rigger chose, so the build does not compare them."""
         data = copy.deepcopy(fixtures.load_template("twoboneik_hand"))
         data["rigModules"][1]["parentStructure"] = {"start": "arm_01_L_MOD.settings"}
         data["rigModules"][1]["matrixParentStructure"] = {"start": "arm_01_L_MOD.end"}
@@ -277,7 +277,7 @@ class TwoBoneIkBehaviour(RigTestCase):
         for name in ("ikFkBlend", "stretch", "soft", "pin"):
             self.assertEqual(cmds.attributeQuery(name, node=module, range=True), [0.0, 1.0])
 
-    # ---- the animation interface (D34) ---------------------------------------------------------
+    # ---- the animation interface ---------------------------------------------------------
 
     def test_channels_defaults_ranges_and_mirror_modes(self):
         self.build_standard("twoboneik_basic", "twoboneik_basic")
@@ -343,7 +343,7 @@ class TwoBoneIkBehaviour(RigTestCase):
     # ---- playback ------------------------------------------------------------------------------
 
     def test_playback_never_pulls_the_match_outputs(self):
-        """The match outputs allocate in compute(), so only setRigIkFkBlend may pull them (D36, D52 phase 8). Maya's profiler
+        """The match outputs allocate in compute(), so only setRigIkFkBlend may pull them. Maya's profiler
         records computeMatch's scope: a keyed playback range must leave it out, while the same recording sees the module's
         other outputs (so it is recording) and sees computeMatch once a match output is pulled (so the scope fires)."""
         import maya.OpenMaya
@@ -383,7 +383,7 @@ class TwoBoneIkBehaviour(RigTestCase):
 
 
 class TwoBoneIkDerivedControls(RigTestCase):
-    """The IK handle, pole and settings controls come from the three limb joints (D57): where they sit, how they are named, and
+    """The IK handle, pole and settings controls come from the three limb joints: where they sit, how they are named, and
     what an old template does. Expectations are worked by hand from the fixtures' joint positions."""
 
     def _template(self, name="twoboneik_basic", **args):
@@ -454,7 +454,7 @@ class TwoBoneIkDerivedControls(RigTestCase):
         self.assertWorldRotation(rig_name(POLE), [0, 0, 0], 1e-4)
         self.assertWorldRotation(rig_name(SETTINGS), [0, 0, 0], 1e-4)
 
-    # ---- a world-aligned handle (D59) ----------------------------------------------------------
+    # ---- a world-aligned handle ----------------------------------------------------------
 
     def _assert_bind_pose_kept(self):
         """The IK joints take their own rest offsets, so any handle rotation leaves the joints on the FK controls at rest."""
@@ -487,7 +487,7 @@ class TwoBoneIkDerivedControls(RigTestCase):
 
     def test_ik_align_to_pole_on_the_other_side_of_a_mirrored_limb_is_the_reflection(self):
         """Left: end (6,0,0), pole (2.8+0.7, 2.4+2.6, 3) = (3.5,5,3), so the horizontal line is (-2.5,0,3). The right is the
-        reflection with its pole X negated by D28, (2.5,0,3), so the two turns are equal and opposite."""
+        reflection with its pole X negated by the mirror, (2.5,0,3), so the two turns are equal and opposite."""
         data = self._template("twoboneik_mirror", controlName="arm", poleOffset=[0.7, 2.6, 3], ikOrientToWorld=True, ikAlignToPole=True)
         self.build_standard(data, "twoboneik_mirror")
         turn = math.degrees(math.atan2(-2.5, 3))
@@ -507,7 +507,7 @@ class TwoBoneIkDerivedControls(RigTestCase):
         self.assertIn("ikAlignToPole", message)
         self.assertNothingBuilt()
 
-    # ---- poleParentDefault (D52, amended 2026-11-26) ---------------------------------------------
+    # ---- poleParentDefault (amended 2026-11-26) ---------------------------------------------
 
     def _move_handle_and_get_pole_motion(self):
         """Moves the handle by a pure translation and returns (the handle's world motion, the pole's). The handle takes the end
@@ -560,7 +560,7 @@ class TwoBoneIkDerivedControls(RigTestCase):
     # ---- a straight limb -----------------------------------------------------------------------
 
     def test_a_straight_limb_builds_and_its_pole_goes_out_along_the_root_joints_negative_y(self):
-        """Mocap skeletons have straight limbs (D57), so it is not an error. Left: root (1,0,0), mid (4,0,0), end (8,0,0), bones 3
+        """Mocap skeletons have straight limbs, so it is not an error. Left: root (1,0,0), mid (4,0,0), end (8,0,0), bones 3
         and 4, so the pole is mid + 7 * (0,-1,0) = (4,-7,0). The Right root is turned 180 degrees about X, so its -Y is +Y and
         the pole is (-4,7,0): the direction is the root's, not the world's. The settings default is a quarter of the 7 length
         along +X from the end (-X on the mirrored side): (9.75,0,0) and (-9.75,0,0)."""

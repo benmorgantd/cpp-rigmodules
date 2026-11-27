@@ -1,4 +1,4 @@
-"""setRigLook, the lookRoot node, its report and the fallback ladder (D54, D70, rigs-and-looks.md 4.1).
+"""setRigLook, the lookRoot node, its report and the fallback ladder (rigs-and-looks.md 4.1).
 
 The rig is fkchain_three built into 'rig'. A look is a mesh in the rig's namespace plus a weight file saved from a skinned
 copy of it, so the files carry the rig's real skeletonHash. Look A is a box (meshId look-box), look B a ball (look-ball).
@@ -61,7 +61,7 @@ class LookTestCase(RigTestCase):
         return path
 
     def set_look(self, meshes, files, look="boxy", **kwargs):
-        """setRigLook's report, parsed (D70). Its lookRoot is the look root's name."""
+        """setRigLook's report, parsed. Its lookRoot is the look root's name."""
         return json.loads(cmds.setRigLook(self.rig_root, mesh=meshes, file=files, asset=config.ASSET_ID, look=look, **kwargs))
 
     def apply_box(self, look="boxy", **kwargs):
@@ -230,7 +230,7 @@ class SkeletonCheck(LookTestCase):
         self.assertEqual(self.members(), [box])
 
     def test_another_skeleton_is_stale_not_an_error(self):
-        """The skeleton hash is a status (D70): the look is applied, and the report says the look is stale."""
+        """The skeleton hash is a status: the look is applied, and the report says the look is stale."""
         rig_path = self.save_rig_skeleton("rig_skeleton.json")
         data = read_json(rig_path)
         data["joints"][1]["restLocal"][13] += 1.0   # one joint a unit higher
@@ -249,7 +249,7 @@ class SkeletonCheck(LookTestCase):
 
 
 class WeightHashCheck(LookTestCase):
-    """A weight file's skeletonHash is a mark, never a gate (D70)."""
+    """A weight file's skeletonHash is a mark, never a gate."""
 
     def test_a_file_for_another_skeleton_loads_and_is_marked_stale(self):
         bad = self.hash_file(self.box_file, ZERO_HASH, "look_box_bad_hash.json")
@@ -284,7 +284,7 @@ class WeightHashCheck(LookTestCase):
 
 
 class FallbackLadder(LookTestCase):
-    """Each rung of D70: loaded, folded, rigid. The file's skeleton is written by hand, so the parents are the test's."""
+    """Each rung of the fallback ladder: loaded, folded, rigid. The file's skeleton is written by hand, so the parents are the test's."""
 
     def with_gone_joint(self, parent, extra_links=()):
         """The box file with its first influence renamed to a joint the rig doesn't have, whose parent is `parent`."""
@@ -329,7 +329,7 @@ class FallbackLadder(LookTestCase):
         self.assertIn("[Center, a]", mesh["reasons"][0])
 
     def test_a_parent_that_is_not_a_skin_joint_is_passed_through(self):
-        """gone sits under b, b is in the rig but isn't a skin joint, so the weight goes on up to a (D70)."""
+        """gone sits under b, b is in the rig but isn't a skin joint, so the weight goes on up to a."""
         def change(data):
             data["influences"] = [["Center", "gone"]]
             data["weights"] = [[0, 1.0] for _ in data["weights"]]
@@ -463,7 +463,7 @@ class SetRigLookErrors(LookTestCase):
 
 
 class RigidMeshes(LookTestCase):
-    """A mesh with a meshId and no weight file yet is bound whole to the topmost skin joint (D54): fkchain_three's a."""
+    """A mesh with a meshId and no weight file yet is bound whole to the topmost skin joint: fkchain_three's a."""
 
     def set_rigid(self, rigid, meshes=(), files=(), look="boxy"):
         kwargs = {"mesh": list(meshes), "file": list(files)} if meshes else {}

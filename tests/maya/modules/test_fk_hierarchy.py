@@ -1,4 +1,4 @@
-"""FkHierarchy module (D71, design/fk-hierarchy.md): contract tests, pose cases from fixtures/poses/fkhierarchy, and what only this module does.
+"""FkHierarchy module (design/fk-hierarchy.md): contract tests, pose cases from fixtures/poses/fkhierarchy, and what only this module does.
 
 The pose cases hold hand-worked numbers (each description has the arithmetic). Nothing here is recorded from the rig.
 The skeleton is a gun: root_00 with a mag (and its tip), a trigger and a handle (with a grip and its end) under it.

@@ -1,4 +1,4 @@
-"""constraintWeight (D63): a baked 0..1 blend from "the control follows its parent" (0) to the type's full result (1).
+"""constraintWeight: a baked 0..1 blend from "the control follows its parent" (0) to the type's full result (1).
 
 fk_two_chains: a_00_M_JNT (0,0,0) and b_00_M_JNT (0,2,0) are fkchain_1, under layout_00_M_MOD.end. c_00_M_JNT (1,3,0) is fkchain_2,
 whose start plug is parented to fkchain_01_M_MOD.end, so the constrained plug's parent is b. The driver is layout_00_M_MOD.end.

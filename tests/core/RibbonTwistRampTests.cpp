@@ -1,4 +1,4 @@
-// core/RibbonMath twistRamp (D75): which share of the fk roll each ik control takes, from the template's [position, share] pairs.
+// core/RibbonMath twistRamp: which share of the fk roll each ik control takes, from the template's [position, share] pairs.
 //
 // Every expected number is worked by hand. The shares are the pairs' straight line at each control's parameter, held at the first
 // pair's share before it and the last pair's after it.

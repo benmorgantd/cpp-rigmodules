@@ -1,5 +1,5 @@
-"""getRigInfo and its Python wrapper rigmodules.query.get_rig_info (D29, D30): from any rig node to its rig
-root, asset id, rig name, skeleton hash, namespace and version stamps (D54)."""
+"""getRigInfo and its Python wrapper rigmodules.query.get_rig_info: from any rig node to its rig
+root, asset id, rig name, skeleton hash, namespace and version stamps."""
 import json
 
 from maya import cmds
@@ -26,7 +26,7 @@ class GetRigInfo(RigTestCase):
         info = self.info(self.rig_root)
         self.assertEqual(set(info), {"rigRoot", "assetId", "rigName", "skeletonHash", "namespace", "rigVersion",
                                      "pluginVersion", "publishVersion", "look", "parentRigRoot", "markersHash"})
-        self.assertEqual(info["markersHash"], "")   # built with no markers file (D73)
+        self.assertEqual(info["markersHash"], "")   # built with no markers file
         self.assertEqual(info["rigRoot"], self.rig_root)
         self.assertEqual(info["assetId"], config.ASSET_ID)
         self.assertEqual(info["rigName"], "fktest")

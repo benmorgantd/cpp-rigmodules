@@ -5,7 +5,7 @@
         SKELETON = "fk_three"
         MODULE_TYPE = "fkChainModule"
         JOINT_OWNERS = {"a_00_M_JNT": "fkchain_01_M_MOD", ...}
-        MIRROR_TEMPLATE = "mirror_arms"   # a template with this module marked "mirror": true (D28)
+        MIRROR_TEMPLATE = "mirror_arms"   # a template with this module marked "mirror": true
         MIRROR_SKELETON = "mirror_arms"   # its skeleton, with joints for both sides
 
 A module that can only be Center sets MIRROR_TEMPLATE = False. Leaving it unset fails the mirror tests.
@@ -42,7 +42,7 @@ def _compute_count(module):
 
 
 def assert_one_solve_fills_every_output(testcase, module):
-    """After an input changes, pulling every connected output array element computes the module once (D36): the
+    """After an input changes, pulling every connected output array element computes the module once: the
     same inputs dirty all of them, so one solve writes and cleans them all."""
     outputs = [plug for plug in (cmds.listConnections(module, source=False, destination=True, connections=True, plugs=True) or [])[::2]
                if plug.split(".")[-1].split("[")[0] in OUTPUT_ARRAYS]
@@ -66,7 +66,7 @@ class ModuleContract:
     JOINT_OWNERS = {}     # joint short name -> module name that must drive its offsetParentMatrix
     MIRROR_TEMPLATE = None  # fixture template with a "mirror": true entry of this module, or False for a Center-only module
     MIRROR_SKELETON = None  # fixture skeleton for MIRROR_TEMPLATE, with joints for both sides
-    MARKERS = None        # fixtures/markers name a module that selects markers is built with (D73), else None
+    MARKERS = None        # fixtures/markers name a module that selects markers is built with, else None
     MIRROR_MARKERS = None  # the same for MIRROR_TEMPLATE
 
     def _build(self):
@@ -99,7 +99,7 @@ class ModuleContract:
         self.assertEqual(inheriting, [], "inheritsTransform must be off on every control and joint: %s" % inheriting)
 
     def test_contract_zero_returns_to_the_build_pose(self):
-        """The animation interface (D34): every control's channels can be queried, which fails for a custom
+        """The animation interface: every control's channels can be queried, which fails for a custom
         channel with no mirror mode, and their rests together are the pose the rig was built in."""
         self._build()
         joints = cmds.ls(rig_name("*"), type="joint")
@@ -123,7 +123,7 @@ class ModuleContract:
                           % (joint, list(rest[joint]), list(after)))
 
     def test_contract_rotate_order_is_locked(self):
-        """A module owns its controls' rotate orders (D40): set at creation, locked after the build, and
+        """A module owns its controls' rotate orders: set at creation, locked after the build, and
         still locked after undo and redo."""
         self._build()
         controls = cmds.ls(rig_name("*"), type="rigControlNode")
@@ -152,7 +152,7 @@ class ModuleContract:
         for module in cmds.ls(rig_name("*"), type=self.MODULE_TYPE):
             assert_one_solve_fills_every_output(self, module)
 
-    # ---- the inverse solve (D41) -----------------------------------------------------------------
+    # ---- the inverse solve -----------------------------------------------------------------
 
     def _pose_every_transform(self):
         """Moves every plain channel of every control off rest, and returns {control: transform values}."""
@@ -176,7 +176,7 @@ class ModuleContract:
         return jointclips.write_json(os.path.join(folder, "sidecar.json"), {"formatVersion": 1, "controls": kept})
 
     def _check_inverse_round_trip(self):
-        """Forward and inverse agree (D41): pose every control, write the joints as a JointClip, zero the controls and
+        """Forward and inverse agree: pose every control, write the joints as a JointClip, zero the controls and
         restore from the clip. The joints come back where they were and so does every control's transform. The Layout
         has no joints, so its values come from the sidecar, as in a real restore."""
         root = jointclips.rig_root()
@@ -217,12 +217,12 @@ class ModuleContract:
         self._check_inverse_round_trip()
 
     def test_contract_inverse_round_trip_mirrored(self):
-        """The same for a mirrored build: a mirrored module is an ordinary module (D28)."""
+        """The same for a mirrored build: a mirrored module is an ordinary module."""
         self._build_mirrored()
         self._check_inverse_round_trip()
 
     def test_contract_inverse_without_a_joint_falls_back_to_the_sidecar(self):
-        """A source that lacks a joint is normal (D41): the module's control for it comes from the sidecar, and
+        """A source that lacks a joint is normal: the module's control for it comes from the sidecar, and
         everything else still matches."""
         if not self.JOINT_OWNERS:
             self.skipTest("%s has no joints" % self.MODULE_TYPE)
@@ -259,7 +259,7 @@ class ModuleContract:
             if joint.split(":")[-1] != short and not jointclips.world(joint).isEquivalent(matrix, 1e-4):
                 self.fail("%s is off when the source lacks %s" % (joint, short))
 
-    # ---- mirrored build (D28, D34) ---------------------------------------------------------------
+    # ---- mirrored build ---------------------------------------------------------------
 
     def _build_mirrored(self):
         """Builds MIRROR_TEMPLATE and returns the rig root and this module type's controls (RigControl)."""

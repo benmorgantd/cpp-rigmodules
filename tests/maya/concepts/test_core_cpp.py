@@ -1,4 +1,4 @@
-"""core/ tests: the Maya-free C++ in cpp/core, built into one executable and run (D20, D73).
+"""core/ tests: the Maya-free C++ in cpp/core, built into one executable and run.
 
 core/ has no Maya headers, so its tests are plain C++ in tests/core (CoreTests.h is the harness). This file builds them
 with the Visual Studio compiler and runs the program, which prints one PASS or FAIL line per test. The program is cached

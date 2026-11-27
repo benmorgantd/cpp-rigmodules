@@ -1,4 +1,4 @@
-"""ReverseFoot, stage 2 (D74 phase 4): the toe and toe tip joints, the toe FK control, the blend the foot takes from its limb (ikFkDriver),
+"""ReverseFoot, stage 2: the toe and toe tip joints, the toe FK control, the blend the foot takes from its limb (ikFkDriver),
 the visibility it drives and the pivot sockets.
 
 The foot is the core test foot (tests/core/FootSolveTests.cpp) at a tenth of its size on the limb_arm hand at (4, 4, 0): a core point
@@ -58,7 +58,7 @@ class ReverseFootStage2(RigTestCase):
         self.assertTrue(world_rotation_matrix(rig_name(node)).isEquivalent(expected, 1e-4), "%s is not Rz %s then Rx %s" % (node, about_z, then_about_x))
 
     def test_the_foot_and_toe_fk_sockets_carry_their_controls_worlds(self):
-        """D78: `foot` and `toeFk` (outputSocketMatrix elements 8 and 9) are the foot control's and the toe FK control's world matrices, with
+        """`foot` and `toeFk` (outputSocketMatrix elements 8 and 9) are the foot control's and the toe FK control's world matrices, with
         the handle moved (the foot control rides it) and the toe FK control turned."""
         self._build()
         cmds.setAttr(rig_name(HANDLE + ".translateX"), 1)
@@ -72,7 +72,7 @@ class ReverseFootStage2(RigTestCase):
     def test_the_plugs_dag_parents_place_the_foot_control_and_the_toe_fk_control(self):
         """The ik plug carries the foot control and the ankle plug the toe FK control, so the template's dagParent places each in the
         outliner: `"ik": "arm_01_L_MOD.ik"` puts the foot control under the IK handle, and `"ankle": "arm_01_L_MOD.end"` puts the toe FK
-        control under the FK hand (the end socket carries the FK end control's transform, D78). The DAG is organization only (D1)."""
+        control under the FK hand (the end socket carries the FK end control's transform). The DAG is organization only (D1)."""
         self._build()
         for control, parent in ((FOOT, HANDLE), (TOE_FK, "hand_00_L_CTRL")):
             parents = cmds.listRelatives(rig_name(control), parent=True) or []
@@ -192,7 +192,7 @@ class ReverseFootStage2(RigTestCase):
         self._build()
 
         def visible(control):
-            # `shown`, not visibility: visibility inherits through the DAG, and a control can be a DAG parent (D78).
+            # `shown`, not visibility: visibility inherits through the DAG, and a control can be a DAG parent.
             return cmds.getAttr(rig_name(control + ".shown"))
 
         self.assertEqual((visible(FOOT), visible(TOE_FK)), (True, False))   # IK: the channels drive and the toe FK control hides

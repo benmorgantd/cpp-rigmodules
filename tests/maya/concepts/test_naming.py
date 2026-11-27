@@ -1,4 +1,4 @@
-"""Names are public API: golden interface snapshots and control and module naming (D18, D19).
+"""Names are public API: golden interface snapshots and control and module naming.
 How constraint command ids resolve across namespaces is in commands/test_constraint_cmds.py."""
 import json
 
@@ -44,7 +44,7 @@ class ControlNames(RigTestCase):
 
 
 class Convention(RigTestCase):
-    """The rules of <camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO> (D58), read through rigmodules.naming.parse."""
+    """The rules of <camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO>, read through rigmodules.naming.parse."""
 
     def test_a_name_gives_its_parts(self):
         parse = rigmodules.naming.parse

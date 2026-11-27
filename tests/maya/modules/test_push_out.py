@@ -1,4 +1,4 @@
-"""rigPushOut (D79): the collisions list, the push, the mirror, the read-phase checks and the temporary display.
+"""rigPushOut: the collisions list, the push, the mirror, the read-phase checks and the temporary display.
 
 Setup: chain 1 (a, b) has the capsule's joint a at the origin. The Left chain's control c sits at (3, 0, 0), parented to the
 layout, so it does not follow chain 1. The capsule of the basic template is a sphere of radius 2 at joint a. Moving

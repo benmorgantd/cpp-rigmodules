@@ -1,4 +1,4 @@
-"""poseRigFromJointPose and animateRigFromJointClip (D41): argument handling, every JointClip validation
+"""poseRigFromJointPose and animateRigFromJointClip: argument handling, every JointClip validation
 rule, and what a clip does to a rig it does not match. The solve itself is in test_inverse_solve.py.
 """
 import copy

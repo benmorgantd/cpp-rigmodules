@@ -1,4 +1,4 @@
-"""Sockets and child plugs: stored names (D16) and how parentStructure wires them (D4, D5)."""
+"""Sockets and child plugs: stored names and how parentStructure wires them (D4, D5)."""
 import json
 
 from maya import cmds

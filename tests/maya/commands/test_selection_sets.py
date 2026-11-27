@@ -1,4 +1,4 @@
-"""The selection sets the build makes (D39) and the skinning selections in rigmodules.selection."""
+"""The selection sets the build makes and the skinning selections in rigmodules.selection."""
 import json
 
 from maya import cmds

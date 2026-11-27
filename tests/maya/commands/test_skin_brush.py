@@ -1,10 +1,10 @@
-"""The skin weight brush (D65), below the mouse: skinBrushStroke replays a stroke from hits or rays, and skinBrushCtx holds
+"""The skin weight brush, below the mouse: skinBrushStroke replays a stroke from hits or rays, and skinBrushCtx holds
 the settings. Real mouse input, the drawn visualizer, Ctrl + drag resizing and the selection restriction live in the
 context's events, so they are checked by hand in a GUI Maya, not here.
 
 The mesh is a 5 x 5 vertex plane, 0.25 between vertices, flat at y = 0, so vertex 12 is the center (0, 0, 0) and its
 neighbors 7, 11, 13 and 17 are 0.25 away along the surface. Face 5 touches vertex 12. It is skinned to two joints, joint
-one owning columns 0 and 1 (the weights of D64's tests). A dab of radius 0.3 at the center reaches vertex 12 and the four
+one owning columns 0 and 1 (the weights of the smoothing tests). A dab of radius 0.3 at the center reaches vertex 12 and the four
 neighbors, and not the diagonals (0.5 along the edges), and the falloff is smoothstep:
   vertex 12, distance 0:      scale 1
   vertices 7, 11, 13, 17, distance 0.25: t = 5/6, s = 1/6, scale s * s * (3 - 2 * s) = 2/27

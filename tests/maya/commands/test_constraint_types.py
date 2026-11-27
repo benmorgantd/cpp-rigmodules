@@ -1,4 +1,4 @@
-"""Orient, Point, Swing and Twist constraints (D31): the driver gives only its rotation (Orient), translation (Point),
+"""Orient, Point, Swing and Twist constraints: the driver gives only its rotation (Orient), translation (Point),
 translation and rotation without its twist (Swing) or translation and twist (Twist), and the rest comes from the child plug's
 parentStructure parent.
 
@@ -388,7 +388,7 @@ class TwistWrist(ArmRibbonCase):
 
 
 class TypedSpaceSwitch(ConstraintTypeCase):
-    """D27 matching with the node's own output for each driver."""
+    """Space-switch matching with the node's own output for each driver."""
 
     def pose(self):
         cmds.setAttr(A_CTRL + ".rotate", 10, 20, 30)

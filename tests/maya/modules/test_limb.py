@@ -1,4 +1,4 @@
-"""Limb module (D62, design/limb.md): contract tests, pose cases from fixtures/poses/limb, and what only this module does.
+"""Limb module (design/limb.md): contract tests, pose cases from fixtures/poses/limb, and what only this module does.
 
 The pose cases hold hand-worked numbers (each description has the arithmetic). Nothing here is recorded from the rig.
 The Limb runs the TwoBoneIk and Ribbon solves, so test_limb_matches_parts holds the two together: a change to either that the Limb
@@ -46,7 +46,7 @@ def translation(node):
 
 
 class LimbRoundTripRules:
-    """What the inverse can and can't give back for the arm Limb of limb_arm (D62 phase 3, design/limb.md section 7), shared by every
+    """What the inverse can and can't give back for the arm Limb of limb_arm (design/limb.md section 7), shared by every
     contract whose rig has that Limb (ReverseFoot's too). The ribbon's ik controls have no joint, so they are never restored: they keep the
     sidecar's value or the rest, and the tweakers carry the difference. The round trip doesn't pose them: a posed one's scale with
     volumePreserve shears the bind joints, which no tweaker can hold. It poses every other control. The two-bone half is TwoBoneIk's: the
@@ -151,7 +151,7 @@ class LimbBehaviour(RigTestCase):
         self.assertEqual(cmds.getAttr(rig_name(POLE + ".space")), 0)
 
     def test_pole_parent_default_ik_builds_the_pole_in_ik_and_it_follows_the_handle(self):
-        # D52, amended 2026-11-26. A pure translation of the handle moves the pole by the handle's own world motion (the handle's
+        # A pure translation of the handle moves the pole by the handle's own world motion (the handle's
         # rest is turned, so its translate is not in world axes).
         data = copy.deepcopy(fixtures.load_template("limb_arm"))
         data["rigModules"][0]["moduleArgs"]["poleParentDefault"] = "ik"
@@ -169,7 +169,7 @@ class LimbBehaviour(RigTestCase):
         for control, point in zip(RIBBON_IK, [(0, 0, 0), (2, 0, 0), (4, 0, 0), (4, 2, 0), (4, 4, 0)]):
             self.assertWorldTranslation(rig_name(control), list(point), 1e-4)
 
-    # ---- twistRamp (D75) -------------------------------------------------------------------------
+    # ---- twistRamp -------------------------------------------------------------------------
 
     def _build_with_ramp(self, ramp):
         data = copy.deepcopy(fixtures.load_template("limb_arm"))
@@ -254,7 +254,7 @@ class LimbBehaviour(RigTestCase):
         for joint, rest in zip(BIND_JOINTS, [(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0), (4, 1, 0), (4, 2, 0), (4, 3, 0), (4, 4, 0)]):
             self.assertWorldTranslation(rig_name(joint), list(rest), 1e-5)
 
-    # ---- the coupling to TwoBoneIk (design/limb.md, D62) -----------------------------------------
+    # ---- the coupling to TwoBoneIk (design/limb.md) -----------------------------------------
 
     def test_an_end_joint_pitched_70_degrees_off_the_forearm_builds_and_rests_on_the_bind_joints(self):
         """An end joint whose X axis points past the limb (an ankle at the ball of the foot) is allowed up to 80 degrees off the line from
@@ -302,7 +302,7 @@ class LimbBehaviour(RigTestCase):
                     self.assertAlmostEqual(x, y, places=6, msg="pose %d %s: the Limb and a TwoBoneIk disagree" % (index, joint))
 
     def test_limb_matches_parts_with_a_foot(self):
-        """The foot-shaped case (D74): the Limb alone, the Limb with an identity foot (limb_foot: an FkChain on the hand feeding ikTarget)
+        """The foot-shaped case: the Limb alone, the Limb with an identity foot (limb_foot: an FkChain on the hand feeding ikTarget)
         and the Limb with a ReverseFoot at rest give the same limb and bind joints over the same poses, so a target that doesn't move
         changes nothing, whatever feeds it."""
         rigs = (("alone", "limb_arm", "limb_arm", None), ("identity", "limb_foot", "limb_foot", None),
@@ -327,7 +327,7 @@ class LimbBehaviour(RigTestCase):
 
 
 class LimbSwitch(SwitchTestCase):
-    """setRigIkFkBlend on a Limb (D62 phase 3): the two-bone limb's match, with the ribbon riding the matched joints. The cases that are
+    """setRigIkFkBlend on a Limb: the two-bone limb's match, with the ribbon riding the matched joints. The cases that are
     worked by hand for the TwoBoneIk (test_two_bone_ik_cmds) are the same maths, so these check what a Limb adds: the bind joints stay
     put with the limb's joints, and the command and the query find the module from any of its controls."""
 
@@ -408,7 +408,7 @@ HAND_JOINT = "hand_00_L_JNT"
 
 
 class LimbIkTarget(RigTestCase):
-    """ikTarget (D62 phase 4): a foot-shaped module (an FkChain with one joint at the hand) hangs from the Limb's ik socket and feeds the
+    """ikTarget: a foot-shaped module (an FkChain with one joint at the hand) hangs from the Limb's ik socket and feeds the
     Limb's ikTarget plug. limb_arm is the arm: upper arm (0,0,0), lower arm (4,0,0), hand (4,4,0), bones 4 and 4. Expectations are
     worked from that: the end joint reaches where the foot control is, and a pose of the foot control is whatever direction it moved."""
 
@@ -512,7 +512,7 @@ class LimbIkTarget(RigTestCase):
 
 class LimbIkTargetRestore(SolveTestCase):
     """ikTarget is not a child plug, so the module loop does not stop a restore ordering the modules, and a rig at rest comes back where
-    it was. An FkChain on the target gives the Limb no motion (only a ReverseFoot's inverse does, D74), so the Limb is matched as if
+    it was. An FkChain on the target gives the Limb no motion (only a ReverseFoot's inverse does), so the Limb is matched as if
     the target were at rest."""
 
     def test_a_restore_orders_a_limb_and_its_foot(self):
@@ -534,7 +534,7 @@ class LimbBindJointWithChild(RigTestCase):
 
 
 class LimbRibbonSockets(SolveTestCase):
-    """A Limb has a socket for every ribbon ik control (ribbon_0 to ribbon_4, D78). limb_ribbon_child hangs an FkChain of `extra` (at the
+    """A Limb has a socket for every ribbon ik control (ribbon_0 to ribbon_4). limb_ribbon_child hangs an FkChain of `extra` (at the
     third bind joint, (2, 0, 0)) from ribbon_2, so it follows that control's motion since rest, and the socket carries the visible control."""
 
     EXTRA = "extra_00_L_JNT"

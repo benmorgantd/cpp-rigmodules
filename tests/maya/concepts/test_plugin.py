@@ -1,6 +1,6 @@
 """Plugin registration: every node type, command and long flag is present.
 
-Flags matter because MSyntax::addFlag silently drops a flag whose short name is over 3 letters (D14).
+Flags matter because MSyntax::addFlag silently drops a flag whose short name is over 3 letters.
 """
 import maya.OpenMaya
 from maya import cmds, mel

@@ -58,7 +58,7 @@ class RigTestCase(unittest.TestCase):
     def build(self, template, joints, namespace=config.RIG_NAMESPACE, label="template", asset=config.ASSET_ID, markers=None):
         """Runs createRigFromTemplate. template is a fixture name, a 'RigTemplates/..' path or a dict. Every test
         builds into RIG_NAMESPACE unless it passes another. None leaves the flag out, for the default
-        "{asset name}_{rigName}" (D54). markers is a fixtures/markers name, passed as the markers file (D73)."""
+        "{asset name}_{rigName}". markers is a fixtures/markers name, passed as the markers file."""
         if isinstance(template, dict):
             path = fixtures.write_template(template, label)
         else:

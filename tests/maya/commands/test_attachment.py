@@ -1,4 +1,4 @@
-"""Attachments (D55): a rig built with parentRig follows sockets of another rig through "parent:module.socket" ids.
+"""Attachments: a rig built with parentRig follows sockets of another rig through "parent:module.socket" ids.
 
 The body is fkchain_three in 'rig' (fkchain_1: a, b, c at y 0, 2, 4). The face (attach_face) is built into 'face':
 face_chain follows fkchain_01_M_MOD.end, and neck_copy's control is driven by fkchain_01_M_MOD.index_1 through a constraint whose only

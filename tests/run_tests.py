@@ -30,11 +30,11 @@ MAYA_TESTS_DIR = os.path.join(TESTS_DIR, "maya")
 REPO_DIR = os.path.dirname(TESTS_DIR)
 CPP_DIR = os.path.join(REPO_DIR, "cpp")
 
-# Starting and ending Maya is mayalaunch's job (D48), shared with the tools and with mayadev.
+# Starting and ending Maya is mayalaunch's job, shared with the tools and with mayadev.
 sys.path.insert(0, os.path.join(REPO_DIR, "python"))
 import mayalaunch  # noqa: E402
 DEFAULT_PLUGIN = os.path.join(CPP_DIR, "x64", "Release", "RigModules.mll")
-# The rigmodules Python package, tested together with the plugin it wraps (D24).
+# The rigmodules Python package, tested together with the plugin it wraps.
 PYTHON_DIR = os.path.join(REPO_DIR, "python")
 
 # Every test file belongs to exactly one tier. Order is dependency order: a tier may assume every
@@ -46,8 +46,8 @@ TIERS = [
     ]),
     ("read only", True, [                  # commands and checks that never build a rig
         "commands.test_joint_markup_cmd",
-        "commands.test_skeleton_cmds",      # saveRigSkeleton, loadRigSkeleton and the skeleton hash (D54)
-        "commands.test_marker_cmds",        # markers: the five commands, the build flag, the stamps, the stale status (D73)
+        "commands.test_skeleton_cmds",      # saveRigSkeleton, loadRigSkeleton and the skeleton hash
+        "commands.test_marker_cmds",        # markers: the five commands, the build flag, the stamps, the stale status
         "concepts.test_control_shapes",     # rigControlNode shapes and bounds, no rig
         "concepts.test_template_loading",
         "concepts.test_template_validation",
@@ -55,47 +55,47 @@ TIERS = [
     ("build smoke", True, [                # every fixture template builds
         "concepts.test_smoke",
         "commands.test_create_rig",
-        "commands.test_selection_sets",     # the selection sets and rigmodules.selection (D39)
+        "commands.test_selection_sets",     # the selection sets and rigmodules.selection
     ]),
     ("modules", True, [                    # what each module does, and the rig structure around it
         "modules.test_layout",
         "modules.test_fkchain",
-        "modules.test_fk_hierarchy",        # FkHierarchy: contract, pose cases, terminators, added joints, mirroring (D71)
+        "modules.test_fk_hierarchy",        # FkHierarchy: contract, pose cases, terminators, added joints, mirroring
         "modules.test_aim",
-        "modules.test_two_bone_ik",         # TwoBoneIk: contract, pose cases, behaviour, the settings and pole channels (D52)
-        "modules.test_ribbon",              # Ribbon: contract, pose cases, behaviour, the plan step checks (D56)
-        "modules.test_limb",                # Limb: contract, pose cases, the sharp elbow, the plan step checks, DAG parenting (D62)
+        "modules.test_two_bone_ik",         # TwoBoneIk: contract, pose cases, behaviour, the settings and pole channels
+        "modules.test_ribbon",              # Ribbon: contract, pose cases, behaviour, the plan step checks
+        "modules.test_limb",                # Limb: contract, pose cases, the sharp elbow, the plan step checks, DAG parenting
         "modules.test_reverse_foot",
-        "modules.test_reverse_foot_stage2",   # ReverseFoot stage 2: the toes, the toe FK control, the blend and the pivot sockets (D74 phase 4)        # ReverseFoot stage 1: contract, pose cases worked from the core foot, channels, plugs, markers, the loop checks (D74)
-        "modules.test_push_out",            # rigPushOut: the collisions list, the push, the mirror, the read-phase checks, the display (D79)
+        "modules.test_reverse_foot_stage2",   # ReverseFoot stage 2: the toes, the toe FK control, the blend and the pivot sockets        # ReverseFoot stage 1: contract, pose cases worked from the core foot, channels, plugs, markers, the loop checks
+        "modules.test_push_out",            # rigPushOut: the collisions list, the push, the mirror, the read-phase checks, the display
         "concepts.test_sockets",
         "concepts.test_naming",
         "concepts.test_undo_redo",
         "commands.test_rig_control_cmds",   # control markup, traversal and shape files on a built rig
         "commands.test_rig_info",           # getRigInfo and the rigmodules Python query
-        "commands.test_skin_weight_cmds",   # weight files; binding at rest needs a built rig (D35)
-        "commands.test_smooth_skin_weights",  # smoothSkinWeights: neighbor averaging, locks, max influences, undo (D64)
-        "commands.test_skin_brush_rest",    # the rest-match brushes: restDelta and restEdge move weights towards the rest shape in a pose (D66)
-        "commands.test_skin_brush",       # the skin brush engine below the mouse: surface falloff, picking, per-stroke undo, the context settings (D65)
-        "commands.test_rig_look",           # setRigLook and the lookRoot (D54)
-        "commands.test_attachment",         # parentRig and "parent:" ids: a rig that follows another rig (D55)
+        "commands.test_skin_weight_cmds",   # weight files; binding at rest needs a built rig
+        "commands.test_smooth_skin_weights",  # smoothSkinWeights: neighbor averaging, locks, max influences, undo
+        "commands.test_skin_brush_rest",    # the rest-match brushes: restDelta and restEdge move weights towards the rest shape in a pose
+        "commands.test_skin_brush",       # the skin brush engine below the mouse: surface falloff, picking, per-stroke undo, the context settings
+        "commands.test_rig_look",           # setRigLook and the lookRoot
+        "commands.test_attachment",         # parentRig and "parent:" ids: a rig that follows another rig
     ]),
     ("constraints", True, [
         "commands.test_constraint_cmds",
-        "commands.test_constraint_types",  # Orient, Point, Swing and Twist (D31), and the shoulder and wrist ribbons
-        "commands.test_constraint_weight",  # constraintWeight: a baked blend from the parent to the full constraint (D63)
+        "commands.test_constraint_types",  # Orient, Point, Swing and Twist, and the shoulder and wrist ribbons
+        "commands.test_constraint_weight",  # constraintWeight: a baked blend from the parent to the full constraint
         "concepts.test_docs_examples",    # the README quick start ends with a space switch
-        "concepts.test_mirror",            # mirrored templates include mirrored constraints (D28)
-        "commands.test_rig_pose_cmds",     # the animation interface: channels, zero, mirror and flip pose (D34)
-        "commands.test_rig_inverse_cmds",  # poseRigFromJointPose and animateRigFromJointClip, JointClip reader (D41)
-        "commands.test_joint_clip_capture",  # rigmodules.jointclip.capture_joint_clip (D41)
-        "commands.test_joint_clip_fbx",    # FBX joint files, bone maps and the skeleton export (D42)
-        "commands.test_inverse_solve",     # the inverse solve: round trips through every module, constraint and the sidecar (D41)
-        "commands.test_two_bone_ik_inverse",  # the TwoBoneIk inverse: handle, pole, pin, roll, soft, stretch, blend, hand-worked (D52)
-        "commands.test_two_bone_ik_cmds",  # setRigIkFkBlend, the matched IK/FK switch, and the pole's module-owned space switch: hand-worked values, no pop either way, warnings, undo (D52)
-        "commands.test_rig_key_cmds",      # getRigKeys and setRigKeys, and animateRigFromJointClip's keys (D34, D41)
-        "commands.test_rig_animation_cmds",  # saveRigAnimation, loadRigAnimation and the keys payload's tangents (D42)
-        "commands.test_rig_data_files",     # library meta in both file formats, getRigDataFileInfo, setRigDataFileMeta, mirror on load (D51)
+        "concepts.test_mirror",            # mirrored templates include mirrored constraints
+        "commands.test_rig_pose_cmds",     # the animation interface: channels, zero, mirror and flip pose
+        "commands.test_rig_inverse_cmds",  # poseRigFromJointPose and animateRigFromJointClip, JointClip reader
+        "commands.test_joint_clip_capture",  # rigmodules.jointclip.capture_joint_clip
+        "commands.test_joint_clip_fbx",    # FBX joint files, bone maps and the skeleton export
+        "commands.test_inverse_solve",     # the inverse solve: round trips through every module, constraint and the sidecar
+        "commands.test_two_bone_ik_inverse",  # the TwoBoneIk inverse: handle, pole, pin, roll, soft, stretch, blend, hand-worked
+        "commands.test_two_bone_ik_cmds",  # setRigIkFkBlend, the matched IK/FK switch, and the pole's module-owned space switch: hand-worked values, no pop either way, warnings, undo
+        "commands.test_rig_key_cmds",      # getRigKeys and setRigKeys, and animateRigFromJointClip's keys
+        "commands.test_rig_animation_cmds",  # saveRigAnimation, loadRigAnimation and the keys payload's tangents
+        "commands.test_rig_data_files",     # library meta in both file formats, getRigDataFileInfo, setRigDataFileMeta, mirror on load
     ]),
     # Animation, then import/export tiers go here, after constraints.
     ("known bugs", False, [                # expected failures, never block anything
@@ -108,10 +108,10 @@ TIERS = [
 # 15 s) overlaps Maya's instead of adding to it. They gate nothing: if the launcher is broken, the Maya
 # tiers fail on their own, and the run reports both. Every file here must import no maya module.
 PLAIN_PYTHON = [
-    "concepts.test_mayalaunch",        # the launcher every script that starts Maya uses (D48)
+    "concepts.test_mayalaunch",        # the launcher every script that starts Maya uses
     "concepts.test_source_layout",     # core/ stays Maya-free; reads files, not the scene
     "concepts.test_python_template",   # rigmodules.template reads a file, builds nothing
-    "concepts.test_core_cpp",          # tests/core: the Maya-free C++ of core/, built with cl.exe into one program and run (D20, D73)
+    "concepts.test_core_cpp",          # tests/core: the Maya-free C++ of core/, built with cl.exe into one program and run
 ]
 PLAIN_TIER = "plain"
 PLAIN_LABEL = "plain python    "

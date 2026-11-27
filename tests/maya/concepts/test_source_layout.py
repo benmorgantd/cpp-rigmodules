@@ -1,5 +1,5 @@
-"""Source layout: C++ lives under cpp/, core/ stays Maya-free, includes follow the path rules (D13, D22, D23),
-include blocks are sorted, and every brace sits on its own line (D14).
+"""Source layout: C++ lives under cpp/, core/ stays Maya-free, includes follow the path rules,
+include blocks are sorted, and every brace sits on its own line.
 
 These read the source tree, not the plugin, so they never touch the Maya scene. They run in the
 registration tier because a broken boundary is a build-structure problem, like a missing node type.
@@ -16,14 +16,14 @@ MAYA_DIR = os.path.join(CPP_DIR, "maya")
 SOURCE_EXTENSIONS = (".h", ".cpp")
 # Every folder that may hold source, relative to cpp/. A new folder is a layout decision, so it is added here on purpose.
 SOURCE_FOLDERS = {"core", "maya", "maya/commands", "maya/contexts", "maya/modules", "maya/nodes", "maya/shared"}
-# C++ outside cpp/: the Maya-free tests of core/ (D20 amendment, D73 phase 0).
+# C++ outside cpp/: the Maya-free tests of core/ (cl.exe, no Maya).
 TEST_SOURCE_FOLDERS = {"tests/core"}
 
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]', re.MULTILINE)
 # Third-party headers core may use. The standard library is matched separately (no folder, no extension).
 CORE_ALLOWED_SYSTEM_PREFIXES = ("nlohmann/",)
 
-# Brace placement (Allman, D14). Braced init lists on one line ({ a, b }, x{ 1 }, an empty {} argument) are
+# Brace placement (Allman). Braced init lists on one line ({ a, b }, x{ 1 }, an empty {} argument) are
 # values, not blocks, and are allowed. Everything else that opens or closes a block must be alone on its line.
 BRACE_VIOLATIONS = [
     ("opening brace after code", re.compile(r"\S.*\{\s*$")),                      # if (x) {   class A {   = {
@@ -130,7 +130,7 @@ class SourceLayout(unittest.TestCase):
 
 
 class PythonPackageDependencies(unittest.TestCase):
-    """The Python package imports no pxr and no numpy (D42): joint files go through Maya, so the package needs nothing
+    """The Python package imports no pxr and no numpy: joint files go through Maya, so the package needs nothing
     beyond maya. Checked statically, so the dependency can't come back unnoticed."""
 
     def test_no_module_imports_pxr_or_numpy(self):

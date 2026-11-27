@@ -1,4 +1,4 @@
-"""Library files (D51): the `meta` block in pose and ControlAnim files, getRigDataFileInfo, setRigDataFileMeta, and
+"""Library files: the `meta` block in pose and ControlAnim files, getRigDataFileInfo, setRigDataFileMeta, and
 loadRigPose's data-first mirror. Every test builds mirror_arms (Fk chains, a Layout and a space switch) unless it says
 otherwise.
 """
@@ -129,7 +129,7 @@ class SaveMeta(DataFileTestCase):
 
 
 class OlderAndBadFiles(DataFileTestCase):
-    """A version 1 file has no meta and still loads (D33). A version 2 file must have one."""
+    """A version 1 file has no meta and still loads. A version 2 file must have one."""
 
     POSE_V1 = {"formatVersion": 1, "controls": {"Left": {"upperArm": {"rotateY": 20}}}}
     ANIM_V1 = {"formatVersion": 1, "frameRate": 24.0, "startFrame": 1, "endFrame": 10, "controls": {
@@ -150,7 +150,7 @@ class OlderAndBadFiles(DataFileTestCase):
         self.assertEqual((anim["formatVersion"], anim["meta"]), (1, {}))
 
     def test_a_version_2_meta_is_renamed(self):
-        # D54: variant became rigName and skeletonId became skeleton. A version 2 file has no skeletonHash.
+        # variant became rigName and skeletonId became skeleton. A version 2 file has no skeletonHash.
         old_meta = {"assetId": "tests\\rig", "variant": "body", "skeletonId": "biped", "tags": ["a"]}
         new_meta = {"assetId": "tests\\rig", "rigName": "body", "skeleton": "biped", "tags": ["a"]}
         pose = self.write("p.json", dict(self.POSE_V1, formatVersion=2, meta=old_meta))

@@ -1,4 +1,4 @@
-"""FBX joint files and bone maps (D42): rigmodules.jointclip.write_fbx, read_fbx and write_skeleton_fbx, and
+"""FBX joint files and bone maps: rigmodules.jointclip.write_fbx, read_fbx and write_skeleton_fbx, and
 rigmodules.bonemap.
 
 The clips are written by hand. A round trip has to give back the transforms that went in, so each value is worked out

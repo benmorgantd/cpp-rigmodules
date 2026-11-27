@@ -1,4 +1,4 @@
-"""createRigFromTemplate: arguments, namespaces, assets and joint handling (D18, D29). Template content is in
+"""createRigFromTemplate: arguments, namespaces, assets and joint handling. Template content is in
 concepts/test_template_validation.py, undo in concepts/test_undo_redo.py."""
 import os
 
@@ -38,14 +38,14 @@ class Arguments(RigTestCase):
 
     def test_invalid_asset_id_fails(self):
         joints = self.make_skeleton(SKELETON)
-        # Uppercase is rejected, not lowercased, so no two ids differ only in case (D54).
+        # Uppercase is rejected, not lowercased, so no two ids differ only in case.
         for asset_id in ["", "shooter\\\\hero", "shooter\\main chars\\hero", "shooter/hero", "shooter|hero", "hero\\",
                          "Shooter\\hero", "shooter\\Hero", "\\hero"]:
             self.assertMayaError(lambda: self.build(TEMPLATE, joints, asset=asset_id), "Asset id")
         self.assertNothingBuilt()
 
     def test_asset_keys_in_a_template_are_unknown(self):
-        # Templates carry no asset since D29, so one template serves many assets.
+        # Templates carry no asset, so one template serves many assets.
         template = fixtures.load_template(TEMPLATE)
         template["assetId"] = "old\\style"
         joints = self.make_skeleton(SKELETON)
@@ -99,7 +99,7 @@ class Arguments(RigTestCase):
 class Namespaces(RigTestCase):
 
     def test_default_namespace_is_asset_name_and_rig_name(self):
-        # D54: always "{asset name}_{rigName}", so a second rig of the asset never moves the first one's namespace.
+        # always "{asset name}_{rigName}", so a second rig of the asset never moves the first one's namespace.
         joints = self.make_skeleton(SKELETON)
         self.build(TEMPLATE, joints, namespace=None, asset="shooter\\main\\characters\\hero")
         self.assertExists(":hero_fktest:layout_00_M_MOD")
@@ -178,7 +178,7 @@ class Namespaces(RigTestCase):
 
 
 class RigNamespaces(RigTestCase):
-    """A namespace holds one rig, and the rig root carries the asset id (D54, which merged the asset root into it)."""
+    """A namespace holds one rig, and the rig root carries the asset id (which merged the asset root into it)."""
 
     TEMPLATE_RIG_NAME = "fktest"   # fixtures/templates/layout_rig.json
 
@@ -216,7 +216,7 @@ class RigNamespaces(RigTestCase):
 
 
 class SkeletonHashStamp(RigTestCase):
-    """The build stamps its input joints' skeletonHash on the rig root (D54). saveRigSkeleton is the reference."""
+    """The build stamps its input joints' skeletonHash on the rig root. saveRigSkeleton is the reference."""
 
     def test_stamp_matches_save_rig_skeleton_on_the_same_joints(self):
         joints = self.make_skeleton(SKELETON)
@@ -248,7 +248,7 @@ class RigRootAttributes(RigTestCase):
         self.assertEqual(cmds.getAttr(rig_root + ".rigTemplateName"), "TestRig")
         for name in ["rigTemplateName", "rigModules"]:
             self.assertEqual(cmds.attributeQuery(name, node=rig_root, shortName=True), name)
-        # children was never connected or read, and was removed (D67).
+        # children was never connected or read, and was removed.
         self.assertFalse(cmds.attributeQuery("children", node=rig_root, exists=True))
 
 
@@ -270,7 +270,7 @@ class JointBake(RigTestCase):
 
 
 class RigNames(RigTestCase):
-    """The rig name becomes a folder in the asset, so it is lowercase (D54). Without a rigName key it is the
+    """The rig name becomes a folder in the asset, so it is lowercase. Without a rigName key it is the
     rigTemplateName in snake_case."""
 
     def built_rig_name(self, template):
@@ -327,7 +327,7 @@ class RigNames(RigTestCase):
 
 
 class VersionStamps(RigTestCase):
-    """Each rig root records what built it, so tools can find out-of-date imports (D29)."""
+    """Each rig root records what built it, so tools can find out-of-date imports."""
 
     def plugin_version(self):
         # The runner may load a copy of the .mll under another file name, so find it by its node type.
@@ -349,7 +349,7 @@ class VersionStamps(RigTestCase):
 
 
 class DisplayLayers(RigTestCase):
-    """The build replaces the rig's three display layers (D38)."""
+    """The build replaces the rig's three display layers."""
 
     LAYERS = {"jointDisplayLayer": "jointsLayer", "meshDisplayLayer": "meshesLayer", "controlDisplayLayer": "controlsLayer"}
 
@@ -369,7 +369,7 @@ class DisplayLayers(RigTestCase):
             self.assertEqual(cmds.listConnections(root + "." + attr, source=True, destination=False), [rig_name(name)[1:]])
 
     def test_layers_hold_joints_and_controls_and_the_mesh_layer_starts_empty(self):
-        # The model is imported after the build, so meshes already in the namespace are not the rig's (D38).
+        # The model is imported after the build, so meshes already in the namespace are not the rig's.
         cmds.namespace(add=":rig")
         body = cmds.polyCube(name=":rig:body")[0]
         self.build_standard(TEMPLATE, SKELETON)
@@ -442,7 +442,7 @@ class DisplayLayers(RigTestCase):
 
 
 class RigGroups(RigTestCase):
-    """The build makes rig_all over the rig's topmost joints and controls, and mesh_grp under it (D43)."""
+    """The build makes rig_all over the rig's topmost joints and controls, and mesh_grp under it."""
 
     CHANNELS = ["tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz"]
 

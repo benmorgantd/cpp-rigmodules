@@ -1,4 +1,4 @@
-"""Module and constraint mirroring (D28): "mirror": true in a template, the checkMirrorPositions build flag,
+"""Module and constraint mirroring: "mirror": true in a template, the checkMirrorPositions build flag,
 getRigMirrorControl and mirrorRigControlShapes. Template errors are validation cases (fixtures/validation/mirror_*)."""
 from maya import cmds
 import maya.api.OpenMaya as om

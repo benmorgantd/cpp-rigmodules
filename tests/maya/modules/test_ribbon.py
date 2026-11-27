@@ -1,4 +1,4 @@
-"""Ribbon module (D56): contract tests, pose cases from fixtures/poses/ribbon, and what only this module does.
+"""Ribbon module: contract tests, pose cases from fixtures/poses/ribbon, and what only this module does.
 
 The pose cases hold hand-worked numbers (each description has the arithmetic). Nothing here is recorded from the rig.
 """
@@ -33,7 +33,7 @@ CHANNELS = {
 
 
 class _RibbonRestore:
-    """What the inverse can and can't give back on a ribbon (D57). An interior ik control has no joint, so it is never restored:
+    """What the inverse can and can't give back on a ribbon. An interior ik control has no joint, so it is never restored:
     it keeps its sidecar or rest value, and the tweakers carry the difference. The end controls take the whole of the first and last
     bind joints, so those two tweakers can't be told apart from their ends. The round trip poses neither group (a posed interior
     control's frame can't come back through the tweakers when the volume channel gives it a non-uniform scale: a tweaker is a
@@ -76,7 +76,7 @@ class RibbonAimedContract(_RibbonRestore, ModuleContract, RigTestCase):
 
 
 class RibbonNegXContract(_RibbonRestore, ModuleContract, RigTestCase):
-    """The same contract on a chain that runs down -X while the joints' X points back up it (a mirrored limb, D57): the inverse
+    """The same contract on a chain that runs down -X while the joints' X points back up it (a mirrored limb): the inverse
     must give back the controls the forward solve was driven with, with the chain sign in play."""
     TEMPLATE = "ribbon_negx"
     SKELETON = "ribbon_negx"
@@ -154,7 +154,7 @@ class RibbonBehaviour(RigTestCase):
         self.assertWorldTranslation(rig_name("spine3_00_M_JNT"), [2, 2, 0], 1e-6)
 
     def test_a_chain_running_down_minus_x_is_the_x_mirror_of_one_running_down_plus_x(self):
-        """The same moves on both chains give joint positions that are mirrored in x (D57). With the aim blends at their default
+        """The same moves on both chains give joint positions that are mirrored in x. With the aim blends at their default
         0 the ends' own X axes set the tangents, so a chain whose joints point back up it only works if the ribbon reads the
         axes as pointing the other way. The moves: the end up, the interior up and sideways, a roll on the start."""
         moves = {LAST + ".translateY": 2, INTERIOR + ".translateZ": 1.5, FIRST + ".rotateX": 70, FIRST + ".bendRoundness": 0.7}
@@ -275,7 +275,7 @@ class RibbonBehaviour(RigTestCase):
         return data
 
     def test_the_aim_keys_set_the_channels_default_and_rest(self):
-        """The keys are the same-named channels' rest (D34), so a build starts aimed and the other channels are untouched."""
+        """The keys are the same-named channels' rest, so a build starts aimed and the other channels are untouched."""
         self.build(self._with_aim(startAimBlend=1, endAimBlend=0.5), self.make_skeleton("ribbon_basic"), label="ribbon_aim")
         channels = {c.name: c for c in rigmodules.query.get_control_channels(rig_name(FIRST))}
         rests = dict((name, rest) for name, (rest, mirror) in CHANNELS.items())
@@ -323,7 +323,7 @@ class RibbonBehaviour(RigTestCase):
         self.assertIn("startAimBlen", message)
         self.assertNothingBuilt()
 
-    # ---- the plan step's checks (D17) ----------------------------------------------------------
+    # ---- the plan step's checks ----------------------------------------------------------
 
     def _build_with(self, edit, skeleton="ribbon_basic"):
         data = copy.deepcopy(fixtures.load_template("ribbon_basic"))
@@ -379,7 +379,7 @@ class RibbonBehaviour(RigTestCase):
 
 
 class RibbonDerivedControls(RigTestCase):
-    """The ik controls come from the bind joints, not from control joints (D57): where they sit, how they are named, and what the
+    """The ik controls come from the bind joints, not from control joints: where they sit, how they are named, and what the
     read phase rejects. Expectations are worked by hand."""
 
     def _template(self, joints, **args):
@@ -443,7 +443,7 @@ class RibbonDerivedControls(RigTestCase):
         self.assertEqual(self._usages()[:3], ["tail1IK_00", "tail1IK_01", "tail1IK_02"])
 
     def test_two_ribbons_with_the_same_base_and_side_fail_the_build(self):
-        """Usages are unique in a rig (D25), so the second ribbon needs its own controlName."""
+        """Usages are unique in a rig, so the second ribbon needs its own controlName."""
         data = copy.deepcopy(fixtures.load_template("ribbon_arm"))
         for module in data["rigModules"][1:]:
             module["moduleArgs"]["controlName"] = "up"
@@ -451,7 +451,7 @@ class RibbonDerivedControls(RigTestCase):
         self.assertIn("upIK_00", message)
         self.assertNothingBuilt()
 
-    # ---- the chain checks (D57) ---------------------------------------------------------------
+    # ---- the chain checks ---------------------------------------------------------------
 
     def _build_turned(self, joint, rotate):
         joints = self.make_skeleton("ribbon_basic")
@@ -502,7 +502,7 @@ FK_CONTROLS = ["tailFK_%02d_M_CTRL" % i for i in range(3)]
 
 
 class RibbonFkContract(_RibbonRestore, ModuleContract, RigTestCase):
-    """The same contract on a ribbon with an fk chain (D59). An fk control has no joint, so like an interior ik control it keeps
+    """The same contract on a ribbon with an fk chain. An fk control has no joint, so like an interior ik control it keeps
     its sidecar or rest value, and the round trip does not pose it."""
     TEMPLATE = "ribbon_fk"
     SKELETON = "ribbon_basic"
@@ -519,7 +519,7 @@ class RibbonFkContract(_RibbonRestore, ModuleContract, RigTestCase):
 
 
 class RibbonFkStyle(RigTestCase):
-    """The fk chain (D59). The skeleton is five joints along +X at 0, 2, 4, 6 and 8, so the three ik controls and the three fk
+    """The fk chain. The skeleton is five joints along +X at 0, 2, 4, 6 and 8, so the three ik controls and the three fk
     controls sit at 0, 4 and 8. Expectations are worked by hand."""
 
     def _template(self, **args):
@@ -616,7 +616,7 @@ class RibbonFkStyle(RigTestCase):
         for joint in BIND_JOINTS:
             self.assertWorldRotation(rig_name(joint), [30, 0, 0], 1e-4)
 
-    # ---- twistRamp (D75) ------------------------------------------------------------------------
+    # ---- twistRamp ------------------------------------------------------------------------
     # The ik controls are at u = 0, 0.5 and 1 and the bind joints at 0, 0.25, 0.5, 0.75 and 1. Rolling the first fk control rolls
     # the whole chain, so the fk roll is the same at every ik control, and a control's roll is its share of it. The joints between
     # the controls ease linearly between their rolls.
@@ -755,7 +755,7 @@ class RibbonFkStyle(RigTestCase):
 
 
 class RibbonBindSockets(RigTestCase):
-    """Every bind joint (bind_0 to bind_4) and every fk control (fk_0 to fk_2) is a socket (D78), so a child plug or a constraint can
+    """Every bind joint (bind_0 to bind_4) and every fk control (fk_0 to fk_2) is a socket, so a child plug or a constraint can
     take it. ribbon_bind_child has a joint, extra, at the third bind joint (4, 0, 0), and an FkChain of it hangs from bind_2. The fk
     version hangs it from fk_1, which sits at the same place."""
 

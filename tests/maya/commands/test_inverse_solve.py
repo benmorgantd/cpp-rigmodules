@@ -1,4 +1,4 @@
-"""The inverse solve (D41): poseRigFromJointPose and animateRigFromJointClip put a rig's controls where its joints say.
+"""The inverse solve: poseRigFromJointPose and animateRigFromJointClip put a rig's controls where its joints say.
 
 Most tests are round trips: pose a rig, write its joints as a JointClip, zero the controls and restore from the clip.
 Forward and inverse must agree, in joints and in control values. The posed values are chosen by hand in each test. A
@@ -300,7 +300,7 @@ class SpaceRoundTrip(SolveTestCase):
 
 
 class PushOutRoundTrip(SolveTestCase):
-    """A push out is not inverted: the sweep runs it forward with the capsule where the source's joint is (D79). Otherwise
+    """A push out is not inverted: the sweep runs it forward with the capsule where the source's joint is. Otherwise
     the solved control would take the push as its own motion, and the rig would push it a second time."""
 
     def setUp(self):
@@ -316,7 +316,7 @@ class PushOutRoundTrip(SolveTestCase):
 
 
 class OrientConstraintRoundTrip(SolveTestCase):
-    """The other constraint types go through the same delta function the constraint node uses (D31)."""
+    """The other constraint types go through the same delta function the constraint node uses."""
 
     CONTROL = rig_name("c_00_L_CTRL")
 
@@ -338,7 +338,7 @@ class OrientConstraintRoundTrip(SolveTestCase):
 
 
     def test_a_partial_weight_orient_round_trip(self):
-        """The sweep passes the constraint's constraintWeight to the same delta function (D63)."""
+        """The sweep passes the constraint's constraintWeight to the same delta function."""
         self.build_standard("fkchain_two_chains", "fk_two_chains")
         cmds.createRigConstraint(self.CONTROL, driver=["fkchain_01_M_MOD.end", "layout_00_M_MOD.end"], type="Orient", constraintWeight=0.4)
         cmds.setAttr(self.CONTROL + ".space", 1)
@@ -528,7 +528,7 @@ class AnimateFromClip(SolveTestCase):
 
 
 class AnimateWithSidecar(SolveTestCase):
-    """The animation command's sidecar is a ControlAnim (D42). Its curves are sampled on the clip's frames for the solve,
+    """The animation command's sidecar is a ControlAnim. Its curves are sampled on the clip's frames for the solve,
     and what only the sidecar gave is keyed with the sidecar's own keys and tangents, not baked."""
 
     ARM = rig_name("upperArm_00_L_CTRL")

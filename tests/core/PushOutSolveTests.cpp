@@ -1,4 +1,4 @@
-// core/PushOutSolve: the point against one capsule, the offset and mirror matrices and the draw map (D79,
+// core/PushOutSolve: the point against one capsule, the offset and mirror matrices and the draw map (
 // design/push-out.md).
 //
 // Every expected number is worked by hand. The capsule has radius 2 and half length 3 along X, its frame at the origin with

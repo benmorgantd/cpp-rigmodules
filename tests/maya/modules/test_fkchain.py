@@ -27,7 +27,7 @@ add_pose_cases(FkChainPoses, "fkchain")
 class FkChainBehaviour(RigTestCase):
 
     def test_controls_rotate_in_xyz(self):
-        # +X down the bone, +Z bend: Y is the middle axis, so gimbal lock needs a 90 degree side swing (D40).
+        # +X down the bone, +Z bend: Y is the middle axis, so gimbal lock needs a 90 degree side swing.
         self.build_standard("fkchain_three", "fk_three")
         for name in ("a_00_M_CTRL", "b_00_M_CTRL", "c_00_M_CTRL"):
             self.assertEqual(cmds.getAttr(rig_name(name) + ".rotateOrder"), 0, name)

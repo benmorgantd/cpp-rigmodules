@@ -1,4 +1,4 @@
-"""The TwoBoneIk inverse (D52 section 6, phase 5): a limb's controls from its joints.
+"""The TwoBoneIk inverse (design/two-bone-ik.md section 6): a limb's controls from its joints.
 
 Round trips as in test_inverse_solve: pose the rig, write its joints as a JointClip, zero the controls and restore. The
 control values the tests expect are hand-worked from design/two-bone-ik.md sections 4.2, 4.2a and 6 (the limb is

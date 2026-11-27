@@ -1,4 +1,4 @@
-"""Read-phase template validation (D17). Template-only checks are data: one case per
+"""Read-phase template validation. Template-only checks are data: one case per
 fixtures/validation/*.json. Checks that need a scene change before the build are code below."""
 from maya import cmds
 

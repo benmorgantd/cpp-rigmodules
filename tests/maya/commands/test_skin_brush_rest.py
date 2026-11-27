@@ -1,4 +1,4 @@
-"""The rest-match skin brushes (D66), below the mouse: skinBrushStroke with operation="restDelta" or "restEdge" moves the
+"""The rest-match skin brushes, below the mouse: skinBrushStroke with operation="restDelta" or "restEdge" moves the
 weights of the vertices a dab reaches towards the blend of influences that puts each vertex where the rest shape wants it
 in the current pose. Both operations share one solve and are tested through the same cases.
 
