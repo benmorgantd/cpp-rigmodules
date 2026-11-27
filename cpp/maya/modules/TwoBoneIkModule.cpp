@@ -174,7 +174,7 @@ std::vector<ModuleInverseChannel> TwoBoneIkNode::inverseChannels()
 		{ RigAttr::Stretch, TwoBoneIkSlot::Settings, 0.0 },
 		{ RigAttr::Pin, TwoBoneIkSlot::Pole, 0.0 },
 		{ RigAttr::Roll, TwoBoneIkSlot::Ik, 0.0 },
-		{ RigAttr::ControlSpace, TwoBoneIkSlot::Pole, 0.0 },
+		{ RigAttr::ControlSpace, TwoBoneIkSlot::Pole, static_cast<double>(PoleSpaceLabels::RestIndex) },
 		{ RigAttr::IkFkBlend, TwoBoneIkSlot::Settings, 1.0 }
 	};
 }

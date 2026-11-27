@@ -299,7 +299,7 @@ class TwoBoneIkBehaviour(RigTestCase):
         pole = channels(POLE)
         self.assertEqual(sorted(pole), ["pin", "space", "translateX", "translateY", "translateZ"])
         self.assertEqual((pole["pin"].rest, pole["pin"].mirror), (0.0, "copy"))
-        self.assertEqual((pole["space"].type, pole["space"].rest, pole["space"].mirror), ("enum", 0, "copy"))
+        self.assertEqual((pole["space"].type, pole["space"].rest, pole["space"].mirror), ("enum", 1, "copy"))   # Ik (D52, amended 2026-11-26)
 
         # The FK controls are FkChain's: translate, rotate and scale. Visibility is a channel only where the module doesn't drive it.
         self.assertEqual(len(channels(ARM[0])), 10)

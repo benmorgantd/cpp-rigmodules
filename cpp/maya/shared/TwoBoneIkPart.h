@@ -72,7 +72,7 @@ struct TwoBoneIkPart
 		CHECK_MSTATUS_AND_RETURN_IT(uAttr.setStorable(true));
 		CHECK_MSTATUS_AND_RETURN_IT(MPxNode::addAttribute(Node::aRoll));
 
-		Node::aPoleSpace = nAttr.create(RigAttr::PoleSpace, RigAttr::PoleSpace, MFnNumericData::kShort, 0, &status);
+		Node::aPoleSpace = nAttr.create(RigAttr::PoleSpace, RigAttr::PoleSpace, MFnNumericData::kShort, PoleSpaceLabels::RestIndex, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMin(0));
 		CHECK_MSTATUS_AND_RETURN_IT(nAttr.setMax(1));
@@ -396,7 +396,7 @@ struct TwoBoneIkPart
 		status = RigPoseScene::addDoubleChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::Pin, 0.0, 0.0, 1.0, false, dagMod);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		// The pole's module-owned space (D52 section 4.4): the module reads it, so it is wired here and not through a rigConstraint.
-		return RigPoseScene::addEnumChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::ControlSpace, { PoleSpaceLabels::Parent, PoleSpaceLabels::Ik }, 0, false, dagMod);
+		return RigPoseScene::addEnumChannel(oControls[TwoBoneIkSlot::Pole], RigAttr::ControlSpace, { PoleSpaceLabels::Parent, PoleSpaceLabels::Ik }, PoleSpaceLabels::RestIndex, false, dagMod);
 	}
 
 	// Wires the channels queueChannels added to the module, drives the controls' visibility, and locks and hides the transform

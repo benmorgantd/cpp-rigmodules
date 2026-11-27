@@ -464,6 +464,8 @@ namespace PoleSpaceLabels
 {
 	inline constexpr const char* Parent{ "Parent" };
 	inline constexpr const char* Ik{ "Ik" };
+	// The pole's rest and build value: Ik, so a new limb's pole follows the IK handle (D52, amended 2026-11-26).
+	inline constexpr short RestIndex{ 1 };
 }
 
 // Keys of getRigInfo's JSON result. Public API: mayadev reads them through the rigmodules Python package.
