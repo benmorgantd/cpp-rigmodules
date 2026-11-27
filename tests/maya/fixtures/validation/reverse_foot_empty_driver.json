@@ -10,7 +10,7 @@
   ],
   "expectErrors": [
     {
-      "contains": "ikFkDriver: must name the Limb or TwoBoneIk module"
+      "contains": "ikFkDriver: must name the TwoBoneIk module"
     }
   ],
   "markers": "reverse_foot"

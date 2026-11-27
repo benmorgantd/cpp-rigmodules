@@ -123,7 +123,7 @@ namespace
 		std::vector<std::string> missingJoints;               // the rig's joints the source lacks, as "[side, usage]"
 		std::vector<PlugState> plugs;                         // by slot
 		std::vector<MMatrix> socketWorld;                     // this frame's result
-		// A module that feeds a Limb's ikTarget (a foot): that Limb's index. The pre-pass runs this module first for its motion F
+		// A module that feeds a TwoBoneIk's ikTarget (a foot): that TwoBoneIk's index. The pre-pass runs this module first for its motion F
 		// (D74, design/reverse-foot.md section 10).
 		int ikTargetOf = -1;
 	};
@@ -776,7 +776,7 @@ namespace
 			}
 		}
 
-		// A Limb's ikTarget is two input attributes, not a child plug slot, so the module that feeds it is found from the connection.
+		// A TwoBoneIk's ikTarget is two input attributes, not a child plug slot, so the module that feeds it is found from the connection.
 		for (std::size_t m = 0; m < fModules.size(); ++m)
 		{
 			const MPlug pTarget = MFnDependencyNode(fModules[m].oModule).findPlug(RigAttr::IkTargetMatrix, false, &status);
@@ -794,7 +794,7 @@ namespace
 		return sortModules();
 	}
 
-	// The joint a Limb's ikTarget moves: its end joint, from the source (TwoBoneIkSlot::End), else empty.
+	// The joint a TwoBoneIk's ikTarget moves: its end joint, from the source (TwoBoneIkSlot::End), else empty.
 	std::optional<MMatrix> Solver::targetJointWorld(int limb, const std::vector<MMatrix>& clipWorlds) const
 	{
 		const std::vector<int>& joints = fModules[limb].clipJointOfSlot;
@@ -952,7 +952,7 @@ namespace
 			}
 		}
 
-		// The module that feeds each Limb's ikTarget (a foot), by the Limb's index.
+		// The module that feeds each TwoBoneIk's ikTarget (a foot), by the TwoBoneIk's index.
 		std::vector<int> ikTargetFeeder(fModules.size(), -1);
 		for (std::size_t f = 0; f < fModules.size(); ++f)
 		{
@@ -967,9 +967,9 @@ namespace
 			ModuleState& module = fModules[m];
 			const std::size_t slotCount = module.context.controlRestWorld.size();
 			ModuleInverseInput input = makeInput(module, clipWorlds, written, values, isSupplied, true);
-			// The pre-pass (D74): the module that feeds this Limb's ikTarget is solved first, from the joints, the channels and the space the
-			// Limb's handle hangs in (solved by now: it is the Limb's parent's), for the motion F the handle must undo. Its parents are not
-			// solved yet, and it reads none. The sweep runs it again in its own place, after the Limb, and it gives the same answer.
+			// The pre-pass (D74): the module that feeds this TwoBoneIk's ikTarget is solved first, from the joints, the channels and the space the
+			// TwoBoneIk's handle hangs in (solved by now: it is the TwoBoneIk's parent's), for the motion F the handle must undo. Its parents are not
+			// solved yet, and it reads none. The sweep runs it again in its own place, after the TwoBoneIk, and it gives the same answer.
 			if (ikTargetFeeder[m] >= 0)
 			{
 				const ModuleState& feeder = fModules[ikTargetFeeder[m]];

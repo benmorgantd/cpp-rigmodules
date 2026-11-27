@@ -15,9 +15,8 @@
 #include <maya/MVector.h>
 
 // The two-bone IK/FK solve (D52), as plain values in and out, with no node and no plug. TwoBoneIkNode reads its plugs into a
-// TwoBoneIkEval and calls TwoBoneIkSolve::evaluate, the inverse calls it on the values it built, and the Limb module (D62,
-// design/limb.md) calls it for its limb joints. The plan step's derived controls and the rest data are here too, for the same
-// reason. A change here changes every one of them: read design/limb.md first.
+// TwoBoneIkEval and calls TwoBoneIkSolve::evaluate, and the inverse and the match outputs call it on the values they built. The plan
+// step's derived controls and the rest data are here too.
 
 // The analytic solve of the bend (D52 section 4.2) and its inverse (section 6), on positions. Allocation-free.
 // Inputs of TwoBoneIkSolve::computeTwoBoneIk. Positions are world space, lengths are the rest bone lengths.
@@ -85,7 +84,7 @@ namespace TwoBoneIkSlot
 }
 
 // The order of the scalar channels the two-bone inverse reads (TwoBoneIkNode::inverseChannels), which is the order of
-// ModuleInverseInput::channels. A Limb's list starts with these (D62). Append only: the order is not a name, but the inverse indexes by it.
+// ModuleInverseInput::channels. Append only: the order is not a name, but the inverse indexes by it.
 namespace TwoBoneIkInverseChannel
 {
 	inline constexpr unsigned int Soft{ 0 };
@@ -149,7 +148,7 @@ struct TwoBoneIkEval
 	MMatrix mIkDelta;
 	MMatrix mPoleParentDelta;    // used when the pole's space is Parent
 	MMatrix mSettingsDelta;
-	// The ikTarget (D62 section 8, a TwoBoneIk's or a Limb's): the end joint reaches the IK handle's rest carried by this motion instead of the handle's own
+	// The ikTarget (D62 section 8, D80): the end joint reaches the IK handle's rest carried by this motion instead of the handle's own
 	// world. The target's motion already holds whatever moved the handle (a foot hangs from the ik socket), so the handle's local and its
 	// parent's motion are not applied again. The pole and the ik socket still follow the handle, and never read the target.
 	bool hasTarget = false;
@@ -178,7 +177,7 @@ namespace TwoBoneIkSolve
 	MVector perpendicularPart(const MVector& v, const MVector& vAxis);
 
 	// Whether the FK controls (fk) or the IK controls (not fk) of a module that follows an ik/fk blend are visible at the
-	// blend: FK hides at 1 and IK at 0. TwoBoneIk, Limb and a ReverseFoot on either share it.
+	// blend: FK hides at 1 and IK at 0. TwoBoneIk and a ReverseFoot on it share it.
 	inline bool isBlendControlVisible(bool fk, double blend)
 	{
 		return fk ? blend < 1.0 : blend > 0.0;
@@ -202,7 +201,7 @@ namespace TwoBoneIkSolve
 	// frame, so they can't drift (D41).
 	void computeLimbFrames(const TwoBoneIkResult& solve, const MVector& vRoot, const MMatrix& mIkWorld, MMatrix outFrames[TwoBoneIkSlot::LimbCount]);
 
-	// The forward evaluation, shared by compute(), the inverse and Limb so the sockets a restore returns are compute()'s.
+	// The forward evaluation, shared by compute(), the inverse and the match outputs, so the sockets a restore returns are compute()'s.
 	// The FK chain is always solved (the controls' offsets stay current), the IK above blend 0.
 	void evaluate(const TwoBoneIkEval& eval, TwoBoneIkSolveResult& outResult);
 
@@ -217,7 +216,7 @@ namespace TwoBoneIkSolve
 	std::vector<std::string> socketNamesAt(unsigned int slot);
 	// The child plugs and sockets of the limb's six slots: the pole and settings plugs take no constraint, and the settings plug
 	// follows start's parent (D52 decision 14). Then the optional ikTarget plug, whose blindSockets are the handle's, the pole's and the
-	// settings control's (D80 phase 2). Limb has the same ones.
+	// settings control's (D80 phase 2).
 	ModuleInterface makeInterface();
 
 	// The plan step's shared half (read phase, no scene changes): checks the limb's arguments (three joints, the blend's range, the

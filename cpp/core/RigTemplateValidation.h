@@ -42,7 +42,7 @@ struct ModulePlugInfo
 	// plug of the same module, where any other unlisted plug takes layout_00_M_MOD.end (Ribbon's end follows its start).
 	std::string defaultsToPlug;
 	// True for a plug the template may leave unparented, and then it stays unconnected and the module falls back to its own behaviour
-	// (Limb's ikTarget: the end joint reaches the IK handle). Every other plug with no entry takes layout_00_M_MOD.end.
+	// (TwoBoneIk's ikTarget: the end joint reaches the IK handle). Every other plug with no entry takes layout_00_M_MOD.end.
 	bool optional = false;
 	// The module's sockets whose value does not depend on this plug's input (D62 section 8: ikTarget leaves ik, pole and settings alone).
 	// The module-cycle check does not follow a path that enters the module through this plug and leaves by one of them, so a foot that
@@ -65,12 +65,12 @@ struct ModuleInterface
 	// matrix parents, but not DAG parents: a child plug with a control cannot name one in parentStructure. The module's built sockets must match.
 	std::vector<std::string> matrixOnlySockets;
 	std::vector<ControlMarkup> controls;   // One per control the module creates, in creation order
-	// The module's attribute that carries its ik/fk blend, which another module can follow (TwoBoneIk and Limb: "ikFkBlend"), or empty for a
+	// The module's attribute that carries its ik/fk blend, which another module can follow (TwoBoneIk: "ikFkBlend"), or empty for a
 	// module with none (D74). The default is no blend to follow.
 	std::string blendSource;
 	// For a module that follows another module's blend (the ReverseFoot): the name of that module, or empty. validateBlendDrivers checks it.
 	std::string blendDriver;
-	// For a follower whose output the driver must read, or it does nothing (the ReverseFoot's ankle socket feeds the Limb's ikTarget):
+	// For a follower whose output the driver must read, or it does nothing (the ReverseFoot's ankle socket feeds the TwoBoneIk's ikTarget):
 	// the driver's child plug, and this module's socket that must be its parent. Empty for none. validateBlendDrivers checks it.
 	std::string driverPlug;
 	std::string driverPlugSocket;
@@ -90,6 +90,10 @@ namespace RigTemplateValidation
 	// The same for a module in the expanded list. A generated mirror names the template entry it came from,
 	// "rigModules[3] 'arm_l' (mirror 'arm_r')", because its own index is not in the file (D28).
 	std::string modulePath(std::size_t index, const RigModuleData& module);
+
+	// What to do instead of a module type that was removed ("Limb": a TwoBoneIk and an anchored Ribbon, D80), or empty for any other
+	// type. The read phase reports it in place of the unknown type error, so an old template says how to fix it.
+	std::string removedModuleTypeHint(const std::string& moduleType);
 
 	// "constraints[0] 'armSpace_00_L_CON'", and the mirror form like modulePath.
 	std::string constraintPath(std::size_t index, const std::string& name);
@@ -156,7 +160,7 @@ namespace RigTemplateValidation
 	// A module that follows another's blend (ModuleInterface::blendDriver, D74) needs: that module to be in the template, to have a blend to
 	// follow (ModuleInterface::blendSource), and to be the module every child plug of the follower hangs from, so the foot follows the limb
 	// it stands on. A follower with a driverPlug needs the driver to have that child plug, parented to the follower's driverPlugSocket
-	// (the Limb's ikTarget on the foot's ankle), or the follower's channels move nothing. A driver that failed its own plan step is
+	// (the TwoBoneIk's ikTarget on the foot's ankle), or the follower's channels move nothing. A driver that failed its own plan step is
 	// skipped, since that error is already reported.
 	void validateBlendDrivers(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report);
 

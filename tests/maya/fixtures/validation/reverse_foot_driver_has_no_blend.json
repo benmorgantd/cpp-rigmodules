@@ -1,5 +1,5 @@
 {
-  "description": "ikFkDriver must be a Limb or a TwoBoneIk: the dummy FkChain has no ik/fk blend to follow",
+  "description": "ikFkDriver must be a TwoBoneIk: the dummy FkChain has no ik/fk blend to follow",
   "base": "reverse_foot",
   "skeleton": "reverse_foot",
   "edits": [

@@ -1,7 +1,7 @@
 {
   "description": "FK, the upper arm control turned 60 degrees about its own X (a twist). The start frame carries the shoulder's swing but not its twist, and the elbow joint carries all 60, so the twist rises linearly in the curve's parameter from 0 at the shoulder to 60 at the elbow: the four upper bind joints, at 0, 1/8, 1/4 and 3/8 of it, turn 0, 15, 30 and 45 degrees about X. Nothing moves except the lower bone, which turns about the upper bone's axis: it points along (0, cos 60, sin 60), so the bind joints on it are at (4, k/2, k sin 60).",
   "skeleton": "limb_arm",
-  "template": "limb_arm",
+  "template": "ribbon_anchored_arm",
   "set": {
     "armSettings_00_L_CTRL.ikFkBlend": 0,
     "upperArm_00_L_CTRL.rotateX": 60

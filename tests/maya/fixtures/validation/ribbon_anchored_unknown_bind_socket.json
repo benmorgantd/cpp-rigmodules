@@ -1,0 +1,16 @@
+{
+  "description": "An anchored Ribbon has one socket per bind joint, bind_0 to bind_4 for five: a name past them is an error",
+  "base": "ribbon_anchored_bind_child",
+  "skeleton": "limb_bind_child",
+  "edits": [
+    {
+      "set": "/rigModules/2/parentStructure/start",
+      "value": "armRibbon_01_L_MOD.bind_9"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "bind_9"
+    }
+  ]
+}

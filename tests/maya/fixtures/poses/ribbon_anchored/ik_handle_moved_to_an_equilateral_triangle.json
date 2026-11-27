@@ -1,7 +1,7 @@
 {
   "description": "IK (blend 1). The handle's control frame is the hand's, turned 90 degrees about Z, so its local Y is world -X: translateY 4 moves the handle 4 along -X, from (4,4,0) to (0,4,0). Both bones are 4, so the shoulder, the elbow and the hand make an equilateral triangle, and the pole at the back and below (+X) puts the elbow at (2 sin 60 * 2, 2) = (3.4641, 2, 0): the upper bone points at 30 degrees, the lower one at 150, and the hand keeps the handle's 90. The ribbon's ends are the start joint's swing and the hand's twist on the elbow's swing, so the upper bind joints point along 30, the lower ones along 150 (the hand's own 90 never reaches them), and the elbow's points along the bisector, 90. The bind joints are at quarter steps of each bone.",
   "skeleton": "limb_arm",
-  "template": "limb_arm",
+  "template": "ribbon_anchored_arm",
   "set": {
     "armIK_00_L_CTRL.translateY": 4
   },

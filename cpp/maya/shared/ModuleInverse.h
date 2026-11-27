@@ -24,7 +24,7 @@ struct ModuleInverseContext
 	unsigned int ikControlCount = 0;
 	// How many of the trailing slots are fk controls, from the module's fkControlCount attribute when it has one (Ribbon, D59).
 	unsigned int fkControlCount = 0;
-	// By ik control, from the module's fkRollShare attribute when it has one (Ribbon, Limb: the template's twistRamp, D75). Empty or
+	// By ik control, from the module's fkRollShare attribute when it has one (Ribbon: the template's twistRamp, D75). Empty or
 	// short: the rest of the shares are 1.
 	std::vector<double> fkRollShare;
 	// From the module's anchorRest, startAnchorRotation and endAnchorRotation attributes when it has them (the anchored Ribbon, D80): the
@@ -58,12 +58,12 @@ struct ModuleInverseInput
 	std::vector<MMatrix> parentDelta;                 // by slot: the child plug's parent motion since rest, from the sweep (identity when unconnected)
 	std::vector<MMatrix> fallbackLocal;               // by slot: the control's local matrix from the sidecar, or rest, for when its joint can't give it
 	std::vector<double> channels;                     // by ModuleDescriptor::inverseChannels, in internal units (angles in radians): the sidecar's value, else the rig's current one
-	// A Limb's ikTarget (D74, design/reverse-foot.md section 10). For the module that feeds the target (a foot): the joint the target
-	// moves, the Limb's end, from the source. For the Limb: the feeding module's motion F, where the target's motion since rest is
+	// A TwoBoneIk's ikTarget (D74, design/reverse-foot.md section 10). For the module that feeds the target (a foot): the joint the target
+	// moves, the TwoBoneIk's end, from the source. For the TwoBoneIk: the feeding module's motion F, where the target's motion since rest is
 	// F * the handle's, so the handle is placed to make F reach the joints. Empty when the module has no such link.
 	std::optional<MMatrix> ikTargetJointWorld;
 	std::optional<MMatrix> ikTargetMotion;
-	// For the module that feeds a Limb's ikTarget: the motion since rest of the space that Limb's IK handle hangs in (its ik child plug's
+	// For the module that feeds a TwoBoneIk's ikTarget: the motion since rest of the space that TwoBoneIk's IK handle hangs in (its ik child plug's
 	// parent, a Layout's), so the foot's channels are read in the rig's space and a turned or tilted Layout stays in the Layout (author,
 	// 2026-11-25). The identity otherwise.
 	MMatrix ikHandleParentDelta;
@@ -79,7 +79,7 @@ struct ModuleInverseResult
 	// By ModuleDescriptor::inverseChannels: a scalar channel the joints gave (ReverseFoot's footRoll, bank and toeTap), in internal units.
 	// An empty entry, or a short vector, leaves the channel to the sidecar or the rig.
 	std::vector<std::optional<double>> channels;
-	// For a module that feeds a Limb's ikTarget: its motion F, which the driver hands the Limb as ModuleInverseInput::ikTargetMotion.
+	// For a module that feeds a TwoBoneIk's ikTarget: its motion F, which the driver hands the TwoBoneIk as ModuleInverseInput::ikTargetMotion.
 	std::optional<MMatrix> ikTargetMotion;
 };
 

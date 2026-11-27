@@ -1,12 +1,17 @@
 {
-  "description": "The Limb's public names: the module's child plugs and sockets, and every control with its keyable channels and its markup",
-  "template": "limb_arm",
+  "description": "The split arm's public names (D80): a TwoBoneIk and an anchored Ribbon, their child plugs and sockets, and every control with its keyable channels and its markup",
+  "template": "ribbon_anchored_arm",
   "skeleton": "limb_arm",
   "interface": {
     "modules": {
+      "armRibbon_01_L_MOD": {
+        "type": "ribbonModule",
+        "sockets": [["index_0"], ["index_1"], ["index_2"], ["bind_0"], ["bind_1"], ["bind_2"], ["bind_3"], ["bind_4"], ["bind_5"], ["bind_6"], ["bind_7"], ["bind_8"]],
+        "childPlugs": ["start", "mid", "end", "settings"]
+      },
       "arm_01_L_MOD": {
-        "type": "limbModule",
-        "sockets": [["index_0", "start"], ["index_1"], ["index_2", "end"], ["ik"], ["pole"], ["settings"], ["ribbon_0"], ["ribbon_1"], ["ribbon_2"], ["ribbon_3"], ["ribbon_4"], ["bind_0"], ["bind_1"], ["bind_2"], ["bind_3"], ["bind_4"], ["bind_5"], ["bind_6"], ["bind_7"], ["bind_8"]],
+        "type": "twoBoneIkModule",
+        "sockets": [["index_0", "start"], ["index_1"], ["index_2", "end"], ["ik"], ["pole"], ["settings"]],
         "childPlugs": ["start", "ik", "pole", "settings"]
       },
       "layout_00_M_MOD": {
@@ -25,10 +30,6 @@
         "markup": ["Left", "armPole"],
         "spaces": ["Parent", "Ik"]
       },
-      "armRibbonIK_00_L_CTRL": {
-        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armRibbonIK_00"]
-      },
       "armRibbonIK_01_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Left", "armRibbonIK_01"]
@@ -41,49 +42,45 @@
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
         "markup": ["Left", "armRibbonIK_03"]
       },
-      "armRibbonIK_04_L_CTRL": {
-        "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armRibbonIK_04"]
-      },
       "armSettings_00_L_CTRL": {
         "keyable": ["visibility", "ikFkBlend", "stretch", "soft", "startTwist", "endTwist", "sineAmplitude", "sineFrequency", "sinePhase", "sineOrient", "sineStartFalloff", "sineEndFalloff", "volumePreserve", "scaleStart", "scaleMid", "scaleEnd", "bendSoftness"],
         "markup": ["Left", "armSettings"]
       },
       "bind1_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armTweak_00"]
+        "markup": ["Left", "armRibbonTweak_00"]
       },
       "bind2_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armTweak_01"]
+        "markup": ["Left", "armRibbonTweak_01"]
       },
       "bind3_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armTweak_02"]
+        "markup": ["Left", "armRibbonTweak_02"]
       },
       "bind4_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armTweak_03"]
+        "markup": ["Left", "armRibbonTweak_03"]
       },
       "bind5_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armTweak_04"]
+        "markup": ["Left", "armRibbonTweak_04"]
       },
       "bind6_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armTweak_05"]
+        "markup": ["Left", "armRibbonTweak_05"]
       },
       "bind7_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armTweak_06"]
+        "markup": ["Left", "armRibbonTweak_06"]
       },
       "bind8_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armTweak_07"]
+        "markup": ["Left", "armRibbonTweak_07"]
       },
       "bind9_00_L_CTRL": {
         "keyable": ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        "markup": ["Left", "armTweak_08"]
+        "markup": ["Left", "armRibbonTweak_08"]
       },
       "hand_00_L_CTRL": {
         "keyable": ["translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],

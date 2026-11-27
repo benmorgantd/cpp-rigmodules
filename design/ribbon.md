@@ -1,6 +1,6 @@
 # Ribbon: design draft
 
-> **Coupling warning (D62).** The `Limb` module (`limb.md`) runs this module's solve, `core/RibbonMath`, `core/SwingTwist`, its channel specs and its inverse. Changing any of them changes `Limb`. Read `limb.md` first, run the Limb contract, pose cases and `test_limb_matches_parts`, and say in the change summary what `Limb` does with it.
+> **The anchored form (D80).** An arm or leg is a TwoBoneIk and this module in its anchored form (`limb-split.md`), which took over the removed `Limb` module's ribbon (`archive/limb.md`). Its tests are `test_ribbon_anchored`.
 
 **Status:** D56. Built in part on 2026-11-17: phases 1, 2, 3 and 5 and the docs. `fkStyle` was built on 2026-11-18 (D59, section 3.1 as amended below). Phase 6 (the perf rig and `bench`) was built after the first build. Section 14 lists what the build did differently from this page. All of it is merged into `main`. Section 15 lists what is still open.
 
@@ -93,7 +93,7 @@ Names are public API (D34). None of this is final until sign-off.
 - **Module type** `Ribbon`, node `ribbonModule`, MTypeId from the free list in `CLAUDE.md` (not `0x00219`, retired).
 - **`moduleArgs`:** the bind joint selectors, the control joint selectors (markers by markup, like `Aim`'s), `fkStyle`. Counts are derived from them, not stated. **Reversed by D57 (2026-11-18, `derived-controls.md`):** `controls` is gone. `controlCount` (default 3) and `controlName` replace it, and the ik controls are placed from the bind joints.
 - **Child plugs:** `start` and `end`, which the template can connect to another module's sockets. With no connection the controls stay self-contained.
-- **Sockets:** `start`, `end`, and one per interior control (`index_<k>`). Amended by D78: also `bind_<n>` for every bind joint (its world matrix and the tweaker's transform, as the Limb's; the tweaker is hidden through `shown`, not visibility) and `fk_<k>` for every fk control, so each is a constraint driver and a child plug's parent.
+- **Sockets:** `start`, `end`, and one per interior control (`index_<k>`). Amended by D78: also `bind_<n>` for every bind joint (its world matrix and the tweaker's transform, as the removed Limb's; the tweaker is hidden through `shown`, not visibility) and `fk_<k>` for every fk control, so each is a constraint driver and a child plug's parent.
 - **Control inputs:** the node takes each IK control's **local matrix**, a plug type new to the module layer.
 - **Channels, all on the first control** (author, round two), defaults equal rest (D34): `startTwist` and `endTwist` (the secondary angles, `mirrorNegate`), `sineAmplitude`, `sineFrequency`, `sinePhase`, `sineOrient` (`mirrorNegate`), `sineStartFalloff`, `sineEndFalloff`, `startAimBlend`, `endAimBlend`, `bendRoundness`, `volumePreserve`, `scaleStart`, `scaleMid`, `scaleEnd`. Names in `RigAttr`. The first control is the start IK control in both modes (section 9, Q-b).
 - **Limits** for allocation-free `compute()`: j up to 8, n up to 64, fixed scratch buffers, a fixed sample count for the arc-length table.

@@ -130,8 +130,9 @@ std::vector<ModulePlan> RigModuleNodeBase::planModules(
 		const ModuleDescriptor* pDescriptor = ModuleRegistry::find(moduleData.moduleType);
 		if (!pDescriptor || !pDescriptor->plan)
 		{
-			report.addError(where + "." + TemplateKey::ModuleType,
-				"'" + moduleData.moduleType + "' is not a module type templates can build (has: " + buildableModuleTypes() + ")");
+			const std::string hint = RigTemplateValidation::removedModuleTypeHint(moduleData.moduleType);
+			report.addError(where + "." + TemplateKey::ModuleType, !hint.empty() ? hint
+				: "'" + moduleData.moduleType + "' is not a module type templates can build (has: " + buildableModuleTypes() + ")");
 			continue;
 		}
 
@@ -380,9 +381,9 @@ MPlug RigModuleNodeBase::getSocketMatrixPlug(const MObject& oModule, unsigned in
 {
 	MStatus status;
 	MFnDependencyNode fnModule(oModule);
-	// A TwoBoneIk or Limb keeps the sockets of its IK handle, pole and settings control on their own array (see TwoBoneIkPart).
+	// A TwoBoneIk keeps the sockets of its IK handle, pole and settings control on their own array (see TwoBoneIkModule.cpp's Part).
 	const bool onHandleArray = fnModule.hasAttribute(RigAttr::HandleSocketMatrix) && TwoBoneIkSolve::isHandleSocket(socketIndex);
-	// A ReverseFoot's ankle socket, which feeds a Limb's ikTarget, is on an array of its own for the same reason (D74).
+	// A ReverseFoot's ankle socket, which feeds a TwoBoneIk's ikTarget, is on an array of its own for the same reason (D74).
 	const bool onAnkleArray = fnModule.hasAttribute(RigAttr::AnkleSocketMatrix) && socketIndex == ReverseFootSlot::AnkleSocket;
 	const char* socketArray = onAnkleArray ? RigAttr::AnkleSocketMatrix : onHandleArray ? RigAttr::HandleSocketMatrix : RigAttr::OutputSocketMatrix;
 	MPlug pSockets = fnModule.findPlug(socketArray, false, &status);

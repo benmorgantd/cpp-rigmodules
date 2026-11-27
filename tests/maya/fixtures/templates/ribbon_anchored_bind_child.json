@@ -1,13 +1,14 @@
 {
   "rigVersion": 1,
   "rigAuthor": "tests",
-  "rigTemplateName": "LimbBindChild",
+  "rigTemplateName": "RibbonAnchoredBindChild",
   "rigModules": [
     {
-      "moduleType": "Limb",
+      "moduleType": "TwoBoneIk",
       "name": "arm_01_L_MOD",
       "shapeType": "Box",
       "side": "Left",
+      "moduleVersion": 2,
       "moduleArgs": {
         "joints": [
           [
@@ -23,7 +24,36 @@
             "hand"
           ]
         ],
-        "bindJoints": [
+        "controlName": "arm"
+      },
+      "parentStructure": {
+        "start": "layout_00_M_MOD.end",
+        "ik": "layout_00_M_MOD.end",
+        "pole": "layout_00_M_MOD.end"
+      }
+    },
+    {
+      "moduleType": "Ribbon",
+      "moduleVersion": 2,
+      "name": "armRibbon_01_L_MOD",
+      "shapeType": "Box",
+      "side": "Left",
+      "moduleArgs": {
+        "anchorJoints": [
+          [
+            "Left",
+            "upperArm"
+          ],
+          [
+            "Left",
+            "lowerArm"
+          ],
+          [
+            "Left",
+            "hand"
+          ]
+        ],
+        "joints": [
           [
             "Left",
             "bind1"
@@ -61,13 +91,16 @@
             "bind9"
           ]
         ],
-        "controlName": "arm",
-        "controlCount": 5
+        "controlName": "armRibbon",
+        "startAnchorRotation": "swing",
+        "endAnchorRotation": "twist",
+        "bendSoftness": 0
       },
       "parentStructure": {
-        "start": "layout_00_M_MOD.end",
-        "ik": "layout_00_M_MOD.end",
-        "pole": "layout_00_M_MOD.end"
+        "start": "arm_01_L_MOD.index_0",
+        "mid": "arm_01_L_MOD.index_1",
+        "end": "arm_01_L_MOD.index_2",
+        "settings": "arm_01_L_MOD.settings"
       }
     },
     {
@@ -84,7 +117,7 @@
         ]
       },
       "parentStructure": {
-        "start": "arm_01_L_MOD.bind_2"
+        "start": "armRibbon_01_L_MOD.bind_2"
       }
     }
   ]

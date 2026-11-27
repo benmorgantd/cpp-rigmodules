@@ -60,7 +60,7 @@ namespace
 	using RibbonSolve::channelSpecs;
 	using RibbonSolve::paramsFromChannels;
 
-	// An anchored ribbon's bind joints must be within this share of the anchors' length of the anchors they sit at (Limb's rule), and
+	// An anchored ribbon's bind joints must be within this share of the anchors' length of the anchors they sit at (the Limb's rule, D62), and
 	// each anchor plug's socket within it of its anchor joint at rest.
 	constexpr double kBindTolerance{ 1.0e-3 };
 	// How far an anchor plug's socket's rest axes may be from its anchor joint's, per component of the unit axes.

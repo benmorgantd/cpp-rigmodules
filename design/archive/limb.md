@@ -1,5 +1,7 @@
 # Limb module: design
 
+> **Archived (D80 phase 3, 2026-11-27).** The Limb module was removed: an arm or leg is a TwoBoneIk and an anchored Ribbon (`../limb-split.md`), which keep this page's elbow, end and inverse rules. This page is history; its paths and test names are as they were.
+
 **Status:** signed off by the author on 2026-11-19 (D62), after one round of questions. **Phases 0 to 2 are built (2026-11-19):** the shared solves, the anchored ribbon and the `Limb` module. The inverse (phase 3) is next. This page replaces the direction note of 2026-11-18, whose history is kept in section 2. Implementation follows the phases in section 12, one commit each.
 
 > **Coupling warning.** `Limb` is not a subclass of `TwoBoneIk` or `Ribbon`, but it runs their solves. It calls the same shared functions, reads the same channel specs and uses the same inverse routines. **A change to the IK/FK solve, the ribbon solve, `core/RibbonMath`, `core/SwingTwist`, the TwoBoneIk or Ribbon channels, their inverses or their control derivation changes `Limb` too.** Before changing any of them, read this page, run the Limb contract and pose cases, and say in the change summary what Limb does with it. A suite test (section 11, `test_limb_matches_parts`) fails when the three disagree, so the coupling is checked and not only documented. The same warning is at the top of `two-bone-ik.md` and `ribbon.md`, in `CLAUDE.md`, and in the headers of `TwoBoneIkModule.h`, `RibbonModule.h` and `RibbonMath.h`.

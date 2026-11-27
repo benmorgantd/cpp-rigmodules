@@ -1,0 +1,17 @@
+{
+  "description": "The Limb module was removed (D80): a template that still has one fails in the read phase with an error that points to the recipe",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleType",
+      "value": "Limb"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "the Limb module was removed (D80)",
+      "path": "rigModules[0] 'arm_01_L_MOD'.moduleType"
+    }
+  ]
+}

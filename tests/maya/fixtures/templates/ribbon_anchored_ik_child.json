@@ -1,13 +1,14 @@
 {
   "rigVersion": 1,
   "rigAuthor": "tests",
-  "rigTemplateName": "LimbFoot",
+  "rigTemplateName": "RibbonAnchoredIkChild",
   "rigModules": [
     {
-      "moduleType": "Limb",
+      "moduleType": "TwoBoneIk",
       "name": "arm_01_L_MOD",
       "shapeType": "Box",
       "side": "Left",
+      "moduleVersion": 2,
       "moduleArgs": {
         "joints": [
           [
@@ -23,7 +24,36 @@
             "hand"
           ]
         ],
-        "bindJoints": [
+        "controlName": "arm"
+      },
+      "parentStructure": {
+        "start": "layout_00_M_MOD.end",
+        "ik": "layout_00_M_MOD.end",
+        "pole": "layout_00_M_MOD.end"
+      }
+    },
+    {
+      "moduleType": "Ribbon",
+      "moduleVersion": 2,
+      "name": "armRibbon_01_L_MOD",
+      "shapeType": "Box",
+      "side": "Left",
+      "moduleArgs": {
+        "anchorJoints": [
+          [
+            "Left",
+            "upperArm"
+          ],
+          [
+            "Left",
+            "lowerArm"
+          ],
+          [
+            "Left",
+            "hand"
+          ]
+        ],
+        "joints": [
           [
             "Left",
             "bind1"
@@ -61,31 +91,33 @@
             "bind9"
           ]
         ],
-        "controlName": "arm",
-        "controlCount": 5
+        "controlName": "armRibbon",
+        "startAnchorRotation": "swing",
+        "endAnchorRotation": "twist",
+        "bendSoftness": 0
       },
       "parentStructure": {
-        "start": "layout_00_M_MOD.end",
-        "ik": "layout_00_M_MOD.end",
-        "pole": "layout_00_M_MOD.end",
-        "ikTarget": "foot_01_L_MOD.index_0"
+        "start": "arm_01_L_MOD.index_0",
+        "mid": "arm_01_L_MOD.index_1",
+        "end": "arm_01_L_MOD.index_2",
+        "settings": "arm_01_L_MOD.settings"
       }
     },
     {
       "moduleType": "FkChain",
-      "name": "foot_01_L_MOD",
+      "name": "extra_01_L_MOD",
       "shapeType": "Box",
       "side": "Left",
       "moduleArgs": {
         "joints": [
           [
             "Left",
-            "foot"
+            "extra"
           ]
         ]
       },
       "parentStructure": {
-        "start": "arm_01_L_MOD.ik"
+        "start": "armRibbon_01_L_MOD.index_1"
       }
     }
   ]

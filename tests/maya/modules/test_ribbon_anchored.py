@@ -2,20 +2,23 @@
 from another module's sockets, with its channels hosted on the control behind its settings plug.
 
 An arm is a TwoBoneIk and an anchored Ribbon with the limb's three keys set (startAnchorRotation "swing", endAnchorRotation "twist",
-bendSoftness 0), which is the behaviour the Limb hard-codes. Until phase 3 deletes the Limb, AnchoredRibbonLimbParity holds the two
-together: the Limb's hand-worked pose cases give the same joints on the split arm, and the two rigs agree on every joint for each.
-Every other expected number is worked by hand. Nothing here is recorded from the rig.
+bendSoftness 0), which is the behaviour the removed Limb hard-coded (D62, D80). The pose cases in fixtures/poses/ribbon_anchored are the
+Limb's, worked by hand, and phase 1 held the split arm to the Limb's joints on each before the Limb was deleted. Every expected number is
+worked by hand. Nothing here is recorded from the rig.
 """
-import glob
 import json
-import os
+import math
 
 from maya import cmds
 import maya.api.OpenMaya as om
 
 import rigmodules.query
+from commands.test_inverse_solve import SolveTestCase
+from commands.test_two_bone_ik_cmds import SwitchTestCase
 from rigtest import config, fixtures
 from rigtest.case import RigTestCase, rig_name
+from rigtest.cases import add_pose_cases
+from rigtest.jointclips import rig_root
 from rigtest.module_contract import ModuleContract
 
 LIMB_JOINTS = ["upperArm_00_L_JNT", "lowerArm_00_L_JNT", "hand_00_L_JNT"]
@@ -73,47 +76,29 @@ class AnchoredRibbonContract(AnchoredArmRoundTripRules, ModuleContract, RigTestC
         return [c for c in rigmodules.query.get_rig_controls(root) if c.usage == "armRibbonTweak_08" and c.side == markup["side"]]
 
 
-class AnchoredRibbonLimbParity(RigTestCase):
-    """The split arm against the Limb (design/limb-split.md section 9): each of the Limb's pose cases, with its hand-worked numbers, on the
-    split arm, and every joint of the two rigs compared for it. Deleted with the Limb in phase 3."""
-
-    def _joints_after(self, template, values):
-        self.build_standard(template, "limb_arm")
-        for plug, value in values.items():
-            cmds.setAttr(rig_name(plug), value)
-        worlds = {joint: world_matrix(rig_name(joint)) for joint in LIMB_JOINTS + BIND_JOINTS}
-        cmds.file(new=True, force=True)
-        return worlds
+class AnchoredRibbonPoses(RigTestCase):
+    pass
 
 
-def _add_parity_cases():
-    for path in sorted(glob.glob(os.path.join(config.FIXTURES_DIR, "poses", "limb", "*.json"))):
-        stem = os.path.splitext(os.path.basename(path))[0]
-
-        def test(self, path=path):
-            case = fixtures.read_json(path)
-            values = case.get("set", {})
-            limb = self._joints_after(case["template"], values)
-            split = self._joints_after("ribbon_anchored_arm", values)
-            for joint, matrix in limb.items():
-                if not split[joint].isEquivalent(matrix, 1e-6):
-                    self.fail("%s differs from the Limb's\n  limb  %s\n  split %s" % (joint, list(matrix), list(split[joint])))
-            # The hand-worked numbers too, on the split arm.
-            self.build_standard("ribbon_anchored_arm", case["skeleton"])
-            for plug, value in values.items():
-                cmds.setAttr(rig_name(plug), value)
-            tolerance = case.get("tolerance", 1e-4)
-            for node, channels in case["expect"].items():
-                if "translate" in channels:
-                    self.assertWorldTranslation(rig_name(node), channels["translate"], tolerance)
-                if "rotate" in channels:
-                    self.assertWorldRotation(rig_name(node), channels["rotate"], tolerance)
-
-        test.__name__ = "test_matches_the_limb_" + stem
-        setattr(AnchoredRibbonLimbParity, test.__name__, test)
+add_pose_cases(AnchoredRibbonPoses, "ribbon_anchored")
 
 
-_add_parity_cases()
+def translation(node):
+    return cmds.xform(rig_name(node), query=True, worldSpace=True, translation=True)
+
+
+def polyline_distance(point, a, b, c):
+    """The distance from a point to the two-segment polyline a-b-c."""
+    best = 1e9
+    for p, q in ((a, b), (b, c)):
+        pq = [q[i] - p[i] for i in range(3)]
+        t = sum((point[i] - p[i]) * pq[i] for i in range(3)) / sum(v * v for v in pq)
+        t = min(1.0, max(0.0, t))
+        best = min(best, math.sqrt(sum((point[i] - (p[i] + pq[i] * t)) ** 2 for i in range(3))))
+    return best
+
+
+REST_BINDS = [(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0), (4, 1, 0), (4, 2, 0), (4, 3, 0), (4, 4, 0)]
 
 
 class AnchoredRibbonBehaviour(RigTestCase):
@@ -281,3 +266,177 @@ class AnchoredRibbonBehaviour(RigTestCase):
         self._build("ribbon_anchored_chain")
         channel = [c for c in rigmodules.query.get_control_channels(rig_name(START)) if c.name == "bendSoftness"][0]
         self.assertEqual((channel.rest, channel.min, channel.max), (1.0, 0.0, 1.0))
+
+
+LOWER = "lowerArm_00_L_CTRL"
+HAND = "hand_00_L_CTRL"
+HANDLE = "armIK_00_L_CTRL"
+POLE = "armPole_00_L_CTRL"
+
+
+class AnchoredArmElbowAndRamp(RigTestCase):
+    """The split arm's elbow and twist ramp, moved from the Limb's tests (D80 phase 3): limb_arm is upper arm (0,0,0), lower arm (4,0,0),
+    hand (4,4,0), with bind joints at whole units along the two bones."""
+
+    def _build(self, template="ribbon_anchored_arm", skeleton="limb_arm"):
+        self.build_standard(template, skeleton)
+
+    def _pose_fk_lower_45(self, softness):
+        cmds.setAttr(rig_name(SETTINGS) + ".ikFkBlend", 0)
+        cmds.setAttr(rig_name(LOWER) + ".rotateZ", 45)
+        cmds.setAttr(rig_name(SETTINGS) + ".bendSoftness", softness)
+        return [translation(j) for j in LIMB_JOINTS], [translation(j) for j in BIND_JOINTS]
+
+    def test_the_elbow_is_a_sharp_corner_at_the_limbs_softness(self):
+        """Softness 0 (the arm template's) is the polyline through the three joints: every bind joint is on one of its two straight
+        lines, however the limb bends, and the elbow's bind joint is at the elbow."""
+        self._build()
+        limb, binds = self._pose_fk_lower_45(0.0)
+        for joint, point in zip(BIND_JOINTS, binds):
+            self.assertLess(polyline_distance(point, *limb), 1e-5, joint)
+
+    def test_softness_rounds_the_corner_and_keeps_the_elbow_on_the_curve(self):
+        """The bind joint after the elbow comes off the polyline further the softer the elbow is, and the elbow's own stays on the mid
+        joint at every softness."""
+        self._build()
+        offsets = []
+        for softness in (0.0, 0.5, 1.0):
+            limb, binds = self._pose_fk_lower_45(softness)
+            self.assertLess(math.dist(binds[4], limb[1]), 1e-5, "the elbow bind joint at softness %s" % softness)
+            offsets.append(polyline_distance(binds[5], *limb))
+        self.assertLess(offsets[0], 1e-5)
+        self.assertGreater(offsets[1], 0.01)
+        self.assertGreater(offsets[2], offsets[1])
+
+    def test_at_rest_every_bind_joint_is_where_it_was_authored(self):
+        self._build()
+        for joint, rest in zip(BIND_JOINTS, REST_BINDS):
+            self.assertWorldTranslation(rig_name(joint), list(rest), 1e-5)
+
+    def test_the_ramp_is_stored_as_one_share_per_curve_control(self):
+        """[[0, 1], [1, 0]] is 1 - u at each of the curve's controls (the two ends and the three interior ik controls), and u is the
+        control's stored parameter."""
+        template = edited("ribbon_anchored_arm", [{"set": "/rigModules/1/moduleArgs/twistRamp", "value": [[0, 1.0], [1, 0.0]]}])
+        self.build(template, self.make_skeleton("limb_arm"))
+        module = rig_name(RIBBON)
+        self.assertEqual(cmds.getAttr(module + ".fkRollShare", size=True), 5)
+        for j in range(5):
+            knot = cmds.getAttr("%s.knotU[%d]" % (module, j))
+            self.assertAlmostEqual(cmds.getAttr("%s.fkRollShare[%d]" % (module, j)), 1.0 - knot, places=9)
+
+    def test_an_end_joint_pitched_70_degrees_off_the_forearm_builds_and_rests_on_the_bind_joints(self):
+        """An end anchor whose X axis points past the limb (an ankle at the ball of the foot) is allowed up to 80 degrees off the line from
+        the anchor before it. Here the hand's X is 70 degrees off the forearm. Nothing moves at rest: every bind joint is where it was
+        authored."""
+        self._build(skeleton="limb_arm_hand_pitched_70")
+        for joint, rest in zip(BIND_JOINTS, REST_BINDS):
+            self.assertWorldTranslation(rig_name(joint), list(rest), 1e-4)
+
+    def test_a_bind_joint_with_a_child_builds(self):
+        """A bind joint may have a child joint (author, 2026-11-22): limb_arm_child has extra_00_L_JNT under bind3."""
+        self._build(skeleton="limb_arm_child")
+        self.assertTrue(cmds.objExists(rig_name("bind3_00_L_JNT")))
+        self.assertTrue(cmds.objExists(rig_name("extra_00_L_JNT")))
+
+
+class AnchoredArmSwitch(SwitchTestCase):
+    """setRigIkFkBlend on the split arm: the TwoBoneIk's match, with the ribbon riding the matched joints, so the bind joints stay put
+    (moved from the Limb's tests). The TwoBoneIk's own cases are in test_two_bone_ik_cmds."""
+
+    LIMB = tuple(LIMB_JOINTS + BIND_JOINTS)
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard("ribbon_anchored_arm", "limb_arm")
+
+    def test_fk_to_ik_and_back_keeps_every_joint_and_bind_joint(self):
+        self.assertSwitchKeepsJoints(0.0, {START + ".rotateZ": 20, START + ".rotateX": 10, LOWER + ".rotateZ": 40, HAND + ".rotateY": 15})
+
+    def test_a_posed_ik_limb_keeps_every_joint_and_bind_joint(self):
+        self.assertSwitchKeepsJoints(1.0, {HANDLE + ".translateX": -1, HANDLE + ".translateY": 2, HANDLE + ".rotateZ": 25,
+                                           POLE + ".translateX": 1, POLE + ".translateY": -3})
+
+    def test_the_ribbons_own_posing_does_not_disturb_the_match(self):
+        """A moved ribbon ik control, the twists and the elbow's softness change the bind joints and nothing the two-bone match reads."""
+        self.assertSwitchKeepsJoints(0.0, {START + ".rotateZ": 30, LOWER + ".rotateZ": 35, RIBBON_IK[0] + ".translateY": 0.5,
+                                           SETTINGS + ".startTwist": 20, SETTINGS + ".endTwist": -30, SETTINGS + ".bendSoftness": 0.5})
+        self.assertSwitchKeepsJoints(1.0, {HANDLE + ".translateX": -1, RIBBON_IK[2] + ".translateZ": 0.3, SETTINGS + ".volumePreserve": 0.5})
+
+    def test_a_ribbon_control_is_not_the_limb(self):
+        """The Ribbon is a module of its own, so its controls name no limb: the query gives None and the command an error."""
+        self.assertIsNone(rigmodules.query.find_ik_fk_limb(rig_name(RIBBON_IK[1])))
+        self.assertMayaError(lambda: cmds.setRigIkFkBlend(rig_name(RIBBON_IK[1]), blend=0), "not a TwoBoneIk module")
+        limb = rigmodules.query.find_ik_fk_limb(rig_name(SETTINGS))
+        self.assertEqual(len(limb.controls), 6)
+
+
+class AnchoredRibbonIkSockets(SolveTestCase):
+    """An anchored ribbon has a socket for every interior ik control (index_0 to index_2, D78). ribbon_anchored_ik_child hangs an FkChain
+    of `extra` (at the third bind joint, (2, 0, 0)) from index_1, the elbow's control, so it follows that control's motion since rest, and
+    the socket carries the visible control."""
+
+    EXTRA = "extra_00_L_JNT"
+    CONTROL = RIBBON_IK[1]
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard("ribbon_anchored_ik_child", "limb_bind_child")
+
+    def test_the_child_sits_at_rest_and_hangs_under_the_control(self):
+        self.assertWorldTranslation(rig_name(self.EXTRA), [2, 0, 0], 1e-4)
+        parents = cmds.listRelatives(rig_name("extra_00_L_CTRL"), parent=True, fullPath=True) or []
+        self.assertEqual([p.split("|")[-1].lstrip(":") for p in parents], [rig_name(self.CONTROL).lstrip(":")])
+
+    def test_the_child_follows_the_ribbon_control_through_a_move(self):
+        rest = translation(self.CONTROL)
+        cmds.setAttr(rig_name(self.CONTROL + ".translateY"), 1.5)
+        moved = translation(self.CONTROL)
+        self.assertNotEqual(moved, rest)
+        self.assertWorldTranslation(rig_name(self.EXTRA), [x + m - r for x, m, r in zip((2, 0, 0), moved, rest)], 1e-4)
+
+
+class AnchoredRibbonBindSockets(SolveTestCase):
+    """An anchored ribbon has a socket for every bind joint (bind_0 to bind_8 here), so a child can hang from a twist joint.
+    ribbon_anchored_bind_child hangs an FkChain of `extra`, at the third bind joint (2, 0, 0), from bind_2."""
+
+    EXTRA = "extra_00_L_JNT"
+    BIND = "bind3_00_L_JNT"
+
+    def setUp(self):
+        super().setUp()
+        self.build_standard("ribbon_anchored_bind_child", "limb_bind_child")
+
+    def _pose(self):
+        """FK, the upper arm and the forearm turned, so the third bind joint (on the upper arm) moves and turns."""
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0)
+        cmds.setAttr(rig_name(START + ".rotateZ"), 25)
+        cmds.setAttr(rig_name(LOWER + ".rotateZ"), 30)
+        cmds.setAttr(rig_name(SETTINGS + ".startTwist"), 40)
+
+    def test_the_child_sits_on_its_bind_joint_at_rest(self):
+        self.assertWorldTranslation(rig_name(self.BIND), [2, 0, 0], 1e-4)
+        self.assertWorldTranslation(rig_name(self.EXTRA), [2, 0, 0], 1e-4)
+
+    def test_the_child_follows_its_bind_joint_through_a_pose_and_a_twist(self):
+        self._pose()
+        self.assertFalse(translation(self.BIND) == [2, 0, 0])
+        a = cmds.xform(rig_name(self.BIND), query=True, worldSpace=True, matrix=True)
+        b = cmds.xform(rig_name(self.EXTRA), query=True, worldSpace=True, matrix=True)
+        for x, y in zip(a, b):
+            self.assertAlmostEqual(x, y, places=4)
+
+    def test_the_child_is_not_hidden_by_the_hidden_tweaker(self):
+        control = rig_name("extra_00_L_CTRL")
+        self.assertTrue(cmds.getAttr(control + ".visibility"))
+        parent = cmds.listRelatives(control, parent=True, fullPath=True)
+        self.assertNotIn(rig_name(TWEAKERS[2]), [p.split("|")[-1] for p in parent or []])
+
+    def test_a_restore_from_joints_carries_the_child_with_its_bind_joint(self):
+        rest = self.snapshot()
+        self._pose()
+        posed = self.snapshot()
+        clip = self.write_clip(rest, [posed])
+        sidecar = self.write_sidecar({"Left": {"armSettings": {"ikFkBlend": 0, "startTwist": 40}}})
+        cmds.zeroRigControls(rig_root())
+        cmds.poseRigFromJointPose(rig_root(), jointPose=clip, sidecar=sidecar)
+        self.assertJointsAt(posed)

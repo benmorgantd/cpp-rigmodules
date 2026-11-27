@@ -76,9 +76,6 @@ struct RibbonAnchors
 	double tolerance{ 0.0 };   // how far a plug's socket may sit from its anchor joint at rest: a share of the anchors' length
 };
 
-// COUPLED TO Limb (D62, design/limb.md): LimbNode runs this module's solve, channels, control derivation and inverse. A change here
-// changes Limb. Read design/limb.md and run test_limb_matches_parts before changing any of them.
-//
 // A virtual ribbon (D56, design/ribbon.md): a few ik controls shape a curve and every bind joint rides it through a
 // hidden tweaker control. Slots (the logical index controlData, controlOPM, jointOPM, outputSocketMatrix and childPlugs share):
 // 0 to J-1 are the ik controls, J to J+n-1 are the tweakers. Child plugs: start (slot 0) and end (slot J-1). Sockets: index_k

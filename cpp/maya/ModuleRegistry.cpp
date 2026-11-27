@@ -4,7 +4,6 @@
 #include "maya/modules/FkChainModule.h"
 #include "maya/modules/FkHierarchyModule.h"
 #include "maya/modules/LayoutModule.h"
-#include "maya/modules/LimbModule.h"
 #include "maya/modules/ReverseFootModule.h"
 #include "maya/modules/RibbonModule.h"
 #include "maya/modules/TwoBoneIkModule.h"
@@ -58,11 +57,6 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
             "ribbonModule", "Ribbon", RibbonModuleNode::id,
             RibbonModuleNode::creator, RibbonModuleNode::initialize,
             RibbonModuleNode::argUpdateTable(), RibbonModuleNode::planFromJson, RibbonModuleNode::inverse, true, RibbonModuleNode::inverseChannels()
-        },
-        {
-            "limbModule", "Limb", LimbNode::id,
-            LimbNode::creator, LimbNode::initialize,
-            {}, LimbNode::planFromJson, LimbNode::inverse, true, LimbNode::inverseChannels(), TwoBoneIkNode::spaceDelta
         },
         {
             "reverseFootModule", "ReverseFoot", ReverseFootModuleNode::id,

@@ -1,33 +1,13 @@
 {
-  "description": "At rest every joint is where the skeleton put it: the limb joints from the IK solve (blend 1) and the bind joints on the polyline through them, because the elbow's softness rests at 0 and a sharp corner is a straight line to each side.",
+  "description": "FK, the hand control turned 80 degrees about its own X (the bone axis, a pure twist). The end frame takes the hand's twist on the swing of the elbow, and the elbow has none, so the twist rises linearly from 0 at the elbow to 80 at the wrist: the four forearm bind joints, at 5/8, 3/4, 7/8 and 1 of the curve, turn 20, 40, 60 and 80 degrees about the bone axis, which is X in their own frame, so their Euler angles are (twist, 0, 90). Nothing moves, and the upper arm and the elbow joint are untouched.",
   "skeleton": "limb_arm",
-  "template": "limb_arm",
+  "template": "ribbon_anchored_arm",
+  "set": {
+    "armSettings_00_L_CTRL.ikFkBlend": 0,
+    "hand_00_L_CTRL.rotateX": 80
+  },
   "tolerance": 0.001,
   "expect": {
-    "upperArm_00_L_JNT": {
-      "translate": [
-        0,
-        0,
-        0
-      ],
-      "rotate": [
-        0,
-        0,
-        0
-      ]
-    },
-    "lowerArm_00_L_JNT": {
-      "translate": [
-        4,
-        0,
-        0
-      ],
-      "rotate": [
-        0,
-        0,
-        90
-      ]
-    },
     "hand_00_L_JNT": {
       "translate": [
         4,
@@ -35,7 +15,7 @@
         0
       ],
       "rotate": [
-        0,
+        80,
         0,
         90
       ]
@@ -107,7 +87,7 @@
         0
       ],
       "rotate": [
-        0,
+        20,
         0,
         90
       ]
@@ -119,7 +99,7 @@
         0
       ],
       "rotate": [
-        0,
+        40,
         0,
         90
       ]
@@ -131,7 +111,7 @@
         0
       ],
       "rotate": [
-        0,
+        60,
         0,
         90
       ]
@@ -143,7 +123,7 @@
         0
       ],
       "rotate": [
-        0,
+        80,
         0,
         90
       ]

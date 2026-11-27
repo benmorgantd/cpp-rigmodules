@@ -17,8 +17,8 @@
 #include <maya/MTypeId.h>
 #include <maya/MVector.h>
 
-// COUPLED TO Limb (D62, design/limb.md): LimbNode runs this module's solve, channels, control derivation and inverse. A change here
-// changes Limb. Read design/limb.md and run test_limb_matches_parts before changing any of them.
+// COUPLED TO ReverseFoot (D74, design/reverse-foot.md): a foot hangs from the ik and end sockets, feeds ikTarget and follows ikFkBlend.
+// A change to the blend, those sockets, ikTarget or the inverse changes the foot.
 //
 // A two-bone IK limb (arm, leg): an FK chain and an IK solve, blended joint by joint (D52). Child plugs: start, ik, pole,
 // settings (internal: it follows start's parent) and the optional ikTarget, which the end joint reaches in place of the IK handle (a

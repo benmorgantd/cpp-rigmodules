@@ -45,8 +45,7 @@ namespace AnchorRotation
 }
 
 // The Ribbon module's forward evaluation (D56), channels and stored rest data, as plain values and shared functions with no node of
-// their own. RibbonModuleNode calls it from compute() and its inverse, and the Limb module (D62, design/limb.md) calls it for its
-// ribbon. A change here changes both: read design/limb.md first.
+// their own. RibbonModuleNode calls it from compute() and its inverse, in the plain and the anchored form (D80).
 namespace RibbonSolve
 {
 	inline constexpr unsigned int MaxSlots{ RibbonMath::MaxControls + RibbonMath::MaxBindJoints };
@@ -61,7 +60,7 @@ namespace RibbonSolve
 	};
 
 	// mRest and mLocal are by slot; the start's parent motion carries the whole ribbon and the end's is its own. With pAnchorWorld (a
-	// Limb's start, mid and end frames, as world matrices) the curve passes through them in world space (RibbonMath::Setup::fkAnchors):
+	// an anchored ribbon's start, mid and end frames, as world matrices) the curve passes through them in world space (RibbonMath::Setup::fkAnchors):
 	// pass identity for both deltas, and nothing reads the slots past the ik controls and the bind joints.
 	void evaluate(
 		const RibbonMath::Setup& setup,
@@ -111,7 +110,7 @@ namespace RibbonSolve
 	RibbonMath::Params paramsFromChannels(const double* values);
 
 	// The rest data a ribbon stores on its node at build (D56 section 3.4), by the module's own attributes. The two modules use the
-	// same names but for the ik controls' offsets, which Limb keeps apart from its two-bone limb's.
+	// same names but for the ik controls' offsets, which the Limb kept apart from its two-bone limb's (D62).
 	struct RestAttrs
 	{
 		MObject& ikControlCount;

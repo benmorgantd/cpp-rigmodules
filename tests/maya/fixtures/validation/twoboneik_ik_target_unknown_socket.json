@@ -1,7 +1,7 @@
 {
   "description": "ikTarget takes a socket like any child plug: a name the module does not have is an error",
-  "base": "limb_foot",
-  "skeleton": "limb_foot",
+  "base": "twoboneik_foot",
+  "skeleton": "twoboneik_foot",
   "edits": [
     {
       "set": "/rigModules/0/parentStructure/ikTarget",

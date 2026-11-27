@@ -12,8 +12,8 @@ Run it with mayapy (set nothing else up: it loads a copy of the plugin and the p
 
 human    imports the asset's skeleton `--count` times, builds the asset's template on each, and keys every
          control on every frame through a cycle of load, mirror, flip and zero poses.
-complex  generates a 360 joint skeleton and a template with 103 constraints (Parent, Orient, Point, Swing and Twist), 16 push outs (D79), Aim modules, Limbs,
-         TwoBoneIk limbs and Ribbons, builds it `--count` times, and keys a -90 to 90 range of motion on every control's rotate X, Y
+complex  generates a 360 joint skeleton and a template with 103 constraints (Parent, Orient, Point, Swing and Twist), 16 push outs (D79), Aim modules,
+         TwoBoneIk limbs, split limbs (a TwoBoneIk and an anchored Ribbon, D80) and Ribbons, builds it `--count` times, and keys a -90 to 90 range of motion on every control's rotate X, Y
          and Z, plus the limbs' handles, poles, roll and settings (blend, stretch, soft, pin) through every branch.
 
 floor    builds the same controls, joints, hierarchy and keys as `complex` with native transforms and joints only, so
@@ -62,8 +62,8 @@ ROM_AXES = ("rotateX", "rotateY", "rotateZ")
 # reflection across X = 0) and gets "mirror": true in the template, so the template stays half the size.
 # Aim sets (aim, target and up joints) and limbs (three limb joints) are listed apart. A limb's ik, pole and settings controls
 # and a ribbon's ik controls have no joint (D57): derived_controls() lists them.
-# 62 Center joints + 2 x 149 side joints = 360 joints (the 236 of the chains, aim sets and limbs, the 60 of the ribbons and the 64 of the Limbs).
-# 7 Center + 2 x 48 side constraints = 103 (the 48 include the 3 arm ribbons' Swing starts and Twist ends and the Limbs' 4 x 2 spaces).
+# 62 Center joints + 2 x 149 side joints = 360 joints (the 236 of the chains, aim sets and limbs, the 60 of the ribbons and the 64 of the split limbs).
+# 7 Center + 2 x 48 side constraints = 103 (the 48 include the 3 arm ribbons' Swing starts and Twist ends and the split limbs' 4 x 2 spaces).
 #
 # Every module type and constraint type the plugin has appears here many times. A new module or constraint
 # type adds a block of instances to this rig in the same change (CLAUDE.md, "Gate for new modules").
@@ -139,11 +139,12 @@ def limb_specs():
     return limbs
 
 
-def limb_module_specs():
-    """Limb modules (D62), written for the Left side and built on both: an arm or leg with one continuous ribbon. Same keys as
-    limb_specs (`at`, `parent`, `offset`, `upper`, `lower`, `pole`, `settings`, `constraints`), so a Limb is placed, parented and
-    spaced like the TwoBoneIk limbs beside it. Each has the three limb joints and BIND_PER_LIMB leaf bind joints (the first at the
-    root, one at the mid joint, one at the end, one halfway along each bone), the ribbon's 5 ik controls and a tweaker per bind joint."""
+def split_limb_specs():
+    """Split limbs (D80), written for the Left side and built on both: an arm or leg as a TwoBoneIk and an anchored Ribbon on its
+    three joints, in the removed Limb module's place in this rig. Same keys as limb_specs (`at`, `parent`, `offset`, `upper`, `lower`,
+    `pole`, `settings`, `constraints`), so one is placed, parented and spaced like the TwoBoneIk limbs beside it. Each has the three limb
+    joints and BIND_PER_LIMB leaf bind joints (the first at the root, one at the mid joint, one at the end, one halfway along each bone),
+    the ribbon's SPLIT_RIBBON_CONTROLS interior ik controls and a tweaker per bind joint."""
     layout = ("layout", "end", "World")
     arm_start = ("Parent", [("clavicle", "end", "Clavicle"), ("spine", "end", "Chest"), layout])
     leg_start = ("Orient", [("spine", "start", "Hips"), layout])
@@ -163,7 +164,7 @@ def limb_module_specs():
 
 
 BIND_PER_LIMB = 5
-LIMB_RIBBON_CONTROLS = 5
+SPLIT_RIBBON_CONTROLS = 3   # the anchored Ribbon's interior ik controls: its default, one on the mid joint
 
 
 def ribbon_specs():
@@ -336,7 +337,7 @@ def joint_layout():
                                "usage": usage_name(limb["base"], i), "chain": chain, "aim_next": step is not None,
                                "secondary": _secondary(step) if step else "yup"})
                 previous = name
-    for limb in limb_module_specs():
+    for limb in split_limb_specs():
         at_base, at_index = limb["at"]
         for side in ("Left", "Right"):
             at_side = side if spec_side[at_base] == "Left" else "Center"
@@ -417,7 +418,7 @@ def derived_controls():
             for role, position in (("ik", end), ("pole", _add(mid, _flip(limb["pole"], side))),
                                    ("settings", _add(end, _flip(limb_settings_offset(limb), side)))):
                 derived.append({"chain": chain, "role": role, "position": position})
-    for limb in limb_module_specs():
+    for limb in split_limb_specs():
         for side in ("Left", "Right"):
             root = positions[joint_name(limb["base"], 0, side)]
             mid = positions[joint_name(limb["base"], 1, side)]
@@ -426,11 +427,12 @@ def derived_controls():
             for role, position in (("ik", end), ("pole", _add(mid, _flip(limb["pole"], side))),
                                    ("settings", _add(end, _flip(limb_settings_offset(limb), side)))):
                 derived.append({"chain": chain, "role": role, "position": position})
-            # The ribbon's ik controls: spread from the root to the mid joint to the end joint, close enough for a cost comparison.
-            for i in range(LIMB_RIBBON_CONTROLS):
-                fraction = i / (LIMB_RIBBON_CONTROLS - 1) * 2.0
+            # The ribbon's interior ik controls: halfway along the upper bone, on the mid joint and halfway along the lower bone, close
+            # enough for a cost comparison. The curve's ends are the TwoBoneIk's joints, with no control of the ribbon's.
+            for i in range(SPLIT_RIBBON_CONTROLS):
+                fraction = (i + 1) / (SPLIT_RIBBON_CONTROLS + 1) * 2.0
                 a, b, t = (root, mid, fraction) if fraction <= 1.0 else (mid, end, fraction - 1.0)
-                derived.append({"chain": chain, "role": "rib%02d" % i,
+                derived.append({"chain": split_ribbon_name(limb["base"], side), "role": "rib%02d" % (i + 1),
                                 "position": tuple(a[k] + (b[k] - a[k]) * t for k in range(3))})
     for ribbon in ribbon_specs():
         for side in _sides(ribbon):
@@ -442,6 +444,11 @@ def derived_controls():
                 derived.append({"chain": module_name(ribbon["base"], side), "role": "ik%02d" % i,
                                 "position": _add(origin, (run[0] * fraction, run[1] * fraction, run[2] * fraction))})
     return derived
+
+
+def split_ribbon_name(base, side):
+    """The anchored Ribbon of a split limb, named by the Limb migration recipe (docs/modules.md): <base>Ribbon with the limb's index."""
+    return module_name(base + "Ribbon", side)
 
 
 def limb_settings_offset(limb):
@@ -533,25 +540,43 @@ def build_template(fk_style=False):
         for plug, (constraint_type, drivers) in limb["constraints"].items():
             constraints.append(_constraint_entry(constraint_name("%s%sSpace" % (limb["base"], plug.capitalize()), "Left"), constraint_type,
                                                  "%s.%s" % (name, plug), drivers, "Left", side_of))
-    for limb in limb_module_specs():
+    for limb in split_limb_specs():
         name = module_name(limb["base"], "Left")
         parent_base, parent_socket = limb["parent"]
+        limb_joints = [["Left", usage_name(limb["base"], i)] for i in range(3)]
         modules.append({
-            "moduleType": "Limb",
+            "moduleType": "TwoBoneIk",
+            "moduleVersion": 2,
             "name": name,
             "side": "Left",
             "shapeType": "Box",
             "mirror": True,
             "moduleArgs": {
-                "joints": [["Left", usage_name(limb["base"], i)] for i in range(3)],
-                "bindJoints": [["Left", usage_name(limb["base"] + "Bind", i)] for i in range(BIND_PER_LIMB)],
+                "joints": limb_joints,
                 "controlName": limb["base"],
-                "controlCount": LIMB_RIBBON_CONTROLS,
                 "poleOffset": list(limb["pole"]),
                 "settingsOffset": list(limb_settings_offset(limb)),
             },
             "parentStructure": {"start": "%s.%s" % (module_name(parent_base, side_of[parent_base]), parent_socket),
                                 "ik": "layout_00_M_MOD.end", "pole": "layout_00_M_MOD.end"},
+        })
+        # The anchored Ribbon with the limb keys (the removed Limb's behaviour), its channels hosted on the TwoBoneIk's settings control.
+        modules.append({
+            "moduleType": "Ribbon",
+            "moduleVersion": 2,
+            "name": split_ribbon_name(limb["base"], "Left"),
+            "side": "Left",
+            "shapeType": "Box",
+            "mirror": True,
+            "moduleArgs": {
+                "anchorJoints": limb_joints,
+                "joints": [["Left", usage_name(limb["base"] + "Bind", i)] for i in range(BIND_PER_LIMB)],
+                "controlName": limb["base"] + "Ribbon",
+                "startAnchorRotation": "swing",
+                "endAnchorRotation": "twist",
+                "bendSoftness": 0,
+            },
+            "parentStructure": {"start": name + ".index_0", "mid": name + ".index_1", "end": name + ".index_2", "settings": name + ".settings"},
         })
         for plug, (constraint_type, drivers) in limb["constraints"].items():
             constraints.append(_constraint_entry(constraint_name("%s%sSpace" % (limb["base"], plug.capitalize()), "Left"), constraint_type,
@@ -726,23 +751,25 @@ def import_skeleton(skeleton_file, namespace):
 
 
 class RigInstance(object):
-    def __init__(self, namespace, rig_root, controls, limbs=(), limb_modules=()):
+    def __init__(self, namespace, rig_root, controls, limbs=(), split_limbs=()):
         self.namespace = namespace
         self.rig_root = rig_root
         self.controls = controls   # every control except the layout's, which place the instance
         self.limbs = list(limbs)   # one dict per TwoBoneIk limb: its six controls by role (LIMB_ROLES)
-        self.limb_modules = list(limb_modules)   # the same per Limb module (D62), whose settings control also holds the ribbon's channels
+        self.split_limbs = list(split_limbs)   # the same per split limb's TwoBoneIk (D80), whose settings control also hosts the ribbon's channels
 
 
 LIMB_ROLES = ("start", "lower", "end", "ik", "pole", "settings")
 
 
 def find_limbs(controls):
-    """The TwoBoneIk limbs among rigmodules.query controls: one dict of control names by role per module. The three
-    limb joints' usages end in 1, 2 and 3 and the derived controls' in IK, Pole and Settings (D57, TwoBoneIk's <base>IK, <base>Pole and <base>Settings)."""
+    """The TwoBoneIk limbs among rigmodules.query controls, less the split limbs' (find_split_limbs): one dict of control names by role
+    per module. The three limb joints' usages end in 1, 2 and 3 and the derived controls' in IK, Pole and Settings (D57, TwoBoneIk's
+    <base>IK, <base>Pole and <base>Settings)."""
+    split_bases = tuple(limb["base"] for limb in split_limb_specs())
     by_module = {}
     for control in controls:
-        if control.module_type != "TwoBoneIk":
+        if control.module_type != "TwoBoneIk" or control.usage.startswith(split_bases):
             continue
         for role, suffix in zip(LIMB_ROLES, ("1", "2", "3", "IK", "Pole", "Settings")):
             if control.usage.endswith(suffix):
@@ -750,13 +777,14 @@ def find_limbs(controls):
     return list(by_module.values())
 
 
-def find_limb_modules(controls):
-    """The Limb modules (D62) among rigmodules.query controls: one dict of control names by role (LIMB_ROLES) per module. The roles are
-    found by exact usage from the settings control's (<base>Settings): <base>1 to <base>3 for the limb joints, then <base>IK and <base>Pole.
-    The ribbon's ik controls and the tweakers have their own usages and are left out."""
+def find_split_limbs(controls):
+    """The split limbs' TwoBoneIks (D80) among rigmodules.query controls: one dict of control names by role (LIMB_ROLES) per module. The
+    roles are found by exact usage from the settings control's (<base>Settings): <base>1 to <base>3 for the limb joints, then <base>IK
+    and <base>Pole. The ribbon's ik controls and tweakers are the Ribbon module's, and are left out."""
+    split_bases = tuple(limb["base"] for limb in split_limb_specs())
     by_module = {}
     for control in controls:
-        if control.module_type == "Limb":
+        if control.module_type == "TwoBoneIk" and control.usage.startswith(split_bases):
             by_module.setdefault(control.module, []).append(control)
     found = []
     for members in by_module.values():
@@ -789,7 +817,7 @@ def build_instances(skeleton_file, template_file, asset_id, prefix, count, spaci
             cmds.createRigFromTemplate(*attachment_joints_built, template=attachment_files[1], asset=asset_id,
                                        namespace=attachment_namespace, parentRig=rig_root)
         instances.append(RigInstance(namespace, rig_root, [c.node for c in controls if c.module_type != "Layout"],
-                                     find_limbs(controls), find_limb_modules(controls)))
+                                     find_limbs(controls), find_split_limbs(controls)))
         if (index + 1) % 10 == 0:
             print("built %d/%d rigs (%.0f s)" % (index + 1, count, time.time() - started))
     return instances
@@ -873,7 +901,7 @@ def key_rom(instances, segment=ROM_SEGMENT_FRAMES, degrees=ROM_DEGREES):
         keys = [(start, 0.0), (start + segment * 0.25, -degrees), (start + segment * 0.75, degrees),
                 (start + segment, 0.0)]
         for instance in instances:
-            fixed = {limb[role] for limb in instance.limbs + instance.limb_modules for role in ("pole", "settings")}
+            fixed = {limb[role] for limb in instance.limbs + instance.split_limbs for role in ("pole", "settings")}
             _key_curve(["%s.%s" % (control, axis) for control in instance.controls if control not in fixed], keys)
     last = 1 + len(ROM_AXES) * segment
     key_limbs(instances, last)
@@ -897,8 +925,8 @@ LIMB_CURVES = {
     ("pole", "translateZ"): [(0, 0), (0.25, 2.0), (0.5, -2.0), (0.75, 1.0), (1, 0)],
     ("start", "translateY"): [(0, 0), (0.5, 0.5), (1, 0)],
 }
-# The ribbon channels of a Limb (D62), on its settings control: both twists, the elbow's softness, the sine and the volume.
-LIMB_RIBBON_CURVES = {
+# The ribbon channels of a split limb (D80), hosted on its TwoBoneIk's settings control: both twists, the elbow's softness, the sine and the volume.
+SPLIT_RIBBON_CURVES = {
     ("settings", "startTwist"): [(0, 0), (0.30, 40), (0.70, -40), (1, 0)],
     ("settings", "endTwist"): [(0, 0), (0.30, -40), (0.70, 40), (1, 0)],
     ("settings", "bendSoftness"): [(0, 0), (0.35, 1), (0.70, 0.3), (1, 0)],
@@ -914,10 +942,10 @@ def key_limbs(instances, last):
     from maya import cmds
     span = last - 1
     for instance in instances:
-        for limb in instance.limbs + instance.limb_modules:
+        for limb in instance.limbs + instance.split_limbs:
             curves = dict(LIMB_CURVES)
-            if limb in instance.limb_modules:
-                curves.update(LIMB_RIBBON_CURVES)
+            if limb in instance.split_limbs:
+                curves.update(SPLIT_RIBBON_CURVES)
             for (role, channel), keys in curves.items():
                 _key_curve(["%s.%s" % (limb[role], channel)], [(1 + round(f * span), v) for f, v in keys])
             plug = "%s.%s" % (limb["pole"], "space")
@@ -976,11 +1004,11 @@ def build_floor_instance(joints, namespace):
     and settings, the ribbons' ik controls) are native transforms with no joint. Returns a RigInstance."""
     from maya import cmds
     limb_chains = {module_name(limb["base"], side) for limb in limb_specs() for side in ("Left", "Right")}
-    module_bases = {module_name(limb["base"], side): limb["base"] for limb in limb_module_specs() for side in ("Left", "Right")}
+    module_bases = {module_name(limb["base"], side): limb["base"] for limb in split_limb_specs() for side in ("Left", "Right")}
     aim_usages = {aim["base"] + "Aim" for aim in aim_specs()}
     controls = []
     limbs = {}
-    limb_modules = {}
+    split_limbs = {}
     for joint in joints:
         name = "%s:%s" % (namespace, joint["name"])
         parent = "%s:%s" % (namespace, joint["parent"]) if joint["parent"] else None
@@ -1002,7 +1030,7 @@ def build_floor_instance(joints, namespace):
         if joint["chain"] in module_bases:
             for i, role in enumerate(LIMB_ROLES[:3]):
                 if joint["usage"] == usage_name(module_bases[joint["chain"]], i):
-                    limb_modules.setdefault(joint["chain"], {})[role] = control
+                    split_limbs.setdefault(joint["chain"], {})[role] = control
     for derived in derived_controls():
         control = cmds.createNode("transform", name="%s:%s_%s_CTRL" % (namespace, derived["chain"], derived["role"]))
         cmds.setAttr(control + ".inheritsTransform", 0)
@@ -1011,16 +1039,16 @@ def build_floor_instance(joints, namespace):
         if derived["chain"] in limb_chains:
             limbs.setdefault(derived["chain"], {})[derived["role"]] = control
         if derived["chain"] in module_bases and derived["role"] in LIMB_ROLES:
-            limb_modules.setdefault(derived["chain"], {})[derived["role"]] = control
-    for limb in limb_modules.values():
-        for attribute in sorted({name for _, name in LIMB_RIBBON_CURVES}):
+            split_limbs.setdefault(derived["chain"], {})[derived["role"]] = control
+    for limb in split_limbs.values():
+        for attribute in sorted({name for _, name in SPLIT_RIBBON_CURVES}):
             cmds.addAttr(limb["settings"], longName=attribute, attributeType="double", keyable=True)
-    for limb in list(limbs.values()) + list(limb_modules.values()):
+    for limb in list(limbs.values()) + list(split_limbs.values()):
         for role, attributes in (("settings", ("ikFkBlend", "stretch", "soft")), ("ik", ("roll",)), ("pole", ("pin",))):
             for attribute in attributes:
                 cmds.addAttr(limb[role], longName=attribute, attributeType="double", keyable=True)
         cmds.addAttr(limb["pole"], longName="space", attributeType="enum", enumName="Parent:Ik", keyable=True)
-    return RigInstance(namespace, None, controls, limbs.values(), limb_modules.values())
+    return RigInstance(namespace, None, controls, limbs.values(), split_limbs.values())
 
 
 def make_floor(args):

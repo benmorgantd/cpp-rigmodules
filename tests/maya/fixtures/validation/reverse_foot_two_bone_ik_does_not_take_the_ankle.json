@@ -1,7 +1,7 @@
 {
   "description": "A TwoBoneIk that drives a foot must take the foot's ankle as its ikTarget, as a Limb must (D80 phase 2). The error names the line to add",
-  "base": "reverse_foot_twoboneik",
-  "skeleton": "reverse_foot_twoboneik",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
   "markers": "reverse_foot",
   "edits": [
     {

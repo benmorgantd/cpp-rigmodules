@@ -1,5 +1,7 @@
 # ReverseFoot: foot roll, pivots and an FK toe, on top of a Limb
 
+> **Since D80 (2026-11-27)** the foot is on a TwoBoneIk: the Limb module was removed, and TwoBoneIk took its `ikTarget`, handle sockets and blend. "The Limb" on this page is that TwoBoneIk.
+
 **Status:** Signed off by the author, 2026-11-24 (D74). Written from the author's answers. The author answered the seven open questions the same day, and section 14 records the answers. Built 2026-11-24, and the inverse (phase 5) 2026-11-25, except the perf rig (phase 6): D74 records what phases 2 to 4 settled that this page left open (the chain's composition, the plugs without controls, `controlName`, the pivot socket names). Depends on markers (`markers.md`, D73).
 
 ## 1. Animator-facing problem

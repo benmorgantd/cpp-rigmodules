@@ -103,7 +103,7 @@ def add_validation_cases(cls, expect_build):
 
 # ---- golden interface snapshots --------------------------------------------------------------
 
-MODULE_TYPES = ["layoutModule", "fkChainModule", "fkHierarchyModule", "aimModule", "twoBoneIkModule", "ribbonModule", "limbModule", "reverseFootModule"]
+MODULE_TYPES = ["layoutModule", "fkChainModule", "fkHierarchyModule", "aimModule", "twoBoneIkModule", "ribbonModule", "reverseFootModule"]
 
 
 def _short(node):

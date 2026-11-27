@@ -693,6 +693,16 @@ namespace RigTemplateValidation
 			+ " (mirror '" + module.name + "')";
 	}
 
+	std::string removedModuleTypeHint(const std::string& moduleType)
+	{
+		if (moduleType == "Limb")
+		{
+			return "the Limb module was removed (D80): write a TwoBoneIk with the Limb's name and an anchored Ribbon after it, "
+				"as docs/modules.md describes under \"Moving a Limb to a TwoBoneIk and a Ribbon\"";
+		}
+		return {};
+	}
+
 	std::string constraintPath(std::size_t index, const std::string& name)
 	{
 		return std::string(TemplateKey::Constraints) + "[" + std::to_string(index) + "] '" + name + "'";
@@ -1118,7 +1128,7 @@ namespace RigTemplateValidation
 			}
 			if (driver->second.blendSource.empty())
 			{
-				report.addError(where, "'" + driverName + "' has no ik/fk blend to follow: it must be a Limb or a TwoBoneIk");
+				report.addError(where, "'" + driverName + "' has no ik/fk blend to follow: it must be a TwoBoneIk");
 				continue;
 			}
 
@@ -1146,7 +1156,7 @@ namespace RigTemplateValidation
 			if (driver->second.findChildPlug(driverPlug) == nullptr)
 			{
 				report.addError(where, "'" + driverName + "' has no child plug '" + driverPlug + "' to take '" + expectedParent
-					+ "', so the foot could not move its ankle: it must be a TwoBoneIk or a Limb");
+					+ "', so the foot could not move its ankle: it must be a TwoBoneIk");
 				continue;
 			}
 			const auto driverModule = std::find_if(rigData.rigModules.begin(), rigData.rigModules.end(), [&driverName](const RigModuleData& other)

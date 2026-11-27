@@ -1,23 +1,47 @@
 {
-  "description": "FK, the hand control turned 80 degrees about its own X (the bone axis, a pure twist). The end frame takes the hand's twist on the swing of the elbow, and the elbow has none, so the twist rises linearly from 0 at the elbow to 80 at the wrist: the four forearm bind joints, at 5/8, 3/4, 7/8 and 1 of the curve, turn 20, 40, 60 and 80 degrees about the bone axis, which is X in their own frame, so their Euler angles are (twist, 0, 90). Nothing moves, and the upper arm and the elbow joint are untouched.",
+  "description": "FK (blend 0), the lower arm control turned 45 degrees about Z. The elbow stays at (4,0,0) and the lower bone, 4 long, now points along (-sin 45, cos 45): the hand is at (4 - 2.8284, 2.8284). With the softness at its rest (0) the ribbon is the polyline through the three joints, so the four bind joints on each bone sit at quarter steps of it, at the speed they had at rest, and point along their bone (0 degrees on the upper bone, 135 on the lower one). The elbow bind joint points along the bisector of the two bones, 67.5 degrees.",
   "skeleton": "limb_arm",
-  "template": "limb_arm",
+  "template": "ribbon_anchored_arm",
   "set": {
     "armSettings_00_L_CTRL.ikFkBlend": 0,
-    "hand_00_L_CTRL.rotateX": 80
+    "lowerArm_00_L_CTRL.rotateZ": 45
   },
   "tolerance": 0.001,
   "expect": {
-    "hand_00_L_JNT": {
+    "upperArm_00_L_JNT": {
       "translate": [
-        4,
-        4,
+        0,
+        0,
         0
       ],
       "rotate": [
-        80,
         0,
-        90
+        0,
+        0
+      ]
+    },
+    "lowerArm_00_L_JNT": {
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        135
+      ]
+    },
+    "hand_00_L_JNT": {
+      "translate": [
+        1.1715728752538097,
+        2.8284271247461903,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        135
       ]
     },
     "bind1_00_L_JNT": {
@@ -77,55 +101,55 @@
       "rotate": [
         0,
         0,
-        45
+        67.5
       ]
     },
     "bind6_00_L_JNT": {
       "translate": [
-        4,
-        1,
+        3.2928932188134525,
+        0.7071067811865476,
         0
       ],
       "rotate": [
-        20,
         0,
-        90
+        0,
+        135
       ]
     },
     "bind7_00_L_JNT": {
       "translate": [
-        4,
-        2,
+        2.585786437626905,
+        1.4142135623730951,
         0
       ],
       "rotate": [
-        40,
         0,
-        90
+        0,
+        135
       ]
     },
     "bind8_00_L_JNT": {
       "translate": [
-        4,
-        3,
+        1.8786796564403572,
+        2.121320343559643,
         0
       ],
       "rotate": [
-        60,
         0,
-        90
+        0,
+        135
       ]
     },
     "bind9_00_L_JNT": {
       "translate": [
-        4,
-        4,
+        1.1715728752538097,
+        2.8284271247461903,
         0
       ],
       "rotate": [
-        80,
         0,
-        90
+        0,
+        135
       ]
     }
   }

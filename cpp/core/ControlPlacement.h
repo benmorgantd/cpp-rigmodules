@@ -60,7 +60,7 @@ namespace ControlPlacement
 	// count below two. Call checkChain first: a chain it rejects gives frames with no meaning.
 	std::vector<Mat4> placeAlongChain(const std::vector<Mat4>& joints, int count);
 
-	// The parameters of a Limb's ribbon ik controls on its anchor curve (D62), in the anchors' chord-share space: 0 at the start, the
+	// The parameters of an anchored Ribbon's ik controls on its anchor curve (D62, D80), in the anchors' chord-share space: 0 at the start, the
 	// mid anchor's (upper / (upper + lower)) at the mid control, 1 at the end, and the other controlCount - 3 spread evenly within
 	// each segment, divided between the two in proportion to their lengths (the longer one gets the odd one). controlCount is 3 or
 	// more; the lengths are positive. Strictly increasing. The anchored Ribbon (D80) uses it too, with its two ends counted.
