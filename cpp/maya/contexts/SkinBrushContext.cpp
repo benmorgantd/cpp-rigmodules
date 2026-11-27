@@ -24,7 +24,7 @@
 
 namespace
 {
-	// Code reads flags by long name only. Short names appear only where a syntax is built (D14).
+	// Code reads flags by long name only. Short names appear only where a syntax is built.
 	constexpr const char* kOperationFlag{ "-operation" };
 	constexpr const char* kRadiusFlag{ "-radius" };
 	constexpr const char* kStrengthFlag{ "-strength" };
@@ -65,7 +65,7 @@ namespace
 		return strength > 0.0 && strength <= 1.0;
 	}
 
-	// The default smoothness of the rest-match operations (D66). 0 is none, 1 is all the neighbors' average.
+	// The default smoothness of the rest-match operations. 0 is none, 1 is all the neighbors' average.
 	constexpr double kDefaultSmoothness = 0.15;
 
 	bool isValidSmoothness(double smoothness)

@@ -14,7 +14,7 @@
 #include <maya/MSyntax.h>
 #include <maya/MUIDrawManager.h>
 
-// The skin weight brush (D65): drag over the selected skinned meshes to paint weights under the brush. What a dab does
+// The skin weight brush: drag over the selected skinned meshes to paint weights under the brush. What a dab does
 // is a SkinBrushOperation, so this context serves every skin painting command: it picks the hit (the closest surface
 // across the selected meshes, or every surface the ray crosses), reaches over the surface from it, draws the reach, and
 // hands the stroke to an undoable tool command. Ctrl + drag sideways resizes the brush. Holding the button still
@@ -112,7 +112,7 @@ private:
 	std::string fOperation = "smooth";
 	double fRadius = 5.0;
 	double fStrength = 0.5;
-	double fSmoothness = 0.15;              // the rest-match operations only (D66)
+	double fSmoothness = 0.15;              // the rest-match operations only
 	bool fThroughMesh = false;
 	bool fDebug = false;
 	int fTicks = 0;                         // debug counters for the stroke in progress
