@@ -22,7 +22,7 @@ const std::vector<ModuleDescriptor>& ModuleRegistry::all()
     // after every module's static MTypeId has been constructed.
     static const std::vector<ModuleDescriptor> descriptors =
     {
-        // assetRootModule (0x00219) was merged into the rig root (D54). Its id is retired, never reused.
+        // assetRootModule (0x00219) was merged into the rig root. Its id is retired, never reused.
         {
             "rigRootModule", "RigRoot", RigRootNode::id,
             RigRootNode::creator, RigRootNode::initialize,

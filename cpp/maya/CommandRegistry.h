@@ -12,7 +12,7 @@ struct CommandDescriptor
 	CommandSyntaxFn syntax;
 };
 
-// A context command and the tool command its strokes run as (D65). The tool command is registered with it.
+// A context command and the tool command its strokes run as The tool command is registered with it.
 struct ContextDescriptor
 {
 	const char* name;               // the context command
