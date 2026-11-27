@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// Module and constraint mirroring (D28). A template entry with "mirror": true gets a copy on the other side,
+// Module and constraint mirroring. A template entry with "mirror": true gets a copy on the other side,
 // added before validation, so every check and the build treat it like an entry written by hand.
 
 #include "RigJsonStructs.h"
@@ -24,7 +24,7 @@ namespace TemplateMirror
 	//   (FkHierarchy: left_upperArm <-> right_upperArm). Every other socket or child plug name never changes;
 	//   mirror false and mirrorOf set to the source's index.
 	// A collision with "mirror": true gets a copy the same way: its name and target swap, and so does the side of the joint
-	// its capsule follows (D79).
+	// its capsule follows.
 	// Mirrors go after every source entry, so the source indices in error paths still match the file.
 	void expandMirrors(RigRootData& rigData, ValidationReport& report);
 }

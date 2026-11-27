@@ -32,7 +32,7 @@ bool parseControlMarkup(const std::string& text, ControlMarkup& outMarkup, std::
 std::string serializeControlMarkup(const ControlMarkup& markup);
 bool validateControlMarkup(const ControlMarkup& markup, std::string& outError);
 
-// What getRigControlInfo reports about one control (D34): its markup, its module and its mirror.
+// What getRigControlInfo reports about one control: its markup, its module and its mirror.
 struct ControlInfo
 {
 	std::string moduleType;   // the template moduleType, "FkChain"

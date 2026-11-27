@@ -1,9 +1,9 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// A ControlAnim file (D42): sparse keys with tangents on the channels of a rig's controls, keyed by control markup and
+// A ControlAnim file: sparse keys with tangents on the channels of a rig's controls, keyed by control markup and
 // channel name like a pose file, so an animation survives renames and rebuilds and loads on any rig built from the
-// same template (D25, D34). The `controls` object is the keys payload of RigKeys.h, written with every channel an
+// same template. The `controls` object is the keys payload of RigKeys.h, written with every channel an
 // object and every key four values.
 // {
 //     "formatVersion": 3,
@@ -21,8 +21,8 @@
 // Frames are in the scene's UI time unit and values in its UI units, like cmds.keyframe. startFrame and endFrame are
 // the range the animation was saved over, and every key lies inside it. A pose that must be an animation (an engine
 // wants two frames) is a ControlAnim over two frames with the same values on both. `meta` is the library metadata
-// (LibraryMeta.h, D51), an empty object when there is none. Version 1 files have no meta and load with an empty one.
-// Version 2 named rigName `variant` and skeleton `skeletonId` (D54).
+// (LibraryMeta.h), an empty object when there is none. Version 1 files have no meta and load with an empty one.
+// Version 2 named rigName `variant` and skeleton `skeletonId`.
 
 #include "LibraryMeta.h"
 #include "RigKeys.h"

@@ -1,8 +1,8 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// A JointClip file is the transient bridge between Python and the plugin (D41, inverse-solve.md section 7). Python writes
-// this JSON (from a rig, or from an FBX through Maya, D42), and a command reads it. It is never stored in an asset. It holds the source's
+// A JointClip file is the transient bridge between Python and the plugin (inverse-solve.md section 7). Python writes
+// this JSON (from a rig, or from an FBX through Maya), and a command reads it. It is never stored in an asset. It holds the source's
 // joints, each joint's markup and rest, and a list of JointPoses. A pose from a single-frame file is a JointClip with one
 // JointPose.
 // {
@@ -42,7 +42,7 @@ struct JointTransform
 struct JointClipJoint
 {
 	std::string path;      // "/"-separated, which is also the hierarchy
-	std::string markup;    // the joint's rigMarkup JSON verbatim (D15), or "" for an unmarked joint
+	std::string markup;    // the joint's rigMarkup JSON verbatim, or "" for an unmarked joint
 	JointTransform rest;   // the source's rest, kept for the source check and for a later retarget
 };
 

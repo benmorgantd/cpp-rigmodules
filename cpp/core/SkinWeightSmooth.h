@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// Smoothing skin weights over a mesh's neighbors (D64). Built for the command now and a brush later, so a dab costs
+// Smoothing skin weights over a mesh's neighbors. Built for the command now and a brush later, so a dab costs
 // what the vertices under it cost, not what the mesh costs:
 //  - the neighbors of only the vertices being smoothed are asked for, through a callback, so nothing is built for the
 //    rest of the mesh (a whole-mesh smooth can hand over a bulk MeshAdjacency instead);

@@ -54,7 +54,7 @@ bool loadRigTemplate(const std::string& filePath, RigRootData& rigData, Validati
         return false;
     }
 
-    // Bring an older template forward first (D33), so everything below reads only the current shape.
+    // Bring an older template forward first, so everything below reads only the current shape.
     // A template without the key is version 1.
     int formatVersion = 1;
     if (jsonData.is_object() && jsonData.contains(TemplateKey::FormatVersion))
@@ -82,7 +82,7 @@ bool loadRigTemplate(const std::string& filePath, RigRootData& rigData, Validati
     try
     {
         rigData = jsonData.get<RigRootData>();
-        // The rig name is a folder name (D54), so the default turns the free-form template name into one.
+        // The rig name is a folder name, so the default turns the free-form template name into one.
         rigData.rigName = jsonData.value(TemplateKey::RigName, StringUtils::toSnakeCase(rigData.rigTemplateName));
 
         if (jsonData.contains(TemplateKey::Constraints))

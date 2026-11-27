@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// What the library browser needs to know about a pose file or a ControlAnim file without loading it onto a rig (D51):
+// What the library browser needs to know about a pose file or a ControlAnim file without loading it onto a rig:
 // its kind, its meta and its size, and an edit of its meta alone. The format and its update steps stay in PoseFile and
 // ControlAnimFile, so an old file is brought forward here as it is everywhere else.
 

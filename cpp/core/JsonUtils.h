@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers here. JointMarkup.cpp includes this file.
-// Every string attribute that holds structured data stores JSON text (see D16).
+// Every string attribute that holds structured data stores JSON text.
 // Both functions work with any type that has from_json/to_json, including std::vector<std::string>.
 
 #include <nlohmann/json.hpp>

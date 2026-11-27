@@ -55,7 +55,7 @@ namespace RibbonMath
 			double u[MaxControls]{};
 			Vec3 p[MaxControls];
 			Vec3 m[MaxControls];   // dP/du at each knot, leaving it
-			// With `split` the tangent arriving at a knot is mIn, not m, so a knot can be a corner (a Limb's elbow, D62). Without it a
+			// With `split` the tangent arriving at a knot is mIn, not m, so a knot can be a corner (a Limb's elbow). Without it a
 			// knot has one tangent, and mIn is not read.
 			bool split{ false };
 			Vec3 mIn[MaxControls];
@@ -103,7 +103,7 @@ namespace RibbonMath
 		// The normals carried along a spline at FrameSamples steps. The normal at a u is read back by interpolation and made
 		// perpendicular to the exact tangent, so the frame is smooth and no state outlives the evaluation.
 		//
-		// A spline with corners (split, D62) is sampled segment by segment instead, SegmentSamples steps each, because the tangent jumps
+		// A spline with corners (split) is sampled segment by segment instead, SegmentSamples steps each, because the tangent jumps
 		// at a corner and projecting the normal onto the new tangent's plane flips it when the corner turns more than a quarter turn. The
 		// normal goes through a corner by the shortest rotation that takes the arriving tangent to the leaving one.
 		constexpr int SegmentSamples{ 16 };
@@ -292,7 +292,7 @@ namespace RibbonMath
 			finishBase(setup, base);
 		}
 
-		// Makes knots corners (D62, a Limb's elbow): each side of a corner leaves it along its own chord, so a segment between two
+		// Makes knots corners (a Limb's elbow): each side of a corner leaves it along its own chord, so a segment between two
 		// corners is a straight line and the curve through them is the polyline. `softness` blends back to the smooth tangents the knots
 		// already hold: 0 is the corner, 1 leaves them as they are. isCorner marks the interior knots that are corners (null: all of
 		// them), and the two ends take the chord of their one segment too when `ends` is set.
@@ -324,7 +324,7 @@ namespace RibbonMath
 			}
 		}
 
-		// The base curve of an fk chain (D59): through the fk controls' positions, with the ends' handles from makeEnds and each
+		// The base curve of an fk chain: through the fk controls' positions, with the ends' handles from makeEnds and each
 		// interior tangent blended from its neighbours and its own X axis, as the detail curve's are. Two fk controls are makeBase.
 		void makeFkBase(const Setup& setup, const Params& params, const Mat4* fkWorld, Base& base)
 		{

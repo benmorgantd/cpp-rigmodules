@@ -5,7 +5,7 @@
 #include <array>
 #include <string_view>
 
-// The plugin version MFnPlugin registers, and the one stamped on every rig root a build creates (D29).
+// The plugin version MFnPlugin registers, and the one stamped on every rig root a build creates.
 namespace PluginInfo
 {
 	inline constexpr const char* Vendor{ "Ben Morgan" };
@@ -48,7 +48,7 @@ namespace RigControlNodeAttr
 	inline constexpr const char* WireframeAlpha{ "wireframeAlpha" };
 	inline constexpr const char* Filled{ "filled" };
 	inline constexpr const char* Xray{ "xray" };
-	// Whether the control draws (D78). A module drives it from the ik/fk blend instead of the transform's visibility, because visibility
+	// Whether the control draws. A module drives it from the ik/fk blend instead of the transform's visibility, because visibility
 	// inherits through the DAG and would hide every control parented under a hidden one. Not keyable, not a channel.
 	inline constexpr const char* Shown{ "shown" };
 	inline constexpr const char* RigModule{ "rigModule" };
@@ -72,7 +72,7 @@ namespace PoseFileKey
 	inline constexpr const char* Controls{ "controls" };
 }
 
-// Keys of the `meta` object in a pose file and a ControlAnim file, see LibraryMeta.h (D51). Public API: saved library
+// Keys of the `meta` object in a pose file and a ControlAnim file, see LibraryMeta.h. Public API: saved library
 // files and the library browser's search depend on them. The first block is filled from the rig when a file is saved,
 // and the rest comes from the caller.
 namespace LibraryMetaKey
@@ -80,14 +80,14 @@ namespace LibraryMetaKey
 	inline constexpr const char* AssetId{ "assetId" };
 	inline constexpr const char* RigName{ "rigName" };
 	inline constexpr const char* SkeletonHash{ "skeletonHash" };
-	inline constexpr const char* MarkersHash{ "markersHash" };   // D73. An older file has none and reads as unknown
+	inline constexpr const char* MarkersHash{ "markersHash" };   // An older file has none and reads as unknown
 	inline constexpr const char* PluginVersion{ "pluginVersion" };
 	inline constexpr const char* Created{ "created" };
 
 	inline constexpr const char* Template{ "template" };
 	inline constexpr const char* Skeleton{ "skeleton" };
 
-	// Version 2 names, renamed by the version 3 update step (D54). Read only by that step.
+	// Version 2 names, renamed by the version 3 update step. Read only by that step.
 	inline constexpr const char* V2Variant{ "variant" };
 	inline constexpr const char* V2SkeletonId{ "skeletonId" };
 	inline constexpr const char* Author{ "author" };
@@ -98,7 +98,7 @@ namespace LibraryMetaKey
 	inline constexpr const char* RigRegions{ "rigRegions" };
 }
 
-// Keys of one file in getRigDataFileInfo's JSON result, see LibraryFile.h (D51). Public API: the library browser reads them.
+// Keys of one file in getRigDataFileInfo's JSON result, see LibraryFile.h. Public API: the library browser reads them.
 namespace DataFileInfoKey
 {
 	inline constexpr const char* File{ "file" };
@@ -157,15 +157,15 @@ namespace SkinWeightFileKey
 	inline constexpr const char* VertexCount{ "vertexCount" };
 	inline constexpr const char* FaceCount{ "faceCount" };
 	inline constexpr const char* TopologyHash{ "topologyHash" };
-	inline constexpr const char* SkeletonHash{ "skeletonHash" };   // version 2 (D54)
+	inline constexpr const char* SkeletonHash{ "skeletonHash" };   // version 2
 	inline constexpr const char* SkinMethod{ "skinMethod" };
 	inline constexpr const char* Influences{ "influences" };
 	inline constexpr const char* Weights{ "weights" };
 	inline constexpr const char* BlendWeights{ "blendWeights" };   // only for WeightBlended
-	inline constexpr const char* Skeleton{ "skeleton" };           // version 3 (D70): every marked joint and its parent
+	inline constexpr const char* Skeleton{ "skeleton" };           // version 3: every marked joint and its parent
 }
 
-// Keys of the look report setRigLook returns, see LookReport.h (D70). Public API: mayadev reads them.
+// Keys of the look report setRigLook returns, see LookReport.h. Public API: mayadev reads them.
 namespace LookReportKey
 {
 	inline constexpr const char* LookRoot{ "lookRoot" };
@@ -178,7 +178,7 @@ namespace LookReportKey
 	inline constexpr const char* StaleSkeleton{ "staleSkeleton" };
 }
 
-// A mesh's result in the look report: how far down the fallback ladder it went (D70).
+// A mesh's result in the look report: how far down the fallback ladder it went.
 namespace LookResult
 {
 	inline constexpr const char* Loaded{ "loaded" };           // the file's weights as saved
@@ -210,7 +210,7 @@ namespace SkinMethods
 	}
 }
 
-// Keys in a skeleton file, see SkeletonFile.h (D54). Public API: skeleton files and the hashes stamped from them
+// Keys in a skeleton file, see SkeletonFile.h. Public API: skeleton files and the hashes stamped from them
 // depend on them. A joint's markup flags reuse JointMarkupKey::Export and JointMarkupKey::Skin.
 namespace SkeletonFileKey
 {
@@ -224,7 +224,7 @@ namespace SkeletonFileKey
 	inline constexpr const char* RestLocal{ "restLocal" };
 }
 
-// Keys in a markers file, see MarkerFile.h (D73). Public API: marker files and the hashes stamped from them depend on
+// Keys in a markers file, see MarkerFile.h. Public API: marker files and the hashes stamped from them depend on
 // them. A marker's flag reuses JointMarkupKey::Export, its markup and name SkeletonFileKey::Markup and Name.
 namespace MarkerFileKey
 {
@@ -248,13 +248,13 @@ namespace RotateOrders
 namespace RigAttr
 {
 	// RigRoot layer
-	// The asset the rig belongs to (D29). On the rig root since D54 merged the asset root into it.
+	// The asset the rig belongs to. On the rig root, which absorbed the old asset root node.
 	inline constexpr const char* AssetId{ "assetId" };
 	inline constexpr const char* RigName{ "rigName" };
-	// The skeleton's hash (D54): skeletonHash of the build's input joints at rest, as Hash64::format text.
+	// The skeleton's hash: skeletonHash of the build's input joints at rest, as Hash64::format text.
 	inline constexpr const char* SkeletonHash{ "skeletonHash" };
 	inline constexpr const char* RigVersion{ "rigVersion" };
-	// Import stamps (D29): the plugin that built the rig, and the asset publish it came from (0 until published).
+	// Import stamps: the plugin that built the rig, and the asset publish it came from (0 until published).
 	// Tools compare them with the current plugin and the asset registry's latest publish.
 	inline constexpr const char* PluginVersion{ "pluginVersion" };
 	inline constexpr const char* PublishVersion{ "publishVersion" };
@@ -280,44 +280,44 @@ namespace RigAttr
 	// RigModuleWithJointsNode layer
 	inline constexpr const char* JointOPM{ "jointOPM" };
 	inline constexpr const char* JointRestWorld{ "jointRestWorld" };
-	// FkHierarchy (D71): int array, one per control slot: the slot of the control's parent, or -1 for the root. A parent's slot is always lower.
+	// FkHierarchy: int array, one per control slot: the slot of the control's parent, or -1 for the root. A parent's slot is always lower.
 	inline constexpr const char* ControlParentIndex{ "controlParentIndex" };
 
-	// Skin weights (D35): a GUID string on a mesh transform, stamped once by setRigMeshId
+	// Skin weights: a GUID string on a mesh transform, stamped once by setRigMeshId
 	inline constexpr const char* MeshId{ "meshId" };
 
 	// Joint markup: one JSON string per joint, see JointMarkup.h
 	inline constexpr const char* JointMarkup{ "rigMarkup" };
-	// Marker markup (D73): one JSON string per marker locator, see MarkerFile.h. Only editing scenes have them.
+	// Marker markup: one JSON string per marker locator, see MarkerFile.h. Only editing scenes have them.
 	inline constexpr const char* MarkerMarkup{ "rigMarkerMarkup" };
-	// The hash of the markers file a rig was built with, as Hash64::format text, "" when the build was given none (D73).
+	// The hash of the markers file a rig was built with, as Hash64::format text, "" when the build was given none.
 	inline constexpr const char* MarkersHash{ "markersHash" };
-	// Every marker the rig was built with and its world at rest, as JSON text (D73). getRigMarkers returns it.
+	// Every marker the rig was built with and its world at rest, as JSON text. getRigMarkers returns it.
 	inline constexpr const char* Markers{ "markers" };
 
 	// RigRootNode
 	inline constexpr const char* RigModules{ "rigModules" };
 	inline constexpr const char* RigTemplateName{ "rigTemplateName" };
-	// Display layers the build creates (D38), one message attribute each, so a tool finds the joint, mesh or
+	// Display layers the build creates, one message attribute each, so a tool finds the joint, mesh or
 	// control layer without reading names.
 	inline constexpr const char* JointDisplayLayer{ "jointDisplayLayer" };
 	inline constexpr const char* MeshDisplayLayer{ "meshDisplayLayer" };
 	inline constexpr const char* ControlDisplayLayer{ "controlDisplayLayer" };
-	// The groups the build creates (D43): rig_all, the parent of the rig's top joints and controls, and mesh_grp under it,
+	// The groups the build creates: rig_all, the parent of the rig's top joints and controls, and mesh_grp under it,
 	// which the model import fills. One message attribute each.
 	inline constexpr const char* AllGroup{ "allGroup" };
 	inline constexpr const char* MeshGroup{ "meshGroup" };
-	// Selection sets the build creates (D39): every set, nested module subsets included, on one message array.
+	// Selection sets the build creates: every set, nested module subsets included, on one message array.
 	// Each set says what it is in its own SetMarkup attribute.
 	inline constexpr const char* SelectionSets{ "selectionSets" };
 	inline constexpr const char* SetMarkup{ "setMarkup" };
 
-	// The look a rig wears (D54). The rig root's `look` message connects to the lookRoot node's `rigRoot`. The lookRoot
+	// The look a rig wears. The rig root's `look` message connects to the lookRoot node's `rigRoot`. The lookRoot
 	// holds the look's asset id (AssetId), its name, its publishVersion (PublishVersion) and one `lookMembers` message per
 	// node the look brought in, so a swap deletes exactly those.
 	inline constexpr const char* Look{ "look" };
 
-	// The rig an attachment follows (D55): this rig root's `parentRig` message connects from the parent's `attachments` array.
+	// The rig an attachment follows: this rig root's `parentRig` message connects from the parent's `attachments` array.
 	inline constexpr const char* ParentRig{ "parentRig" };
 	inline constexpr const char* Attachments{ "attachments" };
 	inline constexpr const char* LookName{ "lookName" };
@@ -326,14 +326,14 @@ namespace RigAttr
 	// Constraints
 	inline constexpr const char* Constraints{ "constraints" };      // RigRoot message array
 	inline constexpr const char* ControlSpace{ "space" };           // dynamic enum on a constrained control
-	inline constexpr const char* Collisions{ "collisions" };        // RigRoot message array, one per rigPushOut node (D79)
-	// A temporary capsule display node (D79): a rigControlNode with these attributes. The string holds the JSON of
+	inline constexpr const char* Collisions{ "collisions" };        // RigRoot message array, one per rigPushOut node
+	// A temporary capsule display node: a rigControlNode with these attributes. The string holds the JSON of
 	// its PushOut: the collision's name and the joint it follows. The doubles are the capsule's size.
 	inline constexpr const char* PushOutDisplay{ "rigPushOutDisplay" };
 	inline constexpr const char* DisplayRadius{ "radius" };
 	inline constexpr const char* DisplayHalfLength{ "halfLength" };
 
-	// TwoBoneIk channels (D52). Each is the attribute on its control and the input of the same name on the module.
+	// TwoBoneIk channels. Each is the attribute on its control and the input of the same name on the module.
 	// Public API: saved poses and animation key on them.
 	inline constexpr const char* IkFkBlend{ "ikFkBlend" };   // settings control: 0 is FK, 1 is IK
 	// The outputs that drive visibility, a function of the blend alone (TwoBoneIk and ReverseFoot).
@@ -345,16 +345,16 @@ namespace RigAttr
 	inline constexpr const char* Roll{ "roll" };             // IK handle control
 	inline constexpr const char* PoleSpace{ "poleSpace" };   // module input, fed by the pole control's ControlSpace enum
 
-	// TwoBoneIk match outputs (D52 section 4.1), pulled by setRigIkFkBlend: the control locals that reproduce the current
+	// TwoBoneIk match outputs, pulled by setRigIkFkBlend: the control locals that reproduce the current
 	// pose on the FK side (slots 0 to 2) and the IK side (slots 3 and 4), and a JSON list of what the match can't do.
 	inline constexpr const char* FkMatchLocal{ "fkMatchLocal" };
 	inline constexpr const char* IkMatchLocal{ "ikMatchLocal" };
 	inline constexpr const char* MatchWarnings{ "matchWarnings" };
-	// The ReverseFoot's match outputs (D74) reuse FkMatchLocal (its toe FK control's slot) and MatchWarnings (what its IK side can't
+	// The ReverseFoot's match outputs reuse FkMatchLocal (its toe FK control's slot) and MatchWarnings (what its IK side can't
 	// hold), and add the toeTap that puts the IK toe on the toe as it is.
 	inline constexpr const char* IkMatchToeTap{ "ikMatchToeTap" };
 
-	// Ribbon channels (D56), all on the first control. Each is the attribute on that control and the input of the same
+	// Ribbon channels, all on the first control. Each is the attribute on that control and the input of the same
 	// name on the module. Public API: saved poses and animation key on them.
 	inline constexpr const char* StartTwist{ "startTwist" };                   // the secondary twist angles that pick a branch past 180 degrees
 	inline constexpr const char* EndTwist{ "endTwist" };
@@ -375,7 +375,7 @@ namespace RigAttr
 	// Ribbon rest data, stored at build and never changed. The module reads these and the controls' rests: nothing else
 	// describes the rest pose.
 	inline constexpr const char* IkControlCount{ "ikControlCount" };   // how many of the leading slots are ik controls: the rest are tweakers
-	inline constexpr const char* FkControlCount{ "fkControlCount" };   // how many of the trailing slots are fk controls (0 with no fk chain, D59)
+	inline constexpr const char* FkControlCount{ "fkControlCount" };   // how many of the trailing slots are fk controls (0 with no fk chain)
 	inline constexpr const char* KnotU{ "knotU" };
 	inline constexpr const char* BindU{ "bindU" };
 	inline constexpr const char* RestLength{ "restLength" };
@@ -389,11 +389,11 @@ namespace RigAttr
 	inline constexpr const char* FkRollRestIn{ "fkRollRestIn" };
 	// How much of the fk roll each ik control takes, one per ik control (the template's twistRamp evaluated at its parameter). 1 is all of it.
 	inline constexpr const char* FkRollShare{ "fkRollShare" };
-	// Limb (D62): the ribbon ik controls' offsets from the curve, apart from IkRestOffset, which is the two-bone limb's.
+	// Limb: the ribbon ik controls' offsets from the curve, apart from IkRestOffset, which is the two-bone limb's.
 	inline constexpr const char* RibbonIkRestOffset{ "ribbonIkRestOffset" };
 	// Limb channel on the settings control: how round the elbow is. 0 is a sharp corner (the default), 1 the smooth curve.
 	inline constexpr const char* BendSoftness{ "bendSoftness" };
-	// Limb (D62 phase 4): whether the optional ikTarget child plug has a parent, set at build when the template wires it.
+	// Limb: whether the optional ikTarget child plug has a parent, set at build when the template wires it.
 	inline constexpr const char* IkTargetConnected{ "ikTargetConnected" };
 	// Limb's ikTarget input (a matrix and its rest) and the output array that holds the ik, pole and settings sockets apart from
 	// OutputSocketMatrix, so that nothing the target moves is on the same attribute as what the foot hangs from (see design/limb.md 8.1).
@@ -401,7 +401,7 @@ namespace RigAttr
 	inline constexpr const char* IkTargetRestMatrix{ "ikTargetRestMatrix" };
 	inline constexpr const char* HandleSocketMatrix{ "handleSocketMatrix" };
 
-	// ReverseFoot (D74). The ankle socket is on its own output array, apart from OutputSocketMatrix, and the ankle child plug on inputs of
+	// ReverseFoot. The ankle socket is on its own output array, apart from OutputSocketMatrix, and the ankle child plug on inputs of
 	// its own, apart from ChildPlugs, so the foot's two stages are on separate attributes and Maya sees no loop (design/reverse-foot.md
 	// section 6, the same reason as Limb's ikTarget above).
 	inline constexpr const char* AnkleSocketMatrix{ "ankleSocketMatrix" };
@@ -416,7 +416,7 @@ namespace RigAttr
 	// The ankle joint's rest world, which the ankle socket carries.
 	inline constexpr const char* AnkleRestWorld{ "ankleRestWorld" };
 
-	// ReverseFoot channels on the foot control (D74): the animator's names, public API (saved poses and animation key on them).
+	// ReverseFoot channels on the foot control: the animator's names, public API (saved poses and animation key on them).
 	inline constexpr const char* FootRoll{ "footRoll" };
 	inline constexpr const char* BreakAngle{ "breakAngle" };
 	inline constexpr const char* HeelRaise{ "heelRaise" };
@@ -429,7 +429,7 @@ namespace RigAttr
 	inline constexpr const char* ToeSwivel{ "toeSwivel" };
 	inline constexpr const char* ToeTap{ "toeTap" };
 
-	// TwoBoneIk rest data (D52), stored at build. Its ik controls' offsets are IkRestOffset above.
+	// TwoBoneIk rest data, stored at build. Its ik controls' offsets are IkRestOffset above.
 	inline constexpr const char* RestBendNormal{ "restBendNormal" };
 	inline constexpr const char* RestPlaneAngle{ "restPlaneAngle" };
 	inline constexpr const char* LimbLengths{ "limbLengths" };
@@ -450,7 +450,7 @@ namespace MayaAttr
 	inline constexpr const char* LockInfluenceWeights{ "lockInfluenceWeights" };
 }
 
-// Maya's own node types that the build creates by name (D67). This plugin's node types are registered in ModuleRegistry.
+// Maya's own node types that the build creates by name. This plugin's node types are registered in ModuleRegistry.
 namespace MayaNodeType
 {
 	inline constexpr const char* Transform{ "transform" };
@@ -459,7 +459,7 @@ namespace MayaNodeType
 	inline constexpr const char* ObjectSet{ "objectSet" };
 }
 
-// Labels of the pole control's module-owned space enum (D52 section 4.4). Append-only (D34): the index is the value.
+// Labels of the pole control's module-owned space enum. Append-only: the index is the value.
 namespace PoleSpaceLabels
 {
 	inline constexpr const char* Parent{ "Parent" };
@@ -482,16 +482,16 @@ namespace PoleParentDefault
 namespace RigInfoKey
 {
 	inline constexpr const char* Namespace{ "namespace" };
-	// The look the rig wears: null, or an object with the keys below (D54). The look's own asset id may differ from the rig's.
+	// The look the rig wears: null, or an object with the keys below. The look's own asset id may differ from the rig's.
 	inline constexpr const char* Look{ "look" };
 	inline constexpr const char* LookAssetId{ "assetId" };
 	inline constexpr const char* LookName{ "name" };
 	inline constexpr const char* LookPublishVersion{ "publishVersion" };
-	// The rig root the rig is attached to (D55): null, or its node name.
+	// The rig root the rig is attached to: null, or its node name.
 	inline constexpr const char* ParentRigRoot{ "parentRigRoot" };
 }
 
-// How a control channel's value goes to the other side in a mirror (D34). Public API: the categories are stored
+// How a control channel's value goes to the other side in a mirror. Public API: the categories are stored
 // on every custom channel attribute in built and published rigs, and the names are in getRigControlChannels' result.
 namespace ChannelMirror
 {
@@ -522,7 +522,7 @@ namespace ControlSpaceKey
 	inline constexpr const char* Current{ "current" };
 }
 
-// Keys of one control in getRigControlInfo's JSON result (D34). Public API, read through the rigmodules Python package.
+// Keys of one control in getRigControlInfo's JSON result. Public API, read through the rigmodules Python package.
 namespace ControlInfoKey
 {
 	inline constexpr const char* ModuleType{ "moduleType" };
@@ -540,28 +540,28 @@ namespace PlugAndSocketNames
 	inline constexpr const char* Ik{ "ik" };
 	inline constexpr const char* Pole{ "pole" };
 	inline constexpr const char* Settings{ "settings" };
-	// Limb's optional child plug (D62 section 8): the world matrix the end joint should reach, left unparented for the IK handle's own.
+	// Limb's optional child plug: the world matrix the end joint should reach, left unparented for the IK handle's own.
 	inline constexpr const char* IkTarget{ "ikTarget" };
-	// ReverseFoot (D74): the child plug that takes the ankle as it is (the Limb's end socket), and the socket that carries the IK ankle
+	// ReverseFoot: the child plug that takes the ankle as it is (the Limb's end socket), and the socket that carries the IK ankle
 	// target into the Limb's ikTarget. Both are named "ankle", and plugs and sockets are separate lists.
 	inline constexpr const char* Ankle{ "ankle" };
-	// ReverseFoot's solved bind joints as sockets (D74 phase 4). A pivot whose role is also one of these (the marker roles toe and toeTip) has
+	// ReverseFoot's solved bind joints as sockets. A pivot whose role is also one of these (the marker roles toe and toeTip) has
 	// its socket named <role>Pivot, so the names stay unique.
 	inline constexpr const char* Toe{ "toe" };
 	inline constexpr const char* ToeTip{ "toeTip" };
 	inline constexpr const char* PivotSuffix{ "Pivot" };
-	// A Limb's bind joint sockets: bind_0, bind_1, ... in bind joint order (D62), so a child can hang from a twist joint.
+	// A Limb's bind joint sockets: bind_0, bind_1, ... in bind joint order, so a child can hang from a twist joint.
 	inline constexpr const char* Bind{ "bind_" };
-	// A Ribbon's fk control sockets (D78): fk_0, fk_1, ... in chain order.
+	// A Ribbon's fk control sockets: fk_0, fk_1, ... in chain order.
 	inline constexpr const char* Fk{ "fk_" };
-	// A Limb's ribbon ik control sockets (D78): ribbon_0, ribbon_1, ... Not index_<n>, which are the Limb's three joints.
+	// A Limb's ribbon ik control sockets: ribbon_0, ribbon_1, ... Not index_<n>, which are the Limb's three joints.
 	inline constexpr const char* Ribbon{ "ribbon_" };
-	// A ReverseFoot's two controls as sockets (D78): the foot (channel) control and the toe FK control. The solved toe joint is `toe`.
+	// A ReverseFoot's two controls as sockets: the foot (channel) control and the toe FK control. The solved toe joint is `toe`.
 	inline constexpr const char* Foot{ "foot" };
 	inline constexpr const char* ToeFk{ "toeFk" };
 }
 
-// A ReverseFoot's slots (D74). The foot control is control slot 0, and the ik child plug is childPlugs[0]. The ankle socket is element 0 of the
+// A ReverseFoot's slots. The foot control is control slot 0, and the ik child plug is childPlugs[0]. The ankle socket is element 0 of the
 // foot's own AnkleSocketMatrix array, which getSocketMatrixPlug finds there, the way a Limb's handle sockets are found on HandleSocketMatrix.
 namespace ReverseFootSlot
 {
@@ -581,7 +581,7 @@ namespace ReverseFootSlot
 	inline constexpr unsigned int ToeSocket{ 1 };
 	inline constexpr unsigned int ToeTipSocket{ 2 };
 	inline constexpr unsigned int FirstPivotSocket{ 3 };
-	// The two controls' sockets (D78), after the pivots' whole range so a foot with fewer pivots leaves a gap rather than moving them.
+	// The two controls' sockets, after the pivots' whole range so a foot with fewer pivots leaves a gap rather than moving them.
 	inline constexpr unsigned int FootSocket{ FirstPivotSocket + PivotCap };
 	inline constexpr unsigned int ToeFkSocket{ FootSocket + 1 };
 	inline constexpr unsigned int SocketCount{ ToeFkSocket + 1 };
@@ -592,7 +592,7 @@ namespace ReverseFootSlot
 // so those field names must match the keys listed here.
 namespace TemplateKey
 {
-	inline constexpr const char* FormatVersion{ "formatVersion" };   // optional, 1 when missing (D33)
+	inline constexpr const char* FormatVersion{ "formatVersion" };   // optional, 1 when missing
 	inline constexpr const char* RigName{ "rigName" };
 	inline constexpr const char* RigVersion{ "rigVersion" };
 	inline constexpr const char* RigTemplateName{ "rigTemplateName" };
@@ -605,20 +605,20 @@ namespace TemplateKey
 	inline constexpr const char* ShapeType{ "shapeType" };
 	inline constexpr const char* Side{ "side" };
 	inline constexpr const char* ModuleVersion{ "moduleVersion" };
-	inline constexpr const char* ParentStructure{ "parentStructure" };   // child plug -> the DAG parent socket, which must have a control (D78)
-	inline constexpr const char* MatrixParentStructure{ "matrixParentStructure" };   // child plug -> the socket whose matrix it follows, default the DAG parent (D78)
+	inline constexpr const char* ParentStructure{ "parentStructure" };   // child plug -> the DAG parent socket, which must have a control
+	inline constexpr const char* MatrixParentStructure{ "matrixParentStructure" };   // child plug -> the socket whose matrix it follows, default the DAG parent
 	inline constexpr const char* ModuleArgs{ "moduleArgs" };
-	inline constexpr const char* Mirror{ "mirror" };   // modules and constraints (D28)
+	inline constexpr const char* Mirror{ "mirror" };   // modules and constraints
 
 	inline constexpr const char* ConstraintType{ "type" };
 	inline constexpr const char* ConstraintTarget{ "target" };
 	inline constexpr const char* ConstraintDrivers{ "drivers" };
-	inline constexpr const char* ConstraintWeight{ "constraintWeight" };   // 0..1, default 1 (D63). Not the driver's `weight`.
+	inline constexpr const char* ConstraintWeight{ "constraintWeight" };   // 0..1, default 1. Not the driver's `weight`.
 	inline constexpr const char* DriverSocket{ "socket" };
 	inline constexpr const char* DriverLabel{ "label" };
 	inline constexpr const char* DriverWeight{ "weight" };
 
-	// Collisions (D79): the key of the list, then the keys of one entry. The name, type, target, mirror and weight reuse the
+	// Collisions: the key of the list, then the keys of one entry. The name, type, target, mirror and weight reuse the
 	// constraint keys above.
 	inline constexpr const char* Collisions{ "collisions" };
 	inline constexpr const char* CollisionCapsule{ "capsule" };
@@ -633,20 +633,20 @@ namespace TemplateKey
 	inline constexpr const char* OffsetRotate{ "rotate" };            // degrees, XYZ
 }
 
-// The types a template's collisions list holds (D79). Strict values, like ConstraintTypes.
+// The types a template's collisions list holds. Strict values, like ConstraintTypes.
 namespace CollisionTypes
 {
 	inline constexpr const char* PushOut{ "PushOut" };   // keeps one control out of one capsule
 }
 
 // An attachment's template names sockets of the rig it follows with this prefix, in a parentStructure value or a
-// constraint driver: "parent:head.end" (D55). Public API: every attachment template depends on it.
+// constraint driver: "parent:head.end". Public API: every attachment template depends on it.
 namespace ParentRigId
 {
 	inline constexpr const char* Prefix{ "parent:" };
 }
 
-// The driver gives only its own component; the rest comes from the child plug's parentStructure parent (D31).
+// The driver gives only its own component; the rest comes from the child plug's parentStructure parent.
 namespace ConstraintTypes
 {
 	inline constexpr const char* Parent{ "Parent" };   // translate, rotate and scale from the driver
@@ -688,7 +688,7 @@ namespace ConstraintAttr
 	inline constexpr const char* RigRoot{ "rigRoot" };
 }
 
-// The rigPushOut node's attributes (D79, design/push-out.md).
+// The rigPushOut node's attributes (design/push-out.md).
 namespace PushOutAttr
 {
 	inline constexpr const char* CapsuleMatrix{ "capsuleMatrix" };   // the followed joint's live world matrix
@@ -723,7 +723,7 @@ namespace MarkerMarkupKey
 	inline constexpr const char* JointUsage{ "jointUsage" };
 }
 
-// Keys and values of a selection set's setMarkup (D39). Public API: tools find sets through them.
+// Keys and values of a selection set's setMarkup. Public API: tools find sets through them.
 namespace SelectionSetKey
 {
 	inline constexpr const char* Kind{ "kind" };
@@ -755,17 +755,17 @@ namespace SideNames
 
 namespace RigNaming
 {
-	// The layout's base name: its controls' usages are "layout_<n>" and its controls are layout_<nn>_M_CTRL (D58).
+	// The layout's base name: its controls' usages are "layout_<n>" and its controls are layout_<nn>_M_CTRL.
 	inline constexpr const char* LayoutBase{ "layout" };
-	// Reserved module name for the implicit layout module (D58). Templates address it as "layout_00_M_MOD.end".
+	// Reserved module name for the implicit layout module. Templates address it as "layout_00_M_MOD.end".
 	inline constexpr const char* LayoutModule{ "layout_00_M_MOD" };
-	// The lookRoot node of a rig (D54), created in the rig namespace.
+	// The lookRoot node of a rig, created in the rig namespace.
 	inline constexpr const char* LookRoot{ "lookRoot" };
-	// The display layers of a rig (D38), created in the rig namespace.
+	// The display layers of a rig, created in the rig namespace.
 	inline constexpr const char* JointLayer{ "jointsLayer" };
 	inline constexpr const char* MeshLayer{ "meshesLayer" };
 	inline constexpr const char* ControlLayer{ "controlsLayer" };
-	// The rig's top group and the group of its imported meshes (D43), in the rig namespace.
+	// The rig's top group and the group of its imported meshes, in the rig namespace.
 	inline constexpr const char* AllGroup{ "rig_all" };
 	inline constexpr const char* MeshGroup{ "mesh_grp" };
 }

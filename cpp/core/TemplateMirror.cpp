@@ -15,7 +15,7 @@ namespace
 		return side == SideNames::Left || side == SideNames::Right;
 	}
 
-	// A selector is a [side, usage] pair, the only two-string array with a side first in moduleArgs (D15).
+	// A selector is a [side, usage] pair, the only two-string array with a side first in moduleArgs.
 	void swapSelectorSides(nlohmann::json& value)
 	{
 		if (value.is_array())
@@ -39,7 +39,7 @@ namespace
 		}
 	}
 
-	// A socket named from joint markup (FkHierarchy, D71) starts with its joint's side: "left_upperArm" mirrors to
+	// A socket named from joint markup (FkHierarchy) starts with its joint's side: "left_upperArm" mirrors to
 	// "right_upperArm". No other module names a socket that way, so every other socket name stays as it is.
 	std::string swapSocketSide(const std::string& socket)
 	{
@@ -62,7 +62,7 @@ namespace
 	// attaches to its "right_shoulder".
 	std::string mirrorIdentifier(const std::string& identifier, const ModuleSides& moduleSides, const std::string& where, ValidationReport& report)
 	{
-		// A parent rig's module is not in this template, so only its name's side token says which side it is (D55).
+		// A parent rig's module is not in this template, so only its name's side token says which side it is.
 		// A Center module stays as it is.
 		if (RigTemplateValidation::isParentSocketId(identifier))
 		{
@@ -218,7 +218,7 @@ namespace TemplateMirror
 		}
 		rigData.rigConstraints.insert(rigData.rigConstraints.end(), mirrorConstraints.begin(), mirrorConstraints.end());
 
-		// A collision's mirror swaps its name, its target and the side of the joint its capsule follows (D79). Its offset is
+		// A collision's mirror swaps its name, its target and the side of the joint its capsule follows. Its offset is
 		// not copied meaningfully: the build places the mirror's capsule at the source's reflected across X.
 		std::vector<RigCollisionData> mirrorCollisions;
 		for (std::size_t c = 0; c < rigData.rigCollisions.size(); ++c)

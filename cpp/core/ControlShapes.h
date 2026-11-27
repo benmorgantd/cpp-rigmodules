@@ -2,7 +2,7 @@
 
 // Maya-free core: no Maya headers in this file or its .cpp.
 // The shapes a rigControlNode can draw. Every shape is a mesh that fits the -1..1 cube, drawn as a wire and,
-// when filled, as triangles. Orientation (D26): +X is the normal of flat shapes that ring a bone and the long
+// when filled, as triangles. Orientation: +X is the normal of flat shapes that ring a bone and the long
 // axis of round 3D shapes. Pointer shapes point down +X and lie in the XZ plane.
 
 #include "Constants.h"

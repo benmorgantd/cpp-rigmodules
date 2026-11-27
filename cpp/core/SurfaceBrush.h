@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// What a skin weight brush needs that is not about one operation (D65):
+// What a skin weight brush needs that is not about one operation:
 //  - SurfaceDistance: how far along the mesh surface each vertex is from the stroke's center, so the brush radius is a
 //    length over the surface and not a ball in space. A brush near a thin gap, or on the other side of a thin wall,
 //    does not reach across it, and two shells never share a dab;

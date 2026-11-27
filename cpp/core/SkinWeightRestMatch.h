@@ -1,8 +1,8 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// Painting skin weights so a posed mesh goes back towards its rest shape (D66). A brush dab does not smooth the weights
-// over their neighbors (D64): it asks, for each vertex, where the rest shape says the vertex should sit given where its
+// Painting skin weights so a posed mesh goes back towards its rest shape. A brush dab does not smooth the weights
+// over their neighbors: it asks, for each vertex, where the rest shape says the vertex should sit given where its
 // neighbors are in the current pose, and moves the weights to the blend of the influences that gets closest.
 //
 // The skin is linear blend skinning, so the posed position of a vertex is linear in its weights: with c_k the place the

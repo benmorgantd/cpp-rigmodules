@@ -1,9 +1,9 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// The ReverseFoot's math (D74, design/reverse-foot.md section 7), so it can be checked against closed-form cases.
+// The ReverseFoot's math (design/reverse-foot.md section 7), so it can be checked against closed-form cases.
 //
-// COUPLED TO Limb (D62, design/limb.md section 8): the foot hangs from a Limb's sockets and feeds its ikTarget. A change to
+// COUPLED TO Limb (design/limb.md section 8): the foot hangs from a Limb's sockets and feeds its ikTarget. A change to
 // what the foot does with its channels changes where the Limb's end joint reaches.
 //
 // Matrices are row-major with row vectors (VectorMath.h): a point moves as p' = p * M, and rows 0 to 2 of a rotation are where
@@ -64,7 +64,7 @@ namespace FootSolve
 		Vec3 position;   // the marker's rest world position
 	};
 
-	// The animator's channels in degrees. The defaults are the rest (D34).
+	// The animator's channels in degrees. The defaults are the rest.
 	struct Channels
 	{
 		double footRoll{ 0.0 };
@@ -144,7 +144,7 @@ namespace FootSolve
 	};
 	Euler decomposeRotation(const Mat4& motion, const Frame& frame);
 
-	// The inverse's gauge (D74, design/reverse-foot.md section 10). ankleMotionSinceRest is the ankle's world motion since rest, the handle's
+	// The inverse's gauge (design/reverse-foot.md section 10). ankleMotionSinceRest is the ankle's world motion since rest, the handle's
 	// share still in it (only its rotation is read). footRoll and bank take the pitch and roll that the given channels (the sidecar's, else
 	// the rig's) miss, on top of their given values, and every other channel is kept as given. So a sidecar's raises and ballRoll are not
 	// counted twice, and given channels that already make the turn come back unchanged. The handle takes the heading, the position and

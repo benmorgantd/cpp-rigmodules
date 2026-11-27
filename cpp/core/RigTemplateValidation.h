@@ -33,7 +33,7 @@ struct ModulePlugInfo
 	std::string name;
 	bool hasControl = true;   // A constraint needs a control on its target child plug to host the space attribute.
 	// False for a plug whose input the module owns (a pole's module-owned space, an internal plug): a constraint would
-	// take the input over, so a template constraint on it is a read-phase error (D52 decision 14).
+	// take the input over, so a template constraint on it is a read-phase error (design/two-bone-ik.md).
 	bool allowsConstraint = true;
 	// Not empty for an internal plug: the name of the module's own child plug whose parentStructure parent it takes.
 	// The template can't name a parent for it, so a parentStructure entry for it is an error too.
@@ -44,7 +44,7 @@ struct ModulePlugInfo
 	// True for a plug the template may leave unparented, and then it stays unconnected and the module falls back to its own behaviour
 	// (Limb's ikTarget: the end joint reaches the IK handle). Every other plug with no entry takes layout_00_M_MOD.end.
 	bool optional = false;
-	// The module's sockets whose value does not depend on this plug's input (D62 section 8: ikTarget leaves ik, pole and settings alone).
+	// The module's sockets whose value does not depend on this plug's input (design/limb.md section 8: ikTarget leaves ik, pole and settings alone).
 	// The module-cycle check does not follow a path that enters the module through this plug and leaves by one of them, so a foot that
 	// hangs from the handle and feeds ikTarget is not a loop. The module's attributeAffects and compute() must really keep to this.
 	std::vector<std::string> blindSockets;
@@ -55,12 +55,12 @@ struct ModuleInterface
 {
 	std::vector<ModulePlugInfo> childPlugs;
 	std::vector<std::string> sockets;
-	// The sockets with no control transform, a blended joint's or a hidden tweaker's world (D78). They are valid constraint drivers and
+	// The sockets with no control transform, a blended joint's or a hidden tweaker's world. They are valid constraint drivers and
 	// matrix parents, but not DAG parents: a child plug with a control cannot name one in parentStructure. The module's built sockets must match.
 	std::vector<std::string> matrixOnlySockets;
 	std::vector<ControlMarkup> controls;   // One per control the module creates, in creation order
 	// The module's attribute that carries its ik/fk blend, which another module can follow (TwoBoneIk and Limb: "ikFkBlend"), or empty for a
-	// module with none (D74). The default is no blend to follow.
+	// module with none. The default is no blend to follow.
 	std::string blendSource;
 	// For a module that follows another module's blend (the ReverseFoot): the name of that module, or empty. validateBlendDrivers checks it.
 	std::string blendDriver;
@@ -82,7 +82,7 @@ namespace RigTemplateValidation
 	// "rigModules[1] 'fkchain_2'", the prefix for every message about one module.
 	std::string modulePath(std::size_t index, const std::string& name);
 	// The same for a module in the expanded list. A generated mirror names the template entry it came from,
-	// "rigModules[3] 'arm_l' (mirror 'arm_r')", because its own index is not in the file (D28).
+	// "rigModules[3] 'arm_l' (mirror 'arm_r')", because its own index is not in the file.
 	std::string modulePath(std::size_t index, const RigModuleData& module);
 
 	// "constraints[0] 'armSpace_00_L_CON'", and the mirror form like modulePath.
@@ -116,10 +116,10 @@ namespace RigTemplateValidation
 	void validateModuleNames(const std::vector<RigModuleData>& modules, ValidationReport& report);
 
 	// side and shapeType. Missing keys already took their defaults, so only present values can fail.
-	// moduleVersion is checked by the module's update table (FormatUpdate::runUpdates, D33).
+	// moduleVersion is checked by the module's update table (FormatUpdate::runUpdates).
 	void validateModuleFields(const RigModuleData& module, const std::string& where, ValidationReport& report);
 
-	// A collision's capsule follows a joint that this module drives, so the collided module depends on it (D79). The build
+	// A collision's capsule follows a joint that this module drives, so the collided module depends on it. The build
 	// finds the joint and its claimer, and hands the result to the cycle check.
 	struct CollisionDependency
 	{
@@ -133,21 +133,21 @@ namespace RigTemplateValidation
 	void validateConnections(const RigRootData& rigData, const ModuleInterfaceMap& interfaces, ValidationReport& report,
 		const std::vector<CollisionDependency>& collisionDependencies = {});
 
-	// True for a "parent:module.socket" id, a socket of the rig this one is attached to (D55).
+	// True for a "parent:module.socket" id, a socket of the rig this one is attached to.
 	bool isParentSocketId(const std::string& identifier);
 
 	// "parent:head.end" -> "head.end". Any other id comes back unchanged.
 	std::string stripParentPrefix(const std::string& identifier);
 
 	// True when every driver of the constraint is a parent socket: the body drives the control, so an attached rig
-	// hides, locks and zeroes it (D55).
+	// hides, locks and zeroes it.
 	bool isDrivenByParent(const RigConstraintData& constraint);
 
 	// Every distinct "module.socket" the template takes from its parent rig (parentStructure values and constraint
 	// drivers), sorted, without the prefix. Empty for a template that is not an attachment.
 	std::vector<std::string> parentSocketIds(const RigRootData& rigData);
 
-	// A module that follows another's blend (ModuleInterface::blendDriver, D74) needs: that module to be in the template, to have a blend to
+	// A module that follows another's blend (ModuleInterface::blendDriver) needs: that module to be in the template, to have a blend to
 	// follow (ModuleInterface::blendSource), and to be the module every child plug of the follower hangs from, so the foot follows the limb
 	// it stands on. A follower with a driverPlug needs the driver to have that child plug, parented to the follower's driverPlugSocket
 	// (the Limb's ikTarget on the foot's ankle), or the follower's channels move nothing. A driver that failed its own plan step is

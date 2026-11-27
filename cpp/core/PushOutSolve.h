@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// The push-out solve (D79, design/push-out.md): one point against one capsule, in closed form, with no state. The capsule is
+// The push-out solve (design/push-out.md): one point against one capsule, in closed form, with no state. The capsule is
 // a segment along its local X with a radius around it. Its frame is a world matrix whose axes give the direction (row 0 is
 // the segment's axis, row 2 the fallback push) and whose scale is ignored, so a scaled joint does not resize it.
 
@@ -48,7 +48,7 @@ namespace PushOutSolve
 	// reverses. This is how a mirror's capsule is placed: reflect the source's world, then take it relative to the mirror's joint.
 	VectorMath::Mat4 reflectAcrossX(const VectorMath::Mat4& world);
 
-	// Where a library capsule mesh point (D26: a cylinder of radius 0.5 along X with its seams at |x| = 0.5 and half ellipsoid
+	// Where a library capsule mesh point (a cylinder of radius 0.5 along X with its seams at |x| = 0.5 and half ellipsoid
 	// caps beyond) lands for this capsule. Only the middle stretches: the caps keep the radius, so the drawing is the shape
 	// the solve uses and not a scaled mesh.
 	VectorMath::Vec3 drawPoint(const ShapePoint& meshPoint, double radius, double halfLength);

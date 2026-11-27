@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// Which selection sets a rig gets (D39), planned from plain data so the layout is testable without a scene.
+// Which selection sets a rig gets, planned from plain data so the layout is testable without a scene.
 
 #include <cstddef>
 #include <string>
@@ -9,7 +9,7 @@
 
 namespace SelectionSets
 {
-	// The setMarkup format version, so the schema can grow (D16).
+	// The setMarkup format version, so the schema can grow.
 	inline constexpr int MarkupVersion{ 1 };
 
 	// One control or joint, described by what the sets split on.

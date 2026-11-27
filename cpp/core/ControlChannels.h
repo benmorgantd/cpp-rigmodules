@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers here.
-// A control's animation interface (D34): its keyable, writable channels. Each channel's rest is its attribute
+// A control's animation interface: its keyable, writable channels. Each channel's rest is its attribute
 // default, its range is the attribute's min and max, and its mirror mode says how a value goes to the other side.
 //
 // getRigControlChannels returns, per control name:
@@ -14,7 +14,7 @@
 
 struct ControlChannel
 {
-	std::string name;        // the attribute's long name. Hard API (D32).
+	std::string name;        // the attribute's long name. Hard API.
 	std::string type;        // Maya's attribute type name: "double", "doubleAngle", "enum", "bool", ...
 	double rest = 0.0;
 	bool hasMin = false;
@@ -30,8 +30,8 @@ using ControlChannelList = std::vector<std::pair<std::string, std::vector<Contro
 // One JSON object keyed by control name. Keys in ControlChannelKey, mirror names in ChannelMirror.
 std::string serializeControlChannels(const ControlChannelList& controls);
 
-// A control's space switch (D19, D50, D52): the rigConstraint node that holds its drivers (a constraint space) or the
-// module that reads the enum itself (a module-owned space, D52 section 4.4), one of the two and the other empty; the
+// A control's space switch: the rigConstraint node that holds its drivers (a constraint space) or the
+// module that reads the enum itself (a module-owned space, design/two-bone-ik.md section 4.4), one of the two and the other empty; the
 // labels in order, and the one the control's `space` enum is on now.
 struct ControlSpace
 {
@@ -45,7 +45,7 @@ struct ControlSpace
 // Keys in ControlSpaceKey.
 std::string serializeControlSpace(const ControlSpace& space);
 
-// Flipping a Center control across the world YZ plane (D34). xOfLocalAxes holds the world X component of the
+// Flipping a Center control across the world YZ plane. xOfLocalAxes holds the world X component of the
 // control's three unit rest axes. When one local axis lies along world X, the flip negates the translate on that
 // axis and the rotates on the other two, and this returns its index (0 to 2). Returns -1 when no axis does: the flip
 // would then mix channels, so the caller leaves the control alone.

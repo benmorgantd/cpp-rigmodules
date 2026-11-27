@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers here.
-// Format versions and their update steps (D33). Every saved format has one integer version, which goes up only
+// Format versions and their update steps. Every saved format has one integer version, which goes up only
 // when saved data changes shape or meaning. Old data is brought forward by running the format's steps in order,
 // so the code after the update reads only the current shape.
 

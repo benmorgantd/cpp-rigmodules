@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// Folding a skin weight table onto the joints a rig has now (D70). A joint a weight file names that is gone gives its
+// Folding a skin weight table onto the joints a rig has now. A joint a weight file names that is gone gives its
 // weight to its parent, and that parent's parent, up the skeleton the file stored, to the first joint that is a skin
 // joint in the current rig. So a removed joint, or a renamed or unmarked one, costs the mesh its detail there and not
 // its binding.

@@ -9,7 +9,7 @@
 //     }
 // }
 // Color is not stored: it follows the side of the module a control is built on. Alpha is not part of that, so it is.
-// Version 1 had no wireframeAlpha. The update step (D33) adds it as 1.0, the attribute's default.
+// Version 1 had no wireframeAlpha. The update step adds it as 1.0, the attribute's default.
 
 #include "RigTemplateValidation.h"
 

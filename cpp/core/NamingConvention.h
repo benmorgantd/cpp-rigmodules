@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// The name every joint, control, module, constraint and mesh in a rig carries (D58, D69 for meshes):
+// The name every joint, control, module, constraint and mesh in a rig carries:
 //   <camelCaseName>_<##>_<L|R|M>_<JNT|CTRL|MOD|CON|GEO|MRK>  upperArm_00_L_JNT, upperArm_00_L_CTRL, fkChain_00_L_MOD, body_00_M_GEO, heel_00_L_MRK
 // The base is camelCase with no underscore, so a name splits on its underscores. The index is two digits, or more
 // when it needs them. Sides are the SideNames strings ("Left", "Right", "Center"), which markup also uses.

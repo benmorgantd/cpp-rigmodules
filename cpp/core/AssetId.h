@@ -4,11 +4,11 @@
 
 #include <string>
 
-// An asset id is the asset folder's path below RIGGING_PROJECT_DIR, '\' between folders, any depth (D29):
-// "shooter\main\characters\hero". Every token is lowercase (D54), so ids compare exactly.
+// An asset id is the asset folder's path below RIGGING_PROJECT_DIR, '\' between folders, any depth:
+// "shooter\main\characters\hero". Every token is lowercase, so ids compare exactly.
 namespace AssetId
 {
-	// A folder name in the asset model: an id token, or a rig, skeleton or look name (D54). Lowercase letters,
+	// A folder name in the asset model: an id token, or a rig, skeleton or look name. Lowercase letters,
 	// digits and '_', not empty. Uppercase is rejected, never converted, so no two names differ only in case.
 	bool isValidName(const std::string& name);
 

@@ -5,7 +5,7 @@
 
 namespace
 {
-	// Version 2 added the library metadata (D51). An older pose has none.
+	// Version 2 added the library metadata. An older pose has none.
 	void addMeta(nlohmann::json& data)
 	{
 		if (data.is_object() && !data.contains(PoseFileKey::Meta))

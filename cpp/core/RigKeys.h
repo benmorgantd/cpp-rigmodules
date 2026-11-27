@@ -2,7 +2,7 @@
 
 // Maya-free core: no Maya headers in this file or its .cpp.
 // A rig's animation curves as plain data: the keys of every control channel, keyed by control markup and channel name
-// like a pose, so they survive renames and rebuilds (D25, D34). It is the payload of getRigKeys and setRigKeys, a JSON
+// like a pose, so they survive renames and rebuilds. It is the payload of getRigKeys and setRigKeys, a JSON
 // string with no formatVersion, and the `controls` object of a ControlAnim file (ControlAnimFile.h), which has one.
 // {
 //     "Left": { "upperArm": {
@@ -13,7 +13,7 @@
 //         }
 //     } }
 // }
-// A channel is an array of keys, or an object with the curve's flags and its keys (D42). A key is [frame, value] or
+// A channel is an array of keys, or an object with the curve's flags and its keys. A key is [frame, value] or
 // [frame, value, in, out]. A tangent is a type name (auto, clamped, linear, flat, step, spline) or [angleDegrees,
 // weight] for a fixed tangent. A key of two numbers has two auto tangents, and on a channel that can't interpolate (an
 // enum, bool or integer) every key is stepped whatever its tangents say. Frames are in the scene's UI time unit and
@@ -95,7 +95,7 @@ void parseRigKeys(const nlohmann::json& keys, const std::string& where, RigKeys&
 
 // The mirror image of a curve about the value axis: every value negated, and every fixed tangent's angle (the other
 // tangent types recompute from the negated keys and come out mirrored). Frames, weights, flags and tangent types never
-// change (D42).
+// change.
 ChannelCurve negateCurve(const ChannelCurve& curve);
 
 // Moves every key of every channel by offset frames.

@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// A marker set and its hash (D73, design/markers.md). A marker is a transform at a fixed offset from one joint: no skin,
+// A marker set and its hash (design/markers.md). A marker is a transform at a fixed offset from one joint: no skin,
 // not a joint, never driven by an animator. The file sits beside skeleton.json in kind, not inside it.
 // {
 //     "formatVersion": 1,
@@ -24,7 +24,7 @@
 struct UpdateTable;
 struct ValidationReport;
 
-// The marker file's version steps (D33). None yet: the format is version 1.
+// The marker file's version steps. None yet: the format is version 1.
 const UpdateTable& markerUpdateTable();
 
 namespace MarkerFileFormat

@@ -24,9 +24,9 @@ struct RigConstraintData
 	std::string name;
 	std::string type = ConstraintTypes::Parent;
 	std::string target;           // "module.childPlug"
-	double constraintWeight = 1.0;   // 0 follows the parent, 1 is the full constraint (D63)
+	double constraintWeight = 1.0;   // 0 follows the parent, 1 is the full constraint
 	std::vector<RigConstraintDriverData> drivers;
-	bool mirror = false;          // template key: build a copy on the other side too (D28)
+	bool mirror = false;          // template key: build a copy on the other side too
 	int mirrorOf = -1;            // set on a generated mirror: the template index of its source
 
 	bool isMirror() const
@@ -35,7 +35,7 @@ struct RigConstraintData
 	}
 };
 
-// One entry of the template's collisions list (D79, design/push-out.md). PushOut is the only type: it keeps the control on
+// One entry of the template's collisions list (design/push-out.md). PushOut is the only type: it keeps the control on
 // `target` out of one capsule that follows a joint.
 struct RigCollisionData
 {
@@ -50,9 +50,9 @@ struct RigCollisionData
 	double margin = 0.0;
 	double maxPush = 100.0;
 	double weight = 1.0;                          // template key constraintWeight
-	bool mirror = false;          // template key: build a copy on the other side too (D28)
+	bool mirror = false;          // template key: build a copy on the other side too
 	int mirrorOf = -1;            // set on a generated mirror: the template index of its source. Its offset is not read: the build
-	                              // places the capsule where the source's is reflected across X (D79).
+	                              // places the capsule where the source's is reflected across X.
 
 	bool isMirror() const
 	{
@@ -67,10 +67,10 @@ struct RigModuleData
     std::string shapeType;
     std::string side;
     int moduleVersion = 1;
-    std::unordered_map<std::string, std::string> parentStructure;         // child plug -> DAG parent socket (D78)
-    std::unordered_map<std::string, std::string> matrixParentStructure;   // child plug -> matrix parent socket, optional per plug (D78)
+    std::unordered_map<std::string, std::string> parentStructure;         // child plug -> DAG parent socket
+    std::unordered_map<std::string, std::string> matrixParentStructure;   // child plug -> matrix parent socket, optional per plug
     nlohmann::json moduleArgs;
-    bool mirror = false;          // template key: build a copy on the other side too (D28)
+    bool mirror = false;          // template key: build a copy on the other side too
     int mirrorOf = -1;            // set on a generated mirror: the template index of its source
 
     // The socket a child plug's matrix comes from: its matrixParentStructure entry, else its parentStructure entry (the DAG parent).
@@ -86,7 +86,7 @@ struct RigModuleData
         return dagEntry != parentStructure.end() ? &dagEntry->second : nullptr;
     }
 
-    // Plan steps read this for args that change on the other side (D28). The joints need nothing: selectors are already swapped.
+    // Plan steps read this for args that change on the other side. The joints need nothing: selectors are already swapped.
     bool isMirror() const
     {
         return mirrorOf >= 0;
@@ -111,7 +111,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RigModuleData, moduleType, name, shapeType, s
 void from_json(const nlohmann::json& j, RigModuleData& module);
 
 struct UpdateTable;
-// The template format's update steps (D33). Its current version is what the formatVersion key may hold at most.
+// The template format's update steps. Its current version is what the formatVersion key may hold at most.
 const UpdateTable& templateUpdateTable();
 
 // Reads the file, runs the template's update steps, checks required and unknown keys, then parses. Every problem goes into the report.

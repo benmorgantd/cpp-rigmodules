@@ -12,7 +12,7 @@
 
 namespace
 {
-	// Version 2 added the skeleton's hash (D54). An older file doesn't know its skeleton, which "" says.
+	// Version 2 added the skeleton's hash. An older file doesn't know its skeleton, which "" says.
 	void addSkeletonHash(nlohmann::json& data)
 	{
 		if (data.is_object() && !data.contains(SkinWeightFileKey::SkeletonHash))
@@ -21,7 +21,7 @@ namespace
 		}
 	}
 
-	// Version 3 added the skeleton's structure (D70). An older file has none, so a joint it names that is gone can't fold.
+	// Version 3 added the skeleton's structure. An older file has none, so a joint it names that is gone can't fold.
 	void addSkeleton(nlohmann::json& data)
 	{
 		if (data.is_object() && !data.contains(SkinWeightFileKey::Skeleton))
@@ -346,7 +346,7 @@ void deserializeSkinWeights(const std::string& text, SkinWeights& outWeights, Va
 	{
 		report.addError(path(SkinWeightFileKey::TopologyHash), "must be 16 lowercase hex digits");
 	}
-	// Recorded, and a status only (D70): a load whose hash isn't the rig's still loads.
+	// Recorded, and a status only: a load whose hash isn't the rig's still loads.
 	const nlohmann::json& skeletonHash = file.at(SkinWeightFileKey::SkeletonHash);
 	std::uint64_t parsedSkeletonHash = 0;
 	if (!skeletonHash.is_string()

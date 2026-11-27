@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// One mesh's skin weights, keyed by joint markup, with the mesh id and topology they belong to (D35).
+// One mesh's skin weights, keyed by joint markup, with the mesh id and topology they belong to.
 // {
 //     "formatVersion": 3,
 //     "meshId": "...", "meshName": "body_geo",
@@ -21,7 +21,7 @@
 // Influences are sorted by side, then usage, so the skinCluster's own influence order never shows up in a diff.
 // Weights are written exactly (the shortest text that reads back as the same double), so save and load never change
 // a weight. blendWeights (one number per vertex) is written only for WeightBlended.
-// skeleton (version 3, D70) is the structure of the skeleton the weights were made on: every marked joint's selector
+// skeleton (version 3) is the structure of the skeleton the weights were made on: every marked joint's selector
 // and its parent's, null for a root, with no rests and no names. It is what lets a joint that is gone give its weight to
 // its parent (core SkinWeightFold). Sorted like the influences. A file saved before version 3 has none, and says [].
 // meshName is for people reading the file. Loading never matches on it.
@@ -36,7 +36,7 @@
 
 struct UpdateTable;
 
-// The weight file's version steps (D33). Version 2 added skeletonHash (D54), version 3 added skeleton (D70).
+// The weight file's version steps. Version 2 added skeletonHash, version 3 added skeleton.
 const UpdateTable& skinWeightUpdateTable();
 
 namespace SkinWeightFileFormat
@@ -46,7 +46,7 @@ namespace SkinWeightFileFormat
 	inline constexpr double NormalizeTolerance{ 1e-5 };
 }
 
-// One joint of the saved skeleton and its parent, by markup (D70).
+// One joint of the saved skeleton and its parent, by markup.
 struct SkeletonLink
 {
 	JointSelector joint;
@@ -61,8 +61,8 @@ struct SkinWeights
 	unsigned int vertexCount = 0;
 	unsigned int faceCount = 0;
 	std::uint64_t topologyHash = 0;
-	// The skeleton the weights were made on (D54): the rig root's skeletonHash text, "" when the influences belong to
-	// no rig or the file is version 1. A status (D70): a load whose hash isn't the rig's still loads.
+	// The skeleton the weights were made on: the rig root's skeletonHash text, "" when the influences belong to
+	// no rig or the file is version 1. A status: a load whose hash isn't the rig's still loads.
 	std::string skeletonHash;
 	std::string skinMethod;
 	std::vector<JointSelector> influences;
@@ -84,7 +84,7 @@ std::uint64_t topologyHash(unsigned int vertexCount, const std::vector<int>& pol
 // pairs by index. Values are untouched.
 void sortSkinInfluences(SkinWeights& weights);
 
-// Fills weights with one influence that takes every vertex at weight 1, Linear: a rigid bind (D54, the look swap's
+// Fills weights with one influence that takes every vertex at weight 1, Linear: a rigid bind (the look swap's
 // rigid meshes). The header fields (meshId, meshName, counts, topologyHash, skeletonHash) are the caller's and are
 // left alone; vertexCount must be set.
 void setRigidSkinWeights(SkinWeights& weights, const JointSelector& influence);

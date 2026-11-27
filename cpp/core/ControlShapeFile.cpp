@@ -169,7 +169,7 @@ void deserializeControlShapes(const std::string& text, ControlShapeMap& outShape
 		report.addError(versionPath, "must be an integer, not " + version.dump());
 		return;
 	}
-	// Bring an older file forward first (D33), so the checks below read only the current shape.
+	// Bring an older file forward first, so the checks below read only the current shape.
 	if (!FormatUpdate::runUpdates(controlShapeUpdateTable(), version.get<int>(), file, versionPath, report))
 	{
 		return;

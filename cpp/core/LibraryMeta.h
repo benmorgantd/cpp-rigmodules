@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// The `meta` object of a pose file and a ControlAnim file (D51): what a library browser searches and shows beyond the
+// The `meta` object of a pose file and a ControlAnim file: what a library browser searches and shows beyond the
 // control data. Every field is optional.
 // {
 //     "assetId": "characters\\hero", "rigName": "body", "skeletonHash": "16 hex digits", "markersHash": "16 hex digits", "pluginVersion": "0.1",
@@ -26,14 +26,14 @@ struct LibraryMeta
 	// Filled from the rig.
 	std::string assetId;
 	std::string rigName;
-	std::string skeletonHash;   // the rig root's stamp (D54), Hash64::format text
-	std::string markersHash;    // the rig root's stamp (D73), "" for a rig built with no markers file and for a file saved before markers
+	std::string skeletonHash;   // the rig root's stamp, Hash64::format text
+	std::string markersHash;    // the rig root's stamp, "" for a rig built with no markers file and for a file saved before markers
 	std::string pluginVersion;
 	std::string created;
 
 	// From the caller.
 	std::string templateName;
-	std::string skeleton;       // the skeleton's name (D54)
+	std::string skeleton;       // the skeleton's name
 	std::string author;
 	std::string description;
 	std::string category;
@@ -54,7 +54,7 @@ void parseLibraryMeta(const nlohmann::json& metaJson, const std::string& where, 
 // rigName, skeletonHash, markersHash, pluginVersion, created). meta is unchanged when report has errors.
 void applyCallerMeta(const std::string& jsonText, LibraryMeta& meta, ValidationReport& report);
 
-// The version 2 to 3 update step of the pose and ControlAnim formats (D33, D54), which both keep their meta under
+// The version 2 to 3 update step of the pose and ControlAnim formats, which both keep their meta under
 // "meta": `variant` becomes `rigName` and `skeletonId` becomes `skeleton`. A version 2 file has no skeletonHash.
 void renameVersion2MetaKeys(nlohmann::json& file);
 

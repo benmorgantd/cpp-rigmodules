@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// The 64-bit hash behind every content hash a file stores: a mesh's topology (D35) and a skeleton (D54).
+// The 64-bit hash behind every content hash a file stores: a mesh's topology and a skeleton.
 // FNV-1a is a fixed algorithm, unlike std::hash, so every build and machine gets the same value.
 
 #include <cstdint>

@@ -97,7 +97,7 @@ namespace
 		return namesOrNone(names);
 	}
 
-	// A name in the naming convention (D58) of the given kind. This also keeps '.' out of "module.socket" identifiers.
+	// A name in the naming convention of the given kind. This also keeps '.' out of "module.socket" identifiers.
 	bool isConventionName(const std::string& name, NamingConvention::Kind kind)
 	{
 		NamingConvention::Name parsed;
@@ -156,7 +156,7 @@ namespace
 		}
 	}
 
-	// What a socket in a parent entry resolved to. Cross is another rig's socket (D55), which only its own scene can check. Invalid was reported.
+	// What a socket in a parent entry resolved to. Cross is another rig's socket, which only its own scene can check. Invalid was reported.
 	enum class ParentSocketResult
 	{
 		Local,
@@ -177,7 +177,7 @@ namespace
 		std::string& socketName,
 		const ModuleInterface*& pParentInterface)
 	{
-		// A parent rig's socket can only be checked against that rig's scene, which the attach step does (D55).
+		// A parent rig's socket can only be checked against that rig's scene, which the attach step does.
 		if (RigTemplateValidation::isParentSocketId(socketIdentifier))
 		{
 			checkParentSocketForm(socketIdentifier, entryPath, report);
@@ -336,7 +336,7 @@ namespace
 				continue;
 			}
 
-			// The entry is the DAG parent when the plug has a control to parent (D78). A socket with no control transform cannot be one, and
+			// The entry is the DAG parent when the plug has a control to parent. A socket with no control transform cannot be one, and
 			// a plug with no control (an aim plug, a limb's ikTarget) has nothing to parent, so its entry is only a matrix parent.
 			const bool hasControl = pPlugInfo == nullptr || pPlugInfo->hasControl;
 			if (hasControl && pParentInterface->isMatrixOnly(socketName))
@@ -367,7 +367,7 @@ namespace
 		}
 	}
 
-	// The matrix parents named apart from the DAG parent (D78): any socket, with or without a control.
+	// The matrix parents named apart from the DAG parent: any socket, with or without a control.
 	void validateMatrixParentStructure(
 		const RigModuleData& module,
 		const std::string& where,
@@ -920,7 +920,7 @@ namespace RigTemplateValidation
 		}
 		if (!AssetId::isValidName(rigData.rigName))
 		{
-			// The rig name becomes a folder in the asset (D54). A default from rigTemplateName is already snake_case.
+			// The rig name becomes a folder in the asset. A default from rigTemplateName is already snake_case.
 			report.addError(TemplateKey::RigName, "'" + rigData.rigName + "' must be lowercase letters, digits and '_'");
 		}
 
@@ -1010,7 +1010,7 @@ namespace RigTemplateValidation
 		validateConstraints(rigData.rigConstraints, declaredModules, interfaces, graph, report);
 		validateCollisions(rigData.rigCollisions, rigData.rigConstraints, declaredModules, interfaces, report);
 
-		// The module that drives the capsule's joint is upstream of the collided module (D79). The edge leaves by no socket
+		// The module that drives the capsule's joint is upstream of the collided module. The edge leaves by no socket
 		// in particular, so no plug is blind to it.
 		for (const CollisionDependency& dependency : collisionDependencies)
 		{

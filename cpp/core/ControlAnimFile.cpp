@@ -6,7 +6,7 @@
 
 namespace
 {
-	// Version 2 added the library metadata (D51). An older ControlAnim has none.
+	// Version 2 added the library metadata. An older ControlAnim has none.
 	void addMeta(nlohmann::json& data)
 	{
 		if (data.is_object() && !data.contains(ControlAnimKey::Meta))

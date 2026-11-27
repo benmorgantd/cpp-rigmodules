@@ -1,7 +1,7 @@
 #pragma once
 
 // Maya-free core: no Maya headers in this file or its .cpp.
-// A skeleton's description and its hash (D54, design/rigs-and-looks.md section 5). Two skeletons are the same when
+// A skeleton's description and its hash (design/rigs-and-looks.md section 5). Two skeletons are the same when
 // their hashes match: the same marked joints, names, parents, rotate orders and rest transforms.
 // {
 //     "formatVersion": 1,
@@ -16,7 +16,7 @@
 // written exactly. parent is the nearest ancestor among the skeleton's joints, so groups between joints fold into
 // restLocal.
 
-// The file is the skeleton's only stored form (D54, author 2026-11-16): there is no scene file beside it, so loading
+// The file is the skeleton's only stored form (author 2026-11-16): there is no scene file beside it, so loading
 // a skeleton is deserializeSkeleton and creating its joints.
 
 #include "JointMarkup.h"
@@ -29,7 +29,7 @@
 struct UpdateTable;
 struct ValidationReport;
 
-// The skeleton file's version steps (D33). None yet: the format is version 1.
+// The skeleton file's version steps. None yet: the format is version 1.
 const UpdateTable& skeletonUpdateTable();
 
 namespace SkeletonFileFormat
@@ -82,11 +82,11 @@ std::vector<std::size_t> skeletonParentsFirst(const Skeleton& skeleton);
 int findSkeletonJoint(const Skeleton& skeleton, const JointSelector& selector);
 
 // The skin joints with no skin joint above them, in skeleton.joints order: the joints a mesh with no weights is bound
-// to (D54, the look swap's rigid meshes). A skeleton has one in the usual case, the root. skeleton must have passed
+// to (the look swap's rigid meshes). A skeleton has one in the usual case, the root. skeleton must have passed
 // deserializeSkeleton's checks (every parent present, no loop).
 std::vector<std::size_t> findTopSkinJoints(const Skeleton& skeleton);
 
 // What differs between two skeletons, one line per joint and difference, for the message of a failed look swap
-// (D54): a joint only one has, a different name, parent or rotate order, and a rest that differs on the hash's grid.
+//: a joint only one has, a different name, parent or rotate order, and a rest that differs on the hash's grid.
 // Empty exactly when skeletonHash is equal. Lines read "<side> <usage>: ...", rig first and look second.
 std::vector<std::string> describeSkeletonDifferences(const Skeleton& rig, const Skeleton& look);

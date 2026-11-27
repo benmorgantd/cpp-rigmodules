@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-// Where a module's controls go when no control joint says so (D57, design/derived-controls.md), with no Maya types. Pure
+// Where a module's controls go when no control joint says so (design/derived-controls.md), with no Maya types. Pure
 // functions of rest matrices, run in the read phase: nothing here runs during evaluation.
 //
 // Matrices are row-major with row vectors (Maya's convention), as in VectorMath.
@@ -60,7 +60,7 @@ namespace ControlPlacement
 	// count below two. Call checkChain first: a chain it rejects gives frames with no meaning.
 	std::vector<Mat4> placeAlongChain(const std::vector<Mat4>& joints, int count);
 
-	// The parameters of a Limb's ribbon ik controls on its anchor curve (D62), in the anchors' chord-share space: 0 at the start, the
+	// The parameters of a Limb's ribbon ik controls on its anchor curve, in the anchors' chord-share space: 0 at the start, the
 	// mid anchor's (upper / (upper + lower)) at the mid control, 1 at the end, and the other controlCount - 3 spread evenly within
 	// each segment, divided between the two in proportion to their lengths (the longer one gets the odd one). controlCount is 3 or
 	// more; the lengths are positive. Strictly increasing.
@@ -80,7 +80,7 @@ namespace ControlPlacement
 	// the reflection) when it is not given. Given offsets are in world space, so a caller negates X for a mirrored side.
 	LimbPlacement placeLimb(const Mat4& root, const Mat4& mid, const Mat4& end, const std::optional<Vec3>& poleOffset, const std::optional<Vec3>& settingsOffset, bool mirrored = false);
 
-	// A two-bone limb's IK handle frame when it is world-aligned instead of turned with the end joint (D59), at `end`. Identity
+	// A two-bone limb's IK handle frame when it is world-aligned instead of turned with the end joint, at `end`. Identity
 	// rotation, or with `alignToPole` a turn about world Y only that points +Z along the horizontal part of the line from `end` to
 	// the pole, which is how a foot control wants to face. Returns nothing for `alignToPole` when the pole is straight above or
 	// below `end`, where that direction is undefined.
