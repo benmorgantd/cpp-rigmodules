@@ -1,0 +1,16 @@
+{
+  "description": "A collision's name follows the naming convention (D58)",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/name",
+      "value": "pushOut"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "name must be"
+    }
+  ]
+}

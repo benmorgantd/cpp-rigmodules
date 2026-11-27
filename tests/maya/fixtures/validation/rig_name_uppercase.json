@@ -1,0 +1,22 @@
+{
+  "description": "An explicit rigName is checked, never converted",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigName",
+      "value": "Human"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "rigName"
+    },
+    {
+      "contains": "'Human'"
+    },
+    {
+      "contains": "lowercase"
+    }
+  ]
+}

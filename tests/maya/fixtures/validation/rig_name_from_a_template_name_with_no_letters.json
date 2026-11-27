@@ -1,0 +1,22 @@
+{
+  "description": "With no rigName, the default comes from rigTemplateName, which needs a letter",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "remove": "/rigName"
+    },
+    {
+      "set": "/rigTemplateName",
+      "value": "!!"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "rigName"
+    },
+    {
+      "contains": "lowercase"
+    }
+  ]
+}

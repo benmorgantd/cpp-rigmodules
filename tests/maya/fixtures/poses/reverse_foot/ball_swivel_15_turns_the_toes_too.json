@@ -1,0 +1,15 @@
+{
+  "description": "ballSwivel 15 turns the whole foot about up through the toe pivot (4, 3.3, 1.8), the author's \"squash a bug\" (2026-11-25). The toe stays at the pivot and turns Rz 90 then Ry 15 about the world's axes (XYZ euler (15, 0, 90)). The toe tip, offset (0, -0.1, 0.6) from the toe, swings to (0.6 sin15, -0.1, 0.6 cos15), so (4.155291, 3.2, 2.379555), turned the same. The hand, offset (0, 0.7, -1.8), goes to (4 - 1.8 sin15, 4, 1.8 - 1.8 cos15) = (3.534126, 4, 0.061334).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.ballSwivel": 15
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {"translate": [3.534126, 4.0, 0.061334]},
+    "toe_00_L_JNT": {"translate": [4.0, 3.3, 1.8], "rotate": [15.0, 0.0, 90.0]},
+    "toeTip_00_L_JNT": {"translate": [4.155291, 3.2, 2.379555], "rotate": [15.0, 0.0, 90.0]}
+  }
+}

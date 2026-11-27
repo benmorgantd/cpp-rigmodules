@@ -1,0 +1,45 @@
+{
+  "description": "At blend 0 the Limb ignores ikTarget and the toe is the FK toe, so a roll of 20 moves neither the hand nor the toe. The toe FK control turns the toe about its own Z (the world's, because Rz 90 keeps Z): 30 more makes Rz 120 at the toe, and the toe tip, offset (0, -0.1, 0.6), goes to (0.1 sin30, -0.1 cos30, 0.6) = (0.05, -0.086603, 0.6) from the toe.",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "armSettings_00_L_CTRL.ikFkBlend": 0,
+    "foot_00_L_CTRL.footRoll": 20,
+    "toeFK_00_L_CTRL.rotateZ": 30
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.0,
+        0.0
+      ]
+    },
+    "toe_00_L_JNT": {
+      "translate": [
+        4.0,
+        3.3,
+        1.8
+      ],
+      "rotate": [
+        0.0,
+        0.0,
+        120.0
+      ]
+    },
+    "toeTip_00_L_JNT": {
+      "translate": [
+        4.05,
+        3.213397,
+        2.4
+      ],
+      "rotate": [
+        0.0,
+        0.0,
+        120.0
+      ]
+    }
+  }
+}

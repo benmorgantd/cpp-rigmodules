@@ -1,0 +1,16 @@
+{
+  "description": "Templates carry no asset since D29, so one template serves many assets",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/assetId",
+      "value": "old\\style"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "assetId"
+    }
+  ]
+}

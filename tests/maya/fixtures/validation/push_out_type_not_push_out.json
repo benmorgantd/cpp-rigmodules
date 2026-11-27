@@ -1,0 +1,16 @@
+{
+  "description": "A collision's type is PushOut, the one type there is",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/type",
+      "value": "Hinge"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "Hinge"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "description": "A misspelled aim key is an unknown key, not ignored",
+  "base": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/startAimBlen",
+      "value": 1
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "startAimBlen"
+    }
+  ]
+}

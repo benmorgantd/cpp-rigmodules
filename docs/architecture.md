@@ -294,7 +294,7 @@ The reverse of a rig's evaluation: from joint world matrices to control values (
 
 ## Tests
 
-`tests/run_tests.py` runs the suite in tiers, in one watched mayapy process. A tier runs only if every earlier gating tier passed, so the first failure shown is the root cause. `tests/maya/rigtest/` has the shared helpers, and `ModuleContract` is the set of checks every module must pass (interface, control channels, the inverse round trip). Expectations are written by hand in data files, never recorded from the rig. Layout, case-file formats and where a new test goes are in [`../tests/README.md`](../tests/README.md).
+`tests/run_tests.py` runs the suite in tiers, sharing each tier's files out between several watched mayapy workers (D20). A tier runs only if every earlier gating tier passed, so the first failure shown is the root cause. `tests/maya/rigtest/` has the shared helpers, and `ModuleContract` is the set of checks every module must pass (interface, control channels, the inverse round trip). Expectations are written by hand in data files, never recorded from the rig. Layout, case-file formats and where a new test goes are in [`../tests/README.md`](../tests/README.md).
 
 ## Recipes
 

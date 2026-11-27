@@ -8,9 +8,8 @@ import json
 
 from maya import cmds
 
-from commands.test_two_bone_ik_inverse import CapturedWarnings
 from rigtest import fixtures
-from rigtest.case import RigTestCase, rig_name
+from rigtest.case import CapturedWarnings, RigTestCase, rig_name
 from rigtest.cases import add_pose_cases
 from rigtest.module_contract import ModuleContract
 

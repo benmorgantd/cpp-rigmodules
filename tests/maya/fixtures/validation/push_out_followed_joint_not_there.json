@@ -1,0 +1,19 @@
+{
+  "description": "The capsule's follow selector must name a joint in the build",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/capsule/follow",
+      "value": [
+        "Center",
+        "nope"
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "nope"
+    }
+  ]
+}

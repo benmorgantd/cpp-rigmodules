@@ -1,0 +1,55 @@
+{
+  "description": "With no entry for end it takes start's parent, not layout_00_M_MOD.end: lifting the layout's end control (where end would otherwise hang) 3 does nothing to it, and moving the start's parent 5 along Z moves the whole ribbon there.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/parentStructure",
+      "value": {
+        "start": "layout_00_M_MOD.index_0"
+      }
+    }
+  ],
+  "set": {
+    "layout_02_M_CTRL.translateY": 3.0,
+    "layout_00_M_CTRL.translateZ": 5.0
+  },
+  "tolerance": 1e-06,
+  "expect": {
+    "tail1_00_M_JNT": {
+      "translate": [
+        0.0,
+        0.0,
+        5.0
+      ]
+    },
+    "tail2_00_M_JNT": {
+      "translate": [
+        2.0,
+        0.0,
+        5.0
+      ]
+    },
+    "tail3_00_M_JNT": {
+      "translate": [
+        4.0,
+        0.0,
+        5.0
+      ]
+    },
+    "tail4_00_M_JNT": {
+      "translate": [
+        6.0,
+        0.0,
+        5.0
+      ]
+    },
+    "tail5_00_M_JNT": {
+      "translate": [
+        8.0,
+        0.0,
+        5.0
+      ]
+    }
+  }
+}

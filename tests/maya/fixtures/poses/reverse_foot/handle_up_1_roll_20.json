@@ -1,0 +1,20 @@
+{
+  "description": "A roll of 20 turns the foot first, about the toe pivot (4, 3.3, 1.8), and the moved handle carries the result: the hand's offset (0.7, -1.8) from the pivot turned 20 gives (3.3 + 0.7 cos20 + 1.8 sin20, 1.8 + 0.7 sin20 - 1.8 cos20) = (4.573421, 0.347967), at the handle's X of 3.",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "armIK_00_L_CTRL.translateY": 1.0,
+    "foot_00_L_CTRL.footRoll": 20
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        3.0,
+        4.573421,
+        0.347967
+      ]
+    }
+  }
+}

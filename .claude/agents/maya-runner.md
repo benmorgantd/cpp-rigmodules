@@ -61,13 +61,13 @@ These cost the most retries. Follow them on every call:
 - **Locked files:** `maya/nodes/RigRoot.cpp` and other files may be open and locked in Visual Studio, so writing them from a Python script fails with a permission error. The Edit tool still works.
 - **Short flag names:** `MSyntax::addFlag` rejects short names longer than 3 letters, and the flag then silently never registers. Wrap each `addFlag` in `CHECK_MSTATUS`.
 - **Tests:** run them after every build, in one of two ways:
-  - **Already running a mayapy script to check a change:** end that script with the suite instead of starting Maya again (about 4 s, no second startup). It must be the last thing the script does, because every test starts with `file -new`. It has no crash protection, so if Maya crashes, rerun with `RigTests.cmd` to find the test.
+  - **Already running a mayapy script to check a change:** end that script with the suite instead of starting Maya again (the Maya tiers in that one process, about 40 s of tests, no second startup). It must be the last thing the script does, because every test starts with `file -new`. It has no crash protection, so if Maya crashes, rerun with `RigTests.cmd` to find the test.
     ```python
     sys.path.insert(0, r"C:\Users\bmorgan\Documents\dev\maya\cpp\repos\RigModules\RigModules\tests")
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs 1207 tests in 6 tiers in one watched mayapy process (stopped by `--timeout`, default 900 s), plus the files in `PLAIN_PYTHON` (no plugin, no scene) in a plain Python process beside it, in about 35 s. `--durations` shows where the time went, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs about 1830 tests in 6 tiers, sharing each tier's files out between 4 watched mayapy workers (`--jobs`; the whole run is stopped by `--timeout`, default 900 s), plus the files in `PLAIN_PYTHON` (no plugin, no scene) in plain Python workers beside them, in about 20 s. A crash names the worker and the test; rerun that test with `--jobs 1 -v`. `--durations` shows where the time went, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.

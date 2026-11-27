@@ -1,0 +1,20 @@
+{
+  "description": "Usages are unique in a rig (D25), so a second ribbon needs its own controlName",
+  "base": "ribbon_arm",
+  "skeleton": "ribbon_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/controlName",
+      "value": "up"
+    },
+    {
+      "set": "/rigModules/2/moduleArgs/controlName",
+      "value": "up"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "upIK_00"
+    }
+  ]
+}

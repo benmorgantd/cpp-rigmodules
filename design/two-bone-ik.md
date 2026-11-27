@@ -9,7 +9,7 @@
 - Using it: `docs/modules.md` (the `TwoBoneIk` section), `docs/commands.md` (`setRigIkFkBlend`, `setRigControlSpace`, `getRigControlSpace`), `docs/controls.md`.
 - The code: `docs/source-map.md` (`TwoBoneIkModule`, `TwoBoneIkCmds`, `TwoBoneIkSolve::computeTwoBoneIk`), `docs/architecture.md`.
 - The decision and its phases: D52 in `decisions.md`.
-- Tests: `tests/maya/modules/test_two_bone_ik.py`, `tests/maya/commands/test_two_bone_ik_cmds.py`, `tests/maya/commands/test_two_bone_ik_inverse.py`, the `twoboneik` pose cases and the golden snapshot.
+- Tests: `tests/maya/modules/test_two_bone_ik.py`, `tests/maya/commands/test_two_bone_ik_cmds.py`, `TwoBoneIkInverse` in `tests/maya/commands/test_inverse.py`, the `twoboneik` pose cases and the golden snapshot.
 - Performance: 12 limbs in the complex rig (`tools/perf/perf_scenes.py`). `bench` is below D36's targets.
 - Reversed by D57 (`derived-controls.md`, built 2026-11-18): the three marker joints per limb are gone, so decision 1 below no longer holds. The IK handle, pole and settings are derived from the three limb joints, with `controlName`, `poleOffset` and `settingsOffset` in `moduleArgs` and a `moduleVersion` 2 step that drops `ik`, `pole` and `settings`. Everything else here stands.
 

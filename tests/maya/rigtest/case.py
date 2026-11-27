@@ -138,3 +138,24 @@ def world_rotation_matrix(node):
     path = om.MSelectionList().add(node).getDagPath(0)
     matrix = om.MTransformationMatrix(path.inclusiveMatrix())
     return matrix.rotation().asMatrix()
+
+
+class CapturedWarnings:
+    """The warnings Maya prints while it is open."""
+
+    def __init__(self):
+        self.messages = []
+
+    def _on(self, message, message_type, _client_data):
+        if message_type == om.MCommandMessage.kWarning:
+            self.messages.append(message)
+
+    def __enter__(self):
+        self._callback = om.MCommandMessage.addCommandOutputCallback(self._on)
+        return self
+
+    def __exit__(self, *_args):
+        om.MMessage.removeCallback(self._callback)
+
+    def contain(self, text):
+        return any(text in message for message in self.messages)

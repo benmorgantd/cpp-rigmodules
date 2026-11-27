@@ -1,0 +1,19 @@
+{
+  "description": "rigName is not empty",
+  "base": "layout_rig",
+  "skeleton": "layout_rig",
+  "edits": [
+    {
+      "set": "/rigName",
+      "value": ""
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "rigName"
+    },
+    {
+      "contains": "lowercase"
+    }
+  ]
+}

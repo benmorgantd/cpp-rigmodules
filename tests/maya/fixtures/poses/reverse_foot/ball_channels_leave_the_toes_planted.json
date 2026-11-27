@@ -1,0 +1,38 @@
+{
+  "description": "The regression of 2026-11-25: footRoll inside the ball regime (25), ballRaise 10 and ballRoll 12 turn the ankle about the toe pivot, which is the toe joint, so the toe and toe tip stay at their rests and keep the rest rotation, Rz 90.",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.footRoll": 25,
+    "foot_00_L_CTRL.ballRaise": 10,
+    "foot_00_L_CTRL.ballRoll": 12
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "toe_00_L_JNT": {
+      "translate": [
+        4.0,
+        3.3,
+        1.8
+      ],
+      "rotate": [
+        0.0,
+        0.0,
+        90.0
+      ]
+    },
+    "toeTip_00_L_JNT": {
+      "translate": [
+        4.0,
+        3.2,
+        2.4
+      ],
+      "rotate": [
+        0.0,
+        0.0,
+        90.0
+      ]
+    }
+  }
+}

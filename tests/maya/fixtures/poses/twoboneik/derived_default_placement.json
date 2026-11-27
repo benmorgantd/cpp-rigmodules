@@ -1,0 +1,38 @@
+{
+  "description": "The derived controls (D57) with no offsets. Root (0,0,0), mid (1.8,2.4,0), end (5,0,0): bones 3 and 4, so the limb is 7 long. The handle sits on the end joint (5,0,0). The mid is 2.4 above the root-to-end line (+X), so the bend is +Y and the pole is mid + 7 * (0,1,0) = (1.8, 9.4, 0). The settings control is the end plus a quarter of the length along world X: (6.75, 0, 0).",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "edits": [
+    {
+      "remove": "/rigModules/0/moduleArgs/poleOffset"
+    },
+    {
+      "remove": "/rigModules/0/moduleArgs/settingsOffset"
+    }
+  ],
+  "set": {},
+  "tolerance": 0.0001,
+  "expect": {
+    "armIK_00_L_CTRL": {
+      "translate": [
+        5.0,
+        0.0,
+        0.0
+      ]
+    },
+    "armPole_00_L_CTRL": {
+      "translate": [
+        1.8,
+        9.4,
+        0.0
+      ]
+    },
+    "armSettings_00_L_CTRL": {
+      "translate": [
+        6.75,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

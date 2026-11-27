@@ -1,0 +1,21 @@
+{
+  "description": "A ribbon needs at least two bind joints",
+  "base": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/joints",
+      "value": [
+        [
+          "Center",
+          "tail1"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "bind joints"
+    }
+  ]
+}

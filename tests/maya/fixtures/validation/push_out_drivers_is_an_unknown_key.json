@@ -1,0 +1,16 @@
+{
+  "description": "A collision has no drivers: the capsule follows joints",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/drivers",
+      "value": []
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "unknown key 'drivers'"
+    }
+  ]
+}

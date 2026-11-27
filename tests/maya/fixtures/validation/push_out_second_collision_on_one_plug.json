@@ -1,0 +1,19 @@
+{
+  "description": "One plug takes one collision: the basic template's collision and a copy of it under another name",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions",
+      "value": [
+        {"name": "pushOut_00_L_CON", "type": "PushOut", "target": "fkchain_02_L_MOD.start", "capsule": {"follow": ["Center", "a"], "radius": 2.0}},
+        {"name": "pushOut_01_L_CON", "type": "PushOut", "target": "fkchain_02_L_MOD.start", "capsule": {"follow": ["Center", "a"], "radius": 2.0}}
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "already the target"
+    }
+  ]
+}

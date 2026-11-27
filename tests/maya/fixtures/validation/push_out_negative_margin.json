@@ -1,0 +1,16 @@
+{
+  "description": "margin is 0 or more",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/margin",
+      "value": -1
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "margin"
+    }
+  ]
+}

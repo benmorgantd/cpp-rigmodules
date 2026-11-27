@@ -97,3 +97,17 @@ def run_mayapy(script, args=(), env=None, timeout=None, maya_dir=None, cwd=None)
     """Runs a script in a new mayapy. The environment defaults to child_environment()."""
     command = [install.mayapy_exe(maya_dir), script, *args]
     return run_watched(command, env if env is not None else child_environment(), timeout, cwd)
+
+
+def start_mayapy(script, args=(), env=None, maya_dir=None, cwd=None, log_path=None):
+    """Starts a script in a new mayapy and returns its Popen without waiting, for a caller that watches several
+    at once. With log_path, its stdout and stderr (Maya's own output included) go to that file. The caller
+    stops it with kill_process_tree and closes the crash reporters with close_crash_reporters."""
+    command = [install.mayapy_exe(maya_dir), script, *args]
+    log = open(log_path, "w", encoding="utf-8") if log_path else None
+    try:
+        return subprocess.Popen(command, env=env if env is not None else child_environment(), cwd=cwd,
+                                stdout=log, stderr=subprocess.STDOUT if log else None)
+    finally:
+        if log:
+            log.close()

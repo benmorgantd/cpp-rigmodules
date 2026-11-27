@@ -1,0 +1,19 @@
+{
+  "description": "fkControlCount is between 2 and 8",
+  "base": "ribbon_fk",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/fkControlCount",
+      "value": 9
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "fkControlCount"
+    },
+    {
+      "contains": "between 2 and 8"
+    }
+  ]
+}

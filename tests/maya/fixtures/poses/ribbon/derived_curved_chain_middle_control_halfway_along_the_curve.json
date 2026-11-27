@@ -1,0 +1,16 @@
+{
+  "description": "Derived ik controls (D57) on a quarter circle of radius 10 through five joints at 0, 22.5, 45, 67.5 and 90 degrees. By symmetry the middle joint is at half the spline's length, so the middle control is on it: (10 cos 45, 10 sin 45). The spline is not a circle, so the tolerance is 0.05.",
+  "skeleton": "ribbon_curved",
+  "template": "ribbon_basic",
+  "set": {},
+  "tolerance": 0.05,
+  "expect": {
+    "tailIK_01_M_CTRL": {
+      "translate": [
+        7.0711,
+        7.0711,
+        0.0
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "description": "A collision needs its capsule",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "remove": "/collisions/0/capsule"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "capsule"
+    }
+  ]
+}

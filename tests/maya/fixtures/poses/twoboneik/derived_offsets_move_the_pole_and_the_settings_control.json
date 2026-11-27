@@ -1,0 +1,48 @@
+{
+  "description": "The pole is the mid joint (1.8,2.4,0) plus poleOffset (1,-2,3) and the settings control the end joint (5,0,0) plus settingsOffset (0.5,4,-1), in world space: (2.8, 0.4, 3) and (5.5, 4, -1). The handle stays on the end.",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/poleOffset",
+      "value": [
+        1,
+        -2,
+        3
+      ]
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/settingsOffset",
+      "value": [
+        0.5,
+        4,
+        -1
+      ]
+    }
+  ],
+  "set": {},
+  "tolerance": 0.0001,
+  "expect": {
+    "armPole_00_L_CTRL": {
+      "translate": [
+        2.8,
+        0.4,
+        3.0
+      ]
+    },
+    "armSettings_00_L_CTRL": {
+      "translate": [
+        5.5,
+        4.0,
+        -1.0
+      ]
+    },
+    "armIK_00_L_CTRL": {
+      "translate": [
+        5.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "description": "A rigid turn of 30 degrees about Z at the origin: a point at x goes to (x cos 30, x sin 30, 0), the ik controls and the joints with it, and the ik controls turn 30.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_fk",
+  "set": {
+    "tailFK_00_M_CTRL.rotateZ": 30
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "tail1_00_M_JNT": {
+      "translate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail2_00_M_JNT": {
+      "translate": [
+        1.732051,
+        1.0,
+        0.0
+      ]
+    },
+    "tail3_00_M_JNT": {
+      "translate": [
+        3.464102,
+        2.0,
+        0.0
+      ]
+    },
+    "tail4_00_M_JNT": {
+      "translate": [
+        5.196152,
+        3.0,
+        0.0
+      ]
+    },
+    "tail5_00_M_JNT": {
+      "translate": [
+        6.928203,
+        4.0,
+        0.0
+      ]
+    },
+    "tailIK_00_M_CTRL": {
+      "translate": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotate": [
+        0.0,
+        0.0,
+        30.0
+      ]
+    },
+    "tailIK_01_M_CTRL": {
+      "translate": [
+        3.464102,
+        2.0,
+        0.0
+      ],
+      "rotate": [
+        0.0,
+        0.0,
+        30.0
+      ]
+    },
+    "tailIK_02_M_CTRL": {
+      "translate": [
+        6.928203,
+        4.0,
+        0.0
+      ],
+      "rotate": [
+        0.0,
+        0.0,
+        30.0
+      ]
+    }
+  }
+}

@@ -291,14 +291,6 @@ class RibbonBehaviour(RigTestCase):
         cmds.zeroRigControls(rig_name(FIRST))
         self.assertAlmostEqual(attr(FIRST, "startAimBlend"), 1.0, places=6)
 
-    def test_an_aimed_build_straightens_the_ribbon_with_no_channel_set(self):
-        """aim_blend_makes_a_straight_line.json with the blends from the template: the end moves 2 up and the joints stay on the
-        line from the start to it."""
-        self.build(self._with_aim(startAimBlend=1, endAimBlend=1), self.make_skeleton("ribbon_basic"), label="ribbon_aim")
-        set_attr(LAST, "translateY", 2.0)
-        for joint, point in (("tail2_00_M_JNT", [2, 0.5, 0]), ("tail3_00_M_JNT", [4, 1.0, 0]), ("tail4_00_M_JNT", [6, 1.5, 0])):
-            self.assertWorldTranslation(rig_name(joint), point, 1e-3)
-
     def test_the_aim_keys_reach_the_mirrored_side(self):
         self.build(self._with_aim("ribbon_mirror", startAimBlend=1), self.make_skeleton("ribbon_mirror"), label="ribbon_aim_mirror")
         root = cmds.ls(rig_name("*"), type="rigRootModule")[0]
@@ -309,73 +301,7 @@ class RibbonBehaviour(RigTestCase):
             self.assertAlmostEqual(channels["startAimBlend"].rest, 1.0, places=6, msg=control.side)
             self.assertAlmostEqual(channels["endAimBlend"].rest, 0.0, places=6, msg=control.side)
 
-    def test_an_aim_key_outside_zero_to_one_is_an_error(self):
-        for key, value in (("startAimBlend", 1.5), ("endAimBlend", -0.1)):
-            message = self.assertMayaError(
-                lambda: self.build(self._with_aim(**{key: value}), self.make_skeleton("ribbon_basic"), label="ribbon_aim_bad"))
-            self.assertIn(key, message)
-            self.assertIn("between 0 and 1", message)
-            self.assertNothingBuilt()
-
-    def test_a_misspelled_aim_key_is_an_error(self):
-        message = self.assertMayaError(
-            lambda: self.build(self._with_aim(startAimBlen=1), self.make_skeleton("ribbon_basic"), label="ribbon_aim_typo"))
-        self.assertIn("startAimBlen", message)
-        self.assertNothingBuilt()
-
-    # ---- the plan step's checks ----------------------------------------------------------
-
-    def _build_with(self, edit, skeleton="ribbon_basic"):
-        data = copy.deepcopy(fixtures.load_template("ribbon_basic"))
-        edit(data["rigModules"][0]["moduleArgs"])
-        return self.assertMayaError(lambda: self.build(data, self.make_skeleton(skeleton), label="ribbon_bad"))
-
-    def test_one_ik_control_is_an_error(self):
-        message = self._build_with(lambda args: args.update(controlCount=1))
-        self.assertIn("controlCount", message)
-        self.assertIn("between 2 and 8", message)
-        self.assertNothingBuilt()
-
-    def test_one_bind_joint_is_an_error(self):
-        message = self._build_with(lambda args: args.update(joints=[["Center", "tail1"]]))
-        self.assertIn("bind joints", message)
-        self.assertNothingBuilt()
-
-    def test_a_joint_cannot_be_listed_twice(self):
-        message = self._build_with(lambda args: args.update(joints=[["Center", "tail1"]] + args["joints"]))
-        self.assertIn("tail1", message)
-        self.assertNothingBuilt()
-
-    def test_more_than_eight_ik_controls_is_an_error(self):
-        message = self._build_with(lambda args: args.update(controlCount=9))
-        self.assertIn("controlCount", message)
-        self.assertIn("between 2 and 8", message)
-        self.assertNothingBuilt()
-
     # ---- the end driven by another module's socket (section 3.4) -------------------------------
-
-    def test_the_end_follows_its_own_parent(self):
-        """The start and end child plugs carry their controls separately: with the start on layout_0 and the end on layout_2,
-        lifting layout_2 lifts the end, and the interior control, which rides the base curve between them, rises half as far."""
-        data = copy.deepcopy(fixtures.load_template("ribbon_basic"))
-        data["rigModules"][0]["parentStructure"] = {"start": "layout_00_M_MOD.index_0", "end": "layout_00_M_MOD.index_2"}
-        self.build(data, self.make_skeleton("ribbon_basic"), label="ribbon_driven_end")
-        set_attr("layout_02_M_CTRL", "translateY", 3.0)
-        self.assertWorldTranslation(rig_name("tail1_00_M_JNT"), [0, 0, 0], 1e-6)
-        self.assertWorldTranslation(rig_name("tail5_00_M_JNT"), [8, 3, 0], 1e-6)
-        self.assertWorldTranslation(rig_name("tail3_00_M_JNT"), [4, 1.5, 0], 1e-6)   # the base curve at u = 0.5 is the average of its ends
-
-    def test_an_unlisted_end_follows_the_start_parent(self):
-        """With no entry for `end` it takes start's parent, not layout_00_M_MOD.end: lifting the start's parent lifts the whole ribbon,
-        and lifting the layout's end control (where `end` would otherwise hang) does nothing to it."""
-        data = copy.deepcopy(fixtures.load_template("ribbon_basic"))
-        data["rigModules"][0]["parentStructure"] = {"start": "layout_00_M_MOD.index_0"}
-        self.build(data, self.make_skeleton("ribbon_basic"), label="ribbon_end_follows_start")
-        set_attr("layout_02_M_CTRL", "translateY", 3.0)
-        self.assertWorldTranslation(rig_name("tail5_00_M_JNT"), [8, 0, 0], 1e-6)
-        set_attr("layout_00_M_CTRL", "translateZ", 5.0)
-        for joint, x in zip(BIND_JOINTS, (0, 2, 4, 6, 8)):
-            self.assertWorldTranslation(rig_name(joint), [x, 0, 5], 1e-6)
 
 
 class RibbonDerivedControls(RigTestCase):
@@ -397,18 +323,6 @@ class RibbonDerivedControls(RigTestCase):
 
     def _rotation_degrees(self, node):
         return [round(a, 3) + 0.0 for a in cmds.xform(rig_name(node), query=True, worldSpace=True, rotation=True)]
-
-    def test_a_curved_chain_puts_the_middle_control_halfway_along_the_curve(self):
-        """A quarter circle of radius 10 through five joints at 0, 22.5, 45, 67.5 and 90 degrees. By symmetry the middle joint is
-        at half the spline's length, so the middle control is on it: (10 cos 45, 10 sin 45)."""
-        self._build("ribbon_curved", ["tail1", "tail2", "tail3", "tail4", "tail5"])
-        self.assertWorldTranslation(rig_name("tailIK_01_M_CTRL"), [7.0711, 7.0711, 0], 0.05)
-
-    def test_uneven_joint_spacing_still_splits_the_length_evenly(self):
-        """Joints at x = 0, 1, 5 and 8 on a line: three controls sit at 0, 4 and 8, whichever joints are near."""
-        self._build("ribbon_uneven", ["tail1", "tail2", "tail3", "tail4"])
-        for node, x in (("tailIK_00_M_CTRL", 0), ("tailIK_01_M_CTRL", 4), ("tailIK_02_M_CTRL", 8)):
-            self.assertWorldTranslation(rig_name(node), [x, 0, 0], 1e-3)
 
     def test_a_control_between_two_joints_takes_the_blend_of_their_rotations(self):
         """Joints at x = 0, 4 and 8 turned 0, 0 and 90 about X, five controls at 0, 2, 4, 6 and 8. The control at 6 is halfway
@@ -442,16 +356,9 @@ class RibbonDerivedControls(RigTestCase):
         self._build("ribbon_basic", ["tail1", "tail2", "tail3", "tail4", "tail5"], controlName=None)
         self.assertEqual(self._usages()[:3], ["tail1IK_00", "tail1IK_01", "tail1IK_02"])
 
-    def test_two_ribbons_with_the_same_base_and_side_fail_the_build(self):
-        """Usages are unique in a rig, so the second ribbon needs its own controlName."""
-        data = copy.deepcopy(fixtures.load_template("ribbon_arm"))
-        for module in data["rigModules"][1:]:
-            module["moduleArgs"]["controlName"] = "up"
-        message = self.assertMayaError(lambda: self.build(data, self.make_skeleton("ribbon_arm"), label="ribbon_same_base"))
-        self.assertIn("upIK_00", message)
-        self.assertNothingBuilt()
-
     # ---- the chain checks ---------------------------------------------------------------
+    # Each problem checkChain finds is a case in tests/core/ControlPlacementChainTests.cpp. These two prove the build runs it on
+    # the joints in the scene and names the joint.
 
     def _build_turned(self, joint, rotate):
         joints = self.make_skeleton("ribbon_basic")
@@ -466,25 +373,6 @@ class RibbonDerivedControls(RigTestCase):
     def test_a_joint_turned_55_degrees_off_the_chain_builds(self):
         self._build_turned("tail3", [0, 0, 55])
         self.assertExists(rig_name("tailIK_01_M_CTRL"))
-
-    def test_a_joint_that_points_back_while_the_others_point_on_is_an_error(self):
-        message = self.assertMayaError(lambda: self._build_turned("tail3", [0, 180, 0]))
-        self.assertIn("tail3", message)
-        self.assertNothingBuilt()
-
-    def test_two_joints_on_each_other_are_an_error(self):
-        joints = self.make_skeleton("ribbon_basic")
-        cmds.xform(":skel:tail2_00_M_JNT", worldSpace=True, translation=[0, 0, 0])
-        message = self.assertMayaError(
-            lambda: self.build(self._template(["tail1", "tail2", "tail3", "tail4", "tail5"]), joints, label="ribbon_on_top"))
-        self.assertIn("tail", message)
-        self.assertNothingBuilt()
-
-    def test_a_misspelled_key_is_an_error(self):
-        message = self.assertMayaError(
-            lambda: self.build(self._template(["tail1", "tail2"], controlCoun=3), self.make_skeleton("ribbon_basic"), label="ribbon_typo"))
-        self.assertIn("controlCoun", message)
-        self.assertNothingBuilt()
 
     # ---- version 1 templates ------------------------------------------------------------------
 
@@ -530,15 +418,6 @@ class RibbonFkStyle(RigTestCase):
     def _build(self, **args):
         self.build(self._template(**args), self.make_skeleton("ribbon_basic"), label="ribbon_fk")
 
-    def test_the_rest_pose_is_the_joints_where_they_are(self):
-        self._build()
-        for i, joint in enumerate(BIND_JOINTS):
-            self.assertWorldTranslation(rig_name(joint), [2.0 * i, 0, 0], 1e-6)
-        for control, x in zip(FK_CONTROLS, (0, 4, 8)):
-            self.assertWorldTranslation(rig_name(control), [x, 0, 0], 1e-6)
-        for control, x in zip([FIRST, INTERIOR, LAST], (0, 4, 8)):
-            self.assertWorldTranslation(rig_name(control), [x, 0, 0], 1e-6)
-
     def test_the_fk_rest_roll_is_stored_at_build_one_per_fk_control(self):
         """The chain is straight along +X with no roll, so every fk control's rest roll is 0, arriving and leaving. Both arrays hold
         one element per fk control, so compute() reads them and never rebuilds the rest curve to measure them."""
@@ -559,63 +438,6 @@ class RibbonFkStyle(RigTestCase):
         rotation = cmds.xform(rig_name(FIRST), query=True, worldSpace=True, rotation=True)
         self.assertAlmostEqual(abs(rotation[0]), 28.6479, delta=0.01)
 
-    def test_turning_the_first_fk_control_turns_the_whole_ribbon_about_it(self):
-        """A rigid turn of 30 degrees about Z at the origin: a point at x goes to (x cos 30, x sin 30, 0), the ik controls and the
-        joints with it."""
-        self._build()
-        set_attr(FK_CONTROLS[0], "rotateZ", 30)
-        c, s = math.cos(math.radians(30)), math.sin(math.radians(30))
-        for i, joint in enumerate(BIND_JOINTS):
-            self.assertWorldTranslation(rig_name(joint), [2.0 * i * c, 2.0 * i * s, 0], 1e-5)
-        for control, x in zip([FIRST, INTERIOR, LAST], (0, 4, 8)):
-            self.assertWorldTranslation(rig_name(control), [x * c, x * s, 0], 1e-5)
-            self.assertWorldRotation(rig_name(control), [0, 0, 30], 1e-4)
-
-    def test_bending_the_middle_fk_control_carries_the_end_and_the_ik_control_stays_on_the_chain(self):
-        """The middle fk control is at (4,0,0) and turns 40 degrees about Z, so the last one, 4 along its X, is at
-        (4 + 4 cos 40, 4 sin 40, 0). The end ik control floats there, turned 40 degrees with it. The middle ik control stays at
-        (4,0,0), where the curve passes through the middle fk control."""
-        self._build()
-        set_attr(FK_CONTROLS[1], "rotateZ", 40)
-        end = [4 + 4 * math.cos(math.radians(40)), 4 * math.sin(math.radians(40)), 0]
-        self.assertWorldTranslation(rig_name(FK_CONTROLS[2]), end, 1e-6)
-        self.assertWorldTranslation(rig_name(LAST), end, 1e-5)
-        self.assertWorldRotation(rig_name(LAST), [0, 0, 40], 1e-4)
-        self.assertWorldTranslation(rig_name(INTERIOR), [4, 0, 0], 1e-5)
-        self.assertWorldTranslation(rig_name(BIND_JOINTS[2]), [4, 0, 0], 1e-5)
-        self.assertWorldTranslation(rig_name(BIND_JOINTS[4]), end, 1e-5)
-
-    def test_rolling_an_fk_control_rolls_the_ik_control_at_its_place_one_to_one(self):
-        """A roll about X leaves the curve where it is, so only the carried frame says it: the middle fk control rolls 50, and the
-        middle ik control (at its parameter) and the end (which hangs on it) roll 50 with it. The start is before the roll."""
-        self._build()
-        set_attr(FK_CONTROLS[1], "rotateX", 50)
-        self.assertWorldRotation(rig_name(FK_CONTROLS[1]), [50, 0, 0], 1e-4)
-        self.assertWorldRotation(rig_name(INTERIOR), [50, 0, 0], 1e-4)
-        self.assertWorldRotation(rig_name(LAST), [50, 0, 0], 1e-4)
-        self.assertWorldRotation(rig_name(FIRST), [0, 0, 0], 1e-4)
-
-    def test_rolling_the_first_fk_control_rolls_every_ik_control(self):
-        self._build()
-        set_attr(FK_CONTROLS[0], "rotateX", 30)
-        for control in (FIRST, INTERIOR, LAST):
-            self.assertWorldRotation(rig_name(control), [30, 0, 0], 1e-4)
-
-    def test_an_fk_roll_reaches_the_bind_joints_not_only_the_ik_controls(self):
-        """The ik controls roll with the fk chain, and the bind joints must follow them: the detail curve's twist profile runs
-        through the ik controls' rolls. The middle fk control rolls 50, so the ik controls are at 0, 50 and 50, and the joints at
-        x = 0, 2, 4, 6 and 8 are at 0, 25, 50, 50 and 50 (linear between the controls). Hand-worked."""
-        self._build()
-        set_attr(FK_CONTROLS[1], "rotateX", 50)
-        for joint, expected in zip(BIND_JOINTS, (0, 25, 50, 50, 50)):
-            self.assertWorldRotation(rig_name(joint), [expected, 0, 0], 1e-4)
-
-    def test_rolling_the_first_fk_control_rolls_every_bind_joint(self):
-        self._build()
-        set_attr(FK_CONTROLS[0], "rotateX", 30)
-        for joint in BIND_JOINTS:
-            self.assertWorldRotation(rig_name(joint), [30, 0, 0], 1e-4)
-
     # ---- twistRamp ------------------------------------------------------------------------
     # The ik controls are at u = 0, 0.5 and 1 and the bind joints at 0, 0.25, 0.5, 0.75 and 1. Rolling the first fk control rolls
     # the whole chain, so the fk roll is the same at every ik control, and a control's roll is its share of it. The joints between
@@ -634,70 +456,6 @@ class RibbonFkStyle(RigTestCase):
         module = rig_name("tail_01_M_MOD")
         for j, share in enumerate((0.0, 0.35, 1.0)):
             self.assertAlmostEqual(cmds.getAttr("%s.fkRollShare[%d]" % (module, j)), share, places=9)
-
-    def test_a_ramp_of_all_ones_is_the_roll_one_to_one(self):
-        self._build(twistRamp=[[0, 1.0], [1, 1.0]])
-        set_attr(FK_CONTROLS[0], "rotateX", 30)
-        for control in (FIRST, INTERIOR, LAST):
-            self.assertWorldRotation(rig_name(control), [30, 0, 0], 1e-4)
-        for joint in BIND_JOINTS:
-            self.assertWorldRotation(rig_name(joint), [30, 0, 0], 1e-4)
-
-    def test_a_ramp_sheds_the_first_fk_controls_roll_at_the_start_and_eases_it_in(self):
-        """The author's ramp, 0 at the start, 0.35 in the middle and 1 at the end, on a 30 degree roll of the first fk control: the ik
-        controls roll 0, 0.35 * 30 = 10.5 and 30. The joints ease between them: 0, 5.25, 10.5, 20.25 (the middle of 10.5 and 30)
-        and 30. The fk control itself still rolls the whole 30."""
-        self._build(twistRamp=[[0, 0.0], [0.5, 0.35], [1, 1.0]])
-        set_attr(FK_CONTROLS[0], "rotateX", 30)
-        self.assertWorldRotation(rig_name(FK_CONTROLS[0]), [30, 0, 0], 1e-4)
-        for control, roll in zip((FIRST, INTERIOR, LAST), (0.0, 10.5, 30.0)):
-            self.assertWorldRotation(rig_name(control), [roll, 0, 0], 1e-4)
-        for joint, roll in zip(BIND_JOINTS, (0.0, 5.25, 10.5, 20.25, 30.0)):
-            self.assertWorldRotation(rig_name(joint), [roll, 0, 0], 1e-4)
-
-    def test_a_ramp_that_is_zero_everywhere_keeps_every_roll_off_the_ik_controls_and_the_joints(self):
-        self._build(twistRamp=[[0, 0.0]])
-        set_attr(FK_CONTROLS[0], "rotateX", 30)
-        for node in (FIRST, INTERIOR, LAST) + tuple(BIND_JOINTS):
-            self.assertWorldRotation(rig_name(node), [0, 0, 0], 1e-4)
-
-    def test_a_ramp_between_pairs_and_held_outside_them(self):
-        """Pairs at 0.25 (0.2) and 0.75 (0.8): the controls at 0, 0.5 and 1 take 0.2 (held), 0.5 and 0.8 (held) of a 30 degree roll:
-        6, 15 and 24 degrees."""
-        self._build(twistRamp=[[0.25, 0.2], [0.75, 0.8]])
-        set_attr(FK_CONTROLS[0], "rotateX", 30)
-        for control, roll in zip((FIRST, INTERIOR, LAST), (6.0, 15.0, 24.0)):
-            self.assertWorldRotation(rig_name(control), [roll, 0, 0], 1e-4)
-
-    def test_the_ramp_does_not_touch_the_swing(self):
-        """A bend of the middle fk control moves the ik controls and the joints as it does without a ramp: the ramp shares the roll
-        about the curve and nothing else."""
-        self._build(twistRamp=[[0, 0.0], [1, 0.0]])
-        set_attr(FK_CONTROLS[1], "rotateZ", 40)
-        end = [4 + 4 * math.cos(math.radians(40)), 4 * math.sin(math.radians(40)), 0]
-        self.assertWorldTranslation(rig_name(LAST), end, 1e-5)
-        self.assertWorldRotation(rig_name(LAST), [0, 0, 40], 1e-4)
-        self.assertWorldTranslation(rig_name(INTERIOR), [4, 0, 0], 1e-5)
-
-    def test_an_empty_ramp_is_the_default(self):
-        self._build(twistRamp=[])
-        set_attr(FK_CONTROLS[0], "rotateX", 30)
-        for control in (FIRST, INTERIOR, LAST):
-            self.assertWorldRotation(rig_name(control), [30, 0, 0], 1e-4)
-
-    def test_a_ramp_without_fk_style_is_an_error(self):
-        message = self.assertMayaError(lambda: self._build(fkStyle=False, twistRamp=[[0, 0.0], [1, 1.0]]))
-        self.assertIn("twistRamp", message)
-        self.assertIn("fkStyle", message)
-        self.assertNothingBuilt()
-
-    def test_an_ik_control_moves_the_curve_without_moving_the_fk_chain(self):
-        self._build()
-        before = translation(FK_CONTROLS[2])
-        set_attr(INTERIOR, "translateY", 1.5)
-        self.assertWorldTranslation(rig_name(FK_CONTROLS[2]), before, 1e-9)
-        self.assertWorldTranslation(rig_name(INTERIOR), [4, 1.5, 0], 1e-5)
-        self.assertWorldTranslation(rig_name(BIND_JOINTS[2]), [4, 1.5, 0], 1e-5)
 
     def test_fk_control_count_sets_the_chain_apart_from_the_ik_controls(self):
         """Two fk controls, at 0 and 8, under three ik controls: turning the first turns everything about the origin, as with
@@ -724,34 +482,12 @@ class RibbonFkStyle(RigTestCase):
         self.assertEqual(cmds.getAttr("%s.childPlugs" % module, size=True), 1)
         self.assertEqual(cmds.getAttr("%s.childPlugs[0].childPlugName" % module), "start")
 
-    def test_an_end_plug_in_the_template_is_an_error(self):
-        data = self._template()
-        data["rigModules"][0]["parentStructure"] = {"start": "layout_00_M_MOD.end", "end": "layout_00_M_MOD.end"}
-        message = self.assertMayaError(lambda: self.build(data, self.make_skeleton("ribbon_basic"), label="ribbon_fk_end"))
-        self.assertIn("end", message)
-        self.assertNothingBuilt()
-
     def test_the_fk_chain_has_the_default_ik_count(self):
         """Without fkControlCount the chain has controlCount controls: five ik controls give five fk controls."""
         self.build(self._template(controlCount=5), self.make_skeleton("ribbon_basic"), label="ribbon_fk_five")
         for i in range(5):
             self.assertExists(rig_name("tailFK_%02d_M_CTRL" % i))
         self.assertFalse(cmds.objExists(rig_name("tailFK_05_M_CTRL")))
-
-    def test_fk_control_count_without_fk_style_is_an_error(self):
-        data = self._template(fkStyle=False, fkControlCount=3)
-        message = self.assertMayaError(lambda: self.build(data, self.make_skeleton("ribbon_basic"), label="ribbon_fk_no_style"))
-        self.assertIn("fkControlCount", message)
-        self.assertIn("fkStyle", message)
-        self.assertNothingBuilt()
-
-    def test_an_fk_control_count_outside_two_to_eight_is_an_error(self):
-        for count in (1, 9):
-            message = self.assertMayaError(lambda: self.build(
-                self._template(fkControlCount=count), self.make_skeleton("ribbon_basic"), label="ribbon_fk_bad"))
-            self.assertIn("fkControlCount", message)
-            self.assertIn("between 2 and 8", message)
-            self.assertNothingBuilt()
 
 
 class RibbonBindSockets(RigTestCase):
@@ -775,10 +511,6 @@ class RibbonBindSockets(RigTestCase):
         b = world_matrix(self.EXTRA)
         for x, y in zip(a, b):
             self.assertAlmostEqual(x, y, places=4)
-
-    def test_the_child_sits_on_its_bind_joint_at_rest(self):
-        self._build("ribbon_bind_child", "ribbon_bind_child")
-        self.assertWorldTranslation(rig_name(self.EXTRA), [4, 0, 0], 1e-4)
 
     def test_the_child_follows_its_bind_joint_through_a_pose_and_a_twist(self):
         self._build("ribbon_bind_child", "ribbon_bind_child")

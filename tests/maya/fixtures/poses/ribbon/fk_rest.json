@@ -1,0 +1,86 @@
+{
+  "description": "The fk chain (D59) at rest: the bind joints stay at 0, 2, 4, 6 and 8 along X, and the three fk controls and the three ik controls sit at 0, 4 and 8.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_fk",
+  "set": {},
+  "tolerance": 1e-06,
+  "expect": {
+    "tail1_00_M_JNT": {
+      "translate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail2_00_M_JNT": {
+      "translate": [
+        2.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail3_00_M_JNT": {
+      "translate": [
+        4.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail4_00_M_JNT": {
+      "translate": [
+        6.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail5_00_M_JNT": {
+      "translate": [
+        8.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailFK_00_M_CTRL": {
+      "translate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailFK_01_M_CTRL": {
+      "translate": [
+        4.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailFK_02_M_CTRL": {
+      "translate": [
+        8.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_00_M_CTRL": {
+      "translate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_01_M_CTRL": {
+      "translate": [
+        4.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_02_M_CTRL": {
+      "translate": [
+        8.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

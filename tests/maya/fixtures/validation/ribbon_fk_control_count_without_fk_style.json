@@ -1,0 +1,23 @@
+{
+  "description": "fkControlCount sizes the fk chain, so it needs fkStyle",
+  "base": "ribbon_fk",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/fkStyle",
+      "value": false
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/fkControlCount",
+      "value": 3
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "fkControlCount"
+    },
+    {
+      "contains": "fkStyle"
+    }
+  ]
+}

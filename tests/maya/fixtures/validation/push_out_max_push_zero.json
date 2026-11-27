@@ -1,0 +1,16 @@
+{
+  "description": "maxPush is more than 0",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/maxPush",
+      "value": 0
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "maxPush"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "description": "A bind joint is listed once",
+  "base": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/joints",
+      "value": [
+        [
+          "Center",
+          "tail1"
+        ],
+        [
+          "Center",
+          "tail1"
+        ],
+        [
+          "Center",
+          "tail2"
+        ],
+        [
+          "Center",
+          "tail3"
+        ],
+        [
+          "Center",
+          "tail4"
+        ],
+        [
+          "Center",
+          "tail5"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "tail1"
+    }
+  ]
+}

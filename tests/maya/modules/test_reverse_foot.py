@@ -1,14 +1,17 @@
 """ReverseFoot (design/reverse-foot.md): contract tests with their inverse round trips, pose cases from fixtures/poses/reverse_foot,
 and what only the foot does: its channels and their mirror modes, the foot control, the plugs and the ankle socket, the markers it
 resolves, the loop check, the graph through the Limb's ikTarget, a foot at rest equal to the Limb alone, and the inverse (phase 5): the
-gauge, the handle's space, and the match (setRigIkFkBlend): no pop in the ankle with a raised foot, and the toe held both ways.
+gauge, the handle's space, and the match (setRigIkFkBlend): no pop in the ankle with a raised foot, and the toe held both ways. Then
+ReverseFootToes (phase 4): the toe and toe tip joints, the toe FK control, the blend the foot takes from its limb (ikFkDriver), the
+visibility it drives and the pivot sockets.
 
-The foot is the core test foot (tests/core/FootSolveTests.cpp) at a tenth of its size on the limb_arm hand at (4, 4, 0), except the toe
-pivot, which sits at the toe joint (4, 3.3, 1.8), 0.1 above the sole: the roll below the break and the ball channels turn about it, so
-those numbers are worked here from it, not scaled from the core table. The pose cases hold the arithmetic in their descriptions. Nothing here is recorded from the rig.
-
-Stage 2 (the toe and toe tip joints, the toe FK control, the blend) is test_reverse_foot_stage2.
-"""
+The foot is the core test foot (tests/core/FootSolveTests.cpp) at a tenth of its size on the limb_arm hand at (4, 4, 0): a core point
+(x, y, z) is the world point (4 + x/10, 3.2 + y/10, 0.6 + z/10), except the toe pivot, which sits at the toe joint (4, 3.3, 1.8), 0.1
+above the sole: the roll below the break and the ball channels turn about it, so those numbers are worked here from it, not scaled from
+the core table. The toe tip joint is at the toe tip pivot (4, 3.2, 2.4). Both joints have the hand's rest rotation, Rz 90, because they
+are its children in the fixture skeleton. The roll below the break turns about the toe pivot, so the hand keeps its rest distance (the
+bone, 1.931321) to the planted toe. The pose cases hold the arithmetic in their descriptions, and every other expected number is worked
+by hand in the test it is used in. Nothing here is recorded from the rig."""
 import copy
 import json
 import math
@@ -19,11 +22,11 @@ from maya import cmds
 
 import modules.test_limb
 import rigmodules.query
-from commands.test_two_bone_ik_inverse import CapturedWarnings
 from rigtest import config, fixtures, jointclips
-from rigtest.case import RigTestCase, rig_name
+from rigtest.case import CapturedWarnings, RigTestCase, rig_name
 from rigtest.cases import add_pose_cases
 from rigtest.module_contract import ModuleContract, _compute_count
+
 
 FOOT = "foot_00_L_CTRL"
 FOOT_MODULE = "foot_00_L_MOD"
@@ -34,7 +37,6 @@ HANDLE = "armIK_00_L_CTRL"
 TOE = "toe_00_L_JNT"
 TOE_TIP = "toeTip_00_L_JNT"
 TOE_FK = "toeFK_00_L_CTRL"
-
 # name -> (rest in degrees, mirror mode): the 11 channels of design section 8, the animator's names.
 CHANNELS = {
     "footRoll": (0.0, "copy"), "breakAngle": (30.0, "copy"), "heelRaise": (0.0, "copy"), "heelSwivel": (0.0, "negate"),
@@ -167,15 +169,6 @@ class ReverseFootBehaviour(RigTestCase):
         self.assertAlmostEqual(foot[1], 3.3, places=4)
         self.assertAlmostEqual(foot[2], 1.8, places=4)
 
-    def test_the_hand_follows_the_handle_with_the_foot_at_rest_and_adds_the_roll_on_top(self):
-        self._build()
-        cmds.setAttr(rig_name(HANDLE + ".translateY"), 1.0)
-        self.assertWorldTranslation(rig_name(HAND), [3.0, 4.0, 0.0], 1e-4)
-        # A roll of 20 turns the foot first, about the toe pivot (4, 3.3, 1.8), and the handle carries the result: the hand's offset
-        # (0.7, -1.8) from the pivot turned 20 gives (3.3 + 0.7 cos20 + 1.8 sin20, 1.8 + 0.7 sin20 - 1.8 cos20) = (4.573421, 0.347967).
-        cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
-        self.assertWorldTranslation(rig_name(HAND), [3.0, 4.573421, 0.347967], 1e-4)
-
     def test_a_roll_of_20_turns_the_hand_20_degrees_about_the_worlds_x(self):
         """The hand is turned 90 about Z at rest: its axes are (0, 1, 0), (-1, 0, 0), (0, 0, 1). The foot's roll turns them 20 about
         world X: y' = y cos - z sin, z' = y sin + z cos, so the rows become (0, c, s), (-1, 0, 0), (0, -s, c)."""
@@ -285,22 +278,6 @@ class ReverseFootBehaviour(RigTestCase):
                     cmds.getAttr(rig_name(DUMMY + ".worldMatrix[0]"))
                 self.assertFalse(warnings.contain("ycle"), warnings.messages)
                 self.assertTrue(abs(hand[1] - 4.0) > 0.1, "the foot's roll moved the hand")
-
-    def test_a_foot_whose_ik_plug_takes_the_end_socket_is_still_a_loop(self):
-        data = copy.deepcopy(fixtures.load_template("reverse_foot"))
-        data["rigModules"][1]["parentStructure"]["ik"] = LIMB + ".end"
-        self.assertMayaError(lambda: self.build(data, self.make_skeleton("reverse_foot"), markers="reverse_foot", label="reverse_foot_loop"), "cycle")
-        self.assertNothingBuilt()
-
-    def test_a_constraint_on_the_foots_plugs_is_an_error(self):
-        for plug in ("ik", "ankle"):
-            with self.subTest(plug=plug):
-                self.setUp()
-                data = copy.deepcopy(fixtures.load_template("reverse_foot"))
-                data["constraints"] = [{"name": "footSpace_00_L_CON", "target": "%s.%s" % (FOOT_MODULE, plug),
-                                        "drivers": [{"socket": "layout_00_M_MOD.end"}]}]
-                self.assertMayaError(lambda: self.build(data, self.make_skeleton("reverse_foot"), markers="reverse_foot", label="reverse_foot_constraint"), "constraint")
-                self.assertNothingBuilt()
 
     def test_the_foot_claims_the_toe_joints_and_leaves_the_ankle_to_the_limb(self):
         """The foot's plan claims the toe and the toe tip (a joint two modules drive is an error) and only reads the ankle, which the
@@ -490,3 +467,165 @@ class ReverseFootInverse(RigTestCase):
         with CapturedWarnings() as warnings:
             cmds.setRigIkFkBlend(limb, blend=1)
         self.assertTrue(warnings.contain("toeTap can't hold"), warnings.messages)
+
+
+SETTINGS = "armSettings_00_L_CTRL"
+TOE_REST = (4.0, 3.3, 1.8)
+BONE = 1.9313208   # |toe - hand| at rest: |(0, -0.7, 1.8)|
+
+
+class ReverseFootToes(RigTestCase):
+
+    def _build(self):
+        self.build_standard("reverse_foot", "reverse_foot", markers="reverse_foot")
+
+    def world(self, node):
+        return cmds.xform(rig_name(node), query=True, worldSpace=True, translation=True)
+
+    def assertWorld(self, node, position, tolerance=1e-4):
+        actual = self.world(node)
+        self.assertTrue(all(abs(a - e) <= tolerance for a, e in zip(actual, position)), "%s: expected %s, got %s" % (node, position, actual))
+
+    def test_the_foot_and_toe_fk_sockets_carry_their_controls_worlds(self):
+        """`foot` and `toeFk` (outputSocketMatrix elements 8 and 9) are the foot control's and the toe FK control's world matrices, with
+        the handle moved (the foot control rides it) and the toe FK control turned."""
+        self._build()
+        cmds.setAttr(rig_name(HANDLE + ".translateX"), 1)
+        cmds.setAttr(rig_name(TOE_FK + ".rotateX"), 20)
+        for control, element in ((FOOT, 8), (TOE_FK, 9)):
+            socket = cmds.getAttr(rig_name(FOOT_MODULE) + ".outputSocketMatrix[%d]" % element)
+            world = cmds.xform(rig_name(control), query=True, worldSpace=True, matrix=True)
+            for a, b in zip(socket, world):
+                self.assertAlmostEqual(a, b, places=4, msg=control)
+
+    def test_the_plugs_dag_parents_place_the_foot_control_and_the_toe_fk_control(self):
+        """The ik plug carries the foot control and the ankle plug the toe FK control, so the template's dagParent places each in the
+        outliner: `"ik": "arm_01_L_MOD.ik"` puts the foot control under the IK handle, and `"ankle": "arm_01_L_MOD.end"` puts the toe FK
+        control under the FK hand (the end socket carries the FK end control's transform). The DAG is organization only (D1)."""
+        self._build()
+        for control, parent in ((FOOT, HANDLE), (TOE_FK, "hand_00_L_CTRL")):
+            parents = cmds.listRelatives(rig_name(control), parent=True) or []
+            self.assertEqual([p.split(":")[-1] for p in parents], [parent], control)
+
+    def test_a_leg_that_cannot_reach_keeps_the_bone_length_and_aims_at_the_pivot(self):
+        """The handle goes 10 up (its local X is the world's Y) with the foot at rest: the toe pivot would be at (4, 13.3, 1.8), far beyond the
+        arm's reach of 8. The hand stops short, and the toe stays one bone length from it, on the line to where the pivot would be."""
+        self._build()
+        cmds.setAttr(rig_name(HANDLE + ".translateX"), 10)
+        hand = self.world(HAND)
+        wanted = (4.0, 13.3, 1.8)
+        toward = [w - h for w, h in zip(wanted, hand)]
+        length = math.sqrt(sum(v * v for v in toward))
+        self.assertGreater(length, 3 * BONE, "the pivot is far from the hand: the limb can't reach")
+        self.assertWorld(TOE, [h + v * BONE / length for h, v in zip(hand, toward)])
+        toe = self.world(TOE)
+        self.assertAlmostEqual(math.sqrt(sum((t - h) ** 2 for t, h in zip(toe, hand))), BONE, places=4)
+
+    def test_the_blend_hides_the_controls_it_makes_useless(self):
+        self._build()
+
+        def visible(control):
+            # `shown`, not visibility: visibility inherits through the DAG, and a control can be a DAG parent.
+            return cmds.getAttr(rig_name(control + ".shown"))
+
+        self.assertEqual((visible(FOOT), visible(TOE_FK)), (True, False))   # IK: the channels drive and the toe FK control hides
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0.5)
+        self.assertEqual((visible(FOOT), visible(TOE_FK)), (True, True))
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0)
+        self.assertEqual((visible(FOOT), visible(TOE_FK)), (False, True))   # FK: the foot's channels have nothing to move
+
+    def test_the_foot_follows_the_limbs_blend_and_an_animator_cannot_key_it(self):
+        self._build()
+        module = rig_name(FOOT_MODULE)
+        self.assertSource(module + ".ikFkBlend", rig_name(LIMB) + ".ikFkBlend")
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0.25)
+        self.assertAlmostEqual(cmds.getAttr(module + ".ikFkBlend"), 0.25)
+        self.assertFalse(cmds.getAttr(module + ".ikFkBlend", keyable=True))
+        self.assertFalse(cmds.getAttr(module + ".ikFkBlend", channelBox=True))
+        self.assertNotIn("ikFkBlend", cmds.listAttr(rig_name(FOOT), keyable=True))
+        self.assertNotIn("ikFkBlend", cmds.listAttr(rig_name(TOE_FK), keyable=True))
+
+    def test_the_mirrored_foot_follows_the_other_sides_limb(self):
+        self.build_standard("reverse_foot_mirror", "reverse_foot_mirror", markers="reverse_foot_mirror")
+        right = rig_name("foot_00_R_MOD")
+        left = rig_name(FOOT_MODULE)
+        self.assertEqual(cmds.getAttr(right + ".ikFkDriver"), "arm_00_R_MOD")   # the mirror template's limb is arm_00_L_MOD
+        self.assertSource(right + ".ikFkBlend", rig_name("arm_00_R_MOD") + ".ikFkBlend")
+        self.assertSource(left + ".ikFkBlend", rig_name("arm_00_L_MOD") + ".ikFkBlend")
+        cmds.setAttr(rig_name("armSettings_00_R_CTRL.ikFkBlend"), 0.25)
+        self.assertAlmostEqual(cmds.getAttr(right + ".ikFkBlend"), 0.25)
+        self.assertAlmostEqual(cmds.getAttr(left + ".ikFkBlend"), 1.0, msg="the left foot keeps following the left limb")
+
+    def test_the_toe_fk_control_turns_and_nothing_else(self):
+        self._build()
+        self.assertEqual(sorted(a for a in cmds.listAttr(rig_name(TOE_FK), keyable=True) if a != "visibility"), ["rotateX", "rotateY", "rotateZ"])
+        markup = json.loads(cmds.getAttr(rig_name(TOE_FK + ".controlMarkup")))
+        self.assertEqual((markup["side"], markup["usage"]), ("Left", "toeFK"))
+
+    def test_a_numbered_toe_usage_puts_fk_before_the_number(self):
+        """A toe joint marked ball_00 (the solomon asset's) gives the toe FK usage ballFK_00 and the control ballFK_00_L_CTRL. Before the fix
+        it gave ball_00FK, which is not camelCase, and the build failed validation."""
+        joints = self.make_skeleton("reverse_foot")
+        index = [i for i, j in enumerate(joints) if j.endswith(TOE)][0]
+        joints[index] = ":" + cmds.rename(joints[index], "skel:ball_00_L_JNT")
+        cmds.rigJointMarkup(joints[index], edit=True, usage="ball_00")
+        template = copy.deepcopy(fixtures.load_template("reverse_foot"))
+        template["rigModules"][1]["moduleArgs"]["joints"][1] = ["Left", "ball_00"]
+        self.build(template, joints, markers="reverse_foot")
+        control = rig_name("ballFK_00_L_CTRL")
+        self.assertTrue(cmds.objExists(control))
+        markup = json.loads(cmds.getAttr(control + ".controlMarkup"))
+        self.assertEqual((markup["side"], markup["usage"]), ("Left", "ballFK_00"))
+
+    def test_the_pivots_and_the_toes_are_sockets_with_their_worlds(self):
+        """The pivot sockets follow the chain order (heel, toeTip, bankOut, bankIn, toe). At a roll of 20 (break 30): the heel does not
+        turn, so its socket stays at the heel marker (4, 3.2, -0.4). The toe pivot socket turns 20 about X at the toe pivot (4, 3.3, 1.8).
+        The toe tip pivot is before the toe in the chain, so nothing turns it: it stays at (4, 3.2, 2.4), not turned. Past the break (roll 50)
+        the toe tip turns 20 about its own position, which does not move it. The roles toe and toeTip are named toePivot and toeTipPivot,
+        because toe and toeTip are the bind joints' sockets. There is no ball socket (the ball pivot was removed on 2026-11-25)."""
+        self._build()
+        cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
+        module = rig_name(FOOT_MODULE)
+        names = [json.loads(cmds.getAttr("%s.socketNames[%d]" % (module, i)))[0] for i in range(10)]
+        self.assertEqual(names, ["ankle", "toe", "toeTip", "heel", "toeTipPivot", "bankOut", "bankIn", "toePivot", "foot", "toeFk"])
+        self.assertEqual(cmds.getAttr(module + ".socketNames", size=True), 10)
+
+        def socket(index):
+            matrix = cmds.getAttr("%s.outputSocketMatrix[%d]" % (module, index))
+            return matrix[12:15], matrix
+
+        def assertAt(index, expected):
+            position, _ = socket(index)
+            self.assertTrue(all(abs(a - e) < 1e-4 for a, e in zip(position, expected)), "socket %d: expected %s, got %s" % (index, expected, position))
+
+        assertAt(3, (4.0, 3.2, -0.4))
+        self.assertAlmostEqual(socket(3)[1][5], 1.0, places=4, msg="the heel socket is not turned")
+        assertAt(7, TOE_REST)
+        self.assertAlmostEqual(socket(7)[1][6], math.sin(math.radians(20)), places=4, msg="the toe pivot socket is turned 20 about X")
+        assertAt(4, (4.0, 3.2, 2.4))
+        self.assertAlmostEqual(socket(4)[1][5], 1.0, places=4, msg="the toe tip pivot socket is not turned below the break")
+        cmds.setAttr(rig_name(FOOT + ".footRoll"), 50)
+        assertAt(4, (4.0, 3.2, 2.4))   # past the break the toe tip turns about itself and stays on the ground
+        self.assertAlmostEqual(socket(4)[1][6], math.sin(math.radians(20)), places=4, msg="the toe tip pivot socket is turned 20 past the break")
+        cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
+        # The toe and toe tip sockets are the joints' worlds.
+        assertAt(1, self.world(TOE))
+        assertAt(2, self.world(TOE_TIP))
+
+    def test_the_toe_joints_are_the_foots_and_the_ankle_the_limbs(self):
+        self._build()
+        for joint in (TOE, TOE_TIP):
+            self.assertOpmDrivenBy(rig_name(joint), FOOT_MODULE)
+        self.assertOpmDrivenBy(rig_name(HAND), LIMB)
+
+    def test_the_graph_stays_acyclic_with_the_toe_reading_the_end_socket(self):
+        """The toe reads the Limb's end socket through the ankle plug, and the ankle socket that feeds the Limb never does: a cold evaluation
+        in DG and in parallel mode gives the same toe."""
+        self._build()
+        for evaluation in ("off", "parallel"):
+            cmds.evaluationManager(mode=evaluation)
+            cmds.setAttr(rig_name(FOOT + ".footRoll"), 20)
+            cmds.dgdirty(allPlugs=True)
+            self.assertWorld(HAND, (4.0, 4.573421, 0.347967))   # worked in the toe_tap_25_with_roll_20 pose case
+            self.assertWorld(TOE, TOE_REST)
+            cmds.setAttr(rig_name(FOOT + ".footRoll"), 0)

@@ -1,0 +1,38 @@
+{
+  "description": "The tap alone turns the toe 25 about X and moves nothing else: the hand stays at (4, 4, 0), the toe at its rest, and the toe tip swings 25 about the toe: (0, -0.1 cos25 - 0.6 sin25, -0.1 sin25 + 0.6 cos25) = (0, -0.34419, 0.501459) from it.",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.toeTap": 25
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.0,
+        0.0
+      ]
+    },
+    "toe_00_L_JNT": {
+      "translate": [
+        4.0,
+        3.3,
+        1.8
+      ],
+      "rotate": [
+        0.0,
+        -25.0,
+        90.0
+      ]
+    },
+    "toeTip_00_L_JNT": {
+      "translate": [
+        4.0,
+        2.95581,
+        2.301459
+      ]
+    }
+  }
+}

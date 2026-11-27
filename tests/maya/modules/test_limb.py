@@ -10,13 +10,11 @@ import math
 from maya import cmds
 
 import rigmodules.query
-from commands.test_inverse_solve import SolveTestCase
 from commands.test_two_bone_ik_cmds import SwitchTestCase
-from commands.test_two_bone_ik_inverse import CapturedWarnings
 from rigtest import fixtures
-from rigtest.case import RigTestCase, rig_name
+from rigtest.case import CapturedWarnings, RigTestCase, rig_name
 from rigtest.cases import add_pose_cases
-from rigtest.jointclips import rig_root
+from rigtest.jointclips import SolveTestCase, rig_root
 from rigtest.module_contract import ModuleContract
 
 LIMB_JOINTS = ["upperArm_00_L_JNT", "lowerArm_00_L_JNT", "hand_00_L_JNT"]

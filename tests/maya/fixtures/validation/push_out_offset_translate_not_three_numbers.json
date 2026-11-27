@@ -1,0 +1,21 @@
+{
+  "description": "The capsule's offset translate is three numbers",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/capsule/offset",
+      "value": {
+        "translate": [
+          1,
+          2
+        ]
+      }
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "three numbers"
+    }
+  ]
+}

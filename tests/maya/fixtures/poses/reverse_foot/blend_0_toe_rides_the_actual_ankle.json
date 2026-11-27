@@ -1,0 +1,39 @@
+{
+  "description": "At blend 0 the FK start control turned 90 about Z swings the whole limb about the shoulder at the origin: the hand goes (4, 4, 0) to (-4, 4, 0), the toe (4, 3.3, 1.8) to (-3.3, 4, 1.8) turned 90 more (Rz 180), and the toe tip (4, 3.2, 2.4) to (-3.2, 4, 2.4).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "armSettings_00_L_CTRL.ikFkBlend": 0,
+    "upperArm_00_L_CTRL.rotateZ": 90
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        -4.0,
+        4.0,
+        0.0
+      ]
+    },
+    "toe_00_L_JNT": {
+      "translate": [
+        -3.3,
+        4.0,
+        1.8
+      ],
+      "rotate": [
+        0.0,
+        0.0,
+        180.0
+      ]
+    },
+    "toeTip_00_L_JNT": {
+      "translate": [
+        -3.2,
+        4.0,
+        2.4
+      ]
+    }
+  }
+}

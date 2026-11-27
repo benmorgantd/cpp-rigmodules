@@ -33,7 +33,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D17 | Read-phase validation before any scene change | Decided | [foundations](decisions/foundations.md) |
 | D18 | createRigFromTemplate takes its joints by name and owns the rig namespace | Decided | [foundations](decisions/foundations.md) |
 | D19 | Commands take the same socket ids as templates | Decided | [foundations](decisions/foundations.md) |
-| D20 | mayapy test suite with data-driven expectations | Decided | [foundations](decisions/foundations.md) |
+| D20 | mayapy test suite with data-driven expectations (amended 2026-11-27: parallel mayapy workers, files merged by subject, template errors and pose checks as data) | Decided | [foundations](decisions/foundations.md) |
 | D21 | User docs in `docs/`, design docs in `design/` | Decided | [foundations](decisions/foundations.md) |
 | D22 | `maya/` grouped by role: modules, commands, nodes, shared | Decided | [foundations](decisions/foundations.md) |
 | D23 | All C++ under `cpp/`, with its project | Decided | [foundations](decisions/foundations.md) |

@@ -1,0 +1,47 @@
+{
+  "description": "Pairs at 0.25 (0.2) and 0.75 (0.8): the controls at 0, 0.5 and 1 take 0.2 (held), 0.5 and 0.8 (held) of a 30 degree roll: 6, 15 and 24 degrees.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_fk",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/twistRamp",
+      "value": [
+        [
+          0.25,
+          0.2
+        ],
+        [
+          0.75,
+          0.8
+        ]
+      ]
+    }
+  ],
+  "set": {
+    "tailFK_00_M_CTRL.rotateX": 30
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "tailIK_00_M_CTRL": {
+      "rotate": [
+        6.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_01_M_CTRL": {
+      "rotate": [
+        15.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_02_M_CTRL": {
+      "rotate": [
+        24.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

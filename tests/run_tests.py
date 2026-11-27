@@ -1,18 +1,20 @@
 """Runs the RigModules test suite in tiers. Start it through RigTests.cmd.
 
-Usage: mayapy run_tests.py [filter ...] [-v] [--keep-going] [--update-golden] [--plugin PATH]
+Usage: mayapy run_tests.py [filter ...] [-v] [--keep-going] [--jobs N] [--durations [N]] [--update-golden] [--plugin PATH]
 
-Tiers run in the order of TIERS, in one mayapy process. A tier runs only if every earlier gating tier
-passed, so a broken plugin or build is reported once at its root instead of as a failure in every later
-test.
+Tiers run in the order of TIERS. A tier runs only if every earlier gating tier passed, so a broken plugin or build
+is reported once at its root instead of as a failure in every later test.
 
-This script starts that mayapy process as a child and watches it. The child writes each outcome as it
-happens and records the running test before it starts, so if Maya crashes the report still names the
-test and keeps every earlier result. Maya's crash reporter is turned off for the child and its temp
-files go to the run folder, so a crash leaves no dialog and nothing in the user's Temp folder.
+Each tier's test files are shared out between --jobs mayapy workers, which start together, load the plugin once and
+then run tier after tier: a worker takes the next unclaimed file of the tier, runs it, and takes another until none is
+left. The next tier starts only when every worker has finished this one and it passed. The plain Python files run the
+same way in their own Python workers, beside Maya, gating nothing.
 
-A filter keeps tests whose id contains it (case-insensitive). Filtered runs do not run the earlier
-tiers as prerequisites.
+Each worker writes each outcome as it happens and records the running test before it starts, so if a Maya crashes the
+report still names the test and keeps every earlier result. Maya's crash reporter is turned off for the workers and
+their temp files go to the run folder, so a crash leaves no dialog and nothing in the user's Temp folder.
+
+A filter keeps tests whose id contains it (case-insensitive). Filtered runs still gate: a failed tier blocks later ones.
 """
 import argparse
 import glob
@@ -65,8 +67,7 @@ TIERS = [
         "modules.test_two_bone_ik",         # TwoBoneIk: contract, pose cases, behaviour, the settings and pole channels
         "modules.test_ribbon",              # Ribbon: contract, pose cases, behaviour, the plan step checks
         "modules.test_limb",                # Limb: contract, pose cases, the sharp elbow, the plan step checks, DAG parenting
-        "modules.test_reverse_foot",
-        "modules.test_reverse_foot_stage2",   # ReverseFoot stage 2: the toes, the toe FK control, the blend and the pivot sockets        # ReverseFoot stage 1: contract, pose cases worked from the core foot, channels, plugs, markers, the loop checks
+        "modules.test_reverse_foot",        # ReverseFoot: contract, pose cases worked from the core foot, channels, plugs, markers, the loop checks, the inverse, the toes and the toe FK control
         "modules.test_push_out",            # rigPushOut: the collisions list, the push, the mirror, the read-phase checks, the display
         "concepts.test_sockets",
         "concepts.test_naming",
@@ -75,23 +76,18 @@ TIERS = [
         "commands.test_rig_info",           # getRigInfo and the rigmodules Python query
         "commands.test_skin_weight_cmds",   # weight files; binding at rest needs a built rig
         "commands.test_smooth_skin_weights",  # smoothSkinWeights: neighbor averaging, locks, max influences, undo
-        "commands.test_skin_brush_rest",    # the rest-match brushes: restDelta and restEdge move weights towards the rest shape in a pose
-        "commands.test_skin_brush",       # the skin brush engine below the mouse: surface falloff, picking, per-stroke undo, the context settings
+        "commands.test_skin_brush",         # the skin brush below the mouse: falloff, picking, undo, the context settings, and the rest-match brushes
         "commands.test_rig_look",           # setRigLook and the lookRoot
         "commands.test_attachment",         # parentRig and "parent:" ids: a rig that follows another rig
     ]),
     ("constraints", True, [
-        "commands.test_constraint_cmds",
-        "commands.test_constraint_types",  # Orient, Point, Swing and Twist, and the shoulder and wrist ribbons
-        "commands.test_constraint_weight",  # constraintWeight: a baked blend from the parent to the full constraint
+        "commands.test_constraints",       # the constraint commands and space switching, the types and constraintWeight
         "concepts.test_docs_examples",    # the README quick start ends with a space switch
         "concepts.test_mirror",            # mirrored templates include mirrored constraints
         "commands.test_rig_pose_cmds",     # the animation interface: channels, zero, mirror and flip pose
-        "commands.test_rig_inverse_cmds",  # poseRigFromJointPose and animateRigFromJointClip, JointClip reader
+        "commands.test_inverse",           # poseRigFromJointPose and animateRigFromJointClip: the readers, the solve's round trips, the TwoBoneIk inverse
         "commands.test_joint_clip_capture",  # rigmodules.jointclip.capture_joint_clip
         "commands.test_joint_clip_fbx",    # FBX joint files, bone maps and the skeleton export
-        "commands.test_inverse_solve",     # the inverse solve: round trips through every module, constraint and the sidecar
-        "commands.test_two_bone_ik_inverse",  # the TwoBoneIk inverse: handle, pole, pin, roll, soft, stretch, blend, hand-worked
         "commands.test_two_bone_ik_cmds",  # setRigIkFkBlend, the matched IK/FK switch, and the pole's module-owned space switch: hand-worked values, no pop either way, warnings, undo
         "commands.test_rig_key_cmds",      # getRigKeys and setRigKeys, and animateRigFromJointClip's keys
         "commands.test_rig_animation_cmds",  # saveRigAnimation, loadRigAnimation and the keys payload's tangents
@@ -103,26 +99,32 @@ TIERS = [
     ]),
 ]
 
-# Test files that never touch the plugin or a scene. They run in their own plain Python process, started
-# before Maya and alongside it, so their time (mayalaunch starts real Mayas and waits on timeouts: about
-# 15 s) overlaps Maya's instead of adding to it. They gate nothing: if the launcher is broken, the Maya
-# tiers fail on their own, and the run reports both. Every file here must import no maya module.
+# Test files that never touch the plugin or a scene. They run in plain Python workers, started before Maya and
+# alongside it, so their time (mayalaunch starts real Mayas and waits on timeouts, and the core C++ build) overlaps
+# Maya's instead of adding to it. They gate nothing: if the launcher is broken, the Maya tiers fail on their own, and
+# the run reports both. Every file here must import no maya module. Slowest first, so the longest starts first.
 PLAIN_PYTHON = [
     "concepts.test_mayalaunch",        # the launcher every script that starts Maya uses
+    "concepts.test_core_cpp",          # tests/core: the Maya-free C++ of core/, built with cl.exe into one program and run
     "concepts.test_source_layout",     # core/ stays Maya-free; reads files, not the scene
     "concepts.test_python_template",   # rigmodules.template reads a file, builds nothing
-    "concepts.test_core_cpp",          # tests/core: the Maya-free C++ of core/, built with cl.exe into one program and run
 ]
 PLAIN_TIER = "plain"
 PLAIN_LABEL = "plain python    "
 
 OUTCOME_CHARS = {"pass": ".", "FAIL": "F", "ERROR": "E", "xfail": "x", "XPASS": "X", "skip": "s"}
 BAD_OUTCOMES = ("FAIL", "ERROR", "XPASS")
-FILES = {"results": "results.json", "progress": "progress.txt", "outcomes": "outcomes.jsonl", "log": "maya_output.log"}
 
 # A run that takes longer than this is a hung Maya. The suite takes about 35 s.
 DEFAULT_TIMEOUT_SECONDS = 900
 DEFAULT_DURATIONS = 10
+# Maya workers. Each is a mayapy with the plugin loaded (about 10 s to start, all at once); past four, the start and
+# the memory cost more than the tests they share out.
+DEFAULT_JOBS = 4
+# How often a waiting worker or the watching parent looks at the run folder.
+POLL_SECONDS = 0.05
+# How long the parent waits for workers to exit after the last tier before it stops them.
+EXIT_GRACE_SECONDS = 60
 
 
 def parse_args():
@@ -130,16 +132,18 @@ def parse_args():
     parser.add_argument("filters", nargs="*", help="keep tests whose id contains any of these")
     parser.add_argument("-v", "--verbose", action="store_true", help="print each test as it runs")
     parser.add_argument("--keep-going", action="store_true", help="run every tier even after one fails")
+    parser.add_argument("--jobs", type=int, default=DEFAULT_JOBS,
+                        help="Maya workers that share out each tier's test files (default: %(default)s)")
     parser.add_argument("--durations", nargs="?", type=int, const=DEFAULT_DURATIONS, default=0, metavar="N",
                         help="after the TOTAL line, list the N slowest test files and tests (default N: %d)"
                              % DEFAULT_DURATIONS)
     parser.add_argument("--update-golden", action="store_true", help="rewrite golden interface snapshots")
     parser.add_argument("--plugin", default=DEFAULT_PLUGIN, help="plugin to test (default: Release build)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_SECONDS,
-                        help="seconds before a Maya that has not finished is stopped (default: %(default)s)")
-    # Internal: the parent starts the Maya process with these.
-    parser.add_argument("--child-from-tier", type=int, help=argparse.SUPPRESS)
-    parser.add_argument("--plain-child", action="store_true", help=argparse.SUPPRESS)
+                        help="seconds before a run that has not finished is stopped (default: %(default)s)")
+    # Internal: the parent starts each worker with these.
+    parser.add_argument("--worker", help=argparse.SUPPRESS)
+    parser.add_argument("--plain", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--work-dir", help=argparse.SUPPRESS)
     return parser.parse_args()
 
@@ -179,14 +183,32 @@ def append_outcome(path, outcome):
         handle.write(json.dumps(outcome) + "\n")
 
 
-def read_outcomes(path):
-    if not os.path.isfile(path):
-        return []
+def read_json_file(path):
     with open(path, encoding="utf-8") as handle:
-        return [json.loads(line) for line in handle if line.strip()]
+        return json.load(handle)
 
 
-# ==== child: runs the tiers inside Maya ==========================================================
+def write_json_file(path, value):
+    """Writes through a temporary file and a rename, so a reader never sees half a file."""
+    with open(path + ".tmp", "w", encoding="utf-8") as handle:
+        json.dump(value, handle)
+    os.replace(path + ".tmp", path)
+
+
+def write_text(path, text):
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
+def read_text(path, default=""):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            return handle.read()
+    except OSError:
+        return default
+
+
+# ==== running tests (in a worker, or inline in the current Maya) =================================
 
 def group_of(test):
     """Report group: the test file name without its test_ prefix, e.g. 'fkchain'."""
@@ -195,8 +217,8 @@ def group_of(test):
 
 
 class TierResult(unittest.TestResult):
-    """Appends each outcome to the outcomes file as it happens (so a crash keeps every earlier result),
-    writes the running test to the progress file, and streams one mark per test."""
+    """Appends each outcome to the outcomes file as it happens (so a crash keeps every earlier result) and writes the
+    running test to the progress file. With out, it also streams one mark per test there."""
 
     def __init__(self, out, files, tier, verbose):
         super().__init__()
@@ -216,15 +238,15 @@ class TierResult(unittest.TestResult):
         self._mark = now
         self.outcomes.append(item)
         append_outcome(self.files["outcomes"], item)
-        self.out.write(("    %-8s %s\n" % (outcome, test.id())) if self.verbose else OUTCOME_CHARS[outcome])
-        self.out.flush()
+        if self.out:
+            self.out.write(("    %-8s %s\n" % (outcome, test.id())) if self.verbose else OUTCOME_CHARS[outcome])
+            self.out.flush()
 
     def startTest(self, test):
         super().startTest(test)
         # Written before the test runs: if Maya crashes, the parent reads which test it was.
-        with open(self.files["progress"], "w", encoding="utf-8") as handle:
-            handle.write("%s\t%s" % (self.tier, test.id()))
-        if self.verbose:
+        write_text(self.files["progress"], "%s\t%s" % (self.tier, test.id()))
+        if self.out and self.verbose:
             self.out.write("\n    running  %s" % test.id())
             self.out.flush()
 
@@ -260,13 +282,9 @@ class TierResult(unittest.TestResult):
         self._record(test, "skip", reason)
 
 
-def load_tier_tests(tier, filters):
-    """Returns (tests, load errors) for one tier. A module that fails to import is reported, not fatal."""
-    return load_modules(TIERS[tier][2], tier, filters)
-
-
 def load_modules(modules, tier, filters):
-    """Returns (tests, load errors) for the named test modules, with the filters applied."""
+    """Returns (tests, load errors) for the named test modules, with the filters applied. A module that fails to
+    import is reported, not fatal."""
     loader = unittest.TestLoader()
     tests, errors = [], []
     for name in modules:
@@ -274,7 +292,7 @@ def load_modules(modules, tier, filters):
             suite = loader.loadTestsFromName(name)
         except Exception:
             errors.append({"tier": tier, "id": name, "group": name.split(".")[-1].replace("test_", "", 1),
-                           "outcome": "ERROR", "detail": "could not load:\n" + traceback.format_exc()})
+                           "outcome": "ERROR", "detail": "could not load:\n" + traceback.format_exc(), "seconds": 0.0})
             continue
         stack = [suite]
         while stack:
@@ -289,53 +307,254 @@ def load_modules(modules, tier, filters):
     return tests, errors
 
 
+def run_modules(modules, tier, files, filters, out=None, verbose=False):
+    """Runs the named test modules, writing every outcome (load errors included) to the outcomes file. Returns them."""
+    tests, load_errors = load_modules(modules, tier, filters)
+    for error in load_errors:
+        append_outcome(files["outcomes"], error)
+    result = TierResult(out, files, tier, verbose)
+    unittest.TestSuite(tests).run(result)
+    return load_errors + result.outcomes
+
+
 def configure_rigtest(work_dir, update_golden):
     for folder in (MAYA_TESTS_DIR, PYTHON_DIR):
         if folder not in sys.path:
             sys.path.insert(0, folder)
+    os.makedirs(work_dir, exist_ok=True)
     from rigtest import config
     config.WORK_DIR = work_dir
     config.UPDATE_GOLDEN = update_golden
 
 
-def run_tiers(report, files, first_tier, filters, verbose, keep_going):
-    """Runs tiers in order from first_tier inside the current Maya, writing the report as it goes.
-    A tier runs only if every earlier gating tier passed, unless keep_going."""
-    blocked_by = None
-    for tier in range(first_tier, len(TIERS)):
-        label = tier_label(tier)
-        if blocked_by:
-            report.write("%sNOT RUN (blocked by %s)\n" % (label, blocked_by))
-            continue
-        report.write(label)
-        report.flush()
-        with open(files["progress"], "w", encoding="utf-8") as handle:
-            handle.write("%d\tloading tests" % tier)
-        tests, load_errors = load_tier_tests(tier, filters)
-        for error in load_errors:
-            append_outcome(files["outcomes"], error)
-        result = TierResult(report, files, tier, verbose)
-        unittest.TestSuite(tests).run(result)
-        outcomes = load_errors + result.outcomes
-        counts, text = summarize(outcomes)
-        separator = "\n" + " " * len(label) if verbose else ("  " if outcomes else "")
-        report.write("%s%s\n" % (separator, text if outcomes else "no tests"))
-        write_failures(report, outcomes)
-        report.flush()
-        if any(counts.get(k) for k in BAD_OUTCOMES) and TIERS[tier][1] and not keep_going:
-            blocked_by = "tier %d %s" % (tier + 1, TIERS[tier][0])
+def tier_modules(tier):
+    return PLAIN_PYTHON if tier == PLAIN_TIER else TIERS[tier][2]
 
 
-def write_durations(out, outcomes, elapsed, count):
-    """Where the time went: Maya's startup and tier loading apart from the tests, then the slowest test
-    files and the slowest tests. Each outcome's seconds run from the previous outcome's end (see
-    TierResult._record), so a test's own setup is counted against it."""
-    # The plain Python tests run alongside Maya, so only the Maya tiers count against the run's clock.
+# ==== worker: runs whole test files, tier after tier ==============================================
+#
+# The run folder holds what the parent and its workers share:
+#   go.<tier>                      written by the parent: the tier may start. stop: no more tiers.
+#   claims/<tier>.<module>         created by the worker that takes that file (O_EXCL, so exactly one does)
+#   <worker>.outcomes.jsonl        every outcome, appended as it happens
+#   <worker>.progress.txt          what the worker is doing now: "startup: ..." or "<tier>\t<test id>"
+#   <worker>.startup.json          written once startup ended: {"error": null or the traceback}
+#   <worker>.done.<tier>           the worker found no file of that tier left to take
+#   <worker>.log                   the worker's stdout and stderr, Maya's own output included
+
+def worker_files(work_dir, name):
+    base = os.path.join(work_dir, name)
+    return {"outcomes": base + ".outcomes.jsonl", "progress": base + ".progress.txt", "startup": base + ".startup.json",
+            "done": base + ".done.%s", "log": base + ".log", "dir": base}
+
+
+def go_path(work_dir, tier):
+    return os.path.join(work_dir, "go.%s" % tier)
+
+
+def stop_path(work_dir):
+    return os.path.join(work_dir, "stop")
+
+
+def claim(work_dir, tier, module):
+    """True for exactly one worker per (tier, module)."""
+    try:
+        os.close(os.open(os.path.join(work_dir, "claims", "%s.%s" % (tier, module)), os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        return True
+    except FileExistsError:
+        return False
+
+
+def wait_for_go(work_dir, tier):
+    """Waits until the parent starts tier (returns its modules) or stops the run (returns None)."""
+    while True:
+        if os.path.exists(go_path(work_dir, tier)):
+            return read_json_file(go_path(work_dir, tier))["modules"]
+        if os.path.exists(stop_path(work_dir)):
+            return None
+        time.sleep(POLL_SECONDS)
+
+
+def run_worker(args):
+    """A worker process: starts Maya (unless plain) with the plugin, then runs every tier the parent starts, taking
+    test files from its queue until none is left. Its stdout and stderr go to its log through the parent."""
+    files = worker_files(args.work_dir, args.worker)
+    write_text(files["progress"], "startup: initializing Maya" if not args.plain else "startup")
+    error = None
+    try:
+        if not args.plain:
+            mayalaunch.start_standalone()
+            from maya import cmds
+            write_text(files["progress"], "startup: loading the plugin")
+            cmds.loadPlugin(args.plugin)
+        configure_rigtest(files["dir"], args.update_golden)
+    except Exception:
+        error = traceback.format_exc()
+    write_json_file(files["startup"], {"error": error})
+
+    if error is None:
+        for tier in [PLAIN_TIER] if args.plain else range(len(TIERS)):
+            modules = wait_for_go(args.work_dir, tier)
+            if modules is None:
+                break
+            for module in modules:
+                if claim(args.work_dir, tier, module):
+                    write_text(files["progress"], "%s\tloading %s" % (tier, module))
+                    run_modules([module], tier, files, args.filters)
+            write_text(files["done"] % tier, "")
+            write_text(files["progress"], "%s\twaiting" % tier)
+
+    if args.plain:
+        sys.stdout.flush()
+        os._exit(0)
+    mayalaunch.finish_standalone(0)
+
+
+# ==== parent: starts the workers, shares out the tiers, and reports ===============================
+
+def running_maya_dir():
+    """The Maya install this script runs under, so the workers are the same mayapy. None outside mayapy, which
+    leaves mayalaunch to find the install."""
+    if "mayapy" in os.path.basename(sys.executable).lower():
+        return os.path.dirname(os.path.dirname(sys.executable))
+    return None
+
+
+class Worker:
+    """One worker process as the parent sees it: its files, and the outcomes it has written so far."""
+
+    def __init__(self, name, args, work_dir, plugin_copy, plain):
+        self.name = name
+        self.files = worker_files(work_dir, name)
+        self.read_bytes = 0
+        self.crash_reported = False
+        command = ["--worker", name, "--work-dir", work_dir] + list(args.filters)
+        command += ["--plain"] if plain else ["--plugin", plugin_copy]
+        command += ["--update-golden"] if args.update_golden else []
+        env = mayalaunch.child_environment(self.files["dir"])
+        if plain:
+            log = open(self.files["log"], "w", encoding="utf-8")
+            self.process = subprocess.Popen([sys.executable, os.path.abspath(__file__)] + command, env=env,
+                                            stdout=log, stderr=subprocess.STDOUT)
+            log.close()
+        else:
+            self.process = mayalaunch.start_mayapy(os.path.abspath(__file__), command, env, maya_dir=running_maya_dir(),
+                                                   log_path=self.files["log"])
+
+    def alive(self):
+        return self.process.poll() is None
+
+    def finished(self, tier):
+        return os.path.exists(self.files["done"] % tier)
+
+    def startup_error(self):
+        """The Python error that stopped startup, or None (not started yet, or started fine)."""
+        if not os.path.isfile(self.files["startup"]):
+            return None
+        return read_json_file(self.files["startup"])["error"]
+
+    def started(self):
+        return os.path.isfile(self.files["startup"]) and self.startup_error() is None
+
+    def new_outcomes(self):
+        """Outcomes written since the last call. Only whole lines count, so a line being written is read next time."""
+        try:
+            with open(self.files["outcomes"], "rb") as handle:
+                handle.seek(self.read_bytes)
+                data = handle.read()
+        except OSError:
+            return []
+        whole = data[:data.rfind(b"\n") + 1]
+        self.read_bytes += len(whole)
+        return [json.loads(line) for line in whole.decode("utf-8").splitlines() if line.strip()]
+
+    def stop(self):
+        if self.alive():
+            mayalaunch.kill_process_tree(self.process.pid)
+            self.process.wait()
+
+    def describe_exit(self, how):
+        """What happened to a worker that ended without finishing its tier: (kind, message). kind is "startup" (Maya
+        or the plugin did not load) or "crash"."""
+        closed = mayalaunch.close_crash_reporters(self.process.pid)
+        cleanup = "\nClosed %d crash reporter process(es)." % closed if closed else ""
+        error = self.startup_error()
+        if error:
+            return "startup", error
+        stage = read_text(self.files["progress"], "startup: before Maya began").strip()
+        if stage.startswith("startup"):
+            tail = "".join(read_text(self.files["log"], "(no Maya log was written)").splitlines(True)[-15:])
+            return "startup", "Maya %s during %s.%s\n--- end of %s ---\n%s" % (how, stage, cleanup, self.files["log"], tail)
+        test_id = stage.split("\t", 1)[1]
+        return "crash", "Maya (%s) %s during %s%s\nRerun just that test with RigTests.cmd -v --jobs 1 %s" % (
+            self.name, how, test_id, cleanup, test_id.split(".")[-1])
+
+
+def run_tier(tier, workers, work_dir, out, verbose, deadline):
+    """Starts tier on the workers and waits until every one of them has finished it, crashed or the deadline passed.
+    Streams one mark per outcome. Returns (outcomes, problems), problems being (kind, message) pairs."""
+    modules = tier_modules(tier)
+    write_json_file(go_path(work_dir, tier), {"modules": modules})
+    outcomes, problems = [], []
+    pending = list(workers)
+
+    def collect():
+        for worker in workers:
+            for item in worker.new_outcomes():
+                if item["tier"] != tier:
+                    continue
+                outcomes.append(item)
+                if out:
+                    out.write(("    %-8s %s\n" % (item["outcome"], item["id"])) if verbose else OUTCOME_CHARS[item["outcome"]])
+                    out.flush()
+
+    while pending:
+        collect()
+        for worker in list(pending):
+            if worker.finished(tier):
+                pending.remove(worker)
+            elif not worker.alive():
+                pending.remove(worker)
+                worker.crash_reported = True
+                problems.append(worker.describe_exit("exited with code %s" % worker.process.returncode))
+        if pending and time.time() > deadline:
+            for worker in pending:
+                stage = read_text(worker.files["progress"]).strip()
+                worker.stop()
+                worker.crash_reported = True
+                problems.append(("crash", "Maya (%s) stopped after the run's timeout, during %s" % (worker.name, stage)))
+            pending = []
+        if pending:
+            time.sleep(POLL_SECONDS)
+    collect()
+
+    claimed = {os.path.basename(p) for p in glob.glob(os.path.join(work_dir, "claims", "%s.*" % tier))}
+    unrun = [m for m in modules if "%s.%s" % (tier, m) not in claimed]
+    if unrun and problems:
+        problems.append(("crash", "Not run, no worker was left to take them: %s" % ", ".join(unrun)))
+    return outcomes, problems
+
+
+def report_tier(out, label, outcomes, problems, verbose):
+    counts, text = summarize(outcomes)
+    if problems:
+        text += "  STOPPED"
+    separator = "\n" + " " * len(label) if verbose else ("  " if outcomes else "")
+    out.write("%s%s\n" % (separator, text if outcomes or problems else "no tests"))
+    write_failures(out, outcomes)
+    for _, message in problems:
+        out.write(indent(message, "  ") + "\n")
+    out.flush()
+    return any(counts.get(k) for k in BAD_OUTCOMES) or bool(problems)
+
+
+def write_durations(out, outcomes, elapsed, count, jobs):
+    """Where the time went: the slowest test files and the slowest tests. Each outcome's seconds run from the previous
+    outcome's end in the same worker (see TierResult._record), so a test's own setup is counted against it."""
     tests_seconds = sum(item.get("seconds", 0.0) for item in outcomes if item["tier"] != PLAIN_TIER)
     plain_seconds = sum(item.get("seconds", 0.0) for item in outcomes if item["tier"] == PLAIN_TIER)
-    out.write("\nTime: %.1f s in Maya tests, %.1f s outside them (Maya startup, plugin load, test loading), "
-              "%.1f s in plain Python tests running alongside\n"
-              % (tests_seconds, max(0.0, elapsed - tests_seconds), plain_seconds))
+    out.write("\nTime: %.1f s of Maya tests shared between %d worker(s), %.1f s of plain Python tests alongside, "
+              "%.1f s wall\n" % (tests_seconds, jobs, plain_seconds, elapsed))
     by_group = {}
     for item in outcomes:
         total, number = by_group.get(item["group"], (0.0, 0))
@@ -349,64 +568,7 @@ def write_durations(out, outcomes, elapsed, count):
     out.flush()
 
 
-def plain_files(work_dir):
-    files = {k: os.path.join(work_dir, "plain_" + v) for k, v in FILES.items()}
-    files["report"] = os.path.join(work_dir, "plain_report.txt")
-    return files
-
-
-def run_plain_child(args):
-    """Runs PLAIN_PYTHON in this process, which has no Maya, writing outcomes and a one-tier report."""
-    files = plain_files(args.work_dir)
-    configure_rigtest(os.path.join(args.work_dir, "plain"), update_golden=False)
-    os.makedirs(os.path.join(args.work_dir, "plain"), exist_ok=True)
-    with open(files["report"], "w", encoding="utf-8") as report:
-        tests, load_errors = load_modules(PLAIN_PYTHON, PLAIN_TIER, args.filters)
-        for error in load_errors:
-            append_outcome(files["outcomes"], error)
-        result = TierResult(report, files, PLAIN_TIER, args.verbose)
-        unittest.TestSuite(tests).run(result)
-        outcomes = load_errors + result.outcomes
-        counts, text = summarize(outcomes)
-        report.write("%s%s\n" % ("\n" + " " * len(PLAIN_LABEL) if args.verbose else ("  " if outcomes else ""),
-                                 text if outcomes else "no tests"))
-        write_failures(report, outcomes)
-
-
-def start_plain(work_dir, filters, verbose):
-    """Starts the plain Python child and returns its Popen. Nothing in it can reach the Maya run."""
-    command = [sys.executable, os.path.abspath(__file__), "--plain-child", "--work-dir", work_dir]
-    command += ["-v"] if verbose else []
-    command += list(filters)
-    log = open(plain_files(work_dir)["log"], "w", encoding="utf-8")
-    return subprocess.Popen(command, env=mayalaunch.child_environment(work_dir), stdout=log, stderr=subprocess.STDOUT)
-
-
-def finish_plain(process, work_dir, out, timeout):
-    """Waits for the plain child, writes its report to out and returns its outcomes. A child that dies or
-    hangs without finishing its report is an ERROR, not a pass by absence."""
-    files = plain_files(work_dir)
-    problem = None
-    try:
-        process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], capture_output=True)
-        problem = "the plain Python tests did not finish within %d s" % timeout
-    if problem is None and process.returncode != 0:
-        problem = "the plain Python process exited with code %s. See %s" % (process.returncode, files["log"])
-    if os.path.isfile(files["report"]):
-        with open(files["report"], encoding="utf-8") as handle:
-            out.write(PLAIN_LABEL + handle.read())
-    outcomes = read_outcomes(files["outcomes"])
-    if problem:
-        out.write(PLAIN_LABEL + "STOPPED\n" + indent(problem, "  ") + "\n")
-        outcomes.append({"tier": PLAIN_TIER, "id": "plain python process", "group": "plain", "outcome": "ERROR",
-                         "detail": problem, "seconds": 0.0})
-    out.flush()
-    return outcomes
-
-
-def write_total(out, outcomes, elapsed, log_path, stopped=0, durations=0):
+def write_total(out, outcomes, elapsed, logs, stopped=0, durations=0, jobs=1):
     """Writes the TOTAL line and returns True when nothing failed. durations > 0 adds write_durations."""
     counts, _ = summarize(outcomes)
     summary = "TOTAL %d passed" % counts.get("pass", 0)
@@ -416,83 +578,12 @@ def write_total(out, outcomes, elapsed, log_path, stopped=0, durations=0):
             summary += ", %d %s" % (counts[key], label)
     if stopped:
         summary += ", Maya stopped %d time(s)" % stopped
-    out.write("\n%s   (%.1f s)\nMaya log: %s\n" % (summary, elapsed, log_path))
+    out.write("\n%s   (%.1f s)\nLogs: %s\n" % (summary, elapsed, logs))
     if durations:
-        write_durations(out, outcomes, elapsed, durations)
+        write_durations(out, outcomes, elapsed, durations, jobs)
     out.flush()
     return not stopped and not any(counts.get(k) for k in BAD_OUTCOMES)
 
-
-def run_in_current_maya(filters=(), verbose=False, keep_going=False, durations=0):
-    """Runs the whole suite inside a mayapy that is already running with the plugin loaded, for example
-    at the end of a script that just checked a change, so Maya starts once. Returns True if nothing failed.
-
-        sys.path.insert(0, r"<repo>\\tests")
-        import run_tests
-        ok = run_tests.run_in_current_maya()
-
-    Call it last: every test starts with file -new, so the caller's scene is gone afterwards. There is
-    no crash protection here, so a crash ends the calling script. RigTests.cmd is the protected run.
-    Refuses to run in interactive Maya, where file -new would throw away the user's scene."""
-    from maya import cmds, mel
-    if not cmds.about(batch=True):
-        raise RuntimeError("run_in_current_maya only runs in mayapy or maya -batch, never in interactive Maya.")
-    if not mel.eval('exists "createRigFromTemplate"'):
-        raise RuntimeError("Load the RigModules plugin before running the tests.")
-    problems = check_tier_table()
-    if problems:
-        raise RuntimeError("Test tier table is out of date:\n" + "\n".join(problems))
-
-    work_dir = tempfile.mkdtemp(prefix="RigTests_")
-    files = {k: os.path.join(work_dir, v) for k, v in FILES.items()}
-    configure_rigtest(work_dir, update_golden=False)
-    report = os.fdopen(os.dup(1), "w", encoding="utf-8", errors="replace")
-    report.write("\nRigModules tests | in the current Maya session\n\n")
-    start = time.time()
-    plain = start_plain(work_dir, filters, verbose)
-    redirect = mayalaunch.Redirect(files["log"])
-    try:
-        run_tiers(report, files, 0, list(filters), verbose, keep_going)
-    finally:
-        redirect.stop()
-    plain_outcomes = finish_plain(plain, work_dir, report, DEFAULT_TIMEOUT_SECONDS)
-    ok = write_total(report, read_outcomes(files["outcomes"]) + plain_outcomes, time.time() - start, files["log"],
-                     durations=durations)
-    report.close()
-    return ok
-
-
-def run_child(args):
-    """Runs the tiers from --child-from-tier on and writes the results file. Maya output goes to the log,
-    and stays redirected until the process exits so anything Maya prints on the way out is logged too."""
-    files = {k: os.path.join(args.work_dir, v) for k, v in FILES.items()}
-    report = os.fdopen(os.dup(1), "w", encoding="utf-8", errors="replace")
-    mayalaunch.Redirect(files["log"])
-
-    def progress(text):
-        with open(files["progress"], "w", encoding="utf-8") as handle:
-            handle.write(text)
-
-    results = {"startupError": None}
-    try:
-        progress("startup: initializing Maya")
-        mayalaunch.start_standalone()
-        from maya import cmds
-        progress("startup: loading the plugin")
-        cmds.loadPlugin(args.plugin)
-        configure_rigtest(args.work_dir, args.update_golden)
-    except Exception:
-        results["startupError"] = traceback.format_exc()
-    else:
-        run_tiers(report, files, args.child_from_tier, args.filters, args.verbose, args.keep_going)
-
-    with open(files["results"], "w", encoding="utf-8") as handle:
-        json.dump(results, handle)
-    report.close()
-    mayalaunch.finish_standalone(0)
-
-
-# ==== parent: starts Maya, watches it, and reports crashes =======================================
 
 def check_tier_table():
     """Every test file is in exactly one tier, and every tier entry exists."""
@@ -518,54 +609,29 @@ def stale_sources(plugin):
     return sorted(os.path.relpath(s, CPP_DIR) for s in sources if os.path.getmtime(s) > built)
 
 
-def running_maya_dir():
-    """The Maya install this script runs under, so the child is the same mayapy. None outside mayapy, which
-    leaves mayalaunch to find the install."""
-    if "mayapy" in os.path.basename(sys.executable).lower():
-        return os.path.dirname(os.path.dirname(sys.executable))
-    return None
+def new_run_folder():
+    work_dir = tempfile.mkdtemp(prefix="RigTests_")
+    os.makedirs(os.path.join(work_dir, "claims"))
+    return work_dir
 
 
-def log_tail(path, lines=15):
-    try:
-        with open(path, encoding="utf-8", errors="replace") as handle:
-            return "".join(handle.readlines()[-lines:])
-    except OSError:
-        return "(no Maya log was written)"
+def start_plain_workers(args, work_dir):
+    """One plain worker per plain file, so the slow ones (the launcher's real mayapy, the core C++ build) overlap."""
+    workers = [Worker("plain%d" % (i + 1), args, work_dir, None, plain=True) for i in range(len(PLAIN_PYTHON))]
+    write_json_file(go_path(work_dir, PLAIN_TIER), {"modules": PLAIN_PYTHON})
+    return workers
 
 
-def run_maya(args, work_dir, plugin_copy, from_tier):
-    """Runs tiers from from_tier in one mayapy process.
-    Returns (kind, tier, message): kind is "ok", "startup" (Maya or the plugin did not load) or "crash"."""
-    files = {k: os.path.join(work_dir, v) for k, v in FILES.items()}
-    for key in ("results", "progress"):
-        if os.path.exists(files[key]):
-            os.remove(files[key])
-    child_args = ["--child-from-tier", str(from_tier), "--work-dir", work_dir, "--plugin", plugin_copy] + args.filters
-    child_args += ["-v"] if args.verbose else []
-    child_args += ["--keep-going"] if args.keep_going else []
-    child_args += ["--update-golden"] if args.update_golden else []
-    run = mayalaunch.run_mayapy(os.path.abspath(__file__), child_args, mayalaunch.child_environment(work_dir),
-                                timeout=args.timeout, maya_dir=running_maya_dir())
-    how = "stopped after %d s without finishing" % args.timeout if run.timed_out else "exited with code %s" % run.exit_code
-
-    if os.path.isfile(files["results"]):
-        with open(files["results"], encoding="utf-8") as handle:
-            error = json.load(handle)["startupError"]
-        return ("startup", from_tier, error) if error else ("ok", None, None)
-
-    cleanup = "\nClosed %d crash reporter process(es)." % run.closed_reporters if run.closed_reporters else ""
-    try:
-        with open(files["progress"], encoding="utf-8") as handle:
-            stage = handle.read().strip()
-    except OSError:
-        stage = "startup: before Maya began"
-    if stage.startswith("startup"):
-        return "startup", from_tier, "Maya %s during %s.%s\n--- end of Maya log ---\n%s" % (
-            how, stage, cleanup, log_tail(files["log"]))
-    tier, test_id = stage.split("\t", 1)
-    return "crash", int(tier), "Maya %s during %s%s\nRerun just that test with RigTests.cmd -v %s" % (
-        how, test_id, cleanup, test_id.split(".")[-1])
+def finish_plain(workers, work_dir, out, verbose, deadline):
+    """Waits for the plain workers and writes their line. Returns their outcomes, plus an ERROR for a worker that
+    died or hung, so a missing result is never a pass by absence."""
+    outcomes, problems = run_tier(PLAIN_TIER, workers, work_dir, None, verbose, deadline)
+    for kind, message in problems:
+        outcomes.append({"tier": PLAIN_TIER, "id": "plain python worker", "group": "plain", "outcome": "ERROR",
+                         "detail": message, "seconds": 0.0})
+    out.write(PLAIN_LABEL)
+    report_tier(out, PLAIN_LABEL, outcomes, [], verbose)
+    return outcomes
 
 
 def run_parent(args):
@@ -577,55 +643,124 @@ def run_parent(args):
     if not os.path.isfile(args.plugin):
         out.write("Plugin not found: %s\nBuild the Release configuration first.\n" % args.plugin)
         return 2
+    jobs = max(1, args.jobs)
 
-    work_dir = tempfile.mkdtemp(prefix="RigTests_")
+    work_dir = new_run_folder()
     plugin_copy = mayalaunch.copy_plugin(args.plugin, work_dir)
 
     shown = os.path.abspath(args.plugin)
     if shown.lower().startswith(REPO_DIR.lower() + os.sep):
         shown = os.path.relpath(shown, REPO_DIR)
-    out.write("RigModules tests | %s (built %s)\n" % (
-        shown, time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(args.plugin)))))
+    out.write("RigModules tests | %s (built %s) | %d Maya worker(s)\n" % (
+        shown, time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(args.plugin))), jobs))
     stale = stale_sources(args.plugin)
     if stale:
         out.write("WARNING: sources newer than the plugin, rebuild first: %s\n" % ", ".join(stale))
     if args.filters:
-        out.write("Filtered run: earlier tiers are not run as prerequisites.\n")
+        out.write("Filtered run: only matching tests run, and a failed tier still blocks the later ones.\n")
     out.write("\n")
     out.flush()
 
     start = time.time()
-    plain = start_plain(work_dir, args.filters, args.verbose)
-    stopped = 0
-    from_tier = 0
-    while from_tier < len(TIERS):
-        kind, tier, problem = run_maya(args, work_dir, plugin_copy, from_tier)
-        if kind == "ok":
-            break
-        stopped += 1
-        out.write("startup  FAILED\n" if kind == "startup" else "  STOPPED\n")
-        out.write(indent(problem, "  ") + "\n")
-        out.flush()
-        # A crash ends the Maya process. --keep-going starts a new one at the next tier.
-        if kind == "crash" and args.keep_going and tier + 1 < len(TIERS):
-            from_tier = tier + 1
+    deadline = start + args.timeout
+    plain = start_plain_workers(args, work_dir)
+    names = iter("maya%d" % i for i in range(1, 1000))
+    workers = [Worker(next(names), args, work_dir, plugin_copy, plain=False) for _ in range(jobs)]
+    all_workers = list(workers)
+    outcomes, stopped, blocked_by = [], 0, None
+    for tier in range(len(TIERS)):
+        label = tier_label(tier)
+        if blocked_by:
+            out.write("%sNOT RUN (blocked by %s)\n" % (label, blocked_by))
             continue
-        first_blocked, reason = (tier, "startup") if kind == "startup" else (tier + 1, "a crash in tier %d" % (tier + 1))
-        for later in range(first_blocked, len(TIERS)):
-            out.write("%sNOT RUN (blocked by %s)\n" % (tier_label(later), reason))
-        break
+        workers = [w for w in workers if not w.crash_reported]
+        if not workers:   # --keep-going after every worker crashed: start new ones for the rest of the run
+            # They pass through the earlier tiers quickly: every file there is claimed already.
+            workers = [Worker(next(names), args, work_dir, plugin_copy, plain=False) for _ in range(jobs)]
+            all_workers += workers
+        out.write(label)
+        out.flush()
+        tier_outcomes, problems = run_tier(tier, workers, work_dir, out, args.verbose, deadline)
+        outcomes += tier_outcomes
+        if any(kind == "startup" for kind, _ in problems):
+            out.write("STARTUP FAILED\n" + indent(next(m for k, m in problems if k == "startup"), "  ") + "\n")
+            stopped += 1
+            blocked_by = "startup"
+            continue
+        stopped += sum(1 for kind, message in problems if kind == "crash" and message.startswith("Maya"))
+        failed = report_tier(out, label, tier_outcomes, problems, args.verbose)
+        if failed and TIERS[tier][1] and not args.keep_going:
+            blocked_by = "tier %d %s" % (tier + 1, TIERS[tier][0])
 
-    outcomes = read_outcomes(os.path.join(work_dir, FILES["outcomes"])) + finish_plain(plain, work_dir, out, args.timeout)
-    ok = write_total(out, outcomes, time.time() - start, os.path.join(work_dir, FILES["log"]), stopped,
-                       args.durations)
+    write_text(stop_path(work_dir), "")
+    outcomes += finish_plain(plain, work_dir, out, args.verbose, deadline)
+    exit_by = time.time() + EXIT_GRACE_SECONDS
+    for worker in all_workers:
+        try:
+            worker.process.wait(timeout=max(0.0, exit_by - time.time()))
+        except subprocess.TimeoutExpired:
+            worker.stop()
+    ok = write_total(out, outcomes, time.time() - start, work_dir, stopped, args.durations, jobs)
     return 0 if ok else 1
+
+
+def run_in_current_maya(filters=(), verbose=False, keep_going=False, durations=0):
+    """Runs the whole suite inside a mayapy that is already running with the plugin loaded, for example
+    at the end of a script that just checked a change, so Maya starts once. Returns True if nothing failed.
+
+        sys.path.insert(0, r"<repo>\\tests")
+        import run_tests
+        ok = run_tests.run_in_current_maya()
+
+    The Maya tiers run one after another in this process (no workers); the plain Python files run in their workers
+    beside it. Call it last: every test starts with file -new, so the caller's scene is gone afterwards. There is
+    no crash protection here, so a crash ends the calling script. RigTests.cmd is the protected run.
+    Refuses to run in interactive Maya, where file -new would throw away the user's scene."""
+    from maya import cmds, mel
+    if not cmds.about(batch=True):
+        raise RuntimeError("run_in_current_maya only runs in mayapy or maya -batch, never in interactive Maya.")
+    if not mel.eval('exists "createRigFromTemplate"'):
+        raise RuntimeError("Load the RigModules plugin before running the tests.")
+    problems = check_tier_table()
+    if problems:
+        raise RuntimeError("Test tier table is out of date:\n" + "\n".join(problems))
+
+    work_dir = new_run_folder()
+    files = worker_files(work_dir, "current")
+    configure_rigtest(files["dir"], update_golden=False)
+    report = os.fdopen(os.dup(1), "w", encoding="utf-8", errors="replace")
+    report.write("\nRigModules tests | in the current Maya session\n\n")
+    start = time.time()
+
+    class Args:
+        pass
+    args = Args()
+    args.filters, args.update_golden = list(filters), False
+    plain = start_plain_workers(args, work_dir)
+    redirect = mayalaunch.Redirect(files["log"])
+    outcomes, blocked_by = [], None
+    try:
+        for tier in range(len(TIERS)):
+            label = tier_label(tier)
+            if blocked_by:
+                report.write("%sNOT RUN (blocked by %s)\n" % (label, blocked_by))
+                continue
+            report.write(label)
+            report.flush()
+            tier_outcomes = run_modules(TIERS[tier][2], tier, files, list(filters), report, verbose)
+            outcomes += tier_outcomes
+            if report_tier(report, label, tier_outcomes, [], verbose) and TIERS[tier][1] and not keep_going:
+                blocked_by = "tier %d %s" % (tier + 1, TIERS[tier][0])
+    finally:
+        redirect.stop()
+    outcomes += finish_plain(plain, work_dir, report, verbose, time.time() + DEFAULT_TIMEOUT_SECONDS)
+    ok = write_total(report, outcomes, time.time() - start, work_dir, durations=durations)
+    report.close()
+    return ok
 
 
 if __name__ == "__main__":
     arguments = parse_args()
-    if arguments.plain_child:
-        run_plain_child(arguments)
-        sys.exit(0)
-    if arguments.child_from_tier is not None:
-        run_child(arguments)
+    if arguments.worker:
+        run_worker(arguments)
     sys.exit(run_parent(arguments))

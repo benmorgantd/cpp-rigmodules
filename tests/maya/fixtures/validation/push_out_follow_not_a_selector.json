@@ -1,0 +1,16 @@
+{
+  "description": "follow is a [side, usage] selector, not a bare usage",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/capsule/follow",
+      "value": "a"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "follow"
+    }
+  ]
+}

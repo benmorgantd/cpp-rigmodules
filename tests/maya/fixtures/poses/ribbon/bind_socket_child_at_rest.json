@@ -1,0 +1,16 @@
+{
+  "description": "An FkChain hangs from the bind_2 socket (D78): at rest its joint, extra, sits on the third bind joint (4, 0, 0).",
+  "skeleton": "ribbon_bind_child",
+  "template": "ribbon_bind_child",
+  "set": {},
+  "tolerance": 0.0001,
+  "expect": {
+    "extra_00_M_JNT": {
+      "translate": [
+        4.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

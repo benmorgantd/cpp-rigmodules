@@ -1,5 +1,5 @@
 """Names are public API: golden interface snapshots and control and module naming.
-How constraint command ids resolve across namespaces is in commands/test_constraint_cmds.py."""
+How constraint command ids resolve across namespaces is in commands/test_constraints.py."""
 import json
 
 from maya import cmds

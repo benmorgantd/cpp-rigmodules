@@ -1,0 +1,25 @@
+{
+  "description": "ikAlignToPole turns a world-aligned handle, so it needs ikOrientToWorld",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "remove": "/rigModules/0/moduleArgs/poleOffset"
+    },
+    {
+      "remove": "/rigModules/0/moduleArgs/settingsOffset"
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/ikAlignToPole",
+      "value": true
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "ikAlignToPole"
+    },
+    {
+      "contains": "ikOrientToWorld"
+    }
+  ]
+}

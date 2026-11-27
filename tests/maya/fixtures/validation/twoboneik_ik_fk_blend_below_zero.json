@@ -1,0 +1,19 @@
+{
+  "description": "ikFkBlend is a blend, between 0 and 1",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/ikFkBlend",
+      "value": -0.1
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "ikFkBlend"
+    },
+    {
+      "contains": "between 0"
+    }
+  ]
+}

@@ -102,12 +102,6 @@ class TwoBoneIkBehaviour(RigTestCase):
         self.assertWorldTranslation(rig_name("hand_00_M_JNT"), translation(HANDLE), 1e-6)
         self.assertWorldRotation(rig_name("hand_00_M_JNT"), [0, 0, 40], 1e-6)
 
-    def test_the_ik_root_follows_the_start_controls_translation(self):
-        self.build_standard("twoboneik_basic", "twoboneik_basic")
-        set_attr(ARM[0], "translateY", 2)
-        self.assertWorldTranslation(rig_name("upperArm_00_M_JNT"), [0, 2, 0])
-        self.assertWorldTranslation(rig_name("hand_00_M_JNT"), [5, 0, 0])   # the handle stays where it is
-
     def test_visibility_follows_the_blend(self):
         self.build_standard("twoboneik_basic", "twoboneik_basic")
         # (blend, visible controls). FK lower and end show below 1, the IK handle and pole above 0.
@@ -151,13 +145,6 @@ class TwoBoneIkBehaviour(RigTestCase):
                 self.assertAlmostEqual(e, a, places=9, msg="%s is not at %s" % (joint, control))
         self.assertFalse(attr(HANDLE, "shown"))
         self.assertTrue(attr(ARM[1], "shown"))
-
-    def test_an_ik_fk_blend_outside_zero_to_one_is_an_error(self):
-        for value in (1.5, -0.1):
-            message = self.assertMayaError(lambda: self.build(self._with_blend(value), self.make_skeleton("twoboneik_basic"), label="twoboneik_bad"))
-            self.assertIn("ikFkBlend", message)
-            self.assertIn("between 0", message)
-            self.assertNothingBuilt()
 
     # ---- sockets and child modules -------------------------------------------------------------
 
@@ -203,28 +190,7 @@ class TwoBoneIkBehaviour(RigTestCase):
         set_attr(HANDLE, "translateY", 5)
         self.assertWorldTranslation(rig_name("finger_00_M_JNT"), [1, 6, 0])   # it still rides the IK hand
 
-    def test_without_a_matrix_parent_the_matrix_follows_the_dag_parent(self):
-        """The default: no matrixParentStructure entry, so the finger's matrix comes from its DAG parent socket (the FK hand control's
-        socket is the blended hand's world, so it is the same as the matrix test above)."""
-        self.build_standard("twoboneik_hand", "twoboneik_hand")
-        set_attr(HANDLE, "translateX", -5)
-        set_attr(HANDLE, "translateY", 5)
-        self.assertWorldTranslation(rig_name("finger_00_M_JNT"), [1, 6, 0])
-
     # ---- the settings control and spaces -------------------------------------------------------
-
-    def test_settings_follows_the_start_parent_and_ignores_a_constraint_on_start(self):
-        constraints = [{"name": "armStartSpace_00_L_CON", "type": "Parent", "target": "arm_01_L_MOD.start", "drivers": [
-            {"socket": "layout_00_M_MOD.end", "label": "Chest"}, {"socket": "layout_00_M_MOD.index_0", "label": "Hips"}]}]
-        self.build_with_constraints(constraints)
-        # Chest: everything the layout's end carries follows it.
-        set_attr("layout_02_M_CTRL", "translateZ", 3)
-        self.assertWorldTranslation(rig_name(SETTINGS), [0, 8, 3])
-        self.assertWorldTranslation(rig_name("upperArm_00_M_JNT"), [0, 0, 3])
-        # Hips: the start control leaves the chest and the settings control doesn't.
-        set_attr("upperArm_00_L_CTRL", "space", 1)
-        self.assertWorldTranslation(rig_name(SETTINGS), [0, 8, 3])
-        self.assertWorldTranslation(rig_name("upperArm_00_M_JNT"), [0, 0, 0])
 
     def test_start_and_ik_take_constraint_spaces(self):
         constraints = [
@@ -404,21 +370,6 @@ class TwoBoneIkDerivedControls(RigTestCase):
 
     # ---- placement -----------------------------------------------------------------------------
 
-    def test_the_handle_sits_on_the_end_joint(self):
-        self._build_basic(controlName="arm")
-        self.assertWorldTranslation(rig_name(HANDLE), [5, 0, 0])
-
-    def test_the_default_pole_is_pushed_out_along_the_bend_by_the_limbs_length(self):
-        """Root (0,0,0), mid (1.8,2.4,0), end (5,0,0): bones 3 and 4, so the limb is 7 long. The mid is 2.4 above the root-to-end
-        line (+X), so the bend is +Y and the pole is mid + 7 * (0,1,0) = (1.8, 9.4, 0)."""
-        self._build_basic(controlName="arm")
-        self.assertWorldTranslation(rig_name(POLE), [1.8, 9.4, 0])
-
-    def test_the_default_settings_control_is_a_quarter_of_the_limbs_length_along_world_x_from_the_end(self):
-        """The limb is 7 long, so the settings control is the end (5,0,0) plus (1.75,0,0)."""
-        self._build_basic(controlName="arm")
-        self.assertWorldTranslation(rig_name(SETTINGS), [6.75, 0, 0])
-
     def test_the_default_settings_control_of_a_mirrored_limb_is_the_reflection(self):
         """Without settingsOffset the right side's default is -X from its end, the reflection of the left's."""
         data = self._template("twoboneik_mirror", controlName="arm", poleOffset=[0.7, 2.6, 0])
@@ -428,31 +379,6 @@ class TwoBoneIkDerivedControls(RigTestCase):
         for expected, actual in zip([left[0], left[1], left[2]], [-right[0], right[1], right[2]]):
             self.assertAlmostEqual(expected, actual, places=4)
         self.assertGreater(left[0], 6.0)
-
-    def test_offsets_move_the_pole_and_the_settings_control(self):
-        """The pole is the mid joint plus poleOffset and the settings control the end joint plus settingsOffset, in world space."""
-        self._build_basic(controlName="arm", poleOffset=[1, -2, 3], settingsOffset=[0.5, 4, -1])
-        self.assertWorldTranslation(rig_name(POLE), [2.8, 0.4, 3])
-        self.assertWorldTranslation(rig_name(SETTINGS), [5.5, 4, -1])
-        self.assertWorldTranslation(rig_name(HANDLE), [5, 0, 0])
-
-    def test_the_other_side_of_a_mirrored_limb_negates_the_offsets_x(self):
-        """Left: mid (2.8,2.4,0) + (0.7,2.6,0) = (3.5,5,0), end (6,0,0) + (-5,8,0) = (1,8,0). Right is the reflection: X negated in
-        the offsets, on joints that are already reflected, so (-3.5,5,0) and (-1,8,0)."""
-        self.build_standard("twoboneik_mirror", "twoboneik_mirror")
-        self.assertWorldTranslation(rig_name("armPole_00_L_CTRL"), [3.5, 5, 0])
-        self.assertWorldTranslation(rig_name("armSettings_00_L_CTRL"), [1, 8, 0])
-        self.assertWorldTranslation(rig_name("armPole_00_R_CTRL"), [-3.5, 5, 0])
-        self.assertWorldTranslation(rig_name("armSettings_00_R_CTRL"), [-1, 8, 0])
-        self.assertWorldTranslation(rig_name("armIK_00_R_CTRL"), [-6, 0, 0])
-
-    def test_the_handle_takes_the_end_joints_rotation_and_the_others_world_axes(self):
-        """The tilted arm's joints are turned 35 degrees about Z. The handle turns with the hand. The pole and settings controls'
-        rotation is locked, so they stay on world axes: only their translate channels read in world axes."""
-        self.build_standard("ribbon_arm", "ribbon_arm_tilted")
-        self.assertWorldRotation(rig_name(HANDLE), [0, 0, 35], 1e-4)
-        self.assertWorldRotation(rig_name(POLE), [0, 0, 0], 1e-4)
-        self.assertWorldRotation(rig_name(SETTINGS), [0, 0, 0], 1e-4)
 
     # ---- a world-aligned handle ----------------------------------------------------------
 
@@ -484,28 +410,6 @@ class TwoBoneIkDerivedControls(RigTestCase):
         self.assertWorldRotation(rig_name(HANDLE), [0, math.degrees(math.atan2(-3.2, 3)), 0], 1e-4)
         self.assertWorldTranslation(rig_name(HANDLE), [5, 0, 0])
         self._assert_bind_pose_kept()
-
-    def test_ik_align_to_pole_on_the_other_side_of_a_mirrored_limb_is_the_reflection(self):
-        """Left: end (6,0,0), pole (2.8+0.7, 2.4+2.6, 3) = (3.5,5,3), so the horizontal line is (-2.5,0,3). The right is the
-        reflection with its pole X negated by the mirror, (2.5,0,3), so the two turns are equal and opposite."""
-        data = self._template("twoboneik_mirror", controlName="arm", poleOffset=[0.7, 2.6, 3], ikOrientToWorld=True, ikAlignToPole=True)
-        self.build_standard(data, "twoboneik_mirror")
-        turn = math.degrees(math.atan2(-2.5, 3))
-        self.assertWorldRotation(rig_name("armIK_00_L_CTRL"), [0, turn, 0], 1e-4)
-        self.assertWorldRotation(rig_name("armIK_00_R_CTRL"), [0, -turn, 0], 1e-4)
-
-    def test_ik_align_to_pole_without_ik_orient_to_world_is_an_error(self):
-        message = self.assertMayaError(lambda: self._build_basic(controlName="arm", ikAlignToPole=True))
-        self.assertIn("ikAlignToPole", message)
-        self.assertIn("ikOrientToWorld", message)
-        self.assertNothingBuilt()
-
-    def test_ik_align_to_pole_with_the_pole_straight_above_the_end_is_an_error(self):
-        """End (5,0,0), mid (1.8,2.4,0): poleOffset (3.2,2.6,0) puts the pole at (5,5,0), straight above the end."""
-        message = self.assertMayaError(lambda: self._build_basic(
-            controlName="arm", poleOffset=[3.2, 2.6, 0], ikOrientToWorld=True, ikAlignToPole=True))
-        self.assertIn("ikAlignToPole", message)
-        self.assertNothingBuilt()
 
     # ---- poleParentDefault (amended 2026-11-26) ---------------------------------------------
 
@@ -551,24 +455,7 @@ class TwoBoneIkDerivedControls(RigTestCase):
         self.assertEqual(cmds.getAttr(rig_name("armPole_00_L_CTRL.space")), 1)
         self.assertEqual(cmds.getAttr(rig_name("armPole_00_R_CTRL.space")), 1)
 
-    def test_any_other_value_is_an_error(self):
-        message = self.assertMayaError(lambda: self._build_basic(controlName="arm", poleParentDefault="Ik"))
-        self.assertIn("poleParentDefault", message)
-        self.assertIn('"parent" or "ik"', message)
-        self.assertNothingBuilt()
-
     # ---- a straight limb -----------------------------------------------------------------------
-
-    def test_a_straight_limb_builds_and_its_pole_goes_out_along_the_root_joints_negative_y(self):
-        """Mocap skeletons have straight limbs, so it is not an error. Left: root (1,0,0), mid (4,0,0), end (8,0,0), bones 3
-        and 4, so the pole is mid + 7 * (0,-1,0) = (4,-7,0). The Right root is turned 180 degrees about X, so its -Y is +Y and
-        the pole is (-4,7,0): the direction is the root's, not the world's. The settings default is a quarter of the 7 length
-        along +X from the end (-X on the mirrored side): (9.75,0,0) and (-9.75,0,0)."""
-        self.build_standard("twoboneik_straight", "twoboneik_straight")
-        self.assertWorldTranslation(rig_name("armPole_00_L_CTRL"), [4, -7, 0])
-        self.assertWorldTranslation(rig_name("armPole_00_R_CTRL"), [-4, 7, 0])
-        self.assertWorldTranslation(rig_name("armSettings_00_L_CTRL"), [9.75, 0, 0])
-        self.assertWorldTranslation(rig_name("armSettings_00_R_CTRL"), [-9.75, 0, 0])
 
     def test_a_straight_limb_bends_toward_its_pole_when_the_handle_comes_in(self):
         self.build_standard("twoboneik_straight", "twoboneik_straight")

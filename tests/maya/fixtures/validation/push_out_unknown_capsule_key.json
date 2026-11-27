@@ -1,0 +1,16 @@
+{
+  "description": "The capsule rejects unknown keys",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/capsule/depth",
+      "value": 1
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "unknown key 'depth'"
+    }
+  ]
+}

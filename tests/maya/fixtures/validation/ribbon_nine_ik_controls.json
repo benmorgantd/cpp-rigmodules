@@ -1,0 +1,19 @@
+{
+  "description": "controlCount is between 2 and 8",
+  "base": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/controlCount",
+      "value": 9
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "controlCount"
+    },
+    {
+      "contains": "between 2 and 8"
+    }
+  ]
+}

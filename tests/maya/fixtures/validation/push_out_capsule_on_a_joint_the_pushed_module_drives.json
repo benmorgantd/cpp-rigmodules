@@ -1,0 +1,19 @@
+{
+  "description": "Chain 2 would be pushed out of a capsule that follows its own joint c: a cycle",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/capsule/follow",
+      "value": [
+        "Left",
+        "c"
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "cycle"
+    }
+  ]
+}

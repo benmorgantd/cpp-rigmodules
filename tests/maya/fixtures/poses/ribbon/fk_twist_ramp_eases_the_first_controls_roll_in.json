@@ -1,0 +1,93 @@
+{
+  "description": "The author's ramp, 0 at the start, 0.35 in the middle and 1 at the end, on a 30 degree roll of the first fk control: the ik controls roll 0, 0.35 * 30 = 10.5 and 30. The joints ease between them: 0, 5.25, 10.5, 20.25 (the middle of 10.5 and 30) and 30. The fk control itself still rolls the whole 30.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_fk",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/twistRamp",
+      "value": [
+        [
+          0,
+          0.0
+        ],
+        [
+          0.5,
+          0.35
+        ],
+        [
+          1,
+          1.0
+        ]
+      ]
+    }
+  ],
+  "set": {
+    "tailFK_00_M_CTRL.rotateX": 30
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "tailFK_00_M_CTRL": {
+      "rotate": [
+        30.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_00_M_CTRL": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_01_M_CTRL": {
+      "rotate": [
+        10.5,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_02_M_CTRL": {
+      "rotate": [
+        30.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail1_00_M_JNT": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail2_00_M_JNT": {
+      "rotate": [
+        5.25,
+        0.0,
+        0.0
+      ]
+    },
+    "tail3_00_M_JNT": {
+      "rotate": [
+        10.5,
+        0.0,
+        0.0
+      ]
+    },
+    "tail4_00_M_JNT": {
+      "rotate": [
+        20.25,
+        0.0,
+        0.0
+      ]
+    },
+    "tail5_00_M_JNT": {
+      "rotate": [
+        30.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

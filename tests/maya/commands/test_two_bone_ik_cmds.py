@@ -11,11 +11,9 @@ import json
 from maya import cmds
 
 import rigmodules.query
-from commands.test_inverse_solve import SolveTestCase
-from commands.test_two_bone_ik_inverse import CapturedWarnings
 from rigtest import fixtures
-from rigtest.case import rig_name
-from rigtest.jointclips import rig_root, values_of
+from rigtest.case import CapturedWarnings, rig_name
+from rigtest.jointclips import SolveTestCase, rig_root, values_of
 
 UPPER = "upperArm_00_L_CTRL"
 LOWER = "lowerArm_00_L_CTRL"
@@ -108,7 +106,7 @@ class TwoBoneIkSwitch(SwitchTestCase):
 
     def test_ik_to_fk_at_rest_zeroes_fk_and_lines_the_pole_up_with_the_elbow(self):
         # FK matches the rest joints, so its controls are at rest. The IK side keeps its handle, and the pole goes to the
-        # elbow's x: world (1.8,5,0), local (-0.7,0,0) (the same pole the restore places, test_two_bone_ik_inverse).
+        # elbow's x: world (1.8,5,0), local (-0.7,0,0) (the same pole the restore places, TwoBoneIkInverse in test_inverse).
         self.switch(0)
         for control in (UPPER, LOWER, END):
             self.assertValues(rig_name(control), {"translateX": 0, "translateY": 0, "translateZ": 0,

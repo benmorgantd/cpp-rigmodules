@@ -1,0 +1,16 @@
+{
+  "description": "The capsule's halfLength is 0 (a sphere) or more",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/capsule/halfLength",
+      "value": -1
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "halfLength"
+    }
+  ]
+}

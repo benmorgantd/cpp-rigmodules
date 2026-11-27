@@ -1,0 +1,16 @@
+{
+  "description": "constraintWeight is between 0 and 1",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/constraintWeight",
+      "value": 2
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "weight"
+    }
+  ]
+}

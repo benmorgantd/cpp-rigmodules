@@ -1,0 +1,32 @@
+{
+  "description": "The middle ik control moves 1.5 up: the curve and the middle joint go with it to (4, 1.5, 0), and the last fk control stays at its rest (8, 0, 0): the fk chain drives the ik controls, never the reverse.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_fk",
+  "set": {
+    "tailIK_01_M_CTRL.translateY": 1.5
+  },
+  "tolerance": 1e-05,
+  "expect": {
+    "tailFK_02_M_CTRL": {
+      "translate": [
+        8.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_01_M_CTRL": {
+      "translate": [
+        4.0,
+        1.5,
+        0.0
+      ]
+    },
+    "tail3_00_M_JNT": {
+      "translate": [
+        4.0,
+        1.5,
+        0.0
+      ]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "description": "End (5,0,0), mid (1.8,2.4,0): poleOffset (3.2,2.6,0) puts the pole at (5,5,0), straight above the end, so there is no direction to align to",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "remove": "/rigModules/0/moduleArgs/settingsOffset"
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/poleOffset",
+      "value": [
+        3.2,
+        2.6,
+        0
+      ]
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/ikOrientToWorld",
+      "value": true
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/ikAlignToPole",
+      "value": true
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "ikAlignToPole"
+    }
+  ]
+}

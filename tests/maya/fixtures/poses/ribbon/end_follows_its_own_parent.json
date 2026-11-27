@@ -1,0 +1,41 @@
+{
+  "description": "The start and end child plugs carry their controls separately: with the start on layout_0 and the end on layout_2, lifting layout_2 3 lifts the end, and the middle joint, on the base curve between them (its average at u = 0.5), rises half as far.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/parentStructure",
+      "value": {
+        "start": "layout_00_M_MOD.index_0",
+        "end": "layout_00_M_MOD.index_2"
+      }
+    }
+  ],
+  "set": {
+    "layout_02_M_CTRL.translateY": 3.0
+  },
+  "tolerance": 1e-06,
+  "expect": {
+    "tail1_00_M_JNT": {
+      "translate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail5_00_M_JNT": {
+      "translate": [
+        8.0,
+        3.0,
+        0.0
+      ]
+    },
+    "tail3_00_M_JNT": {
+      "translate": [
+        4.0,
+        1.5,
+        0.0
+      ]
+    }
+  }
+}

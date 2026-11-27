@@ -1,0 +1,19 @@
+{
+  "description": "startAimBlend is a blend, between 0 and 1",
+  "base": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/startAimBlend",
+      "value": 1.5
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "startAimBlend"
+    },
+    {
+      "contains": "between 0 and 1"
+    }
+  ]
+}

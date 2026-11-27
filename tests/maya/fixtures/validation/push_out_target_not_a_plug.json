@@ -1,0 +1,16 @@
+{
+  "description": "The target must be a child plug of a module in the template",
+  "base": "push_out_basic",
+  "skeleton": "fk_pushout",
+  "edits": [
+    {
+      "set": "/collisions/0/target",
+      "value": "fkchain_02_L_MOD.nope"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "nope"
+    }
+  ]
+}

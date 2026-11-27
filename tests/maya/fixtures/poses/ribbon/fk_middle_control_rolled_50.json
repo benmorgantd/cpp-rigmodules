@@ -1,0 +1,74 @@
+{
+  "description": "A roll about X leaves the curve where it is, so only the carried frame says it: the middle fk control rolls 50, and the middle ik control (at its parameter) and the end (which hangs on it) roll 50 with it. The start is before the roll. The bind joints follow the ik controls' rolls through the detail curve's twist profile: at x = 0, 2, 4, 6 and 8 they are at 0, 25, 50, 50 and 50 (linear between the controls).",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_fk",
+  "set": {
+    "tailFK_01_M_CTRL.rotateX": 50
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "tailFK_01_M_CTRL": {
+      "rotate": [
+        50.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_00_M_CTRL": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_01_M_CTRL": {
+      "rotate": [
+        50.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_02_M_CTRL": {
+      "rotate": [
+        50.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail1_00_M_JNT": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail2_00_M_JNT": {
+      "rotate": [
+        25.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail3_00_M_JNT": {
+      "rotate": [
+        50.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail4_00_M_JNT": {
+      "rotate": [
+        50.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail5_00_M_JNT": {
+      "rotate": [
+        50.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "description": "The foot's plugs follow its Limb: a constraint on the ankle plug is an error",
+  "base": "reverse_foot",
+  "skeleton": "reverse_foot",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": [
+        {
+          "name": "footSpace_00_L_CON",
+          "target": "foot_00_L_MOD.ankle",
+          "drivers": [
+            {
+              "socket": "layout_00_M_MOD.end"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "constraint"
+    }
+  ],
+  "markers": "reverse_foot"
+}

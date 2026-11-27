@@ -1,5 +1,5 @@
 {
-  "description": "Mirrored pair: left root (1,0,0), end (6,0,0), pole (3.5,5,0); right root (-1,0,0), end (-6,0,0), pole (-3.5,5,0). Both limbs bend toward +Y at rest: left mid (2.8,2.4,0), right mid (-2.8,2.4,0). Every joint is at its rest.",
+  "description": "Mirrored pair: left root (1,0,0), end (6,0,0), pole (3.5,5,0); right root (-1,0,0), end (-6,0,0), pole (-3.5,5,0). Both limbs bend toward +Y at rest: left mid (2.8,2.4,0), right mid (-2.8,2.4,0). Every joint is at its rest. The derived controls (D57): left pole mid (2.8,2.4,0) + poleOffset (0.7,2.6,0) = (3.5,5,0), settings end (6,0,0) + settingsOffset (-5,8,0) = (1,8,0). The right is the reflection, X negated in the offsets on joints that are already reflected: pole (-3.5,5,0), settings (-1,8,0), and the handle on the end joint (-6,0,0).",
   "skeleton": "twoboneik_mirror",
   "template": "twoboneik_mirror",
   "expect": {
@@ -8,6 +8,11 @@
     "hand_00_L_JNT": { "translate": [6, 0, 0] },
     "upperArm_00_R_JNT": { "translate": [-1, 0, 0], "rotate": [0, 0, 0] },
     "lowerArm_00_R_JNT": { "translate": [-2.8, 2.4, 0], "rotate": [0, 0, 0] },
-    "hand_00_R_JNT": { "translate": [-6, 0, 0] }
+    "hand_00_R_JNT": { "translate": [-6, 0, 0] },
+    "armPole_00_L_CTRL": { "translate": [3.5, 5, 0] },
+    "armSettings_00_L_CTRL": { "translate": [1, 8, 0] },
+    "armPole_00_R_CTRL": { "translate": [-3.5, 5, 0] },
+    "armSettings_00_R_CTRL": { "translate": [-1, 8, 0] },
+    "armIK_00_R_CTRL": { "translate": [-6, 0, 0] }
   }
 }

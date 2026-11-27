@@ -1,0 +1,44 @@
+{
+  "description": "A roll of 20 turns the ankle about the toe pivot (4, 3.3, 1.8): the hand goes to (4, 4.573421, 0.347967), still the bone's 1.931321 from the toe, so the toe stays planted at its rest and the length-keeping pull changes nothing. The tap of 25 turns the toe 25 about X after its rest Rz 90, and the toe tip, 0.6 beyond and 0.1 below the toe, swings with it: (0, -0.1 cos25 - 0.6 sin25, -0.1 sin25 + 0.6 cos25) from the toe, so (4, 2.955798, 2.301523).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "foot_00_L_CTRL.footRoll": 20,
+    "foot_00_L_CTRL.toeTap": 25
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.573421,
+        0.347967
+      ]
+    },
+    "toe_00_L_JNT": {
+      "translate": [
+        4.0,
+        3.3,
+        1.8
+      ],
+      "rotate": [
+        0.0,
+        -25.0,
+        90.0
+      ]
+    },
+    "toeTip_00_L_JNT": {
+      "translate": [
+        4.0,
+        2.955798,
+        2.301523
+      ],
+      "rotate": [
+        0.0,
+        -25.0,
+        90.0
+      ]
+    }
+  }
+}

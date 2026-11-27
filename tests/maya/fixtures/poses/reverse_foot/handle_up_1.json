@@ -1,0 +1,19 @@
+{
+  "description": "The foot at rest under a handle moved 1 along its Y, which is world -X (the hand's Rz 90): the hand follows the handle to (3, 4, 0).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "armIK_00_L_CTRL.translateY": 1.0
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        3.0,
+        4.0,
+        0.0
+      ]
+    }
+  }
+}

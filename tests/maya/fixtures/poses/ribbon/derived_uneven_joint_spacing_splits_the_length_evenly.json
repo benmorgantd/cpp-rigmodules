@@ -1,0 +1,53 @@
+{
+  "description": "Joints at x = 0, 1, 5 and 8 on a line: the three derived controls sit at 0, 4 and 8, whichever joints are near.",
+  "skeleton": "ribbon_uneven",
+  "template": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/joints",
+      "value": [
+        [
+          "Center",
+          "tail1"
+        ],
+        [
+          "Center",
+          "tail2"
+        ],
+        [
+          "Center",
+          "tail3"
+        ],
+        [
+          "Center",
+          "tail4"
+        ]
+      ]
+    }
+  ],
+  "set": {},
+  "tolerance": 0.001,
+  "expect": {
+    "tailIK_00_M_CTRL": {
+      "translate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_01_M_CTRL": {
+      "translate": [
+        4.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_02_M_CTRL": {
+      "translate": [
+        8.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

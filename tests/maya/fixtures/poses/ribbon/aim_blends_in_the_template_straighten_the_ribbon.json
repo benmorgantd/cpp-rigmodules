@@ -1,0 +1,42 @@
+{
+  "description": "startAimBlend and endAimBlend of 1 set in moduleArgs, with no channel set: as aim_blend_makes_a_straight_line, the end moves 2 up and the joints stay on the line from the start to it.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/startAimBlend",
+      "value": 1
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/endAimBlend",
+      "value": 1
+    }
+  ],
+  "set": {
+    "tailIK_02_M_CTRL.translateY": 2.0
+  },
+  "tolerance": 0.001,
+  "expect": {
+    "tail2_00_M_JNT": {
+      "translate": [
+        2.0,
+        0.5,
+        0.0
+      ]
+    },
+    "tail3_00_M_JNT": {
+      "translate": [
+        4.0,
+        1.0,
+        0.0
+      ]
+    },
+    "tail4_00_M_JNT": {
+      "translate": [
+        6.0,
+        1.5,
+        0.0
+      ]
+    }
+  }
+}

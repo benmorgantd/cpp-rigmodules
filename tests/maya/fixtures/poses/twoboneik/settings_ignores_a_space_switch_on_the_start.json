@@ -1,0 +1,48 @@
+{
+  "description": "As settings_follows_the_chest, then the start control switched to Hips: the start leaves the chest for the hips at rest (the root back at the origin), and the settings control, which follows the start's parent and not its constraint, stays with the chest at (0, 8, 3).",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": [
+        {
+          "name": "armStartSpace_00_L_CON",
+          "type": "Parent",
+          "target": "arm_01_L_MOD.start",
+          "drivers": [
+            {
+              "socket": "layout_00_M_MOD.end",
+              "label": "Chest"
+            },
+            {
+              "socket": "layout_00_M_MOD.index_0",
+              "label": "Hips"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "set": {
+    "layout_02_M_CTRL.translateZ": 3,
+    "upperArm_00_L_CTRL.space": 1
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "armSettings_00_L_CTRL": {
+      "translate": [
+        0.0,
+        8.0,
+        3.0
+      ]
+    },
+    "upperArm_00_M_JNT": {
+      "translate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "description": "ikOrientToWorld and ikAlignToPole turn each handle about Y only, so +Z faces its pole. Left: end (6,0,0), pole (2.8+0.7, 2.4+2.6, 3) = (3.5,5,3), so the horizontal line is (-2.5,0,3) and the turn is atan2(-2.5, 3) = -39.805571. The right is the reflection with its pole X negated by D28, (2.5,0,3), so the turn is equal and opposite.",
+  "skeleton": "twoboneik_mirror",
+  "template": "twoboneik_mirror",
+  "edits": [
+    {
+      "remove": "/rigModules/0/moduleArgs/settingsOffset"
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/poleOffset",
+      "value": [
+        0.7,
+        2.6,
+        3
+      ]
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/ikOrientToWorld",
+      "value": true
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/ikAlignToPole",
+      "value": true
+    }
+  ],
+  "set": {},
+  "tolerance": 0.0001,
+  "expect": {
+    "armIK_00_L_CTRL": {
+      "rotate": [
+        0.0,
+        -39.805571,
+        0.0
+      ]
+    },
+    "armIK_00_R_CTRL": {
+      "rotate": [
+        0.0,
+        39.805571,
+        0.0
+      ]
+    }
+  }
+}

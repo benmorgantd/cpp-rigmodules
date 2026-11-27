@@ -1,0 +1,16 @@
+{
+  "description": "A mirrored collision needs a Left or Right target to reflect",
+  "base": "push_out_mirror",
+  "skeleton": "fk_pushout_mirror",
+  "edits": [
+    {
+      "set": "/collisions/0/target",
+      "value": "fkchain_01_M_MOD.start"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "Left or Right"
+    }
+  ]
+}

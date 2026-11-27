@@ -44,14 +44,6 @@ class Arguments(RigTestCase):
             self.assertMayaError(lambda: self.build(TEMPLATE, joints, asset=asset_id), "Asset id")
         self.assertNothingBuilt()
 
-    def test_asset_keys_in_a_template_are_unknown(self):
-        # Templates carry no asset, so one template serves many assets.
-        template = fixtures.load_template(TEMPLATE)
-        template["assetId"] = "old\\style"
-        joints = self.make_skeleton(SKELETON)
-        self.assertMayaError(lambda: self.build(template, joints), "assetId", "Nothing was built")
-        self.assertNothingBuilt()
-
     def test_build_leaves_nothing_selected(self):
         joints = self.make_skeleton(SKELETON)
         cmds.select(joints)
@@ -300,30 +292,6 @@ class RigNames(RigTestCase):
 
     def test_explicit_rig_name_is_kept(self):
         self.assertEqual(self.built_rig_name(TEMPLATE), "fktest")
-
-    def test_uppercase_rig_name_fails(self):
-        # An explicit rigName is checked, never converted.
-        template = fixtures.load_template(TEMPLATE)
-        template["rigName"] = "Human"
-        joints = self.make_skeleton(SKELETON)
-        self.assertMayaError(lambda: self.build(template, joints), "rigName", "'Human'", "lowercase", "Nothing was built")
-        self.assertNothingBuilt()
-
-    def test_rig_name_with_other_characters_fails(self):
-        for rig_name_value in ["game rig", "game-rig", ""]:
-            with self.subTest(rig_name_value):
-                template = fixtures.load_template(TEMPLATE)
-                template["rigName"] = rig_name_value
-                joints = self.make_skeleton(SKELETON)
-                self.assertMayaError(lambda: self.build(template, joints), "rigName", "lowercase")
-                self.assertNothingBuilt()
-                cmds.file(new=True, force=True)
-
-    def test_template_name_with_no_letters_fails(self):
-        template = self.template_without_rig_name("!!")
-        joints = self.make_skeleton(SKELETON)
-        self.assertMayaError(lambda: self.build(template, joints), "rigName", "lowercase")
-        self.assertNothingBuilt()
 
 
 class VersionStamps(RigTestCase):

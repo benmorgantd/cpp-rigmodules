@@ -1,0 +1,19 @@
+{
+  "description": "An fk-style ribbon hangs from its start alone, so an end plug is an error (D59)",
+  "base": "ribbon_fk",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/parentStructure",
+      "value": {
+        "start": "layout_00_M_MOD.end",
+        "end": "layout_00_M_MOD.end"
+      }
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "end"
+    }
+  ]
+}

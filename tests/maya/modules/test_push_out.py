@@ -1,10 +1,10 @@
-"""rigPushOut: the collisions list, the push, the mirror, the read-phase checks and the temporary display.
+"""rigPushOut: the collisions list, the push, the mirror and the temporary display. The read-phase checks are the
+push_out_* validation cases in fixtures/validation.
 
 Setup: chain 1 (a, b) has the capsule's joint a at the origin. The Left chain's control c sits at (3, 0, 0), parented to the
 layout, so it does not follow chain 1. The capsule of the basic template is a sphere of radius 2 at joint a. Moving
 control a by +2 in x puts its centre at (2, 0, 0), 1 from c: c is inside by 1, and the push is +1 along x, so c ends at (4, 0, 0).
 """
-import copy
 import json
 
 from maya import cmds
@@ -110,75 +110,6 @@ class PushOutMirror(RigTestCase):
         self.assertWorldTranslation(rig_name("c_00_L_CTRL"), (4, 0, 0))
         self.assertWorldTranslation(rig_name("c_00_R_CTRL"), (-4, 0, 0))
         self.assertEqual(cmds.nodeType(rig_name("pushOut_00_R_CON")), "rigPushOut")
-
-    def test_a_collision_on_a_center_module_cannot_be_mirrored(self):
-        data = fixtures.load_template("push_out_mirror")
-        data["collisions"][0]["target"] = "fkchain_01_M_MOD.start"
-        self.assertMayaError(lambda: self.build(data, self.make_skeleton("fk_pushout_mirror")), "Left or Right")
-        self.assertNothingBuilt()
-
-
-class PushOutChecks(RigTestCase):
-
-    def attempt(self, edits, *contains):
-        template = fixtures.load_template("push_out_basic")
-        edits(template)
-        joints = self.make_skeleton("fk_pushout")
-        self.assertMayaError(lambda: self.build(copy.deepcopy(template), joints), *contains)
-        self.assertNothingBuilt()
-
-    def test_a_type_that_is_not_push_out_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0].update(type="Hinge"), "Hinge")
-
-    def test_drivers_are_an_unknown_key(self):
-        self.attempt(lambda t: t["collisions"][0].update(drivers=[]), "unknown key 'drivers'")
-
-    def test_the_capsule_is_required(self):
-        self.attempt(lambda t: t["collisions"][0].pop("capsule"), "capsule")
-
-    def test_a_followed_joint_that_is_not_there_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0]["capsule"].update(follow=["Center", "nope"]), "nope")
-
-    def test_a_follow_that_is_not_a_selector_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0]["capsule"].update(follow="a"), "follow")
-
-    def test_a_target_that_is_not_a_plug_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0].update(target="fkchain_02_L_MOD.nope"), "nope")
-
-    def test_a_second_collision_on_one_plug_is_an_error(self):
-        def edit(template):
-            second = copy.deepcopy(template["collisions"][0])
-            second["name"] = "pushOut_01_L_CON"
-            template["collisions"].append(second)
-        self.attempt(edit, "already the target")
-
-    def test_a_name_outside_the_convention_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0].update(name="pushOut"), "name must be")
-
-    def test_a_negative_margin_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0].update(margin=-1), "margin")
-
-    def test_a_radius_of_zero_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0]["capsule"].update(radius=0), "radius")
-
-    def test_a_negative_half_length_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0]["capsule"].update(halfLength=-1), "halfLength")
-
-    def test_a_max_push_of_zero_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0].update(maxPush=0), "maxPush")
-
-    def test_a_weight_over_one_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0].update(constraintWeight=2), "weight")
-
-    def test_an_unknown_capsule_key_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0]["capsule"].update(depth=1), "unknown key 'depth'")
-
-    def test_an_offset_that_is_not_three_numbers_is_an_error(self):
-        self.attempt(lambda t: t["collisions"][0]["capsule"].update(offset={"translate": [1, 2]}), "three numbers")
-
-    def test_a_capsule_on_a_joint_the_pushed_module_drives_is_a_cycle(self):
-        # Chain 2 would be pushed out of a capsule that follows its own joint c.
-        self.attempt(lambda t: t["collisions"][0]["capsule"].update(follow=["Left", "c"]), "cycle")
 
 
 class PushOutDisplay(RigTestCase):

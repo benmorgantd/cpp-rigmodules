@@ -1,0 +1,47 @@
+{
+  "description": "A space constraint on the start plug, Chest (layout_00_M_MOD.end, the default) or Hips (index_0). Moving the layout's end control 3 along Z carries the start (the root joint, at the origin) and the settings control, which hangs from the start's parent at the end joint plus settingsOffset (5,0,0) + (-5,8,0) = (0,8,0), to Z 3.",
+  "skeleton": "twoboneik_basic",
+  "template": "twoboneik_basic",
+  "edits": [
+    {
+      "set": "/constraints",
+      "value": [
+        {
+          "name": "armStartSpace_00_L_CON",
+          "type": "Parent",
+          "target": "arm_01_L_MOD.start",
+          "drivers": [
+            {
+              "socket": "layout_00_M_MOD.end",
+              "label": "Chest"
+            },
+            {
+              "socket": "layout_00_M_MOD.index_0",
+              "label": "Hips"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "set": {
+    "layout_02_M_CTRL.translateZ": 3
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "armSettings_00_L_CTRL": {
+      "translate": [
+        0.0,
+        8.0,
+        3.0
+      ]
+    },
+    "upperArm_00_M_JNT": {
+      "translate": [
+        0.0,
+        0.0,
+        3.0
+      ]
+    }
+  }
+}

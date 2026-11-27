@@ -1,0 +1,78 @@
+{
+  "description": "A ramp of [[0, 0]] is 0 everywhere: the first fk control's 30 degree roll reaches no ik control and no joint.",
+  "skeleton": "ribbon_basic",
+  "template": "ribbon_fk",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/twistRamp",
+      "value": [
+        [
+          0,
+          0.0
+        ]
+      ]
+    }
+  ],
+  "set": {
+    "tailFK_00_M_CTRL.rotateX": 30
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "tailIK_00_M_CTRL": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_01_M_CTRL": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tailIK_02_M_CTRL": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail1_00_M_JNT": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail2_00_M_JNT": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail3_00_M_JNT": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail4_00_M_JNT": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "tail5_00_M_JNT": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

@@ -1,8 +1,9 @@
 """core/ tests: the Maya-free C++ in cpp/core, built into one executable and run.
 
 core/ has no Maya headers, so its tests are plain C++ in tests/core (CoreTests.h is the harness). This file builds them
-with the Visual Studio compiler and runs the program, which prints one PASS or FAIL line per test. The program is cached
-in cpp/x64/CoreTests and rebuilt only when a source or header it reads is newer. This test imports no maya module and
+with the Visual Studio compiler and runs the program, which prints one PASS or FAIL line per test. The objects and the program are
+cached in cpp/x64/CoreTests: only a source newer than its object is compiled again (every source, after a header
+change), then everything is linked. This test imports no maya module and
 runs in the plain Python process beside the Maya tiers.
 """
 import glob
@@ -25,15 +26,33 @@ def sources():
     return sorted(core + glob.glob(os.path.join(TESTS_DIR, "*.cpp")))
 
 
-def inputs():
-    return sources() + glob.glob(os.path.join(CORE_DIR, "*.h")) + glob.glob(os.path.join(TESTS_DIR, "*.h"))
+def headers():
+    return glob.glob(os.path.join(CORE_DIR, "*.h")) + glob.glob(os.path.join(TESTS_DIR, "*.h"))
+
+
+def object_path(source):
+    """Each source's object file. Core and test sources go in their own folders, so a name in both never clashes."""
+    folder = "tests" if os.path.dirname(source) == TESTS_DIR else "core"
+    return os.path.join(BUILD_DIR, folder, os.path.splitext(os.path.basename(source))[0] + ".obj")
+
+
+def stale_sources():
+    """Sources whose object is missing or older than the source. A changed header makes every source stale, because
+    nothing here tracks which source includes it."""
+    newest_header = max(os.path.getmtime(path) for path in headers())
+    stale = []
+    for source in sources():
+        obj = object_path(source)
+        if not os.path.exists(obj) or os.path.getmtime(obj) < max(os.path.getmtime(source), newest_header):
+            stale.append(source)
+    return stale
 
 
 def is_current():
-    if not os.path.exists(EXE):
+    if not os.path.exists(EXE) or stale_sources():
         return False
     built = os.path.getmtime(EXE)
-    return all(os.path.getmtime(path) <= built for path in inputs())
+    return all(os.path.getmtime(object_path(source)) <= built for source in sources())
 
 
 def vcvars():
@@ -43,16 +62,23 @@ def vcvars():
 
 
 def build():
-    os.makedirs(BUILD_DIR, exist_ok=True)
-    script = os.path.join(BUILD_DIR, "build.cmd")
+    """Compiles only the stale sources (in parallel, /MP), then links every object into the program."""
     lines = [
         "@echo off",
         'set "PATH=%PATH%;{}"'.format(os.path.dirname(VSWHERE)),
         'call "{}" >nul'.format(vcvars()),
-        'cl /nologo /std:c++20 /EHsc /MP /O1 /W3 /FI "{pch}" /I "{cpp}" /I "{include}" /I "{tests}" /Fo"{out}\\\\" /Fe"{exe}" {files}'.format(
-            pch=os.path.join(CORE_DIR, "CorePch.h"), cpp=CPP_DIR, include=os.path.join(CPP_DIR, "include"),
-            tests=TESTS_DIR, out=BUILD_DIR, exe=EXE, files=" ".join('"{}"'.format(path) for path in sources())),
     ]
+    stale = stale_sources()
+    for folder in ("core", "tests"):
+        os.makedirs(os.path.join(BUILD_DIR, folder), exist_ok=True)
+        files = [path for path in stale if os.path.dirname(object_path(path)).endswith(folder)]
+        if files:
+            lines.append('cl /nologo /c /std:c++20 /EHsc /MP /O1 /W3 /FI "{pch}" /I "{cpp}" /I "{include}" /I "{tests}" /Fo"{out}\\\\" {files} || exit /b 1'.format(
+                pch=os.path.join(CORE_DIR, "CorePch.h"), cpp=CPP_DIR, include=os.path.join(CPP_DIR, "include"),
+                tests=TESTS_DIR, out=os.path.join(BUILD_DIR, folder), files=" ".join('"{}"'.format(path) for path in files)))
+    lines.append('cl /nologo /Fe"{exe}" {objects}'.format(
+        exe=EXE, objects=" ".join('"{}"'.format(object_path(path)) for path in sources())))
+    script = os.path.join(BUILD_DIR, "build.cmd")
     with open(script, "w", encoding="utf-8") as handle:
         handle.write("\r\n".join(lines) + "\r\n")
     return subprocess.run(["cmd", "/c", script], capture_output=True, text=True)

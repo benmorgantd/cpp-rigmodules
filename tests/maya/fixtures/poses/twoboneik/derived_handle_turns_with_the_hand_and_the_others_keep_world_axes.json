@@ -1,0 +1,30 @@
+{
+  "description": "The tilted arm's joints are turned 35 degrees about Z. The handle turns with the hand. The pole and settings controls' rotation is locked, so they stay on world axes.",
+  "skeleton": "ribbon_arm_tilted",
+  "template": "ribbon_arm",
+  "set": {},
+  "tolerance": 0.0001,
+  "expect": {
+    "armIK_00_L_CTRL": {
+      "rotate": [
+        0.0,
+        0.0,
+        35.0
+      ]
+    },
+    "armPole_00_L_CTRL": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "armSettings_00_L_CTRL": {
+      "rotate": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

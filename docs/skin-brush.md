@@ -114,8 +114,7 @@ The ring and the reach are drawn in `drawFeedback` only, as Maya's own brush con
 
 | Test | Covers |
 |---|---|
-| `tests/maya/commands/test_skin_brush.py` | The engine on a 5 x 5 plane: falloff over the surface worked by hand, a shell close in space but not connected, closest-surface and through-mesh picking, multi-mesh strokes, one undo step. The `skinBrushCtx` settings class is skipped in batch and runs in a GUI Maya |
-| `tests/maya/commands/test_skin_brush_rest.py` | `restDelta` and `restEdge`: a stretched vertex's weights worked by hand, nothing moves at rest or under a rigid move, strength, edge error falling, locks, max influences, undo, the dual quaternion refusal |
+| `tests/maya/commands/test_skin_brush.py` | The engine on a 5 x 5 plane: falloff over the surface worked by hand, a shell close in space but not connected, closest-surface and through-mesh picking, multi-mesh strokes, one undo step. The `skinBrushCtx` settings class is skipped in batch and runs in a GUI Maya. Then `restDelta` and `restEdge` (`RestMatchCases`): a stretched vertex's weights worked by hand, nothing moves at rest or under a rigid move, strength, edge error falling, locks, max influences, undo, the dual quaternion refusal |
 | `tests/maya/commands/test_smooth_skin_weights.py` | The smoothing pass the brush reuses |
 
 Not tested automatically: mouse events, drawing, Ctrl + drag, the repeat timer, a stroke dropped when its meshes leave the scene, the selection restriction, and the feel of the brushes in a GUI Maya.
@@ -125,5 +124,5 @@ Not tested automatically: mouse events, drawing, Ctrl + drag, the repeat timer, 
 1. Write a `SkinBrushOperation` subclass in `maya/shared/SkinBrushStroke.cpp`: `bind` (find the skinCluster, read what you keep), `prepare` (work out the rows for the sorted, unique vertices and their scales, and keep them as a `SmoothedWeights`), `apply` (write them) and `edit` (return them). Override `refresh` if you cache anything about the pose.
 2. Put the math in `core/` with weight and neighbor callbacks, so it has no Maya, as `SkinWeightSmooth` and `SkinWeightRestMatch` do. Derive the Maya side from `SkinWeightPass` to get binding, locks, max influences, write and undo.
 3. Add the name to `createBrushOperation` and `brushOperationNames`. The picking, falloff, visualizer, journal, undo, `skinBrushCtx` and `skinBrushStroke` come with it, and no flag changes.
-4. Add a test next to `test_skin_brush_rest.py` with expectations worked by hand, and document the operation in [`commands.md`](commands.md#skinbrushctx) and here.
+4. Add a test next to `RestMatchCases` in `test_skin_brush.py` with expectations worked by hand, and document the operation in [`commands.md`](commands.md#skinbrushctx) and here.
 5. Decide whether an operation's setting is new. A setting only one operation uses (like `smoothness`) is ignored by the others, and is added to `prepare`, `SkinBrushStroke::dab`, both commands and the context.

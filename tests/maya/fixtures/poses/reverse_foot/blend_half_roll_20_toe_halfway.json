@@ -1,0 +1,39 @@
+{
+  "description": "A roll of 20 at blend 0.5. The hand blends halfway from (4, 4, 0) to its target (4, 4.573421, 0.347967): (4, 4.286711, 0.173984), turned 10 about X. The FK toe rides it: the hand-to-toe offset (0, -0.7, 1.8) turned 10 is (0, -1.001932, 1.651100), so the toe is at (4, 3.284778, 1.825084). The IK toe is the planted toe pivot (4, 3.3, 1.8), pulled to keep the bone length 1.931321 from the hand. The halfway hand is the midpoint of a chord of the circle about the toe pivot, so the pulled IK toe lands on the FK toe. The blended toe is there too, turned 5 about X (halfway from 10 to 0), and the toe tip (0, -0.1 cos5 - 0.6 sin5, -0.1 sin5 + 0.6 cos5) from it: (4, 3.132865, 2.414085).",
+  "skeleton": "reverse_foot",
+  "template": "reverse_foot",
+  "markers": "reverse_foot",
+  "set": {
+    "armSettings_00_L_CTRL.ikFkBlend": 0.5,
+    "foot_00_L_CTRL.footRoll": 20
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "hand_00_L_JNT": {
+      "translate": [
+        4.0,
+        4.286711,
+        0.173984
+      ]
+    },
+    "toe_00_L_JNT": {
+      "translate": [
+        4.0,
+        3.284778,
+        1.825084
+      ],
+      "rotate": [
+        0.0,
+        -5.0,
+        90.0
+      ]
+    },
+    "toeTip_00_L_JNT": {
+      "translate": [
+        4.0,
+        3.132865,
+        2.414085
+      ]
+    }
+  }
+}

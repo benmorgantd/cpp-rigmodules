@@ -1,0 +1,29 @@
+{
+  "description": "A misspelled moduleArgs key is an unknown key",
+  "base": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/joints",
+      "value": [
+        [
+          "Center",
+          "tail1"
+        ],
+        [
+          "Center",
+          "tail2"
+        ]
+      ]
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/controlCoun",
+      "value": 3
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "controlCoun"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "description": "endAimBlend is a blend, between 0 and 1",
+  "base": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/endAimBlend",
+      "value": -0.1
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "endAimBlend"
+    },
+    {
+      "contains": "between 0 and 1"
+    }
+  ]
+}

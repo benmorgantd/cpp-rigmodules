@@ -5,11 +5,14 @@ That keeps the helper joints a rig has (an aim's target and up are not exported)
 rigmodules.jointclip.capture_joint_clip, so a test of the solve doesn't depend on the capture.
 """
 import json
+import os
+import shutil
+import tempfile
 
 from maya import cmds
 import maya.api.OpenMaya as om
 
-from rigtest.case import rig_name
+from rigtest.case import RigTestCase, rig_name
 
 CHANNELS = ("translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ")
 
@@ -70,3 +73,58 @@ def write_json(path, data):
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(data if isinstance(data, str) else json.dumps(data))
     return path
+
+
+class SolveTestCase(RigTestCase):
+    """A rig, and the helpers that write its joints as a JointClip."""
+
+    def setUp(self):
+        super().setUp()
+        self.folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.folder, True)
+        self.counter = 0
+
+    def write(self, name, data):
+        path = os.path.join(self.folder, name)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(data if isinstance(data, str) else json.dumps(data))
+        return path
+
+    def snapshot(self):
+        return snapshot()
+
+    def clip_data(self, rest, frames, **kwargs):
+        return clip_data(rest, frames, **kwargs)
+
+    def write_clip(self, rest, frames, **kwargs):
+        self.counter += 1
+        return self.write("clip%d.json" % self.counter, self.clip_data(rest, frames, **kwargs))
+
+    def write_sidecar(self, controls):
+        """A pose file: {side: {usage: {channel: value}}}."""
+        self.counter += 1
+        return self.write("sidecar%d.json" % self.counter, {"formatVersion": 1, "controls": controls})
+
+    def assertJointsAt(self, expected, tolerance=1e-4):
+        for joint, matrix in expected.items():
+            if not world(joint).isEquivalent(matrix, tolerance):
+                self.fail("%s is off\n  wanted %s\n  got    %s" % (joint, list(matrix), list(world(joint))))
+
+    def assertValues(self, control, expected, places=3):
+        actual = values_of(control)
+        for name, value in expected.items():
+            self.assertAlmostEqual(actual[name], value, places=places, msg="%s.%s: wanted %s, got %s" % (control, name, value, actual[name]))
+
+    def round_trip(self, posed, sidecar=None):
+        """posed: {plug: value} set on the rig. Writes the posed joints, zeroes the controls and restores from the
+        clip. Returns (rest snapshot, posed snapshot, posed control values by control)."""
+        rest = self.snapshot()
+        for plug, value in posed.items():
+            cmds.setAttr(rig_name(plug), value)
+        posed_joints = self.snapshot()
+        controls = {c: values_of(c) for c in cmds.ls(rig_name("*"), type="rigControlNode")}
+        clip = self.write_clip(rest, [posed_joints])
+        cmds.zeroRigControls(rig_root())
+        kwargs = {"sidecar": sidecar} if sidecar else {}
+        cmds.poseRigFromJointPose(rig_root(), jointPose=clip, **kwargs)
+        return rest, posed_joints, controls

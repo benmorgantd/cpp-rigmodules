@@ -1,0 +1,19 @@
+{
+  "description": "The default: no matrixParentStructure entry, so the finger's matrix comes from its DAG parent socket, the FK hand control's, which is the blended hand's world (the same answer as with the matrix parent named). The handle's translate set to (-5, 5, 0) puts the finger at (1, 6, 0).",
+  "skeleton": "twoboneik_hand",
+  "template": "twoboneik_hand",
+  "set": {
+    "armIK_00_L_CTRL.translateX": -5,
+    "armIK_00_L_CTRL.translateY": 5
+  },
+  "tolerance": 0.0001,
+  "expect": {
+    "finger_00_M_JNT": {
+      "translate": [
+        1.0,
+        6.0,
+        0.0
+      ]
+    }
+  }
+}

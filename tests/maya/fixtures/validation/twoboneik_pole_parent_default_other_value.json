@@ -1,0 +1,25 @@
+{
+  "description": "poleParentDefault is \"parent\" or \"ik\", lowercase",
+  "base": "twoboneik_basic",
+  "skeleton": "twoboneik_basic",
+  "edits": [
+    {
+      "remove": "/rigModules/0/moduleArgs/poleOffset"
+    },
+    {
+      "remove": "/rigModules/0/moduleArgs/settingsOffset"
+    },
+    {
+      "set": "/rigModules/0/moduleArgs/poleParentDefault",
+      "value": "Ik"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "poleParentDefault"
+    },
+    {
+      "contains": "\"parent\" or \"ik\""
+    }
+  ]
+}
