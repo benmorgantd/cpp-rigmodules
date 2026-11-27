@@ -11,9 +11,9 @@
 // Joints are always passed by full name. The selection is never used.
 // cmds.createRigFromTemplate("skel:root_00_M_JNT", "skel:spine_00_M_JNT", template="C:/rigs/LayoutRig.json", namespace="rig")
 // namespace is the rig's final namespace (default "rig"). The joints are moved into it.
-// parentRig="hero_body:rigRoot" attaches the rig to that rig root (D55): a template with "parent:module.socket" ids
+// parentRig="hero_body:rigRoot" attaches the rig to that rig root: a template with "parent:module.socket" ids
 // follows its sockets and needs one, and a template without them refuses one. The read phase lists every missing socket.
-// checkMirrorPositions=True fails a mirrored module whose joint is more than 0.001 from its reflected source (D28).
+// checkMirrorPositions=True fails a mirrored module whose joint is more than 0.001 from its reflected source.
 class CreateRigCmd : public MPxCommand
 {
 public:

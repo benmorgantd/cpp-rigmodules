@@ -10,7 +10,7 @@
 #include <maya/MStatus.h>
 #include <maya/MSyntax.h>
 
-// Skin weight files (D35). Influences are keyed by joint markup, and a file loads only onto the mesh it was saved
+// Skin weight files. Influences are keyed by joint markup, and a file loads only onto the mesh it was saved
 // from: the same meshId and the same topology.
 
 // cmds.setRigMeshId("hero:body_geo") -> ["5f0c..."]
@@ -46,7 +46,7 @@ public:
 
 // cmds.loadRigSkinWeights("hero:body_geo", file="C:/assets/hero/weights/body_geo.json") -> the skinCluster's name
 //   Undoable. A file that fails validation or doesn't match the mesh (its topology, or an influence no joint has) changes
-//   nothing. A file whose skeletonHash is not the rig's loads with a warning (D70): the hash is a status. This command
+//   nothing. A file whose skeletonHash is not the rig's loads with a warning: the hash is a status. This command
 //   is exact: it never folds an influence or transfers weights, which setRigLook does.
 class LoadRigSkinWeightsCmd : public MPxCommand
 {
@@ -85,7 +85,7 @@ private:
 
 // cmds.smoothSkinWeights("hero:body_geo.vtx[10:40]", iterations=3, strength=1.0) -> number of vertices changed
 //   Each named vertex becomes the average of itself and its neighbors, iterations times, every vertex from the last
-//   pass (D64). Objects are meshes (every vertex) or vertex, edge or face components (the vertices they touch). With
+//   pass. Objects are meshes (every vertex) or vertex, edge or face components (the vertices they touch). With
 //   none named, acts on the selection. A locked influence keeps its weight, and the cluster's maintainMaxInfluences is
 //   kept. Vertices that don't change aren't written. Undoable, and undo restores the starting weights exactly.
 class SmoothSkinWeightsCmd : public MPxCommand

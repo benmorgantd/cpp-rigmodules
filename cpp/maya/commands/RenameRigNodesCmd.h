@@ -4,7 +4,7 @@
 #include <maya/MPxCommand.h>
 #include <maya/MSyntax.h>
 
-// Renames joints, rig controls, rig modules and rig constraints to the naming convention (D58):
+// Renames joints, rig controls, rig modules and rig constraints to the naming convention:
 // <camelCaseName>_##_<L|R|M>_<JNT|CTRL|MOD|CON|GEO|MRK>. The nodes are the ones passed, else the selection. The index counts up in
 // that order, so the first node gets startIndex (0 by default), the next one more.
 // Rename: cmds.renameRigNodes("a", "b", "c", base="upperArm", side="Left")  -> ["upperArm_00_L_JNT", "upperArm_01_L_JNT", ...]

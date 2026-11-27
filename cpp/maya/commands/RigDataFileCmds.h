@@ -4,7 +4,7 @@
 #include <maya/MPxCommand.h>
 #include <maya/MSyntax.h>
 
-// Library file queries and edits (D51): what a pose file or a ControlAnim file holds, without loading it onto a rig.
+// Library file queries and edits: what a pose file or a ControlAnim file holds, without loading it onto a rig.
 
 // cmds.getRigDataFileInfo("rig:rigRoot", file=["C:/lib/fist.controlpose.json", "C:/lib/walk.controlanim.json"])
 //   -> JSON text, a list with one object per file in the order given: the file, its kind ("pose" or "animation"),

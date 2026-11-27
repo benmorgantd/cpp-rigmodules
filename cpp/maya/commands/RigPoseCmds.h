@@ -5,7 +5,7 @@
 #include <maya/MPxCommand.h>
 #include <maya/MSyntax.h>
 
-// Pose tools on a rig's animation interface (D34). Each takes either one rig root (every control in the rig) or one or
+// Pose tools on a rig's animation interface. Each takes either one rig root (every control in the rig) or one or
 // more controls of one rig (those only), always by name: the selection is never used. Each command sets values like
 // cmds.setAttr and keys nothing, returns the names of the controls it changed, and is undoable.
 

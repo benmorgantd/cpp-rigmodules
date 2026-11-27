@@ -16,7 +16,7 @@
 
 namespace
 {
-	// Code reads flags by long name only. Short names appear only in newSyntax() (D14).
+	// Code reads flags by long name only. Short names appear only in newSyntax().
 	constexpr const char* kKeysFlag{ "-keys" };
 	constexpr const char* kFileFlag{ "-file" };
 	constexpr const char* kStartFrameFlag{ "-startFrame" };

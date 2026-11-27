@@ -8,7 +8,7 @@
 #include <maya/MStatus.h>
 #include <maya/MSyntax.h>
 
-// Skeleton files (D54, design/rigs-and-looks.md section 5): a skeleton's joints and the hash that says whether two
+// Skeleton files (design/rigs-and-looks.md section 5): a skeleton's joints and the hash that says whether two
 // skeletons are the same. The file is the skeleton's only stored form, so save and load are how a skeleton is kept.
 
 // cmds.saveRigSkeleton("skel:root_00_M_JNT", "skel:spine_01_M_JNT", ..., file="C:/assets/hero/skeletons/body/skeleton.json")

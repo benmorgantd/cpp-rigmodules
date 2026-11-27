@@ -22,7 +22,7 @@
 
 namespace
 {
-	// Code reads flags by long name only. Short names appear only in newSyntax() (D14).
+	// Code reads flags by long name only. Short names appear only in newSyntax().
 	constexpr const char* kModuleTypeFlag{ "-moduleType" };
 	constexpr const char* kSideFlag{ "-side" };
 	constexpr const char* kUsageFlag{ "-usage" };

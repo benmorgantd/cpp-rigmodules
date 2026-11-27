@@ -21,7 +21,7 @@
 
 namespace
 {
-	// Code reads flags by long name only. Short names appear only in newSyntax() (D14).
+	// Code reads flags by long name only. Short names appear only in newSyntax().
 	constexpr const char* kJointPoseFlag{ "-jointPose" };
 	constexpr const char* kJointClipFlag{ "-jointClip" };
 	constexpr const char* kSidecarFlag{ "-sidecar" };
@@ -29,7 +29,7 @@ namespace
 	constexpr const char* kStartFrameFlag{ "-startFrame" };
 	constexpr const char* kEndFrameFlag{ "-endFrame" };
 
-	// mode is optional and only accepts match (D41). Reports anything else.
+	// mode is optional and only accepts match. Reports anything else.
 	MStatus readMode(const MArgDatabase& argData, const char* commandName)
 	{
 		if (!argData.isFlagSet(kModeFlag))
@@ -271,7 +271,7 @@ MStatus AnimateRigFromJointClipCmd::doIt(const MArgList& args)
 		return MStatus::kInvalidParameter;
 	}
 
-	// The sidecar is a ControlAnim file: the control data the joints can't give (D42).
+	// The sidecar is a ControlAnim file: the control data the joints can't give.
 	ControlAnim sidecar;
 	if (hasSidecar)
 	{

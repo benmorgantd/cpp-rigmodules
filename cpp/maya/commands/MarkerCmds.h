@@ -9,7 +9,7 @@
 #include <maya/MStatus.h>
 #include <maya/MSyntax.h>
 
-// Markers (D73, design/markers.md): placed points that follow one joint, kept in a file of their own. A built rig has no
+// Markers (design/markers.md): placed points that follow one joint, kept in a file of their own. A built rig has no
 // node for a rig-only marker, so the offsets are authored on locators in an editing scene.
 
 // cmds.rigMarkerMarkup(locator, usage="heel", side="Left", joint="skel:ankle_00_L_JNT", export=False)

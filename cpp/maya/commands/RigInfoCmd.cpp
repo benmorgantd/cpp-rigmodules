@@ -85,7 +85,7 @@ MStatus GetRigInfoCmd::doIt(const MArgList& args)
 	info[RigAttr::PublishVersion] = MPlug(oRigRoot, RigRootNode::aPublishVersion).asString().asChar();
 	info[RigInfoKey::Namespace] = fnRigRoot.parentNamespace().asChar();
 
-	// The look the rig wears (D54), null for a rig that has had none applied.
+	// The look the rig wears, null for a rig that has had none applied.
 	const MObject oLookRoot = RigTraversal::findLookRoot(oRigRoot);
 	if (oLookRoot.isNull())
 	{
@@ -100,7 +100,7 @@ MStatus GetRigInfoCmd::doIt(const MArgList& args)
 		info[RigInfoKey::Look] = look;
 	}
 
-	// The rig an attachment follows (D55), null for a rig that is not attached.
+	// The rig an attachment follows, null for a rig that is not attached.
 	const MPlug pParentRig(oRigRoot, RigRootNode::aParentRig);
 	MPlugArray parentSources;
 	pParentRig.connectedTo(parentSources, true, false);

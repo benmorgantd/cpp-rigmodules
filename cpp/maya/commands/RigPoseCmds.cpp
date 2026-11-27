@@ -15,7 +15,7 @@
 
 namespace
 {
-	// Code reads flags by long name only. Short names appear only in newSyntax() (D14).
+	// Code reads flags by long name only. Short names appear only in newSyntax().
 	constexpr const char* kLeftToRightFlag{ "-leftToRight" };
 	constexpr const char* kFileFlag{ "-file" };
 	constexpr const char* kMetaFlag{ "-meta" };
@@ -330,7 +330,7 @@ MStatus LoadRigPoseCmd::doIt(const MArgList& args)
 		CHECK_MSTATUS_AND_RETURN_IT(argData.getFlagArgument(kMirrorFlag, 0, isMirrored));
 	}
 
-	// Any finite weight from 0 up is valid (D72): the results are clamped to each channel's range, and the UI sets
+	// Any finite weight from 0 up is valid: the results are clamped to each channel's range, and the UI sets
 	// the practical top.
 	const bool isBlended = argData.isFlagSet(kBlendFlag);
 	double blend = 1.0;
@@ -367,7 +367,7 @@ MStatus LoadRigPoseCmd::doIt(const MArgList& args)
 	}
 	RigDataFileScene::warnIfMarkersDiffer(scope.oRigRoot, fileMeta, aCommandString);
 
-	// The mirror is made on the file's data, before any write, so the rig is written once (D51).
+	// The mirror is made on the file's data, before any write, so the rig is written once.
 	if (isMirrored)
 	{
 		PoseMap mirrored;
@@ -380,7 +380,7 @@ MStatus LoadRigPoseCmd::doIt(const MArgList& args)
 	}
 
 	// The blend starts from the reference file when there is one, so every call of a slider drag starts from the same
-	// pose instead of compounding on the last call's result (D72). Without one it starts from the scope's current pose.
+	// pose instead of compounding on the last call's result. Without one it starts from the scope's current pose.
 	if (isBlended)
 	{
 		PoseMap current;

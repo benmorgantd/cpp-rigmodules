@@ -6,7 +6,7 @@
 #include <maya/MPxCommand.h>
 #include <maya/MSyntax.h>
 
-// Keys on a rig's animation interface (D34). Each takes either one rig root (every control in the rig) or one or more
+// Keys on a rig's animation interface. Each takes either one rig root (every control in the rig) or one or more
 // controls of one rig (those only), always by name: the selection is never used. The keys are one JSON string, in the
 // shape of core/RigKeys.h: { side: { usage: { channel: [[frame, value], ...] } } }, in UI time and UI units.
 
@@ -46,7 +46,7 @@ private:
 };
 
 // cmds.saveRigAnimation("rig:rigRoot", file=path, startFrame=n, endFrame=n) or cmds.saveRigAnimation(*controls, ...)
-//   Writes the keys of the controls' channels as a ControlAnim file (core/ControlAnimFile.h, D42): the keys with their
+//   Writes the keys of the controls' channels as a ControlAnim file (core/ControlAnimFile.h): the keys with their
 //   tangents and each curve's flags, by control markup. Only the keys from startFrame to endFrame go in, and both
 //   default to the scene's playback range. A channel with no key in the range is left out. The file records the
 //   range and the scene's frame rate. Returns the names of the controls it read. Not undoable: it changes no scene

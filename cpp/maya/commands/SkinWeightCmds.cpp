@@ -12,7 +12,7 @@
 
 namespace
 {
-	// Code reads flags by long name only. Short names appear only in newSyntax() (D14).
+	// Code reads flags by long name only. Short names appear only in newSyntax().
 	constexpr const char* kFileFlag{ "-file" };
 	// Not "-new": Maya rejects a three-letter long name, and the flag silently never registers.
 	constexpr const char* kNewIdFlag{ "-newId" };

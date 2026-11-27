@@ -25,7 +25,7 @@
 
 namespace
 {
-	// Code reads flags by long name only. Short names appear only in newSyntax() (D14).
+	// Code reads flags by long name only. Short names appear only in newSyntax().
 	constexpr const char* kBlendFlag{ "-blend" };
 
 	// The TwoBoneIk module the object belongs to: the module node, or any of its controls. Reports anything else.
@@ -37,8 +37,8 @@ namespace
 			MGlobal::displayError(MString(commandName) + ": node not found: " + name);
 			return MStatus::kFailure;
 		}
-		// A joint leads to its module too, but the command takes a control or the module (D52 section 7.2). A Limb matches the same
-		// way: its first six slots are a two-bone limb (D62), and its ribbon rides the joints.
+		// A joint leads to its module too, but the command takes a control or the module. A Limb matches the same
+		// way: its first six slots are a two-bone limb, and its ribbon rides the joints.
 		oOutModule = oNode.hasFn(MFn::kJoint) ? MObject::kNullObj : RigTraversal::getNodeModule(oNode);
 		const MTypeId moduleType = oOutModule.isNull() ? MTypeId() : MFnDependencyNode(oOutModule).typeId();
 		if (oOutModule.isNull() || (moduleType != TwoBoneIkNode::id && moduleType != LimbNode::id))
@@ -90,7 +90,7 @@ namespace
 		return MStatus::kSuccess;
 	}
 
-	// A foot that follows the limb's blend (D74), matched as the limb is: its toe FK control from fkMatchLocal, and toeTap on the foot control
+	// A foot that follows the limb's blend, matched as the limb is: its toe FK control from fkMatchLocal, and toeTap on the foot control
 	// from ikMatchToeTap, with the foot's other channels kept. Adds the foot's controls to the scope. The foot's matchWarnings are its IK
 	// side's, so they are reported only for a switch toward IK.
 	MStatus addMatchedFoot(const MObject& oFoot, double blend, RigControlScope& scope, PoseMap& pose, std::vector<std::string>& warnings)
@@ -249,7 +249,7 @@ MStatus SetRigIkFkBlendCmd::doIt(const MArgList& args)
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 	}
 
-	// 2b. The feet that follow this limb's blend (D74). Their match outputs are pulled here, before any write, from the pose as it is.
+	// 2b. The feet that follow this limb's blend. Their match outputs are pulled here, before any write, from the pose as it is.
 	MObjectArray oFollowers;
 	status = RigTraversal::getBlendFollowers(oModule, oFollowers);
 	CHECK_MSTATUS_AND_RETURN_IT(status);

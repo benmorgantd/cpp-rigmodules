@@ -7,7 +7,7 @@
 #include <maya/MPxCommand.h>
 #include <maya/MSyntax.h>
 
-// Set a rig's control values from joints (D41). Both take either one rig root (every control in the rig) or one or more
+// Set a rig's control values from joints. Both take either one rig root (every control in the rig) or one or more
 // controls of one rig (those only), always by name: the selection is never used. They set values on a rig that
 // already exists. Both validate everything first and write nothing on any error.
 
@@ -34,7 +34,7 @@ private:
 
 // cmds.animateRigFromJointClip("rig:rigRoot", jointClip=path, sidecar=path, mode="match", startFrame=1, endFrame=100)
 //   jointClip: a JointClip file. Required.
-//   sidecar: a ControlAnim file (ControlAnimFile.h) with the control data the joints can't give (D42). Its curves are
+//   sidecar: a ControlAnim file (ControlAnimFile.h) with the control data the joints can't give. Its curves are
 //     sampled on the clip's frames for the solve (space first). Optional.
 //   mode: "match", the only mode. Optional.
 //   startFrame, endFrame: the range of the clip to write, the whole clip by default. Optional.

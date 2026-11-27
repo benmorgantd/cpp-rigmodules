@@ -117,7 +117,7 @@ namespace
 		}
 		outArgs.initialDriver = static_cast<unsigned int>(initialDriver);
 
-		// The default is the control's name with the constraint kind: arm_00_L_CTRL gives arm_00_L_CON (D58).
+		// The default is the control's name with the constraint kind: arm_00_L_CTRL gives arm_00_L_CON.
 		NamingConvention::Name parsedControl;
 		const std::string controlNodeName = MNamespace::stripNamespaceFromName(MFnDependencyNode(outArgs.oControl).name()).asChar();
 		if (!NamingConvention::parse(controlNodeName, parsedControl))

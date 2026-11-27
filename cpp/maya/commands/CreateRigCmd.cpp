@@ -40,7 +40,7 @@ namespace
 			return MStatus::kFailure;
 		}
 
-		// Templates carry no asset, so one template can build many assets (D29).
+		// Templates carry no asset, so one template can build many assets.
 		if (!argData.isFlagSet(kAssetFlag))
 		{
 			MGlobal::displayError("createRigFromTemplate needs -asset.");
@@ -56,7 +56,7 @@ namespace
 			return MStatus::kFailure;
 		}
 
-		// Unset, the namespace defaults to "{asset name}_{rigName}" (D54), which createRig resolves once it has read the template.
+		// Unset, the namespace defaults to "{asset name}_{rigName}", which createRig resolves once it has read the template.
 		if (argData.isFlagSet(kNamespaceFlag))
 		{
 			MString rigNamespace;
@@ -72,7 +72,7 @@ namespace
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 
-		// The markers file (D73). A missing file is an error here, so a typo is not a rig built with no markers.
+		// The markers file. A missing file is an error here, so a typo is not a rig built with no markers.
 		if (argData.isFlagSet(kMarkersFlag))
 		{
 			status = CommandUtils::readFilePath(argData, kMarkersFlag, "createRigFromTemplate", inputs.markersPath);
@@ -84,7 +84,7 @@ namespace
 			}
 		}
 
-		// The rig this one attaches to (D55). The root's own type is checked in the read phase, with the sockets.
+		// The rig this one attaches to. The root's own type is checked in the read phase, with the sockets.
 		if (argData.isFlagSet(kParentRigFlag))
 		{
 			MString parentRig;

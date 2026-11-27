@@ -7,7 +7,7 @@
 #include <maya/MString.h>
 #include <maya/MSyntax.h>
 
-// The temporary capsule display of a rig's push outs (D79, design/push-out.md section 5). The logic is
+// The temporary capsule display of a rig's push outs (design/push-out.md section 5). The logic is
 // maya/shared/PushOutScene; these commands parse flags and delegate.
 
 // cmds.showRigPushOuts(namespace="skel")
