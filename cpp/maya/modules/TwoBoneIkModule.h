@@ -17,12 +17,12 @@
 #include <maya/MTypeId.h>
 #include <maya/MVector.h>
 
-// COUPLED TO Limb (design/limb.md): LimbNode runs this module's solve, channels, control derivation and inverse. A change here
-// changes Limb. Read design/limb.md and run test_limb_matches_parts before changing any of them.
+// COUPLED TO ReverseFoot (design/reverse-foot.md): a foot hangs from the ik and end sockets, feeds ikTarget and follows ikFkBlend.
+// A change to the blend, those sockets, ikTarget or the inverse changes the foot.
 //
 // A two-bone IK limb (arm, leg): an FK chain and an IK solve, blended joint by joint. Child plugs: start, ik, pole,
-// and settings (internal: it follows start's parent). Sockets: index_0, index_1, index_2 (the blended joint worlds), start,
-// end, ik, pole, settings.
+// settings (internal: it follows start's parent) and the optional ikTarget, which the end joint reaches in place of the IK handle (a
+// foot's ankle, D74). Sockets: index_0, index_1, index_2 (the blended joint worlds), start, end, ik, pole, settings.
 class TwoBoneIkNode : public RigModuleWithJointsNode<TwoBoneIkNode>
 {
 public:
@@ -62,6 +62,12 @@ public:
 	static MObject aFkMatchLocal;
 	static MObject aIkMatchLocal;
 	static MObject aMatchWarnings;
+
+	// The ikTarget child plug and the handle's own socket array: see the Part namespace in TwoBoneIkModule.cpp.
+	static MObject aIkTargetMatrix;
+	static MObject aIkTargetRestMatrix;
+	static MObject aIkTargetConnected;
+	static MObject aHandleSocketMatrix;
 
 public:
 	static RigModuleBuildResult createModule(

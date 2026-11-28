@@ -19,11 +19,11 @@
 #include <maya/MString.h>
 #include <maya/MTypeId.h>
 
-// The ReverseFoot (design/reverse-foot.md): foot roll, pivots and bank as channels on one control, an FK toe, on top of a Limb.
+// The ReverseFoot (design/reverse-foot.md): foot roll, pivots and bank as channels on one control, an FK toe, on top of a TwoBoneIk.
+// "The Limb" below is that TwoBoneIk, the two-bone limb the foot is on (a Limb module did this job before the split in design/limb-split.md).
 //
-// COUPLED TO Limb (design/limb.md section 8): the foot hangs from a Limb's ik and end sockets, feeds its ikTarget and follows its
-// ikFkBlend. A change to the Limb's blend, sockets, ikTarget or inverse changes the foot, and a change here changes where the Limb's end joint
-// reaches.
+// COUPLED TO TwoBoneIk: the foot hangs from the Limb's ik and end sockets, feeds its ikTarget and follows its ikFkBlend. A
+// change to the Limb's blend, sockets, ikTarget or inverse changes the foot, and a change here changes where the Limb's end joint reaches.
 //
 // Two stages, in separate attribute groups: Maya orders the graph by attribute, and a socket and a plug on one attribute is a loop
 // in the legacy DG.

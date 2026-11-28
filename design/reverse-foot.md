@@ -1,5 +1,7 @@
 # ReverseFoot: foot roll, pivots and an FK toe, on top of a Limb
 
+> **Since D80 (2026-11-27)** the foot is on a TwoBoneIk: the Limb module was removed, and TwoBoneIk took its `ikTarget`, handle sockets and blend. "The Limb" on this page is that TwoBoneIk.
+
 **Status:** Signed off by the author, 2026-11-24 (D74). Written from the author's answers. The author answered the seven open questions the same day, and section 14 records the answers. Built 2026-11-24, and the inverse (phase 5) 2026-11-25, except the perf rig (phase 6): D74 records what phases 2 to 4 settled that this page left open (the chain's composition, the plugs without controls, `controlName`, the pivot socket names). Depends on markers (`markers.md`, D73).
 
 ## 1. Animator-facing problem
@@ -63,7 +65,7 @@ So a template wires **two child plugs** (section 6). The author's "unless ik als
 |---|---|---|
 | `joints` | required | Three joint selectors: the ankle, the toe (ball joint) and the toe tip. The foot **drives the toe and the toe tip.** The ankle is a reference only: it belongs to the Limb (a joint two modules drive is a template error, D71) |
 | (no `reverseHierarchy`) | removed 2026-11-24 | The pivots are the five markers `[side, role]` on the foot's own side, `heel`, `bankOut`, `bankIn`, `toeTip` and `toe`, all required (a `ball` marker is not read since 2026-11-25), in the fixed order of item 2. A missing one is a read-phase error naming it, and the old key is an unknown key. Two feet on one side (a creature) would need a marker prefix argument; not built, since a quadruped leg is likely a module of its own (author) |
-| `ikFkDriver` | required | The module id (as written in the template) of the Limb whose `ikFkBlend` drives this foot. Validated: it must exist, have a blend, be the module that `ik` and `ankle` hang from, and take the foot's `ankle` socket as its `ikTarget` (`ModuleInterface::driverPlug`, 2026-11-24: the author's solomon build left it out and the foot moved nothing, with no error). A TwoBoneIk has no `ikTarget`, so it cannot carry a foot |
+| `ikFkDriver` | required | The module id (as written in the template) of the Limb (or, since D80 phase 2, the TwoBoneIk) whose `ikFkBlend` drives this foot. Validated: it must exist, have a blend, be the module that `ik` and `ankle` hang from, and take the foot's `ankle` socket as its `ikTarget` (`ModuleInterface::driverPlug`, 2026-11-24: the author's solomon build left it out and the foot moved nothing, with no error). A TwoBoneIk has no `ikTarget`, so it cannot carry a foot |
 | `controlName` | `foot` | Base of the control names |
 
 Roles are a table in `core/` that says which channels act on a pivot. The order is the list's, so a rig with no bank pivots, or the pivots in another order, is a different list and no code change. A role that appears twice, or a `bankOut` without a `bankIn`, is a read-phase error. The mirrored module swaps the selectors' side and the `ikFkDriver` id (D28).
@@ -220,7 +222,7 @@ D62 rejected a combined `Limb` and `ReverseFoot` and an `Arm` and `Leg`. This de
 - **Validation cases:** a missing pivot marker (all five are required since `reverseHierarchy` was removed, D74), `reverseHierarchy` as an unknown arg, a marker the file lacks, a marker whose joint is not in the build, `ikFkDriver` naming a missing module or a module of the wrong type, the ankle joint driven by two modules, a plug wired to a module that is not the driver.
 - **Cycle:** the whole leg, cold evaluation in DG and parallel mode (extends `limb_foot`), and a foot wired to `end` for stage 1 still reports the loop.
 - **Inverse:** the round trip on a hand-built rig pose (the ankle and toe come back to 1e-4), the FK-to-IK match with a raised foot and no pop, the pre-pass order, the missing-joint and sidecar-precedence cases from `inverse-solve.md`.
-- `test_limb_matches_parts` gets a foot-shaped case: Limb alone, Limb with an identity foot, and Limb with a foot at rest give the same joints.
+- `test_limb_matches_parts` gets a foot-shaped case: Limb alone, Limb with an identity foot, and Limb with a foot at rest give the same joints. (Since D80 that test is gone with the Limb: `test_reverse_foot` checks that an arm with a foot at rest gives the arm's joints alone.)
 - A worked example in `docs/modules.md` with a test in `test_docs_examples.py`.
 
 ## 16. Build phases
@@ -240,6 +242,6 @@ Each ends with the build, the full suite, the docs pass and one commit that cite
 
 ## 17. Docs
 
-New: `docs/markers.md`, the `ReverseFoot` section in `docs/modules.md`. Updated: `docs/commands.md`, `docs/templates.md` (marker selectors, `ikFkDriver`), `docs/naming.md`, `docs/controls.md` (the channels), `docs/skeletons.md`, `docs/architecture.md` (the pre-pass and the blend source), `docs/source-map.md`, `docs/mayadev.md`, `design/limb.md` (the open item answered, the coupling warning), `design/README.md`, `CLAUDE.md` (the module list, node types and the coupling note), `README.md`.
+New: `docs/markers.md`, the `ReverseFoot` section in `docs/modules.md`. Updated: `docs/commands.md`, `docs/templates.md` (marker selectors, `ikFkDriver`), `docs/naming.md`, `docs/controls.md` (the channels), `docs/skeletons.md`, `docs/architecture.md` (the pre-pass and the blend source), `docs/source-map.md`, `docs/mayadev.md`, `design/archive/limb.md` (the open item answered, the coupling warning), `design/README.md`, `CLAUDE.md` (the module list, node types and the coupling note), `README.md`.
 
 **mayadev.** Additive again. A foot adds no command and changes no flag. Proposed for the author: the Asset Editor's Markers tab and the `markers` file kind (see `markers.md` section 12), and the active rig panel showing the foot's channels.

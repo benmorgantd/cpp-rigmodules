@@ -503,8 +503,8 @@ MStatus ReverseFootModuleNode::computeToe(const MPlug& plug, MDataBlock& data)
 // The match outputs, from the toe as it is at the current blend. The branch allocates (the warnings), which is why only setRigIkFkBlend pulls it.
 //  FK: the toe FK control's local that puts the FK toe on the toe, as the inverse solves it. The ankle plug does not move in the switch: the
 //      Limb's FK match puts its end where it is.
-//  IK: the channels are kept, and the Limb's IK match puts the handle where the foot's motion F lands the ankle as it is (TwoBoneIkPart
-//      computeMatch), so the handle's motion is F^-1 times the ankle's. toeTap is the pitch left in the toe once that is taken out, as the
+//  IK: the channels are kept, and the Limb's IK match puts the handle where the foot's motion F lands the ankle as it is (TwoBoneIk's
+//      Part::computeMatch), so the handle's motion is F^-1 times the ankle's. toeTap is the pitch left in the toe once that is taken out, as the
 //      inverse solves it, and what that pitch can't hold is a warning.
 MStatus ReverseFootModuleNode::computeMatch(const MPlug& plug, MDataBlock& data)
 {
@@ -948,7 +948,7 @@ bool ReverseFootModuleNode::planFromJson(const nlohmann::json& args, PlanContext
 
 	if (footArgs.ikFkDriver.empty())
 	{
-		ctx.report.addError(driverPath, "must name the Limb or TwoBoneIk module whose ikFkBlend the foot follows");
+		ctx.report.addError(driverPath, "must name the TwoBoneIk module whose ikFkBlend the foot follows");
 		valid = false;
 	}
 	NamingConvention::Name controlName;

@@ -55,7 +55,7 @@ namespace RibbonMath
 			double u[MaxControls]{};
 			Vec3 p[MaxControls];
 			Vec3 m[MaxControls];   // dP/du at each knot, leaving it
-			// With `split` the tangent arriving at a knot is mIn, not m, so a knot can be a corner (a Limb's elbow). Without it a
+			// With `split` the tangent arriving at a knot is mIn, not m, so a knot can be a corner (an anchored Ribbon's elbow). Without it a
 			// knot has one tangent, and mIn is not read.
 			bool split{ false };
 			Vec3 mIn[MaxControls];
@@ -292,7 +292,7 @@ namespace RibbonMath
 			finishBase(setup, base);
 		}
 
-		// Makes knots corners (a Limb's elbow): each side of a corner leaves it along its own chord, so a segment between two
+		// Makes knots corners (an anchored Ribbon's elbow): each side of a corner leaves it along its own chord, so a segment between two
 		// corners is a straight line and the curve through them is the polyline. `softness` blends back to the smooth tangents the knots
 		// already hold: 0 is the corner, 1 leaves them as they are. isCorner marks the interior knots that are corners (null: all of
 		// them), and the two ends take the chord of their one segment too when `ends` is set.
@@ -632,7 +632,7 @@ namespace RibbonMath
 			detail.twistIn[count - 1] = detail.twistOut[count - 1];
 			if (setup.fkCount > 0)
 			{
-				// The fk chain's roll about the curve is twist the skin must follow, a Limb's anchors and a fkStyle ribbon's fk controls
+				// The fk chain's roll about the curve is twist the skin must follow, an anchored Ribbon's anchors and a fkStyle ribbon's fk controls
 				// alike: it eases between them like the ends' ramp. The ik controls' own frames already carry it (evaluateControlsInternal),
 				// but the detail curve starts from the rest up, so without this the bind joints stay untwisted while the ik controls turn.
 				// fkRoll is already about the forward tangent, so chainSign is not applied again. The share is the ik control's, so the

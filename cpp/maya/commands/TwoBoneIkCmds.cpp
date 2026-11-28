@@ -3,7 +3,6 @@
 #include "core/ControlMarkup.h"
 #include "core/JsonUtils.h"
 #include "core/PoseFile.h"
-#include "maya/modules/LimbModule.h"
 #include "maya/modules/ReverseFootModule.h"
 #include "maya/modules/TwoBoneIkModule.h"
 #include "maya/shared/RigPoseScene.h"
@@ -29,7 +28,7 @@ namespace
 	constexpr const char* kBlendFlag{ "-blend" };
 
 	// The TwoBoneIk module the object belongs to: the module node, or any of its controls. Reports anything else.
-	MStatus readLimbModule(const MString& name, const char* commandName, MObject& oOutModule)
+	MStatus readTwoBoneIkModule(const MString& name, const char* commandName, MObject& oOutModule)
 	{
 		MObject oNode;
 		if (!DagUtils::getMObjectFromName(name, oNode))
@@ -37,13 +36,12 @@ namespace
 			MGlobal::displayError(MString(commandName) + ": node not found: " + name);
 			return MStatus::kFailure;
 		}
-		// A joint leads to its module too, but the command takes a control or the module. A Limb matches the same
-		// way: its first six slots are a two-bone limb, and its ribbon rides the joints.
+		// A joint leads to its module too, but the command takes a control or the module. An anchored Ribbon on the
+		// limb rides its joints, so it needs no match and its controls are not the limb's.
 		oOutModule = oNode.hasFn(MFn::kJoint) ? MObject::kNullObj : RigTraversal::getNodeModule(oNode);
-		const MTypeId moduleType = oOutModule.isNull() ? MTypeId() : MFnDependencyNode(oOutModule).typeId();
-		if (oOutModule.isNull() || (moduleType != TwoBoneIkNode::id && moduleType != LimbNode::id))
+		if (oOutModule.isNull() || MFnDependencyNode(oOutModule).typeId() != TwoBoneIkNode::id)
 		{
-			MGlobal::displayError(MString(commandName) + ": " + name + " is not a TwoBoneIk or Limb module or one of its controls.");
+			MGlobal::displayError(MString(commandName) + ": " + name + " is not a TwoBoneIk module or one of its controls.");
 			return MStatus::kFailure;
 		}
 		return MStatus::kSuccess;
@@ -208,7 +206,7 @@ MStatus SetRigIkFkBlendCmd::doIt(const MArgList& args)
 	}
 
 	MObject oModule;
-	status = readLimbModule(objectName, aCommandString, oModule);
+	status = readTwoBoneIkModule(objectName, aCommandString, oModule);
 	if (!status)
 	{
 		return status;
@@ -222,11 +220,10 @@ MStatus SetRigIkFkBlendCmd::doIt(const MArgList& args)
 	}
 	status = RigTraversal::getModuleControls(oModule, scope.oControls);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	const bool isLimb = MFnDependencyNode(oModule).typeId() == LimbNode::id;
-	if (isLimb ? scope.oControls.length() < TwoBoneIkSlot::Count : scope.oControls.length() != TwoBoneIkSlot::Count)
+	if (scope.oControls.length() != TwoBoneIkSlot::Count)
 	{
 		MGlobal::displayError(MString(aCommandString) + ": " + MFnDependencyNode(oModule).name() + " has " + scope.oControls.length()
-			+ " controls, not the " + (isLimb ? "at least " : "") + TwoBoneIkSlot::Count + " a " + (isLimb ? "Limb" : "TwoBoneIk limb") + " has.");
+			+ " controls, not the " + TwoBoneIkSlot::Count + " a TwoBoneIk limb has.");
 		return MStatus::kFailure;
 	}
 

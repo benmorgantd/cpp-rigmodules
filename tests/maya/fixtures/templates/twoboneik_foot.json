@@ -1,0 +1,54 @@
+{
+  "rigVersion": 1,
+  "rigAuthor": "tests",
+  "rigTemplateName": "TwoBoneIkFoot",
+  "rigModules": [
+    {
+      "moduleType": "TwoBoneIk",
+      "name": "arm_01_L_MOD",
+      "shapeType": "Box",
+      "side": "Left",
+      "moduleArgs": {
+        "joints": [
+          [
+            "Left",
+            "upperArm"
+          ],
+          [
+            "Left",
+            "lowerArm"
+          ],
+          [
+            "Left",
+            "hand"
+          ]
+        ],
+        "controlName": "arm"
+      },
+      "parentStructure": {
+        "start": "layout_00_M_MOD.end",
+        "ik": "layout_00_M_MOD.end",
+        "pole": "layout_00_M_MOD.end",
+        "ikTarget": "foot_01_L_MOD.index_0"
+      },
+      "moduleVersion": 2
+    },
+    {
+      "moduleType": "FkChain",
+      "name": "foot_01_L_MOD",
+      "shapeType": "Box",
+      "side": "Left",
+      "moduleArgs": {
+        "joints": [
+          [
+            "Left",
+            "foot"
+          ]
+        ]
+      },
+      "parentStructure": {
+        "start": "arm_01_L_MOD.ik"
+      }
+    }
+  ]
+}

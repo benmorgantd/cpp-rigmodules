@@ -1,0 +1,60 @@
+{
+  "joints": [
+    {
+      "name": "upperArm_00_L_JNT",
+      "side": "Left",
+      "usage": "upperArm",
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "skin": false
+    },
+    {
+      "name": "lowerArm_00_L_JNT",
+      "side": "Left",
+      "usage": "lowerArm",
+      "translate": [
+        4,
+        0,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        90
+      ],
+      "parent": "upperArm_00_L_JNT",
+      "skin": false
+    },
+    {
+      "name": "hand_00_L_JNT",
+      "side": "Left",
+      "usage": "hand",
+      "translate": [
+        4,
+        4,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        90
+      ],
+      "parent": "lowerArm_00_L_JNT",
+      "skin": false
+    },
+    {
+      "name": "foot_00_L_JNT",
+      "side": "Left",
+      "usage": "foot",
+      "translate": [
+        4,
+        4,
+        0
+      ],
+      "parent": "hand_00_L_JNT"
+    }
+  ]
+}

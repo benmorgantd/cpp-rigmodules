@@ -2,9 +2,6 @@
 
 // The Ribbon module's math (design/ribbon.md), with no Maya types so it can be checked against closed-form cases.
 //
-// COUPLED TO Limb (design/limb.md): LimbNode runs this math for its one continuous ribbon. A change here changes Limb.
-// Read design/limb.md and run test_limb_matches_parts before changing it.
-//
 // A virtual ribbon: a piecewise cubic Hermite spline through the control matrices, a frame at any parameter u by parallel
 // transport, twist, a sine layer and a scale profile. Everything is a pure function of its inputs:
 // no state survives an evaluation, so scrubbing, baking and parallel evaluation cannot change a result.
@@ -56,7 +53,7 @@ namespace RibbonMath
 		double startAimBlend{ 0.0 };        // 0: the end's own X axis sets its tangent, 1: it aims at the other end
 		double endAimBlend{ 0.0 };
 		double bendRoundness{ 1.0 };        // Hermite handle scale at the ends: 0 is straight, about 0.65 to 1 is rounded
-		// With Setup::fkAnchors: how round the corner at an interior anchor (a Limb's elbow) is. 0 is a sharp corner: the curve through
+		// With Setup::fkAnchors: how round the corner at an interior anchor (an anchored Ribbon's elbow) is. 0 is a sharp corner: the curve through
 		// the anchors is the polyline, a straight line to each side of it. 1 is the smooth curve, with one tangent through the anchor. The
 		// default is the rest, so the bind pose is a polyline.
 		double cornerSoftness{ 0.0 };
@@ -87,7 +84,7 @@ namespace RibbonMath
 		int fkCount{ 0 };
 		double fkKnotU[MaxControls]{};      // each fk control's parameter: its share of the fk rest chord length (fkKnots)
 		Mat4 fkRest[MaxControls];           // each fk control's rest world matrix
-		// The fk chain is a Limb's anchors: its start, mid and end joint frames, given to every evaluation as world matrices
+		// The fk chain is an anchored Ribbon's anchors: its start, mid and end joint frames, given to every evaluation as world matrices
 		// (Input::fkWorld) and not composed from controls. The curve passes through them, the ik controls float on it as in a TwoBoneIk with a ribbon, and
 		// their roll about the curve also twists the bind joints, easing from one anchor's to the next (an fk chain's roll only turns
 		// the ik controls).
@@ -150,7 +147,7 @@ namespace RibbonMath
 	// other, a degenerate chord.
 	bool buildSetup(const Mat4* controlRest, int controlCount, const Mat4* bindRest, int bindCount, const Mat4* fkRest, int fkCount, Setup& outSetup, const char*& outReason);
 
-	// The Limb's setup: the fk chain is `anchorCount` anchors (2 to 8) whose rest frames the curve passes through. The ik controls
+	// The anchored setup: the fk chain is `anchorCount` anchors (2 to 8) whose rest frames the curve passes through. The ik controls
 	// are not given but placed on that curve at `controlU` (their parameters, in the anchors' chord-share space: strictly increasing,
 	// the first 0 and the last 1, so a control at an anchor's parameter sits on the anchor exactly). Their rest frames come back in
 	// outControlRest (controlCount matrices): the position on the curve, with the first anchor's orientation carried along it, so the

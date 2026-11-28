@@ -11,8 +11,9 @@ from maya import cmds
 
 import rigmodules.query
 from rigtest import fixtures
-from rigtest.case import RigTestCase, rig_name
+from rigtest.case import CapturedWarnings, RigTestCase, rig_name
 from rigtest.cases import add_pose_cases
+from rigtest.jointclips import SolveTestCase, rig_root
 from rigtest.module_contract import ModuleContract
 
 ARM = ["upperArm_00_L_CTRL", "lowerArm_00_L_CTRL", "hand_00_L_CTRL"]
@@ -496,3 +497,129 @@ class TwoBoneIkDerivedControls(RigTestCase):
         self.assertWorldTranslation(rig_name("upperArmSettings_00_L_CTRL"), [6.75, 0, 0])
         for joint in LIMB_JOINTS:
             self.assertTrue(all(math.isfinite(v) for v in translation(joint)), joint)
+
+
+FOOT = "foot_00_L_CTRL"
+TARGET_LIMB = "arm_01_L_MOD"
+TARGET_JOINTS = ["upperArm_00_L_JNT", "lowerArm_00_L_JNT", "hand_00_L_JNT"]
+
+
+class TwoBoneIkIkTarget(RigTestCase):
+    """ikTarget (D62 section 8, on TwoBoneIk since D80 phase 2): a foot-shaped module (an FkChain with one joint at the hand) hangs from
+    the TwoBoneIk's ik socket and feeds its ikTarget plug (twoboneik_foot). The arm is upper arm (0,0,0), lower arm (4,0,0), hand
+    (4,4,0), bones 4 and 4. Expectations are worked from that: the end joint reaches where the foot control is, and a pose of the foot
+    control is whatever direction it moved."""
+
+    def _build(self):
+        self.build_standard("twoboneik_foot", "twoboneik_foot")
+
+    def _raise_the_foot(self, amount=1.0):
+        cmds.setAttr(rig_name(FOOT + ".translateY"), amount)
+        return translation(FOOT)
+
+    def test_a_two_bone_ik_with_no_target_reaches_its_handle(self):
+        data = copy.deepcopy(fixtures.load_template("twoboneik_foot"))
+        data["rigModules"] = data["rigModules"][:1]
+        del data["rigModules"][0]["parentStructure"]["ikTarget"]
+        self.build(data, self.make_skeleton("twoboneik_foot"), label="twoboneik_no_target")
+        self.assertFalse(cmds.getAttr(rig_name(TARGET_LIMB + ".ikTargetConnected")))
+        cmds.setAttr(rig_name(HANDLE + ".translateY"), 1.0)
+        self.assertWorldTranslation(rig_name(TARGET_JOINTS[2]), translation(HANDLE), 1e-4)
+
+    def test_the_foot_at_rest_leaves_the_limb_where_it_is(self):
+        self._build()
+        self.assertTrue(cmds.getAttr(rig_name(TARGET_LIMB + ".ikTargetConnected")))
+        self.assertWorldTranslation(rig_name(TARGET_JOINTS[2]), [4, 4, 0], 1e-4)
+        self.assertWorldTranslation(rig_name(FOOT), [4, 4, 0], 1e-4)
+
+    def test_the_target_comes_from_the_foot_and_the_foot_from_the_handles_own_sockets(self):
+        """The ik, pole and settings sockets are on handleSocketMatrix, apart from outputSocketMatrix, which the target moves."""
+        self._build()
+        target = cmds.listConnections(rig_name(TARGET_LIMB + ".ikTargetMatrix"), source=True, destination=False, plugs=True)
+        self.assertEqual([p.split(":")[-1] for p in target], ["foot_01_L_MOD.outputSocketMatrix[0]"])
+        start = cmds.listConnections(rig_name("foot_01_L_MOD.childPlugs[0].childPlugParentMatrix"), source=True, destination=False, plugs=True)
+        self.assertEqual([p.split(":")[-1] for p in start], [TARGET_LIMB + ".handleSocketMatrix[3]"])
+
+    def test_the_end_joint_reaches_the_foot_and_the_handle_stays(self):
+        """The foot control moves one unit. The handle, which the foot hangs from, does not, and the hand goes where the foot is: its
+        distance from the root is then under the reach of 8, so nothing stretches or softens, and the bones keep their lengths."""
+        self._build()
+        handle = translation(HANDLE)
+        pole = translation(POLE)
+        foot = self._raise_the_foot(1.0)
+        self.assertAlmostEqual(math.dist(foot, [4, 4, 0]), 1.0, places=4)
+        self.assertWorldTranslation(rig_name(TARGET_JOINTS[2]), foot, 1e-4)
+        self.assertWorldTranslation(rig_name(HANDLE), handle, 1e-5)
+        self.assertWorldTranslation(rig_name(POLE), pole, 1e-5)
+        lower = translation(TARGET_JOINTS[1])
+        self.assertAlmostEqual(math.dist([0, 0, 0], lower), 4.0, places=4)
+        self.assertAlmostEqual(math.dist(lower, foot), 4.0, places=4)
+
+    def test_in_fk_the_target_is_ignored(self):
+        self._build()
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0)
+        self._raise_the_foot(1.0)
+        self.assertWorldTranslation(rig_name(TARGET_JOINTS[2]), [4, 4, 0], 1e-4)
+
+    def test_a_half_blend_is_halfway_between_fk_and_the_target(self):
+        self._build()
+        foot = self._raise_the_foot(1.0)
+        cmds.setAttr(rig_name(SETTINGS + ".ikFkBlend"), 0.5)
+        end = translation(TARGET_JOINTS[2])
+        for axis in range(3):
+            self.assertAlmostEqual(end[axis], (4, 4, 0)[axis] * 0.5 + foot[axis] * 0.5, places=3)
+
+    def test_the_graph_has_no_cycle_in_either_evaluation_mode(self):
+        """TwoBoneIk to foot to TwoBoneIk is acyclic at the plug level: the ik, pole and settings sockets never read ikTarget. Maya
+        reports a real cycle as a warning when it evaluates."""
+        self._build()
+        mode = cmds.evaluationManager(query=True, mode=True)[0]
+        self.addCleanup(cmds.evaluationManager, mode=mode)
+        for evaluation in ("off", "parallel"):
+            with self.subTest(mode=evaluation):
+                cmds.evaluationManager(mode=evaluation)
+                with CapturedWarnings() as warnings:
+                    foot = self._raise_the_foot(1.0 if evaluation == "off" else 1.5)
+                    self.assertWorldTranslation(rig_name(TARGET_JOINTS[2]), foot, 1e-4)
+                    cmds.dgdirty(allPlugs=True)
+                    cmds.getAttr(rig_name(TARGET_JOINTS[2] + ".worldMatrix[0]"))
+                self.assertFalse(warnings.contain("ycle"), warnings.messages)
+
+    def test_the_loop_through_a_socket_that_sees_the_target_is_still_an_error(self):
+        data = copy.deepcopy(fixtures.load_template("twoboneik_foot"))
+        data["rigModules"][1]["parentStructure"]["start"] = TARGET_LIMB + ".end"
+        self.assertMayaError(lambda: self.build(data, self.make_skeleton("twoboneik_foot"), label="twoboneik_foot_loop"), "cycle")
+        self.assertNothingBuilt()
+
+    def test_undo_and_redo_rebuild_the_target(self):
+        self._build()
+        cmds.undo()
+        self.assertEqual(cmds.ls(type="rigRootModule"), [])
+        cmds.redo()
+        foot = self._raise_the_foot(1.0)
+        self.assertWorldTranslation(rig_name(TARGET_JOINTS[2]), foot, 1e-4)
+
+    def test_a_match_both_ways_with_a_raised_foot_puts_no_pop_in_the_hand(self):
+        """The match places the handle so the foot's motion lands the hand on the joints, as a Limb's does (D74)."""
+        self._build()
+        self._raise_the_foot(1.0)
+        before = cmds.xform(rig_name(TARGET_JOINTS[2]), query=True, worldSpace=True, matrix=True)
+        for blend in (0, 1):
+            with self.subTest(blend=blend):
+                cmds.setRigIkFkBlend(rig_name(TARGET_LIMB), blend=blend)
+                after = cmds.xform(rig_name(TARGET_JOINTS[2]), query=True, worldSpace=True, matrix=True)
+                for got, want in zip(after, before):
+                    self.assertAlmostEqual(got, want, places=4)
+
+
+class TwoBoneIkIkTargetRestore(SolveTestCase):
+    """ikTarget is not a child plug, so the module loop does not stop a restore ordering the modules, and a rig at rest comes back where
+    it was. An FkChain on the target gives the TwoBoneIk no motion (only a ReverseFoot's inverse does, D74)."""
+
+    def test_a_restore_orders_a_two_bone_ik_and_its_foot(self):
+        self.build_standard("twoboneik_foot", "twoboneik_foot")
+        rest = self.snapshot()
+        clip = self.write_clip(rest, [rest])
+        sidecar = self.write_sidecar({})
+        cmds.poseRigFromJointPose(rig_root(), jointPose=clip, sidecar=sidecar)
+        self.assertJointsAt(rest)

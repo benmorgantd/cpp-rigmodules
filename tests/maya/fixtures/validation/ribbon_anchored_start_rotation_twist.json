@@ -1,0 +1,17 @@
+{
+  "description": "The start anchor takes \"full\" or \"swing\": twist is the end's rule",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/startAnchorRotation",
+      "value": "twist"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "must be \"full\" or \"swing\"",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.startAnchorRotation"
+    }
+  ]
+}

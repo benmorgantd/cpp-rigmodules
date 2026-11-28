@@ -3,8 +3,8 @@
 // Maya-free core: no Maya headers in this file or its .cpp.
 // The ReverseFoot's math (design/reverse-foot.md section 7), so it can be checked against closed-form cases.
 //
-// COUPLED TO Limb (design/limb.md section 8): the foot hangs from a Limb's sockets and feeds its ikTarget. A change to
-// what the foot does with its channels changes where the Limb's end joint reaches.
+// COUPLED TO TwoBoneIk: the foot hangs from a TwoBoneIk's sockets and feeds its ikTarget. A change to what the foot
+// does with its channels changes where the limb's end joint reaches.
 //
 // Matrices are row-major with row vectors (VectorMath.h): a point moves as p' = p * M, and rows 0 to 2 of a rotation are where
 // the X, Y and Z axes go. A motion is a rigid Mat4, rotation and translation, in world space at rest.

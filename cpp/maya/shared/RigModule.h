@@ -210,7 +210,7 @@ public:
 	// rest world matrix, the joint's rest world times its offset. An error naming the marker and the module, and false, when the build was given no markers file, the file has
 	// no such marker, or the marker's joint is not among the build's joints. Claims nothing: a marker is not driven.
 	static bool resolveMarker(PlanContext& ctx, const JointSelector& selector, ResolvedMarker& outMarker);
-	// The rest world of a marked joint the module only reads, without claiming it (the ReverseFoot's ankle, which its Limb drives). An
+	// The rest world of a marked joint the module only reads, without claiming it (the ReverseFoot's ankle, which its TwoBoneIk drives). An
 	// error, and false, when no joint has this markup.
 	static bool findJointRest(PlanContext& ctx, const JointSelector& selector, MMatrix& mOutRestWorld);
 	
@@ -425,7 +425,7 @@ public:
 	// Reads `count` control inputs from `firstSlot` into mOutLocal[0..count) and mOutRestWorld[0..count). Fails on a missing element.
 	static MStatus readControlInputs(MArrayDataHandle& hControlInputData, unsigned int firstSlot, unsigned int count, MMatrix* mOutLocal, MMatrix* mOutRestWorld);
 
-	// For a module whose one solve writes controlOPM, jointOPM and the socket matrix together (Aim, TwoBoneIk, Ribbon, Limb): the three
+	// For a module whose one solve writes controlOPM, jointOPM and the socket matrix together (Aim, TwoBoneIk, Ribbon): the three
 	// handles, one slot written to all three, and the commit of all three with the plug.
 	// `status` is the first failure, or success: check it before using the result.
 	static SolvedOutputs openSolvedOutputs(MDataBlock& data, const MObject& oJointOPM, MStatus& status);

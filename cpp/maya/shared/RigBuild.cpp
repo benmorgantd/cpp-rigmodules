@@ -878,14 +878,18 @@ namespace
 			return status;
 		}
 
+		// A module may run the modifier while it builds (to add a channel before wiring it, TwoBoneIk, Ribbon), so a failure from here on
+		// undoes what already ran.
 		status = parentModuleControls(rigModuleMap, rigData.rigModules, parentNamespace, dagMod);
 		if (!status)
 		{
+			dagMod.undoIt();
 			return status;
 		}
 		status = connectBlendDrivers(rigModuleMap, dagMod);
 		if (!status)
 		{
+			dagMod.undoIt();
 			return status;
 		}
 

@@ -1,0 +1,16 @@
+{
+  "description": "A foot that hangs from a TwoBoneIk's end socket and feeds its ikTarget is a real loop: the end socket follows the target (D80 phase 2)",
+  "base": "twoboneik_foot",
+  "skeleton": "twoboneik_foot",
+  "edits": [
+    {
+      "set": "/rigModules/1/parentStructure/start",
+      "value": "arm_01_L_MOD.end"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "cycle"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "description": "An anchored ribbon's settings plug names the control its channels go on, so it has no default",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "remove": "/rigModules/1/parentStructure/settings"
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "child plug 'settings' has no default parent",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.parentStructure"
+    }
+  ]
+}

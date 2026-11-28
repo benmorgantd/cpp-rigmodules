@@ -311,6 +311,14 @@ namespace
 		// Sorted, so messages come out in a stable order.
 		const std::map<std::string, std::string> parentStructure(module.parentStructure.begin(), module.parentStructure.end());
 
+		for (const ModulePlugInfo& plug : moduleInterface.childPlugs)
+		{
+			if (plug.required && module.parentStructure.count(plug.name) == 0 && module.matrixParentStructure.count(plug.name) == 0)
+			{
+				report.addError(where + "." + TemplateKey::ParentStructure, "child plug '" + plug.name + "' has no default parent, so it needs an entry");
+			}
+		}
+
 		for (const auto& [plugName, socketIdentifier] : parentStructure)
 		{
 			const std::string entryPath = where + "." + TemplateKey::ParentStructure + "." + plugName;
@@ -352,6 +360,12 @@ namespace
 				report.addError(entryPath, "'" + socketIdentifier + "' is a matrix-only socket and has no control to be a DAG parent. A valid dagParent must be given here: "
 					"a socket with a control (on '" + parentModule + "': " + namesOrNone(withControl) + "). To keep following its matrix, name '"
 					+ socketIdentifier + "' in matrixParentStructure for '" + plugName + "'");
+				continue;
+			}
+			if (pPlugInfo != nullptr && pPlugInfo->hostsChannels && pParentInterface->isMatrixOnly(socketName))
+			{
+				report.addError(entryPath, "'" + socketIdentifier + "' is a matrix-only socket, and '" + plugName + "' needs a socket with a control "
+					"to hold this module's channels");
 				continue;
 			}
 
@@ -677,6 +691,16 @@ namespace RigTemplateValidation
 		}
 		return modulePath(static_cast<std::size_t>(module.mirrorOf), NamingConvention::swapSide(module.name))
 			+ " (mirror '" + module.name + "')";
+	}
+
+	std::string removedModuleTypeHint(const std::string& moduleType)
+	{
+		if (moduleType == "Limb")
+		{
+			return "the Limb module was removed (D80): write a TwoBoneIk with the Limb's name and an anchored Ribbon after it, "
+				"as docs/modules.md describes under \"Moving a Limb to a TwoBoneIk and a Ribbon\"";
+		}
+		return {};
 	}
 
 	std::string constraintPath(std::size_t index, const std::string& name)
@@ -1104,7 +1128,7 @@ namespace RigTemplateValidation
 			}
 			if (driver->second.blendSource.empty())
 			{
-				report.addError(where, "'" + driverName + "' has no ik/fk blend to follow: it must be a Limb or a TwoBoneIk");
+				report.addError(where, "'" + driverName + "' has no ik/fk blend to follow: it must be a TwoBoneIk");
 				continue;
 			}
 
@@ -1132,7 +1156,7 @@ namespace RigTemplateValidation
 			if (driver->second.findChildPlug(driverPlug) == nullptr)
 			{
 				report.addError(where, "'" + driverName + "' has no child plug '" + driverPlug + "' to take '" + expectedParent
-					+ "', so the foot could not move its ankle: it must be a Limb");
+					+ "', so the foot could not move its ankle: it must be a TwoBoneIk");
 				continue;
 			}
 			const auto driverModule = std::find_if(rigData.rigModules.begin(), rigData.rigModules.end(), [&driverName](const RigModuleData& other)

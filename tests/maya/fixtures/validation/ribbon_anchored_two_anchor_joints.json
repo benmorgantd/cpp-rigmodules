@@ -1,0 +1,26 @@
+{
+  "description": "An anchored ribbon has three anchors, start, mid and end (author, 2026-11-27)",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/anchorJoints",
+      "value": [
+        [
+          "Left",
+          "upperArm"
+        ],
+        [
+          "Left",
+          "lowerArm"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "has 3 anchor joints",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.anchorJoints"
+    }
+  ]
+}

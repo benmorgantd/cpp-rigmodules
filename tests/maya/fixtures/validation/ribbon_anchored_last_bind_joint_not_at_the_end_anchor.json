@@ -1,0 +1,50 @@
+{
+  "description": "The last bind joint sits at the end anchor",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/joints",
+      "value": [
+        [
+          "Left",
+          "bind1"
+        ],
+        [
+          "Left",
+          "bind2"
+        ],
+        [
+          "Left",
+          "bind3"
+        ],
+        [
+          "Left",
+          "bind4"
+        ],
+        [
+          "Left",
+          "bind5"
+        ],
+        [
+          "Left",
+          "bind6"
+        ],
+        [
+          "Left",
+          "bind7"
+        ],
+        [
+          "Left",
+          "bind8"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "must sit at the end anchor",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.joints"
+    }
+  ]
+}

@@ -4,16 +4,27 @@
   "rigTemplateName": "ReverseFoot",
   "rigModules": [
     {
-      "moduleType": "Limb",
+      "moduleType": "TwoBoneIk",
       "name": "arm_01_L_MOD",
       "shapeType": "Box",
       "side": "Left",
+      "moduleVersion": 2,
       "moduleArgs": {
-        "joints": [["Left", "upperArm"], ["Left", "lowerArm"], ["Left", "hand"]],
-        "bindJoints": [["Left", "bind1"], ["Left", "bind2"], ["Left", "bind3"], ["Left", "bind4"], ["Left", "bind5"],
-                       ["Left", "bind6"], ["Left", "bind7"], ["Left", "bind8"], ["Left", "bind9"]],
-        "controlName": "arm",
-        "controlCount": 5
+        "joints": [
+          [
+            "Left",
+            "upperArm"
+          ],
+          [
+            "Left",
+            "lowerArm"
+          ],
+          [
+            "Left",
+            "hand"
+          ]
+        ],
+        "controlName": "arm"
       },
       "parentStructure": {
         "start": "layout_00_M_MOD.end",
@@ -28,7 +39,20 @@
       "shapeType": "Box",
       "side": "Left",
       "moduleArgs": {
-        "joints": [["Left", "hand"], ["Left", "toe"], ["Left", "toeTip"]],
+        "joints": [
+          [
+            "Left",
+            "hand"
+          ],
+          [
+            "Left",
+            "toe"
+          ],
+          [
+            "Left",
+            "toeTip"
+          ]
+        ],
         "ikFkDriver": "arm_01_L_MOD"
       },
       "parentStructure": {
@@ -42,10 +66,86 @@
       "shapeType": "Box",
       "side": "Left",
       "moduleArgs": {
-        "joints": [["Left", "dummy"]]
+        "joints": [
+          [
+            "Left",
+            "dummy"
+          ]
+        ]
       },
       "parentStructure": {
         "start": "arm_01_L_MOD.end"
+      }
+    },
+    {
+      "moduleType": "Ribbon",
+      "moduleVersion": 2,
+      "name": "armRibbon_01_L_MOD",
+      "shapeType": "Box",
+      "side": "Left",
+      "moduleArgs": {
+        "anchorJoints": [
+          [
+            "Left",
+            "upperArm"
+          ],
+          [
+            "Left",
+            "lowerArm"
+          ],
+          [
+            "Left",
+            "hand"
+          ]
+        ],
+        "joints": [
+          [
+            "Left",
+            "bind1"
+          ],
+          [
+            "Left",
+            "bind2"
+          ],
+          [
+            "Left",
+            "bind3"
+          ],
+          [
+            "Left",
+            "bind4"
+          ],
+          [
+            "Left",
+            "bind5"
+          ],
+          [
+            "Left",
+            "bind6"
+          ],
+          [
+            "Left",
+            "bind7"
+          ],
+          [
+            "Left",
+            "bind8"
+          ],
+          [
+            "Left",
+            "bind9"
+          ]
+        ],
+        "controlName": "armRibbon",
+        "startAnchorRotation": "swing",
+        "endAnchorRotation": "twist",
+        "bendSoftness": 0
+      },
+      "parentStructure": {
+        "start": "arm_01_L_MOD.index_0",
+        "mid": "arm_01_L_MOD.index_1",
+        "end": "arm_01_L_MOD.index_2",
+        "settings": "arm_01_L_MOD.settings"
       }
     }
   ]

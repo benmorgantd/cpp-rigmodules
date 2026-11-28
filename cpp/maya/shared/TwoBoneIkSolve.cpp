@@ -271,12 +271,16 @@ std::vector<std::string> TwoBoneIkSolve::socketNamesAt(unsigned int slot)
 ModuleInterface TwoBoneIkSolve::makeInterface()
 {
 	ModuleInterface moduleInterface;
-	// Both TwoBoneIk and Limb build this: their ik/fk blend is what a ReverseFoot's ikFkDriver follows.
+	// The ik/fk blend is what a ReverseFoot's ikFkDriver follows.
 	moduleInterface.blendSource = RigAttr::IkFkBlend;
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Start, true, true, "" });
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Ik, true, true, "" });
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Pole, true, false, "" });
 	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::Settings, true, false, PlugAndSocketNames::Start });
+	// The target moves the end joint and what follows it, and none of the handle, the pole and the settings control (blindSockets): that is
+	// what lets a foot hang from the handle and feed the target. compute() keeps to it through Part::computeHandleSockets (TwoBoneIkModule.cpp).
+	moduleInterface.childPlugs.push_back(ModulePlugInfo{ PlugAndSocketNames::IkTarget, false, false, "", "", true,
+		{ PlugAndSocketNames::Ik, PlugAndSocketNames::Pole, PlugAndSocketNames::Settings } });
 	for (unsigned int slot = 0; slot < TwoBoneIkSlot::Count; ++slot)
 	{
 		const std::vector<std::string> names = socketNamesAt(slot);

@@ -13,7 +13,7 @@ You answer questions about this repo's design decisions. You edit nothing. The c
 
 1. Read the Index at the top of `design/decisions.md` (one line per decision, with the file its entry is in). Pick every decision that could bear on the question, including ones that look adjacent: naming, mirroring, controls, channels, export, pose libraries, perf.
 2. Find each entry with Grep in the file the Index names (the heading is `### D<n>.`), then Read only that entry with `offset` and `limit`. If an entry says it supersedes, amends or reverses another, follow that link.
-3. If the question concerns an area with its own page, check `design/README.md` for the page and its state, and read only the section that applies (for example `design/limb.md`, `design/two-bone-ik.md`, `design/ribbon.md`).
+3. If the question concerns an area with its own page, check `design/README.md` for the page and its state, and read only the section that applies (for example `design/limb-split.md`, `design/two-bone-ik.md`, `design/ribbon.md`).
 4. Check the "Open items" section for anything that applies.
 
 ## Report

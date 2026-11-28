@@ -1,0 +1,17 @@
+{
+  "description": "The anchors replace the fk chain, so fkStyle is an error in the anchored form",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/fkStyle",
+      "value": true
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "is not used by an anchored ribbon",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.fkStyle"
+    }
+  ]
+}

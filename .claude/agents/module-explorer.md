@@ -1,6 +1,6 @@
 ---
 name: module-explorer
-description: Summarizes one RigModules module (FkChain, Layout, Aim, TwoBoneIk, Ribbon, Limb, or any other) from its design page, source and tests, in a fixed shape, so the main session does not read them. Returns child plugs, sockets, channels, attributes and affects, mirror behavior, derived controls, tests and known gaps. Read-only. Use when a task needs to know how a module works before changing or building on it.
+description: Summarizes one RigModules module (FkChain, Layout, Aim, TwoBoneIk, Ribbon, or any other) from its design page, source and tests, in a fixed shape, so the main session does not read them. Returns child plugs, sockets, channels, attributes and affects, mirror behavior, derived controls, tests and known gaps. Read-only. Use when a task needs to know how a module works before changing or building on it.
 tools: Read, Grep, Glob
 model: haiku
 ---
@@ -12,7 +12,7 @@ The code wins over the design pages. Where a page disagrees with the code, say s
 ## What to do
 
 1. Read `docs/source-map.md` to find the module's files. Check `design/README.md` for its design page and the page's state.
-2. Read the design page (`design/<module>.md`, for example `two-bone-ik.md`, `ribbon.md`, `limb.md`), then the module's `.h` and `.cpp` under `cpp/maya/modules/`, its `core/` logic, and any `maya/shared/` solve file it uses.
+2. Read the design page (`design/<module>.md`, for example `two-bone-ik.md`, `ribbon.md`, `limb-split.md`), then the module's `.h` and `.cpp` under `cpp/maya/modules/`, its `core/` logic, and any `maya/shared/` solve file it uses.
 3. Find its tests: `tests/maya/modules/`, the golden snapshot in `tests/maya/golden/`, and any pose cases.
 4. Find its entry in `cpp/maya/ModuleRegistry.cpp` (node type name, JSON `moduleType`, MTypeId) and its `planFromJson`.
 
@@ -25,6 +25,6 @@ Under 500 words, using these headings, with `path:line` references and no code d
 - **Plugs:** child plugs and sockets, by name.
 - **Controls and channels:** each control, its `controlMarkup` (side, usage), its keyable channels, defaults, and `mirrorCopy` or `mirrorNegate`. Say which controls are derived (no joint).
 - **Attributes:** inputs and outputs, and the `attributeAffects` relationships. Flag any missing one.
-- **Internals:** what `compute()` does, which `core/` or `shared/` functions it calls, and what it shares with other modules (Limb with TwoBoneIk and Ribbon, D62).
+- **Internals:** what `compute()` does, which `core/` or `shared/` functions it calls, and what it shares with other modules (an anchored Ribbon's hosted channels on a TwoBoneIk, D80).
 - **Tests:** contract, pose cases, golden file. Name what is not covered.
 - **Gaps and discrepancies:** design page versus code, open items, anything surprising.

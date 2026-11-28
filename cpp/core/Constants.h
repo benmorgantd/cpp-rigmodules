@@ -389,21 +389,25 @@ namespace RigAttr
 	inline constexpr const char* FkRollRestIn{ "fkRollRestIn" };
 	// How much of the fk roll each ik control takes, one per ik control (the template's twistRamp evaluated at its parameter). 1 is all of it.
 	inline constexpr const char* FkRollShare{ "fkRollShare" };
-	// Limb: the ribbon ik controls' offsets from the curve, apart from IkRestOffset, which is the two-bone limb's.
-	inline constexpr const char* RibbonIkRestOffset{ "ribbonIkRestOffset" };
-	// Limb channel on the settings control: how round the elbow is. 0 is a sharp corner (the default), 1 the smooth curve.
+	// The anchored Ribbon's channel, hosted on its settings plug's control: how round the corner at the mid anchor is. 0 is a sharp corner,
+	// 1 the smooth curve.
 	inline constexpr const char* BendSoftness{ "bendSoftness" };
-	// Limb: whether the optional ikTarget child plug has a parent, set at build when the template wires it.
+	// The anchored Ribbon (design/limb-split.md): its three anchors' rests (start, mid, end), stored at build from its anchorJoints,
+	// and what the curve takes from the start and end anchors (AnchorRotation).
+	inline constexpr const char* AnchorRest{ "anchorRest" };
+	inline constexpr const char* StartAnchorRotation{ "startAnchorRotation" };
+	inline constexpr const char* EndAnchorRotation{ "endAnchorRotation" };
+	// TwoBoneIk: whether the optional ikTarget child plug has a parent, set at build when the template wires it.
 	inline constexpr const char* IkTargetConnected{ "ikTargetConnected" };
-	// Limb's ikTarget input (a matrix and its rest) and the output array that holds the ik, pole and settings sockets apart from
-	// OutputSocketMatrix, so that nothing the target moves is on the same attribute as what the foot hangs from (see design/limb.md 8.1).
+	// The ikTarget input (a matrix and its rest) and the output array that holds the ik, pole and settings sockets apart from
+	// OutputSocketMatrix, so that nothing the target moves is on the same attribute as what the foot hangs from (design/limb-split.md section 4).
 	inline constexpr const char* IkTargetMatrix{ "ikTargetMatrix" };
 	inline constexpr const char* IkTargetRestMatrix{ "ikTargetRestMatrix" };
 	inline constexpr const char* HandleSocketMatrix{ "handleSocketMatrix" };
 
 	// ReverseFoot. The ankle socket is on its own output array, apart from OutputSocketMatrix, and the ankle child plug on inputs of
 	// its own, apart from ChildPlugs, so the foot's two stages are on separate attributes and Maya sees no loop (design/reverse-foot.md
-	// section 6, the same reason as Limb's ikTarget above).
+	// section 6, the same reason as TwoBoneIk's ikTarget above).
 	inline constexpr const char* AnkleSocketMatrix{ "ankleSocketMatrix" };
 	inline constexpr const char* AnklePlugMatrix{ "anklePlugMatrix" };
 	inline constexpr const char* AnklePlugRestMatrix{ "anklePlugRestMatrix" };
@@ -468,7 +472,7 @@ namespace PoleSpaceLabels
 	inline constexpr short IkIndex{ 1 };
 }
 
-// Values of the TwoBoneIk and Limb moduleArgs key "poleParentDefault": the space the pole is built in, which is also its rest.
+// Values of the TwoBoneIk moduleArgs key "poleParentDefault": the space the pole is built in, which is also its rest.
 // A template key, so a leg's pole can follow the foot while an arm's stays with its parent. Left out, it is Parent.
 namespace PoleParentDefault
 {
@@ -536,33 +540,33 @@ namespace PlugAndSocketNames
 {
 	inline constexpr const char* Start{ "start" };
 	inline constexpr const char* End{ "end" };
+	// The anchored Ribbon's middle anchor plug (D80), between its start and end.
+	inline constexpr const char* Mid{ "mid" };
 	inline constexpr const char* Index{ "index_" };
 	inline constexpr const char* Ik{ "ik" };
 	inline constexpr const char* Pole{ "pole" };
 	inline constexpr const char* Settings{ "settings" };
-	// Limb's optional child plug: the world matrix the end joint should reach, left unparented for the IK handle's own.
+	// TwoBoneIk's optional child plug: the world matrix the end joint should reach, left unparented for the IK handle's own.
 	inline constexpr const char* IkTarget{ "ikTarget" };
-	// ReverseFoot: the child plug that takes the ankle as it is (the Limb's end socket), and the socket that carries the IK ankle
-	// target into the Limb's ikTarget. Both are named "ankle", and plugs and sockets are separate lists.
+	// ReverseFoot: the child plug that takes the ankle as it is (the TwoBoneIk's end socket), and the socket that carries the IK ankle
+	// target into the TwoBoneIk's ikTarget. Both are named "ankle", and plugs and sockets are separate lists.
 	inline constexpr const char* Ankle{ "ankle" };
 	// ReverseFoot's solved bind joints as sockets. A pivot whose role is also one of these (the marker roles toe and toeTip) has
 	// its socket named <role>Pivot, so the names stay unique.
 	inline constexpr const char* Toe{ "toe" };
 	inline constexpr const char* ToeTip{ "toeTip" };
 	inline constexpr const char* PivotSuffix{ "Pivot" };
-	// A Limb's bind joint sockets: bind_0, bind_1, ... in bind joint order, so a child can hang from a twist joint.
+	// A Ribbon's bind joint sockets: bind_0, bind_1, ... in bind joint order, so a child can hang from a twist joint.
 	inline constexpr const char* Bind{ "bind_" };
 	// A Ribbon's fk control sockets: fk_0, fk_1, ... in chain order.
 	inline constexpr const char* Fk{ "fk_" };
-	// A Limb's ribbon ik control sockets: ribbon_0, ribbon_1, ... Not index_<n>, which are the Limb's three joints.
-	inline constexpr const char* Ribbon{ "ribbon_" };
 	// A ReverseFoot's two controls as sockets: the foot (channel) control and the toe FK control. The solved toe joint is `toe`.
 	inline constexpr const char* Foot{ "foot" };
 	inline constexpr const char* ToeFk{ "toeFk" };
 }
 
 // A ReverseFoot's slots. The foot control is control slot 0, and the ik child plug is childPlugs[0]. The ankle socket is element 0 of the
-// foot's own AnkleSocketMatrix array, which getSocketMatrixPlug finds there, the way a Limb's handle sockets are found on HandleSocketMatrix.
+// foot's own AnkleSocketMatrix array, which getSocketMatrixPlug finds there, the way a TwoBoneIk's handle sockets are found on HandleSocketMatrix.
 namespace ReverseFootSlot
 {
 	inline constexpr unsigned int Foot{ 0 };

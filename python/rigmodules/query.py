@@ -55,7 +55,7 @@ class RigControl:
 
     node: str              # the control's name
     module: str            # the module node that owns it
-    module_type: str       # the template moduleType: "Layout", "FkChain", "FkHierarchy", "Aim", "TwoBoneIk", "Ribbon", "Limb", "ReverseFoot"
+    module_type: str       # the template moduleType: "Layout", "FkChain", "FkHierarchy", "Aim", "TwoBoneIk", "Ribbon", "ReverseFoot"
     side: str              # "Center", "Left" or "Right"
     usage: str             # the control markup usage. (side, usage) is unique in a rig.
     mirror: str | None     # the control on the other side. A Center control is its own mirror. None when it has none.
@@ -75,11 +75,11 @@ class ControlSpace:
 
 @dataclasses.dataclass(frozen=True)
 class IkFkLimb:
-    """A TwoBoneIk or Limb limb: the module, its controls, the settings control that holds `ikFkBlend`, and the
+    """A TwoBoneIk limb: the module, its controls, the settings control that holds `ikFkBlend`, and the
     blend now (0 is FK, 1 is IK, between is a blend). Pass `module` to `cmds.setRigIkFkBlend`."""
 
-    module: str                  # the twoBoneIkModule or limbModule node
-    controls: tuple[str, ...]    # the module's controls: a TwoBoneIk's six, a Limb's six and its ribbon's ik controls and tweakers
+    module: str                  # the twoBoneIkModule node
+    controls: tuple[str, ...]    # the module's six controls. An anchored Ribbon on the limb is a module of its own (D80)
     settings: str                # the settings control: its channels are ikFkBlend, stretch and soft
     blend: float                 # the settings control's ikFkBlend
 
@@ -87,7 +87,6 @@ class IkFkLimb:
 RIG_ROOT_TYPE = "rigRootModule"
 RIG_CONTROL_TYPE = "rigControlNode"
 TWO_BONE_IK_TYPE = "TwoBoneIk"
-LIMB_TYPE = "Limb"
 IK_FK_BLEND_CHANNEL = "ikFkBlend"
 
 
@@ -175,11 +174,11 @@ def get_control(node: str) -> RigControl:
 
 
 def find_ik_fk_limb(control: str) -> IkFkLimb | None:
-    """The TwoBoneIk or Limb limb a rig control belongs to, or None for a control of any other module. Raises
+    """The TwoBoneIk limb a rig control belongs to, or None for a control of any other module. Raises
     RuntimeError for a node that isn't a rig control. The settings control is the limb control that has an
     ikFkBlend channel, so no control name or usage is parsed."""
     found = get_control(control)
-    if found.module_type not in (TWO_BONE_IK_TYPE, LIMB_TYPE):
+    if found.module_type != TWO_BONE_IK_TYPE:
         return None
     rig_root = get_rig_info(control).rig_root
     controls = [other.node for other in get_rig_controls(rig_root, module_type=found.module_type) if other.module == found.module]

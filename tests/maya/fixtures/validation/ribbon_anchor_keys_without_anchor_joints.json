@@ -1,0 +1,17 @@
+{
+  "description": "bendSoftness is the anchored form's (D80), so a plain ribbon with it is an error",
+  "base": "ribbon_basic",
+  "skeleton": "ribbon_basic",
+  "edits": [
+    {
+      "set": "/rigModules/0/moduleArgs/bendSoftness",
+      "value": 0
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "needs anchorJoints as well",
+      "path": "rigModules[0] 'tail_01_M_MOD'.moduleArgs.bendSoftness"
+    }
+  ]
+}

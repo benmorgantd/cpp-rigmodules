@@ -1,0 +1,50 @@
+{
+  "description": "An anchored ribbon's corner needs a bind joint on the mid anchor (D80)",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/joints",
+      "value": [
+        [
+          "Left",
+          "bind1"
+        ],
+        [
+          "Left",
+          "bind2"
+        ],
+        [
+          "Left",
+          "bind3"
+        ],
+        [
+          "Left",
+          "bind4"
+        ],
+        [
+          "Left",
+          "bind6"
+        ],
+        [
+          "Left",
+          "bind7"
+        ],
+        [
+          "Left",
+          "bind8"
+        ],
+        [
+          "Left",
+          "bind9"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "no bind joint sits at the mid anchor",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.joints"
+    }
+  ]
+}

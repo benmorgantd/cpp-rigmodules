@@ -60,9 +60,9 @@ struct ModuleInverseInput
 // As built (D74 phase 5): a module's own stored rests beyond its controls' (ReverseFoot's pivots) are read once per solve by
 // ModuleDescriptor::readInverseRest into ModuleInverseContext::moduleRest. A module that derives a scalar channel from the joints
 // (ReverseFoot's footRoll, bank, toeTap) returns it in ModuleInverseResult::channels, by inverseChannels order, and the driver writes
-// it, so joints win over the sidecar (P4). The Limb ikTarget link: the feeding module gets ikTargetJointWorld (the Limb's end joint)
-// and ikHandleParentDelta (the motion of the space the Limb's handle hangs in), and returns ikTargetMotion; the Limb gets that
-// motion as ModuleInverseInput::ikTargetMotion.
+// it, so joints win over the sidecar (P4). The ikTarget link (a TwoBoneIk's since D80, the Limb's before): the feeding module gets
+// ikTargetJointWorld (the TwoBoneIk's end joint) and ikHandleParentDelta (the motion of the space its handle hangs in), and returns
+// ikTargetMotion; the TwoBoneIk gets that motion as ModuleInverseInput::ikTargetMotion.
 
 struct ModuleInverseResult
 {
@@ -90,7 +90,7 @@ Per frame:
    3. Call `inverse`. Keep its `socketWorld` for modules below it.
 3. Merge by P4 into one `PoseMap`-shaped result per frame.
 
-**The ikTarget pre-pass (D74 phase 5, 2026-11-25).** A Limb's `ikTarget` is not a child plug, so the sweep orders a Limb before the foot that feeds it, but the Limb's handle depends on the foot's motion `F`. So just before a Limb whose `ikTargetMatrix` is connected to another module, the driver runs that module's inverse once (its own parents are not solved yet, and it reads none) for `F`, and hands it to the Limb as `ikTargetMotion`. The Limb's parents are solved by then, so the foot reads its channels in the space the Limb's handle hangs in. The foot runs again in its own place, after the Limb, with the same input. A rig with no such link keeps its order and results.
+**The ikTarget pre-pass (D74 phase 5, 2026-11-25).** A Limb's `ikTarget` (and a TwoBoneIk's since D80 phase 2, found the same way, by attribute name) is not a child plug, so the sweep orders a Limb before the foot that feeds it, but the Limb's handle depends on the foot's motion `F`. So just before a Limb whose `ikTargetMatrix` is connected to another module, the driver runs that module's inverse once (its own parents are not solved yet, and it reads none) for `F`, and hands it to the Limb as `ikTargetMotion`. The Limb's parents are solved by then, so the foot reads its channels in the space the Limb's handle hangs in. The foot runs again in its own place, after the Limb, with the same input. A rig with no such link keeps its order and results.
 
 A module whose parent didn't solve (a missing joint, no sidecar) gets its parent socket from the rest pose, with a warning naming it. Controls that couldn't be solved stay at rest. Nothing aborts the restore, because a partial skeleton is normal (point 7 above).
 
@@ -178,7 +178,7 @@ cmds.poseRigFromJointPose(rig_root, jointPose=joint_clip.pose(1).path, sidecar=r
 | Layout | Nothing. | Layout control transforms. | Without a sidecar entry they stay at rest. |
 | TwoBoneIk | FK controls from the three limb joints, translate, rotate and scale. The IK handle from the end joint, the pole from the mid joint (D52 section 6). | `ikFkBlend`, `stretch`, `soft`, `pin`, `roll`, the pole's `space`. Never derived. | Exact at blend 0 and 1, `pin` anywhere. Warns between 0 and 1, and for a pose the limb can't make. The marker joints are not read. |
 | ReverseFoot (D74) | `footRoll` and `bank` from the ankle (the Limb's end joint), as the pitch and roll the given channels miss, read in the handle's space; `toeTap` and the toe FK control from the toe joint. Gives the Limb its motion `F` (the pre-pass, section 5). | The other eight channels. | The ankle always comes back exactly. The toe is exact only when the channels can make the pose (`reverse-foot.md` section 10). |
-| Limb (D62) | TwoBoneIk's, then the tweakers from the bind joints against the ribbon the solved joints make. With a foot on `ikTarget`, the handle undoes the foot's motion. | TwoBoneIk's, the ribbon channels, the ribbon's ik controls (no joint). | |
+| Anchored Ribbon (D80) | The tweakers from the bind joints, against the ribbon the solved anchors (its TwoBoneIk's joints) make. With a foot on the TwoBoneIk's `ikTarget`, the TwoBoneIk's handle undoes the foot's motion. | The ribbon channels (hosted on the TwoBoneIk's settings control), the interior ik controls (no joint). | Replaces the removed Limb (D62) row. |
 | `rigConstraint` | Not a module. Its `space` comes from the sidecar and is needed first. | `space` | If `space` is missing, the constraint's current value (the rest default for a build) is used and the restore warns when the result doesn't match the joints. |
 
 **Requirements this puts on the IK module (design before building it):**

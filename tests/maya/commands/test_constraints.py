@@ -640,7 +640,7 @@ class Swing(ConstraintTypeCase):
 
 
 class Twist(ConstraintTypeCase):
-    """The driver's translation and its twist about X, on the swing of the plug's parent (design/limb.md, the wrist).
+    """The driver's translation and its twist about X, on the swing of the plug's parent (design/archive/limb.md, the wrist).
 
     The driver is layout_00_M_MOD.end at the origin, which also carries the parent (fkchain_1) with it, and a_00_M_CTRL moves the
     parent alone. c's pivot is at (1,3,0) and its rest rotation is identity, so the child's own X is the world X. The parent's
@@ -819,7 +819,7 @@ class SwingShoulder(ArmRibbonCase):
 
 
 class TwistWrist(ArmRibbonCase):
-    """The wrist the Twist constraint is for (design/limb.md): the forearm ribbon's end hangs from the elbow socket and a Twist
+    """The wrist the Twist constraint is for (design/archive/limb.md): the forearm ribbon's end hangs from the elbow socket and a Twist
     constraint driven by the wrist gives it the wrist's position and its twist. The hand's swing then never reaches the ribbon's
     end, so it can't bend the spline and move the middle control, and the hand's twist eases in along the forearm."""
 

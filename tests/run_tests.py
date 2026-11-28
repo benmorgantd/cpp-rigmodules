@@ -64,9 +64,9 @@ TIERS = [
         "modules.test_fkchain",
         "modules.test_fk_hierarchy",        # FkHierarchy: contract, pose cases, terminators, added joints, mirroring
         "modules.test_aim",
-        "modules.test_two_bone_ik",         # TwoBoneIk: contract, pose cases, behaviour, the settings and pole channels
+        "modules.test_two_bone_ik",        # TwoBoneIk: contract, pose cases, behaviour, the settings and pole channels
         "modules.test_ribbon",              # Ribbon: contract, pose cases, behaviour, the plan step checks
-        "modules.test_limb",                # Limb: contract, pose cases, the sharp elbow, the plan step checks, DAG parenting
+        "modules.test_ribbon_anchored",     # the anchored Ribbon on a TwoBoneIk (the arm): contract, pose cases, hosted channels, anchor rotations, the elbow, sockets, the switch
         "modules.test_reverse_foot",        # ReverseFoot: contract, pose cases worked from the core foot, channels, plugs, markers, the loop checks, the inverse, the toes and the toe FK control
         "modules.test_push_out",            # rigPushOut: the collisions list, the push, the mirror, the read-phase checks, the display
         "concepts.test_sockets",

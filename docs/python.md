@@ -36,15 +36,15 @@ rigmodules.query.get_rigs("hero_body")    # the rig built into the hero_body nam
 | `get_control(node)` | The `RigControl` for a rig control. Raises `RuntimeError` for any other node |
 | `find_control(node)` | Like `get_control`, but returns `None` for a node that isn't a rig control |
 | `find_control_space(control)` | A `ControlSpace` for a control with a space switch, or `None` when it has none. Raises `RuntimeError` for a node that isn't a rig control. Wraps [`getRigControlSpace`](commands.md#getrigcontrolspace) |
-| `find_ik_fk_limb(control)` | An `IkFkLimb` for a control of a TwoBoneIk or Limb module, or `None` for a control of any other module. Raises `RuntimeError` for a node that isn't a rig control. Pass its `module` to [`setRigIkFkBlend`](commands.md#setrigikfkblend) |
+| `find_ik_fk_limb(control)` | An `IkFkLimb` for a control of a TwoBoneIk module, or `None` for a control of any other module (an anchored Ribbon's on the limb included). Raises `RuntimeError` for a node that isn't a rig control. Pass its `module` to [`setRigIkFkBlend`](commands.md#setrigikfkblend) |
 | `get_channels(controls)` | A dict from each control's name to its list of `ControlChannel`, in one command call. Use it instead of `get_control_channels` in a loop |
 | `get_control_channels(control)` | A list of `ControlChannel`, the control's animation interface in channel box order. Raises `RuntimeError` for a node that isn't a rig control, or a custom channel with no mirror mode. Wraps [`getRigControlChannels`](commands.md#getrigcontrolchannels) |
 
 `ControlSpace` is a frozen dataclass: `constraint` (the `rigConstraint` node of a constraint space, which `cmds.setRigConstraintSpace` takes, and `""` for a module-owned space), `labels` (a tuple, in order), `current` (the index into `labels`) and `module` (the module node of a module-owned space such as the TwoBoneIk pole's, and `""` for a constraint space). Switch either kind with `cmds.setRigControlSpace(control, label=...)`.
 
-`IkFkLimb` is a frozen dataclass: `module` (the `twoBoneIkModule` or `limbModule` node), `controls` (all the module's controls: six for a TwoBoneIk, and for a Limb the six plus its ribbon's ik controls and tweakers), `settings` (the control that holds `ikFkBlend`, found by that channel, not by name) and `blend` (its `ikFkBlend` now: 0 is FK, 1 is IK, between is a blend).
+`IkFkLimb` is a frozen dataclass: `module` (the `twoBoneIkModule` node), `controls` (the module's six controls), `settings` (the control that holds `ikFkBlend`, found by that channel, not by name) and `blend` (its `ikFkBlend` now: 0 is FK, 1 is IK, between is a blend).
 
-`RigControl` is a frozen dataclass: `node`, `module` (the module node that owns it), `module_type` (`"Layout"`, `"FkChain"`, `"FkHierarchy"`, `"Aim"`, `"TwoBoneIk"`, `"Ribbon"`, `"Limb"` or `"ReverseFoot"`), `side`, `usage` and `mirror` (the control on the other side, itself for a Center control, `None` when a side control has none).
+`RigControl` is a frozen dataclass: `node`, `module` (the module node that owns it), `module_type` (`"Layout"`, `"FkChain"`, `"FkHierarchy"`, `"Aim"`, `"TwoBoneIk"`, `"Ribbon"` or `"ReverseFoot"`), `side`, `usage` and `mirror` (the control on the other side, itself for a Center control, `None` when a side control has none).
 
 `ControlChannel` is a frozen dataclass: `name`, `type` (Maya's attribute type, such as `doubleAngle` or `enum`), `rest` (the attribute default), `min` and `max` (`None` for no limit) and `mirror` (`"copy"` or `"negate"`). Values are in the scene's UI units.
 

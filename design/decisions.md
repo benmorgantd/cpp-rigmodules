@@ -4,7 +4,7 @@ Running record of design decisions for the Maya C++ rig system. Before proposing
 
 Source: compiled on 2026-11-04 from the Project memory for "Maya Rigging Modules". It records what was decided, and only records a reason where one was stated. Entries marked **Rationale not recorded** need the author to fill in the why. Where this file and the code disagree, the code wins. Flag the difference.
 
-Status key: **Decided** (in use), **Leaning** (direction chosen, not built), **Open** (unresolved).
+Status key: **Decided** (in use), **Leaning** (direction chosen, not built), **Open** (unresolved), **Reversed** (replaced by the later decision it names, kept for history).
 
 ---
 
@@ -75,7 +75,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D59 | TwoBoneIk and Ribbon template keys for defaults, orientation and an FK layer | Decided | [modules](decisions/modules.md) |
 | D60 | The build is faster through parallel compiles and two precompiled headers, not by splitting the project | Decided | [foundations](decisions/foundations.md) |
 | D61 | The Asset Editor is a dockable asset context over files, markup and shapes | Decided | [assets](decisions/assets.md) |
-| D62 | Limb: one module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon | Decided | [modules](decisions/modules.md) |
+| D62 | Limb: one module that runs the TwoBoneIk and Ribbon solves with one continuous ribbon. Reversed by D80: removed 2026-11-27 (D80 phase 3) | Reversed | [modules](decisions/modules.md) |
 | D63 | `constraintWeight`: a baked 0..1 blend from "follow the parent" to the full constraint | Decided | [controls](decisions/controls.md) |
 | D64 | `smoothSkinWeights`: neighbor-average smoothing on a working set, built to be a brush later | Decided | [skinning](decisions/skinning.md) |
 | D65 | The skin weight brush: one context for every skin painting command, falloff over the mesh surface | Decided | [skinning](decisions/skinning.md) |
@@ -92,6 +92,7 @@ One line per decision, in number order. Read the entry itself before changing an
 | D76 | Machine learning on the animation formats (mocap solving, blending, tweening) fits the design with no plugin change: models work in joint space, and a non-ML key reducer is the baseline. Exploration, not built | Open | [data](decisions/data.md) |
 | D78 | Every control and every bind joint a module solves is a socket, so it is a valid constraint driver and child plug target whether or not it can be a DAG parent. First step: the Ribbon's `bind_<n>` and `fk_<n>` sockets, named as the Limb's. Built 2026-11-26; the audit of the other modules is not. A DAG fallback for matrix-only `parentStructure` parents was rejected 2026-11-26; the author wants a strict `dagParent` (fails on a matrix-only socket, every control a DAG socket) and an optional `matrixParent` that defaults to it. Built 2026-11-26: `parentStructure` is the DAG parent (a socket with no control fails), `matrixParentStructure` the matrix parent, `rigControlNode.shown` replaces `visibility` for the ik/fk blend. GUI redraw not verified | Decided | [modules](decisions/modules.md) |
 | D79 | Push out: a `PushOut` entry in a flat `collisions` list (after the constraints) keeps one control's plug out of one capsule (a joint-relative offset, `radius`, `halfLength`), closed form, stateless, translation only. A temporary display shows the capsule and reports it for the template. Replaces the D77 collision design, parked on the `collision` branch (tag `collision-archive`). Built 2026-11-26 on `pushout`, perf rig and `bench` not yet | Decided | [modules](decisions/modules.md) |
+| D80 | Signed off and phases 1 to 3 built 2026-11-27 (the anchored Ribbon, channel hosting, parity with the Limb; `ikTarget` on TwoBoneIk, a foot on a TwoBoneIk; the Limb deleted, its fixtures, goldens and perf rig moved, a `Limb` entry a read-phase error), phase 4 (solomon, then `bench`) not: replace the Limb with a `TwoBoneIk` and a `Ribbon` in an anchored form (`anchorJoints`, plugs `start`, `mid`, `end` on the TwoBoneIk's joint sockets, one curve through the elbow; Limb's end rules and sharp corner become the arguments `startAnchorRotation`, `endAnchorRotation` and `bendSoftness`, neutral by default and set by a limb's template, so the Ribbon stays generic; three anchors only), with the ribbon's end ik controls dropped, its channels hosted on the TwoBoneIk's settings control, `ikTarget` moved to TwoBoneIk, both inverses kept, and existing templates edited by hand. Design: `limb-split.md` | Decided | [modules](decisions/modules.md) |
 
 ---
 

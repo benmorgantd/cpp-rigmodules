@@ -1,0 +1,26 @@
+{
+  "description": "twistRamp positions are 0 to 1 along the limb (D75)",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/twistRamp",
+      "value": [
+        [
+          0,
+          0.0
+        ],
+        [
+          2,
+          1.0
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "outside 0 to 1",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.twistRamp"
+    }
+  ]
+}

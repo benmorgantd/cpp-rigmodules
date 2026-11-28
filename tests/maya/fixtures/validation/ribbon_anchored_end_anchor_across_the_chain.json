@@ -1,0 +1,16 @@
+{
+  "description": "The last limb joint may point up to 80 degrees off the line from the joint before it (an ankle at the ball of the foot), but not across it: a hand whose X axis is 85 degrees off the forearm is an error that names the 80 degree limit",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm_hand_across_85",
+  "expectErrors": [
+    {
+      "contains": "85 degrees off the chain",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.anchorJoints"
+    },
+    {
+      "contains": "within 80 degrees",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.anchorJoints"
+    }
+  ],
+  "edits": []
+}

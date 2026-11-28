@@ -11,7 +11,10 @@ above the sole: the roll below the break and the ball channels turn about it, so
 the core table. The toe tip joint is at the toe tip pivot (4, 3.2, 2.4). Both joints have the hand's rest rotation, Rz 90, because they
 are its children in the fixture skeleton. The roll below the break turns about the toe pivot, so the hand keeps its rest distance (the
 bone, 1.931321) to the planted toe. The pose cases hold the arithmetic in their descriptions, and every other expected number is worked
-by hand in the test it is used in. Nothing here is recorded from the rig."""
+by hand in the test it is used in. Nothing here is recorded from the rig.
+
+"The Limb" here is the arm the foot is on: a TwoBoneIk (arm_01_L_MOD) and an anchored Ribbon on it, which took the removed Limb
+module's place with the same joints and names (design/limb-split.md)."""
 import copy
 import json
 import math
@@ -20,7 +23,7 @@ import tempfile
 
 from maya import cmds
 
-import modules.test_limb
+import modules.test_ribbon_anchored
 import rigmodules.query
 from rigtest import config, fixtures, jointclips
 from rigtest.case import CapturedWarnings, RigTestCase, rig_name
@@ -53,7 +56,7 @@ def world_matrix(node):
     return cmds.xform(rig_name(node), query=True, worldSpace=True, matrix=True)
 
 
-class ReverseFootContract(modules.test_limb.LimbRoundTripRules, ModuleContract, RigTestCase):
+class ReverseFootContract(modules.test_ribbon_anchored.AnchoredArmRoundTripRules, ModuleContract, RigTestCase):
     TEMPLATE = "reverse_foot"
     SKELETON = "reverse_foot"
     MARKERS = "reverse_foot"
@@ -103,7 +106,7 @@ class ReverseFootContract(modules.test_limb.LimbRoundTripRules, ModuleContract, 
         return posed
 
     def joints_cannot_give(self, control, channel):
-        """The round trip poses every channel with the limb at blend 1. The Limb's are test_limb's rules (its ribbon ik
+        """The round trip poses every channel with the limb at blend 1. The arm's are test_ribbon_anchored's rules (its ribbon ik
         controls are not posed, its FK controls are hidden). The toe FK control is hidden too: the toe joint is the IK toe, and the inverse
         gives the FK control that matches it. Every foot channel comes back: footRoll, bank and toeTap from the joints (given channels that
         already make the turn are kept), the rest from the sidecar."""
@@ -297,7 +300,7 @@ class ReverseFootBehaviour(RigTestCase):
         self.assertWorldTranslation(rig_name(HAND), [4.0, 4.573421, 0.347967], 1e-4)   # about the toe pivot, as worked above
 
 
-class ReverseFootMatchesTheLimb(RigTestCase):
+class ReverseFootMatchesTheArm(RigTestCase):
     """The pair stays checked (design/reverse-foot.md section 13): a Limb with a foot at rest gives the joints of the same Limb alone, so the foot
     adds nothing until a channel moves. The foot hangs from the handle, so the handle's poses carry it with the limb."""
 
@@ -313,7 +316,7 @@ class ReverseFootMatchesTheLimb(RigTestCase):
 
     def test_a_foot_at_rest_leaves_the_limb_as_it_is_alone(self):
         results = {}
-        for label, template, markers in (("alone", "limb_arm", None), ("foot", "reverse_foot", "reverse_foot")):
+        for label, template, markers in (("alone", "ribbon_anchored_arm", None), ("foot", "reverse_foot", "reverse_foot")):
             cmds.file(new=True, force=True)
             self.build(template, self.make_skeleton("reverse_foot" if markers else "limb_arm"), markers=markers)
             for pose in self.POSES:
@@ -334,8 +337,14 @@ class ReverseFootInverse(RigTestCase):
     that gives the Limb's handle the foot's motion, and the match that puts no pop in the ankle. Every expected value is the posed one:
     the ankle and toe come back exactly whatever the channels, so what is checked is which channels the inverse chose."""
 
+    TEMPLATE = "reverse_foot"
+    SKELETON = "reverse_foot"
+
+    def _build(self):
+        self.build_standard(self.TEMPLATE, self.SKELETON, markers="reverse_foot")
+
     def _build_and_pose(self, channels, handle=None):
-        self.build_standard("reverse_foot", "reverse_foot", markers="reverse_foot")
+        self._build()
         for name, value in channels.items():
             cmds.setAttr(rig_name(FOOT + "." + name), value)
         for name, value in (handle or {}).items():
@@ -379,7 +388,7 @@ class ReverseFootInverse(RigTestCase):
         # ankle and toe back exactly. The Layout has no joints, so the sidecar carries it, as in a real restore. The pre-pass runs after the
         # Layout is solved: in the old order it saw no Layout and put its tilt into footRoll and bank.
         layout = {"rotateX": 15.0, "rotateY": 30.0, "rotateZ": 10.0, "scaleX": 1.2, "scaleY": 1.2, "scaleZ": 1.2}
-        self.build_standard("reverse_foot", "reverse_foot", markers="reverse_foot")
+        self._build()
         for name, value in layout.items():
             cmds.setAttr(rig_name("layout_00_M_CTRL." + name), value)
         for name, value in (("footRoll", -20.0), ("bank", 8.0), ("toeTap", 12.0)):
@@ -410,7 +419,7 @@ class ReverseFootInverse(RigTestCase):
         self.assertAlmostEqual(cmds.getAttr(rig_name(FOOT + ".ballRaise")), 0.0, places=3)
 
     def test_a_match_to_ik_with_a_raised_foot_puts_no_pop_in_the_ankle(self):
-        # The open item of design/limb.md section 8: the match places the handle so the foot's motion lands the ankle on the FK one.
+        # The open item of design/archive/limb.md section 8: the match places the handle so the foot's motion lands the ankle on the FK one.
         self._build_and_pose({"footRoll": 20.0, "bank": -6.0})
         limb = rig_name(LIMB)
         cmds.setRigIkFkBlend(limb, blend=0)

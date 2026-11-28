@@ -17,7 +17,7 @@ The target is 30 fps for 20 of the complex rig in parallel evaluation, and withi
 - **Fan-out:** one input dirtying many unrelated outputs, outputs computed together when callers use one, and matrix inputs read for every output when only some need them.
 - **Parallel evaluation safety:** shared mutable state, statics written in `compute()`, non-thread-safe API calls, and anything that blocks the scheduler.
 - **Math:** repeated matrix decomposition or inverse that a stored value could replace; trig or sqrt in a loop over joints that could be lifted.
-- **Shared solves:** a change to a shared solve (`TwoBoneIkSolve`, `core/RibbonMath`, `core/SwingTwist`) multiplies across Limb, so weigh its cost per call.
+- **Shared solves:** a change to a shared solve (`TwoBoneIkSolve`, `core/RibbonMath`, `core/SwingTwist`) multiplies across every module that calls it (TwoBoneIk, the plain and anchored Ribbon), so weigh its cost per call.
 
 ## Report
 

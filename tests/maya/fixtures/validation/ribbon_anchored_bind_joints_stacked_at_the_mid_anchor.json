@@ -1,0 +1,58 @@
+{
+  "description": "Two bind joints stacked at the elbow have no direction between them, so the bind joints' chain is rejected",
+  "base": "ribbon_anchored_arm",
+  "skeleton": "limb_arm_stacked",
+  "edits": [
+    {
+      "set": "/rigModules/1/moduleArgs/joints",
+      "value": [
+        [
+          "Left",
+          "bind1"
+        ],
+        [
+          "Left",
+          "bind2"
+        ],
+        [
+          "Left",
+          "bind3"
+        ],
+        [
+          "Left",
+          "bind4"
+        ],
+        [
+          "Left",
+          "bind5"
+        ],
+        [
+          "Left",
+          "bind5b"
+        ],
+        [
+          "Left",
+          "bind6"
+        ],
+        [
+          "Left",
+          "bind7"
+        ],
+        [
+          "Left",
+          "bind8"
+        ],
+        [
+          "Left",
+          "bind9"
+        ]
+      ]
+    }
+  ],
+  "expectErrors": [
+    {
+      "contains": "sits on the joint before it",
+      "path": "rigModules[1] 'armRibbon_01_L_MOD'.moduleArgs.joints"
+    }
+  ]
+}

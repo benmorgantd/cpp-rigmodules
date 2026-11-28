@@ -1,0 +1,107 @@
+{
+  "description": "FK, the upper arm control turned 60 degrees about its own X (a twist). The start frame carries the shoulder's swing but not its twist, and the elbow joint carries all 60, so the twist rises linearly in the curve's parameter from 0 at the shoulder to 60 at the elbow: the four upper bind joints, at 0, 1/8, 1/4 and 3/8 of it, turn 0, 15, 30 and 45 degrees about X. Nothing moves except the lower bone, which turns about the upper bone's axis: it points along (0, cos 60, sin 60), so the bind joints on it are at (4, k/2, k sin 60).",
+  "skeleton": "limb_arm",
+  "template": "ribbon_anchored_arm",
+  "set": {
+    "armSettings_00_L_CTRL.ikFkBlend": 0,
+    "upperArm_00_L_CTRL.rotateX": 60
+  },
+  "tolerance": 0.001,
+  "expect": {
+    "upperArm_00_L_JNT": {
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "rotate": [
+        60,
+        0,
+        0
+      ]
+    },
+    "bind1_00_L_JNT": {
+      "translate": [
+        0,
+        0,
+        0
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ]
+    },
+    "bind2_00_L_JNT": {
+      "translate": [
+        1,
+        0,
+        0
+      ],
+      "rotate": [
+        15,
+        0,
+        0
+      ]
+    },
+    "bind3_00_L_JNT": {
+      "translate": [
+        2,
+        0,
+        0
+      ],
+      "rotate": [
+        30,
+        0,
+        0
+      ]
+    },
+    "bind4_00_L_JNT": {
+      "translate": [
+        3,
+        0,
+        0
+      ],
+      "rotate": [
+        45,
+        0,
+        0
+      ]
+    },
+    "bind5_00_L_JNT": {
+      "translate": [
+        4,
+        0,
+        0
+      ]
+    },
+    "bind6_00_L_JNT": {
+      "translate": [
+        4,
+        0.5,
+        0.8660254037844386
+      ]
+    },
+    "bind7_00_L_JNT": {
+      "translate": [
+        4,
+        1.0,
+        1.7320508075688772
+      ]
+    },
+    "bind8_00_L_JNT": {
+      "translate": [
+        4,
+        1.5,
+        2.598076211353316
+      ]
+    },
+    "bind9_00_L_JNT": {
+      "translate": [
+        4,
+        2.0,
+        3.4641016151377544
+      ]
+    }
+  }
+}

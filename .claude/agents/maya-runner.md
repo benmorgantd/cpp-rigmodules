@@ -67,7 +67,7 @@ These cost the most retries. Follow them on every call:
     import run_tests
     ok = run_tests.run_in_current_maya()
     ```
-  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs about 1830 tests in 6 tiers, sharing each tier's files out between 4 watched mayapy workers (`--jobs`; the whole run is stopped by `--timeout`, default 900 s), plus the files in `PLAIN_PYTHON` (no plugin, no scene) in plain Python workers beside them, in about 20 s. A crash names the worker and the test; rerun that test with `--jobs 1 -v`. `--durations` shows where the time went, and reports crashes with the test that caused them.
+  - **Otherwise:** run `cmd /c tests\RigTests.cmd`. It runs about 1810 tests in 6 tiers, sharing each tier's files out between 4 watched mayapy workers (`--jobs`; the whole run is stopped by `--timeout`, default 900 s), plus the files in `PLAIN_PYTHON` (no plugin, no scene) in plain Python workers beside them, in about 20 s. A crash names the worker and the test; rerun that test with `--jobs 1 -v`. `--durations` shows where the time went, and reports crashes with the test that caused them.
   - **Reading results:** both stop at the first failed tier, so fix the earliest failure first.
   - **Adding tests:**
     - Every new test file must be assigned a tier in `TIERS` in `tests/run_tests.py`.
